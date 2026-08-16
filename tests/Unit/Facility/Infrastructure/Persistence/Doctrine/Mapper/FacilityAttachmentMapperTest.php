@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityAttachmentMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use LogicException;
@@ -50,6 +50,28 @@ final class FacilityAttachmentMapperTest extends TestCase
     self::assertSame(2048, $attachment->size());
     self::assertSame('Floor plan', $attachment->label());
     self::assertEquals(new DateTimeImmutable('2026-01-05T10:00:00+00:00'), $attachment->uploadedAt());
+    self::assertSame(AttachmentKind::DOCUMENT, $attachment->kind());
+    self::assertFalse($attachment->isPrimaryPlan());
+    self::assertNull($attachment->imageWidth());
+    self::assertNull($attachment->imageHeight());
+  }
+
+  #[Test]
+  public function testToDomainRebuildsAPrimaryFloorPlanWithItsDimensions(): void
+  {
+    $record = $this->record();
+    $record->mimeType = 'image/png';
+    $record->kind = 'floor_plan';
+    $record->isPrimaryPlan = true;
+    $record->imageWidth = 1920;
+    $record->imageHeight = 1080;
+
+    $attachment = FacilityAttachmentMapper::toDomain($record);
+
+    self::assertSame(AttachmentKind::FLOOR_PLAN, $attachment->kind());
+    self::assertTrue($attachment->isPrimaryPlan());
+    self::assertSame(1920, $attachment->imageWidth());
+    self::assertSame(1080, $attachment->imageHeight());
   }
 
   #[Test]
@@ -76,6 +98,27 @@ final class FacilityAttachmentMapperTest extends TestCase
     self::assertSame(2048, $record->size);
     self::assertSame('Floor plan', $record->label);
     self::assertEquals(new DateTimeImmutable('2026-01-05T10:00:00+00:00'), $record->uploadedAt);
+    self::assertSame('document', $record->kind);
+    self::assertFalse($record->isPrimaryPlan);
+    self::assertNull($record->imageWidth);
+    self::assertNull($record->imageHeight);
+  }
+
+  #[Test]
+  public function testToRecordCopiesAPrimaryFloorPlanWithItsDimensions(): void
+  {
+    $record = FacilityAttachmentMapper::toRecord($this->attachment(
+      mimeType: 'image/webp',
+      kind: AttachmentKind::FLOOR_PLAN,
+      isPrimaryPlan: true,
+      imageWidth: 640,
+      imageHeight: 480,
+    ));
+
+    self::assertSame('floor_plan', $record->kind);
+    self::assertTrue($record->isPrimaryPlan);
+    self::assertSame(640, $record->imageWidth);
+    self::assertSame(480, $record->imageHeight);
   }
 
   #[Test]
@@ -104,17 +147,27 @@ final class FacilityAttachmentMapperTest extends TestCase
     return $record;
   }
 
-  private function attachment(?string $label = 'Floor plan'): FacilityAttachment
-  {
+  private function attachment(
+    ?string $label = 'Floor plan',
+    string $mimeType = 'application/pdf',
+    AttachmentKind $kind = AttachmentKind::DOCUMENT,
+    bool $isPrimaryPlan = false,
+    ?int $imageWidth = null,
+    ?int $imageHeight = null,
+  ): FacilityAttachment {
     return FacilityAttachment::reconstitute(
       id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
       facilityId: FacilityId::fromString(self::FACILITY_ID),
       fileName: 'plan.pdf',
       storagePath: 'facilities/plan.pdf',
-      mimeType: 'application/pdf',
+      mimeType: $mimeType,
       size: 2048,
       uploadedAt: new DateTimeImmutable('2026-01-05T10:00:00+00:00'),
       label: $label,
+      kind: $kind,
+      isPrimaryPlan: $isPrimaryPlan,
+      imageWidth: $imageWidth,
+      imageHeight: $imageHeight,
     );
   }
   // #endregion

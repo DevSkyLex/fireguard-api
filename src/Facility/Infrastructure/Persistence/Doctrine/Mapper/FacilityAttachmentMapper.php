@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use LogicException;
 
@@ -41,6 +41,10 @@ final class FacilityAttachmentMapper
       size: $record->size,
       uploadedAt: $record->uploadedAt,
       label: $record->label,
+      kind: AttachmentKind::from($record->kind),
+      isPrimaryPlan: $record->isPrimaryPlan,
+      imageWidth: $record->imageWidth,
+      imageHeight: $record->imageHeight,
     );
   }
 
@@ -59,6 +63,10 @@ final class FacilityAttachmentMapper
     $record->size = $attachment->size();
     $record->label = $attachment->label();
     $record->uploadedAt = $attachment->uploadedAt();
+    $record->kind = $attachment->kind()->value;
+    $record->isPrimaryPlan = $attachment->isPrimaryPlan();
+    $record->imageWidth = $attachment->imageWidth();
+    $record->imageHeight = $attachment->imageHeight();
 
     return $record;
   }

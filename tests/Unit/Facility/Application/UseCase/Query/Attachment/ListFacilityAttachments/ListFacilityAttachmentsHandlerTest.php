@@ -10,7 +10,7 @@ use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\{ListF
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -106,6 +106,56 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler->__invoke(new ListFacilityAttachmentsQuery(
       organizationId: 'not-a-uuid',
       facilityId: 'also-not-a-uuid',
+    ));
+  }
+
+  #[Test]
+  public function testInvokePassesTheParsedKindFilterToTheRepository(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn(Facility::create(
+      id: FacilityId::fromString(self::FACILITY_ID),
+      organizationId: FacilityOrganizationId::fromString(self::ORG_ID),
+      type: FacilityType::SITE,
+      name: new FacilityName('Main Site'),
+    ));
+
+    /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::once())
+      ->method('findByFacilityId')
+      ->with(
+        self::callback(static fn (FacilityId $id): bool => self::FACILITY_ID === (string) $id),
+        AttachmentKind::FLOOR_PLAN,
+      )
+      ->willReturn([]);
+
+    $handler = new ListFacilityAttachmentsHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $attachmentRepository,
+    );
+
+    $handler->__invoke(new ListFacilityAttachmentsQuery(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      kind: 'floor_plan',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUnknownKindFilter(): void
+  {
+    $handler = new ListFacilityAttachmentsHandler(
+      facilityRepository: $this->createStub(FacilityRepositoryPort::class),
+      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListFacilityAttachmentsQuery(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      kind: 'not-a-kind',
     ));
   }
 }

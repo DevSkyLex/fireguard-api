@@ -7,7 +7,7 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityAttachmentMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 
@@ -61,6 +61,10 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
       $existing->size = $record->size;
       $existing->label = $record->label;
       $existing->uploadedAt = $record->uploadedAt;
+      $existing->kind = $record->kind;
+      $existing->isPrimaryPlan = $record->isPrimaryPlan;
+      $existing->imageWidth = $record->imageWidth;
+      $existing->imageHeight = $record->imageHeight;
     } else {
       $this->entityManager->persist($record);
     }
@@ -89,12 +93,16 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
    *
    * @since 1.0.0
    */
-  public function findByFacilityId(FacilityId $facilityId): array
+  public function findByFacilityId(FacilityId $facilityId, ?AttachmentKind $kind = null): array
   {
     /** @var FacilityRecord $facility */
     $facility = $this->entityManager->getReference(FacilityRecord::class, (string) $facilityId);
+    $criteria = ['facility' => $facility];
+    if (null !== $kind) {
+      $criteria['kind'] = $kind->value;
+    }
     $records = $this->repository->findBy(
-      ['facility' => $facility],
+      $criteria,
       ['uploadedAt' => 'DESC'],
     );
 
@@ -132,6 +140,25 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
 
     $this->entityManager->remove($record);
     $this->entityManager->flush();
+  }
+
+  /**
+   * Method clearPrimaryPlan.
+   *
+   * @since 1.1.0
+   */
+  public function clearPrimaryPlan(FacilityId $facilityId, FacilityAttachmentId $exceptAttachmentId): void
+  {
+    $this->entityManager->createQueryBuilder()
+      ->update(FacilityAttachmentRecord::class, 'attachment')
+      ->set('attachment.isPrimaryPlan', ':cleared')
+      ->where('attachment.facility = :facilityId')
+      ->andWhere('attachment.id != :exceptId')
+      ->setParameter('cleared', false)
+      ->setParameter('facilityId', (string) $facilityId)
+      ->setParameter('exceptId', (string) $exceptAttachmentId)
+      ->getQuery()
+      ->execute();
   }
   // #endregion
 }

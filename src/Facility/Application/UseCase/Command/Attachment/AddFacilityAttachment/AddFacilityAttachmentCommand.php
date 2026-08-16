@@ -27,6 +27,7 @@ final readonly class AddFacilityAttachmentCommand implements CommandMessage
     public int $size,
     public ?string $label = null,
     public ?string $attachmentId = null,
+    public string $kind = 'document',
   ) {
   }
   // #endregion

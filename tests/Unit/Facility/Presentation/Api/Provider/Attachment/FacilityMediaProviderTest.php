@@ -23,6 +23,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Throwable;
 
@@ -55,16 +56,17 @@ final class FacilityMediaProviderTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ListFacilityAttachmentsResult([
-      ['id' => 'attachment-id', 'fileName' => 'photo.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00'],
+      ['id' => 'attachment-id', 'fileName' => 'photo.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'kind' => 'document', 'isPrimaryPlan' => false, 'imageWidth' => null, 'imageHeight' => null],
     ]));
 
-    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
+    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
 
     self::assertIsArray($result);
     self::assertCount(1, $result);
     self::assertInstanceOf(FacilityAttachmentOutput::class, $result[0]);
     self::assertSame('attachment-id', $result[0]->id);
+    self::assertSame('document', $result[0]->kind);
   }
 
   #[Test]
@@ -91,7 +93,7 @@ final class FacilityMediaProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
   }
 
@@ -120,7 +122,7 @@ final class FacilityMediaProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Facility not found.');
 
-    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
   }
 
@@ -153,7 +155,7 @@ final class FacilityMediaProviderTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
 
-    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
+    $result = new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
       ->provide(new Get(), ['id' => 'attachment-id']);
 
     self::assertInstanceOf(FacilityAttachmentOutput::class, $result);
@@ -172,7 +174,7 @@ final class FacilityMediaProviderTest extends TestCase
 
     $this->expectException(NotFoundHttpException::class);
 
-    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack())
       ->provide(new Get(), ['id' => 'missing-id']);
   }
 
@@ -208,6 +210,7 @@ final class FacilityMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $security,
+      new RequestStack(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -361,6 +364,6 @@ final class FacilityMediaProviderTest extends TestCase
       $queryBus->method('ask')->willThrowException($exception);
     }
 
-    return new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security);
+    return new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security, new RequestStack());
   }
 }

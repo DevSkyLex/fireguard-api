@@ -23,7 +23,7 @@ final readonly class ListFacilityAttachmentsResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param list<array{id: string, fileName: string, mimeType: string, size: int, label: ?string, uploadedAt: string}> $attachments
+   * @param list<array{id: string, fileName: string, mimeType: string, size: int, label: ?string, uploadedAt: string, kind: string, isPrimaryPlan: bool, imageWidth: ?int, imageHeight: ?int}> $attachments
    */
   public function __construct(
     public array $attachments,

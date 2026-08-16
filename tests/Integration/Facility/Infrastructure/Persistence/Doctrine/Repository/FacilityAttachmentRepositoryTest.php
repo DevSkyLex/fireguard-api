@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -33,6 +34,8 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
   private const string FACILITY_ID = '660e8400-e29b-41d4-a716-446655460002';
 
   private const string ATTACHMENT_ID = '660e8400-e29b-41d4-a716-446655460003';
+
+  private const string OTHER_ATTACHMENT_ID = '660e8400-e29b-41d4-a716-446655460004';
 
   private EntityManagerInterface $entityManager;
 
@@ -201,6 +204,135 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
 
     self::assertTrue($this->entityManager->isOpen());
     self::assertSame([], $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID)));
+  }
+
+  #[Test]
+  public function testSaveThenFindByIdRoundTripsAFloorPlanWithItsDimensions(): void
+  {
+    $attachment = FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'ground-floor.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_ground-floor.png',
+      mimeType: 'image/png',
+      size: 4096,
+      kind: AttachmentKind::FLOOR_PLAN,
+      imageWidth: 1920,
+      imageHeight: 1080,
+    );
+
+    $this->repository->save($attachment);
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
+
+    self::assertNotNull($found);
+    self::assertSame(AttachmentKind::FLOOR_PLAN, $found->kind());
+    self::assertFalse($found->isPrimaryPlan());
+    self::assertSame(1920, $found->imageWidth());
+    self::assertSame(1080, $found->imageHeight());
+  }
+
+  #[Test]
+  public function testFindByFacilityIdFiltersByKind(): void
+  {
+    $this->repository->save(FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'report.pdf',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/report.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+    ));
+    $this->repository->save(FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'plan.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/plan.png',
+      mimeType: 'image/png',
+      size: 4096,
+      kind: AttachmentKind::FLOOR_PLAN,
+    ));
+
+    $documents = $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID), AttachmentKind::DOCUMENT);
+    $floorPlans = $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID), AttachmentKind::FLOOR_PLAN);
+
+    self::assertCount(1, $documents);
+    self::assertSame(self::ATTACHMENT_ID, (string) $documents[0]->id());
+    self::assertCount(1, $floorPlans);
+    self::assertSame(self::OTHER_ATTACHMENT_ID, (string) $floorPlans[0]->id());
+  }
+
+  #[Test]
+  public function testClearPrimaryPlanClearsEveryOtherAttachmentOfTheFacility(): void
+  {
+    $primary = FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'ground-floor.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/ground-floor.png',
+      mimeType: 'image/png',
+      size: 4096,
+      kind: AttachmentKind::FLOOR_PLAN,
+    );
+    $primary->markAsPrimary();
+    $this->repository->save($primary);
+
+    $challenger = FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'first-floor.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/first-floor.png',
+      mimeType: 'image/png',
+      size: 4096,
+      kind: AttachmentKind::FLOOR_PLAN,
+    );
+    $challenger->markAsPrimary();
+
+    $this->repository->clearPrimaryPlan(FacilityId::fromString(self::FACILITY_ID), FacilityAttachmentId::fromString(self::OTHER_ATTACHMENT_ID));
+    $this->repository->save($challenger);
+    $this->entityManager->clear();
+
+    $reloadedPrimary = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
+    $reloadedChallenger = $this->repository->findById(FacilityAttachmentId::fromString(self::OTHER_ATTACHMENT_ID));
+
+    self::assertNotNull($reloadedPrimary);
+    self::assertNotNull($reloadedChallenger);
+    self::assertFalse($reloadedPrimary->isPrimaryPlan());
+    self::assertTrue($reloadedChallenger->isPrimaryPlan());
+  }
+
+  #[Test]
+  public function testThePartialUniqueIndexRejectsASecondPrimaryPlanForTheSameFacility(): void
+  {
+    $first = FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'ground-floor.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/ground-floor.png',
+      mimeType: 'image/png',
+      size: 4096,
+      kind: AttachmentKind::FLOOR_PLAN,
+    );
+    $first->markAsPrimary();
+    $this->repository->save($first);
+
+    $second = FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'first-floor.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/first-floor.png',
+      mimeType: 'image/png',
+      size: 4096,
+      kind: AttachmentKind::FLOOR_PLAN,
+    );
+    // Deliberately WITHOUT clearing the first primary first — the schema-level
+    // backstop the partial unique index exists for (see the migration docblock).
+    $second->markAsPrimary();
+
+    $this->expectException(UniqueConstraintViolationException::class);
+
+    $this->repository->save($second);
   }
 
   private function cleanup(): void

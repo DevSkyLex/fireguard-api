@@ -84,6 +84,42 @@ final class FacilityAttachmentOutput
   public int $revision = 1;
 
   /**
+   * Property kind.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $kind = 'document';
+
+  /**
+   * Property isPrimaryPlan.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $isPrimaryPlan = false;
+
+  /**
+   * Property imageWidth.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?int $imageWidth = null;
+
+  /**
+   * Property imageHeight.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?int $imageHeight = null;
+
+  /**
    * Property uploadedAt.
    *
    * @since 1.0.0

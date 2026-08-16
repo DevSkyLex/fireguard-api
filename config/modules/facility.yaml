@@ -41,6 +41,16 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Facility\Presentation\Api\Processor\Attachment\SetPrimaryFacilityAttachmentProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # R11b follow-up: the download endpoint serving attachment bytes, gated the
+  # same way as FacilityMediaProvider/FacilityMediaProcessor.
+  Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Archival guard: refuses archiving a facility with active dependents (children,
   # equipment, inspections). The dependency ports are implemented by the owning modules.
   Facility\Application\Service\FacilityArchivalGuard: ~
@@ -120,6 +130,11 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\DeleteFacilityAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\SetPrimaryFacilityAttachmentHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\ListFacilityAttachmentsHandler:

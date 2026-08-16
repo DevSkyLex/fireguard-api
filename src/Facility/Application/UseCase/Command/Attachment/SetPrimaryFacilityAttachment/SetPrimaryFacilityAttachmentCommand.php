@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments;
+namespace Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment;
 
-use Shared\Application\Message\QueryMessage;
+use Shared\Application\Message\CommandMessage;
 
 /**
- * UseCase ListFacilityAttachmentsQuery.
+ * UseCase SetPrimaryFacilityAttachmentCommand.
  *
  * @category UseCase
  *
@@ -15,13 +15,13 @@ use Shared\Application\Message\QueryMessage;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ListFacilityAttachmentsQuery implements QueryMessage
+final readonly class SetPrimaryFacilityAttachmentCommand implements CommandMessage
 {
   // #region Constructor
   public function __construct(
     public string $organizationId,
     public string $facilityId,
-    public ?string $kind = null,
+    public string $attachmentId,
   ) {
   }
   // #endregion
