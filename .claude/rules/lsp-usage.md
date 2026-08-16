@@ -9,14 +9,28 @@ paths:
 Intelephense is running on every `.php` file in this app. It is wired for you; the reflex is
 not.
 
-**Ask the LSP a question about a symbol. Grep a question about text.**
+**Ask the LSP a question about a symbol. Grep a question about text.** A symbol question
+answered by grep alone is a review finding, not a shortcut.
 
-- `findReferences` before `Grep` for "who uses this". Grep matches a string, the LSP matches
-  the symbol: no aliased import missed, no comment or unrelated same-named class counted.
-- `goToDefinition` before guessing a path. `workspaceSymbol` before globbing for a class file.
-- `documentSymbol` before reading a long handler or provider whole, when you only need its shape.
-- Grep stays right for string literals, comments, migrations, and **`config/modules/*.yaml`** —
-  the port→adapter alias lives there and the server does not index YAML.
+## The reflexes that are not optional
+
+| Situation | First tool |
+| --- | --- |
+| Changing a signature, constant, enum case, port, or DTO field | `findReferences` on the symbol — the change is complete when every reference in the list has been visited, not when grep stops matching |
+| "Who implements / consumes this port" | `findReferences` on the port interface — the adapter surfaces as its `implements` clause |
+| Creating a file that mirrors an exemplar | `workspaceSymbol` to find the exemplar, `documentSymbol` to read its shape |
+| "Where does X live" | `goToDefinition` / `workspaceSymbol` — never globbing for the class file |
+| Long handler or provider, only its structure needed | `documentSymbol` |
+| String literal, comment, migration, **`config/modules/*.yaml`** (the port→adapter alias — the server does not index YAML) | Grep — that is its lane |
+
+## Worktrees: which diagnostics to trust
+
+Intelephense resolves types from the checkout it indexes. A secondary worktree without
+`vendor/` installed floods "undefined type" diagnostics that mean nothing — run
+`composer install` first, or ignore that worktree's diagnostics entirely and let the gates
+decide. Diagnostics arriving for files in a worktree you are **not** currently editing are
+stale snapshots of another branch's mid-edit state; never "fix" one without reading the
+file first. `make test` remains the decision.
 
 Positions are **1-based on both line and character**, as shown in the editor gutter.
 
