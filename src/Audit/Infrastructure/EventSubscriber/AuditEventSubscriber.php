@@ -21,7 +21,7 @@ use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFai
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
@@ -161,6 +161,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
       'facility.facility_updated_event' => 'onFacilityUpdated',
+      'facility.facility_subtree_duplicated_event' => 'onFacilitySubtreeDuplicated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
       'equipment.equipment_put_under_maintenance_event' => 'onEquipmentPutUnderMaintenance',
       'equipment.equipment_returned_to_stock_event' => 'onEquipmentReturnedToStock',
@@ -1230,6 +1231,30 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       subjectId: $event->facilityId,
       metadata: [
         'changed_fields' => $event->changedFields,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onFacilitySubtreeDuplicated.
+   *
+   * Records a facility subtree duplication.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilitySubtreeDuplicatedEvent $event the domain event
+   */
+  public function onFacilitySubtreeDuplicated(FacilitySubtreeDuplicatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.subtree_duplicated',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->sourceFacilityId,
+      metadata: [
+        'new_root_facility_id' => $event->newRootFacilityId,
+        'node_count' => $event->nodeCount,
       ],
       occurredAt: $event->occurredAt,
     );

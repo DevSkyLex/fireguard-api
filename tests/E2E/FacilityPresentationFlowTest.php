@@ -248,6 +248,7 @@ final class FacilityPresentationFlowTest extends OAuth2WebTestCase
       ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/archive'],
       ['PATCH', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/restore'],
       ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/move'],
+      ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/duplicate'],
       ['GET', '/api/facilities?organization=' . rawurlencode('/api/organizations/' . $organizationId)],
       ['GET', '/api/facilities/' . $facilityId],
       ['GET', '/api/facilities/' . $facilityId . '/attachments'],

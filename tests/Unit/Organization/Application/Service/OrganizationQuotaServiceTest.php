@@ -229,6 +229,75 @@ final class OrganizationQuotaServiceTest extends TestCase
     $this->addToAssertionCount(1);
   }
 
+  #[Test]
+  public function testAssertCanAddMultiplePassesUnderLimit(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 3);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultipleThrowsWhenBatchWouldExceedLimit(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    // 2 already used + 4 requested = 6, exceeds the cap of 5.
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 4);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultiplePassesAtExactlyTheRemainingCapacity(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 3);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultiplePassesWhenUnlimited(): void
+  {
+    $service = $this->service(plan: $this->plan([]), facilityCount: 9999);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1000);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultipleIsANoOpForANonPositiveCount(): void
+  {
+    /** @var OrganizationQuotaLockPort&MockObject $quotaLock */
+    $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
+    $quotaLock->expects(self::never())->method('acquire');
+
+    $service = $this->service(plan: $this->plan(['facilities' => 1]), facilityCount: 1, quotaLock: $quotaLock);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 0);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultipleAcquiresTheAdvisoryLockWhenLimited(): void
+  {
+    /** @var OrganizationQuotaLockPort&MockObject $quotaLock */
+    $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
+    $quotaLock->expects(self::once())
+      ->method('acquire')
+      ->with(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1);
+  }
+
   private function service(
     Plan $plan,
     int $activeMemberCount = 0,
