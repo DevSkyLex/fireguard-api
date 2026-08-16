@@ -115,6 +115,7 @@ final readonly class GetFacilityProvider implements ProviderInterface
     $output->metadata = $result->metadata;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
+    $output->path = $result->path;
 
     return $output;
   }

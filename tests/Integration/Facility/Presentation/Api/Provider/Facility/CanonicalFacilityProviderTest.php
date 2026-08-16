@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Facility\Presentation\Api\Provider\Facility;
 
-use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\{Get, GetCollection};
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
@@ -142,6 +143,59 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
     self::assertSame([self::SECOND_DRAFT_FACILITY_ID], $this->identifiers($secondPage));
   }
 
+  #[Test]
+  public function testProvideMapsAncestorPathOnTheItemRouteAndLeavesTheCollectionEmpty(): void
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+
+    $root = new FacilityRecord();
+    $root->id = 'bb0e8400-e29b-41d4-a716-4466554d0020';
+    $root->organization = $organization;
+    $root->recordStatus = 'published';
+    $root->type = 'site';
+    $root->name = 'Root Site';
+    $root->status = 'active';
+    $root->metadata = [];
+    $root->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $root->updatedAt = $root->createdAt;
+    $this->entityManager->persist($root);
+
+    $child = new FacilityRecord();
+    $child->id = 'bb0e8400-e29b-41d4-a716-4466554d0021';
+    $child->organization = $organization;
+    $child->parentFacility = $root;
+    $child->recordStatus = 'published';
+    $child->type = 'building';
+    $child->name = 'Child Building';
+    $child->status = 'active';
+    $child->metadata = [];
+    $child->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $child->updatedAt = $child->createdAt;
+    $this->entityManager->persist($child);
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/facilities?organization=/api/organizations/' . self::ORGANIZATION_ID));
+    $provider = $this->provider($requestStack);
+
+    $item = $provider->provide(new Get(), ['id' => $child->id]);
+    self::assertInstanceOf(FacilityOutput::class, $item);
+    self::assertSame(
+      [['id' => $root->id, 'name' => 'Root Site', 'type' => 'site']],
+      $item->path,
+    );
+
+    $collection = $provider->provide(new GetCollection(), []);
+    self::assertInstanceOf(TraversablePaginator::class, $collection);
+    foreach ($collection as $output) {
+      self::assertInstanceOf(FacilityOutput::class, $output);
+      self::assertSame([], $output->path);
+    }
+  }
+
   /**
    * @param TraversablePaginator<FacilityOutput> $page
    *
@@ -172,6 +226,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
 
     return new CanonicalFacilityProvider(
       $this->entityManager,
+      new FacilityRepository($this->entityManager),
       $authorization,
       $security,
       $requestStack,

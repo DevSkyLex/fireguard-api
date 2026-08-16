@@ -118,6 +118,7 @@ final class GetFacilityProviderTest extends TestCase
         hasChildren: true,
         latitude: 48.8566,
         longitude: 2.3522,
+        path: [['id' => '550e8400-e29b-41d4-a716-446655441299', 'name' => 'Root', 'type' => 'site']],
       ));
 
     $provider = new GetFacilityProvider(
@@ -140,6 +141,10 @@ final class GetFacilityProviderTest extends TestCase
     self::assertTrue($output->hasChildren);
     self::assertSame(48.8566, $output->latitude);
     self::assertSame(2.3522, $output->longitude);
+    self::assertSame(
+      [['id' => '550e8400-e29b-41d4-a716-446655441299', 'name' => 'Root', 'type' => 'site']],
+      $output->path,
+    );
   }
 
   #[Test]

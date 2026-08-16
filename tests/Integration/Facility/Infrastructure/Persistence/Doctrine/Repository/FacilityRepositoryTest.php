@@ -273,6 +273,40 @@ final class FacilityRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testFindAncestorsWalksTheParentChainRootFirstAndExcludesDraftAncestors(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-ancestors-a');
+
+    $root = $this->createFacility('550e8400-e29b-41d4-a716-446655443070', $organization, null, 'Root');
+    $middle = $this->createFacility('550e8400-e29b-41d4-a716-446655443071', $organization, $root, 'Middle');
+    $leaf = $this->createFacility('550e8400-e29b-41d4-a716-446655443072', $organization, $middle, 'Leaf');
+
+    $draftRoot = $this->createFacility('550e8400-e29b-41d4-a716-446655443073', $organization, null, 'Draft Root');
+    $draftRoot->recordStatus = 'draft';
+    $draftChild = $this->createFacility('550e8400-e29b-41d4-a716-446655443074', $organization, $draftRoot, 'Draft Child');
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $repository = new FacilityRepository($this->entityManager);
+
+    // A root facility has no ancestors.
+    self::assertSame([], $repository->findAncestors($root->id));
+
+    // A 3-level chain returns ordered root -> direct parent, excluding the facility itself.
+    self::assertSame(
+      [
+        ['id' => $root->id, 'name' => 'Root', 'type' => 'site'],
+        ['id' => $middle->id, 'name' => 'Middle', 'type' => 'building'],
+      ],
+      $repository->findAncestors($leaf->id),
+    );
+
+    // A draft (intervention scratchpad) ancestor is invisible to the walk.
+    self::assertSame([], $repository->findAncestors($draftChild->id));
+  }
+
+  #[Test]
   public function testFindByOrganizationIdPushesWildcardSafeSearchPredicateIntoSql(): void
   {
     $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-search-a');

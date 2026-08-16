@@ -332,6 +332,48 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
+   * Method findAncestors.
+   *
+   * Walks the facility's parent chain upward via a single recursive CTE,
+   * mirroring {@see descendantIds} in the opposite direction. Only PUBLISHED
+   * records are walked (draft intervention scratchpads are invisible here),
+   * and the result is ordered root-first — direct parent last — excluding the
+   * facility itself. A root facility with no parent yields an empty list.
+   *
+   * @since 1.0.0
+   *
+   * @param string $facilityId the facility identifier whose ancestors are resolved
+   *
+   * @return list<array{id: string, name: string, type: string}> the ancestor breadcrumb, root first
+   */
+  public function findAncestors(string $facilityId): array
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE ancestors AS (
+          SELECT f.id, f.name, f.type, f.parent_facility_id, 1 AS depth
+          FROM facilities f
+          INNER JOIN facilities origin ON origin.id = :facilityId
+          WHERE f.id = origin.parent_facility_id
+            AND f.record_status = :published
+          UNION
+          SELECT parent.id, parent.name, parent.type, parent.parent_facility_id, ancestors.depth + 1
+          FROM facilities parent
+          INNER JOIN ancestors ON parent.id = ancestors.parent_facility_id
+          WHERE parent.record_status = :published
+      )
+      SELECT id, name, type FROM ancestors ORDER BY depth DESC
+      SQL;
+
+    /** @var list<array{id: string, name: string, type: string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'facilityId' => $facilityId,
+      'published' => 'published',
+    ])->fetchAllAssociative();
+
+    return $rows;
+  }
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts facilities for an organization with optional filters.

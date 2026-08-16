@@ -184,5 +184,22 @@ final class FacilityOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $updatedAt = '';
+
+  /**
+   * Property path.
+   *
+   * Ancestor breadcrumb ordered root first, direct parent last, excluding
+   * this facility. Empty for a root facility. Populated on the detail (item)
+   * providers only — {@see FacilitySerializationGroup::READ} is shared with
+   * the collection providers, which deliberately leave this an empty list to
+   * avoid an N+1 ancestor lookup per row.
+   *
+   * @since 1.2.0
+   *
+   * @var list<array{id: string, name: string, type: string}>
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Ancestor breadcrumb, root first, excluding this facility')]
+  public array $path = [];
   // #endregion
 }

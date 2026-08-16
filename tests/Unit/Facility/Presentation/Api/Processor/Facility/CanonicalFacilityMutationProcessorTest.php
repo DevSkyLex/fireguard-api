@@ -9,6 +9,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -848,7 +849,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       $authorization,
       $security,
       $requestStack,
-      new CanonicalFacilityProvider($entityManager, $authorization, $security, $requestStack, $manager),
+      new CanonicalFacilityProvider($entityManager, $this->createStub(FacilityRepositoryPort::class), $authorization, $security, $requestStack, $manager),
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
@@ -874,6 +875,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));
     $provider = new CanonicalFacilityProvider(
       $entityManager,
+      $this->createStub(FacilityRepositoryPort::class),
       $authorization,
       $security,
       $requestStack,

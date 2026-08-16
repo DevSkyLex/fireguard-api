@@ -100,6 +100,12 @@ final class GetFacilityHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('countChildren')
       ->willReturn(2);
+    $repository->expects(self::once())
+      ->method('findAncestors')
+      ->with('550e8400-e29b-41d4-a716-446655441720')
+      ->willReturn([
+        ['id' => '550e8400-e29b-41d4-a716-446655441799', 'name' => 'Root', 'type' => 'site'],
+      ]);
 
     $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
 
@@ -126,6 +132,41 @@ final class GetFacilityHandlerTest extends TestCase
     self::assertSame(48.8566, $result->latitude);
     self::assertSame(2.3522, $result->longitude);
     self::assertSame(['floors' => 4], $result->metadata);
+    self::assertSame(
+      [['id' => '550e8400-e29b-41d4-a716-446655441799', 'name' => 'Root', 'type' => 'site']],
+      $result->path,
+    );
+  }
+
+  #[Test]
+  public function testInvokeReturnsEmptyPathForRootFacility(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655441740');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441741');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Root Site'),
+    );
+
+    $repository = $this->createStub(FacilityRepositoryPort::class);
+    $repository->method('findById')->willReturn($facility);
+    $repository->method('countChildren')->willReturn(0);
+    $repository->method('findAncestors')->willReturn([]);
+
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+
+    $result = $handler->__invoke(new GetFacilityQuery(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+    ));
+
+    self::assertSame([], $result->path);
   }
 
   #[Test]

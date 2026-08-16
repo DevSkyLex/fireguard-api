@@ -6,7 +6,11 @@ namespace Tests\Unit\Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
@@ -15,6 +19,7 @@ use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -129,6 +134,59 @@ final class CanonicalFacilityProviderTest extends TestCase
       ->provide(new GetCollection(), []);
   }
 
+  #[Test]
+  public function testProvideMapsAncestorPathOnTheItemRoute(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+
+    $record = new FacilityRecord();
+    $record->id = 'facility-id';
+    $record->organization = $organization;
+    $record->type = 'building';
+    $record->name = 'Building B';
+    $record->status = 'active';
+    $record->metadata = [];
+    $record->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $record->updatedAt = $record->createdAt;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($record);
+
+    /** @var FacilityRepositoryPort&MockObject $facilityRepository */
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::once())
+      ->method('findAncestors')
+      ->with('facility-id')
+      ->willReturn([
+        ['id' => 'root-id', 'name' => 'Root', 'type' => 'site'],
+      ]);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+
+    $provider = new CanonicalFacilityProvider(
+      $entityManager,
+      $facilityRepository,
+      $authorization,
+      $security,
+      new RequestStack(),
+      new InterventionResourceManager($resources),
+    );
+
+    $output = $provider->provide(new Get(), ['id' => 'facility-id']);
+
+    self::assertInstanceOf(FacilityOutput::class, $output);
+    self::assertSame([['id' => 'root-id', 'name' => 'Root', 'type' => 'site']], $output->path);
+  }
+
   private function context(): InterventionAssignmentContext
   {
     return new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft');
@@ -153,6 +211,7 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     return new CanonicalFacilityProvider(
       $entityManager,
+      $this->createStub(FacilityRepositoryPort::class),
       $authorization,
       $security,
       $requestStack,

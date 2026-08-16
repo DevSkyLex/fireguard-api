@@ -264,5 +264,20 @@ interface FacilityRepositoryPort
     ?bool $hasCoordinates = null,
   ): array;
 
+  /**
+   * Method findAncestors.
+   *
+   * Resolves the ancestor breadcrumb for a facility by walking its parent
+   * chain upward over PUBLISHED records, ordered root first (direct parent
+   * last), excluding the facility itself. Empty for a root facility.
+   *
+   * @since 1.0.0
+   *
+   * @param string $facilityId the facility identifier whose ancestors are resolved
+   *
+   * @return list<array{id: string, name: string, type: string}> the ancestor breadcrumb, root first
+   */
+  public function findAncestors(string $facilityId): array;
+
   // #endregion
 }

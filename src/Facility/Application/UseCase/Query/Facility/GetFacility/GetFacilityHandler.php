@@ -76,6 +76,7 @@ final readonly class GetFacilityHandler implements QueryHandler
         (string) $organizationId,
         [(string) $facility->id()],
       )[(string) $facility->id()] ?? 0,
+      path: $this->facilityRepository->findAncestors((string) $facility->id()),
     );
   }
   // #endregion
