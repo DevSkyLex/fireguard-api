@@ -92,5 +92,12 @@ final class FacilityOperations
    * @var string
    */
   public const string MOVE_FACILITY = 'facility_move';
+
+  /**
+   * Constant SET_PRIMARY_FACILITY_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string SET_PRIMARY_FACILITY_ATTACHMENT = 'facility_attachment_set_primary';
   // #endregion
 }

@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment;
+namespace Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment;
 
-use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
 
 /**
- * UseCase AddFacilityAttachmentResult.
+ * UseCase SetPrimaryFacilityAttachmentResult.
  *
  * @category UseCase
  *
@@ -16,7 +15,7 @@ use Shared\Application\Message\ResultMessage;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class AddFacilityAttachmentResult implements ResultMessage
+final readonly class SetPrimaryFacilityAttachmentResult implements ResultMessage
 {
   // #region Constructor
   public function __construct(
@@ -26,11 +25,10 @@ final readonly class AddFacilityAttachmentResult implements ResultMessage
     public string $mimeType,
     public int $size,
     public ?string $label,
-    public DateTimeImmutable $uploadedAt,
-    public string $kind = 'document',
-    public bool $isPrimaryPlan = false,
-    public ?int $imageWidth = null,
-    public ?int $imageHeight = null,
+    public string $kind,
+    public bool $isPrimaryPlan,
+    public ?int $imageWidth,
+    public ?int $imageHeight,
   ) {
   }
   // #endregion

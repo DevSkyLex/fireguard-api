@@ -17,6 +17,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function is_string;
@@ -45,6 +46,7 @@ final readonly class FacilityMediaProvider implements ProviderInterface
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private RequestStack $requestStack,
   ) {
   }
   // #endregion
@@ -91,6 +93,10 @@ final readonly class FacilityMediaProvider implements ProviderInterface
     $output->label = $record->label;
     $output->revision = $record->revision;
     $output->uploadedAt = $record->uploadedAt->format('c');
+    $output->kind = $record->kind;
+    $output->isPrimaryPlan = $record->isPrimaryPlan;
+    $output->imageWidth = $record->imageWidth;
+    $output->imageHeight = $record->imageHeight;
 
     return $output;
   }
@@ -125,11 +131,14 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 
+    $kind = $this->requestStack->getCurrentRequest()?->query->get('kind');
+
     try {
       /** @var ListFacilityAttachmentsResult $result */
       $result = $this->queryBus->ask(new ListFacilityAttachmentsQuery(
         organizationId: $facility->organization->id,
         facilityId: $facilityId,
+        kind: is_string($kind) ? $kind : null,
       ));
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -159,6 +168,10 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       $output->size = $attachment['size'];
       $output->label = $attachment['label'];
       $output->uploadedAt = $attachment['uploadedAt'];
+      $output->kind = $attachment['kind'];
+      $output->isPrimaryPlan = $attachment['isPrimaryPlan'];
+      $output->imageWidth = $attachment['imageWidth'];
+      $output->imageHeight = $attachment['imageHeight'];
       $outputs[] = $output;
     }
 

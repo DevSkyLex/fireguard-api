@@ -55,25 +55,27 @@ page. `FacilitySerializationGroup::READ` is shared across every operation (there
 is no detail-only serialization group in this module today), so the split is
 enforced by the providers, not by the wire contract.
 
-### Attachments (R11b)
+### Attachments (R11b, floor plans Phase 3)
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/api/facilities/{facilityId}/attachments` | Upload a multipart file attachment |
-| GET | `/api/facilities/{facilityId}/attachments` | List a facility's attachments |
+| POST | `/api/facilities/{facilityId}/attachments` | Upload a multipart file attachment. Optional `kind` field (`document`, the default, or `floor_plan`) |
+| GET | `/api/facilities/{facilityId}/attachments` | List a facility's attachments (optional `?kind=document\|floor_plan` filter) |
 | GET | `/api/facility-attachments/{id}` | Get one attachment |
 | DELETE | `/api/facility-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
+| POST | `/api/facility-attachments/{id}/primary` | Promote a `floor_plan` attachment to the facility's primary plan |
 
 Generalized file attachments on a facility, mirroring the proven
 `Equipment\...\EquipmentAttachment` slice and the shared attachment kernel
 (`src/Shared/MODULE.md`): `Facility\Domain\Model\Attachment\FacilityAttachment`
 aggregate, `FacilityAttachmentRepositoryPort`/`FacilityAttachmentRepository`,
-`AddFacilityAttachment`/`DeleteFacilityAttachment`/`ListFacilityAttachments`
-use cases, and a multipart `FacilityMediaProcessor`/`FacilityMediaProvider`
-pair (`FacilityAttachmentResource`, no serialization-group-filtered JSON body
-— `deserialize: false`). Storage key:
-`facility/{facilityId}/attachments/{attachmentId}_{fileName}` via
-`Shared\Domain\Attachment\StoragePathScheme`. MIME/size validated by
+`AddFacilityAttachment`/`DeleteFacilityAttachment`/`ListFacilityAttachments`/
+`SetPrimaryFacilityAttachment` use cases, and a multipart
+`FacilityMediaProcessor`/`FacilityMediaProvider` pair plus
+`SetPrimaryFacilityAttachmentProcessor` (`FacilityAttachmentResource`, no
+serialization-group-filtered JSON body on upload — `deserialize: false`).
+Storage key: `facility/{facilityId}/attachments/{attachmentId}_{fileName}`
+via `Shared\Domain\Attachment\StoragePathScheme`. MIME/size validated by
 `Shared\Presentation\Api\Attachment\MultipartAttachmentGuard` before any
 bytes are read. Write-then-persist with storage rollback on DB failure
 (mirrors `AddAttachmentHandler`); delete removes the stored object then the
@@ -86,6 +88,47 @@ anything to storage, and the shared
 `AttachmentConstraintExceptionSubscriber` maps the resulting
 `InvalidAttachmentException` centrally to **422**, the same status as a
 MIME/size rejection.
+
+**Floor plans (Phase 3).** `Facility\Domain\ValueObject\AttachmentKind`
+(`document` default | `floor_plan`) extends every attachment with `kind`,
+`isPrimaryPlan`, `imageWidth`, `imageHeight`. A `floor_plan` is restricted to
+`image/png`, `image/jpeg`, `image/webp`, `image/svg+xml` — a narrower-but-
+wider list than the shared `AttachmentCategory::IMAGE` (drops `image/gif`,
+adds `image/svg+xml`, which the shared category deliberately excludes for
+generic uploads because an SVG can carry active content). The upload
+processor resolves `kind` from the multipart request and passes the
+kind-specific allow-list into `MultipartAttachmentGuard::fromRequest()`
+(`$allowedMimeTypes`, an optional override added for this purpose — `null`
+keeps every other module's upload path unchanged). The MIME↔kind invariant
+is enforced a second time, defense-in-depth, inside
+`FacilityAttachment`'s own constructor (`InvalidAttachmentException`, 422)
+— domain state can never exist in an inconsistent combination even if a
+future caller bypasses the guard.
+
+Pixel dimensions are probed server-side from the bytes already in memory —
+no filesystem access — by `Facility\Domain\ValueObject\ImageDimensions`:
+raster formats via `getimagesizefromstring()`; SVG via a regex read of the
+`<svg>` tag's `width`/`height` attributes, falling back to `viewBox`,
+deliberately NOT a full XML parse (smaller attack surface against untrusted
+SVG). An SVG authored with percentage or other CSS-unit dimensions, or with
+none of the above, yields `imageWidth`/`imageHeight: null` — never rejected,
+just undimensioned. A `document` attachment always carries null dimensions.
+
+**Primary plan.** `POST /facility-attachments/{id}/primary` — a POST
+verb-action route on the existing `/facility-attachments/{id}` collection,
+mirroring `/facilities/{id}/archive` and `/facilities/{id}/move` rather than
+introducing a `PATCH` convention this module does not otherwise use.
+`SetPrimaryFacilityAttachmentHandler` validates
+`FacilityAttachment::markAsPrimary()` (refuses a `document` attachment with
+`FacilityAttachmentNotFloorPlanException`, mapped to **409**) BEFORE opening
+a transaction, then atomically — same DB transaction, via
+`facility.main_transaction_manager` — clears the previous primary's flag
+(`FacilityAttachmentRepositoryPort::clearPrimaryPlan()`) and persists the
+new one. A partial unique index, `uniq_facility_attachment_primary_plan
+ON facility_attachments (facility_id) WHERE is_primary_plan` (Doctrine's ORM
+attributes cannot express a partial index — the same
+`uniq_intervention_attachment_signature` precedent), is the schema-level
+backstop should the two writes ever land out of order.
 
 ## Permission Model
 
@@ -168,6 +211,12 @@ Main fields:
   **not** delete the stored object — parents are expected to be archived, not
   hard-deleted, in normal operation; a scheduled orphan-object sweep is
   deferred (same accepted gap as `equipment_attachments`).
+- `facility_attachments` gains `kind` (`VARCHAR(20) NOT NULL DEFAULT
+  'document'`), `is_primary_plan` (`BOOLEAN NOT NULL DEFAULT false`),
+  `image_width`/`image_height` (`INT NULL`), plus the partial unique index
+  `uniq_facility_attachment_primary_plan ON facility_attachments (facility_id)
+  WHERE is_primary_plan` — Migration: `migrations/main/Version20260816110904.php`
+  (Facility plan Phase 3).
 
 ## Architecture
 
@@ -228,14 +277,20 @@ Cross-module contracts and lifecycle invariants:
 ## Testing
 
 - Unit: `tests/Unit/Facility`
-  - `Application/UseCase/Command/Attachment/{Add,Delete}FacilityAttachment`,
+  - `Application/UseCase/Command/Attachment/{Add,Delete,SetPrimary}FacilityAttachment`,
     `Application/UseCase/Query/Attachment/ListFacilityAttachments` — handler
-    behavior including storage-write-then-persist rollback on DB failure and
-    path-traversal-safe file naming.
-  - `Presentation/Api/Processor/Attachment/FacilityMediaProcessorTest`,
+    behavior including storage-write-then-persist rollback on DB failure,
+    path-traversal-safe file naming, the atomic primary swap, and the
+    document-cannot-be-primary refusal.
+  - `Domain/ValueObject/AttachmentKindTest`, `Domain/ValueObject/ImageDimensionsTest`,
+    `Domain/Model/Attachment/FacilityAttachmentTest` — the kind↔MIME and
+    kind↔primary invariants, and the raster/SVG/no-dimensions probing paths.
+  - `Presentation/Api/Processor/Attachment/{FacilityMediaProcessorTest,SetPrimaryFacilityAttachmentProcessorTest}`,
     `Presentation/Api/Provider/Attachment/FacilityMediaProviderTest` —
-    permission enforcement and the `If-Match` revision guard on delete.
+    permission enforcement, the `If-Match` revision guard on delete, and the
+    409/404 mapping on the primary-plan route.
 - Integration (real database):
+<<<<<<< HEAD
   `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`,
   `FacilityRepositoryTest::testFindAncestorsWalksTheParentChainRootFirstAndExcludesDraftAncestors`
   (root facility, 3-level chain, draft ancestor exclusion),
@@ -245,4 +300,13 @@ Cross-module contracts and lifecycle invariants:
   E2E `tests/E2E/FacilityCoordinatesFlowTest.php` and
   `tests/E2E/FacilityPresentationFlowTest.php` assert the `path` shape on the
   organization-scoped and canonical detail reads.
+=======
+  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`
+  — round-trips the new columns and proves the partial unique index (a second
+  `is_primary_plan = true` row for the same facility is rejected at the DB).
+- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php` — floor
+  plan upload (happy path + wrong-MIME 422), `?kind=` list filter, and the
+  primary-plan route (happy, swap, document-refusal 409, cross-org 404,
+  missing-permission 403).
+>>>>>>> 2de9259f (feat(facility): floor plan attachments with kind, dimensions and primary selection)
 - Run module tests: `make test tests/Unit/Facility/`

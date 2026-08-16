@@ -89,12 +89,33 @@ final class AttachmentConstraints
    */
   public static function validate(string $mimeType, int $size): void
   {
-    if ($size > self::MAX_SIZE_BYTES) {
-      throw InvalidAttachmentException::forSize($size, self::MAX_SIZE_BYTES);
-    }
+    self::validateSize($size);
 
     if (!in_array($mimeType, self::allowedMimeTypes(), true)) {
       throw InvalidAttachmentException::forMimeType($mimeType);
+    }
+  }
+
+  /**
+   * Method validateSize.
+   *
+   * @static
+   *
+   * Validates only the size half of the policy — used by a caller that
+   * substitutes its own MIME allow-list (e.g. a kind-specific one narrower
+   * or wider than {@see self::allowedMimeTypes()}) while still enforcing the
+   * shared size cap.
+   *
+   * @since 1.1.0
+   *
+   * @param int $size the uploaded size in bytes
+   *
+   * @throws InvalidAttachmentException when the size is rejected
+   */
+  public static function validateSize(int $size): void
+  {
+    if ($size > self::MAX_SIZE_BYTES) {
+      throw InvalidAttachmentException::forSize($size, self::MAX_SIZE_BYTES);
     }
   }
 
