@@ -100,6 +100,7 @@ final readonly class CreateImportJobProcessor implements ProcessorInterface
         contents: $uploaded->contents,
         mimeType: $uploaded->mimeType,
         size: $uploaded->size,
+        dryRun: $uploaded->dryRun,
       ));
     } catch (Throwable $exception) {
       throw $this->mapImportException($exception);

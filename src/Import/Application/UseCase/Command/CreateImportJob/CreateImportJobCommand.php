@@ -30,6 +30,7 @@ final readonly class CreateImportJobCommand implements CommandMessage
    * @param string $contents the uploaded CSV file contents
    * @param string $mimeType the uploaded file's sniffed MIME type
    * @param int $size the uploaded file size in bytes
+   * @param bool $dryRun whether the job validates and reports without provisioning anything
    */
   public function __construct(
     public string $userId,
@@ -39,6 +40,7 @@ final readonly class CreateImportJobCommand implements CommandMessage
     public string $contents,
     public string $mimeType,
     public int $size,
+    public bool $dryRun = false,
   ) {
   }
   // #endregion

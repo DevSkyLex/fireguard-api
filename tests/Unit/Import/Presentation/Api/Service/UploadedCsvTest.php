@@ -41,6 +41,7 @@ final class UploadedCsvTest extends TestCase
     self::assertSame("reference,type\nEXT-1,extinguisher\n", $csv->contents);
     self::assertSame('text/csv', $csv->mimeType);
     self::assertSame(34, $csv->size);
+    self::assertFalse($csv->dryRun);
   }
 
   #[Test]

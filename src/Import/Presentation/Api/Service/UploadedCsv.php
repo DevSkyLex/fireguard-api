@@ -30,6 +30,7 @@ final readonly class UploadedCsv
    * @param string $contents the file contents
    * @param string $mimeType the sniffed MIME type
    * @param int $size the file size in bytes
+   * @param bool $dryRun whether the job validates and reports without provisioning anything
    */
   public function __construct(
     public string $kind,
@@ -37,6 +38,7 @@ final readonly class UploadedCsv
     public string $contents,
     public string $mimeType,
     public int $size,
+    public bool $dryRun = false,
   ) {
   }
   // #endregion

@@ -30,6 +30,7 @@ final readonly class CreateImportJobResult implements ResultMessage
    * @param string $status the import job status value
    * @param string $originalFilename the original uploaded file name
    * @param DateTimeImmutable $createdAt the creation timestamp
+   * @param bool $dryRun whether the job validates and reports without provisioning anything
    */
   public function __construct(
     public string $importJobId,
@@ -38,6 +39,7 @@ final readonly class CreateImportJobResult implements ResultMessage
     public string $status,
     public string $originalFilename,
     public DateTimeImmutable $createdAt,
+    public bool $dryRun = false,
   ) {
   }
   // #endregion

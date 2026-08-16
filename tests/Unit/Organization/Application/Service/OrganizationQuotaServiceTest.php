@@ -110,6 +110,49 @@ final class OrganizationQuotaServiceTest extends TestCase
   }
 
   #[Test]
+  public function testAssertProjectedCanAddPassesUnderTheProjectedCount(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddThrowsWhenUsagePlusOffsetReachesTheCap(): void
+  {
+    // usage (2) + offset (3) >= limit (5): rows already counted earlier in
+    // the same dry-run batch tip this one over the cap.
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 3);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddPassesWhenUnlimited(): void
+  {
+    $service = $this->service(plan: $this->plan([]), facilityCount: 9999);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 500);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddNeverTakesTheAdvisoryLock(): void
+  {
+    $lock = $this->createMock(OrganizationQuotaLockPort::class);
+    $lock->expects(self::never())->method('acquire');
+
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $lock);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 0);
+  }
+
+  #[Test]
   public function testAssertCanAcceptMemberIgnoresPendingInvitationBeingAccepted(): void
   {
     // 4 active + 3 pending: getUsage would be 7 (> 5), but acceptance only counts

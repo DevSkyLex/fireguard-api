@@ -47,6 +47,23 @@ final class ImportJobTest extends TestCase
     self::assertNull($job->jobError());
     self::assertNull($job->startedAt());
     self::assertNull($job->completedAt());
+    self::assertFalse($job->isDryRun());
+  }
+
+  #[Test]
+  public function itCreatesADryRunJob(): void
+  {
+    $job = ImportJob::create(
+      id: ImportJobId::fromString(self::JOB_ID),
+      organizationId: self::ORGANIZATION_ID,
+      kind: ImportKind::FACILITY,
+      storagePath: 'imports/org-1/job.csv',
+      originalFilename: 'facilities.csv',
+      createdBy: self::CREATED_BY,
+      dryRun: true,
+    );
+
+    self::assertTrue($job->isDryRun());
   }
 
   #[Test]
@@ -66,6 +83,7 @@ final class ImportJobTest extends TestCase
       createdBy: self::CREATED_BY,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
+      dryRun: true,
       totalRows: 5,
       processedRows: 5,
       successfulRows: 4,
@@ -87,6 +105,7 @@ final class ImportJobTest extends TestCase
     self::assertSame($updatedAt, $job->updatedAt());
     self::assertSame($createdAt, $job->startedAt());
     self::assertSame($updatedAt, $job->completedAt());
+    self::assertTrue($job->isDryRun());
   }
 
   #[Test]
@@ -128,6 +147,19 @@ final class ImportJobTest extends TestCase
     self::assertSame(1, $job->failedRows());
     self::assertCount(1, $job->errorReport());
     self::assertSame('quota_exceeded', $job->errorReport()[0]->code);
+  }
+
+  #[Test]
+  public function itAppendsAWouldCreateReportEntryOnDryRunSuccess(): void
+  {
+    $job = $this->pendingEquipmentJob();
+    $job->markProcessing(new DateTimeImmutable());
+
+    $job->recordRowSuccess(new ImportRowError(1, 'would_create', 'Would create an equipment item.'));
+
+    self::assertSame(1, $job->successfulRows());
+    self::assertCount(1, $job->errorReport());
+    self::assertSame('would_create', $job->errorReport()[0]->code);
   }
 
   #[Test]

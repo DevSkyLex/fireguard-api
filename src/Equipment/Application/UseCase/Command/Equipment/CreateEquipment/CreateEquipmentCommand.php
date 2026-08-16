@@ -31,6 +31,8 @@ final readonly class CreateEquipmentCommand implements CommandMessage
    * @param ?string $serialNumber the optional serial number
    * @param ?string $locationLabel the optional location label
    * @param ?string $resourceId the resource id value
+   * @param bool $dryRun when true, validates and projects the quota without persisting
+   * @param int $quotaProjectionOffset equipment already provisionally counted earlier in the same dry run
    */
   public function __construct(
     public string $organizationId,
@@ -41,6 +43,8 @@ final readonly class CreateEquipmentCommand implements CommandMessage
     public ?string $serialNumber = null,
     public ?string $locationLabel = null,
     public ?string $resourceId = null,
+    public bool $dryRun = false,
+    public int $quotaProjectionOffset = 0,
   ) {
   }
   // #endregion

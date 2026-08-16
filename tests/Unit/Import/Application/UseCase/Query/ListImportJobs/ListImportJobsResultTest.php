@@ -29,6 +29,7 @@ final class ListImportJobsResultTest extends TestCase
       kind: 'equipment',
       status: 'pending',
       originalFilename: 'equipment.csv',
+      dryRun: false,
       totalRows: null,
       processedRows: 0,
       successfulRows: 0,

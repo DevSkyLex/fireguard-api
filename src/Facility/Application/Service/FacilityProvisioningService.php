@@ -21,6 +21,8 @@ use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRun
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Throwable;
 
+use function in_array;
+
 /**
  * Service FacilityProvisioningService.
  *
@@ -79,12 +81,16 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
 
     if (null !== $request->parentCode && '' !== $request->parentCode) {
       $parentFacilityId = $this->resolveParentIdByCode($request->organizationId, $request->parentCode);
-      if (null === $parentFacilityId) {
+      if (null === $parentFacilityId && !$this->isKnownPendingCode($request)) {
         return new ProvisionFacilityResult(
           ProvisionOutcome::INVALID,
           message: 'Unknown parent facility code "' . $request->parentCode . '".',
         );
       }
+      // A dry run whose parent code is not in the database yet but matches a
+      // row already reported "would create" earlier in the same batch is
+      // left unresolved on purpose: there is no real identifier to pass, and
+      // the dry-run projection below never looks the parent up by id.
     }
 
     try {
@@ -98,6 +104,8 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
         address: $request->address,
         latitude: $request->latitude,
         longitude: $request->longitude,
+        dryRun: $request->dryRun,
+        quotaProjectionOffset: $request->quotaProjectionOffset,
       ));
     } catch (OrganizationQuotaExceededException $exception) {
       return new ProvisionFacilityResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
@@ -111,6 +119,30 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
     }
 
     return new ProvisionFacilityResult(ProvisionOutcome::CREATED, resourceId: $result->facilityId);
+  }
+
+  /**
+   * Method isKnownPendingCode.
+   *
+   * Reports whether the request's `parentCode` matches a row earlier in the
+   * same dry-run batch that would itself be created — the caller (Import's
+   * `ProcessImportJobHandler`) tracks that list as it walks the file, so a
+   * parent ordered before its children resolves the same way a real run's
+   * intra-file ordering does.
+   *
+   * @since 1.0.0
+   *
+   * @param ProvisionFacilityRequest $request the provisioning request
+   *
+   * @return bool true when the parent code is a known pending (dry-run only) code
+   */
+  private function isKnownPendingCode(ProvisionFacilityRequest $request): bool
+  {
+    if (!$request->dryRun || null === $request->knownPendingCodes) {
+      return false;
+    }
+
+    return in_array($request->parentCode, $request->knownPendingCodes, true);
   }
 
   /**

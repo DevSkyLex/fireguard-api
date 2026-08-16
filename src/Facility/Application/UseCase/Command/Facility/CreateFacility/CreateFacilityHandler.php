@@ -144,6 +144,20 @@ final readonly class CreateFacilityHandler implements CommandHandler
       true,
     );
 
+    if ($command->dryRun) {
+      // A dry run never enters the transaction that would take the quota's
+      // advisory lock (see OrganizationQuotaPort::assertCanAdd): it projects
+      // the cap instead, offsetting for rows already provisionally counted
+      // earlier in the same batch (the Import module's dry-run report).
+      $this->quota->assertProjectedCanAdd(
+        $command->organizationId,
+        OrganizationQuotaResource::FACILITIES,
+        $command->quotaProjectionOffset,
+      );
+
+      return $this->toResult($facility);
+    }
+
     // Enforce the plan quota and persist in one transaction: assertCanAdd takes a
     // transaction-scoped advisory lock so two concurrent creates at the cap cannot
     // both pass the count and both insert (see OrganizationQuotaPort::assertCanAdd).
@@ -177,6 +191,20 @@ final readonly class CreateFacilityHandler implements CommandHandler
       facilityId: (string) $facility->id(),
     ));
 
+    return $this->toResult($facility);
+  }
+
+  /**
+   * Method toResult.
+   *
+   * @since 1.0.0
+   *
+   * @param Facility $facility the facility aggregate (persisted, or — for a dry run — validated only)
+   *
+   * @return CreateFacilityResult the use case result
+   */
+  private function toResult(Facility $facility): CreateFacilityResult
+  {
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),

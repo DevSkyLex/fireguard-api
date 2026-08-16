@@ -286,6 +286,7 @@ final class ImportJobCollectionProviderTest extends TestCase
       kind: 'equipment',
       status: 'completed',
       originalFilename: 'equipements.csv',
+      dryRun: false,
       totalRows: 12,
       processedRows: 12,
       successfulRows: 11,

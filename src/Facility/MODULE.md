@@ -565,6 +565,27 @@ Cross-module contracts and lifecycle invariants:
   `FacilityInterventionResourceAdapter::apply()` — see "Metadata schema"
   above for the validation and compatibility rules.
 
+- **Bulk CSV import v2 — dry-run mode**: `ProvisionFacilityRequest` carries an
+  optional `dryRun` (default `false`), `quotaProjectionOffset` (default `0`)
+  and `knownPendingCodes` (facility-only, dry-run only). When `dryRun`,
+  `CreateFacilityCommand` also carries `dryRun`/`quotaProjectionOffset`, and
+  `CreateFacilityHandler` takes a second branch: it still builds and
+  validates the `Facility` aggregate (so every structural/domain invariant
+  still applies) but never enters the transactional save — instead it calls
+  `OrganizationQuotaPort::assertProjectedCanAdd()` (no advisory lock; a
+  projection against `getLimit()`/`getUsage()` plus the caller's offset, for
+  a caller — Import's dry run — walking many candidate rows in one pass with
+  nothing persisted yet) and returns a `CreateFacilityResult` built from the
+  unsaved aggregate. `FacilityProvisioningService.provision()` additionally
+  resolves `parentCode` against `knownPendingCodes` when the database lookup
+  finds nothing: a dry run lets a child row reference a parent that would
+  itself be created earlier in the same file, mirroring how a real import
+  lets the file order parents before children — the resolved
+  `parentFacilityId` is left `null` in that case (there is no real id yet),
+  and `CreateFacilityHandler`'s parent-existence/status checks are simply
+  skipped when no parent id is present. See `src/Import/MODULE.md`'s dry-run
+  section for the full row-report shape.
+
 ## Error Codes
 
 | Exception | HTTP status | When |

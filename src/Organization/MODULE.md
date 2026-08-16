@@ -329,6 +329,16 @@ demonstrating that one person can belong to more than one tenant.
   transaction requirement, same `OrganizationQuotaExceededException` on
   refusal; `count <= 0` is a no-op. Implemented by `OrganizationQuotaService`
   alongside `assertCanAdd()`.
+- **`OrganizationQuotaPort::assertProjectedCanAdd()`** is a **projection**
+  sibling to `assertCanAdd()`, added for bulk CSV import v2's dry-run mode
+  (`src/Import/MODULE.md`): `getLimit()`/`getUsage()` plus a caller-supplied
+  `$additionalOffset` (resources already provisionally counted elsewhere in
+  the same batch), with **no** advisory lock and **no** transaction
+  requirement — a caller that persists nothing has no insert to serialize
+  against. `CreateFacilityHandler`/`CreateEquipmentHandler` call it from
+  their `dryRun` branch instead of `assertCanAdd()`. It answers "would this
+  exceed the cap right now", never a TOCTOU-safe guarantee — never use it on
+  the write path.
 - **P2.3 member HTTP slice** (`GetOrganizationMember` provider,
   `ReactivateOrganizationMember`/`SetOrganizationMemberRoles` processors):
   all three dispatch through `CommandBusPort`/`QueryBusPort` and unwrap

@@ -73,6 +73,8 @@ final readonly class EquipmentProvisioningService implements EquipmentProvisioni
         model: $request->model,
         serialNumber: $request->serialNumber,
         locationLabel: $request->locationLabel,
+        dryRun: $request->dryRun,
+        quotaProjectionOffset: $request->quotaProjectionOffset,
       ));
     } catch (OrganizationQuotaExceededException $exception) {
       return new ProvisionEquipmentResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());

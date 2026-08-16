@@ -458,6 +458,75 @@ final class CreateFacilityHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeReturnsResultWithoutPersistingOnADryRun(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-4466554419a2');
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419a3';
+
+    // The negative assertion is the point: a dry run must never reach the
+    // repository or the transaction manager.
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($generatedId);
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $quota->expects(self::once())
+      ->method('assertProjectedCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::FACILITIES, 0);
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Would-be HQ',
+      dryRun: true,
+    ));
+
+    self::assertInstanceOf(CreateFacilityResult::class, $result);
+    self::assertSame((string) $generatedId, $result->facilityId);
+    self::assertSame('active', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeThrowsQuotaExceededOnADryRunWhenTheProjectedCountReachesTheCap(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419a4';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a5'));
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $quota->expects(self::once())
+      ->method('assertProjectedCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::FACILITIES, 2)
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 5));
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Tips Over The Cap',
+      dryRun: true,
+      quotaProjectionOffset: 2,
+    ));
+  }
+
+  #[Test]
   public function testInvokeUsesTheSuppliedResourceIdInsteadOfGeneratingOne(): void
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
