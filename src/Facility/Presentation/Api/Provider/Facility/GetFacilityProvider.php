@@ -113,6 +113,7 @@ final readonly class GetFacilityProvider implements ProviderInterface
     $output->latitude = $result->latitude;
     $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
+    $output->planGeometry = $result->planGeometry;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
     $output->path = $result->path;

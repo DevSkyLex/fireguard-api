@@ -168,6 +168,23 @@ final class FacilityOutput
   public array $metadata = [];
 
   /**
+   * Property planGeometry.
+   *
+   * Optional spatial geometry `{attachmentId, points}` binding this facility
+   * (a zone) to a polygon drawn over an ancestor's floor plan attachment.
+   * Populated on detail reads only (`GET .../facilities/{id}` and the
+   * canonical single-item read) — never on a list or collection response,
+   * where API Platform's null-field omission simply drops it.
+   *
+   * @since 1.2.0
+   *
+   * @var ?array{attachmentId: string, points: list<array{0: float, 1: float}>}
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Optional spatial geometry bound to an ancestor floor plan (detail views only)')]
+  public ?array $planGeometry = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

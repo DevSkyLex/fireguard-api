@@ -166,6 +166,22 @@ class FacilityRecord
   public array $metadata = [];
 
   /**
+   * Property planGeometry.
+   *
+   * Optional spatial geometry `{"attachmentId": "<uuid>", "points":
+   * [[x, y], ...]}` binding this facility (a zone) to a polygon drawn over
+   * an ancestor's floor plan. Physically a `JSONB` column (see
+   * `Version20260816120000`) — Doctrine's `json` DBAL type round-trips it
+   * the same way regardless of the underlying Postgres storage type.
+   *
+   * @since 1.0.0
+   *
+   * @var ?array{attachmentId: string, points: list<array{0: float, 1: float}>}
+   */
+  #[ORM\Column(name: 'plan_geometry', type: 'json', nullable: true)]
+  public ?array $planGeometry = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

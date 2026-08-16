@@ -25,6 +25,8 @@ Main goals:
 | PATCH | `/api/organizations/{organizationId}/facilities/{facilityId}` | Update a facility |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/archive` | Archive a facility |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
+| PUT | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry` | Set or clear this facility's plan geometry (Phase 4) |
+| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan and every self-or-descendant zone bound to it (Phase 4) |
 | GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
 | GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
 
@@ -154,6 +156,60 @@ attributes cannot express a partial index — the same
 `uniq_intervention_attachment_signature` precedent), is the schema-level
 backstop should the two writes ever land out of order.
 
+### Spatial zone geometry (Phase 4)
+
+A zone stays a plain `Facility` node — `type: zone` is a convention, not a
+different aggregate — that gains an optional `planGeometry` bound to an
+ancestor's `floor_plan` attachment: `Facility\Domain\ValueObject\PlanGeometry`
+(`attachmentId`, and `points`, a polygon of at least 3 vertices, each
+coordinate a float normalized to `[0, 1]` — a fraction of the plan image's
+width/height, not a pixel, so the shape survives the plan being re-rendered
+at a different resolution). Serialized on `facilities.plan_geometry`
+(`JSONB`, main database, `Version20260816120000`) as
+`{"attachmentId": "<uuid>", "points": [[x, y], ...]}`.
+
+**Write — `PUT /organizations/{organizationId}/facilities/{facilityId}/plan-geometry`.**
+`SetFacilityPlanGeometryInput` carries `attachmentId` and `points` together:
+both present sets or replaces the geometry, both `null` clears it — a
+PUT-with-null-to-clear shape mirroring `MoveFacilityInput`'s
+`parentFacilityId`, rather than a separate DELETE route (this module has no
+DELETE-as-clear convention; POST-verb-actions and PUT-with-null both already
+exist here). `SetFacilityPlanGeometryHandler` validates, through ports and
+BEFORE the durable save:
+
+1. the attachment exists (`FacilityAttachmentNotFoundException`, **404**),
+2. it is `kind: floor_plan` (`FacilityAttachmentNotFloorPlanException`,
+   reused from the primary-plan flow, **409**),
+3. it belongs to the target facility itself or to one of its ancestors —
+   `Facility\Application\Service\FacilityAttachmentAncestryGuard` walks
+   `parentFacilityId` upward (cycle-safe, stops at the first organization
+   mismatch), shared with the read side below
+   (`FacilityAttachmentNotAncestorException`, **409**),
+4. the polygon's own invariants (point count, coordinate bounds) —
+   enforced inside `PlanGeometry`'s constructor, never re-checked in
+   Presentation (`InvalidArgumentException`, **400**).
+
+An archived facility MAY still receive or clear a plan geometry — this
+write is not a lifecycle action and does not use `findPublishedById`,
+matching `UpdateFacilityHandler`'s convention rather than
+`Move`/`Archive`/`Restore`'s. Setting a geometry emits no domain event
+today (deliberately — unlike move/archive/restore, this is not yet wired
+into the audit ledger).
+
+**Read — `GET /organizations/{organizationId}/facilities/{facilityId}/plan-overlay?attachmentId=<id>`.**
+Resolves one floor plan — the explicit `attachmentId`, or this facility's
+own primary plan when the parameter is omitted
+(`FacilityAttachmentRepositoryPort::findPrimaryFloorPlan()`) — and returns
+`{attachmentId, imageWidth, imageHeight, zones: [{facilityId, name, type,
+status, points}]}` for every PUBLISHED facility, self-or-descendant of the
+path's `facilityId`, whose `planGeometry.attachmentId` matches: a single
+recursive CTE joined with a `plan_geometry ->> 'attachmentId'` filter
+(`FacilityRepositoryPort::findZonesForPlanAttachment()`), never a
+descendants query followed by N geometry reads. An explicit `attachmentId`
+still goes through the same kind and ancestry checks as the write path. The
+Output DTO carries only `zones` today so the stacked Equipment branch can
+add an `equipment` array additively, without changing this shape.
+
 ## Permission Model
 
 This module relies on Organization-scoped permissions:
@@ -217,6 +273,8 @@ Main fields:
 - `latitude` (optional, decimal degrees, range [-90, 90]; required together with `longitude`)
 - `longitude` (optional, decimal degrees, range [-180, 180]; required together with `latitude`)
 - `metadata` (JSON object)
+- `planGeometry` (optional, `{attachmentId, points}`, Phase 4 — see the
+  "Spatial zone geometry" section above)
 - `createdAt`, `updatedAt`
 
 ## Persistence
@@ -225,6 +283,11 @@ Main fields:
 - Doctrine mapping: `src/Facility/Infrastructure/Persistence/Doctrine/Record`
 - Migration: `migrations/main/Version20260212120000.php`
 - Migration (coordinates): `migrations/main/Version20260708120000.php`
+- Migration (plan geometry): `migrations/main/Version20260816120000.php` —
+  `plan_geometry JSONB NULL`, hand-written rather than Doctrine-diffed so the
+  physical column is `JSONB` (indexable, used by the plan-overlay CTE's
+  `->>'attachmentId'` filter) while the ORM mapping stays the same `json`
+  DBAL type as `metadata`.
 - Repository: `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository`
 - Table: `facility_attachments` (main database) — `facility_id` FK `ON DELETE
   CASCADE`, unique `storage_path`, `revision` (ETag optimistic concurrency,
@@ -338,4 +401,26 @@ Cross-module contracts and lifecycle invariants:
   E2E `tests/E2E/FacilityCoordinatesFlowTest.php` and
   `tests/E2E/FacilityPresentationFlowTest.php` assert the `path` shape on the
   organization-scoped and canonical detail reads.
+- Plan geometry (Phase 4):
+  - `Domain/ValueObject/PlanGeometryTest` — point-count and coordinate-bounds
+    validation, the UUID check on `attachmentId`, and the `toArray()`/
+    `fromArray()` round trip.
+  - `Application/UseCase/Command/Facility/SetFacilityPlanGeometry/SetFacilityPlanGeometryHandlerTest`
+    — every failure path (unknown facility, unknown attachment, non-ancestor
+    attachment, wrong kind, malformed points), the happy set, the clear, and
+    an archived facility still accepting a write.
+  - `Application/UseCase/Query/Facility/GetFacilityPlanOverlay/GetFacilityPlanOverlayHandlerTest`
+    — explicit `attachmentId`, default-to-primary-plan, no-primary-plan 404,
+    and the zones list including a descendant's geometry.
+  - Integration:
+    `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityRepositoryTest`
+    — the `plan_geometry` JSONB round trip and the `findZonesForPlanAttachment`
+    CTE (self, a descendant, and a sibling excluded).
+  - Functional: `tests/Functional/Api/FacilityPlanGeometryApiTest.php` — PUT
+    happy path (set, then clear), 422 on a malformed points shape, 400 on an
+    out-of-bounds coordinate, 404 cross-org and unknown-facility, 403
+    missing-permission, 409 wrong-kind and non-ancestor attachment; GET
+    overlay happy path including a descendant's zone, default-primary-plan
+    behavior, empty zones, 404 cross-org and no-primary-plan, 403
+    missing-permission.
 - Run module tests: `make test tests/Unit/Facility/`

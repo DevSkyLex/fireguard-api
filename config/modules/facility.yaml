@@ -45,6 +45,17 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # Facility plan Phase 4: spatial zone geometry. Neither the processor nor
+  # the provider touches Doctrine directly (they dispatch through the bus),
+  # so no $entityManager wiring is needed here.
+  Facility\Application\Service\FacilityAttachmentAncestryGuard: ~
+
+  Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry\SetFacilityPlanGeometryHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\GetFacilityPlanOverlayHandler:
+    tags: ['messenger.message_handler']
+
   # R11b follow-up: the download endpoint serving attachment bytes, gated the
   # same way as FacilityMediaProvider/FacilityMediaProcessor.
   Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:

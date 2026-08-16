@@ -11,7 +11,8 @@ use Facility\Domain\ValueObject\{
   FacilityName,
   FacilityOrganizationId,
   FacilityStatus,
-  FacilityType
+  FacilityType,
+  PlanGeometry
 };
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use LogicException;
@@ -61,6 +62,7 @@ final class FacilityMapper
       coordinates: null !== $record->latitude && null !== $record->longitude
         ? new FacilityCoordinates($record->latitude, $record->longitude)
         : null,
+      planGeometry: null !== $record->planGeometry ? PlanGeometry::fromArray($record->planGeometry) : null,
     );
   }
 
@@ -87,6 +89,7 @@ final class FacilityMapper
     $record->latitude = $facility->coordinates()?->latitude();
     $record->longitude = $facility->coordinates()?->longitude();
     $record->metadata = $facility->metadata();
+    $record->planGeometry = $facility->planGeometry()?->toArray();
     $record->createdAt = $facility->createdAt();
     $record->updatedAt = $facility->updatedAt();
 

@@ -23,10 +23,13 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
 use function count;
+use function json_decode;
 use function mb_strtolower;
 use function str_contains;
 use function strtoupper;
 use function usort;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Repository FacilityRepository.
@@ -97,6 +100,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $existing->latitude = $record->latitude;
       $existing->longitude = $record->longitude;
       $existing->metadata = $record->metadata;
+      $existing->planGeometry = $record->planGeometry;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);
@@ -715,6 +719,61 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ])->fetchOne();
 
     return false !== $match;
+  }
+
+  /**
+   * Method findZonesForPlanAttachment.
+   *
+   * @since 1.0.0
+   */
+  public function findZonesForPlanAttachment(
+    FacilityOrganizationId $organizationId,
+    FacilityId $rootFacilityId,
+    string $attachmentId,
+  ): array {
+    $sql = <<<'SQL'
+      WITH RECURSIVE subtree AS (
+          SELECT id, status, type, name, plan_geometry
+          FROM facilities
+          WHERE id = :rootId
+            AND organization_id = :organizationId
+            AND record_status = :published
+          UNION
+          SELECT child.id, child.status, child.type, child.name, child.plan_geometry
+          FROM facilities child
+          INNER JOIN subtree ON child.parent_facility_id = subtree.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT id, status, type, name, plan_geometry
+      FROM subtree
+      WHERE plan_geometry IS NOT NULL
+        AND plan_geometry ->> 'attachmentId' = :attachmentId
+      SQL;
+
+    /** @var list<array{id: string, status: string, type: string, name: string, plan_geometry: string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => (string) $rootFacilityId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+      'attachmentId' => $attachmentId,
+    ])->fetchAllAssociative();
+
+    $zones = [];
+    foreach ($rows as $row) {
+      /** @var array{attachmentId: string, points: list<array{0: float, 1: float}>} $geometry */
+      $geometry = json_decode($row['plan_geometry'], true, 512, JSON_THROW_ON_ERROR);
+
+      $zones[] = [
+        'facilityId' => $row['id'],
+        'name' => $row['name'],
+        'type' => $row['type'],
+        'status' => $row['status'],
+        'points' => $geometry['points'],
+      ];
+    }
+
+    return $zones;
   }
 
   /**

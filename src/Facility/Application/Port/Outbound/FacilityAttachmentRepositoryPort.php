@@ -98,5 +98,20 @@ interface FacilityAttachmentRepositoryPort
    * @param FacilityAttachmentId $exceptAttachmentId the attachment being promoted, left untouched
    */
   public function clearPrimaryPlan(FacilityId $facilityId, FacilityAttachmentId $exceptAttachmentId): void;
+
+  /**
+   * Method findPrimaryFloorPlan.
+   *
+   * Finds the facility's primary `FLOOR_PLAN` attachment, if any — the
+   * default plan the overlay read falls back to when the caller does not
+   * specify `attachmentId`.
+   *
+   * @since 1.2.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return ?FacilityAttachment the primary floor plan attachment, when set
+   */
+  public function findPrimaryFloorPlan(FacilityId $facilityId): ?FacilityAttachment;
   // #endregion
 }

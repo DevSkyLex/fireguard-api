@@ -8,11 +8,13 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
+use Facility\Domain\ValueObject\PlanGeometry;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_diff;
 use function array_key_exists;
@@ -38,7 +40,7 @@ use function trim;
  */
 final readonly class FacilityInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
-  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude'];
+  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry'];
 
   private const STATUSES = ['active', 'archived'];
 
@@ -309,6 +311,21 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       /** @var array<string, mixed> $metadata */
       $metadata = $patch['metadata'];
       $record->metadata = $metadata;
+    }
+    if (array_key_exists('planGeometry', $patch)) {
+      $planGeometry = $patch['planGeometry'];
+      if (null === $planGeometry) {
+        $record->planGeometry = null;
+      } elseif (is_array($planGeometry)) {
+        try {
+          /** @var array{attachmentId?: mixed, points?: mixed} $planGeometry */
+          $record->planGeometry = PlanGeometry::fromArray($planGeometry)->toArray();
+        } catch (InvalidValueException $exception) {
+          throw new InterventionConflictException($exception->getMessage());
+        }
+      } else {
+        throw new InterventionConflictException('Proposed facility plan geometry must be an object or null.');
+      }
     }
     if (array_key_exists('status', $patch)) {
       $status = $patch['status'];
