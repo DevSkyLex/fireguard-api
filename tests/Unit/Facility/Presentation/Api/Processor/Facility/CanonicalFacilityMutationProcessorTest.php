@@ -9,7 +9,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -964,6 +965,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       $this->createStub(FacilityArchivalGuardPort::class),
       $this->createStub(EventDispatcherPort::class),
       $this->permissiveFacilityRepository(),
+      $this->permissiveMetadataSchemaGuard(),
     );
   }
 
@@ -1006,6 +1008,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       $archivalGuard,
       $eventDispatcher,
       $facilityRepository,
+      $this->permissiveMetadataSchemaGuard(),
       $maxDepth,
     );
   }
@@ -1017,6 +1020,14 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     $facilityRepository->method('subtreeHeight')->willReturn(0);
 
     return $facilityRepository;
+  }
+
+  private function permissiveMetadataSchemaGuard(): FacilityMetadataSchemaGuard
+  {
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+
+    return new FacilityMetadataSchemaGuard($metadataRepository);
   }
 
   /**

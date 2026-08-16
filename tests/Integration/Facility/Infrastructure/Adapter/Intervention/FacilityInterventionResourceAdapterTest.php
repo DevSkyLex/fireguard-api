@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Domain\Exception\InterventionResourceNotFoundException;
@@ -45,7 +47,9 @@ final class FacilityInterventionResourceAdapterTest extends KernelTestCase
     $guard = self::createStub(FacilityArchivalGuardPort::class);
     /** @var FacilityRepositoryPort $facilityRepository */
     $facilityRepository = static::getContainer()->get(FacilityRepositoryPort::class);
-    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $facilityRepository);
+    $metadataRepository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $facilityRepository, new FacilityMetadataSchemaGuard($metadataRepository));
 
     $this->removeOrganization(self::ORGANIZATION_ID);
     $this->removeOrganization(self::OTHER_ORGANIZATION_ID);

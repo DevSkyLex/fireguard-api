@@ -270,6 +270,67 @@ the port, Equipment's Infrastructure supplies the data). See
 `EquipmentFloorPlanValidationPort` this module implements in the other
 direction.
 
+### Metadata schema (organization-defined typed fields)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/api/organizations/{organizationId}/facility-metadata-fields` | Create a typed metadata field definition |
+| GET | `/api/organizations/{organizationId}/facility-metadata-fields` | List the organization's metadata field definitions |
+| PATCH | `/api/organizations/{organizationId}/facility-metadata-fields/{id}` | Partially update a metadata field definition |
+| DELETE | `/api/organizations/{organizationId}/facility-metadata-fields/{id}` | Delete a metadata field definition |
+
+Facility `metadata` was an untyped `Record<string, string\|null>` free-for-all.
+This lets an organization define its own typed schema for it — EU-generic, no
+national fire-safety regime presumed: `key` (machine key, kebab/snake,
+unique per organization), `label`, `fieldType`
+(`text`\|`number`\|`date`\|`boolean`\|`select`), `options` (only for
+`select`, ≥2 unique non-blank values), an optional `facilityType` scope
+(null = every type), `required`, and an optional `unit` (≤16 chars). Capped
+at **50** definitions per organization (`422` once reached).
+`GET /facility-metadata-fields` doubles as the frontend's form-schema source
+(`Facility\Presentation\Api\Dto\Output\MetadataField\FacilityMetadataFieldOutput`);
+it is a business resource, not a reference catalog, because the organization
+owns and edits its own values — so its provider gates on
+`organization.facilities.read` explicitly, the same 403-vs-404 scope rule as
+every other Facility provider (see below).
+
+**Deleting a field definition does not touch any facility's stored
+`metadata` values** — they simply become "unschema'd" free-form entries
+again, matching the compatibility rule below. This is deliberate: retiring a
+field must not retroactively invalidate historical data.
+
+**Validation and compatibility rule**, enforced by
+`Facility\Application\Service\FacilityMetadataSchemaGuard` and called from
+every facility metadata write path — `CreateFacilityHandler`,
+`UpdateFacilityHandler`, `CanonicalFacilityMutationProcessor` (the flat
+canonical PATCH), and `FacilityInterventionResourceAdapter::apply()` (the
+offline intervention path):
+
+- When an organization has **no** field definitions, every metadata payload
+  passes untouched — this feature is strictly additive over the pre-existing
+  free-form contract.
+- When definitions exist, only the metadata keys that **match** a
+  definition (and whose `facilityType` scope applies, or is null) are
+  checked against that definition's type. Every other key is passed through
+  unexamined — an unschema'd key is never rejected. This is what lets the
+  old free-form usage and the new typed schema coexist.
+- Type parsing: `number` accepts int/float; `boolean` accepts bool; `date`
+  accepts an ISO 8601 date or date-time; `select` accepts a string present
+  in the definition's `options`; `text` accepts any string.
+- `required` is enforced on **create only**. A partial PATCH (canonical or
+  the dedicated endpoint) is never rejected for omitting a required key it
+  never touched — merge-patch semantics, matching every other Facility
+  field.
+- A `null` value for a schema'd key is treated as "not provided" (skipped),
+  not as a type failure.
+
+`FacilityMetadataValidationException` carries the offending keys and is
+mapped centrally to **422** by
+`Facility\Presentation\Api\EventSubscriber\FacilityMetadataValidationExceptionSubscriber`
+(mirrors `Shared\Presentation\Api\EventSubscriber\AttachmentConstraintExceptionSubscriber`),
+because the guard is called from three different write paths whose HTTP
+mapping must agree.
+
 ## Permission Model
 
 This module relies on Organization-scoped permissions:
@@ -337,6 +398,13 @@ Main fields:
   "Spatial zone geometry" section above)
 - `createdAt`, `updatedAt`
 
+Aggregate:
+
+- `FacilityMetadataField` — an organization-defined typed metadata field
+  definition: `id`, `organizationId`, `key`, `label`, `fieldType`,
+  `options`, `facilityType` (optional), `required`, `unit` (optional),
+  `createdAt`, `updatedAt`. See "Metadata schema" above.
+
 ## Persistence
 
 - Table: `facilities` (main database)
@@ -364,6 +432,13 @@ Main fields:
   `uniq_facility_attachment_primary_plan ON facility_attachments (facility_id)
   WHERE is_primary_plan` — Migration: `migrations/main/Version20260816110904.php`
   (Facility plan Phase 3).
+- Table: `facility_metadata_fields` (main database) — `organization_id` FK
+  `ON DELETE CASCADE`, unique `(organization_id, field_key)`. Migration:
+  `migrations/main/Version20260816165736.php`. Repository:
+  `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository`.
+  Deleting the organization cascades its field definitions; it never touches
+  any facility's stored `metadata` values (separate table, no FK between
+  them).
 
 ## Architecture
 
@@ -484,6 +559,12 @@ Cross-module contracts and lifecycle invariants:
   `ProvisionOutcome::INVALID` like every other hierarchy failure — no new
   handling was needed there.
 
+- **Metadata schema guard**: `Facility\Application\Service\FacilityMetadataSchemaGuard`
+  is called from `CreateFacilityHandler`, `UpdateFacilityHandler`,
+  `CanonicalFacilityMutationProcessor`, and
+  `FacilityInterventionResourceAdapter::apply()` — see "Metadata schema"
+  above for the validation and compatibility rules.
+
 ## Error Codes
 
 | Exception | HTTP status | When |
@@ -519,6 +600,10 @@ other Facility endpoints (see the create/archive/move handlers).
   (`facility.hierarchy.max_depth`, `%env(int:default:
   facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%`) and injected
   into the enforcement sites with `#[Autowire('%facility.hierarchy.max_depth%')]`.
+- `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository`
+  and `Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort`
+  are wired with `$entityManager: '@doctrine.orm.main_entity_manager'`, same
+  as every other Facility repository.
 
 ## Testing
 
@@ -540,15 +625,25 @@ other Facility endpoints (see the create/archive/move handlers).
     copied), archived-source 409, archived-descendant skip and reattachment,
     the 500-node cap, the quota check running (and refusing) before any
     `save()`, and the cross-organization 404.
+  - `Domain/Model/MetadataField/FacilityMetadataFieldTest` — aggregate
+    invariants (key format, select-needs-options, unit length).
+  - `Application/Service/FacilityMetadataSchemaGuardTest` — each field type
+    validated, unknown keys pass through, `required` enforced on create
+    only, `facilityType` scoping.
+  - `Application/UseCase/{Command,Query}/MetadataField/**` — the four
+    metadata field use cases.
 - Integration (real database):
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`
-  — round-trips the new columns and proves the partial unique index (a second
+  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/{FacilityAttachmentRepositoryTest,FacilityMetadataFieldRepositoryTest}`
+  — the attachment repository round-trips the new columns and proves the partial unique index (a second
   `is_primary_plan = true` row for the same facility is rejected at the DB);
   `FacilityRepositoryTest::testFindAncestorsWalksTheParentChainRootFirstAndExcludesDraftAncestors`
   (root facility, 3-level chain, draft ancestor exclusion),
   `Presentation/Api/Provider/Facility/CanonicalFacilityProviderTest` (item route
-  `path` mapping, collection left empty).
-- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php` — floor
+  `path` mapping, collection left empty);
+  `tests/Integration/Facility/Infrastructure/Adapter/Intervention/FacilityInterventionResourceAdapterApplyTest`
+  (includes the metadata-schema-rejection case on the offline apply() path).
+- Functional: `tests/Functional/Api/{FacilityAttachmentApiTest,FacilityMetadataFieldApiTest}.php`,
+  plus the typed-metadata create cases added to `FacilityApiTest.php` — floor
   plan upload (happy path + wrong-MIME 422), `?kind=` list filter, the
   primary-plan route (happy, swap, document-refusal 409, cross-org 404,
   missing-permission 403), the download route (attachment-disposition +
@@ -626,3 +721,11 @@ other Facility endpoints (see the create/archive/move handlers).
 | `FacilityHierarchyException::hierarchyCycleDetected` | 400 | "Cannot move facility: hierarchy cycle detected." |
 | `FacilityHierarchyException::maxDepthExceeded($cap)` | 400 (Create/Move use cases, via the same `FacilityHierarchyException` catch as the other hierarchy errors); 422 on the canonical PATCH `parent` path (mirrors its existing cycle-check status); `InterventionConflictException` on the offline `apply()` path | "Facility hierarchy depth cap of `$cap` levels exceeded." |
 | `FacilityHasActiveDependentsException` | 409 | archival refused while an active child facility, active equipment, or an in-progress inspection exists |
+| `FacilityMetadataFieldNotFoundException` | 404 | Unknown id, or a field belonging to another organization (indistinguishable from unknown, see "Scope versus entitlement" above) |
+| `FacilityMetadataFieldKeyAlreadyExistsException` | 409 | Duplicate `(organizationId, key)` |
+| `FacilityMetadataFieldLimitExceededException` | 422 | Organization already has 50 field definitions |
+| `FacilityMetadataValidationException` | 422 | One or more `metadata` entries fail the organization's typed schema; mapped centrally by `FacilityMetadataValidationExceptionSubscriber` regardless of which write path raised it |
+
+Every other domain exception in this module (facility hierarchy, archival
+dependents, code conflicts, …) is mapped locally by its processor/provider,
+following the module's existing convention.

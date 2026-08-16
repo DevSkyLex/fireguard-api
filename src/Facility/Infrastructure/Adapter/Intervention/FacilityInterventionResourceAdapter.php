@@ -8,7 +8,8 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
+use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException, FacilityMetadataValidationException};
 use Facility\Domain\ValueObject\{FacilityId, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
@@ -58,12 +59,14 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
    * @param EntityManagerInterface $entityManager the entity manager value
    * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
    * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param FacilityMetadataSchemaGuard $metadataSchemaGuard the organization's typed metadata schema guard
    * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private FacilityArchivalGuardPort $archivalGuard,
     private FacilityRepositoryPort $facilityRepository,
+    private FacilityMetadataSchemaGuard $metadataSchemaGuard,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
   ) {
@@ -317,6 +320,14 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       }
       /** @var array<string, mixed> $metadata */
       $metadata = $patch['metadata'];
+
+      // required is enforced on CREATE only, mirroring the canonical PATCH
+      // surface and the command handlers.
+      try {
+        $this->metadataSchemaGuard->assertValid($organizationId, $metadata, $record->type, false);
+      } catch (FacilityMetadataValidationException $exception) {
+        throw new InterventionConflictException($exception->getMessage());
+      }
       $record->metadata = $metadata;
     }
     if (array_key_exists('planGeometry', $patch)) {

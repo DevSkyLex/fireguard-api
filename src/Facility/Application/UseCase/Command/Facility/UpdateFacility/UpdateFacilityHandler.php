@@ -10,6 +10,7 @@ use Doctrine\DBAL\Exception\{
 };
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\{
   FacilityCodeAlreadyExistsException,
   FacilityNotFoundException
@@ -55,6 +56,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
+    private FacilityMetadataSchemaGuard $metadataSchemaGuard,
   ) {
   }
   // #endregion
@@ -130,6 +132,17 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       }
     } catch (InvalidValueException|ValueError $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    if ($command->hasMetadata) {
+      // `required` is enforced on CREATE only — a partial PATCH is never
+      // rejected for a required key it never touched.
+      $this->metadataSchemaGuard->assertValid(
+        $command->organizationId,
+        $facility->metadata(),
+        $facility->type()->value,
+        false,
+      );
     }
 
     try {
