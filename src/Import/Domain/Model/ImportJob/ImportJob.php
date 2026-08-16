@@ -47,11 +47,12 @@ final class ImportJob
    * @param string $createdBy the user identifier who created the job
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
+   * @param bool $dryRun whether this job validates and reports without provisioning anything
    * @param ?int $totalRows the total data row count, set once counted
    * @param int $processedRows the number of data rows processed so far (high-water mark)
-   * @param int $successfulRows the number of rows successfully provisioned
+   * @param int $successfulRows the number of rows successfully provisioned (or, for a dry run, that would be)
    * @param int $failedRows the number of rows reported as failed
-   * @param list<ImportRowError> $errorReport the per-row error report
+   * @param list<ImportRowError> $errorReport the per-row report
    * @param ?string $jobError the catastrophic (whole-file) failure reason, when failed
    * @param ?DateTimeImmutable $startedAt when processing started
    * @param ?DateTimeImmutable $completedAt when the job reached a terminal state
@@ -66,6 +67,7 @@ final class ImportJob
     private string $createdBy,
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
+    private bool $dryRun = false,
     private ?int $totalRows = null,
     private int $processedRows = 0,
     private int $successfulRows = 0,
@@ -94,6 +96,7 @@ final class ImportJob
    * @param string $storagePath the uploaded CSV storage key
    * @param string $originalFilename the original uploaded file name
    * @param string $createdBy the creating user identifier
+   * @param bool $dryRun whether this job validates and reports without provisioning anything
    *
    * @return self the created import job
    */
@@ -104,6 +107,7 @@ final class ImportJob
     string $storagePath,
     string $originalFilename,
     string $createdBy,
+    bool $dryRun = false,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -117,6 +121,7 @@ final class ImportJob
       createdBy: $createdBy,
       createdAt: $now,
       updatedAt: $now,
+      dryRun: $dryRun,
     );
   }
 
@@ -138,11 +143,12 @@ final class ImportJob
    * @param string $createdBy the creating user identifier
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
+   * @param bool $dryRun whether this job validates and reports without provisioning anything
    * @param ?int $totalRows the total data row count
    * @param int $processedRows the number of data rows processed so far
-   * @param int $successfulRows the number of rows successfully provisioned
+   * @param int $successfulRows the number of rows successfully provisioned (or, for a dry run, that would be)
    * @param int $failedRows the number of rows reported as failed
-   * @param list<ImportRowError> $errorReport the per-row error report
+   * @param list<ImportRowError> $errorReport the per-row report
    * @param ?string $jobError the catastrophic failure reason, when failed
    * @param ?DateTimeImmutable $startedAt when processing started
    * @param ?DateTimeImmutable $completedAt when the job reached a terminal state
@@ -159,6 +165,7 @@ final class ImportJob
     string $createdBy,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
+    bool $dryRun,
     ?int $totalRows,
     int $processedRows,
     int $successfulRows,
@@ -178,6 +185,7 @@ final class ImportJob
       createdBy: $createdBy,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
+      dryRun: $dryRun,
       totalRows: $totalRows,
       processedRows: $processedRows,
       successfulRows: $successfulRows,
@@ -231,15 +239,24 @@ final class ImportJob
   /**
    * Method recordRowSuccess.
    *
-   * Records one successfully provisioned row.
+   * Records one successfully provisioned row. A real (write) run passes no
+   * `$report`, keeping the report failures-only as today. A dry-run job
+   * passes a `would_create` entry so the same report field carries a full
+   * per-row outcome list — see the class-level note on
+   * {@see ImportRowError}.
    *
    * @since 1.0.0
+   *
+   * @param ?ImportRowError $report the `would_create` entry to append, dry-run jobs only
    */
-  public function recordRowSuccess(): void
+  public function recordRowSuccess(?ImportRowError $report = null): void
   {
     $this->assertProcessing();
     ++$this->processedRows;
     ++$this->successfulRows;
+    if (null !== $report) {
+      $this->errorReport[] = $report;
+    }
     $this->touch();
   }
 
@@ -331,6 +348,16 @@ final class ImportJob
   public function kind(): ImportKind
   {
     return $this->kind;
+  }
+
+  /**
+   * Method isDryRun.
+   *
+   * @since 1.0.0
+   */
+  public function isDryRun(): bool
+  {
+    return $this->dryRun;
   }
 
   /**

@@ -47,6 +47,7 @@ final class ImportJobOutputFactoryTest extends TestCase
     self::assertSame('equipment.csv', $output->originalFilename);
     self::assertSame('2026-01-01T00:00:00+00:00', $output->createdAt);
     self::assertSame('2026-01-01T00:00:00+00:00', $output->updatedAt);
+    self::assertFalse($output->dryRun);
   }
 
   #[Test]
@@ -69,6 +70,7 @@ final class ImportJobOutputFactoryTest extends TestCase
     self::assertSame('duplicate', $output->errorReport[0]->code);
     self::assertSame('Serial already used.', $output->errorReport[0]->message);
     self::assertNull($output->errorReport[1]->column);
+    self::assertFalse($output->dryRun);
   }
 
   #[Test]
@@ -83,6 +85,38 @@ final class ImportJobOutputFactoryTest extends TestCase
     self::assertNull($output->completedAt);
   }
 
+  #[Test]
+  public function testFromViewCarriesTheDryRunFlagAndAWouldCreateReportEntry(): void
+  {
+    $view = new GetImportJobResult(
+      importJobId: self::IMPORT_JOB_ID,
+      organizationId: self::ORGANIZATION_ID,
+      kind: 'facility',
+      status: 'completed',
+      originalFilename: 'facilities.csv',
+      dryRun: true,
+      totalRows: 1,
+      processedRows: 1,
+      successfulRows: 1,
+      failedRows: 0,
+      errorReport: [
+        ['rowNumber' => 1, 'column' => null, 'code' => 'would_create', 'message' => 'Would create this facility.'],
+      ],
+      jobError: null,
+      createdBy: '550e8400-e29b-41d4-a716-446655440001',
+      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      startedAt: new DateTimeImmutable('2026-01-01T00:00:01+00:00'),
+      completedAt: new DateTimeImmutable('2026-01-01T00:00:02+00:00'),
+      updatedAt: new DateTimeImmutable('2026-01-01T00:00:02+00:00'),
+    );
+
+    $output = new ImportJobOutputFactory()->fromView($view);
+
+    self::assertTrue($output->dryRun);
+    self::assertCount(1, $output->errorReport);
+    self::assertSame('would_create', $output->errorReport[0]->code);
+  }
+
   private function view(
     ?DateTimeImmutable $startedAt = new DateTimeImmutable('2026-01-01T01:00:00+00:00'),
     ?DateTimeImmutable $completedAt = new DateTimeImmutable('2026-01-01T02:00:00+00:00'),
@@ -93,6 +127,7 @@ final class ImportJobOutputFactoryTest extends TestCase
       kind: 'equipment',
       status: 'completed',
       originalFilename: 'equipment.csv',
+      dryRun: false,
       totalRows: 10,
       processedRows: 10,
       successfulRows: 8,

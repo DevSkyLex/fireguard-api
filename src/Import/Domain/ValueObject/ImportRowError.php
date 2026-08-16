@@ -7,11 +7,18 @@ namespace Import\Domain\ValueObject;
 /**
  * ValueObject ImportRowError.
  *
- * One reported row failure inside an {@see \Import\Domain\Model\ImportJob\ImportJob}'s
- * error report: a row that failed structural validation, an invalid
- * reference (e.g. an unknown facility parent code), or would exceed the
+ * One reported row outcome inside an {@see \Import\Domain\Model\ImportJob\ImportJob}'s
+ * report: a row that failed structural validation, an invalid reference
+ * (e.g. an unknown facility parent code), or would exceed the
  * organization's plan quota. Row failures are non-fatal to the batch — the
  * job still reaches `completed` with a partial success.
+ *
+ * For a **dry-run** job the same list also carries one entry per
+ * successfully validated row, coded `would_create` — {@see
+ * \Import\Domain\Model\ImportJob\ImportJob::recordRowSuccess()} accepts an
+ * optional entry for exactly this purpose, so the dry-run report reuses this
+ * field rather than a second, parallel structure. A real (write) run never
+ * appends a `would_create` entry: its report stays failures-only.
  *
  * @category ValueObject
  *
@@ -28,8 +35,8 @@ final readonly class ImportRowError
    * @since 1.0.0
    *
    * @param int $rowNumber the 1-based data row number (header excluded)
-   * @param string $code the machine-readable failure code (`quota_exceeded`|`invalid`|`missing_required`)
-   * @param string $message the human-readable failure reason
+   * @param string $code the machine-readable outcome code (`quota_exceeded`|`invalid`|`missing_required`|`would_create`)
+   * @param string $message the human-readable reason
    * @param ?string $column the offending column name, when known
    */
   public function __construct(

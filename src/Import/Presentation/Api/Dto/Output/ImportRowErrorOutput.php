@@ -32,7 +32,8 @@ final class ImportRowErrorOutput
   /**
    * Property code.
    *
-   * One of `quota_exceeded`, `invalid`, `missing_required`.
+   * One of `quota_exceeded`, `invalid`, `missing_required`, `would_create`
+   * (dry-run jobs only — a row that validated and would have been created).
    *
    * @since 1.0.0
    */

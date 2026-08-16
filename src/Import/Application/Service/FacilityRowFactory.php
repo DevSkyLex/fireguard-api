@@ -8,6 +8,7 @@ use Facility\Application\Contract\Provisioning\ProvisionFacilityRequest;
 use Import\Domain\Exception\ImportRowValidationException;
 
 use function is_numeric;
+use function sprintf;
 use function trim;
 
 /**
@@ -17,7 +18,11 @@ use function trim;
  * row. Expected header: `type` (required), `name` (required), `code`,
  * `address`, `latitude`, `longitude`, `parentCode`. Unknown columns are
  * ignored. Only structural validation happens here (required columns
- * present, `latitude`/`longitude` are numeric and provided together);
+ * present, `latitude`/`longitude` are numeric, provided together, and
+ * within their valid decimal-degree range, `[-90, 90]`/`[-180, 180]` — a
+ * self-contained duplicate of `Facility\Domain\ValueObject\FacilityCoordinates`'s
+ * own check, not an import of it, so a **dry-run** row can fail fast on a
+ * bad coordinate without ever dispatching `CreateFacilityCommand`);
  * `type` enum membership and the `parentCode` lookup are left to
  * `CreateFacilityHandler` / `FacilityProvisioningService` (via
  * `FacilityProvisioningPort`), which already report an invalid value as a
@@ -38,6 +43,26 @@ use function trim;
  */
 final readonly class FacilityRowFactory
 {
+  // #region Constants
+  /**
+   * Constant LATITUDE_RANGE.
+   *
+   * @since 1.0.0
+   *
+   * @var array{float, float} LATITUDE_RANGE
+   */
+  private const array LATITUDE_RANGE = [-90.0, 90.0];
+
+  /**
+   * Constant LONGITUDE_RANGE.
+   *
+   * @since 1.0.0
+   *
+   * @var array{float, float} LONGITUDE_RANGE
+   */
+  private const array LONGITUDE_RANGE = [-180.0, 180.0];
+  // #endregion
+
   // #region Methods
   /**
    * Method map.
@@ -56,8 +81,8 @@ final readonly class FacilityRowFactory
   {
     $type = $this->requiredString($row, 'type');
     $name = $this->requiredString($row, 'name');
-    $latitude = $this->optionalFloat($row, 'latitude');
-    $longitude = $this->optionalFloat($row, 'longitude');
+    $latitude = $this->optionalFloat($row, 'latitude', ...self::LATITUDE_RANGE);
+    $longitude = $this->optionalFloat($row, 'longitude', ...self::LONGITUDE_RANGE);
 
     if ((null === $latitude) !== (null === $longitude)) {
       throw ImportRowValidationException::invalidColumn(
@@ -124,12 +149,14 @@ final readonly class FacilityRowFactory
    *
    * @param array<string, string> $row the associative CSV data row
    * @param string $column the optional numeric column name
+   * @param float $min the inclusive lower bound
+   * @param float $max the inclusive upper bound
    *
-   * @throws ImportRowValidationException when the value is not numeric
+   * @throws ImportRowValidationException when the value is not numeric or out of range
    *
    * @return ?float the parsed value, or null when blank/absent
    */
-  private function optionalFloat(array $row, string $column): ?float
+  private function optionalFloat(array $row, string $column, float $min, float $max): ?float
   {
     $raw = $this->optionalString($row, $column);
     if (null === $raw) {
@@ -140,7 +167,15 @@ final readonly class FacilityRowFactory
       throw ImportRowValidationException::invalidColumn($column, 'must be a number.');
     }
 
-    return (float) $raw;
+    $value = (float) $raw;
+    if ($value < $min || $value > $max) {
+      throw ImportRowValidationException::invalidColumn(
+        $column,
+        sprintf('must be between %s and %s degrees.', $min, $max),
+      );
+    }
+
+    return $value;
   }
   // #endregion
 }

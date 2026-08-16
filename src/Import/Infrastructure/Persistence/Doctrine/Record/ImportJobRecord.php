@@ -79,6 +79,14 @@ class ImportJobRecord
   public string $originalFilename;
 
   /**
+   * Property dryRun.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'is_dry_run', type: 'boolean')]
+  public bool $dryRun = false;
+
+  /**
    * Property totalRows.
    *
    * @since 1.0.0

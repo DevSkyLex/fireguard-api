@@ -160,6 +160,22 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     }
   }
 
+  public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource $resource, int $additionalOffset = 0): void
+  {
+    $limit = $this->getLimit($organizationId, $resource);
+
+    if (null === $limit) {
+      return;
+    }
+
+    // Deliberately no advisory lock: this is a projection for a caller (a
+    // dry-run batch) that persists nothing and therefore has no insert to
+    // serialize against — see the port contract.
+    if ($this->getUsage($organizationId, $resource) + $additionalOffset >= $limit) {
+      throw OrganizationQuotaExceededException::forResource($resource, $limit);
+    }
+  }
+
   /**
    * @return list<array{resource: string, used: int, limit: int|null}>
    */

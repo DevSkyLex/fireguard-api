@@ -109,4 +109,52 @@ final class FacilityRowFactoryTest extends TestCase
       self::assertSame('latitude', $exception->column);
     }
   }
+
+  #[Test]
+  public function itRejectsALatitudeAboveNinetyDegrees(): void
+  {
+    try {
+      new FacilityRowFactory()->map(self::ORGANIZATION_ID, [
+        'type' => 'site',
+        'name' => 'Main site',
+        'latitude' => '90.1',
+        'longitude' => '2.3522',
+      ]);
+      self::fail('Expected an ImportRowValidationException.');
+    } catch (ImportRowValidationException $exception) {
+      self::assertSame('invalid', $exception->errorCode);
+      self::assertSame('latitude', $exception->column);
+    }
+  }
+
+  #[Test]
+  public function itRejectsALongitudeBelowNegativeOneEightyDegrees(): void
+  {
+    try {
+      new FacilityRowFactory()->map(self::ORGANIZATION_ID, [
+        'type' => 'site',
+        'name' => 'Main site',
+        'latitude' => '48.8566',
+        'longitude' => '-180.1',
+      ]);
+      self::fail('Expected an ImportRowValidationException.');
+    } catch (ImportRowValidationException $exception) {
+      self::assertSame('invalid', $exception->errorCode);
+      self::assertSame('longitude', $exception->column);
+    }
+  }
+
+  #[Test]
+  public function itAcceptsCoordinatesAtTheInclusiveRangeBoundaries(): void
+  {
+    $request = new FacilityRowFactory()->map(self::ORGANIZATION_ID, [
+      'type' => 'site',
+      'name' => 'Main site',
+      'latitude' => '-90',
+      'longitude' => '180',
+    ]);
+
+    self::assertSame(-90.0, $request->latitude);
+    self::assertSame(180.0, $request->longitude);
+  }
 }

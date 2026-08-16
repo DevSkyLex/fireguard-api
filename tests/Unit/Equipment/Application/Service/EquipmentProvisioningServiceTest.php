@@ -124,6 +124,33 @@ final class EquipmentProvisioningServiceTest extends TestCase
     self::assertStringContainsString('SN-42', (string) $result->message);
   }
 
+  #[Test]
+  public function itPassesDryRunAndTheQuotaProjectionOffsetThrough(): void
+  {
+    $captured = null;
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(function (CreateEquipmentCommand $command) use (&$captured): CreateEquipmentResult {
+        $captured = $command;
+
+        return $this->fakeResult('equipment-2');
+      });
+
+    $request = new ProvisionEquipmentRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'fire_extinguisher',
+      dryRun: true,
+      quotaProjectionOffset: 4,
+    );
+
+    new EquipmentProvisioningService($commandBus)->provision($request);
+
+    self::assertInstanceOf(CreateEquipmentCommand::class, $captured);
+    self::assertTrue($captured->dryRun);
+    self::assertSame(4, $captured->quotaProjectionOffset);
+  }
+
   private function request(): ProvisionEquipmentRequest
   {
     return new ProvisionEquipmentRequest(

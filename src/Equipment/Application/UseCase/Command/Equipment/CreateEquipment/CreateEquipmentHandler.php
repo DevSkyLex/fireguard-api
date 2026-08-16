@@ -85,6 +85,20 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
+    if ($command->dryRun) {
+      // A dry run never enters the transaction that would take the quota's
+      // advisory lock (see OrganizationQuotaPort::assertCanAdd): it projects
+      // the cap instead, offsetting for rows already provisionally counted
+      // earlier in the same batch (the Import module's dry-run report).
+      $this->quota->assertProjectedCanAdd(
+        $command->organizationId,
+        OrganizationQuotaResource::EQUIPMENT,
+        $command->quotaProjectionOffset,
+      );
+
+      return $this->toResult($equipment);
+    }
+
     // Enforce the plan quota and persist atomically: assertCanAdd takes a
     // transaction-scoped advisory lock so concurrent creates at the cap cannot
     // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
@@ -93,6 +107,20 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       $this->equipmentRepository->save($equipment);
     });
 
+    return $this->toResult($equipment);
+  }
+
+  /**
+   * Method toResult.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate (persisted, or — for a dry run — validated only)
+   *
+   * @return CreateEquipmentResult the use case result
+   */
+  private function toResult(Equipment $equipment): CreateEquipmentResult
+  {
     return new CreateEquipmentResult(
       equipmentId: (string) $equipment->id(),
       organizationId: (string) $equipment->organizationId(),

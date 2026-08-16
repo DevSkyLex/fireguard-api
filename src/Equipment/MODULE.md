@@ -435,6 +435,17 @@ Cross-module contracts and lifecycle invariants:
   rethrowing, so a caller processing many rows can continue past a single
   failed one. Mirrors `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort`.
   See `src/Import/MODULE.md`.
+- **Bulk CSV import v2 — dry-run mode**: `ProvisionEquipmentRequest` carries
+  an optional `dryRun` (default `false`) and `quotaProjectionOffset` (default
+  `0`), threaded onto `CreateEquipmentCommand`. `CreateEquipmentHandler`
+  still builds and validates the `Equipment` aggregate under `dryRun`, but
+  skips the transactional save and calls
+  `OrganizationQuotaPort::assertProjectedCanAdd()` instead of
+  `assertCanAdd()` — a lock-free projection (`getLimit()`/`getUsage()` plus
+  the caller's offset) meant for a caller, such as Import's dry run, that
+  persists nothing and has no insert to serialize an advisory lock against.
+  See `src/Import/MODULE.md`'s dry-run section and `src/Facility/MODULE.md`
+  for the sibling implementation.
 
 ## Configuration
 

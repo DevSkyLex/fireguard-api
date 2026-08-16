@@ -97,6 +97,29 @@ interface OrganizationQuotaPort
   public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void;
 
   /**
+   * Method assertProjectedCanAdd.
+   *
+   * A **projection**, not an enforcement: reports whether one more of the
+   * resource, plus `$additionalOffset` already provisionally counted
+   * elsewhere (a caller — such as a bulk **dry-run** import — walking many
+   * candidate rows in one pass, none of them persisted yet), would reach
+   * the plan cap. Takes **no** advisory lock and consumes nothing, so —
+   * unlike {@see assertCanAdd()} — it may be called outside a transaction
+   * and answers only "would this exceed the cap right now", never a
+   * TOCTOU-safe guarantee.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param OrganizationQuotaResource $resource the resource to project
+   * @param int $additionalOffset resources already provisionally counted elsewhere in the same batch
+   *
+   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
+   *                                                                           when the projected count would reach the plan cap
+   */
+  public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource $resource, int $additionalOffset = 0): void;
+
+  /**
    * Method assertCanAcceptMember.
    *
    * Asserts that accepting a pending invitation would not push the organization

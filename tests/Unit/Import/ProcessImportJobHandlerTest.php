@@ -433,6 +433,143 @@ final class ProcessImportJobHandlerTest extends TestCase
     self::assertSame(50, $reloaded->successfulRows());
   }
 
+  #[Test]
+  public function itReportsWouldCreateForEveryRowOnADryRunWithoutPersistingEquipment(): void
+  {
+    $job = ImportJob::create(
+      id: ImportJobId::fromString(self::JOB_ID),
+      organizationId: self::ORGANIZATION_ID,
+      kind: ImportKind::EQUIPMENT,
+      storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
+      originalFilename: 'equipment.csv',
+      createdBy: self::CREATED_BY,
+      dryRun: true,
+    );
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [1 => ['type' => 'fire_extinguisher'], 2 => ['type' => 'smoke_detector']];
+    $csvStreamer->method('countDataRows')->willReturn(2);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    // The negative assertion is the point: a dry run must never persist —
+    // the provisioning port itself is the only place that could reach a
+    // repository write, and every request it receives here must carry
+    // dryRun: true with an increasing quota-projection offset.
+    $expectedOffset = 0;
+    $equipmentProvisioning = $this->createMock(EquipmentProvisioningPort::class);
+    $equipmentProvisioning->expects(self::exactly(2))
+      ->method('provision')
+      ->with(self::callback(static function (ProvisionEquipmentRequest $request) use (&$expectedOffset): bool {
+        self::assertTrue($request->dryRun);
+        self::assertSame($expectedOffset, $request->quotaProjectionOffset);
+        ++$expectedOffset;
+
+        return true;
+      }))
+      ->willReturn(new ProvisionEquipmentResult(EquipmentProvisionOutcome::CREATED, resourceId: 'equipment-1'));
+
+    $handler = $this->handler($repository, $csvStreamer, $equipmentProvisioning, $this->neverCalledFacilityPort(), $this->createStub(EventDispatcherPort::class));
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(2, $reloaded->successfulRows());
+    $report = $reloaded->errorReport();
+    self::assertCount(2, $report);
+    self::assertSame('would_create', $report[0]->code);
+    self::assertSame('would_create', $report[1]->code);
+  }
+
+  #[Test]
+  public function itReportsQuotaExceededOnADryRunWithoutFailingTheBatch(): void
+  {
+    $job = ImportJob::create(
+      id: ImportJobId::fromString(self::JOB_ID),
+      organizationId: self::ORGANIZATION_ID,
+      kind: ImportKind::EQUIPMENT,
+      storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
+      originalFilename: 'equipment.csv',
+      createdBy: self::CREATED_BY,
+      dryRun: true,
+    );
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [1 => ['type' => 'fire_extinguisher'], 2 => ['type' => 'smoke_detector']];
+    $csvStreamer->method('countDataRows')->willReturn(2);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $equipmentProvisioning = $this->createStub(EquipmentProvisioningPort::class);
+    $equipmentProvisioning->method('provision')->willReturnOnConsecutiveCalls(
+      new ProvisionEquipmentResult(EquipmentProvisionOutcome::CREATED, resourceId: 'equipment-1'),
+      new ProvisionEquipmentResult(EquipmentProvisionOutcome::QUOTA_EXCEEDED, message: 'Plan limit reached.'),
+    );
+
+    $handler = $this->handler($repository, $csvStreamer, $equipmentProvisioning, $this->neverCalledFacilityPort(), $this->createStub(EventDispatcherPort::class));
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(1, $reloaded->successfulRows());
+    self::assertSame(1, $reloaded->failedRows());
+    $report = $reloaded->errorReport();
+    self::assertSame('would_create', $report[0]->code);
+    self::assertSame('quota_exceeded', $report[1]->code);
+  }
+
+  #[Test]
+  public function itResolvesAnIntraFileParentCodeOnAFacilityDryRun(): void
+  {
+    $job = ImportJob::create(
+      id: ImportJobId::fromString(self::JOB_ID),
+      organizationId: self::ORGANIZATION_ID,
+      kind: ImportKind::FACILITY,
+      storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
+      originalFilename: 'facilities.csv',
+      createdBy: self::CREATED_BY,
+      dryRun: true,
+    );
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [
+      1 => ['type' => 'site', 'name' => 'HQ', 'code' => 'HQ'],
+      2 => ['type' => 'zone', 'name' => 'Annex', 'parentCode' => 'HQ'],
+    ];
+    $csvStreamer->method('countDataRows')->willReturn(2);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $call = 0;
+    $facilityProvisioning = $this->createMock(FacilityProvisioningPort::class);
+    $facilityProvisioning->expects(self::exactly(2))
+      ->method('provision')
+      ->with(self::callback(static function (ProvisionFacilityRequest $request) use (&$call): bool {
+        ++$call;
+        self::assertTrue($request->dryRun);
+        if (2 === $call) {
+          self::assertSame('HQ', $request->parentCode);
+          self::assertSame(['HQ'], $request->knownPendingCodes);
+        }
+
+        return true;
+      }))
+      ->willReturn(new ProvisionFacilityResult(FacilityProvisionOutcome::CREATED, resourceId: 'facility-1'));
+
+    $handler = $this->handler($repository, $csvStreamer, $this->neverCalledEquipmentPort(), $facilityProvisioning, $this->createStub(EventDispatcherPort::class));
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(2, $reloaded->successfulRows());
+    self::assertSame(0, $reloaded->failedRows());
+  }
+
   /**
    * @param array<int, array<string, string>> $rows
    *

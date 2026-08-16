@@ -60,6 +60,15 @@ final class ImportJobOutput
   public string $originalFilename = '';
 
   /**
+   * Property dryRun.
+   *
+   * Whether this job validates and reports without provisioning anything.
+   *
+   * @since 1.0.0
+   */
+  public bool $dryRun = false;
+
+  /**
    * Property totalRows.
    *
    * @since 1.0.0

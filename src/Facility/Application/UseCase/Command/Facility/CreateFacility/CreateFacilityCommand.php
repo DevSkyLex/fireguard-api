@@ -33,6 +33,8 @@ final readonly class CreateFacilityCommand implements CommandMessage
    * @param ?float $longitude the optional longitude, required together with latitude
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?string $resourceId the resource id value
+   * @param bool $dryRun when true, validates and projects the quota without persisting
+   * @param int $quotaProjectionOffset facilities already provisionally counted earlier in the same dry run
    */
   public function __construct(
     public string $organizationId,
@@ -45,6 +47,8 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public ?float $longitude = null,
     public array $metadata = [],
     public ?string $resourceId = null,
+    public bool $dryRun = false,
+    public int $quotaProjectionOffset = 0,
   ) {
   }
   // #endregion

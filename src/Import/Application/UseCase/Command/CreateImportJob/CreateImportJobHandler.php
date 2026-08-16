@@ -95,6 +95,7 @@ final readonly class CreateImportJobHandler implements CommandHandler
       storagePath: $storagePath,
       originalFilename: $command->fileName,
       createdBy: $command->userId,
+      dryRun: $command->dryRun,
     );
 
     $this->fileStorage->write($storagePath, $command->contents);
@@ -116,6 +117,7 @@ final readonly class CreateImportJobHandler implements CommandHandler
       status: $job->status()->value,
       originalFilename: $job->originalFilename(),
       createdAt: $job->createdAt(),
+      dryRun: $job->isDryRun(),
     );
   }
 
