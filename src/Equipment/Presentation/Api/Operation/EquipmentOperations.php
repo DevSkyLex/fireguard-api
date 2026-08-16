@@ -155,5 +155,12 @@ final class EquipmentOperations
    * @var string
    */
   public const string GET_EQUIPMENT_KPIS = 'equipment_get_kpis';
+
+  /**
+   * Constant SET_EQUIPMENT_PLAN_POSITION.
+   *
+   * @var string
+   */
+  public const string SET_EQUIPMENT_PLAN_POSITION = 'equipment_plan_position_set';
   // #endregion
 }

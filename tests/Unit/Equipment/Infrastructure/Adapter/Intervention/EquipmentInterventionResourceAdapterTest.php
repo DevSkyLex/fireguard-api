@@ -93,6 +93,82 @@ final class EquipmentInterventionResourceAdapterTest extends TestCase
       ->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, ['facility' => null]);
   }
 
+  #[Test]
+  public function testApplySetsAValidPlanPosition(): void
+  {
+    $record = $this->draftRecord('operational');
+    $record->recordStatus = 'published';
+    $record->facilityId = '550e8400-e29b-41d4-a716-446655440005';
+
+    /** @var EntityManagerInterface&MockObject $entityManager */
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
+
+    $planPosition = ['attachmentId' => '550e8400-e29b-41d4-a716-446655440099', 'x' => 0.42, 'y' => 0.17];
+
+    $this->adapter($entityManager, $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class))
+      ->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, ['planPosition' => $planPosition]);
+
+    self::assertSame($planPosition, $record->planPosition);
+  }
+
+  #[Test]
+  public function testApplyRejectsAPlanPositionForFacilityLessEquipment(): void
+  {
+    $record = $this->draftRecord('in_stock');
+    $record->recordStatus = 'published';
+    $record->facilityId = null;
+
+    /** @var EntityManagerInterface&MockObject $entityManager */
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
+
+    $this->expectException(InterventionConflictException::class);
+    $this->expectExceptionMessage('Equipment must be assigned to a facility before it can be placed on a plan.');
+
+    $this->adapter($entityManager, $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class))
+      ->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, [
+        'planPosition' => ['attachmentId' => '550e8400-e29b-41d4-a716-446655440099', 'x' => 0.1, 'y' => 0.1],
+      ]);
+  }
+
+  #[Test]
+  public function testApplyRejectsAMalformedPlanPosition(): void
+  {
+    $record = $this->draftRecord('operational');
+    $record->recordStatus = 'published';
+    $record->facilityId = '550e8400-e29b-41d4-a716-446655440005';
+
+    /** @var EntityManagerInterface&MockObject $entityManager */
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
+
+    $this->expectException(InterventionConflictException::class);
+
+    $this->adapter($entityManager, $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class))
+      ->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, [
+        'planPosition' => ['attachmentId' => 'not-a-uuid', 'x' => 0.1, 'y' => 0.1],
+      ]);
+  }
+
+  #[Test]
+  public function testApplyClearsThePlanPositionWhenTheFacilityIsCleared(): void
+  {
+    $record = $this->draftRecord('in_stock');
+    $record->recordStatus = 'published';
+    $record->facilityId = '550e8400-e29b-41d4-a716-446655440005';
+    $record->planPosition = ['attachmentId' => '550e8400-e29b-41d4-a716-446655440099', 'x' => 0.1, 'y' => 0.1];
+
+    /** @var EntityManagerInterface&MockObject $entityManager */
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
+
+    $this->adapter($entityManager, $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class))
+      ->apply(self::ORGANIZATION_ID, '/api/equipment/' . self::EQUIPMENT_ID, ['facility' => null]);
+
+    self::assertNull($record->planPosition);
+  }
+
   private function adapter(
     EntityManagerInterface $entityManager,
     EquipmentMaintenanceLogSynchronizerPort $synchronizer,

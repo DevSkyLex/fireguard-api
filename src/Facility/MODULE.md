@@ -26,7 +26,7 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/archive` | Archive a facility |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
 | PUT | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry` | Set or clear this facility's plan geometry (Phase 4) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan and every self-or-descendant zone bound to it (Phase 4) |
+| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan, every self-or-descendant zone bound to it, and every equipment item pinned on it (Phase 4, equipment additive — see Equipment's MODULE.md) |
 | GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
 | GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
 
@@ -207,8 +207,18 @@ recursive CTE joined with a `plan_geometry ->> 'attachmentId'` filter
 (`FacilityRepositoryPort::findZonesForPlanAttachment()`), never a
 descendants query followed by N geometry reads. An explicit `attachmentId`
 still goes through the same kind and ancestry checks as the write path. The
-Output DTO carries only `zones` today so the stacked Equipment branch can
-add an `equipment` array additively, without changing this shape.
+Output DTO additionally carries `equipment: [{equipmentId, name, status, x,
+y}]` — every equipment item, scoped to the organization, whose
+`Equipment\Domain\ValueObject\PlanPosition` references the same attachment,
+resolved cross-module through
+`Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort`
+(implemented by `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter`,
+mirroring `FacilityEquipmentDependencyPort`'s direction — Facility declares
+the port, Equipment's Infrastructure supplies the data). See
+`src/Equipment/MODULE.md` for the write side
+(`PUT .../equipment/{id}/plan-position`) and the
+`EquipmentFloorPlanValidationPort` this module implements in the other
+direction.
 
 ## Permission Model
 
@@ -322,6 +332,24 @@ Cross-module contracts and lifecycle invariants:
   in-progress inspection. The equipment/inspection checks are provided by the
   owning modules through `FacilityEquipmentDependencyPort` /
   `FacilityInspectionDependencyPort` (outbound, adapters in Equipment/Inspection).
+- **Equipment plan-position cross-module pair (Phase 4)**: two ports, one in
+  each direction, both scoped to this feature only. Outbound —
+  `FacilityEquipmentPlanPositionPort::findEquipmentPlacedOnPlan()`, consumed
+  by `GetFacilityPlanOverlayHandler`, implemented by Equipment
+  (`EquipmentPlanPositionAdapter`). Inbound-from-Equipment's-perspective —
+  `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort`,
+  **implemented here** by
+  `Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter`,
+  reusing `FacilityAttachmentAncestryGuard` as-is. The port's typed
+  `@throws` contract (`FloorPlanAttachmentNotFoundException` /
+  `FloorPlanAttachmentNotFloorPlanException` /
+  `FloorPlanAttachmentNotAncestorException`) is made of **contract
+  exceptions** under `Equipment\Application\Contract\FloorPlan\` —
+  Equipment's declared error surface for this port — so the adapter imports
+  nothing of Equipment beyond `Application\Port\` and
+  `Application\Contract\`, staying inside the cross-module boundary rule.
+  Facility's own `FacilityAttachmentNotAncestorException` (Domain) is caught
+  in the adapter and translated to the contract type at the boundary.
 - Canonical DELETE = archive — the only REVERSIBLE retirement state (restore is
   refused while the parent is archived). Idempotent: a repeat DELETE is a no-op.
 - The descendants listing and the archival probe (`hasActiveDescendants`) run on
@@ -360,6 +388,15 @@ Cross-module contracts and lifecycle invariants:
 
 - Service wiring: `config/modules/facility.yaml`
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
+- `FacilityEquipmentPlanPositionPort` is aliased to
+  `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter` in
+  `config/modules/facility.yaml` (adapter wired with
+  `doctrine.orm.main_entity_manager` in `config/modules/equipment.yaml`, the
+  module that hosts it).
+- `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort` is
+  aliased to `Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter`
+  in `config/modules/equipment.yaml` (the port's owning module) — this
+  module only registers the adapter service itself.
 
 ## Testing
 
@@ -422,5 +459,16 @@ Cross-module contracts and lifecycle invariants:
     missing-permission, 409 wrong-kind and non-ancestor attachment; GET
     overlay happy path including a descendant's zone, default-primary-plan
     behavior, empty zones, 404 cross-org and no-primary-plan, 403
-    missing-permission.
+    missing-permission, and (equipment side, Phase 4) an equipment item
+    pinned on the same attachment appearing in the `equipment` array.
+  - `Application/UseCase/Query/Facility/GetFacilityPlanOverlay/GetFacilityPlanOverlayHandlerTest::testInvokeReturnsEquipmentPinnedOnTheSamePlan`
+    — asserts the mocked `FacilityEquipmentPlanPositionPort` result flows
+    through to `GetFacilityPlanOverlayResult::$equipment` untouched.
+  - `tests/Unit/Facility/Infrastructure/Adapter/Equipment/EquipmentFloorPlanValidationAdapterTest`
+    — every failure path (unknown attachment, malformed attachment id, wrong
+    kind, non-ancestor) mapped to Equipment's typed exceptions, and the
+    self-owned-attachment success path.
+  - `tests/Integration/Equipment/Infrastructure/Adapter/Facility/EquipmentPlanPositionAdapterTest`
+    (hosted in Equipment, since the adapter is) — the `plan_position` JSONB
+    filter, published-only, and organization scoping.
 - Run module tests: `make test tests/Unit/Facility/`

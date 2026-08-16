@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{
+  FacilityAttachmentRepositoryPort,
+  FacilityEquipmentPlanPositionPort,
+  FacilityRepositoryPort
+};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\{
   GetFacilityPlanOverlayHandler,
@@ -194,6 +198,43 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeReturnsEquipmentPinnedOnTheSamePlan(): void
+  {
+    $facility = $this->facility(self::FACILITY_ID, self::ORGANIZATION_ID);
+    $attachment = $this->attachment(self::ATTACHMENT_ID, self::FACILITY_ID, AttachmentKind::FLOOR_PLAN);
+
+    $equipment = [
+      ['equipmentId' => '550e8400-e29b-41d4-a716-446655449100', 'name' => 'fire_extinguisher (SN-1)', 'status' => 'operational', 'x' => 0.5, 'y' => 0.25],
+    ];
+
+    /** @var FacilityRepositoryPort&MockObject $facilityRepository */
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::atLeastOnce())->method('findById')->willReturn($facility);
+    $facilityRepository->method('findZonesForPlanAttachment')->willReturn([]);
+
+    /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::once())->method('findById')->willReturn($attachment);
+
+    /** @var FacilityEquipmentPlanPositionPort&MockObject $equipmentPlanPosition */
+    $equipmentPlanPosition = $this->createMock(FacilityEquipmentPlanPositionPort::class);
+    $equipmentPlanPosition->expects(self::once())
+      ->method('findEquipmentPlacedOnPlan')
+      ->with(self::ORGANIZATION_ID, self::ATTACHMENT_ID)
+      ->willReturn($equipment);
+
+    $handler = $this->handler($facilityRepository, $attachmentRepository, $equipmentPlanPosition);
+
+    $result = $handler->__invoke(new GetFacilityPlanOverlayQuery(
+      organizationId: self::ORGANIZATION_ID,
+      facilityId: self::FACILITY_ID,
+      attachmentId: self::ATTACHMENT_ID,
+    ));
+
+    self::assertSame($equipment, $result->equipment);
+  }
+
+  #[Test]
   public function testInvokeReturnsEmptyZonesWhenNothingMatches(): void
   {
     $facility = $this->facility(self::FACILITY_ID, self::ORGANIZATION_ID);
@@ -229,11 +270,19 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
   private function handler(
     FacilityRepositoryPort $facilityRepository,
     FacilityAttachmentRepositoryPort $attachmentRepository,
+    ?FacilityEquipmentPlanPositionPort $equipmentPlanPosition = null,
   ): GetFacilityPlanOverlayHandler {
+    if (null === $equipmentPlanPosition) {
+      $stub = $this->createStub(FacilityEquipmentPlanPositionPort::class);
+      $stub->method('findEquipmentPlacedOnPlan')->willReturn([]);
+      $equipmentPlanPosition = $stub;
+    }
+
     return new GetFacilityPlanOverlayHandler(
       facilityRepository: $facilityRepository,
       attachmentRepository: $attachmentRepository,
       ancestryGuard: new FacilityAttachmentAncestryGuard($facilityRepository),
+      equipmentPlanPosition: $equipmentPlanPosition,
     );
   }
 

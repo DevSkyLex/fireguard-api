@@ -119,6 +119,7 @@ final readonly class GetEquipmentProvider implements ProviderInterface
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
     $output->maintenanceDueStatus = $result->maintenanceDueStatus;
+    $output->planPosition = $result->planPosition;
 
     return $output;
   }

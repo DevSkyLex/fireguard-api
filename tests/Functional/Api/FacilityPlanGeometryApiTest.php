@@ -7,6 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
@@ -347,6 +348,56 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
     self::assertIsArray($zone);
     self::assertSame(self::CHILD_ZONE_ID, $zone['facilityId'] ?? null);
     self::assertSame(self::VALID_POINTS, $zone['points'] ?? null);
+  }
+
+  #[Test]
+  public function testGetPlanOverlayIncludesEquipmentPinnedOnTheSamePlan(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacilities();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'plan-geometry-admin@example.com');
+
+    $attachmentId = $this->uploadFloorPlan($client, self::ROOT_FACILITY_ID, 'root-plan.png');
+
+    $equipmentId = '660e8400-e29b-41d4-a716-446655470030';
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    /** @var OrganizationRecord $organization */
+    $organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $equipment = new EquipmentRecord();
+    $equipment->id = $equipmentId;
+    $equipment->organization = $organization;
+    $equipment->facilityId = self::ROOT_FACILITY_ID;
+    $equipment->type = 'fire_extinguisher';
+    $equipment->serialNumber = 'SN-OVERLAY-1';
+    $equipment->status = 'operational';
+    $equipment->recordStatus = 'published';
+    $equipment->planPosition = ['attachmentId' => $attachmentId, 'x' => 0.5, 'y' => 0.25];
+    $equipment->createdAt = new DateTimeImmutable('2026-08-16T00:00:00+00:00');
+    $equipment->updatedAt = $equipment->createdAt;
+    $entityManager->persist($equipment);
+    $entityManager->flush();
+
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'plan-geometry-admin@example.com');
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::ROOT_FACILITY_ID . '/plan-overlay?attachmentId=' . $attachmentId);
+
+    $response = $client->getResponse();
+    self::assertSame(200, $response->getStatusCode(), 'Response: ' . $response->getContent());
+    $decoded = json_decode((string) $response->getContent(), true);
+    self::assertIsArray($decoded);
+    $equipmentList = $decoded['equipment'] ?? null;
+    self::assertIsArray($equipmentList);
+    self::assertCount(1, $equipmentList);
+    $equipmentEntry = $equipmentList[0];
+    self::assertIsArray($equipmentEntry);
+    self::assertSame($equipmentId, $equipmentEntry['equipmentId'] ?? null);
+    self::assertSame('fire_extinguisher (SN-OVERLAY-1)', $equipmentEntry['name'] ?? null);
+    self::assertSame('operational', $equipmentEntry['status'] ?? null);
+    self::assertSame(0.5, $equipmentEntry['x'] ?? null);
+    self::assertSame(0.25, $equipmentEntry['y'] ?? null);
   }
 
   #[Test]

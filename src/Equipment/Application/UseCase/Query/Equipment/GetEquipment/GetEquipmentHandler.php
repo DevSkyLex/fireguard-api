@@ -90,6 +90,7 @@ final readonly class GetEquipmentHandler implements QueryHandler
       facilityName: null !== $equipment->facilityId()
         ? ($this->facilityNaming->findNamesByIds([(string) $equipment->facilityId()])[(string) $equipment->facilityId()] ?? null)
         : null,
+      planPosition: $equipment->planPosition()?->toArray(),
     );
   }
   // #endregion

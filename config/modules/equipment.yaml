@@ -110,6 +110,21 @@ services:
 
   Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter: ~
 
+  # Facility plan Phase 4, Equipment side: validates that an attachment is a
+  # floor plan belonging to the equipment's own facility or one of its
+  # ancestors. Composes Facility's own ports/guard, no Doctrine of its own.
+  Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort:
+    alias: Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter
+
+  Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter: ~
+
+  # Equipment-side implementation of the Facility plan-overlay's equipment
+  # read (Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort,
+  # aliased in config/modules/facility.yaml).
+  Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Read-side label lookup, deliberately separate from the validation port
   # above: resolving a name must not go through a contract that throws.
   Equipment\Application\Port\Outbound\FacilityNamingPort:
@@ -144,6 +159,9 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility\UnassignFromFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\SetEquipmentPlanPositionHandler:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\CommissionEquipment\CommissionEquipmentHandler:
