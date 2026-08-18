@@ -71,6 +71,14 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * Refreshed 2026-08-18: `Facility => Organization` was raised 5 → 7 for the
    * subtree duplication added by 32c1141b — see `src/Facility/MODULE.md`
    * (Architecture debt).
+   * `Inspection => Organization` raised 2 → 3: the gated non-conformity
+   * waiver must answer 403, not 500, when the caller lacks
+   * `organization.approvals.request`, and `ApprovalGate` signals that by
+   * throwing `OrganizationAccessDeniedException` — Approval's own
+   * `ApprovalExceptionMapperTrait` catches the very same class for the very
+   * same reason (`Approval => Organization`, baseline 4). Mapping it at the
+   * Presentation boundary is the established treatment here; see
+   * `src/Inspection/MODULE.md` (Architecture debt).
    */
   private const array BASELINE = [
     'Approval => Organization' => 4,
@@ -92,7 +100,7 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Inspection => Approval' => 1,
     'Inspection => Intervention' => 6,
     'Inspection => Messaging' => 1,
-    'Inspection => Organization' => 2,
+    'Inspection => Organization' => 3,
     'Intervention => Messaging' => 1,
     'Intervention => Organization' => 5,
     'Maintenance => Organization' => 2,
