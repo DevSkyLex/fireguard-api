@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException as QuotaExceededContractException;
 use Organization\Application\Port\Outbound\{
   EquipmentStatisticsPort,
   FacilityStatisticsPort,
@@ -287,7 +288,7 @@ final class OrganizationQuotaServiceTest extends TestCase
   {
     $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
 
-    $this->expectException(OrganizationQuotaExceededException::class);
+    $this->expectException(QuotaExceededContractException::class);
 
     // 2 already used + 4 requested = 6, exceeds the cap of 5.
     $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 4);

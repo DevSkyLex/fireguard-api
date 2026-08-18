@@ -17,8 +17,8 @@ use Facility\Domain\Exception\{
 use Facility\Presentation\Api\Dto\Input\Facility\DuplicateFacilitySubtreeInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;

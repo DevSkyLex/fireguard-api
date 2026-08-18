@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException as QuotaExceededContractException;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{
   EquipmentStatisticsPort,
@@ -156,7 +157,9 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     $this->quotaLock->acquire($organizationId, $resource);
 
     if ($this->getUsage($organizationId, $resource) + $count > $limit) {
-      throw OrganizationQuotaExceededException::forResource($resource, $limit);
+      // The contract exception, not the Domain one: sibling modules catch this
+      // crossing and may only import Application\Contract types.
+      throw QuotaExceededContractException::forResource($resource->value, $limit);
     }
   }
 

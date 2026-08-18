@@ -96,8 +96,10 @@ Cloning rules:
   same transaction as the inserts. `OrganizationQuotaPort::assertCanAddMultiple()`
   (the batched sibling of `assertCanAdd()`, added for this use case) takes the
   same per-(organization, resource) advisory lock so a concurrent create or
-  duplicate cannot slip past the count. Exceeded → the same
-  `OrganizationQuotaExceededException` → **409** the single-create path uses.
+  duplicate cannot slip past the count. Exceeded →
+  `Organization\Application\Contract\Quota\OrganizationQuotaExceededException`
+  (the contract twin of the Domain exception the single-create path uses,
+  identical message) → the same **409**.
 - **Size cap**: a subtree that would traverse more than **500** nodes (source
   included, archived nodes included since they still cost a query/traversal)
   is refused with **422** (`FacilitySubtreeTooLargeException`) before the
@@ -521,7 +523,10 @@ Cross-module contracts and lifecycle invariants:
   `Organization\Application\Port\Inbound\OrganizationQuotaPort::assertCanAddMultiple()`
   was added for this — same advisory lock as `assertCanAdd()`, batched count —
   implemented by `Organization\Application\Service\OrganizationQuotaService`.
-  See `src/Organization/MODULE.md`.
+  On refusal it throws
+  `Organization\Application\Contract\Quota\OrganizationQuotaExceededException`
+  — a contract type, so `DuplicateFacilitySubtreeProcessor` catches it without
+  importing `Organization\Domain`. See `src/Organization/MODULE.md`.
 - **Bulk CSV import (R13)**: `Facility\Application\Port\Inbound\FacilityProvisioningPort`
   is a new inbound port, hosted in this module, that lets another module
   (Import's bulk CSV import) provision one facility programmatically. Its
@@ -586,29 +591,19 @@ Cross-module contracts and lifecycle invariants:
   skipped when no parent id is present. See `src/Import/MODULE.md`'s dry-run
   section for the full row-report shape.
 
-**Architecture debt — cross-module `Organization\Domain` imports (7).** The
-`CrossModuleDomainBoundaryTest` ratchet baseline for `Facility => Organization`
-was raised 5 → 7 on 2026-08-18, for the subtree duplication added by 32c1141b
-(`DuplicateFacilitySubtreeHandler`, `DuplicateFacilitySubtreeProcessor`). Both
-imports are forced by the shape of the port they consume, not by a shortcut
-around it: `Organization\Application\Port\Inbound\OrganizationQuotaPort` — the
-published inbound contract — takes a
-`Organization\Domain\ValueObject\OrganizationQuotaResource` on every method and
-documents `Organization\Domain\Exception\OrganizationQuotaExceededException` as
-its `@throws`, so no consumer can call `assertCanAddMultiple()` or map its
-failure to 409 without importing Organization's `Domain`. The pre-existing five
-(`CreateFacilityHandler`, `CreateFacilityProcessor`,
-`FacilityProvisioningService`, plus `OrganizationId` in `ArchiveFacilityHandler`
-and `CreateFacilityConsoleCommand`) are the same leak seen from earlier
-features, and Equipment and Inspection carry it too.
-
-Deliberate, documented debt: the fix is not local to this module — Organization
-must publish the quota resource enum and the quota-exceeded exception under its
-`Application/Contract/` and retype the port against them, after which this
-baseline and Equipment's and Inspection's all shrink together. Until that
-happens, do not add an eighth import here; if a new feature needs the quota,
-route it through the existing port and reuse one of the two symbols already
-imported.
+**Architecture debt — cross-module `Organization\Domain` imports (6).** The
+`CrossModuleDomainBoundaryTest` ratchet baseline for `Facility =>
+Organization` was raised 5 → 6 on 2026-08-18: `DuplicateFacilitySubtreeHandler`
+imports `Organization\Domain\ValueObject\OrganizationQuotaResource` because
+`OrganizationQuotaPort`'s entire surface is typed with that Domain enum, so
+any caller must import it — exactly the import `CreateFacilityHandler`
+already carries in the baseline. Deliberate, documented debt: the eventual
+fix is Organization promoting the quota resource enum to
+`Application/Contract/Quota/` and retyping the port, at which point this
+baseline shrinks back. The quota-exceeded *exception* crossing was already
+promoted (`Organization\Application\Contract\Quota\OrganizationQuotaExceededException`,
+thrown by `assertCanAddMultiple()`), which is why the raise is 6 and not 7 —
+do not add a seventh import; extend the contract surface instead.
 
 ## Error Codes
 
@@ -617,7 +612,7 @@ imported.
 | `FacilityNotFoundException` | 404 | Source facility missing, out of the caller's organization scope, or draft-only; also the target parent when explicitly provided |
 | `FacilitySubtreeSourceArchivedException` | 409 | Duplication requested for an archived source facility |
 | `FacilitySubtreeTooLargeException` | 422 | Source facility's subtree (including archived nodes) would traverse more than 500 nodes |
-| `Organization\Domain\Exception\OrganizationQuotaExceededException` | 409 | The whole clone count would exceed the organization's `facilities` plan quota |
+| `Organization\Application\Contract\Quota\OrganizationQuotaExceededException` | 409 | The whole clone count would exceed the organization's `facilities` plan quota |
 | `FacilityHierarchyException` / `InvalidArgumentException` | 400 | Malformed input, or an invalid/out-of-organization target parent |
 
 All other domain exceptions raised by this module map the same way as the

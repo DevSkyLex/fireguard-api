@@ -68,9 +68,13 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * intervening commits and removed; `Intervention => Organization` was
    * raised 4 → 5 for the reviewer-notification services added by 44da9e06 —
    * see `src/Intervention/MODULE.md` (Architecture debt).
-   * Refreshed 2026-08-18: `Facility => Organization` was raised 5 → 7 for the
-   * subtree duplication added by 32c1141b — see `src/Facility/MODULE.md`
-   * (Architecture debt).
+   * Refreshed 2026-08-18: `Facility => Organization` raised 5 → 6 for the
+   * subtree-duplication quota check — `OrganizationQuotaPort`'s surface is
+   * typed with `Organization\Domain\ValueObject\OrganizationQuotaResource`,
+   * so any caller must import it (exactly as `CreateFacilityHandler` already
+   * does); the quota-exceeded *exception* crossing was promoted to
+   * `Organization\Application\Contract\Quota` instead of widening this
+   * baseline further — see `src/Facility/MODULE.md` (Architecture debt).
    * `Inspection => Organization` raised 2 → 3: the gated non-conformity
    * waiver must answer 403, not 500, when the caller lacks
    * `organization.approvals.request`, and `ApprovalGate` signals that by
@@ -101,7 +105,7 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Equipment => Organization' => 4,
     'Facility => Intervention' => 5,
     'Facility => Messaging' => 1,
-    'Facility => Organization' => 7,
+    'Facility => Organization' => 6,
     'Import => Organization' => 1,
     'Inspection => Approval' => 1,
     'Inspection => Intervention' => 6,

@@ -326,9 +326,14 @@ demonstrating that one person can belong to more than one tenant.
   several resources of the same kind atomically (Facility's
   `DuplicateFacilitySubtreeHandler` duplicating a whole subtree in one
   transaction — see `src/Facility/MODULE.md`). Same advisory lock, same
-  transaction requirement, same `OrganizationQuotaExceededException` on
-  refusal; `count <= 0` is a no-op. Implemented by `OrganizationQuotaService`
-  alongside `assertCanAdd()`.
+  transaction requirement; `count <= 0` is a no-op. On refusal it throws
+  `Organization\Application\Contract\Quota\OrganizationQuotaExceededException`
+  — the contract twin of the Domain exception (identical message), promoted
+  to `Application/Contract/Quota/` because this method's callers are sibling
+  modules, which may only import `Application\Contract` types
+  (`CrossModuleDomainBoundaryTest`). The single-resource methods still throw
+  the Domain exception for their pre-existing catchers. Implemented by
+  `OrganizationQuotaService` alongside `assertCanAdd()`.
 - **`OrganizationQuotaPort::assertProjectedCanAdd()`** is a **projection**
   sibling to `assertCanAdd()`, added for bulk CSV import v2's dry-run mode
   (`src/Import/MODULE.md`): `getLimit()`/`getUsage()` plus a caller-supplied

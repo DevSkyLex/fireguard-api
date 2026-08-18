@@ -91,8 +91,10 @@ interface OrganizationQuotaPort
    * @param OrganizationQuotaResource $resource the resource to add
    * @param int $count the number of resources to add; a non-positive count is a no-op
    *
-   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
-   *                                                                           when adding `$count` would exceed the plan cap
+   * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
+   *                                                                                     when adding `$count` would exceed the plan cap — the contract
+   *                                                                                     exception, not the Domain one, so sibling modules can catch it
+   *                                                                                     without crossing the Domain boundary
    */
   public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void;
 
