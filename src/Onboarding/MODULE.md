@@ -19,6 +19,8 @@ Current flow:
 | POST | `/api/onboarding/organization/steps/{stepKey}/execute` | Confirm the current onboarding step |
 | POST | `/api/onboarding/organization/steps/{stepKey}/skip` | Skip an optional onboarding step |
 | POST | `/api/onboarding/organization/rollback` | Rollback the last rollbackable onboarding step |
+| POST | `/api/onboarding/organization/dismiss` | Hide the activation flow without completing it (progression preserved) |
+| POST | `/api/onboarding/organization/resume` | Clear a previous dismissal so the activation flow is visible again |
 
 ## Flows
 
