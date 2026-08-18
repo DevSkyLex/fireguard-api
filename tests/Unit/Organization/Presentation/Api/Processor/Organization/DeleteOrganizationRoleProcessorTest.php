@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\DeleteOrganizationRoleProcessor;
