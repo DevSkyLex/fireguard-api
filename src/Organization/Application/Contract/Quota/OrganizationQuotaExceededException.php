@@ -11,14 +11,12 @@ use function sprintf;
 /**
  * Contract exception OrganizationQuotaExceededException.
  *
- * Raised when creating a batch of resources would exceed the quantity allowed
- * by the organization's subscription plan. Mapped to HTTP 409 at the API
- * boundary. Lives on the contract surface because it crosses the module
- * boundary: `OrganizationQuotaService` throws it from
- * `assertCanAddMultiple()`, and only `Application\Contract\` types may be
- * imported by a sibling module — never
- * `Organization\Domain\Exception\OrganizationQuotaExceededException`, which
- * the single-resource port methods still throw.
+ * Raised when creating one or more resources would exceed the quantity
+ * allowed by the organization's subscription plan. Mapped to HTTP 409 at the
+ * API boundary. Lives on the contract surface because it crosses the module
+ * boundary: every quota guard on
+ * `Organization\Application\Port\Inbound\OrganizationQuotaPort` throws it,
+ * and only `Application\Contract\` types may be imported by a sibling module.
  *
  * @category Exception
  *

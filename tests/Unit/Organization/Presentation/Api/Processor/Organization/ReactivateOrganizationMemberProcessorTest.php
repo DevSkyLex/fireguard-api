@@ -7,14 +7,14 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberResult};
 use Organization\Domain\Exception\{
   OrganizationArchivedException,
   OrganizationMemberNotFoundException,
   OrganizationMemberNotInactiveException,
-  OrganizationNotFoundException,
-  OrganizationQuotaExceededException
+  OrganizationNotFoundException
 };
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\ReactivateOrganizationMemberProcessor;
@@ -187,7 +187,7 @@ final class ReactivateOrganizationMemberProcessorTest extends TestCase
   public function testProcessMapsAWrappedQuotaExceededToHttp409(): void
   {
     $processor = $this->processorWithFailingCommandBus(
-      OrganizationQuotaExceededException::forResource(\Organization\Domain\ValueObject\OrganizationQuotaResource::MEMBERS, 5),
+      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5),
     );
 
     $this->expectException(ConflictHttpException::class);

@@ -13,8 +13,7 @@ use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityHiera
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -124,7 +123,7 @@ final class FacilityProvisioningServiceTest extends TestCase
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(
-      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 5),
+      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 5),
     );
 
     $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
@@ -253,7 +252,7 @@ final class FacilityProvisioningServiceTest extends TestCase
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(
       MessengerRuntimeException::wrap(
-        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 3),
+        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 3),
       ),
     );
 

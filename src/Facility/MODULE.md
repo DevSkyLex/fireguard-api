@@ -591,19 +591,17 @@ Cross-module contracts and lifecycle invariants:
   skipped when no parent id is present. See `src/Import/MODULE.md`'s dry-run
   section for the full row-report shape.
 
-**Architecture debt — cross-module `Organization\Domain` imports (6).** The
-`CrossModuleDomainBoundaryTest` ratchet baseline for `Facility =>
-Organization` was raised 5 → 6 on 2026-08-18: `DuplicateFacilitySubtreeHandler`
-imports `Organization\Domain\ValueObject\OrganizationQuotaResource` because
-`OrganizationQuotaPort`'s entire surface is typed with that Domain enum, so
-any caller must import it — exactly the import `CreateFacilityHandler`
-already carries in the baseline. Deliberate, documented debt: the eventual
-fix is Organization promoting the quota resource enum to
-`Application/Contract/Quota/` and retyping the port, at which point this
-baseline shrinks back. The quota-exceeded *exception* crossing was already
-promoted (`Organization\Application\Contract\Quota\OrganizationQuotaExceededException`,
-thrown by `assertCanAddMultiple()`), which is why the raise is 6 and not 7 —
-do not add a seventh import; extend the contract surface instead.
+**Architecture debt — cross-module `Organization\Domain` imports (2).** The
+2026-08-18 quota-contract migration retyped `OrganizationQuotaPort`'s whole
+surface with `Organization\Application\Contract\Quota` types (the resource
+enum and the quota-exceeded exception — see `src/Organization/MODULE.md`), so
+the quota-related Domain imports this note used to document are gone and the
+`CrossModuleDomainBoundaryTest` baseline for `Facility => Organization`
+shrank 6 → 2. The two survivors —
+`Organization\Domain\ValueObject\OrganizationId` in `ArchiveFacilityHandler`
+and `CreateFacilityConsoleCommand` — are unrelated to quotas; the eventual
+fix is Organization publishing a contract identifier type. Do not add a
+third import; extend the contract surface instead.
 
 ## Error Codes
 

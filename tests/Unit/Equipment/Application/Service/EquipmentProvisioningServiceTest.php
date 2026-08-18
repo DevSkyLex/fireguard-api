@@ -10,8 +10,7 @@ use Equipment\Application\Service\EquipmentProvisioningService;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -50,7 +49,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
   {
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(
-      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 5),
+      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 5),
     );
 
     $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
@@ -62,7 +61,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
   #[Test]
   public function itUnwrapsAQuotaExceededExceptionFromAMessengerRuntimeException(): void
   {
-    $quotaException = OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 5);
+    $quotaException = OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 5);
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($quotaException));
 

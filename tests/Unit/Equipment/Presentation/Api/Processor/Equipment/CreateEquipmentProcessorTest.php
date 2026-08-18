@@ -19,9 +19,8 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -127,7 +126,7 @@ final class CreateEquipmentProcessorTest extends TestCase
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new CreateEquipmentCommand(organizationId: $organizationId, type: 'fire_extinguisher')),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 50)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 50)],
     );
 
     /** @var CommandBusPort&MockObject $commandBus */

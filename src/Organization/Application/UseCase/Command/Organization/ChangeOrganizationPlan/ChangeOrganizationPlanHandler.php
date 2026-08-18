@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Quota\OrganizationQuotaResource as QuotaResourceContract;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
@@ -173,7 +174,7 @@ final readonly class ChangeOrganizationPlanHandler implements CommandHandler
         continue;
       }
 
-      $usage = $this->quota->getUsage($organizationId, $resource);
+      $usage = $this->quota->getUsage($organizationId, QuotaResourceContract::from($resource->value));
       if ($usage > $limit) {
         $violations[$resource->value] = ['usage' => $usage, 'limit' => $limit];
       }

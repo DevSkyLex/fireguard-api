@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
@@ -15,7 +16,6 @@ use Organization\Application\UseCase\Command\Organization\InviteOrganizationMemb
 use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Exception\{
   OrganizationNotFoundException,
-  OrganizationQuotaExceededException,
   OrganizationRoleNotFoundException
 };
 use Organization\Domain\Model\Organization\Organization;
@@ -27,7 +27,6 @@ use Organization\Domain\ValueObject\{
   OrganizationInvitationId,
   OrganizationMemberId,
   OrganizationName,
-  OrganizationQuotaResource,
   OrganizationRoleId,
   OrganizationRoleName
 };
@@ -626,7 +625,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with($organizationId, OrganizationQuotaResource::MEMBERS)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 1));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 1));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);

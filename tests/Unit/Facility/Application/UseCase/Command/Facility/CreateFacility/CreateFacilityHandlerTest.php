@@ -15,9 +15,8 @@ use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExi
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -444,7 +443,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with('550e8400-e29b-41d4-a716-4466554419a1', OrganizationQuotaResource::FACILITIES)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 2));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 2));
 
     $handler = $this->handler($repository, $uuidFactory, $quota);
 
@@ -511,7 +510,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertProjectedCanAdd')
       ->with($organizationId, OrganizationQuotaResource::FACILITIES, 2)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 5));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 5));
 
     $handler = $this->handler($repository, $uuidFactory, $quota);
 

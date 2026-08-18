@@ -7,14 +7,14 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberResult};
 use Organization\Domain\Exception\{
   OrganizationArchivedException,
   OrganizationMemberNotFoundException,
   OrganizationMemberNotInactiveException,
-  OrganizationNotFoundException,
-  OrganizationQuotaExceededException
+  OrganizationNotFoundException
 };
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;

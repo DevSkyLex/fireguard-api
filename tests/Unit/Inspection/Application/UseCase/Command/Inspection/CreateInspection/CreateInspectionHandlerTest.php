@@ -13,9 +13,8 @@ use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{
 };
 use Inspection\Domain\ValueObject\{InspectionId, InspectionStatus};
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -412,7 +411,7 @@ final class CreateInspectionHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with(self::ORG_ID, OrganizationQuotaResource::INSPECTIONS)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS, 100));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS->value, 100));
 
     $handler = $this->handler(
       $repository,

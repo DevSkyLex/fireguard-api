@@ -69,12 +69,11 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * raised 4 → 5 for the reviewer-notification services added by 44da9e06 —
    * see `src/Intervention/MODULE.md` (Architecture debt).
    * Refreshed 2026-08-18: `Facility => Organization` raised 5 → 6 for the
-   * subtree-duplication quota check — `OrganizationQuotaPort`'s surface is
+   * subtree-duplication quota check — `OrganizationQuotaPort`'s surface was
    * typed with `Organization\Domain\ValueObject\OrganizationQuotaResource`,
-   * so any caller must import it (exactly as `CreateFacilityHandler` already
-   * does); the quota-exceeded *exception* crossing was promoted to
-   * `Organization\Application\Contract\Quota` instead of widening this
-   * baseline further — see `src/Facility/MODULE.md` (Architecture debt).
+   * so any caller had to import it; the quota-exceeded *exception* crossing
+   * was promoted to `Organization\Application\Contract\Quota` instead of
+   * widening this baseline further.
    * `Inspection => Organization` raised 2 → 3: the gated non-conformity
    * waiver must answer 403, not 500, when the caller lacks
    * `organization.approvals.request`, and `ApprovalGate` signals that by
@@ -89,6 +88,14 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * `ImportAccessDeniedException`. The one that remains is
    * `ImportExceptionMapperTrait`, which still maps the exception the
    * Organization port itself raises.
+   * Refreshed 2026-08-19 (follow-up): the quota-contract migration completed
+   * — `OrganizationQuotaPort` is now typed entirely with
+   * `Organization\Application\Contract\Quota` types (resource enum and
+   * exception), so every quota-related Domain import vanished:
+   * `Facility => Organization` 6 → 2, `Equipment => Organization` 4 → 1,
+   * `Inspection => Organization` 3 → 1. The survivors are `OrganizationId`
+   * value-object imports and the waiver's access-denied mapping, both
+   * unrelated to quotas.
    */
   private const array BASELINE = [
     'Approval => Organization' => 4,
@@ -102,15 +109,15 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Equipment => Approval' => 1,
     'Equipment => Intervention' => 8,
     'Equipment => Messaging' => 1,
-    'Equipment => Organization' => 4,
+    'Equipment => Organization' => 1,
     'Facility => Intervention' => 5,
     'Facility => Messaging' => 1,
-    'Facility => Organization' => 6,
+    'Facility => Organization' => 2,
     'Import => Organization' => 1,
     'Inspection => Approval' => 1,
     'Inspection => Intervention' => 6,
     'Inspection => Messaging' => 1,
-    'Inspection => Organization' => 3,
+    'Inspection => Organization' => 1,
     'Intervention => Messaging' => 1,
     'Intervention => Organization' => 5,
     'Maintenance => Organization' => 2,

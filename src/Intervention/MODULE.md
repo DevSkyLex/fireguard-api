@@ -711,7 +711,10 @@ OrganizationNotificationSettings}` directly, because Organization's
 `Application/Contract/` exposes no id/settings types yet. Deliberate,
 documented debt: the eventual fix is Organization publishing contract types
 for those identifiers and this baseline shrinking back — do not add a sixth
-import; introduce the contract types instead.
+import; introduce the contract types instead, exactly as the 2026-08-18
+quota-contract migration did for `OrganizationQuotaPort` (resource enum and
+exception promoted to `Organization\Application\Contract\Quota`, shrinking
+the Facility/Equipment/Inspection pairs — see `src/Organization/MODULE.md`).
 
 ### Read-model advisory fields (`allowedTransitions`, `allowedActions`)
 
