@@ -586,6 +586,30 @@ Cross-module contracts and lifecycle invariants:
   skipped when no parent id is present. See `src/Import/MODULE.md`'s dry-run
   section for the full row-report shape.
 
+**Architecture debt — cross-module `Organization\Domain` imports (7).** The
+`CrossModuleDomainBoundaryTest` ratchet baseline for `Facility => Organization`
+was raised 5 → 7 on 2026-08-18, for the subtree duplication added by 32c1141b
+(`DuplicateFacilitySubtreeHandler`, `DuplicateFacilitySubtreeProcessor`). Both
+imports are forced by the shape of the port they consume, not by a shortcut
+around it: `Organization\Application\Port\Inbound\OrganizationQuotaPort` — the
+published inbound contract — takes a
+`Organization\Domain\ValueObject\OrganizationQuotaResource` on every method and
+documents `Organization\Domain\Exception\OrganizationQuotaExceededException` as
+its `@throws`, so no consumer can call `assertCanAddMultiple()` or map its
+failure to 409 without importing Organization's `Domain`. The pre-existing five
+(`CreateFacilityHandler`, `CreateFacilityProcessor`,
+`FacilityProvisioningService`, plus `OrganizationId` in `ArchiveFacilityHandler`
+and `CreateFacilityConsoleCommand`) are the same leak seen from earlier
+features, and Equipment and Inspection carry it too.
+
+Deliberate, documented debt: the fix is not local to this module — Organization
+must publish the quota resource enum and the quota-exceeded exception under its
+`Application/Contract/` and retype the port against them, after which this
+baseline and Equipment's and Inspection's all shrink together. Until that
+happens, do not add an eighth import here; if a new feature needs the quota,
+route it through the existing port and reuse one of the two symbols already
+imported.
+
 ## Error Codes
 
 | Exception | HTTP status | When |
