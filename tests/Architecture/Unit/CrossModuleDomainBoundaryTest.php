@@ -79,7 +79,7 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * `organization.approvals.request`, and `ApprovalGate` signals that by
    * throwing `OrganizationAccessDeniedException` — Approval's own
    * `ApprovalExceptionMapperTrait` catches the very same class for the very
-   * same reason (`Approval => Organization`, baseline 4). Mapping it at the
+   * same reason (`Approval => Organization`, baseline 2). Mapping it at the
    * Presentation boundary is the established treatment here; see
    * `src/Inspection/MODULE.md` (Architecture debt).
    * Tightened 2026-08-19: `Import => Organization` lowered 2 → 1,
@@ -96,9 +96,15 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * `Inspection => Organization` 3 → 1. The survivors are `OrganizationId`
    * value-object imports and the waiver's access-denied mapping, both
    * unrelated to quotas.
+   * Tightened 2026-08-20: `Approval => Organization` lowered 4 → 2, the four
+   * decision/query handlers having stopped throwing Organization's
+   * `OrganizationAccessDeniedException` in favour of the module-owned
+   * `ApprovalAccessDeniedException`. The two that remain are `ApprovalGate`
+   * and `ApprovalExceptionMapperTrait`, which still map the exception the
+   * Organization port itself raises.
    */
   private const array BASELINE = [
-    'Approval => Organization' => 4,
+    'Approval => Organization' => 2,
     'Assistant => Organization' => 1,
     'Auth => Otp' => 9,
     'Auth => User' => 6,

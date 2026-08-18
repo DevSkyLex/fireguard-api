@@ -6,10 +6,11 @@ namespace Tests\Unit\Approval\Application\UseCase\Query\Request\GetApprovalReque
 
 use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
 use Approval\Application\UseCase\Query\Request\GetApprovalRequest\{GetApprovalRequestHandler, GetApprovalRequestQuery};
-use Approval\Domain\Exception\ApprovalRequestNotFoundException;
+use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException};
 use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,15 @@ final class GetApprovalRequestHandlerTest extends TestCase
     $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
     $requests->method('findById')->willReturn($this->request());
 
-    $result = $this->handler($requests)(new GetApprovalRequestQuery(self::ORG_ID, self::REQUEST_ID, 'user-1'));
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with('user-1', self::ORG_ID, 'organization.approvals.read')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $handler = new GetApprovalRequestHandler(requests: $requests, authorization: $authorization);
+
+    $result = $handler(new GetApprovalRequestQuery(self::ORG_ID, self::REQUEST_ID, 'user-1'));
 
     self::assertSame(self::REQUEST_ID, $result->id);
     self::assertSame(self::ORG_ID, $result->organizationId);
@@ -63,6 +72,34 @@ final class GetApprovalRequestHandlerTest extends TestCase
     $this->handler($requests)(new GetApprovalRequestQuery('other-org', self::REQUEST_ID, 'user-1'));
   }
 
+  #[Test]
+  public function testInvokeThrowsAccessDeniedWhenMemberLacksTheReadPermission(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->request());
+
+    $this->expectException(ApprovalAccessDeniedException::class);
+
+    $this->handler($requests, OrganizationAccessDecision::MISSING_PERMISSION)(
+      new GetApprovalRequestQuery(self::ORG_ID, self::REQUEST_ID, 'user-1'),
+    );
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheOrganizationIsOutsideTheCallersScope(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->request());
+
+    // Not-found rather than access-denied: a 403 would confirm to a caller
+    // from another organization that the request exists.
+    $this->expectException(ApprovalRequestNotFoundException::class);
+
+    $this->handler($requests, OrganizationAccessDecision::OUTSIDE_SCOPE)(
+      new GetApprovalRequestQuery(self::ORG_ID, self::REQUEST_ID, 'user-1'),
+    );
+  }
+
   private function request(): ApprovalRequest
   {
     return ApprovalRequest::create(
@@ -78,11 +115,16 @@ final class GetApprovalRequestHandlerTest extends TestCase
     );
   }
 
-  private function handler(ApprovalRequestRepositoryPort $requests): GetApprovalRequestHandler
-  {
+  private function handler(
+    ApprovalRequestRepositoryPort $requests,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
+  ): GetApprovalRequestHandler {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn($decision);
+
     return new GetApprovalRequestHandler(
       requests: $requests,
-      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      authorization: $authorization,
     );
   }
 }

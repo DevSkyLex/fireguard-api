@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Approval\Presentation\Api\Trait;
 
 use Approval\Domain\Exception\{
+  ApprovalAccessDeniedException,
   ApprovalRequestNotFoundException,
   ApprovalRequestNotPendingException,
   ApproverNotAuthorizedException,
@@ -49,6 +50,7 @@ trait ApprovalExceptionMapperTrait
     $current = $exception;
     do {
       $mapped = match (true) {
+        $current instanceof ApprovalAccessDeniedException,
         $current instanceof OrganizationAccessDeniedException,
         $current instanceof SelfApprovalNotAllowedException,
         $current instanceof ApproverNotAuthorizedException => new AccessDeniedHttpException($current->getMessage(), $exception),
