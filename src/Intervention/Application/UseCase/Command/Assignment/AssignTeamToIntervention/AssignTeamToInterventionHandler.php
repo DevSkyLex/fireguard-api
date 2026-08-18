@@ -21,12 +21,14 @@ use function array_values;
  * intervention's `participants` list. No change to the Intervention
  * aggregate, record, offline PUT/ETag, or revision engine: this dispatches
  * the EXISTING {@see MutateInterventionWorkflowCommand} so numbering,
- * activities, the planning freeze, and ETag/revision bumps all apply
- * identically to a manual participants edit. Expansion happens at
- * assignment time (a copy of member ids), never a live/dynamic link: a
- * later team-membership change never mutates an already-assigned
+ * activities, the schedule mutability guard, and ETag/revision bumps all
+ * apply identically to a manual participants edit — participants therefore
+ * stay assignable through `planned`, `in_progress` and `changes_requested`,
+ * and only `submitted`, `published` or `abandoned` conflict. Expansion
+ * happens at assignment time (a copy of member ids), never a live/dynamic
+ * link: a later team-membership change never mutates an already-assigned
  * intervention, which keeps behavior deterministic under the offline/ETag
- * optimistic-concurrency replay model and the draft-only planning freeze.
+ * optimistic-concurrency replay model.
  *
  * @category UseCase
  *

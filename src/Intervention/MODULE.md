@@ -303,12 +303,15 @@ Domain change. The union of the existing `participants` and the team's
 active member ids (deduplicated) is applied through the **existing**
 `MutateInterventionWorkflowCommand` (`resource: 'intervention', action: 'update'`,
 `payload: ['participants' => ...]`), so numbering, activities, ETag/revision
-bumps, and the planning freeze (`Intervention::assertPlanningMutable`) all
-apply identically to a manual participants edit: the assignment is only
-possible while the intervention is `draft`, otherwise it fails the same way
-a manual participants PATCH would (`409 Conflict`). An empty team (no
-active members) is rejected with `422 Unprocessable Entity` rather than
-silently no-op'ing.
+bumps, and the schedule mutability guard (`Intervention::assertScheduleMutable`,
+the participants row of the mutability matrix below) all apply identically to
+a manual participants edit. Participants are **not** draft-only: the
+assignment stays possible while the intervention is `draft`, `planned`,
+`in_progress` or `changes_requested`, and fails the same way a manual
+participants PATCH would (`409 Conflict`) once it is `submitted` (frozen
+under review — withdraw it to replan) or `published` / `abandoned`
+(immutable). An empty team (no active members) is rejected with
+`422 Unprocessable Entity` rather than silently no-op'ing.
 
 This is a deliberate **snapshot**, not a dynamic/live binding: expansion
 happens once, at assignment time. A later team-membership change never

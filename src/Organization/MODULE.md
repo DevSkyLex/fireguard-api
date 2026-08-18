@@ -945,8 +945,10 @@ aggregate; its `role` field is a free-form label (e.g. `"lead"`),
   time — a deliberate snapshot, not a live/dynamic link. A later
   team-membership change never mutates an already-assigned intervention.
   This keeps behavior deterministic under the offline/ETag optimistic-concurrency
-  replay model and respects the draft-only planning freeze
-  (`Intervention::assertPlanningMutable()`).
+  replay model and respects the schedule mutability guard
+  (`Intervention::assertScheduleMutable()`): participants stay assignable
+  through `planned`, `in_progress` and `changes_requested`, and only a
+  `submitted`, `published` or `abandoned` intervention refuses the assignment.
 
 
 
