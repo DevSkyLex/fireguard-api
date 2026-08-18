@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\MetadataField\ListMetadataFields;
 
 /**
- * UseCase MetadataFieldItem.
+ * UseCase MetadataFieldResult.
  *
  * One row of {@see ListMetadataFieldsResult}.
  *
@@ -15,7 +15,7 @@ namespace Facility\Application\UseCase\Query\MetadataField\ListMetadataFields;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class MetadataFieldItem
+final readonly class MetadataFieldResult
 {
   // #region Constructor
   /**

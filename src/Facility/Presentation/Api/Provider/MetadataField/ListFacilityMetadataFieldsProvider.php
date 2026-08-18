@@ -7,7 +7,7 @@ namespace Facility\Presentation\Api\Provider\MetadataField;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\{ListMetadataFieldsQuery, ListMetadataFieldsResult, MetadataFieldItem};
+use Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\{ListMetadataFieldsQuery, ListMetadataFieldsResult, MetadataFieldResult};
 use Facility\Presentation\Api\Dto\Output\MetadataField\FacilityMetadataFieldOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -132,7 +132,7 @@ final readonly class ListFacilityMetadataFieldsProvider implements ProviderInter
    *
    * @since 1.0.0
    */
-  private function mapItem(MetadataFieldItem $item): FacilityMetadataFieldOutput
+  private function mapItem(MetadataFieldResult $item): FacilityMetadataFieldOutput
   {
     $output = new FacilityMetadataFieldOutput();
     $output->id = $item->id;
