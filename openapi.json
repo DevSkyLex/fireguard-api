@@ -9547,6 +9547,117 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/equipment/{equipmentId}/plan-position": {
+            "put": {
+                "operationId": "equipment_plan_position_set",
+                "tags": [
+                    "Equipment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan position set or cleared",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Equipment or attachment not found"
+                    },
+                    "409": {
+                        "description": "Equipment not assigned to a facility, already decommissioned, or attachment is not a floor plan / not an ancestor"
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Set equipment plan position",
+                "description": "Pins the equipment at a point over a floor plan attachment belonging to its own facility or one of its ancestors. Submit \"attachmentId\", \"x\" and \"y\" (normalized 0-1 coordinates) together to set or replace the position, or all three null to clear it. The equipment must be assigned to a facility.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyEquipment identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "equipmentId",
+                        "in": "path",
+                        "description": "LegacyEquipment identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated LegacyEquipment resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LegacyEquipment.SetEquipmentPlanPositionInput-equipment.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/organizations/{organizationId}/equipment/{equipmentId}/tags": {
             "post": {
                 "operationId": "equipment_add_tag",
@@ -10430,6 +10541,22 @@
                 "description": "Lists all attachments for a given facility.",
                 "parameters": [
                     {
+                        "name": "kind",
+                        "in": "query",
+                        "description": "Filter by attachment kind (\"document\" or \"floor_plan\").",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "document",
+                                "floor_plan"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "facilityId",
                         "in": "path",
                         "description": "FacilityAttachment identifier",
@@ -10523,7 +10650,7 @@
                     }
                 },
                 "summary": "Upload a facility attachment",
-                "description": "Uploads a multipart file attachment to a facility.",
+                "description": "Uploads a multipart file attachment to a facility. An optional `kind` field (\"document\", the default, or \"floor_plan\") selects the attachment kind; a floor plan is restricted to image/png, image/jpeg, image/webp or image/svg+xml and has its pixel dimensions probed server-side.",
                 "parameters": [
                     {
                         "name": "facilityId",
@@ -10994,6 +11121,132 @@
                 ]
             }
         },
+        "/api/facility-attachments/{id}/download": {
+            "get": {
+                "operationId": "download_facility_attachment",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Attachment file content"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions (requires organization.facilities.read)"
+                    },
+                    "404": {
+                        "description": "Attachment (or its stored content) not found"
+                    },
+                    "204": {
+                        "description": "FacilityAttachmentContent resource"
+                    }
+                },
+                "summary": "Download a facility attachment",
+                "description": "Streams the stored file bytes with Content-Disposition: attachment and X-Content-Type-Options: nosniff. A floor_plan attachment may be an SVG \u2014 the shared AttachmentDownloadResponder never serves it inline, so a browser downloads rather than executes it. Gated by organization.facilities.read.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityAttachmentContent identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/facility-attachments/{id}/primary": {
+            "post": {
+                "operationId": "facility_attachment_set_primary",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Attachment promoted to primary plan",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityAttachment.FacilityAttachmentOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "409": {
+                        "description": "The attachment is not a floor plan"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Attachment not found"
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Set the facility primary floor plan",
+                "description": "Promotes a `floor_plan` attachment to be the facility's primary plan, atomically clearing whichever attachment carried the flag before. A `document` attachment is refused with 409 \u2014 a POST verb-action route, mirroring `/facilities/{id}/archive` and `/facilities/{id}/move`.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityAttachment identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/facilities": {
             "get": {
                 "operationId": "facility_list",
@@ -11123,6 +11376,18 @@
                         "deprecated": false,
                         "schema": {
                             "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "hasCoordinates",
+                        "in": "query",
+                        "description": "When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
                         },
                         "style": "form",
                         "explode": false
@@ -11766,6 +12031,117 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/facilities/{facilityId}/duplicate": {
+            "post": {
+                "operationId": "facility_duplicate_subtree",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Facility subtree duplicated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.FacilityOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input or target parent",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Facility not found"
+                    },
+                    "409": {
+                        "description": "Source facility is archived, or the organization plan quota would be exceeded"
+                    },
+                    "422": {
+                        "description": "Subtree exceeds the duplication size limit",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Duplicate facility subtree",
+                "description": "Duplicates a facility and its full subtree into a new, independent branch.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new LegacyFacility resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LegacyFacility.DuplicateFacilitySubtreeInput-facility.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/organizations/{organizationId}/facilities/{facilityId}/move": {
             "post": {
                 "operationId": "facility_move",
@@ -11878,6 +12254,190 @@
                 "deprecated": true
             }
         },
+        "/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry": {
+            "put": {
+                "operationId": "facility_plan_geometry_set",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan geometry set or cleared",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.FacilityOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid geometry shape, bounds, or point count",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Facility or attachment not found"
+                    },
+                    "409": {
+                        "description": "Attachment is not a floor plan, or does not belong to this facility or an ancestor"
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Set facility plan geometry",
+                "description": "Binds this facility (a spatial zone) to a polygon drawn over an ancestor floor plan attachment. Submit \"attachmentId\" and \"points\" (>=3 normalized 0-1 coordinates) together to set or replace the geometry, or both null to clear it.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated LegacyFacility resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LegacyFacility.SetFacilityPlanGeometryInput-facility.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay": {
+            "get": {
+                "operationId": "facility_plan_overlay_get",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan overlay retrieved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.FacilityPlanOverlayOutput.jsonld-facility.read"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid identifier"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Facility or attachment not found"
+                    },
+                    "409": {
+                        "description": "Attachment is not a floor plan, or does not belong to this facility or an ancestor"
+                    }
+                },
+                "summary": "Get facility plan overlay",
+                "description": "Returns one floor plan (explicit \"attachmentId\", or this facility's own primary plan when omitted) and every published self-or-descendant zone bound to it.",
+                "parameters": [
+                    {
+                        "name": "attachmentId",
+                        "in": "query",
+                        "description": "Floor plan attachment identifier. Defaults to this facility's primary plan when omitted.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/facilities/{facilityId}/restore": {
             "patch": {
                 "operationId": "facility_restore",
@@ -11973,6 +12533,321 @@
                         "explode": false
                     }
                 ]
+            }
+        },
+        "/api/organizations/{organizationId}/facility-metadata-fields": {
+            "get": {
+                "operationId": "facility_metadata_field_list",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metadata field definitions retrieved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "FacilityMetadataField.FacilityMetadataFieldOutput.jsonld-facility.read collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/FacilityMetadataField.FacilityMetadataFieldOutput.jsonld-facility.read"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid organization identifier"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    }
+                },
+                "summary": "List facility metadata field definitions",
+                "description": "Lists the organization's typed metadata field definitions. Doubles as the frontend's form-schema source.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityMetadataField identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "facility_metadata_field_create",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Metadata field created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityMetadataField.FacilityMetadataFieldOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Organization not found"
+                    },
+                    "409": {
+                        "description": "Metadata field key already exists for this organization"
+                    },
+                    "422": {
+                        "description": "Organization has reached the metadata field definition cap (50)",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Create a facility metadata field definition",
+                "description": "Creates one typed metadata field definition for the organization.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityMetadataField identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new FacilityMetadataField resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FacilityMetadataField.CreateFacilityMetadataFieldInput-facility.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/facility-metadata-fields/{id}": {
+            "delete": {
+                "operationId": "facility_metadata_field_delete",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Metadata field deleted"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Metadata field not found"
+                    }
+                },
+                "summary": "Delete a facility metadata field definition",
+                "description": "Deletes one metadata field definition. Existing facility metadata values for this key are left untouched.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityMetadataField identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityMetadataField identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "facility_metadata_field_update",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Metadata field updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FacilityMetadataField.FacilityMetadataFieldOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Metadata field not found"
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Patch a facility metadata field definition",
+                "description": "Partially updates one metadata field definition.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "FacilityMetadataField identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "FacilityMetadataField identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated FacilityMetadataField resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FacilityMetadataField.UpdateFacilityMetadataFieldInput-facility.write.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
             }
         },
         "/api/organizations/{organizationId}/facility-tree": {
@@ -12302,6 +13177,10 @@
                                     "file": {
                                         "type": "string",
                                         "format": "binary"
+                                    },
+                                    "dryRun": {
+                                        "type": "boolean",
+                                        "description": "Validate, resolve parent-by-code and project the plan quota without provisioning anything; the report is returned via GET /imports/{id}."
                                     }
                                 },
                                 "required": [
@@ -15883,6 +16762,44 @@
                 }
             }
         },
+        "/api/intervention-attachments/{id}/download": {
+            "get": {
+                "operationId": "download_intervention_attachment",
+                "tags": [
+                    "Intervention"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Attachment file content"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions (requires organization.interventions.read)"
+                    },
+                    "404": {
+                        "description": "Attachment (or its stored content) not found"
+                    },
+                    "204": {
+                        "description": "InterventionAttachmentContent resource"
+                    }
+                },
+                "summary": "Download an intervention attachment",
+                "description": "Streams the stored file bytes with Content-Disposition: attachment. Gated by the flat organization.interventions.read permission \u2014 no phase restriction, so a published intervention's evidence stays downloadable.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "InterventionAttachmentContent identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/interventions": {
             "get": {
                 "operationId": "api_interventions_get_collection",
@@ -15994,6 +16911,18 @@
                         "explode": false
                     },
                     {
+                        "name": "member",
+                        "in": "query",
+                        "description": "Member IRI matching either the responsible member or a participant.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "type",
                         "in": "query",
                         "description": "Intervention type.",
@@ -16018,9 +16947,45 @@
                         "explode": false
                     },
                     {
+                        "name": "priority",
+                        "in": "query",
+                        "description": "Intervention priority: low, normal, high, urgent.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "site",
                         "in": "query",
                         "description": "Site IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "label",
+                        "in": "query",
+                        "description": "Intervention label IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "number",
+                        "in": "query",
+                        "description": "Per-organization intervention number, optionally prefixed with FG-.",
                         "required": false,
                         "deprecated": false,
                         "schema": {
@@ -16051,6 +17016,21 @@
                         "schema": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "due",
+                        "in": "query",
+                        "description": "Overdue shortcut: `overdue` restricts to interventions whose due date is past and whose status is not `published`/`abandoned` \u2014 the same definition `GET /interventions/statistics` uses for its `overdue` count. Composes with dueAtAfter/dueAtBefore.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "overdue"
+                            ]
                         },
                         "style": "form",
                         "explode": false
@@ -16206,6 +17186,51 @@
                     },
                     "required": true
                 }
+            }
+        },
+        "/api/interventions/statistics": {
+            "get": {
+                "operationId": "intervention_get_statistics",
+                "tags": [
+                    "Intervention"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Intervention statistics retrieved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterventionStatistics.InterventionStatisticsOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing organization filter"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Organization outside the caller's scope \u2014 deliberately not 403, which would confirm it exists"
+                    }
+                },
+                "summary": "Get intervention statistics",
+                "description": "Whole-organization snapshot: total, byStatus (all 7 status keys, zeros included), byPriority (all 4 priority keys, zeros included), overdue, dueSoon (48h window), bySite/byResponsible (top 10 each), averagePublicationDays. No filters in v1 \u2014 the whole organization is the question.",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "query",
+                        "description": "Organization IRI.",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
             }
         },
         "/api/interventions/{id}": {
@@ -16985,6 +18010,18 @@
                         "explode": false
                     },
                     {
+                        "name": "workItem",
+                        "in": "query",
+                        "description": "Narrows the list to attachments scoped to this work item (IRI or bare id).",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "page",
                         "in": "query",
                         "description": "The collection page number",
@@ -17095,7 +18132,43 @@
                         "style": "simple",
                         "explode": false
                     }
-                ]
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "description": "The attachment file content."
+                                    },
+                                    "label": {
+                                        "type": "string",
+                                        "description": "Optional display label."
+                                    },
+                                    "workItemId": {
+                                        "type": "string",
+                                        "description": "Optional owning work item IRI or bare id \u2014 scopes the attachment to that work item."
+                                    },
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "file",
+                                            "signature"
+                                        ],
+                                        "description": "Attachment kind. Defaults to \"file\"; \"signature\" is the typed completion signature (at most one per intervention, image MIME only)."
+                                    }
+                                },
+                                "required": [
+                                    "file"
+                                ]
+                            }
+                        }
+                    },
+                    "required": false
+                }
             }
         },
         "/api/intervention-changes": {
@@ -39847,6 +40920,24 @@
                                 "default": "unscheduled",
                                 "type": "string"
                             },
+                            "planPosition": {
+                                "readOnly": true,
+                                "description": "Position pinned on a floor plan attachment (detail read only)",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            },
                             "createdAt": {
                                 "readOnly": true,
                                 "description": "Property createdAt.",
@@ -40590,6 +41681,30 @@
                                     ]
                                 }
                             },
+                            "planGeometry": {
+                                "readOnly": true,
+                                "description": "Optional spatial geometry bound to an ancestor floor plan (detail views only)",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "number"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            },
                             "createdAt": {
                                 "readOnly": true,
                                 "description": "Property createdAt.",
@@ -40601,6 +41716,17 @@
                                 "description": "Property updatedAt.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "path": {
+                                "readOnly": true,
+                                "description": "Ancestor breadcrumb, root first, excluding this facility",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
                             }
                         }
                     }
@@ -40753,6 +41879,34 @@
                                 "default": 1,
                                 "type": "integer"
                             },
+                            "kind": {
+                                "readOnly": true,
+                                "description": "Property kind.",
+                                "default": "document",
+                                "type": "string"
+                            },
+                            "isPrimaryPlan": {
+                                "readOnly": true,
+                                "description": "Property isPrimaryPlan.",
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "imageWidth": {
+                                "readOnly": true,
+                                "description": "Property imageWidth.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "imageHeight": {
+                                "readOnly": true,
+                                "description": "Property imageHeight.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
                             "uploadedAt": {
                                 "readOnly": true,
                                 "description": "Property uploadedAt.",
@@ -40763,6 +41917,214 @@
                     }
                 ],
                 "description": "File attachments linked to a facility."
+            },
+            "FacilityMetadataField.CreateFacilityMetadataFieldInput-facility.write": {
+                "type": "object",
+                "description": "Organization-defined typed schema for facility metadata.",
+                "required": [
+                    "key",
+                    "label",
+                    "fieldType"
+                ],
+                "properties": {
+                    "key": {
+                        "minLength": 2,
+                        "maxLength": 64,
+                        "description": "Machine key, kebab-case or snake_case",
+                        "default": "",
+                        "example": "surface-m2",
+                        "type": "string"
+                    },
+                    "label": {
+                        "minLength": 2,
+                        "maxLength": 80,
+                        "description": "Human-readable label",
+                        "default": "",
+                        "example": "Surface (m\u00b2)",
+                        "type": "string"
+                    },
+                    "fieldType": {
+                        "enum": [
+                            "text",
+                            "number",
+                            "date",
+                            "boolean",
+                            "select"
+                        ],
+                        "description": "Field type",
+                        "default": "",
+                        "example": "number",
+                        "type": "string"
+                    },
+                    "required": {
+                        "description": "Whether the field is required on facility creation",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "options": {
+                        "description": "Select options, required only when fieldType is \"select\"",
+                        "example": [
+                            "ERP",
+                            "IGH",
+                            "Habitation"
+                        ],
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "facilityType": {
+                        "enum": [
+                            "site",
+                            "building",
+                            "floor",
+                            "zone",
+                            "area"
+                        ],
+                        "description": "Optional facility type scope; omitted or null applies to every type",
+                        "example": "building",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "maxLength": 16,
+                        "description": "Optional unit label",
+                        "example": "m\u00b2",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "FacilityMetadataField.FacilityMetadataFieldOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "readOnly": true,
+                                "default": "",
+                                "type": "string"
+                            },
+                            "key": {
+                                "readOnly": true,
+                                "default": "",
+                                "type": "string"
+                            },
+                            "label": {
+                                "readOnly": true,
+                                "default": "",
+                                "type": "string"
+                            },
+                            "fieldType": {
+                                "readOnly": true,
+                                "default": "",
+                                "type": "string"
+                            },
+                            "options": {
+                                "readOnly": true,
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "facilityType": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "required": {
+                                "readOnly": true,
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "unit": {
+                                "readOnly": true,
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Organization-defined typed schema for facility metadata."
+            },
+            "FacilityMetadataField.UpdateFacilityMetadataFieldInput-facility.write.jsonMergePatch": {
+                "type": "object",
+                "description": "Organization-defined typed schema for facility metadata.",
+                "properties": {
+                    "label": {
+                        "minLength": 2,
+                        "maxLength": 80,
+                        "description": "Human-readable label (partial update)",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "fieldType": {
+                        "enum": [
+                            "text",
+                            "number",
+                            "date",
+                            "boolean",
+                            "select"
+                        ],
+                        "description": "Field type (partial update)",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "required": {
+                        "description": "Whether the field is required on facility creation (partial update)",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "options": {
+                        "description": "Select options (partial update)",
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "facilityType": {
+                        "enum": [
+                            "site",
+                            "building",
+                            "floor",
+                            "zone",
+                            "area"
+                        ],
+                        "description": "Optional facility type scope (partial update); null applies to every type",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "maxLength": 16,
+                        "description": "Optional unit label (partial update)",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
             },
             "FacilityStatus.FacilityStatusOptionOutput.jsonld-facility.read": {
                 "allOf": [
@@ -41081,6 +42443,11 @@
                                 "description": "Property originalFilename.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "dryRun": {
+                                "description": "Property dryRun.",
+                                "default": false,
+                                "type": "boolean"
                             },
                             "totalRows": {
                                 "description": "Property totalRows.",
@@ -42192,6 +43559,11 @@
                                 "default": 0,
                                 "type": "integer"
                             },
+                            "hasSignature": {
+                                "description": "Property hasSignature.",
+                                "default": false,
+                                "type": "boolean"
+                            },
                             "labels": {
                                 "description": "Property labels.",
                                 "type": "array",
@@ -42513,6 +43885,20 @@
                                     "string",
                                     "null"
                                 ]
+                            },
+                            "workItemId": {
+                                "readOnly": true,
+                                "description": "Property workItemId.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "kind": {
+                                "readOnly": true,
+                                "description": "Property kind.",
+                                "default": "file",
+                                "type": "string"
                             },
                             "revision": {
                                 "readOnly": true,
@@ -43094,6 +44480,111 @@
                     }
                 }
             },
+            "InterventionResponsibleStatisticOutput.jsonld": {
+                "type": "object",
+                "properties": {
+                    "memberId": {
+                        "description": "Property memberId.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "description": "Property displayName.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "count": {
+                        "description": "Property count.",
+                        "default": 0,
+                        "type": "integer"
+                    }
+                }
+            },
+            "InterventionSiteStatisticOutput.jsonld": {
+                "type": "object",
+                "properties": {
+                    "siteId": {
+                        "description": "Property siteId.",
+                        "default": "",
+                        "type": "string"
+                    },
+                    "siteName": {
+                        "description": "Property siteName.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "count": {
+                        "description": "Property count.",
+                        "default": 0,
+                        "type": "integer"
+                    }
+                }
+            },
+            "InterventionStatistics.InterventionStatisticsOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "total": {
+                                "description": "Property total.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "byStatus": {
+                                "description": "Property byStatus.",
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "integer"
+                                }
+                            },
+                            "byPriority": {
+                                "description": "Property byPriority.",
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "integer"
+                                }
+                            },
+                            "overdue": {
+                                "description": "Property overdue.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "dueSoon": {
+                                "description": "Property dueSoon.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "bySite": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/InterventionSiteStatisticOutput.jsonld"
+                                }
+                            },
+                            "byResponsible": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/InterventionResponsibleStatisticOutput.jsonld"
+                                }
+                            },
+                            "averagePublicationDays": {
+                                "description": "Property averagePublicationDays.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Whole-organization intervention statistics for the list page KPI cards and the kanban column counters."
+            },
             "InterventionTargetOutput.jsonld": {
                 "type": "object",
                 "properties": {
@@ -43278,6 +44769,11 @@
                                 "description": "Property commentsCount.",
                                 "default": 0,
                                 "type": "integer"
+                            },
+                            "hasSignature": {
+                                "description": "Property hasSignature.",
+                                "default": false,
+                                "type": "boolean"
                             },
                             "labels": {
                                 "description": "Property labels.",
@@ -43896,6 +45392,11 @@
                                     "null"
                                 ]
                             },
+                            "evidenceCount": {
+                                "description": "Property evidenceCount.",
+                                "default": 0,
+                                "type": "integer"
+                            },
                             "revision": {
                                 "description": "Property revision.",
                                 "default": 1,
@@ -44227,6 +45728,24 @@
                                 "default": "unscheduled",
                                 "type": "string"
                             },
+                            "planPosition": {
+                                "readOnly": true,
+                                "description": "Position pinned on a floor plan attachment (detail read only)",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            },
                             "createdAt": {
                                 "readOnly": true,
                                 "description": "Property createdAt.",
@@ -44243,6 +45762,49 @@
                     }
                 ],
                 "description": "Fire safety equipment and assets managed at organization level."
+            },
+            "LegacyEquipment.SetEquipmentPlanPositionInput-equipment.write": {
+                "type": "object",
+                "description": "Fire safety equipment and assets managed at organization level.",
+                "required": [
+                    "attachmentId",
+                    "x",
+                    "y"
+                ],
+                "properties": {
+                    "attachmentId": {
+                        "format": "uuid",
+                        "description": "Floor plan attachment identifier the position is bound to. Required together with x/y; use null on all three to clear.",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "example": "550e8400-e29b-41d4-a716-446655440001",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "x": {
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "Normalized x coordinate in [0, 1]. Required together with attachmentId/y; use null on all three to clear.",
+                        "example": 0.42,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "y": {
+                        "minimum": 0,
+                        "maximum": 1,
+                        "description": "Normalized y coordinate in [0, 1]. Required together with attachmentId/x; use null on all three to clear.",
+                        "example": 0.17,
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    }
+                }
             },
             "LegacyEquipment.UpdateEquipmentInput-equipment.write.jsonMergePatch": {
                 "type": "object",
@@ -44437,6 +45999,34 @@
                     "name"
                 ]
             },
+            "LegacyFacility.DuplicateFacilitySubtreeInput-facility.write": {
+                "type": "object",
+                "description": "Generic organizational facilities (site/building/floor/zone/area).",
+                "properties": {
+                    "name": {
+                        "minLength": 2,
+                        "maxLength": 120,
+                        "description": "Name for the copy's root. Defaults to \"{original} (copy)\" when omitted.",
+                        "example": "Site A (copy)",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "parentFacilityId": {
+                        "format": "uuid",
+                        "description": "Target parent facility identifier for the copy's root. Defaults to the source facility's own parent when omitted.",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "example": "550e8400-e29b-41d4-a716-446655440001",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
             "LegacyFacility.FacilityOutput.jsonld-facility.read": {
                 "allOf": [
                     {
@@ -44555,6 +46145,30 @@
                                     ]
                                 }
                             },
+                            "planGeometry": {
+                                "readOnly": true,
+                                "description": "Optional spatial geometry bound to an ancestor floor plan (detail views only)",
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "number"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            },
                             "createdAt": {
                                 "readOnly": true,
                                 "description": "Property createdAt.",
@@ -44566,6 +46180,94 @@
                                 "description": "Property updatedAt.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "path": {
+                                "readOnly": true,
+                                "description": "Ancestor breadcrumb, root first, excluding this facility",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Generic organizational facilities (site/building/floor/zone/area)."
+            },
+            "LegacyFacility.FacilityPlanOverlayOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "attachmentId": {
+                                "readOnly": true,
+                                "description": "Property attachmentId.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "imageWidth": {
+                                "readOnly": true,
+                                "description": "Property imageWidth.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "imageHeight": {
+                                "readOnly": true,
+                                "description": "Property imageHeight.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "zones": {
+                                "readOnly": true,
+                                "description": "Property zones.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "number"
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "type": "string"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "equipment": {
+                                "readOnly": true,
+                                "description": "Property equipment.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "number"
+                                            },
+                                            {
+                                                "type": "string"
+                                            }
+                                        ]
+                                    }
+                                }
                             }
                         }
                     }
@@ -44590,6 +46292,56 @@
                             "string",
                             "null"
                         ]
+                    }
+                }
+            },
+            "LegacyFacility.SetFacilityPlanGeometryInput-facility.write": {
+                "type": "object",
+                "description": "Generic organizational facilities (site/building/floor/zone/area).",
+                "required": [
+                    "attachmentId",
+                    "points"
+                ],
+                "properties": {
+                    "attachmentId": {
+                        "format": "uuid",
+                        "description": "Floor plan attachment identifier the geometry is bound to. Required together with points; use null on both to clear.",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "example": "550e8400-e29b-41d4-a716-446655440001",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "points": {
+                        "minItems": 3,
+                        "description": "Polygon points in normalized 0-1 image coordinates, at least 3. Required together with attachmentId; use null on both to clear.",
+                        "example": [
+                            [
+                                0.1,
+                                0.1
+                            ],
+                            [
+                                0.4,
+                                0.1
+                            ],
+                            [
+                                0.4,
+                                0.4
+                            ]
+                        ],
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        }
                     }
                 }
             },
@@ -52508,6 +54260,10 @@
             "description": "Resource InterventionActivityResource.\n\nThe intervention activity feed: member-authored comments and\nsystem-recorded lifecycle events (creation, status transitions)."
         },
         {
+            "name": "Intervention",
+            "description": "Whole-organization intervention statistics for the list page KPI cards and the kanban column counters."
+        },
+        {
             "name": "InterventionAttachment",
             "description": "Resource InterventionAttachmentResource.\n\nGeneralized multipart file attachments on an intervention. Write access\nis phase-based (see `InterventionMediaProcessor`)."
         },
@@ -52526,10 +54282,6 @@
         {
             "name": "InterventionRecurrence",
             "description": "Resource InterventionRecurrenceResource.\n\nOrganization-scoped recurring intervention schedules: a rule (frequency +\ninterval + anchor date, in a fixed timezone) that periodically\nmaterializes an intervention template into a real intervention draft\nthrough the recurring sweep (`MaterializeDueRecurrencesHandler`)."
-        },
-        {
-            "name": "Intervention",
-            "description": "Field intervention coordinating draft operational resources."
         },
         {
             "name": "Interventions",
