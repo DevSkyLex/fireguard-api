@@ -85,6 +85,32 @@ final class InterventionOutputFactoryTest extends TestCase
   }
 
   #[Test]
+  public function itMapsTheRecurrenceOriginWhenTheViewCarriesOne(): void
+  {
+    $data = $this->baseData([]);
+    $data['recurrence'] = '/api/intervention-recurrences/recurrence-1';
+
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+      ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
+
+    self::assertSame('/api/intervention-recurrences/recurrence-1', $output->recurrence);
+  }
+
+  #[Test]
+  public function itLeavesTheRecurrenceNullWhenTheViewOmitsTheKeyEntirely(): void
+  {
+    // The list path never puts the key in the view data at all, and the field
+    // must survive that rather than throwing on a missing key.
+    $data = $this->baseData([]);
+    self::assertArrayNotHasKey('recurrence', $data);
+
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+      ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
+
+    self::assertNull($output->recurrence);
+  }
+
+  #[Test]
   public function itLeavesAllowedActionsAbsentOnTheCallerAgnosticFromView(): void
   {
     $output = new InterventionOutputFactory(new InterventionTransitionPolicy())

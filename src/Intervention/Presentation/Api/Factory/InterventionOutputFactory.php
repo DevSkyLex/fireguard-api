@@ -78,6 +78,8 @@ final class InterventionOutputFactory
     $output->dueAt = $this->nullableString($data, 'dueAt');
     $output->reviewNote = $this->nullableString($data, 'reviewNote');
     $output->revision = $this->integer($data, 'revision');
+    // Absent from the list view's data by design — see InterventionOutput.
+    $output->recurrence = $this->nullableString($data, 'recurrence');
     $output->allowedTransitions = $this->allowedTransitionsFor($output->status);
     $output->facilitiesCount = $this->integer($data, 'facilitiesCount');
     $output->equipmentCount = $this->integer($data, 'equipmentCount');

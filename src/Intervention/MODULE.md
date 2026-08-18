@@ -242,6 +242,26 @@ Every processed occurrence (success or failure) also dispatches
 `intervention.recurrence_materialized` for the audit ledger, with a system
 actor.
 
+#### Reading the origin back
+
+`intervention_recurrence_runs` is the only link from a materialized
+intervention back to its series — there is no column on `interventions`, on
+purpose: the link belongs to the run that created it, and a recurrence
+deleted later must not leave a dangling reference on the intervention.
+
+`InterventionOutput.recurrence` exposes that link as the recurrence IRI, so a
+client can show where a scheduled intervention came from. It is resolved in
+`InterventionViewMapper::interventionView()` **only on the metrics-less
+branch** — the detail read and the write responses — because it costs one
+query against the runs table and no paginated list renders it. On the
+collection path the field is left unset, which API Platform omits along with
+every other null: a client must not read its absence in a list as "not
+recurring". A manually created intervention has no run row and omits the
+field everywhere.
+
+A failed run carries no intervention id, so a failed occurrence never claims
+an intervention it did not create.
+
 The reservation step (`reserveRun`) deliberately uses a raw DBAL statement
 rather than the ORM's `persist()`/`flush()`: the sweep processes many
 recurrences per request, and a unique-constraint violation raised during an
@@ -1305,7 +1325,13 @@ exactly like labels):
   recurrence still references it. `intervention_recurrence_runs.recurrence_id`
   cascades on delete. The unique constraint
   `uniq_intervention_recurrence_run_occurrence (recurrence_id, occurrence_date)`
-  is the materializer's idempotence guard.
+  is the materializer's idempotence guard, and
+  `idx_intervention_recurrence_run_intervention (intervention_id)`
+  (`migrations/main/Version20260818120000.php`) backs the reverse lookup the
+  intervention detail read uses to expose `InterventionOutput.recurrence`.
+  Note `intervention_id` is a **plain column, not a foreign key**: deleting a
+  materialized intervention leaves its run row intact as the audit record
+  that the occurrence was processed.
 - `intervention_label_assignments` is the `Intervention` ↔ `InterventionLabel`
   many-to-many join table, owning side on `InterventionRecord::$labels`; both
   join columns cascade on delete.
