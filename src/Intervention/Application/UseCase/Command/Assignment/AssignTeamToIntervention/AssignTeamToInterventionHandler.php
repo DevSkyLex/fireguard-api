@@ -110,7 +110,7 @@ final readonly class AssignTeamToInterventionHandler implements CommandHandler
       userId: $command->userId,
       id: $command->interventionId,
       payload: ['participants' => $participants],
-      expectedRevision: null,
+      expectedRevision: $command->expectedRevision,
       createOnly: false,
     ));
 
