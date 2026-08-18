@@ -30,7 +30,11 @@ Main goals:
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors the
-Intervention module's templates/labels).
+Intervention module's templates/labels). The by-id schedule handlers decide
+access through `OrganizationAuthorizationPort::resolveAccess()`: a schedule
+owned by an organization the caller has no active membership in yields the
+same 404 an unknown id produces (a 403 would confirm the schedule exists),
+while a member lacking the required permission gets 403.
 
 ## Flows
 

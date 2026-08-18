@@ -13,6 +13,7 @@ use Maintenance\Application\UseCase\Query\Schedule\GetMaintenanceSchedule\{
   GetMaintenanceScheduleResult
 };
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -41,8 +42,11 @@ final class GetMaintenanceScheduleHandlerTest extends TestCase
     $schedules = $this->createStub(MaintenanceScheduleRepositoryPort::class);
     $schedules->method('findById')->willReturn($schedule);
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORG_ID, 'organization.maintenance.read')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new GetMaintenanceScheduleHandler($schedules, $authorization);
 
@@ -75,11 +79,29 @@ final class GetMaintenanceScheduleHandlerTest extends TestCase
     $schedules->method('findById')->willReturn($this->schedule());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new GetMaintenanceScheduleHandler($schedules, $authorization);
 
     $this->expectException(MaintenanceAccessDeniedException::class);
+
+    $handler->__invoke(new GetMaintenanceScheduleQuery(self::USER_ID, self::SCHEDULE_ID));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheScheduleIsOutsideTheCallersScope(): void
+  {
+    $schedules = $this->createStub(MaintenanceScheduleRepositoryPort::class);
+    $schedules->method('findById')->willReturn($this->schedule());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new GetMaintenanceScheduleHandler($schedules, $authorization);
+
+    // Not-found rather than access-denied: a 403 would confirm to a caller
+    // from another organization that the schedule exists.
+    $this->expectException(MaintenanceNotFoundException::class);
 
     $handler->__invoke(new GetMaintenanceScheduleQuery(self::USER_ID, self::SCHEDULE_ID));
   }

@@ -17,6 +17,7 @@ use Maintenance\Application\UseCase\Command\Schedule\SetMaintenanceScheduleOverr
 use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
 use Maintenance\Domain\Service\MaintenanceScheduleRecomputePolicy;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -59,8 +60,11 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       }))
       ->willReturn($this->schedule(intervalOverride: 'P30D', nextDueAt: new DateTimeImmutable('2026-01-31T00:00:00+00:00')));
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORG_ID, 'organization.maintenance.manage')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -104,7 +108,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       ->willReturn($existing);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
@@ -148,7 +152,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
     $schedules->method('findById')->willReturn($this->schedule(null, null));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new SetMaintenanceScheduleOverrideHandler(
       $schedules,
@@ -165,13 +169,41 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsNotFoundWhenTheScheduleIsOutsideTheCallersScope(): void
+  {
+    $schedules = $this->createStub(MaintenanceScheduleRepositoryPort::class);
+    $schedules->method('findById')->willReturn($this->schedule(null, null));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new SetMaintenanceScheduleOverrideHandler(
+      $schedules,
+      $this->createStub(MaintenanceCompliancePolicyPort::class),
+      new MaintenanceScheduleRecomputePolicy(),
+      $authorization,
+      $eventDispatcher,
+      $this->clock(),
+    );
+
+    // Not-found rather than access-denied: a 403 would confirm to a caller
+    // from another organization that the schedule exists.
+    $this->expectException(MaintenanceNotFoundException::class);
+
+    $handler->__invoke(new SetMaintenanceScheduleOverrideCommand(self::USER_ID, self::SCHEDULE_ID, 'P30D'));
+  }
+
+  #[Test]
   public function testInvokeThrowsAValidationExceptionForAMalformedOverride(): void
   {
     $schedules = $this->createStub(MaintenanceScheduleRepositoryPort::class);
     $schedules->method('findById')->willReturn($this->schedule(null, null));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new SetMaintenanceScheduleOverrideHandler(
       $schedules,
