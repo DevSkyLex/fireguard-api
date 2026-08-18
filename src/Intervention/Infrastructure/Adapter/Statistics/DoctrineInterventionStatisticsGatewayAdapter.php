@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Statistics\{InterventionIdentifierCount, InterventionStatisticsAggregate};
 use Intervention\Application\Port\Outbound\InterventionStatisticsGatewayPort;
+use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
@@ -31,17 +32,6 @@ use function sprintf;
 final readonly class DoctrineInterventionStatisticsGatewayAdapter implements InterventionStatisticsGatewayPort
 {
   // #region Constants
-  /**
-   * The two end states, mirroring
-   * `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter::CLOSED_STATUSES`
-   * (that adapter's `countOverview` establishes this exact "non-terminal"
-   * definition for `overdue`; this one reuses it rather than inventing a
-   * second one).
-   *
-   * @var list<string>
-   */
-  private const array CLOSED_STATUSES = ['published', 'abandoned'];
-
   /**
    * Statuses where field work is still expected, mirroring
    * `Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter::ACTIVE_STATUSES`
@@ -123,12 +113,17 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
       $countsByPriority[$row['priority']] = (int) $row['count'];
     }
 
+    // `InterventionStatus::closedValues()` is the single source of truth for
+    // "overdue" — the `due=overdue` list filter
+    // (`Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter::interventionListQuery`)
+    // excludes the exact same set, via the same domain method, so the KPI
+    // tile and the list it links to never disagree.
     $overdue = (int) (clone $base)
       ->select('COUNT(intervention.id)')
       ->andWhere('intervention.status NOT IN (:closed)')
       ->andWhere('intervention.dueAt IS NOT NULL')
       ->andWhere('intervention.dueAt < :now')
-      ->setParameter('closed', self::CLOSED_STATUSES)
+      ->setParameter('closed', InterventionStatus::closedValues())
       ->setParameter('now', $now)
       ->getQuery()
       ->getSingleScalarResult();

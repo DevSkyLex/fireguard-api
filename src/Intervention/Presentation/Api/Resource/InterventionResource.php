@@ -49,6 +49,7 @@ use Symfony\Component\HttpFoundation\Response;
         new Parameter(name: 'number', in: 'query', description: 'Per-organization intervention number, optionally prefixed with FG-.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'dueAtAfter', in: 'query', description: 'Inclusive lower due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         new Parameter(name: 'dueAtBefore', in: 'query', description: 'Inclusive upper due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+        new Parameter(name: 'due', in: 'query', description: 'Overdue shortcut: `overdue` restricts to interventions whose due date is past and whose status is not `published`/`abandoned` — the same definition `GET /interventions/statistics` uses for its `overdue` count. Composes with dueAtAfter/dueAtBefore.', required: false, schema: ['type' => 'string', 'enum' => ['overdue']]),
         new Parameter(name: 'plannedStartAtAfter', in: 'query', description: 'Inclusive lower planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         new Parameter(name: 'plannedStartAtBefore', in: 'query', description: 'Inclusive upper planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
       ]),

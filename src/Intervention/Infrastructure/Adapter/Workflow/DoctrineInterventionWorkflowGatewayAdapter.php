@@ -947,6 +947,19 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $qb->andWhere(sprintf('m.%s %s :%s', $field, $operator, $filter))->setParameter($filter, $date);
       }
     }
+    // `overdueAsOf`/`overdueExcludedStatuses` are never client input: the
+    // handler derives them from the `due=overdue` filter (see
+    // `ListInterventionWorkflowHandler::resolveFilters()`) and this query
+    // only applies them mechanically, exactly like the `dueAtAfter`/
+    // `dueAtBefore` bounds above, with which they compose.
+    $overdueAsOf = $filters['overdueAsOf'] ?? null;
+    if ($overdueAsOf instanceof DateTimeImmutable) {
+      $qb->andWhere('m.dueAt < :overdueAsOf')->setParameter('overdueAsOf', $overdueAsOf);
+    }
+    $overdueExcludedStatuses = $filters['overdueExcludedStatuses'] ?? null;
+    if (is_array($overdueExcludedStatuses) && [] !== $overdueExcludedStatuses) {
+      $qb->andWhere('m.status NOT IN (:overdueExcludedStatuses)')->setParameter('overdueExcludedStatuses', $overdueExcludedStatuses);
+    }
 
     return $qb;
   }

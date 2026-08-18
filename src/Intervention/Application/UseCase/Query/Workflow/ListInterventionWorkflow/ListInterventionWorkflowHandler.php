@@ -6,8 +6,10 @@ namespace Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkfl
 
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\ValueObject\InterventionStatus;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\ClockPort;
 
 /**
  * UseCase ListInterventionWorkflowHandler.
@@ -20,6 +22,16 @@ use Shared\Application\Message\QueryHandler;
  */
 final readonly class ListInterventionWorkflowHandler implements QueryHandler
 {
+  // #region Constants
+  /**
+   * The client-facing value of the `due` filter that requests the overdue
+   * population — the only value recognized today.
+   *
+   * @var string
+   */
+  private const string DUE_OVERDUE = 'overdue';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -29,10 +41,12 @@ final readonly class ListInterventionWorkflowHandler implements QueryHandler
    *
    * @param InterventionWorkflowGatewayPort $gateway the gateway value
    * @param OrganizationAuthorizationPort $authorization the authorization value
+   * @param ClockPort $clock the clock port, resolving `now` for the `due=overdue` filter
    */
   public function __construct(
     private InterventionWorkflowGatewayPort $gateway,
     private OrganizationAuthorizationPort $authorization,
+    private ClockPort $clock,
   ) {
   }
 
@@ -76,10 +90,40 @@ final readonly class ListInterventionWorkflowHandler implements QueryHandler
     return new ListInterventionWorkflowResult($this->gateway->list(
       $query->resource,
       $query->scopeId,
-      $query->filters,
+      $this->resolveFilters($query->filters),
       $query->page,
       $query->itemsPerPage,
       $query->sorting,
     ));
+  }
+
+  /**
+   * Method resolveFilters.
+   *
+   * Translates the client-facing `due=overdue` filter into the gateway's
+   * mechanical, already-resolved filter keys — the "what counts as
+   * overdue" decision (a status not in {@see InterventionStatus::closedValues()}
+   * whose due date is before `now`) is a business rule and stays here,
+   * alongside the identical rule `GetInterventionStatisticsHandler`'s
+   * gateway applies, rather than being reinvented in the Infrastructure
+   * query builder. `dueAtAfter`/`dueAtBefore`, supplied verbatim by the
+   * caller, are left untouched and compose with the derived bounds below.
+   *
+   * @since 1.1.0
+   *
+   * @param array<string, mixed> $filters the raw filters value
+   *
+   * @return array<string, mixed> the resolved filters result
+   */
+  private function resolveFilters(array $filters): array
+  {
+    if (self::DUE_OVERDUE !== ($filters['due'] ?? null)) {
+      return $filters;
+    }
+    unset($filters['due']);
+    $filters['overdueAsOf'] = $this->clock->now();
+    $filters['overdueExcludedStatuses'] = InterventionStatus::closedValues();
+
+    return $filters;
   }
 }

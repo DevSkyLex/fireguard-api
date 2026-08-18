@@ -46,4 +46,13 @@ final class InterventionStatusTest extends TestCase
     self::assertFalse(InterventionStatus::PUBLISHED->isMutable());
     self::assertFalse(InterventionStatus::ABANDONED->isMutable());
   }
+
+  #[Test]
+  public function testClosedValuesListsExactlyTheNonMutableStatusLiterals(): void
+  {
+    // The single source of truth the `due=overdue` list filter and the
+    // statistics `overdue` count both exclude — keep it in sync with
+    // testTerminalStatusesAreNotMutable above rather than re-deriving it.
+    self::assertSame(['published', 'abandoned'], InterventionStatus::closedValues());
+  }
 }
