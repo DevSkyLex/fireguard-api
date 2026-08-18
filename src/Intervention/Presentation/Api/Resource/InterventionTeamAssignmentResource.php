@@ -45,13 +45,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Interventions'],
         summary: 'Assign a team to an intervention',
-        description: 'Snapshot-expands the CURRENT active members of an organization team into the intervention participants list (union, deduped). Requires organization.interventions.plan. Participants stay assignable while the intervention is draft, planned, in_progress or changes_requested; the assignment is refused once it is submitted (frozen under review — withdraw it first) or published/abandoned (immutable).',
+        description: 'Snapshot-expands the CURRENT active members of an organization team into the intervention participants list (union, deduped). Requires organization.interventions.plan. Participants stay assignable while the intervention is draft, planned, in_progress or changes_requested; the assignment is refused once it is submitted (frozen under review — withdraw it first) or published/abandoned (immutable). A teamId that does not exist in the caller\'s organization answers 404; 422 means the team exists but has no active members.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Team assigned; participants updated'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'The team has no active members to assign'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'The intervention is frozen: submitted (withdraw it to replan), published or abandoned'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Intervention not found'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Intervention or team not found, or outside the caller\'s organization'),
         ],
       ),
     ),

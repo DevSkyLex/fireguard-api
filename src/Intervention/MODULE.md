@@ -295,11 +295,15 @@ processed independently to keep memory bounded.
 resolves the intervention's context (organization, current `participants`)
 through the existing `InterventionWorkflowGatewayPort`, checks
 `organization.interventions.plan` (the same "prepare and assign" permission
-templates/recurrences use), then reads the team's CURRENT active member ids
+templates/recurrences use), then resolves the team
 through Organization's inbound `Organization\Application\Port\Inbound\TeamDirectoryPort`
-(`listActiveMemberIds`) — consumed directly cross-module, exactly like
+(`resolveTeam`) — consumed directly cross-module, exactly like
 `OrganizationAuthorizationPort`; no new Organization adapter, no Intervention
-Domain change. The union of the existing `participants` and the team's
+Domain change. `resolveTeam` rather than the port's `listActiveMemberIds`
+because the latter flattens an unknown, malformed or foreign team into the
+same empty list an existing team with no active members returns, and the two
+are distinct answers here (`404` and `422`, table below). The
+union of the existing `participants` and the team's
 active member ids (deduplicated) is applied through the **existing**
 `MutateInterventionWorkflowCommand` (`resource: 'intervention', action: 'update'`,
 `payload: ['participants' => ...]`), so numbering, activities, ETag/revision
@@ -310,8 +314,21 @@ assignment stays possible while the intervention is `draft`, `planned`,
 `in_progress` or `changes_requested`, and fails the same way a manual
 participants PATCH would (`409 Conflict`) once it is `submitted` (frozen
 under review — withdraw it to replan) or `published` / `abandoned`
-(immutable). An empty team (no active members) is rejected with
-`422 Unprocessable Entity` rather than silently no-op'ing.
+(immutable).
+
+| Status | When |
+| --- | --- |
+| 200 | Team assigned; the updated intervention is returned |
+| 403 | Authenticated member of the organization without `organization.interventions.plan` |
+| 404 | Unknown intervention, an intervention outside the caller's organization, or a `teamId` unknown / malformed / owned by another organization |
+| 409 | The intervention is `submitted`, `published` or `abandoned` |
+| 422 | The team exists in the organization but has no active members |
+
+The 404 covers the team as well as the intervention on purpose: a distinct
+status for a team that exists elsewhere would tell a caller which team
+identifiers are real outside their own organization. An empty team is a
+`422` rather than a silent no-op, so a caller who assigned nothing learns
+that nothing was assigned.
 
 This is a deliberate **snapshot**, not a dynamic/live binding: expansion
 happens once, at assignment time. A later team-membership change never
