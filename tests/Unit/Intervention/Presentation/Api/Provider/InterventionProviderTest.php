@@ -97,6 +97,42 @@ final class InterventionProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideForwardsTheOverdueDueFilter(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID . '&due=overdue',
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
+        self::assertSame(['due' => 'overdue'], $query->filters);
+
+        return true;
+      }))
+      ->willReturn(new ListInterventionWorkflowResult(new InterventionWorkflowPage([], 1, 30, 0)));
+
+    $paginator = $this->provider($queryBus, $requestStack)->provide(new GetCollection());
+
+    self::assertInstanceOf(TraversablePaginator::class, $paginator);
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnknownDueValue(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID . '&due=someday',
+    );
+    $provider = $this->provider($this->createStub(QueryBusPort::class), $requestStack);
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
   public function testProvideRequiresTheOrganizationFilter(): void
   {
     $provider = $this->provider($this->createStub(QueryBusPort::class), $this->requestStack(''));

@@ -110,6 +110,13 @@ final readonly class InterventionProvider implements ProviderInterface
     if (isset($filters['priority']) && !InterventionPriority::tryFrom((string) $filters['priority']) instanceof InterventionPriority) {
       throw new BadRequestHttpException('The priority filter must be one of: low, normal, high, urgent.');
     }
+    $due = $query?->get('due');
+    if (is_string($due) && '' !== $due) {
+      if ('overdue' !== $due) {
+        throw new BadRequestHttpException('The due filter must be: overdue.');
+      }
+      $filters['due'] = $due;
+    }
     foreach (['responsible' => 'responsibleId', 'participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {

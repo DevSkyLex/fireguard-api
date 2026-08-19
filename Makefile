@@ -31,7 +31,7 @@ APP_LOG_DIR ?= $(TMP_DIR)/$(PROJECT_NAME)/log/$(APP_ENV)
 export APP_CACHE_DIR
 export APP_LOG_DIR
 
-.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 # Run the whole suite: unit, architecture, integration, functional and E2E.
 
@@ -70,6 +70,14 @@ lint:
 
 cs-lint:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff
+
+# Fail when the committed openapi.json no longer matches the code. The spec is
+# the contract-of-record the frontend and /fg-contract-check read; it silently
+# went eight endpoints stale once, so freshness is part of the gate now.
+openapi-check:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) api:openapi:export --output=$(TMP_DIR)/openapi.fresh.json
+	@git diff --no-index --quiet openapi.json $(TMP_DIR)/openapi.fresh.json \
+		|| (echo "openapi.json is stale - run: php -d memory_limit=1G bin/console api:openapi:export --output=openapi.json" && exit 1)
 
 cs-fix:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix
@@ -137,7 +145,7 @@ test-cache-clean:
 seed-fixtures:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
-test: cs-lint phpstan deptrac lint phpunit-parallel
+test: cs-lint phpstan deptrac lint openapi-check phpunit-parallel
 
 # Run tests with code coverage (requires PCOV or Xdebug)
 #

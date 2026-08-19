@@ -34,7 +34,7 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/interventions` | Create intervention (starts as `draft`) |
-| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `member` *(responsible OR participant)*, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `label`, `number` *(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)*, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
+| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `member` *(responsible OR participant)*, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `label`, `number` *(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)*, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`, `due=overdue` *(shortcut restricting to `dueAt` in the past AND status not in `InterventionStatus::closedValues()` i.e. not `published`/`abandoned` — the exact definition `GET /interventions/statistics`'s `overdue` count uses; composes with `dueAtAfter`/`dueAtBefore`; 400 on any other value)*; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
 | GET | `/interventions/{id}` | Get intervention |
 | PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`status`) |
 | PUT | `/interventions/{id}` | Upsert (offline replay path; `201`) |
@@ -59,7 +59,7 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | POST | `/intervention-changes` | Propose a change to an existing resource |
 | GET | `/intervention-changes` | List (filters: `intervention` *(required)*, `resource`, `status`) |
 | GET | `/intervention-changes/{id}` | Get change |
-| PATCH | `/intervention-changes/{id}` | Update change status (`proposed → applied`/`rejected`) |
+| PATCH | `/intervention-changes/{id}` | Update change status (`proposed → rejected` only — `applied` is set exclusively by the publication worker, never through this endpoint) |
 | PUT | `/intervention-changes/{id}` | Upsert (offline replay path; `201`) |
 | DELETE | `/intervention-changes/{id}` | Delete change |
 
@@ -554,7 +554,11 @@ the kanban needs stable keys); `byPriority` (`array<string,int>`, all four
 `InterventionPriority` literals, zeros included); `overdue` (non-terminal
 statuses — excludes `published`/`abandoned` — with `dueAt` in the past, same
 definition `InterventionStatisticsAdapter::countOverview` already
-established for the Organization dashboard); `dueSoon` (statuses `planned`,
+established for the Organization dashboard, and the exact set
+`InterventionStatus::closedValues()` returns — the single source of truth
+`GET /interventions?due=overdue` excludes too via
+`ListInterventionWorkflowHandler`, so the KPI tile and the list it links to
+never disagree); `dueSoon` (statuses `planned`,
 `in_progress`, `changes_requested` — mirrors
 `SendDueRemindersHandler::DUE_SOON_WINDOW_HOURS` = 48h and its active-status
 set, minus the anti-spam stamp check, since statistics reflect current state
@@ -1159,6 +1163,19 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   - `Presentation/Api/Provider/Statistics/GetInterventionStatisticsProviderTest`
     — 401 unauthenticated, 400 missing `organization`, the handler's access
     exception mapped to 403, and the Result → Output mapping.
+  - `Domain/ValueObject/InterventionStatusTest` — `closedValues()` returns
+    exactly `['published', 'abandoned']`, the single source of truth
+    `GetInterventionStatisticsHandler` and `ListInterventionWorkflowHandler`
+    both exclude for "overdue".
+  - `Application/UseCase/Workflow/InterventionWorkflowHandlersTest` —
+    `ListInterventionWorkflowHandler` translates `filters['due'] === 'overdue'`
+    into the gateway's resolved `overdueAsOf` (from `ClockPort::now()`) and
+    `overdueExcludedStatuses` (`InterventionStatus::closedValues()`) keys,
+    composes with a caller-supplied `dueAtAfter`/`dueAtBefore`, and never
+    consults the clock when the `due` filter is absent.
+  - `Presentation/Api/Provider/InterventionProviderTest` — the `due` query
+    parameter is forwarded verbatim into the query filters, and an unknown
+    value (anything but `overdue`) is rejected with 400.
 - Integration (Doctrine adapters against a real database): `tests/Integration/Intervention/`
   — used for `DoctrineInterventionRecurrenceAdapter`'s `DATE_SUB`-based
   lead-time window selection and the `reserveRun()` idempotence guard, both
@@ -1193,6 +1210,14 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   all: the handler resolves both cases through
   `OrganizationAuthorizationPort::resolveAccess()`, and `isOutsideScope()`
   maps to 404 so a non-member cannot confirm the organization even exists.
+  `tests/Functional/Api/InterventionOverdueFilterApiTest.php` — seeds
+  interventions directly through the entity manager (like the statistics
+  test, so a terminal status can carry a past due date without the workflow
+  forbidding it) and proves `GET /interventions?due=overdue` lists a
+  non-terminal past-due intervention while excluding one not yet due and one
+  each `published`/`abandoned` despite a past due date, plus composability
+  with a caller-supplied `dueAtAfter`. Denial paths are not duplicated here —
+  they already exist for `GET /interventions`.
   `InterventionAttachmentApiTest` additionally covers the download route
   (Phase 4b): a real multipart-upload-then-download round-trip proving the
   exact bytes and the RFC-6266-encoded `Content-Disposition` for an accented

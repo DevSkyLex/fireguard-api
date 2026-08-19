@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Application\UseCase\Workflow;
 
+use DateTimeImmutable;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowMutation,
@@ -25,11 +26,14 @@ use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{
   ListInterventionWorkflowQuery
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\ValueObject\InterventionStatus;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\ClockPort;
 
 final class InterventionWorkflowHandlersTest extends TestCase
 {
@@ -181,7 +185,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', 'organization.interventions.read')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $result = (new ListInterventionWorkflowHandler($repository, $authorization))(
+    $result = (new ListInterventionWorkflowHandler($repository, $authorization, $this->createStub(ClockPort::class)))(
       new ListInterventionWorkflowQuery('user-1', 'work_item', 'intervention-1', ['status' => 'planned'], 1, 30),
     );
 
@@ -248,7 +252,11 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    (new ListInterventionWorkflowHandler($repository, $this->createStub(OrganizationAuthorizationPort::class)))(
+    (new ListInterventionWorkflowHandler(
+      $repository,
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(ClockPort::class),
+    ))(
       new ListInterventionWorkflowQuery('user-1', 'work_item', 'intervention-1', [], 1, 30),
     );
   }
@@ -264,7 +272,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionAccessDeniedException::class);
 
-    (new ListInterventionWorkflowHandler($repository, $authorization))(
+    (new ListInterventionWorkflowHandler($repository, $authorization, $this->createStub(ClockPort::class)))(
       new ListInterventionWorkflowQuery('user-1', 'intervention', 'organization-1', [], 1, 30),
     );
   }
@@ -283,7 +291,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    (new ListInterventionWorkflowHandler($repository, $authorization))(
+    (new ListInterventionWorkflowHandler($repository, $authorization, $this->createStub(ClockPort::class)))(
       new ListInterventionWorkflowQuery('user-1', 'intervention', 'organization-1', [], 1, 30),
     );
   }
@@ -303,9 +311,99 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    (new ListInterventionWorkflowHandler($repository, $authorization))(
+    (new ListInterventionWorkflowHandler($repository, $authorization, $this->createStub(ClockPort::class)))(
       new ListInterventionWorkflowQuery('user-1', 'work_item', 'intervention-1', [], 1, 30),
     );
+  }
+
+  #[Test]
+  public function itTranslatesTheOverdueFilterIntoTheGatewaysResolvedFilters(): void
+  {
+    $now = new DateTimeImmutable('2026-08-18T10:00:00+00:00');
+    $page = new InterventionWorkflowPage([], 1, 30, 0);
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())
+      ->method('list')
+      ->with(
+        'intervention',
+        'organization-1',
+        [
+          'overdueAsOf' => $now,
+          'overdueExcludedStatuses' => InterventionStatus::closedValues(),
+        ],
+        1,
+        30,
+      )
+      ->willReturn($page);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    /** @var ClockPort&MockObject $clock */
+    $clock = $this->createMock(ClockPort::class);
+    $clock->expects(self::once())->method('now')->willReturn($now);
+
+    $result = (new ListInterventionWorkflowHandler($repository, $authorization, $clock))(
+      new ListInterventionWorkflowQuery('user-1', 'intervention', 'organization-1', ['due' => 'overdue'], 1, 30),
+    );
+
+    self::assertSame($page, $result->page);
+  }
+
+  #[Test]
+  public function itKeepsTheOverdueFilterComposableWithTheCallerSuppliedDueAtBounds(): void
+  {
+    $now = new DateTimeImmutable('2026-08-18T10:00:00+00:00');
+    $page = new InterventionWorkflowPage([], 1, 30, 0);
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())
+      ->method('list')
+      ->with(
+        'intervention',
+        'organization-1',
+        [
+          'dueAtAfter' => '2026-08-01T00:00:00Z',
+          'overdueAsOf' => $now,
+          'overdueExcludedStatuses' => InterventionStatus::closedValues(),
+        ],
+        1,
+        30,
+      )
+      ->willReturn($page);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    $clock = $this->createStub(ClockPort::class);
+    $clock->method('now')->willReturn($now);
+
+    (new ListInterventionWorkflowHandler($repository, $authorization, $clock))(
+      new ListInterventionWorkflowQuery(
+        'user-1',
+        'intervention',
+        'organization-1',
+        ['dueAtAfter' => '2026-08-01T00:00:00Z', 'due' => 'overdue'],
+        1,
+        30,
+      ),
+    );
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function itNeverConsultsTheClockWithoutTheOverdueFilter(): void
+  {
+    $page = new InterventionWorkflowPage([], 1, 30, 0);
+    $repository = $this->createStub(InterventionWorkflowGatewayPort::class);
+    $repository->method('list')->willReturn($page);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    /** @var ClockPort&MockObject $clock */
+    $clock = $this->createMock(ClockPort::class);
+    $clock->expects(self::never())->method('now');
+
+    (new ListInterventionWorkflowHandler($repository, $authorization, $clock))(
+      new ListInterventionWorkflowQuery('user-1', 'intervention', 'organization-1', ['status' => 'planned'], 1, 30),
+    );
+
+    self::addToAssertionCount(1);
   }
 
   #[Test]

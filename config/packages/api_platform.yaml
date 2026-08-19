@@ -1,6 +1,6 @@
 api_platform:
-  title: Fireguard Auth API
-  description: OAuth2 and OpenID Connect Authorization Server
+  title: FireGuard API
+  description: Fire-safety compliance platform API — identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance
   version: 1.0.0
   exception_to_status:
     Organization\Domain\Exception\OrganizationQuotaExceededException: 409
