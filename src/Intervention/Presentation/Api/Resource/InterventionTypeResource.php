@@ -6,6 +6,7 @@ namespace Intervention\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, GetCollection};
 use Intervention\Presentation\Api\Dto\Output\InterventionTypeOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Provider\InterventionTypeProvider;
 
 /**
@@ -20,7 +21,7 @@ use Intervention\Presentation\Api\Provider\InterventionTypeProvider;
 #[ApiResource(
   shortName: 'InterventionType',
   operations: [
-    new GetCollection(uriTemplate: '/intervention-types', output: InterventionTypeOutput::class, provider: InterventionTypeProvider::class, paginationEnabled: false, security: "is_granted('ROLE_USER')"),
+    new GetCollection(name: InterventionOperations::LIST_INTERVENTION_TYPES, uriTemplate: '/intervention-types', output: InterventionTypeOutput::class, provider: InterventionTypeProvider::class, paginationEnabled: false, security: "is_granted('ROLE_USER')"),
   ],
 )]
 final class InterventionTypeResource

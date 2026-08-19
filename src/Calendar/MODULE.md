@@ -90,10 +90,14 @@ detail (e.g. to populate an edit form).
   invariant: `endsAt` (when set) must not be before `startsAt` —
   `CalendarEventValidationException::endBeforeStart()`.
 - `Domain\ValueObject\CalendarEventId` — UUID value object.
-- `Domain\Event\CalendarEventCreatedEvent` / `CalendarEventDeletedEvent` —
-  dispatched on create/delete. No `Updated` event, mirroring
-  `Webhook\Domain\Event\Subscription`'s precedent (only `Created`/`Deleted`
-  exist there too).
+- `Domain\Event\CalendarEventCreatedEvent` / `CalendarEventUpdatedEvent` /
+  `CalendarEventDeletedEvent` — dispatched on create/update/delete, each
+  consumed by `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber`
+  (actions `calendar.event_created` / `calendar.event_updated` /
+  `calendar.event_deleted`; see `Audit\MODULE.md`). `CalendarEventUpdatedEvent`
+  was added later than `Created`/`Deleted` — until then this module diverged
+  from `Webhook\Domain\Event\Subscription`'s Created/Deleted-only precedent by
+  omission (calendar writes left no audit trail), not by design.
 - `Domain\Exception\CalendarEventNotFoundException` → 404,
   `CalendarEventValidationException` → 422.
 

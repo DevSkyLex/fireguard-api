@@ -16802,7 +16802,7 @@
         },
         "/api/interventions": {
             "get": {
-                "operationId": "api_interventions_get_collection",
+                "operationId": "intervention_list",
                 "tags": [
                     "Intervention"
                 ],
@@ -17092,7 +17092,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_interventions_post",
+                "operationId": "intervention_create",
                 "tags": [
                     "Intervention"
                 ],
@@ -17235,7 +17235,7 @@
         },
         "/api/interventions/{id}": {
             "get": {
-                "operationId": "api_interventions_id_get",
+                "operationId": "intervention_get",
                 "tags": [
                     "Intervention"
                 ],
@@ -17441,7 +17441,7 @@
                 }
             },
             "delete": {
-                "operationId": "api_interventions_id_delete",
+                "operationId": "intervention_delete",
                 "tags": [
                     "Intervention"
                 ],
@@ -17476,7 +17476,7 @@
                 ]
             },
             "patch": {
-                "operationId": "api_interventions_id_patch",
+                "operationId": "intervention_update",
                 "tags": [
                     "Intervention"
                 ],
@@ -17608,7 +17608,7 @@
         },
         "/api/interventions/{interventionId}/activities": {
             "get": {
-                "operationId": "api_interventions_interventionIdactivities_get_collection",
+                "operationId": "intervention_activity_list",
                 "tags": [
                     "InterventionActivity"
                 ],
@@ -17713,7 +17713,7 @@
         },
         "/api/interventions/{interventionId}/comments": {
             "post": {
-                "operationId": "api_interventions_interventionIdcomments_post",
+                "operationId": "intervention_comment_create",
                 "tags": [
                     "InterventionActivity"
                 ],
@@ -17824,7 +17824,7 @@
         },
         "/api/intervention-attachments/{id}": {
             "get": {
-                "operationId": "api_intervention-attachments_id_get",
+                "operationId": "intervention_attachment_get",
                 "tags": [
                     "InterventionAttachment"
                 ],
@@ -17900,7 +17900,7 @@
                 ]
             },
             "delete": {
-                "operationId": "api_intervention-attachments_id_delete",
+                "operationId": "intervention_attachment_delete",
                 "tags": [
                     "InterventionAttachment"
                 ],
@@ -17937,7 +17937,7 @@
         },
         "/api/interventions/{interventionId}/attachments": {
             "get": {
-                "operationId": "api_interventions_interventionIdattachments_get_collection",
+                "operationId": "intervention_attachment_list",
                 "tags": [
                     "InterventionAttachment"
                 ],
@@ -18037,7 +18037,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_interventions_interventionIdattachments_post",
+                "operationId": "intervention_attachment_create",
                 "tags": [
                     "InterventionAttachment"
                 ],
@@ -18173,7 +18173,7 @@
         },
         "/api/intervention-changes": {
             "get": {
-                "operationId": "api_intervention-changes_get_collection",
+                "operationId": "intervention_change_list",
                 "tags": [
                     "InterventionChange"
                 ],
@@ -18285,7 +18285,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_intervention-changes_post",
+                "operationId": "intervention_change_create",
                 "tags": [
                     "InterventionChange"
                 ],
@@ -18383,7 +18383,7 @@
         },
         "/api/intervention-changes/{id}": {
             "get": {
-                "operationId": "api_intervention-changes_id_get",
+                "operationId": "intervention_change_get",
                 "tags": [
                     "InterventionChange"
                 ],
@@ -18589,7 +18589,7 @@
                 }
             },
             "delete": {
-                "operationId": "api_intervention-changes_id_delete",
+                "operationId": "intervention_change_delete",
                 "tags": [
                     "InterventionChange"
                 ],
@@ -18624,7 +18624,7 @@
                 ]
             },
             "patch": {
-                "operationId": "api_intervention-changes_id_patch",
+                "operationId": "intervention_change_update",
                 "tags": [
                     "InterventionChange"
                 ],
@@ -18756,7 +18756,7 @@
         },
         "/api/interventions/{id}/issues": {
             "get": {
-                "operationId": "api_interventions_idissues_get_collection",
+                "operationId": "intervention_issue_list",
                 "tags": [
                     "InterventionIssue"
                 ],
@@ -18833,7 +18833,7 @@
         },
         "/api/intervention-labels": {
             "get": {
-                "operationId": "api_intervention-labels_get_collection",
+                "operationId": "intervention_label_list",
                 "tags": [
                     "InterventionLabel"
                 ],
@@ -18936,7 +18936,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_intervention-labels_post",
+                "operationId": "intervention_label_create",
                 "tags": [
                     "InterventionLabel"
                 ],
@@ -19034,7 +19034,7 @@
         },
         "/api/intervention-labels/{id}": {
             "delete": {
-                "operationId": "api_intervention-labels_id_delete",
+                "operationId": "intervention_label_delete",
                 "tags": [
                     "InterventionLabel"
                 ],
@@ -19069,7 +19069,7 @@
                 ]
             },
             "patch": {
-                "operationId": "api_intervention-labels_id_patch",
+                "operationId": "intervention_label_update",
                 "tags": [
                     "InterventionLabel"
                 ],
@@ -19201,7 +19201,7 @@
         },
         "/api/intervention-recurrences": {
             "get": {
-                "operationId": "api_intervention-recurrences_get_collection",
+                "operationId": "intervention_recurrence_list",
                 "tags": [
                     "InterventionRecurrence"
                 ],
@@ -19316,7 +19316,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_intervention-recurrences_post",
+                "operationId": "intervention_recurrence_create",
                 "tags": [
                     "InterventionRecurrence"
                 ],
@@ -19414,7 +19414,7 @@
         },
         "/api/intervention-recurrences/{id}": {
             "get": {
-                "operationId": "api_intervention-recurrences_id_get",
+                "operationId": "intervention_recurrence_get",
                 "tags": [
                     "InterventionRecurrence"
                 ],
@@ -19490,7 +19490,7 @@
                 ]
             },
             "delete": {
-                "operationId": "api_intervention-recurrences_id_delete",
+                "operationId": "intervention_recurrence_delete",
                 "tags": [
                     "InterventionRecurrence"
                 ],
@@ -19525,7 +19525,7 @@
                 ]
             },
             "patch": {
-                "operationId": "api_intervention-recurrences_id_patch",
+                "operationId": "intervention_recurrence_update",
                 "tags": [
                     "InterventionRecurrence"
                 ],
@@ -19657,7 +19657,7 @@
         },
         "/api/intervention-templates": {
             "get": {
-                "operationId": "api_intervention-templates_get_collection",
+                "operationId": "intervention_template_list",
                 "tags": [
                     "InterventionTemplate"
                 ],
@@ -19772,7 +19772,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_intervention-templates_post",
+                "operationId": "intervention_template_create",
                 "tags": [
                     "InterventionTemplate"
                 ],
@@ -19870,7 +19870,7 @@
         },
         "/api/intervention-templates/{id}": {
             "get": {
-                "operationId": "api_intervention-templates_id_get",
+                "operationId": "intervention_template_get",
                 "tags": [
                     "InterventionTemplate"
                 ],
@@ -19946,7 +19946,7 @@
                 ]
             },
             "delete": {
-                "operationId": "api_intervention-templates_id_delete",
+                "operationId": "intervention_template_delete",
                 "tags": [
                     "InterventionTemplate"
                 ],
@@ -19981,7 +19981,7 @@
                 ]
             },
             "patch": {
-                "operationId": "api_intervention-templates_id_patch",
+                "operationId": "intervention_template_update",
                 "tags": [
                     "InterventionTemplate"
                 ],
@@ -20224,7 +20224,7 @@
         },
         "/api/intervention-types": {
             "get": {
-                "operationId": "api_intervention-types_get_collection",
+                "operationId": "intervention_type_list",
                 "tags": [
                     "InterventionType"
                 ],
@@ -20288,7 +20288,7 @@
         },
         "/api/intervention-work-items": {
             "get": {
-                "operationId": "api_intervention-work-items_get_collection",
+                "operationId": "intervention_work_item_list",
                 "tags": [
                     "InterventionWorkItem"
                 ],
@@ -20424,7 +20424,7 @@
                 ]
             },
             "post": {
-                "operationId": "api_intervention-work-items_post",
+                "operationId": "intervention_work_item_create",
                 "tags": [
                     "InterventionWorkItem"
                 ],
@@ -20522,7 +20522,7 @@
         },
         "/api/intervention-work-items/{id}": {
             "get": {
-                "operationId": "api_intervention-work-items_id_get",
+                "operationId": "intervention_work_item_get",
                 "tags": [
                     "InterventionWorkItem"
                 ],
@@ -20728,7 +20728,7 @@
                 }
             },
             "delete": {
-                "operationId": "api_intervention-work-items_id_delete",
+                "operationId": "intervention_work_item_delete",
                 "tags": [
                     "InterventionWorkItem"
                 ],
@@ -20763,7 +20763,7 @@
                 ]
             },
             "patch": {
-                "operationId": "api_intervention-work-items_id_patch",
+                "operationId": "intervention_work_item_update",
                 "tags": [
                     "InterventionWorkItem"
                 ],
@@ -20895,7 +20895,7 @@
         },
         "/api/interventions/{id}/team-assignments": {
             "post": {
-                "operationId": "api_interventions_idteam-assignments_post",
+                "operationId": "intervention_team_assign",
                 "tags": [
                     "Interventions"
                 ],
@@ -32503,7 +32503,7 @@
         },
         "/api/publications": {
             "post": {
-                "operationId": "api_publications_post",
+                "operationId": "publication_create",
                 "tags": [
                     "Publication"
                 ],
@@ -32601,7 +32601,7 @@
         },
         "/api/publications/{id}": {
             "get": {
-                "operationId": "api_publications_id_get",
+                "operationId": "publication_get",
                 "tags": [
                     "Publication"
                 ],
@@ -43519,6 +43519,16 @@
                                     "type": "string"
                                 }
                             },
+                            "allowedActions": {
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/components/schemas/InterventionAllowedActionsOutput.jsonld"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
                             "facilitiesCount": {
                                 "description": "Property facilitiesCount.",
                                 "default": 0,
@@ -43790,6 +43800,71 @@
                     }
                 ],
                 "description": "Resource InterventionActivityResource.\n\nThe intervention activity feed: member-authored comments and\nsystem-recorded lifecycle events (creation, status transitions)."
+            },
+            "InterventionAllowedActionsOutput.jsonld": {
+                "type": "object",
+                "properties": {
+                    "canEditDetails": {
+                        "description": "Property canEditDetails.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canEditSite": {
+                        "description": "Property canEditSite.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canEditResponsible": {
+                        "description": "Property canEditResponsible.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canEditPlanning": {
+                        "description": "Property canEditPlanning.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canMutateWorkItems": {
+                        "description": "Property canMutateWorkItems.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canMutateChanges": {
+                        "description": "Property canMutateChanges.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canAssignTeam": {
+                        "description": "Property canAssignTeam.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canManageAttachments": {
+                        "description": "Property canManageAttachments.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canSubmit": {
+                        "description": "Property canSubmit.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canWithdraw": {
+                        "description": "Property canWithdraw.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canDelete": {
+                        "description": "Property canDelete.",
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canPublish": {
+                        "description": "Property canPublish.",
+                        "default": false,
+                        "type": "boolean"
+                    }
+                }
             },
             "InterventionAssigneeOutput.jsonld": {
                 "type": "object",
@@ -44729,6 +44804,16 @@
                                 "items": {
                                     "type": "string"
                                 }
+                            },
+                            "allowedActions": {
+                                "anyOf": [
+                                    {
+                                        "$ref": "#/components/schemas/InterventionAllowedActionsOutput.jsonld"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
                             },
                             "facilitiesCount": {
                                 "description": "Property facilitiesCount.",

@@ -8,13 +8,16 @@ use ApiPlatform\Metadata\{Get, GetCollection};
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Domain\Exception\InterventionNotFoundException;
-use Intervention\Domain\Service\InterventionTransitionPolicy;
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Provider\InterventionProvider;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +26,8 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+
+use function iterator_to_array;
 
 /**
  * Test InterventionProviderTest.
@@ -60,6 +65,7 @@ final class InterventionProviderTest extends TestCase
 
     self::assertInstanceOf(InterventionOutput::class, $output);
     self::assertSame(self::INTERVENTION_ID, $output->id);
+    self::assertNotNull($output->allowedActions, 'The item read path must advertise the caller action-capability block.');
   }
 
   #[Test]
@@ -94,6 +100,11 @@ final class InterventionProviderTest extends TestCase
     $paginator = $this->provider($queryBus, $requestStack)->provide(new GetCollection());
 
     self::assertInstanceOf(TraversablePaginator::class, $paginator);
+    $items = iterator_to_array($paginator);
+    self::assertNotNull(
+      $items[0]->allowedActions,
+      'The collection read path must advertise the caller action-capability block on every row.',
+    );
   }
 
   #[Test]
@@ -150,7 +161,7 @@ final class InterventionProviderTest extends TestCase
 
     $provider = new InterventionProvider(
       $this->createStub(QueryBusPort::class),
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
       $security,
       $this->requestStack(''),
     );
@@ -193,9 +204,26 @@ final class InterventionProviderTest extends TestCase
   {
     return new InterventionProvider(
       $queryBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
       $this->security(),
       $requestStack,
+    );
+  }
+
+  /**
+   * The shared {@see InterventionActionPolicy}, wired with inert
+   * collaborators sufficient to compute `allowedActions` without asserting
+   * on its content — these tests cover the provider's routing, not the
+   * policy's matrix (see InterventionActionPolicyTest for that).
+   */
+  private function actionPolicy(): InterventionActionPolicy
+  {
+    return new InterventionActionPolicy(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)),
+      new InterventionTransitionPolicy(),
+      new InterventionMutabilityPolicy(),
+      new InterventionChangePolicy(),
     );
   }
 

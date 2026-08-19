@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, RequestBody};
 use ArrayObject;
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor;
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'InterventionAttachment',
   operations: [
     new Post(
+      name: InterventionOperations::CREATE_INTERVENTION_ATTACHMENT,
       uriTemplate: '/interventions/{interventionId}/attachments',
       deserialize: false,
       input: false,
@@ -58,6 +60,7 @@ use Symfony\Component\HttpFoundation\Response;
       ),
     ),
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTION_ATTACHMENTS,
       uriTemplate: '/interventions/{interventionId}/attachments',
       input: false,
       output: InterventionAttachmentOutput::class,
@@ -69,6 +72,7 @@ use Symfony\Component\HttpFoundation\Response;
       ]),
     ),
     new Get(
+      name: InterventionOperations::GET_INTERVENTION_ATTACHMENT,
       uriTemplate: '/intervention-attachments/{id}',
       input: false,
       output: InterventionAttachmentOutput::class,
@@ -76,6 +80,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new Delete(
+      name: InterventionOperations::DELETE_INTERVENTION_ATTACHMENT,
       uriTemplate: '/intervention-attachments/{id}',
       read: false,
       input: false,

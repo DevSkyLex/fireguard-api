@@ -6,7 +6,7 @@ namespace Intervention\Domain\Model\Intervention;
 
 use DateTimeImmutable;
 use Intervention\Domain\Exception\InterventionConflictException;
-use Intervention\Domain\Service\InterventionTransitionPolicy;
+use Intervention\Domain\Service\{InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 
 use function array_unique;
@@ -611,15 +611,20 @@ final class Intervention
    *
    * The site scopes every prepared work item, so it is editable while drafting
    * only — changing it later would invalidate the prepared scope; recreating
-   * the intervention is the honest gesture.
+   * the intervention is the honest gesture. Delegates the window itself to
+   * {@see InterventionMutabilityPolicy} so the read-side action-capability
+   * advertisement on `InterventionOutput` answers from the same source.
    *
    * @since 1.1.0
    */
   private function assertScopeMutable(): void
   {
-    $this->assertMutable();
-    if (InterventionStatus::DRAFT !== $this->status) {
-      throw new InterventionConflictException('The site is frozen after planning; create a new intervention to target another site.');
+    if (!new InterventionMutabilityPolicy()->isScopeMutable($this->status)) {
+      throw new InterventionConflictException(
+        $this->status->isMutable()
+          ? 'The site is frozen after planning; create a new intervention to target another site.'
+          : 'Published or abandoned interventions are immutable.',
+      );
     }
   }
 
@@ -628,15 +633,19 @@ final class Intervention
    *
    * The responsible member governs submission, withdrawal and work-item
    * execution rights, so a handover is only allowed while nothing has started:
-   * draft and planned.
+   * draft and planned. Delegates the window itself to
+   * {@see InterventionMutabilityPolicy} — see {@see self::assertScopeMutable()}.
    *
    * @since 1.1.0
    */
   private function assertOwnershipMutable(): void
   {
-    $this->assertMutable();
-    if (InterventionStatus::DRAFT !== $this->status && InterventionStatus::PLANNED !== $this->status) {
-      throw new InterventionConflictException('The responsible member is frozen once field work has started.');
+    if (!new InterventionMutabilityPolicy()->isOwnershipMutable($this->status)) {
+      throw new InterventionConflictException(
+        $this->status->isMutable()
+          ? 'The responsible member is frozen once field work has started.'
+          : 'Published or abandoned interventions are immutable.',
+      );
     }
   }
 
@@ -646,15 +655,19 @@ final class Intervention
    * Dates, priority and participants stay editable through planned,
    * in_progress and changes_requested — a delayed intervention is rescheduled,
    * not abandoned and recreated. Under review (`submitted`) everything is
-   * frozen: withdraw first.
+   * frozen: withdraw first. Delegates the window itself to
+   * {@see InterventionMutabilityPolicy} — see {@see self::assertScopeMutable()}.
    *
    * @since 1.1.0
    */
   private function assertScheduleMutable(): void
   {
-    $this->assertMutable();
-    if (InterventionStatus::SUBMITTED === $this->status) {
-      throw new InterventionConflictException('A submitted intervention is frozen while under review; withdraw it to replan.');
+    if (!new InterventionMutabilityPolicy()->isScheduleMutable($this->status)) {
+      throw new InterventionConflictException(
+        $this->status->isMutable()
+          ? 'A submitted intervention is frozen while under review; withdraw it to replan.'
+          : 'Published or abandoned interventions are immutable.',
+      );
     }
   }
 

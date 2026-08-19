@@ -9,6 +9,7 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Domain\ValueObject\InterventionPriority;
@@ -90,7 +91,7 @@ final readonly class InterventionProvider implements ProviderInterface
         throw $this->mapWorkflowException($exception);
       }
 
-      return $this->mapper->fromView($result->view);
+      return $this->mapper->fromViewForCaller($result->view, $user->getId());
     }
 
     $query = $this->requestStack->getCurrentRequest()?->query;
@@ -165,7 +166,10 @@ final readonly class InterventionProvider implements ProviderInterface
     }
 
     return new TraversablePaginator(
-      new ArrayIterator(array_map($this->mapper->fromView(...), $result->page->items)),
+      new ArrayIterator(array_map(
+        fn (InterventionWorkflowView $view): InterventionOutput => $this->mapper->fromViewForCaller($view, $user->getId()),
+        $result->page->items,
+      )),
       (float) $result->page->page,
       (float) $result->page->itemsPerPage,
       (float) $result->page->total,

@@ -8,6 +8,8 @@ use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand,
 use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
+use DateTimeImmutable;
 use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
   InterventionRecurrenceDeletedEvent,
@@ -86,6 +88,26 @@ final class OperationsAuditWiringTest extends TestCase
       'intervention.recurrence_updated' => ['intervention_recurrence', 'rec-1', ['organization_id' => self::ORGANIZATION_ID]],
       'intervention.recurrence_deleted' => ['intervention_recurrence', 'rec-1', ['organization_id' => self::ORGANIZATION_ID]],
       'intervention.recurrence_materialized' => ['intervention_recurrence', 'rec-1', ['succeeded' => false, 'intervention_id' => null, 'error' => 'template removed', 'organization_id' => self::ORGANIZATION_ID]],
+    ];
+
+    $this->assertEventsProduce($events, $expected);
+  }
+
+  #[Test]
+  public function testCalendarEventEventsProduceTheirAuditRecords(): void
+  {
+    $startsAt = new DateTimeImmutable('2026-08-01T09:00:00+02:00');
+
+    $events = [
+      'calendar.event_created' => new CalendarEventCreatedEvent(organizationId: self::ORGANIZATION_ID, eventId: 'event-1', title: 'Fire drill', startsAt: $startsAt, actorUserId: self::ACTOR_USER_ID),
+      'calendar.event_updated' => new CalendarEventUpdatedEvent(organizationId: self::ORGANIZATION_ID, eventId: 'event-1', title: 'Updated drill', startsAt: $startsAt, actorUserId: self::ACTOR_USER_ID),
+      'calendar.event_deleted' => new CalendarEventDeletedEvent(organizationId: self::ORGANIZATION_ID, eventId: 'event-1', actorUserId: self::ACTOR_USER_ID),
+    ];
+
+    $expected = [
+      'calendar.event_created' => ['calendar_event', 'event-1', ['title' => 'Fire drill', 'starts_at' => $startsAt->format(DateTimeImmutable::ATOM), 'organization_id' => self::ORGANIZATION_ID]],
+      'calendar.event_updated' => ['calendar_event', 'event-1', ['title' => 'Updated drill', 'starts_at' => $startsAt->format(DateTimeImmutable::ATOM), 'organization_id' => self::ORGANIZATION_ID]],
+      'calendar.event_deleted' => ['calendar_event', 'event-1', ['organization_id' => self::ORGANIZATION_ID]],
     ];
 
     $this->assertEventsProduce($events, $expected);

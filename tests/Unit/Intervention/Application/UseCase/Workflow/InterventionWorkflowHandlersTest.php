@@ -12,7 +12,7 @@ use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowView
 };
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
-use Intervention\Application\Service\InterventionMemberPolicy;
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow\{
   MutateInterventionWorkflowCommand,
   MutateInterventionWorkflowHandler
@@ -26,6 +26,7 @@ use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{
   ListInterventionWorkflowQuery
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -61,7 +62,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', 'organization.interventions.review')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+    $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy()))(
       new MutateInterventionWorkflowCommand(
         resource: 'change',
         action: 'update',
@@ -86,7 +87,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', 'organization.interventions.plan')
       ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy());
 
     $this->expectException(InterventionAccessDeniedException::class);
     $handler(new MutateInterventionWorkflowCommand(
@@ -109,7 +110,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', 'organization.interventions.plan')
       ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
-    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy());
 
     $this->expectException(InterventionNotFoundException::class);
     $handler(new MutateInterventionWorkflowCommand(
@@ -138,7 +139,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionAccessDeniedException::class);
 
-    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy()))(
       new MutateInterventionWorkflowCommand(
         resource: 'intervention',
         action: 'update',
@@ -414,7 +415,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::never())->method('resolveAccess');
 
-    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy());
 
     $this->expectException(InterventionNotFoundException::class);
     $handler(new MutateInterventionWorkflowCommand(
@@ -441,7 +442,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', 'organization.interventions.plan')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+    $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy()))(
       new MutateInterventionWorkflowCommand(
         resource: 'work_item',
         action: 'create',
@@ -469,7 +470,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy()))(
       new MutateInterventionWorkflowCommand(
         resource: 'work_item',
         action: 'create',
@@ -491,6 +492,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       $repository,
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->memberPolicy(),
+      $this->actionPolicy(),
     );
 
     $this->expectException(InterventionNotFoundException::class);
@@ -514,6 +516,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       $repository,
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->memberPolicy(),
+      $this->actionPolicy(),
     );
 
     $this->expectException(InterventionNotFoundException::class);
@@ -541,7 +544,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy()))(
       new MutateInterventionWorkflowCommand(
         resource: 'intervention',
         action: 'update',
@@ -589,7 +592,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', $expectedPermission)
       ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy());
 
     $this->expectException(InterventionAccessDeniedException::class);
     $handler(new MutateInterventionWorkflowCommand(
@@ -620,6 +623,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       $repository,
       $authorization,
       $this->rejectingMemberPolicy(),
+      $this->actionPolicy(),
     );
 
     $handler(new MutateInterventionWorkflowCommand(
@@ -652,7 +656,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       },
     );
 
-    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy());
 
     try {
       $handler(new MutateInterventionWorkflowCommand(
@@ -699,7 +703,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->with('user-1', 'organization-1', $expectedPermission)
       ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy(), $this->actionPolicy());
 
     $this->expectException(InterventionAccessDeniedException::class);
     $handler(new MutateInterventionWorkflowCommand(
@@ -714,6 +718,22 @@ final class InterventionWorkflowHandlersTest extends TestCase
   private function memberPolicy(): InterventionMemberPolicy
   {
     return new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class));
+  }
+
+  /**
+   * The shared {@see InterventionActionPolicy}, wired with inert collaborators:
+   * `requiredPermissions()` — the only method the handler calls — is pure and
+   * never touches any of them.
+   */
+  private function actionPolicy(): InterventionActionPolicy
+  {
+    return new InterventionActionPolicy(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->memberPolicy(),
+      new InterventionTransitionPolicy(),
+      new InterventionMutabilityPolicy(),
+      new InterventionChangePolicy(),
+    );
   }
 
   /**

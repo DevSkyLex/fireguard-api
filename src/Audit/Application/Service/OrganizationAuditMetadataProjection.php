@@ -131,6 +131,14 @@ final class OrganizationAuditMetadataProjection
     // 'error' is raw exception text.
     'automation.rule_failed' => ['rule_key'],
 
+    // Calendar — 'title' is operator-typed free text (unlike a curated
+    // organization/team name) and can embed identifying detail; 'starts_at'
+    // is withheld too since it carries no unique identifier value once
+    // 'title' is gone. Neither event carries any other identifier-ish key.
+    'calendar.event_created' => [],
+    'calendar.event_updated' => [],
+    'calendar.event_deleted' => [],
+
     // Messaging — channel and conversation names are deliberately absent:
     // a channel can be a restricted conversation, and its label belongs to
     // the messaging surface, not to the audit feed.

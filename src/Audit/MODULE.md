@@ -169,6 +169,15 @@ and appends one ledger entry per action:
   `intervention_id`) and `rule_failed` (metadata: `rule_key`, `error`), both
   emitted by `ExecuteAutomationRuleHandler`; actor is always `system`
   (automations are never attributed to a user).
+- `calendar.event_*` — `event_created`, `event_updated`, `event_deleted`
+  (subject type `calendar_event`, subject id = the event id), emitted
+  synchronously by `Create`/`Update`/`DeleteCalendarEventHandler` with the
+  acting user as actor. The raw ledger metadata carries `title`/`starts_at`
+  for `event_created`/`event_updated` (empty for `event_deleted`, which adds
+  no field beyond the ids already on the row), but the organization-audience
+  projection (below) withholds both: an event title is operator-typed free
+  text, unlike a curated organization/team name, and can embed identifying
+  detail.
 - `messaging.*` — `conversation_archived` (`PATCH /conversations/{id}`
   transitioning to archived; subject is the conversation, metadata:
   `subject_type`, `subject_id`) and `message_moderated` (a manager holding

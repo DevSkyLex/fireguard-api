@@ -12,6 +12,7 @@ use Intervention\Presentation\Api\Dto\Input\{
   UpdateInterventionTemplateInput
 };
 use Intervention\Presentation\Api\Dto\Output\{InstantiateInterventionTemplateOutput, InterventionTemplateOutput};
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\{InstantiateInterventionTemplateProcessor, InterventionTemplateProcessor};
 use Intervention\Presentation\Api\Provider\InterventionTemplateProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,6 +34,7 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'InterventionTemplate',
   operations: [
     new Post(
+      name: InterventionOperations::CREATE_INTERVENTION_TEMPLATE,
       uriTemplate: '/intervention-templates',
       input: CreateInterventionTemplateInput::class,
       output: InterventionTemplateOutput::class,
@@ -41,6 +43,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTION_TEMPLATES,
       uriTemplate: '/intervention-templates',
       output: InterventionTemplateOutput::class,
       provider: InterventionTemplateProvider::class,
@@ -54,12 +57,14 @@ use Symfony\Component\HttpFoundation\Response;
       ]),
     ),
     new Get(
+      name: InterventionOperations::GET_INTERVENTION_TEMPLATE,
       uriTemplate: '/intervention-templates/{id}',
       output: InterventionTemplateOutput::class,
       provider: InterventionTemplateProvider::class,
       security: "is_granted('ROLE_USER')",
     ),
     new Patch(
+      name: InterventionOperations::UPDATE_INTERVENTION_TEMPLATE,
       uriTemplate: '/intervention-templates/{id}',
       read: false,
       input: UpdateInterventionTemplateInput::class,
@@ -68,6 +73,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new Delete(
+      name: InterventionOperations::DELETE_INTERVENTION_TEMPLATE,
       uriTemplate: '/intervention-templates/{id}',
       read: false,
       input: false,
@@ -77,7 +83,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new Post(
-      name: 'intervention_template_instantiate',
+      name: InterventionOperations::INSTANTIATE_INTERVENTION_TEMPLATE,
       uriTemplate: '/intervention-templates/{id}/instantiate',
       read: false,
       input: InstantiateInterventionTemplateInput::class,

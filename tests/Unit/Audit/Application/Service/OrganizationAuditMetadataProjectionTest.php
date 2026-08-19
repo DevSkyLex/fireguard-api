@@ -89,6 +89,31 @@ final class OrganizationAuditMetadataProjectionTest extends TestCase
   }
 
   /**
+   * Unlike `testProjectDropsEverythingForAnUnknownAction`, these three
+   * actions ARE known to the projection — `knownActions()` lists them with
+   * an explicit, deliberately empty allowlist. `title` is operator-typed
+   * free text and `starts_at` carries no unique identifier value once
+   * `title` is gone, so both are withheld for every calendar event action.
+   */
+  #[Test]
+  public function testProjectDropsCalendarEventTitleAndTimestampForEveryKnownAction(): void
+  {
+    $payload = [
+      'title' => 'Board meeting: Q3 layoffs',
+      'starts_at' => '2026-08-01T09:00:00+02:00',
+    ];
+
+    self::assertSame([], OrganizationAuditMetadataProjection::project('calendar.event_created', $payload));
+    self::assertSame([], OrganizationAuditMetadataProjection::project('calendar.event_updated', $payload));
+    self::assertSame([], OrganizationAuditMetadataProjection::project('calendar.event_deleted', $payload));
+
+    $known = OrganizationAuditMetadataProjection::knownActions();
+    self::assertArrayHasKey('calendar.event_created', $known);
+    self::assertArrayHasKey('calendar.event_updated', $known);
+    self::assertArrayHasKey('calendar.event_deleted', $known);
+  }
+
+  /**
    * @return iterable<string, array{string, string}>
    */
   public static function freeTextAndPiiActionProvider(): iterable

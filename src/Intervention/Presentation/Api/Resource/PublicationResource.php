@@ -7,6 +7,7 @@ namespace Intervention\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Get, Post};
 use Intervention\Presentation\Api\Dto\Input\CreatePublicationInput;
 use Intervention\Presentation\Api\Dto\Output\PublicationOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\PublicationProcessor;
 use Intervention\Presentation\Api\Provider\PublicationProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,8 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'Publication',
   operations: [
-    new Post(uriTemplate: '/publications', input: CreatePublicationInput::class, output: PublicationOutput::class, processor: PublicationProcessor::class, status: Response::HTTP_ACCEPTED, security: "is_granted('ROLE_USER')"),
-    new Get(uriTemplate: '/publications/{id}', output: PublicationOutput::class, provider: PublicationProvider::class, security: "is_granted('ROLE_USER')"),
+    new Post(name: InterventionOperations::CREATE_PUBLICATION, uriTemplate: '/publications', input: CreatePublicationInput::class, output: PublicationOutput::class, processor: PublicationProcessor::class, status: Response::HTTP_ACCEPTED, security: "is_granted('ROLE_USER')"),
+    new Get(name: InterventionOperations::GET_PUBLICATION, uriTemplate: '/publications/{id}', output: PublicationOutput::class, provider: PublicationProvider::class, security: "is_granted('ROLE_USER')"),
   ],
 )]
 final class PublicationResource
