@@ -141,6 +141,22 @@ final class InterventionOutput
   public array $allowedTransitions = [];
 
   /**
+   * Property allowedActions.
+   *
+   * The caller-specific action-capability surface, straight from
+   * `InterventionActionPolicy` — the same policy `MutateInterventionWorkflowHandler`
+   * consults to enforce a mutation, so the client never re-derives the
+   * permission/status/identity matrix by hand. Populated on the item and
+   * collection read paths, where the caller's identity is known; left
+   * `null` on a write-path response (e.g. the PUT-create path), where
+   * computing it would need a second lookup the write already paid for
+   * once and discarded.
+   *
+   * @since 1.3.0
+   */
+  public ?InterventionAllowedActionsOutput $allowedActions = null;
+
+  /**
    * Property facilitiesCount.
    *
    * @since 1.0.0

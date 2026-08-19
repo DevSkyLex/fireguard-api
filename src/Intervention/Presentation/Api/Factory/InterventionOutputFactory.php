@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Intervention\Presentation\Api\Factory;
 
-use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
+use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowView};
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionAllowedActions};
 use Intervention\Domain\Service\InterventionTransitionPolicy;
 use Intervention\Domain\ValueObject\InterventionStatus;
-use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
+use Intervention\Presentation\Api\Dto\Output\{InterventionAllowedActionsOutput, InterventionOutput};
 use Intervention\Presentation\Api\Mapper\InterventionWorkflowViewDataTrait;
+use LogicException;
+use Shared\Presentation\Api\Http\ResourceIriParser;
 
 use function array_map;
 
@@ -33,9 +36,16 @@ final class InterventionOutputFactory
    * @since 1.0.0
    *
    * @param InterventionTransitionPolicy $transitionPolicy the transition policy value
+   * @param ?InterventionActionPolicy $actionPolicy the shared action policy, required by
+   *                                                {@see self::fromViewForCaller()} only —
+   *                                                optional so a caller-agnostic write-path
+   *                                                response (only ever built via
+   *                                                {@see self::fromView()}) does not need one
    */
-  public function __construct(private readonly InterventionTransitionPolicy $transitionPolicy)
-  {
+  public function __construct(
+    private readonly InterventionTransitionPolicy $transitionPolicy,
+    private readonly ?InterventionActionPolicy $actionPolicy = null,
+  ) {
   }
 
   /**
@@ -81,6 +91,75 @@ final class InterventionOutputFactory
     $output->labels = $this->labelList($data);
     $output->createdAt = $this->string($data, 'createdAt');
     $output->updatedAt = $this->string($data, 'updatedAt');
+
+    return $output;
+  }
+
+  /**
+   * Method fromViewForCaller.
+   *
+   * The item and collection read-path variant of {@see self::fromView()}:
+   * additionally populates `allowedActions` by asking the shared
+   * {@see InterventionActionPolicy} — the same policy
+   * `MutateInterventionWorkflowHandler` consults to enforce a mutation —
+   * what THIS caller may do to THIS intervention right now. Computed
+   * entirely from the already-loaded view data and the caller's organization
+   * permissions (memoized per request): no additional query per row, so
+   * this is safe to call for every item of a collection.
+   *
+   * @since 1.3.0
+   *
+   * @param InterventionWorkflowView $view the view value
+   * @param string $userId the caller's user id
+   *
+   * @return InterventionOutput the from view result, with `allowedActions` populated
+   */
+  public function fromViewForCaller(InterventionWorkflowView $view, string $userId): InterventionOutput
+  {
+    if (!$this->actionPolicy instanceof InterventionActionPolicy) {
+      throw new LogicException('InterventionOutputFactory was not wired with an InterventionActionPolicy.');
+    }
+
+    $output = $this->fromView($view);
+    $context = new InterventionWorkflowContext(
+      interventionId: $output->id,
+      organizationId: $view->organizationId,
+      status: $output->status,
+      responsibleId: null === $output->responsible ? null : ResourceIriParser::memberId($output->responsible),
+      participants: array_map(ResourceIriParser::memberId(...), $output->participants),
+    );
+    $output->allowedActions = $this->mapAllowedActions($this->actionPolicy->allowedActions($context, $userId));
+
+    return $output;
+  }
+
+  /**
+   * Method mapAllowedActions.
+   *
+   * Maps the Application-layer {@see InterventionAllowedActions} value onto
+   * the Presentation `InterventionAllowedActionsOutput` DTO, field by field.
+   *
+   * @since 1.3.0
+   *
+   * @param InterventionAllowedActions $actions the allowed-actions value
+   *
+   * @return InterventionAllowedActionsOutput the mapped output
+   */
+  private function mapAllowedActions(InterventionAllowedActions $actions): InterventionAllowedActionsOutput
+  {
+    $output = new InterventionAllowedActionsOutput();
+    $output->canEditDetails = $actions->canEditDetails;
+    $output->canEditSite = $actions->canEditSite;
+    $output->canEditResponsible = $actions->canEditResponsible;
+    $output->canEditPlanning = $actions->canEditPlanning;
+    $output->canMutateWorkItems = $actions->canMutateWorkItems;
+    $output->canMutateChanges = $actions->canMutateChanges;
+    $output->canAssignTeam = $actions->canAssignTeam;
+    $output->canManageAttachments = $actions->canManageAttachments;
+    $output->canSubmit = $actions->canSubmit;
+    $output->canWithdraw = $actions->canWithdraw;
+    $output->canDelete = $actions->canDelete;
+    $output->canPublish = $actions->canPublish;
 
     return $output;
   }

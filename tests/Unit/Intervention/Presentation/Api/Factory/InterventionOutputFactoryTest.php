@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Intervention\Presentation\Api\Factory;
 
+use DateTimeImmutable;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
-use Intervention\Domain\Service\InterventionTransitionPolicy;
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
+use LogicException;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Domain\Model\OrganizationMember\OrganizationMember;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +27,10 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(InterventionOutputFactory::class)]
 final class InterventionOutputFactoryTest extends TestCase
 {
+  private const string MEMBER_ID = '018f0b68-6758-7a12-8a1d-3f0d97f63c13';
+
+  private const string ORGANIZATION_UUID = '018f0b68-6758-7a12-8a1d-3f0d97f63c11';
+
   #[Test]
   public function itMapsEmbeddedLabelSummaries(): void
   {
@@ -71,6 +82,77 @@ final class InterventionOutputFactoryTest extends TestCase
       ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
 
     self::assertSame([], $output->allowedTransitions);
+  }
+
+  #[Test]
+  public function itLeavesAllowedActionsAbsentOnTheCallerAgnosticFromView(): void
+  {
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+      ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $this->baseData([])));
+
+    self::assertNull($output->allowedActions);
+  }
+
+  #[Test]
+  public function itPopulatesAllowedActionsFromTheSharedActionPolicyForTheCaller(): void
+  {
+    $data = $this->baseData([]);
+    $data['status'] = 'draft';
+    $view = new InterventionWorkflowView('intervention', self::ORGANIZATION_UUID, $data);
+
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy())
+      ->fromViewForCaller($view, self::MEMBER_ID);
+
+    self::assertNotNull($output->allowedActions);
+    self::assertTrue($output->allowedActions->canEditDetails);
+    self::assertTrue($output->allowedActions->canEditSite);
+    self::assertTrue($output->allowedActions->canDelete);
+    self::assertFalse($output->allowedActions->canPublish);
+  }
+
+  #[Test]
+  public function itResolvesTheResponsibleAndParticipantIrisBackToRawMemberIdsForIdentityChecks(): void
+  {
+    $data = $this->baseData([]);
+    $data['status'] = 'in_progress';
+    $data['responsible'] = '/api/organizations/' . self::ORGANIZATION_UUID . '/members/' . self::MEMBER_ID;
+    $view = new InterventionWorkflowView('intervention', self::ORGANIZATION_UUID, $data);
+
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy())
+      ->fromViewForCaller($view, self::MEMBER_ID);
+
+    self::assertNotNull($output->allowedActions);
+    self::assertTrue($output->allowedActions->canSubmit);
+  }
+
+  #[Test]
+  public function itRefusesToBuildTheCallerSpecificOutputWithoutAWiredActionPolicy(): void
+  {
+    $factory = new InterventionOutputFactory(new InterventionTransitionPolicy());
+
+    $this->expectException(LogicException::class);
+
+    $factory->fromViewForCaller(new InterventionWorkflowView('intervention', 'organization-1', $this->baseData([])), self::MEMBER_ID);
+  }
+
+  private function actionPolicy(): InterventionActionPolicy
+  {
+    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository->method('findByOrganizationAndUser')->willReturnCallback(
+      static fn (OrganizationId $organizationId, string $userId): ?OrganizationMember => self::MEMBER_ID === $userId
+        ? OrganizationMember::reconstitute(OrganizationMemberId::fromString(self::MEMBER_ID), $organizationId, $userId, true, new DateTimeImmutable())
+        : null,
+    );
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new InterventionActionPolicy(
+      $authorization,
+      new InterventionMemberPolicy($repository),
+      new InterventionTransitionPolicy(),
+      new InterventionMutabilityPolicy(),
+      new InterventionChangePolicy(),
+    );
   }
 
   /**

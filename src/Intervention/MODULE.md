@@ -649,13 +649,14 @@ by deptrac):
   `InterventionWorkflowExceptionMapperTrait` (domain-exception → HTTP mapping).
 - **Application** (`src/Intervention/Application`): use cases (command/query
   handlers for workflow + publication + activity feed), outbound ports,
-  contracts, and services (`InterventionChangeApplication`,
+  contracts, and services (`InterventionActionPolicy`, `InterventionChangeApplication`,
   `InterventionDraftPublisher`, `InterventionIssueFinder`,
   `InterventionMemberPolicy`, `InterventionNotificationService`,
   `InterventionReviewerRecipientResolver`, `InterventionResourceManager`).
 - **Domain** (`src/Intervention/Domain`): the `Intervention` aggregate + work item
   / change / publication models, value objects, domain services
-  (`InterventionTransitionPolicy`, `InterventionChangePolicy`), and exceptions.
+  (`InterventionTransitionPolicy`, `InterventionMutabilityPolicy`,
+  `InterventionChangePolicy`), and exceptions.
 - **Infrastructure** (`src/Intervention/Infrastructure`): Doctrine records / mappers
   and the port adapters (Doctrine gateways, Messenger publication queue).
 
@@ -711,6 +712,63 @@ OrganizationNotificationSettings}` directly, because Organization's
 documented debt: the eventual fix is Organization publishing contract types
 for those identifiers and this baseline shrinking back — do not add a sixth
 import; introduce the contract types instead.
+
+### Read-model advisory fields (`allowedTransitions`, `allowedActions`)
+
+`InterventionOutput` carries two read-only fields that let the client build
+its menus from the backend's own rules instead of re-implementing them —
+both are the frontend's source of truth; a client-side mirror of either is a
+bug waiting for the backend to change underneath it:
+
+- **`allowedTransitions: string[]`** — the workflow-legal next statuses from
+  the domain `InterventionTransitionPolicy::allowedFrom()`, independent of
+  the caller's permissions. Populated by `InterventionOutputFactory::fromView()`
+  on every read, including the write-path responses.
+- **`allowedActions: InterventionAllowedActionsOutput | null`** (added
+  2026-08-19) — the **caller-specific** action-capability surface. Every flag
+  already folds together the organization permission, the field-mutability
+  window, and the responsible/participant identity check the write path
+  itself enforces, so the client never re-derives that matrix by hand —
+  including the AND-rule above, the one most often missed by a hand-rolled
+  client mirror.
+
+  Computed by `Application/Service/InterventionActionPolicy::allowedActions()`,
+  which shares its collaborators with the write path:
+  `InterventionTransitionPolicy` (transition legality), the new
+  `InterventionMutabilityPolicy` (the three `Intervention::assert{Scope,Ownership,Schedule}Mutable()`
+  windows, extracted as boolean predicates — the aggregate itself now
+  delegates its own assertions to this same class, so the enforcement and the
+  advertisement provably read the identical window, not two copies of it),
+  `InterventionChangePolicy` (change-creation window) and
+  `InterventionMemberPolicy` (responsible/participant identity).
+  `InterventionActionPolicy::requiredPermissions()`/`requiredPermission()` are
+  the permission matrix moved verbatim out of `MutateInterventionWorkflowHandler`
+  (previously private methods there): the handler now calls the same method
+  to enforce a mutation that `allowedActions()` calls (with a synthetic
+  single-field payload per flag) to advertise it.
+
+  Flags: `canEditDetails`, `canEditSite` (draft only), `canEditResponsible`
+  (draft/planned), `canEditPlanning` (participants/priority/dates; not while
+  submitted), `canMutateWorkItems`, `canMutateChanges` (in_progress/
+  changes_requested only, mirrors `InterventionChangePolicy::assertCanCreate`),
+  `canAssignTeam`, `canManageAttachments` (mirrors
+  `InterventionResourceManager::mutationPermission()` — a documented parallel
+  rather than a literal call, since that method re-reads the intervention
+  from storage, which a per-row list computation must not pay for),
+  `canSubmit`/`canWithdraw` (responsible member only, and only when the
+  transition is currently legal), `canDelete` (draft/abandoned only),
+  `canPublish` (submitted only, `organization.interventions.publish`).
+
+  Populated only on the item and collection **read** paths
+  (`InterventionProvider`, via `InterventionOutputFactory::fromViewForCaller()`),
+  where the caller's identity is known and where the computation is free: the
+  organization's granted permissions are memoized per request by
+  `OrganizationAuthorizationPort`, and the caller's own organization-member id
+  is resolved once per request, not once per row — safe to compute for every
+  row of a list. `null` on every write-path response (`InterventionProcessor`,
+  `AssignTeamToInterventionProcessor`, still on the plain `fromView()`) —
+  deliberately additive rather than plumbed everywhere at once; a `null` there
+  is not a regression, since the field did not exist before.
 
 ### Ports & adapters (`config/modules/intervention.yaml`)
 
@@ -911,6 +969,15 @@ Aggregate invariants (enforced in `Intervention`):
   be cleared to null (`keptAfterDraft`): the `planned` preconditions only guard the
   transition, not later merge-patches. A non-draft date change appends a
   `rescheduled` activity carrying `{from:{plannedStartAt,dueAt}, to:{…}}`.
+
+  The three windows above are `Domain\Service\InterventionMutabilityPolicy`
+  (added 2026-08-19), not logic inlined in `assertScopeMutable`/
+  `assertOwnershipMutable`/`assertScheduleMutable` themselves — those three
+  methods now just translate the policy's boolean into the field-specific
+  conflict message. `Application\Service\InterventionActionPolicy` consults
+  the same policy to compute `InterventionOutput.allowedActions` (see
+  Architecture above), so the aggregate's enforcement and the read model's
+  advertisement of the same window cannot drift apart.
 - **Immutability**: `published` and `abandoned` interventions are fully immutable
   (`InterventionStatus::isMutable`).
 
@@ -1176,6 +1243,27 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   - `Presentation/Api/Provider/InterventionProviderTest` — the `due` query
     parameter is forwarded verbatim into the query filters, and an unknown
     value (anything but `overdue`) is rejected with 400.
+  - `Domain/Service/InterventionMutabilityPolicyTest` — the three field-
+    mutability windows, one status at a time.
+  - `Application/Service/InterventionActionPolicyTest` — `allowedActions()`
+    across every status for the responsible member with full permissions
+    (one flag-by-flag expectation per status), permission gating (nothing
+    granted denies everything), identity gating (a participant may mutate
+    work items/attachments/changes outside draft, an outsider may not, only
+    the responsible member may submit/withdraw, and a draft mutation ignores
+    identity entirely), and an unrecognized status denying every flag.
+    `requiredPermissions()` is covered by the same data set as
+    `InterventionWorkflowHandlersTest` (the two must never diverge, since the
+    handler calls the exact same method).
+  - `Presentation/Api/Factory/InterventionOutputFactoryTest` — `fromView()`
+    leaves `allowedActions` `null`; `fromViewForCaller()` populates it (and
+    resolves the `responsible`/`participant` IRIs back to raw member ids for
+    the identity check first); calling `fromViewForCaller()` on a factory
+    built without an `InterventionActionPolicy` throws rather than silently
+    omitting the block.
+  - `Presentation/Api/Provider/InterventionProviderTest` — both the item and
+    the collection read path assert `allowedActions` is present on the
+    mapped output.
 - Integration (Doctrine adapters against a real database): `tests/Integration/Intervention/`
   — used for `DoctrineInterventionRecurrenceAdapter`'s `DATE_SUB`-based
   lead-time window selection and the `reserveRun()` idempotence guard, both

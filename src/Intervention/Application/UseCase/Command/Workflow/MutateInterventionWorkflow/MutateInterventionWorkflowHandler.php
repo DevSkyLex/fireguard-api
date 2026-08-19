@@ -6,14 +6,11 @@ namespace Intervention\Application\UseCase\Command\Workflow\MutateInterventionWo
 
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowMutation};
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
-use Intervention\Application\Service\InterventionMemberPolicy;
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 
-use function array_key_exists;
-use function array_unique;
-use function array_values;
 use function in_array;
 use function is_string;
 
@@ -38,11 +35,13 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
    * @param InterventionWorkflowGatewayPort $gateway the gateway value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param InterventionMemberPolicy $memberPolicy the intervention member policy
+   * @param InterventionActionPolicy $actionPolicy the shared action policy
    */
   public function __construct(
     private InterventionWorkflowGatewayPort $gateway,
     private OrganizationAuthorizationPort $authorization,
     private InterventionMemberPolicy $memberPolicy,
+    private InterventionActionPolicy $actionPolicy,
   ) {
   }
 
@@ -60,7 +59,7 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
   public function __invoke(MutateInterventionWorkflowCommand $command): MutateInterventionWorkflowResult
   {
     $context = $this->context($command);
-    $permissions = $this->permissions($command, $context);
+    $permissions = $this->actionPolicy->requiredPermissions($command->resource, $command->action, $command->payload, $context->status);
     foreach ($permissions as $permission) {
       $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, $permission);
       if ($decision->isOutsideScope()) {
@@ -152,100 +151,5 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
     return 'create' === $command->action && 'intervention' === $command->resource
       ? InterventionNotFoundException::forOrganizationScope($context->organizationId)
       : InterventionNotFoundException::withId($command->id ?? 'unknown');
-  }
-
-  /**
-   * Method permissions.
-   *
-   * Every permission the mutation requires — ALL of them (AND). A payload
-   * touching planning fields on a non-draft intervention is a replan and
-   * requires `plan`: alone when the payload is planning-only (a planner who is
-   * neither responsible nor participant may reschedule), on top of the base
-   * permission when the payload also transitions or edits other fields. The
-   * member guard in `__invoke` keys off `execute` being required.
-   *
-   * @since 1.1.0
-   *
-   * @param MutateInterventionWorkflowCommand $command the command value
-   * @param InterventionWorkflowContext $context the context value
-   *
-   * @return non-empty-list<string> the required permissions
-   */
-  private function permissions(MutateInterventionWorkflowCommand $command, InterventionWorkflowContext $context): array
-  {
-    $base = $this->permission($command, $context);
-    if ('intervention' !== $command->resource || 'create' === $command->action || 'draft' === $context->status) {
-      return [$base];
-    }
-
-    $touchesPlanning = false;
-    foreach (['siteId', 'responsibleId', 'participants', 'priority', 'plannedStartAt', 'dueAt'] as $field) {
-      if (array_key_exists($field, $command->payload)) {
-        $touchesPlanning = true;
-
-        break;
-      }
-    }
-    if (!$touchesPlanning) {
-      return [$base];
-    }
-
-    $editsBeyondPlanning = false;
-    foreach (['status', 'name', 'description', 'reviewNote', 'labelIds'] as $field) {
-      if (array_key_exists($field, $command->payload)) {
-        $editsBeyondPlanning = true;
-
-        break;
-      }
-    }
-
-    return $editsBeyondPlanning
-      ? array_values(array_unique([$base, 'organization.interventions.plan']))
-      : ['organization.interventions.plan'];
-  }
-
-  /**
-   * Method permission.
-   *
-   * Executes the permission operation.
-   *
-   * @since 1.0.0
-   *
-   * @param MutateInterventionWorkflowCommand $command the command value
-   * @param InterventionWorkflowContext $context the context value
-   *
-   * @return string the permission result
-   */
-  private function permission(MutateInterventionWorkflowCommand $command, InterventionWorkflowContext $context): string
-  {
-    if ('intervention' === $command->resource) {
-      if ('create' === $command->action) {
-        return 'organization.interventions.plan';
-      }
-      $status = $command->payload['status'] ?? null;
-      if (is_string($status)) {
-        return match ($status) {
-          'planned' => 'organization.interventions.plan',
-          'in_progress', 'submitted' => 'organization.interventions.execute',
-          'abandoned' => match ($context->status) {
-            'draft' => 'organization.interventions.plan',
-            'changes_requested' => 'organization.interventions.review',
-            default => 'organization.interventions.execute',
-          },
-          'changes_requested' => 'organization.interventions.review',
-          default => 'organization.interventions.plan',
-        };
-      }
-
-      return 'draft' === $context->status ? 'organization.interventions.plan' : 'organization.interventions.execute';
-    }
-
-    if ('work_item' === $command->resource) {
-      return 'draft' === $context->status ? 'organization.interventions.plan' : 'organization.interventions.execute';
-    }
-
-    return 'submitted' === $context->status && 'create' !== $command->action
-      ? 'organization.interventions.review'
-      : 'organization.interventions.execute';
   }
 }
