@@ -12,7 +12,7 @@ use Intervention\Application\Port\Outbound\PublicationRepositoryPort;
 use Intervention\Application\Service\{InterventionChangeApplication, InterventionDraftPublisher, InterventionNotificationService};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, PublicationNotFoundException};
 use Intervention\Domain\Service\{InterventionChangePolicy, PublicationTransitionPolicy};
-use Intervention\Domain\ValueObject\{InterventionChangeStatus, PublicationStatus};
+use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionStatus, PublicationStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, PublicationRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
