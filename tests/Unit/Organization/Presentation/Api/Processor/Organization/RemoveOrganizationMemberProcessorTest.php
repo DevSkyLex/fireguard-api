@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationMemberProcessor;

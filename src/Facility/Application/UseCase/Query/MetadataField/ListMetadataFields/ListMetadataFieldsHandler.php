@@ -53,7 +53,7 @@ final readonly class ListMetadataFieldsHandler implements QueryHandler
 
     return new ListMetadataFieldsResult(
       items: array_map(
-        static fn (FacilityMetadataField $field): MetadataFieldItem => new MetadataFieldItem(
+        static fn (FacilityMetadataField $field): MetadataFieldResult => new MetadataFieldResult(
           id: (string) $field->id(),
           organizationId: (string) $field->organizationId(),
           key: (string) $field->key(),

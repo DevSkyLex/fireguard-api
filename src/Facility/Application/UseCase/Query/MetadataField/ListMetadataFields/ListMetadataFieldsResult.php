@@ -19,7 +19,7 @@ final readonly class ListMetadataFieldsResult implements ResultMessage
 {
   // #region Constructor
   /**
-   * @param list<MetadataFieldItem> $items
+   * @param list<MetadataFieldResult> $items
    */
   public function __construct(
     public array $items,
