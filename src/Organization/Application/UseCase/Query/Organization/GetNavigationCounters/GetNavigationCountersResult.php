@@ -25,10 +25,12 @@ final readonly class GetNavigationCountersResult implements ResultMessage
    *
    * @param int $openInterventions the number of open field interventions (excludes `published`/`abandoned`)
    * @param int $openNonConformities the number of non-conformities currently `open` or `in_progress`
+   * @param int $submittedInterventions the number of interventions awaiting review (status `submitted`)
    */
   public function __construct(
     public int $openInterventions,
     public int $openNonConformities,
+    public int $submittedInterventions = 0,
   ) {
   }
   // #endregion

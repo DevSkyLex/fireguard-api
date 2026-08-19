@@ -57,6 +57,10 @@ final class GetNavigationCountersHandlerTest extends TestCase
       ->method('countOverview')
       ->with(self::ORGANIZATION_ID, self::isInstanceOf(DateTimeImmutable::class))
       ->willReturn(['total' => 10, 'open' => 4, 'overdue' => 1]);
+    $interventionStatistics->expects(self::once())
+      ->method('countSubmitted')
+      ->with(self::ORGANIZATION_ID)
+      ->willReturn(2);
 
     /** @var NonConformityStatisticsPort&MockObject $nonConformityStatistics */
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
@@ -78,6 +82,7 @@ final class GetNavigationCountersHandlerTest extends TestCase
     self::assertInstanceOf(GetNavigationCountersResult::class, $result);
     self::assertSame(4, $result->openInterventions);
     self::assertSame(5, $result->openNonConformities);
+    self::assertSame(2, $result->submittedInterventions);
   }
 
   #[Test]
@@ -98,6 +103,7 @@ final class GetNavigationCountersHandlerTest extends TestCase
     /** @var InterventionStatisticsPort&MockObject $interventionStatistics */
     $interventionStatistics = $this->createMock(InterventionStatisticsPort::class);
     $interventionStatistics->expects(self::never())->method('countOverview');
+    $interventionStatistics->expects(self::never())->method('countSubmitted');
 
     /** @var NonConformityStatisticsPort&MockObject $nonConformityStatistics */
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
@@ -115,6 +121,7 @@ final class GetNavigationCountersHandlerTest extends TestCase
 
     self::assertSame(0, $result->openInterventions);
     self::assertSame(0, $result->openNonConformities);
+    self::assertSame(0, $result->submittedInterventions);
   }
 
   #[Test]

@@ -37,7 +37,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/{organizationId}/dashboard/trends/facilities-created` | Get the facilities-created series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus `facilityType`. Requires `organization.facilities.read`. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-opened` | Get the non-conformities-opened series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus an optional `metrics` filter (e.g. `metrics=non_conformities_resolved`) that adds the resolved series to the response's `seriesByMetric` map, sharing this call's resolved period/timezone/granularity — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus the same optional `metrics` combining filter (`metrics=non_conformities_opened`) — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
-| GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`) and `openNonConformities` (`open` + `in_progress`). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` permission — see Notes (L3.11) |
+| GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`), `openNonConformities` (`open` + `in_progress`) and `submittedInterventions` (status `submitted`, the "to review" badge). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` / `organization.interventions.review` permission — see Notes (L3.11) |
 | GET | `/api/organizations/{organizationId}/audit-events` | List the organization's slice of the audit ledger (activity feed), newest first, paginated (filters: `action`, `from`, `to`; `itemsPerPage` capped at 100). Requires `organization.audit.read` (admin-granted — not part of the member system role; admins hold it via `organization.*`). Reduced payload: no actor email, IP, user agent or chain internals, metadata filtered by the Audit module's per-action allowlist, and an actor who is not a member of this organization is never named — see Notes (P2.6) |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
 | GET | `/api/organizations/{organizationId}/members` | List Organization members (each item carries `isOwner`, computed against the organization's `ownerUserId`). Filters: `search` (matched against the member's user identifier at SQL level), `status` (`active`/`inactive`/`all`, 422 on any other value), `roleId`; sort via `order[joinedAt\|displayName]=asc\|desc` (default `order[joinedAt]=asc`). All filtering/sorting/pagination is pushed down to the repository — see Notes (P2.3) |
@@ -790,9 +790,10 @@ demonstrating that one person can belong to more than one tenant.
   ACTIVE membership, checked directly in `GetNavigationCountersHandler`
   (`OrganizationMemberRepositoryPort::findByOrganizationAndUser` +
   `isActive()`), not a specific permission — every member should see the
-  sidebar badges. Each of the two counters is then individually soft-gated
+  sidebar badges. Each of the three counters is then individually soft-gated
   on the same permission its data already requires elsewhere
-  (`organization.interventions.read` / `organization.inspection.read`,
+  (`organization.interventions.read` / `organization.inspection.read` /
+  `organization.interventions.review`,
   checked via `OrganizationAuthorizationPort::hasPermission`), degrading to
   `0` instead of a 403 for a member without that permission — the same
   pattern `GetOrganizationDashboardHandler` already uses for
@@ -802,6 +803,10 @@ demonstrating that one person can belong to more than one tenant.
   the sidebar's definition). `openNonConformities` reuses
   `NonConformityStatisticsPort::countNonConformitiesByStatus()`, summing the
   `open` and `in_progress` buckets (no new port method either).
+  `submittedInterventions` (P4.1, the "to review" badge) uses the dedicated
+  `InterventionStatisticsPort::countSubmitted()` — status `submitted`
+  exactly — and reads `0` for anyone without the review permission, since
+  the badge only means something to a member who may actually review.
 
 - **Organization-scoped audit read / activity feed (P2.6)**:
   `GET /organizations/{organizationId}/audit-events`

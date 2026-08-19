@@ -426,6 +426,8 @@ final class OrganizationApiTest extends WebTestCase
     $interventionSeeds = [
       ['id' => '550e8400-e29b-41d4-a716-446655449930', 'status' => 'draft'],
       ['id' => '550e8400-e29b-41d4-a716-446655449931', 'status' => 'in_progress'],
+      // Awaiting review: counts as open AND as submitted.
+      ['id' => '550e8400-e29b-41d4-a716-446655449934', 'status' => 'submitted'],
       // Closed end state: must NOT count as open.
       ['id' => '550e8400-e29b-41d4-a716-446655449932', 'status' => 'published'],
       ['id' => '550e8400-e29b-41d4-a716-446655449933', 'status' => 'abandoned'],
@@ -494,8 +496,9 @@ final class OrganizationApiTest extends WebTestCase
 
     $decoded = json_decode($response->getContent() ?: '{}', true);
     self::assertIsArray($decoded);
-    self::assertSame(2, $decoded['openInterventions'] ?? null);
+    self::assertSame(3, $decoded['openInterventions'] ?? null);
     self::assertSame(2, $decoded['openNonConformities'] ?? null);
+    self::assertSame(1, $decoded['submittedInterventions'] ?? null);
   }
 
   #[Test]

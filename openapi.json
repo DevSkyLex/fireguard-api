@@ -50490,6 +50490,12 @@
                                 "description": "Property openNonConformities.",
                                 "default": 0,
                                 "type": "integer"
+                            },
+                            "submittedInterventions": {
+                                "readOnly": true,
+                                "description": "Property submittedInterventions.",
+                                "default": 0,
+                                "type": "integer"
                             }
                         }
                     }

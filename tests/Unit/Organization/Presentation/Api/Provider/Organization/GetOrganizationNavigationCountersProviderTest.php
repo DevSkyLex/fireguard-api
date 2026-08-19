@@ -85,7 +85,7 @@ final class GetOrganizationNavigationCountersProviderTest extends TestCase
       ->method('ask')
       ->with(self::callback(static fn (GetNavigationCountersQuery $query): bool => '550e8400-e29b-41d4-a716-446655443404' === $query->organizationId
         && '550e8400-e29b-41d4-a716-446655443403' === $query->userId))
-      ->willReturn(new GetNavigationCountersResult(openInterventions: 4, openNonConformities: 5));
+      ->willReturn(new GetNavigationCountersResult(openInterventions: 4, openNonConformities: 5, submittedInterventions: 2));
 
     $provider = new GetOrganizationNavigationCountersProvider(
       queryBus: $queryBus,
@@ -97,6 +97,7 @@ final class GetOrganizationNavigationCountersProviderTest extends TestCase
     self::assertInstanceOf(OrganizationNavigationCountersOutput::class, $output);
     self::assertSame(4, $output->openInterventions);
     self::assertSame(5, $output->openNonConformities);
+    self::assertSame(2, $output->submittedInterventions);
   }
 
   #[Test]
