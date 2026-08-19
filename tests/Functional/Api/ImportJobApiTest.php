@@ -11,6 +11,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand, ProcessImportJobHandler};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -275,6 +276,265 @@ final class ImportJobApiTest extends WebTestCase
       ->getQuery()
       ->getSingleScalarResult();
     self::assertSame(1, (int) $facilityCount);
+  }
+
+  #[Test]
+  public function testGetImportJobAnswersNotFoundForAJobInAnotherOrganization(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480300';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480301';
+    $outsiderUserId = '550e8400-e29b-41d4-a716-446655480302';
+
+    $importJobId = $this->createImportJobAs($organizationId, $ownerUserId);
+
+    // 404, not 403: a 403 would confirm to a caller from outside the owning
+    // organization that this job id exists.
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser($outsiderUserId), 'api');
+    $client->request('GET', '/api/imports/' . $importJobId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $response = $client->getResponse();
+    self::assertSame(404, $response->getStatusCode(), 'Response: ' . $response->getContent());
+  }
+
+  #[Test]
+  public function testGetImportJobIsForbiddenForAMemberWithoutTheKindReadPermission(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480310';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480311';
+    $unentitledUserId = '550e8400-e29b-41d4-a716-446655480312';
+
+    $importJobId = $this->createImportJobAs($organizationId, $ownerUserId);
+
+    // A member of the owning organization holding no permission at all gets
+    // 403 — the job's existence is not a secret from someone already inside.
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedMemberWithPermissions($entityManager, $organizationId, $unentitledUserId, []);
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($unentitledUserId), 'api');
+    $client->request('GET', '/api/imports/' . $importJobId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $response = $client->getResponse();
+    self::assertSame(403, $response->getStatusCode(), 'Response: ' . $response->getContent());
+  }
+
+  #[Test]
+  public function testListImportJobsAnswersNotFoundForAnotherOrganization(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480320';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480321';
+    $outsiderUserId = '550e8400-e29b-41d4-a716-446655480322';
+
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedFullAccessOrganization(
+      $entityManager,
+      $organizationId,
+      $ownerUserId,
+      new DateTimeImmutable('2026-08-19T00:00:00+00:00'),
+    );
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($outsiderUserId), 'api');
+    $client->request('GET', '/api/imports?organization=' . $organizationId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $response = $client->getResponse();
+    self::assertSame(404, $response->getStatusCode(), 'Response: ' . $response->getContent());
+  }
+
+  #[Test]
+  public function testListImportJobsIsForbiddenForAMemberHoldingNeitherReadPermission(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480330';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480331';
+    $unentitledUserId = '550e8400-e29b-41d4-a716-446655480332';
+
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedFullAccessOrganization(
+      $entityManager,
+      $organizationId,
+      $ownerUserId,
+      new DateTimeImmutable('2026-08-19T00:00:00+00:00'),
+    );
+    $this->seedMemberWithPermissions($entityManager, $organizationId, $unentitledUserId, []);
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($unentitledUserId), 'api');
+    $client->request('GET', '/api/imports?organization=' . $organizationId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $response = $client->getResponse();
+    self::assertSame(403, $response->getStatusCode(), 'Response: ' . $response->getContent());
+  }
+
+  #[Test]
+  public function testCreateImportJobAnswersNotFoundForAnotherOrganization(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480340';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480341';
+    $outsiderUserId = '550e8400-e29b-41d4-a716-446655480342';
+
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedFullAccessOrganization(
+      $entityManager,
+      $organizationId,
+      $ownerUserId,
+      new DateTimeImmutable('2026-08-19T00:00:00+00:00'),
+    );
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($outsiderUserId), 'api');
+    $response = $this->uploadFacilityCsv($client, $organizationId);
+
+    self::assertSame(404, $response, 'Expected 404 for an upload targeting a foreign organization.');
+  }
+
+  #[Test]
+  public function testCreateImportJobIsForbiddenForAMemberWithoutTheKindWritePermission(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480350';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480351';
+    $unentitledUserId = '550e8400-e29b-41d4-a716-446655480352';
+
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedFullAccessOrganization(
+      $entityManager,
+      $organizationId,
+      $ownerUserId,
+      new DateTimeImmutable('2026-08-19T00:00:00+00:00'),
+    );
+    // Read-only member: inside the organization, but not entitled to write.
+    $this->seedMemberWithPermissions(
+      $entityManager,
+      $organizationId,
+      $unentitledUserId,
+      ['organization.facilities.read'],
+    );
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($unentitledUserId), 'api');
+    $response = $this->uploadFacilityCsv($client, $organizationId);
+
+    self::assertSame(403, $response, 'Expected 403 for a member lacking organization.facilities.write.');
+  }
+
+  /**
+   * Uploads a minimal valid facility CSV and returns the response status.
+   */
+  private function uploadFacilityCsv(KernelBrowser $client, string $organizationId): int
+  {
+    $path = tempnam(sys_get_temp_dir(), 'import-denial-');
+    self::assertIsString($path);
+    file_put_contents($path, "type,name\nsite,Denied HQ\n");
+
+    try {
+      $client->request('POST', '/api/imports', [
+        'organization' => $organizationId,
+        'kind' => 'facility',
+      ], [
+        'file' => new UploadedFile($path, 'facilities.csv', 'text/csv', null, true),
+      ], server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ]);
+    } finally {
+      unlink($path);
+    }
+
+    return $client->getResponse()->getStatusCode();
+  }
+
+  /**
+   * Seeds a full-access organization and returns the id of an import job
+   * created in it by its owner.
+   */
+  private function createImportJobAs(string $organizationId, string $ownerUserId): string
+  {
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedFullAccessOrganization(
+      $entityManager,
+      $organizationId,
+      $ownerUserId,
+      new DateTimeImmutable('2026-08-19T00:00:00+00:00'),
+    );
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+    $status = $this->uploadFacilityCsv($client, $organizationId);
+    self::assertSame(202, $status, 'Response: ' . $client->getResponse()->getContent());
+
+    $created = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($created);
+    $importJobId = $created['id'] ?? null;
+    self::assertIsString($importJobId);
+
+    return $importJobId;
+  }
+
+  /**
+   * Adds an active member to an existing organization, holding exactly the
+   * given permissions (an empty list means a member entitled to nothing).
+   *
+   * @param list<string> $permissions the role's permission names
+   */
+  private function seedMemberWithPermissions(
+    EntityManagerInterface $entityManager,
+    string $organizationId,
+    string $userId,
+    array $permissions,
+  ): void {
+    $now = new DateTimeImmutable('2026-08-19T00:00:00+00:00');
+
+    $organization = $entityManager->getReference(OrganizationRecord::class, $organizationId);
+
+    $role = new OrganizationRoleRecord();
+    $role->id = substr($userId, 0, 35) . 'r';
+    $role->organization = $organization;
+    $role->name = 'scoped_role_' . substr($userId, -4);
+    $role->permissions = $permissions;
+    $role->description = 'Functional-test-only role with a restricted permission set.';
+    $role->isSystem = false;
+    $role->createdAt = $now;
+    $entityManager->persist($role);
+
+    $member = new OrganizationMemberRecord();
+    $member->id = substr($userId, 0, 35) . 'm';
+    $member->organization = $organization;
+    $member->userId = $userId;
+    $member->isActive = true;
+    $member->joinedAt = $now;
+    $entityManager->persist($member);
+
+    $roleAssignment = new OrganizationMemberRoleRecord();
+    $roleAssignment->member = $member;
+    $roleAssignment->role = $role;
+    $roleAssignment->assignedAt = $now;
+    $entityManager->persist($roleAssignment);
   }
 
   private function securityUser(string $userId): SecurityUser

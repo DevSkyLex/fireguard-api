@@ -6,11 +6,12 @@ namespace Tests\Unit\Import\Application\UseCase\Query\ListImportJobs;
 
 use Import\Application\Port\Outbound\ImportJobRepositoryPort;
 use Import\Application\UseCase\Query\ListImportJobs\{ListImportJobsHandler, ListImportJobsQuery};
+use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind};
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -37,10 +38,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $repository->method('listByOrganization')->willReturn([$this->equipmentJob()]);
     $repository->method('countByOrganization')->willReturn(1);
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $handler = new ListImportJobsHandler($repository, $authorization);
+    $handler = new ListImportJobsHandler($repository, $this->memberHolding(true));
 
     $result = $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID));
 
@@ -60,8 +58,9 @@ final class ListImportJobsHandlerTest extends TestCase
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('assertGrantedPermissions')
-      ->with(self::USER_ID, self::ORGANIZATION_ID, ['organization.equipment.read']);
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.equipment.read')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new ListImportJobsHandler($repository, $authorization);
 
@@ -78,10 +77,7 @@ final class ListImportJobsHandlerTest extends TestCase
     $repository->method('listByOrganization')->willReturn([]);
     $repository->method('countByOrganization')->willReturn(0);
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $handler = new ListImportJobsHandler($repository, $authorization);
+    $handler = new ListImportJobsHandler($repository, $this->memberHolding(true));
 
     $result = $handler->__invoke(new ListImportJobsQuery(
       self::USER_ID,
@@ -109,16 +105,74 @@ final class ListImportJobsHandlerTest extends TestCase
   }
 
   #[Test]
-  public function itDeniesAccessWhenNeitherReadPermissionIsHeld(): void
+  public function itDeniesAMemberHoldingNeitherReadPermission(): void
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $handler = new ListImportJobsHandler(
+      $this->createStub(ImportJobRepositoryPort::class),
+      $this->memberHolding(false),
+    );
+
+    $this->expectException(ImportAccessDeniedException::class);
+
+    $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID));
+  }
+
+  #[Test]
+  public function itAnswersNotFoundForTheUnfilteredListOfAnOrganizationTheCallerIsNotAMemberOf(): void
+  {
+    // Scope is gated by isMemberOf() before the two read permissions are
+    // OR'd, so a non-member never reaches the 403 an unentitled member gets.
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(false);
+    $authorization->expects(self::never())->method('hasPermission');
 
     $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization);
 
-    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectException(ImportJobNotFoundException::class);
+    $this->expectExceptionMessage(self::ORGANIZATION_ID);
 
     $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID));
+  }
+
+  #[Test]
+  public function itAnswersNotFoundForAFilteredListOfAnOrganizationTheCallerIsNotAMemberOf(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization);
+
+    $this->expectException(ImportJobNotFoundException::class);
+    $this->expectExceptionMessage(self::ORGANIZATION_ID);
+
+    $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID, kind: 'equipment'));
+  }
+
+  #[Test]
+  public function itDeniesAMemberLackingTheFilteredKindReadPermission(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
+
+    $handler = new ListImportJobsHandler($this->createStub(ImportJobRepositoryPort::class), $authorization);
+
+    $this->expectException(ImportAccessDeniedException::class);
+    $this->expectExceptionMessage('organization.facilities.read');
+
+    $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID, kind: 'facility'));
+  }
+
+  /**
+   * An active member of the organization, holding both read permissions or
+   * neither — the unfiltered list only ever asks those two questions.
+   */
+  private function memberHolding(bool $readPermissions): OrganizationAuthorizationPort
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn($readPermissions);
+
+    return $authorization;
   }
 
   private function equipmentJob(): ImportJob

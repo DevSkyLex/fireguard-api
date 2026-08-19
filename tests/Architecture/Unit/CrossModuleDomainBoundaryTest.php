@@ -79,6 +79,12 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * same reason (`Approval => Organization`, baseline 4). Mapping it at the
    * Presentation boundary is the established treatment here; see
    * `src/Inspection/MODULE.md` (Architecture debt).
+   * Tightened 2026-08-19: `Import => Organization` lowered 2 → 1,
+   * `ListImportJobsHandler` having stopped throwing Organization's
+   * `OrganizationAccessDeniedException` in favour of the module-owned
+   * `ImportAccessDeniedException`. The one that remains is
+   * `ImportExceptionMapperTrait`, which still maps the exception the
+   * Organization port itself raises.
    */
   private const array BASELINE = [
     'Approval => Organization' => 4,
@@ -96,7 +102,7 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Facility => Intervention' => 5,
     'Facility => Messaging' => 1,
     'Facility => Organization' => 7,
-    'Import => Organization' => 2,
+    'Import => Organization' => 1,
     'Inspection => Approval' => 1,
     'Inspection => Intervention' => 6,
     'Inspection => Messaging' => 1,

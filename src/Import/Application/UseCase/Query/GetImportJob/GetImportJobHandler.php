@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Import\Application\UseCase\Query\GetImportJob;
 
 use Import\Application\Port\Outbound\ImportJobRepositoryPort;
-use Import\Domain\Exception\ImportJobNotFoundException;
+use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\ValueObject\{ImportJobId, ImportKind};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
@@ -13,9 +13,17 @@ use Shared\Application\Message\QueryHandler;
 /**
  * UseCase GetImportJobHandler.
  *
+ * The job is looked up by identifier before its owning organization is
+ * known, so the access check separates "not a member of that organization"
+ * (404, the same answer an unknown identifier produces) from "member, but
+ * not entitled" (403) — see
+ * {@see \Organization\Application\Contract\Authorization\OrganizationAccessDecision}.
+ * A flat 403 here would confirm the identifier exists to a caller from
+ * another organization.
+ *
  * @category UseCase
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -54,9 +62,15 @@ final readonly class GetImportJobHandler implements QueryHandler
       throw ImportJobNotFoundException::withId($query->importJobId);
     }
 
-    $this->authorization->assertGrantedPermissions($query->userId, $job->organizationId(), [
-      $this->readPermission($job->kind()),
-    ]);
+    $permission = $this->readPermission($job->kind());
+
+    $decision = $this->authorization->resolveAccess($query->userId, $job->organizationId(), $permission);
+    if ($decision->isOutsideScope()) {
+      throw ImportJobNotFoundException::withId($query->importJobId);
+    }
+    if (!$decision->isGranted()) {
+      throw ImportAccessDeniedException::missingPermission($permission);
+    }
 
     return GetImportJobResult::fromDomain($job);
   }

@@ -41,6 +41,24 @@ permission checks above are self-enforced in the Application handlers
 consistent with the codebase invariant that handlers — not
 processors/providers — own authorization.
 
+All three handlers decide access through
+`OrganizationAuthorizationPort::resolveAccess()` rather than the flat
+`assertGrantedPermissions()`, so the two denials stay distinct:
+
+- **no active membership in the target organization** → **404**, the same
+  answer an unknown identifier produces. On `GET /api/imports/{id}` this is
+  the point of the rule: a 403 there would confirm to an outsider that the
+  job id exists. On `POST`/`GET /api/imports`, where the caller names the
+  organization itself, the 404 keeps organization identifiers from being
+  probed the same way (`ImportJobNotFoundException::forOrganizationScope()`).
+- **member of the organization but lacking the permission** → **403**
+  (`ImportAccessDeniedException`).
+
+The unfiltered list is granted by *either* read permission, so it gates scope
+first with `isMemberOf()` and only then ORs the two `hasPermission()` calls —
+`resolveAccess()` answers about one permission at a time, and a member
+holding neither must still get 403 rather than 404.
+
 ## CSV format
 
 - **Equipment** (`kind=equipment`) header: `type` (required, must be a valid
@@ -63,8 +81,11 @@ processors/providers — own authorization.
   the rows already reported `would_create` earlier in the same file — see
   "Dry-run mode" below).
 - Unknown columns are ignored. Delimiter is sniffed (comma, or semicolon for
-  the French-Excel convention); a UTF-8 BOM is stripped. Max 5000 data rows,
-  max 5 MB upload — both bounds exist to keep worker time/memory predictable.
+  the French-Excel convention); a UTF-8 BOM is stripped. Max 5000 data rows
+  (`CsvRowStreamer::DEFAULT_MAX_ROWS`, enforced in `CsvRowStreamer::rows()`;
+  exceeding it fails the whole job — see "Error Codes"), max 5 MB upload
+  (`CsvUploadGuard`, rejected at upload with 422) — both bounds exist to keep
+  worker time/memory predictable.
 - `type` enum membership is **not** validated by Import's own row factories —
   it is left to `CreateEquipmentHandler`/`CreateFacilityHandler` (via the
   provisioning ports below), which already report an invalid value as a
@@ -356,15 +377,31 @@ create an import job) and `organization.equipment.read` /
 
 | Exception | HTTP |
 | --- | --- |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
+| `ImportAccessDeniedException` | 403 Forbidden |
 | `ImportJobNotFoundException` | 404 Not Found |
 | `InvalidArgumentException` | 400 Bad Request |
 | Upload rejected by `CsvUploadGuard` (missing field, wrong extension/MIME, oversize) | 400 / 422 |
+
+`ImportExceptionMapperTrait` also still maps
+`Organization\Domain\Exception\OrganizationAccessDeniedException` to 403 —
+the Organization port raises it directly, though no Import handler throws it
+anymore.
 
 Row-level outcomes (`quota_exceeded`, `invalid`, `missing_required`,
 `would_create`) never surface as HTTP errors — they are recorded in the
 job's `errorReport` and the request that created the job already returned
 `202`.
+
+**The 5000-row cap is not one of those row-level outcomes.** It is enforced
+in `CsvRowStreamer::rows()`, which throws `InvalidArgumentException` on the
+5001st data row. `ProcessImportJobHandler::processRows()` calls
+`countDataRows()` first, so an oversized file trips the cap before any row is
+provisioned; the throw is caught by the handler's `catch (Throwable)` and
+fails the **whole job** — `status: "failed"` with `jobError` reading
+`Unable to process the CSV file: The CSV file exceeds the maximum of 5000
+data rows.` This happens on the async worker, so `POST /api/imports` has
+already answered `202`: the cap is never an HTTP status, only a terminal job
+state read back from `GET /api/imports/{id}`.
 
 ## Out of scope (documented follow-ons)
 
