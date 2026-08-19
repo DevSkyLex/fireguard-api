@@ -11,6 +11,8 @@ use Intervention\Application\Contract\Publication\{InterventionPublicationContex
 use Intervention\Application\Port\Outbound\PublicationRepositoryPort;
 use Intervention\Application\Service\{InterventionChangeApplication, InterventionDraftPublisher, InterventionNotificationService};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, PublicationNotFoundException};
+use Intervention\Domain\Service\{InterventionChangePolicy, PublicationTransitionPolicy};
+use Intervention\Domain\ValueObject\{InterventionChangeStatus, PublicationStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, PublicationRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
@@ -40,12 +42,16 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
    * @param InterventionChangeApplication $changeApplication the change application value
    * @param InterventionDraftPublisher $draftPublisher the draft publisher value
    * @param InterventionNotificationService $notifications the notifications value
+   * @param PublicationTransitionPolicy $transitionPolicy the publication status transition policy value
+   * @param InterventionChangePolicy $changePolicy the intervention change status policy value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private InterventionChangeApplication $changeApplication,
     private InterventionDraftPublisher $draftPublisher,
     private InterventionNotificationService $notifications,
+    private PublicationTransitionPolicy $transitionPolicy,
+    private InterventionChangePolicy $changePolicy,
   ) {
   }
 
@@ -163,10 +169,15 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
   public function markProcessing(string $publicationId): void
   {
     $publication = $this->entityManager->find(PublicationRecord::class, $publicationId);
-    if (!$publication instanceof PublicationRecord || 'completed' === $publication->status || 'failed' === $publication->status) {
+    if (!$publication instanceof PublicationRecord) {
       return;
     }
-    $publication->status = 'processing';
+    $currentStatus = PublicationStatus::from($publication->status);
+    if (PublicationStatus::COMPLETED === $currentStatus || PublicationStatus::FAILED === $currentStatus) {
+      return;
+    }
+    $this->transitionPolicy->assertAllowed($currentStatus, PublicationStatus::PROCESSING);
+    $publication->status = PublicationStatus::PROCESSING->value;
     $this->entityManager->flush();
   }
 
@@ -187,8 +198,10 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
     if (!$publication instanceof PublicationRecord) {
       throw PublicationNotFoundException::withId($publicationId);
     }
-    if ('failed' === $publication->status) {
-      $publication->status = 'pending';
+    $currentStatus = PublicationStatus::from($publication->status);
+    if (PublicationStatus::FAILED === $currentStatus) {
+      $this->transitionPolicy->assertAllowed($currentStatus, PublicationStatus::PENDING);
+      $publication->status = PublicationStatus::PENDING->value;
       $publication->error = null;
       $publication->completedAt = null;
       $this->entityManager->flush();
@@ -214,7 +227,8 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
       if (!$publication instanceof PublicationRecord || !$publication->intervention instanceof InterventionRecord) {
         throw PublicationNotFoundException::withId($publicationId);
       }
-      if ('completed' === $publication->status) {
+      $currentPublicationStatus = PublicationStatus::from($publication->status);
+      if (PublicationStatus::COMPLETED === $currentPublicationStatus) {
         // Idempotent at-least-once replay: a concurrent delivery already
         // completed this publication — no transition, no notification.
         return [$publication->intervention->id, $publication->intervention->name, [], false];
@@ -239,11 +253,12 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
 
       $changes = $this->entityManager->getRepository(InterventionChangeRecord::class)->findBy([
         'intervention' => $intervention,
-        'status' => 'proposed',
+        'status' => InterventionChangeStatus::PROPOSED->value,
       ]);
       foreach ($changes as $change) {
         $this->changeApplication->apply($intervention->organization->id, $change->resource, $change->patch);
-        $change->status = 'applied';
+        $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($change->status), InterventionChangeStatus::APPLIED);
+        $change->status = InterventionChangeStatus::APPLIED->value;
         ++$change->revision;
         $change->updatedAt = new DateTimeImmutable();
       }
@@ -252,7 +267,8 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
       $intervention->status = 'published';
       ++$intervention->revision;
       $intervention->updatedAt = new DateTimeImmutable();
-      $publication->status = 'completed';
+      $this->transitionPolicy->assertAllowed($currentPublicationStatus, PublicationStatus::COMPLETED);
+      $publication->status = PublicationStatus::COMPLETED->value;
       $publication->completedAt = new DateTimeImmutable();
       $this->entityManager->flush();
 
@@ -287,15 +303,18 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
   public function markFailed(string $publicationId, string $error): bool
   {
     if (!$this->entityManager->isOpen()) {
+      // The entity manager is closed (a prior flush failure typically),
+      // so this falls back to a raw SQL UPDATE that keeps its own WHERE
+      // guard rather than going through the transition policy.
       $affected = $this->entityManager->getConnection()->executeStatement(
         'UPDATE intervention_publications SET status = :status, error = :error, completed_at = :completedAt WHERE id = :id AND status <> :completed AND status <> :failed',
         [
-          'status' => 'failed',
+          'status' => PublicationStatus::FAILED->value,
           'error' => $error,
           'completedAt' => new DateTimeImmutable(),
           'id' => $publicationId,
-          'completed' => 'completed',
-          'failed' => 'failed',
+          'completed' => PublicationStatus::COMPLETED->value,
+          'failed' => PublicationStatus::FAILED->value,
         ],
         ['completedAt' => 'datetime_immutable'],
       );
@@ -303,10 +322,15 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
       return $affected > 0;
     }
     $publication = $this->entityManager->find(PublicationRecord::class, $publicationId);
-    if (!$publication instanceof PublicationRecord || in_array($publication->status, ['completed', 'failed'], true)) {
+    if (!$publication instanceof PublicationRecord) {
       return false;
     }
-    $publication->status = 'failed';
+    $currentStatus = PublicationStatus::from($publication->status);
+    if (in_array($currentStatus, [PublicationStatus::COMPLETED, PublicationStatus::FAILED], true)) {
+      return false;
+    }
+    $this->transitionPolicy->assertAllowed($currentStatus, PublicationStatus::FAILED);
+    $publication->status = PublicationStatus::FAILED->value;
     $publication->error = $error;
     $publication->completedAt = new DateTimeImmutable();
     $this->entityManager->flush();

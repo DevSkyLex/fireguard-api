@@ -27,8 +27,8 @@ use Intervention\Domain\Exception\{
   InterventionValidationException
 };
 use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
-use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy};
-use Intervention\Domain\ValueObject\{InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType};
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy, InterventionWorkItemTransitionPolicy};
+use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType, InterventionWorkItemStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\{InterventionMapper, InterventionViewMapper};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
@@ -81,6 +81,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param InterventionTransitionPolicy $transitionPolicy the transition policy value
    * @param InterventionChangePolicy $changePolicy the change policy value
+   * @param InterventionWorkItemTransitionPolicy $workItemTransitionPolicy the work item transition policy value
    * @param InterventionMemberPolicy $memberPolicy the member policy value
    * @param InterventionNotificationService $notifications the notifications value
    * @param InterventionResourceGatewayPort $resources the resources value
@@ -94,6 +95,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private UuidFactory $uuidFactory,
     private InterventionTransitionPolicy $transitionPolicy,
     private InterventionChangePolicy $changePolicy,
+    private InterventionWorkItemTransitionPolicy $workItemTransitionPolicy,
     private InterventionMemberPolicy $memberPolicy,
     private InterventionNotificationService $notifications,
     private InterventionResourceGatewayPort $resources,
@@ -618,10 +620,9 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
       $skipReason = $this->nullableString($mutation->payload, 'skipReason');
-      if ('skipped' === $status && (null === $skipReason || '' === trim($skipReason))) {
-        throw new InterventionValidationException('A skip reason is required.');
-      }
-      $record->status = $status;
+      $nextWorkItemStatus = InterventionWorkItemStatus::from($status);
+      $this->workItemTransitionPolicy->assertAllowed(InterventionWorkItemStatus::from($record->status), $nextWorkItemStatus, $skipReason);
+      $record->status = $nextWorkItemStatus->value;
       if ('planned' === $intervention->status && 'planned' !== $status) {
         $intervention->status = 'in_progress';
         $interventionAutoStarted = true;
@@ -789,8 +790,10 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
-      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $status);
-      $record->status = $status;
+      $nextChangeStatus = InterventionChangeStatus::from($status);
+      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $nextChangeStatus);
+      $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($record->status), $nextChangeStatus);
+      $record->status = $nextChangeStatus->value;
     }
     $now = new DateTimeImmutable();
     ++$record->revision;

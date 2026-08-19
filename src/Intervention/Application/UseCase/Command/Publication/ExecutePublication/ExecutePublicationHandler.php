@@ -8,6 +8,7 @@ use Intervention\Application\Port\Outbound\PublicationRepositoryPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use Intervention\Domain\Exception\PublicationNotFoundException;
+use Intervention\Domain\ValueObject\PublicationStatus;
 use RuntimeException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -62,7 +63,7 @@ final readonly class ExecutePublicationHandler implements CommandHandler
     if (null === $publication) {
       throw PublicationNotFoundException::withId($command->publicationId);
     }
-    if (!in_array($publication->status, ['pending', 'processing'], true)) {
+    if (!in_array($publication->status, [PublicationStatus::PENDING->value, PublicationStatus::PROCESSING->value], true)) {
       return new VoidResult();
     }
 

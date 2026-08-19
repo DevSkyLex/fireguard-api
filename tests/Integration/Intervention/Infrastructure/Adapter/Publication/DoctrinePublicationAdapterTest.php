@@ -239,6 +239,10 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
   {
     $this->seedProposedFacilityRenameChange();
     $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    // The transition table requires `pending` to pass through `processing`
+    // before reaching `completed` — mirroring the real dispatch path, where
+    // ExecutePublicationHandler always calls markProcessing() before publish().
+    $this->adapter->markProcessing(self::PUBLICATION_ID);
 
     self::assertTrue($this->adapter->publish(self::PUBLICATION_ID));
 
