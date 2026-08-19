@@ -759,16 +759,15 @@ bug waiting for the backend to change underneath it:
   transition is currently legal), `canDelete` (draft/abandoned only),
   `canPublish` (submitted only, `organization.interventions.publish`).
 
-  Populated only on the item and collection **read** paths
-  (`InterventionProvider`, via `InterventionOutputFactory::fromViewForCaller()`),
-  where the caller's identity is known and where the computation is free: the
-  organization's granted permissions are memoized per request by
-  `OrganizationAuthorizationPort`, and the caller's own organization-member id
-  is resolved once per request, not once per row — safe to compute for every
-  row of a list. `null` on every write-path response (`InterventionProcessor`,
-  `AssignTeamToInterventionProcessor`, still on the plain `fromView()`) —
-  deliberately additive rather than plumbed everywhere at once; a `null` there
-  is not a regression, since the field did not exist before.
+  Populated on the item and collection **read** paths (`InterventionProvider`)
+  and on every **mutation response** that returns the refreshed intervention
+  (`InterventionProcessor`, `AssignTeamToInterventionProcessor`) — all via
+  `InterventionOutputFactory::fromViewForCaller()`, so a client that
+  recomputes its menus from a write's response can never go stale. The
+  computation is free wherever it runs: the organization's granted
+  permissions are memoized per request by `OrganizationAuthorizationPort`,
+  and the caller's own organization-member id is resolved once per request,
+  not once per row — safe to compute for every row of a list.
 
 ### Ports & adapters (`config/modules/intervention.yaml`)
 

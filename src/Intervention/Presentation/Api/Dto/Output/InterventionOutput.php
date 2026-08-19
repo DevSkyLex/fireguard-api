@@ -147,10 +147,10 @@ final class InterventionOutput
    * `InterventionActionPolicy` — the same policy `MutateInterventionWorkflowHandler`
    * consults to enforce a mutation, so the client never re-derives the
    * permission/status/identity matrix by hand. Populated on the item and
-   * collection read paths, where the caller's identity is known; left
-   * `null` on a write-path response (e.g. the PUT-create path), where
-   * computing it would need a second lookup the write already paid for
-   * once and discarded.
+   * collection read paths and on every mutation response that returns the
+   * refreshed intervention, so a client menu recomputed from a write's
+   * response can never go stale; `null` only when a response carries no
+   * view at all.
    *
    * @since 1.3.0
    */
