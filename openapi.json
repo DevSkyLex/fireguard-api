@@ -17170,6 +17170,44 @@
                 }
             }
         },
+        "/api/interventions/{id}/report": {
+            "get": {
+                "operationId": "intervention_export_report",
+                "tags": [
+                    "Intervention"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Intervention report PDF"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions (requires organization.interventions.read)"
+                    },
+                    "404": {
+                        "description": "Intervention not found, or belongs to another organization"
+                    },
+                    "204": {
+                        "description": "InterventionReportExport resource"
+                    }
+                },
+                "summary": "Export an intervention report as PDF",
+                "description": "Streams a PDF report of the intervention with Content-Disposition: attachment. Gated by the flat organization.interventions.read permission \u2014 no phase restriction, so the report is available for an intervention in any status.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "InterventionReportExport identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/interventions/{interventionId}/activities": {
             "get": {
                 "operationId": "intervention_activity_list",

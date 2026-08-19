@@ -27,6 +27,7 @@ use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Export\InterventionsExportedEvent;
+use Intervention\Domain\Event\InterventionReportExportedEvent;
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
@@ -175,6 +176,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
       'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
       'intervention.intervention_recurrence_materialized_event' => 'onInterventionRecurrenceMaterialized',
+      'intervention.intervention_report_exported_event' => 'onInterventionReportExported',
       'maintenance.maintenance_schedule_overridden_event' => 'onMaintenanceScheduleOverridden',
       'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
       'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
@@ -1656,6 +1658,29 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'error' => $event->error,
       ],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onInterventionReportExported.
+   *
+   * Records every export of an intervention's PDF report — mirrors
+   * `onSafetyRegisterExported`'s "who pulled this document" traceability.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionReportExportedEvent $event the domain event
+   */
+  public function onInterventionReportExported(InterventionReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'intervention.report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'intervention',
+      subjectId: $event->interventionId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 

@@ -41,6 +41,7 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | DELETE | `/interventions/{id}` | Delete intervention |
 | GET | `/interventions/export` | Streams a bounded CSV export of interventions (see Export below) |
 | GET | `/interventions/{id}/issues` | List computed validation issues (blocker/warning/recommendation) |
+| GET | `/interventions/{id}/report` | Stream a PDF report of the intervention (Lot P4.5 — see Report below) |
 
 ### Work items (draft scope)
 
@@ -524,6 +525,69 @@ responsible captures when submitting field work from a plain evidence file:
 Removed 2026-08-20: `GET /intervention-types` (unconsumed reference catalog; the
 frontend's localized typed registries are the source of these values).
 
+### Report (Lot P4.5)
+
+`GET /interventions/{id}/report` streams a PDF report of one intervention
+(`Content-Type: application/pdf`, `Content-Disposition: attachment;
+filename="intervention-FG-{number}-report.pdf"`), rendered server-side with
+Twig + dompdf — mirrors `Compliance\...\ExportSafetyRegisterController`
+exactly. `InterventionReportExportResource` (own resource: `read`/`write`/
+`deserialize`/`serialize`/`output` all disabled) wires the invokable
+`ExportInterventionReportController`.
+
+**No phase gate** — the report is available whenever the caller can read the
+intervention, exactly like the attachment download route documented above
+(`GET /intervention-attachments/{id}/download`). Authorization is entirely
+delegated to `GetInterventionWorkflowHandler`'s existing
+`organization.interventions.read` check (the same handler `GET
+/interventions/{id}` uses): the controller performs no permission decision of
+its own, only authentication.
+
+**No new use case.** The controller assembles its Twig context from the
+SAME read queries the workflow/attachments/activities endpoints already
+dispatch through the query bus — `GetInterventionWorkflowQuery` (the sole
+authorization gate), `ListInterventionWorkflowQuery` (twice: `resource:
+'work_item'` for the work-item table, and `resource: 'change'` — exactly what
+`GET /intervention-changes` already dispatches — for the applied/proposed/
+rejected change counts), `ListInterventionIssuesQuery`,
+`ListInterventionAttachmentsQuery` (metadata only — `fileName`/`kind`, never
+the stored bytes) and `ListInterventionActivitiesQuery` (oldest-first, for the
+activity highlights). Member identifiers embedded in IRIs (`responsible`,
+`participants`, a work item's `assignee`, an activity's `actor`) are resolved
+to display names through `InterventionMemberNamingPort::displayNamesFor()`
+(the same port `GetInterventionStatisticsHandler`'s `byResponsible` breakdown
+uses); the site is resolved through `InterventionSiteNamingPort::findNamesByIds()`.
+This is translation, not a decision — the Presentation layer maps IRIs to
+labels and tallies counts, it does not enforce or branch on any business rule.
+
+**Report content**: FG-number, name, type/status/priority (raw string
+values), site name, responsible/participant names, planned start/due dates,
+review note when present, a "completion signature captured" statement
+(`hasSignature`), assigned labels; a work-items table (action, target,
+assignee name, status, required, skip reason, evidence count); the computed
+issues list (severity, message); applied/proposed/rejected change counts; the
+attachments list (file name + kind only); and activity highlights
+(timestamp, kind, event, actor name where cheap, comment body).
+
+**English only** — like the safety register, this is a backend-rendered PDF
+and is not localized; translate the template only if the module ever grows a
+locale-aware rendering path.
+
+**Audit** — `InterventionReportExportedEvent` (intervention id, organization
+id, actor user id) is dispatched by the controller after a successful render,
+recorded in the ledger as `intervention.report_exported` (subject type
+`intervention`), mirroring `compliance.register_exported`'s "who pulled this
+document" traceability. `OrganizationAuditMetadataProjection` carries an
+explicit (empty) allowlist entry for it — the event has no extra metadata
+beyond the actor/subject/organization the ledger already carries for every
+row.
+
+### Reference
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/intervention-types` | List available intervention types |
+
 ### Statistics (R13/Phase 5c.3)
 
 | Method | Path | Description |
@@ -834,6 +898,7 @@ bug waiting for the backend to change underneath it:
 | `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
 | `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
 | `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
+| `InterventionReportPdfRendererPort` | `DompdfInterventionReportRenderer` — backs `/interventions/{id}/report`; module-local, mirrors `Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort`. No `$entityManager` — query-bus only, no direct Doctrine access |
 | `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves; also backs the `/interventions/export` `facility` column |
 | `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` — also backs the `/interventions/export` `assignee` column |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
@@ -1275,6 +1340,12 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
 `intervention.recurrence_materialized` for every due occurrence it processes
 (success or failure) with a system actor.
 
+`ExportInterventionReportController` (Lot P4.5) emits
+`InterventionReportExportedEvent` (`intervention.report_exported` in the
+ledger, subject `intervention`) after a successful PDF render, with the
+exporting user as actor — mirrors `compliance.register_exported`'s "who
+pulled this document" traceability.
+
 ## Testing
 
 - Unit: `tests/Unit/Intervention/`
@@ -1444,6 +1515,23 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   `in_progress`/`changes_requested` is rejected with 409; and re-uploading a
   signature mints a new attachment id, 404s the previous one, and leaves
   exactly one `signature`-kind attachment in the list.
+  - `Infrastructure/Pdf/DompdfInterventionReportRendererTest` (Lot P4.5) —
+    mirrors `DompdfSafetyRegisterRendererTest`: implements the renderer port,
+    renders the given context through the given template, returns bytes
+    starting `%PDF-`, the SSRF hardening (remote resource loading disabled)
+    does not turn rendering into an outbound request, and a template failure
+    bubbles up rather than being swallowed.
+- Functional: `tests/Functional/Api/InterventionReportExportApiTest.php`
+  (Lot P4.5) — 200 with `Content-Type: application/pdf`, a
+  `Content-Disposition: attachment` header naming
+  `intervention-FG-{number}-report.pdf`, and a body starting `%PDF-`; success
+  on a `published` intervention (no phase restriction, mirrors the
+  attachment-download precedent); 401 unauthenticated; 404 for an unknown
+  intervention id; 403 for a same-organization member without
+  `organization.interventions.read`; 404 — deliberately not 403 — for a
+  caller with no active membership in the owning organization at all, the
+  same `OrganizationAuthorizationPort::resolveAccess()` / `isOutsideScope()`
+  split every other read path in this module uses.
 - E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
   submit → work items frozen (409) → withdraw → work items mutable again →
   resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The

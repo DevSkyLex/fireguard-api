@@ -335,6 +335,14 @@ final class InterventionOperations
    */
   public const string DELETE_INTERVENTION_WORK_ITEM = 'intervention_work_item_delete';
 
+  // Intervention report export (PDF)
+  /**
+   * Constant EXPORT_INTERVENTION_REPORT.
+   *
+   * @var string
+   */
+  public const string EXPORT_INTERVENTION_REPORT = 'intervention_export_report';
+
   // Publications (the intervention publication write path)
   /**
    * Constant CREATE_PUBLICATION.

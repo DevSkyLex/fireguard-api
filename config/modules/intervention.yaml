@@ -6,6 +6,12 @@ services:
   Intervention\Presentation\:
     resource: '../../src/Intervention/Presentation'
 
+  # PDF rendering (module-local adapter) — mirrors config/modules/compliance.yaml
+  Intervention\Infrastructure\Pdf\DompdfInterventionReportRenderer: ~
+
+  Intervention\Application\Port\Outbound\InterventionReportPdfRendererPort:
+    alias: Intervention\Infrastructure\Pdf\DompdfInterventionReportRenderer
+
   Intervention\Application\:
     resource: '../../src/Intervention/Application'
 
