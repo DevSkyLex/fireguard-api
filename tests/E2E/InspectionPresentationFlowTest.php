@@ -170,12 +170,6 @@ final class InspectionPresentationFlowTest extends OAuth2WebTestCase
     $attachmentId = '550e8400-e29b-41d4-a716-446655440004';
 
     $endpoints = [
-      // Reference-data catalogs.
-      ['GET', '/api/inspections/results'],
-      ['GET', '/api/inspections/statuses'],
-      ['GET', '/api/inspections/inspector-types'],
-      ['GET', '/api/checklists/statuses'],
-      ['GET', '/api/non-conformities/statuses'],
       // Legacy inspection extras.
       ['GET', '/api/organizations/' . $orgId . '/facilities/' . $facilityId . '/inspections'],
       ['PATCH', '/api/organizations/' . $orgId . '/inspections/' . $inspId],

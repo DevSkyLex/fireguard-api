@@ -24,20 +24,6 @@ final class FacilityOperations
   public const string CREATE_FACILITY = 'facility_create';
 
   /**
-   * Constant LIST_FACILITY_TYPES.
-   *
-   * @var string
-   */
-  public const string LIST_FACILITY_TYPES = 'facility_type_list';
-
-  /**
-   * Constant LIST_FACILITY_STATUSES.
-   *
-   * @var string
-   */
-  public const string LIST_FACILITY_STATUSES = 'facility_status_list';
-
-  /**
    * Constant LIST_FACILITIES.
    *
    * @var string

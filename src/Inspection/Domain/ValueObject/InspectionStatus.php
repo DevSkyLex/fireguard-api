@@ -76,15 +76,5 @@ enum InspectionStatus: string
   {
     return self::CANCELLED === $this;
   }
-
-  public function label(): string
-  {
-    return match ($this) {
-      self::DRAFT => 'Draft',
-      self::SUBMITTED => 'Submitted',
-      self::CLOSED => 'Closed',
-      self::CANCELLED => 'Cancelled',
-    };
-  }
   // #endregion
 }

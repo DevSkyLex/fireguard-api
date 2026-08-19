@@ -520,11 +520,8 @@ responsible captures when submitting field work from a plain evidence file:
   same statement; the default is left in place so it stays aligned with
   `InterventionAttachmentKind::FILE`.
 
-### Reference
-
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/intervention-types` | List available intervention types |
+Removed 2026-08-20: `GET /intervention-types` (unconsumed reference catalog; the
+frontend's localized typed registries are the source of these values).
 
 ### Statistics (R13/Phase 5c.3)
 

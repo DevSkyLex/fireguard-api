@@ -46,15 +46,5 @@ enum NonConformityStatus: string
   {
     return self::DONE === $this || self::WAIVED === $this;
   }
-
-  public function label(): string
-  {
-    return match ($this) {
-      self::OPEN => 'Open',
-      self::IN_PROGRESS => 'In progress',
-      self::DONE => 'Done',
-      self::WAIVED => 'Waived',
-    };
-  }
   // #endregion
 }

@@ -285,14 +285,6 @@ final class InterventionOperations
    */
   public const string INSTANTIATE_INTERVENTION_TEMPLATE = 'intervention_template_instantiate';
 
-  // Intervention types (static catalog)
-  /**
-   * Constant LIST_INTERVENTION_TYPES.
-   *
-   * @var string
-   */
-  public const string LIST_INTERVENTION_TYPES = 'intervention_type_list';
-
   // Intervention work items
   /**
    * Constant CREATE_INTERVENTION_WORK_ITEM.

@@ -36,6 +36,10 @@ Main goals:
 | POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
 | GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
 
+Removed 2026-08-20: `GET /api/organizations/{organizationId}/equipment-types` and
+`GET /api/organizations/{organizationId}/equipment-statuses` (unconsumed reference
+catalogs; the frontend's localized typed registries are the source of these values).
+
 An equipment may carry at most
 `Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
 (**25**) attachments. `AddAttachmentHandler` reads the count through

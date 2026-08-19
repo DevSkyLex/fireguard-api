@@ -26,13 +26,4 @@ final class OrganizationInvitationStatusTest extends TestCase
     self::assertFalse(OrganizationInvitationStatus::REVOKED->isPending());
     self::assertFalse(OrganizationInvitationStatus::EXPIRED->isPending());
   }
-
-  #[Test]
-  public function testLabelForEachCase(): void
-  {
-    self::assertSame('Pending', OrganizationInvitationStatus::PENDING->label());
-    self::assertSame('Accepted', OrganizationInvitationStatus::ACCEPTED->label());
-    self::assertSame('Revoked', OrganizationInvitationStatus::REVOKED->label());
-    self::assertSame('Expired', OrganizationInvitationStatus::EXPIRED->label());
-  }
 }

@@ -23,11 +23,4 @@ final class InspectorTypeTest extends TestCase
   {
     self::assertSame(['user', 'external'], InspectorType::values());
   }
-
-  #[Test]
-  public function itLabelsEveryCase(): void
-  {
-    self::assertSame('User', InspectorType::USER->label());
-    self::assertSame('External', InspectorType::EXTERNAL->label());
-  }
 }

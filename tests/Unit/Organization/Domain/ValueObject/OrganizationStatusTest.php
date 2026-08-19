@@ -32,12 +32,4 @@ final class OrganizationStatusTest extends TestCase
     self::assertFalse(OrganizationStatus::SUSPENDED->isActive());
     self::assertFalse(OrganizationStatus::ARCHIVED->isActive());
   }
-
-  #[Test]
-  public function testLabelForEachCase(): void
-  {
-    self::assertSame('Active', OrganizationStatus::ACTIVE->label());
-    self::assertSame('Suspended', OrganizationStatus::SUSPENDED->label());
-    self::assertSame('Archived', OrganizationStatus::ARCHIVED->label());
-  }
 }

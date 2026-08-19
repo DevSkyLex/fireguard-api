@@ -24,6 +24,9 @@ User deletion also purges linked auth data (sessions, consents, tokens, OTPs, tr
 | User | POST | `/api/users/{id}/deactivate` | Deactivate a user |
 | User | POST | `/api/users/{id}/verify-email` | Mark email as verified |
 
+Removed 2026-08-20: `GET /api/users/statuses` (unconsumed reference catalog; the
+frontend's localized typed registries are the source of these values).
+
 ## Flows
 
 ### Create User (Command)
