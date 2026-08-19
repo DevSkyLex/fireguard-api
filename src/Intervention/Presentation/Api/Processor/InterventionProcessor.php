@@ -115,7 +115,7 @@ final readonly class InterventionProcessor implements ProcessorInterface
       throw $this->mapWorkflowException($exception);
     }
 
-    return null === $result->view ? null : $this->mapper->fromView($result->view);
+    return null === $result->view ? null : $this->mapper->fromViewForCaller($result->view, $user->getId());
   }
 
   /**

@@ -98,8 +98,10 @@ final class InterventionOutputFactory
   /**
    * Method fromViewForCaller.
    *
-   * The item and collection read-path variant of {@see self::fromView()}:
-   * additionally populates `allowedActions` by asking the shared
+   * The caller-aware variant of {@see self::fromView()} — used on the item
+   * and collection read paths and on every mutation response returning the
+   * refreshed intervention: additionally populates `allowedActions` by
+   * asking the shared
    * {@see InterventionActionPolicy} — the same policy
    * `MutateInterventionWorkflowHandler` consults to enforce a mutation —
    * what THIS caller may do to THIS intervention right now. Computed
