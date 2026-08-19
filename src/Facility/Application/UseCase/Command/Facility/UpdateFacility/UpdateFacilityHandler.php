@@ -9,8 +9,8 @@ use Doctrine\DBAL\Exception\{
   UniqueConstraintViolationException
 };
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
+use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{
   FacilityCodeAlreadyExistsException,
   FacilityNotFoundException
