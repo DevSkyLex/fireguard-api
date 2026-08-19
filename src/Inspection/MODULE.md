@@ -306,6 +306,41 @@ Status transitions:
 - `severity` (`low`, `medium`, `high`, `critical`)
 - `status` (`open`, `in_progress`, `done`, `waived`)
 - Once `done` or `waived`, the non-conformity is immutable.
+- **A closed inspection freezes the report, not the remediation.** The two
+  non-conformity write paths are deliberately asymmetric, and the asymmetry is
+  the contract:
+  - `POST .../non-conformities` on a `closed` inspection is refused —
+    `AddNonConformityHandler` raises `InspectionAlreadyClosedException` → **409**.
+    A closed inspection is a terminal record of what was found; nothing new
+    may be appended to it.
+  - `PATCH .../non-conformities/{id}/status` on a `closed` inspection is
+    **allowed** — `UpdateNonConformityStatusHandler` deliberately performs no
+    parent-status check. Remediation routinely outlives the closure of the
+    report that raised it: a deficiency is fixed, waived, or escalated weeks
+    later. Three consequences make this load-bearing rather than an oversight:
+    1. `NonConformityWaiverExecutorAdapter` re-dispatches
+       `UpdateNonConformityStatusCommand` when a `nc_waiver` approval is
+       granted — up to `approvalTtlDays` (default 14, max 90) after the ask.
+       The parent inspection may well have closed in between; a parent-status
+       check would make approved waivers fail to apply, and would surface as a
+       hard executor failure rather than
+       `DeferredActionNoLongerApplicableException`.
+    2. The organization-wide counters
+       (`NonConformityRepository::countOverviewByOrganizationId()` and
+       siblings) join non-conformities to their inspection with **no filter on
+       inspection status**, so a closed inspection's rows keep feeding
+       `openCount`, `overdueCount` and `criticalOpenCount`. Freezing them would
+       strand those counters permanently.
+    3. Closing an inspection does not require its non-conformities to be
+       resolved (`CloseInspectionHandler` checks only the inspection's own
+       status), so a closed inspection with open findings is a normal state,
+       not a corrupt one.
+
+  The only immutability rule on a non-conformity is its own terminal status
+  (`done`/`waived` → 409), enforced in `NonConformity::updateStatus()`. Both
+  halves are pinned by `tests/Functional/Api/InspectionApiTest.php`
+  (`testAddNonConformityOnAClosedInspectionReturnsConflict` and
+  `testUpdateNonConformityStatusIsStillAllowedOnAClosedInspection`).
 - **Waiving is gated by the org's four-eyes approval policy** (R17): when the
   target status is `waived`, `UpdateNonConformityStatusProcessor` consults
   `Approval\Application\Port\Inbound\ApprovalGatePort` (action type
@@ -318,6 +353,13 @@ Status transitions:
   `src/Approval/MODULE.md`. `NonConformityWaiverExecutorAdapter`
   (`src/Inspection/Infrastructure/Adapter/Approval/`) re-dispatches the same
   command on approval — the Inspection Domain never references Approval.
+  Waiving therefore crosses **two** entitlements: `organization.inspection.write`
+  (checked by the processor before anything else) and, only when the gate
+  actually defers, `organization.approvals.request` (asserted inside
+  `ApprovalGate`). A caller holding the first but not the second gets **403** —
+  `UpdateNonConformityStatusProcessor` maps the `OrganizationAccessDeniedException`
+  the gate raises, mirroring `ApprovalExceptionMapperTrait` on Approval's own
+  endpoints; before that mapping existed it escaped as a 500.
 
 `Checklist` main fields:
 
@@ -358,8 +400,11 @@ Cross-module contracts and lifecycle invariants:
 
 - The inspection lifecycle is `draft -> submitted -> closed`, plus the logical
   annulment `draft/submitted -> cancelled` (non-conformities preserved). Both
-  `closed` and `cancelled` are terminal and immutable on every write surface
-  (canonical PATCH, intervention `apply()`).
+  `closed` and `cancelled` are terminal and immutable on every write surface of
+  the INSPECTION itself (canonical PATCH, intervention `apply()`, and adding a
+  non-conformity). This does not extend to the status of an already-recorded
+  non-conformity, which stays mutable after closure by design — see the
+  non-conformity invariant under "Domain Model" above.
 - Canonical DELETE = cancel — never force-close. Idempotent: a repeat DELETE on
   a cancelled inspection is a no-op; deleting a `closed` inspection is refused
   (HTTP 409). Cancellation goes through the DELETE verb: the canonical PATCH does
@@ -432,6 +477,23 @@ Cross-module contracts and lifecycle invariants:
   edit on a published submitted inspection is deliberately not a dedicated
   audit action: the `submitted` and `closed` events both carry the result,
   bracketing any interim change.
+
+**Architecture debt — cross-module `Organization\Domain` imports (3).** The
+`CrossModuleDomainBoundaryTest` ratchet baseline for `Inspection =>
+Organization` was raised 2 → 3 on 2026-08-18, for
+`UpdateNonConformityStatusProcessor` catching
+`Organization\Domain\Exception\OrganizationAccessDeniedException`. It has to:
+`ApprovalGatePort::evaluate()` signals the missing
+`organization.approvals.request` entitlement by throwing that class, and
+without the catch it escaped the gated waiver path as a **500** instead of a
+**403**. Approval's own `ApprovalExceptionMapperTrait` maps the identical
+class for the identical reason (`Approval => Organization`, baseline 4), so
+this is the established treatment at a Presentation boundary rather than a
+new deviation. Deliberate, documented debt: the eventual fix is the approval
+gate reporting refusal through its own `Application/Contract/` type instead
+of a foreign domain exception — then this baseline shrinks back. The other
+two imports are `OrganizationQuotaResource` / `OrganizationQuotaExceededException`
+on the inspection-creation quota path.
 
 ## Configuration
 
@@ -507,17 +569,34 @@ Cross-module contracts and lifecycle invariants:
   `tests/Functional/Api/InspectionApiTest.php` (checklist endpoints, including
   `PATCH .../checklists/{id}`, and B7's
   `GET /organizations/{organizationId}/non-conformities`).
+  The five non-conformity endpoints carry the full contract matrix there:
+  201/200 success shapes, 403 for a member missing
+  `organization.inspection.{read,write}`, 404 for a cross-organization
+  inspection or a non-conformity addressed under an inspection that does not
+  own it, 409 for reopening a resolved row and for adding to a closed
+  inspection, and the closed-inspection asymmetry above. The gated waiver runs
+  against the REAL `ApprovalGate` (no mock): an organization seeded with
+  `settings.approval.action_rules.nc_waiver.enabled = true` at the `critical`
+  threshold yields the live **202** body
+  (`{status: 'pending_approval', approvalRequestId, approvalStatus, expiresAt}`)
+  with the row left `open`; a `low` finding below that threshold applies
+  immediately (**200**); a repeated ask returns the request already pending
+  instead of opening a duplicate; and a caller with
+  `organization.inspection.write` but without `organization.approvals.request`
+  gets **403**.
 - Run module tests: `make test tests/Unit/Inspection/`
 
 ## Error Codes
 
 - `InspectionNotFoundException` → 404
-- `InspectionAlreadySubmittedException` → 422
-- `InspectionAlreadyClosedException` → 422
-- `InspectionNotSubmittedException` → 422 (close attempted before submit)
+- `InspectionAlreadySubmittedException` → 409
+- `InspectionAlreadyClosedException` → 409
+- `InspectionNotSubmittedException` → 409 (close attempted before submit)
 - `ChecklistNotFoundException` → 404
 - `ChecklistArchivedException` → 409 (archive-on-archived and update-on-archived both map to Conflict)
 - `ChecklistInUseException` → 409 (item change rejected: checklist referenced by an existing inspection)
 - `ChecklistReferenceCodeAlreadyExistsException` → 409 (duplicate reference code within the organization)
 - `NonConformityNotFoundException` → 404
-- `NonConformityAlreadyResolvedException` → 422
+- `NonConformityAlreadyResolvedException` → 409 (reopening a `done`/`waived` row)
+- `OrganizationAccessDeniedException` (raised by `ApprovalGate` on the gated
+  waiver path) → 403

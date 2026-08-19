@@ -17,6 +17,7 @@ use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Processor\NonConformity\UpdateNonConformityStatusProcessor;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -340,6 +341,62 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
     $payload = json_decode((string) $response->getContent(), true);
     self::assertSame('pending_approval', $payload['status']);
     self::assertSame('request-1', $payload['approvalRequestId']);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenTheApprovalGateDeniesTheRequester(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    // Holds organization.inspection.write, so the processor's own gate lets
+    // it through; the approval gate is what refuses, for the distinct
+    // organization.approvals.request entitlement.
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetNonConformityResult(
+      nonConformityId: self::NC_ID,
+      inspectionId: self::INSP_ID,
+      description: 'Sprinkler head corroded',
+      severity: 'critical',
+      status: 'open',
+      dueAt: null,
+      resolvedAt: null,
+      notes: null,
+      createdAt: $now,
+      updatedAt: $now,
+    ));
+
+    $approvalGate = $this->createStub(ApprovalGatePort::class);
+    $approvalGate->method('evaluate')->willThrowException(
+      OrganizationAccessDeniedException::missingPermission('organization.approvals.request'),
+    );
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $input = new UpdateNonConformityStatusInput();
+    $input->status = 'waived';
+
+    $processor = new UpdateNonConformityStatusProcessor(
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+      authorization: $authorization,
+      approvalGate: $approvalGate,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: $input,
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
   }
 
   #[Test]
