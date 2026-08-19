@@ -197,6 +197,15 @@ services:
   Equipment\Application\UseCase\Query\Equipment\ListEquipmentAttachments\ListEquipmentAttachmentsHandler:
     tags: ['messenger.message_handler']
 
+  Equipment\Application\UseCase\Query\Equipment\GetEquipmentAttachmentContent\GetEquipmentAttachmentContentHandler:
+    tags: ['messenger.message_handler']
+
+  # DownloadEquipmentAttachmentController needs no explicit wiring here: it
+  # dispatches through the query bus and never touches Doctrine directly, so
+  # the `Equipment\Presentation\:` resource autowiring above is sufficient —
+  # unlike DownloadFacilityAttachmentController's Facility twin, which reads
+  # the record straight off the entity manager and must name it explicitly.
+
   Equipment\Application\UseCase\Query\Equipment\ListEquipmentTypes\ListEquipmentTypesHandler:
     tags: ['messenger.message_handler']
 

@@ -32,6 +32,7 @@ Main goals:
 | GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | List attachments |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | Upload attachment (base64 JSON — see below) |
 | DELETE | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}` | Delete attachment |
+| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}/download` | Download an attachment's raw bytes (`Content-Disposition: attachment`, never inline — see below) |
 | POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
 | GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
 
@@ -43,6 +44,24 @@ storage; the resulting `InvalidAttachmentException` is mapped centrally to
 **422** by the shared `AttachmentConstraintExceptionSubscriber`, covering
 both `MediaProcessor` (multipart) and `AddAttachmentProcessor` (base64
 JSON) without either mapping it locally.
+
+**Download (closed 2026-08-19).** `DownloadEquipmentAttachmentController`
+serves the raw bytes on a dedicated `EquipmentAttachmentContentResource`
+(`read`/`write`/`deserialize`/`serialize`/`output` disabled, mirroring
+`Facility\...\FacilityAttachmentContentResource` /
+`Intervention\...\InterventionAttachmentContentResource`). The coarse
+`organization.equipment.read` permission — the same gate
+`ListEquipmentAttachmentsProvider` already applies — is checked in the
+controller, since the nested route already carries `organizationId` as a URI
+variable; the per-record ownership chain (the equipment belongs to that
+organization, the attachment belongs to that equipment) is delegated to
+`GetEquipmentAttachmentContentHandler`, dispatched through the query bus, so
+a resource-level permission check alone can never stand in for it. The bytes
+are always handed to the shared `Shared\Presentation\Api\Attachment\AttachmentDownloadResponder`,
+which forces `Content-Disposition: attachment` and
+`X-Content-Type-Options: nosniff` — never `inline` — so a malicious upload
+(e.g. an SVG carrying a `<script>` tag) is downloaded, never rendered/executed
+in the app's origin.
 
 **MIME/size validation (closed 2026-08-19).** Equipment now routes both
 upload paths through the same shared policy every other generalized
@@ -532,6 +551,17 @@ Cross-module contracts and lifecycle invariants:
     upload paths: happy path unchanged (base64 JSON and multipart), 422 on a
     disallowed MIME type (both paths) and on an oversized base64 payload, 403
     missing-permission, 404 cross-org equipment, 401/403 unauthenticated.
+- Attachment download (closed 2026-08-19):
+  - `tests/Unit/Equipment/Application/UseCase/Query/Equipment/GetEquipmentAttachmentContent/GetEquipmentAttachmentContentHandlerTest`
+    — the stored-bytes happy path, unknown equipment, equipment in another
+    organization, unknown attachment, attachment belonging to another
+    equipment (never reads the file in any failure path), and the malformed
+    identifier 400.
+  - Functional: `tests/Functional/Api/EquipmentAttachmentApiTest.php` —
+    `testDownloadAttachmentServesBytesWithAttachmentDispositionAndNosniff`,
+    401/403 unauthenticated, 403 missing `organization.equipment.read`, 404
+    for a caller outside the owning organization, and 404 when the
+    `equipmentId` in the path does not own the requested attachment.
 - Plan position (Phase 4):
   - `Domain/ValueObject/PlanPositionTest` — coordinate-bounds validation, the
     UUID check on `attachmentId`, and the `toArray()`/`fromArray()` round trip.

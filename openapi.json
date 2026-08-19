@@ -9132,6 +9132,68 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}/download": {
+            "get": {
+                "operationId": "equipment_download_attachment",
+                "tags": [
+                    "Equipment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Attachment file content"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions (requires organization.equipment.read)"
+                    },
+                    "404": {
+                        "description": "Organization, equipment, attachment, or its stored content not found"
+                    },
+                    "204": {
+                        "description": "EquipmentAttachmentContent resource"
+                    }
+                },
+                "summary": "Download an equipment attachment",
+                "description": "Streams the stored file bytes with Content-Disposition: attachment and X-Content-Type-Options: nosniff. Gated by organization.equipment.read.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "EquipmentAttachmentContent identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "equipmentId",
+                        "in": "path",
+                        "description": "EquipmentAttachmentContent identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "attachmentId",
+                        "in": "path",
+                        "description": "EquipmentAttachmentContent identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/equipment/{equipmentId}/commission": {
             "post": {
                 "operationId": "equipment_commission",
