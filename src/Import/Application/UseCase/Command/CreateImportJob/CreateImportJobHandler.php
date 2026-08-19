@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Import\Application\UseCase\Command\CreateImportJob;
 
 use Import\Application\Port\Outbound\{ImportJobQueuePort, ImportJobRepositoryPort};
+use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind};
 use InvalidArgumentException;
@@ -28,9 +29,15 @@ use function trim;
  * new permission is introduced, and the check is self-enforced here per the
  * codebase invariant that handlers, not processors, own authorization.
  *
+ * The caller names the target organization in the payload, so the check
+ * separates "not a member of that organization" (404, the same answer an
+ * unknown organization identifier produces) from "member, but not entitled"
+ * (403) — see
+ * {@see \Organization\Application\Contract\Authorization\OrganizationAccessDecision}.
+ *
  * @category UseCase
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -80,9 +87,15 @@ final readonly class CreateImportJobHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $this->authorization->assertGrantedPermissions($command->userId, $command->organizationId, [
-      $this->requiredPermission($kind),
-    ]);
+    $permission = $this->requiredPermission($kind);
+
+    $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, $permission);
+    if ($decision->isOutsideScope()) {
+      throw ImportJobNotFoundException::forOrganizationScope($command->organizationId);
+    }
+    if (!$decision->isGranted()) {
+      throw ImportAccessDeniedException::missingPermission($permission);
+    }
 
     /** @var ImportJobId $id */
     $id = $this->uuidFactory->create(ImportJobId::class);

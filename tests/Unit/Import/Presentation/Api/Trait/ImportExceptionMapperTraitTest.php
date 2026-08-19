@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Import\Presentation\Api\Trait;
 
-use Import\Domain\Exception\ImportJobNotFoundException;
+use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Presentation\Api\Trait\ImportExceptionMapperTrait;
 use InvalidArgumentException;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
@@ -33,6 +33,10 @@ final class ImportExceptionMapperTraitTest extends TestCase
    */
   public static function domainFailureProvider(): iterable
   {
+    yield 'import access denied' => [
+      ImportAccessDeniedException::missingPermission('organization.facilities.read'),
+      AccessDeniedHttpException::class,
+    ];
     yield 'organization access denied' => [
       OrganizationAccessDeniedException::missingPermission('organization.import.read'),
       AccessDeniedHttpException::class,
