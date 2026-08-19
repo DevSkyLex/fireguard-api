@@ -244,7 +244,7 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         throw InterventionNotFoundException::withId($publication->intervention->id);
       }
       // @codeCoverageIgnoreEnd
-      if ('submitted' !== $intervention->status || $intervention->revision !== $publication->interventionRevision) {
+      if (InterventionStatus::SUBMITTED->value !== $intervention->status || $intervention->revision !== $publication->interventionRevision) {
         throw new InterventionConflictException('Intervention changed before publication execution.');
       }
       if (!$intervention->organization instanceof OrganizationRecord) {
@@ -264,7 +264,7 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
       }
 
       $this->draftPublisher->publish($intervention->id);
-      $intervention->status = 'published';
+      $intervention->status = InterventionStatus::PUBLISHED->value;
       ++$intervention->revision;
       $intervention->updatedAt = new DateTimeImmutable();
       $this->transitionPolicy->assertAllowed($currentPublicationStatus, PublicationStatus::COMPLETED);
