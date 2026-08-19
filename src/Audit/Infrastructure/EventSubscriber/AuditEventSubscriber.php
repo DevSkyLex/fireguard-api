@@ -18,6 +18,7 @@ use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent, UserLoggedOu
 use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
@@ -177,6 +178,9 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
       'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
       'automation.automation_rule_failed_event' => 'onAutomationRuleFailed',
+      'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
+      'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
+      'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -1751,6 +1755,84 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'error' => $event->error,
       ],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onCalendarEventCreated.
+   *
+   * Records the creation of a standalone organization calendar event.
+   * `title`/`starts_at` are kept in the raw ledger payload (full detail,
+   * hash-covered) but withheld from the organization-audience projection —
+   * see {@see \Audit\Application\Service\OrganizationAuditMetadataProjection} —
+   * because an event title is operator-typed free text (unlike a curated
+   * organization/team name) and can embed identifying detail.
+   *
+   * @since 1.4.0
+   *
+   * @param CalendarEventCreatedEvent $event the domain event
+   */
+  public function onCalendarEventCreated(CalendarEventCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.event_created',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_event',
+      subjectId: $event->eventId,
+      metadata: [
+        'title' => $event->title,
+        'starts_at' => $event->startsAt->format(DateTimeImmutable::ATOM),
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarEventUpdated.
+   *
+   * Records an update to a standalone organization calendar event. Mirrors
+   * `onCalendarEventCreated`'s free-text withholding rationale.
+   *
+   * @since 1.4.0
+   *
+   * @param CalendarEventUpdatedEvent $event the domain event
+   */
+  public function onCalendarEventUpdated(CalendarEventUpdatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.event_updated',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_event',
+      subjectId: $event->eventId,
+      metadata: [
+        'title' => $event->title,
+        'starts_at' => $event->startsAt->format(DateTimeImmutable::ATOM),
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarEventDeleted.
+   *
+   * Records the deletion of a standalone organization calendar event.
+   *
+   * @since 1.4.0
+   *
+   * @param CalendarEventDeletedEvent $event the domain event
+   */
+  public function onCalendarEventDeleted(CalendarEventDeletedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.event_deleted',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_event',
+      subjectId: $event->eventId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 

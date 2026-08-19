@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
 use Intervention\Presentation\Api\Dto\Input\AssignInterventionTeamInput;
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\Assignment\AssignTeamToInterventionProcessor;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -29,6 +30,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   shortName: 'InterventionTeamAssignment',
   operations: [
     new Post(
+      name: InterventionOperations::ASSIGN_INTERVENTION_TEAM,
       uriTemplate: '/interventions/{id}/team-assignments',
       input: AssignInterventionTeamInput::class,
       output: InterventionOutput::class,

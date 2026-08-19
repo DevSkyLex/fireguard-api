@@ -10,6 +10,8 @@ use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
+use DateTimeImmutable;
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
@@ -104,6 +106,9 @@ final class AuditEventSubscriberTest extends TestCase
       'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
       'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
       'automation.automation_rule_failed_event' => 'onAutomationRuleFailed',
+      'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
+      'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
+      'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -466,6 +471,108 @@ final class AuditEventSubscriberTest extends TestCase
       teamId: 'team-1',
       memberId: 'member-1',
       role: 'lead',
+    ));
+  }
+
+  #[Test]
+  public function testOnCalendarEventCreatedRecordsEventAudit(): void
+  {
+    $startsAt = new DateTimeImmutable('2026-08-01T09:00:00+02:00');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'calendar.event_created' === $command->action
+        && 'user' === $command->actorType
+        && 'user-1' === $command->actorId
+        && 'calendar_event' === $command->subjectType
+        && 'event-1' === $command->subjectId
+        && [
+          'title' => 'Fire drill',
+          'starts_at' => $startsAt->format(DateTimeImmutable::ATOM),
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onCalendarEventCreated(new CalendarEventCreatedEvent(
+      organizationId: 'org-1',
+      eventId: 'event-1',
+      title: 'Fire drill',
+      startsAt: $startsAt,
+      actorUserId: 'user-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnCalendarEventUpdatedRecordsEventAudit(): void
+  {
+    $startsAt = new DateTimeImmutable('2026-08-01T10:00:00+02:00');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'calendar.event_updated' === $command->action
+        && 'calendar_event' === $command->subjectType
+        && 'event-1' === $command->subjectId
+        && [
+          'title' => 'Updated drill',
+          'starts_at' => $startsAt->format(DateTimeImmutable::ATOM),
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-202'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onCalendarEventUpdated(new CalendarEventUpdatedEvent(
+      organizationId: 'org-1',
+      eventId: 'event-1',
+      title: 'Updated drill',
+      startsAt: $startsAt,
+      actorUserId: 'user-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnCalendarEventDeletedRecordsEventAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'calendar.event_deleted' === $command->action
+        && 'calendar_event' === $command->subjectType
+        && 'event-1' === $command->subjectId
+        && ['organization_id' => 'org-1'] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-203'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onCalendarEventDeleted(new CalendarEventDeletedEvent(
+      organizationId: 'org-1',
+      eventId: 'event-1',
+      actorUserId: 'user-1',
     ));
   }
 

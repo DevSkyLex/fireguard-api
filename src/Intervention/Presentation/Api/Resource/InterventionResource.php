@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post, 
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionInput, UpdateInterventionInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\InterventionProcessor;
 use Intervention\Presentation\Api\Provider\InterventionProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,9 +26,10 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'Intervention',
   description: 'Field intervention coordinating draft operational resources.',
   operations: [
-    new Post(uriTemplate: '/interventions', input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: 'intervention_put', uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(name: InterventionOperations::CREATE_INTERVENTION, uriTemplate: '/interventions', input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
+    new Put(name: InterventionOperations::PUT_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTIONS,
       uriTemplate: '/interventions',
       output: InterventionOutput::class,
       provider: InterventionProvider::class,
@@ -54,9 +56,9 @@ use Symfony\Component\HttpFoundation\Response;
         new Parameter(name: 'plannedStartAtBefore', in: 'query', description: 'Inclusive upper planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
       ]),
     ),
-    new Get(uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: false, output: false, processor: InterventionProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(name: InterventionOperations::GET_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),
+    new Patch(name: InterventionOperations::UPDATE_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
+    new Delete(name: InterventionOperations::DELETE_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: false, output: false, processor: InterventionProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
   ],
 )]
 final class InterventionResource

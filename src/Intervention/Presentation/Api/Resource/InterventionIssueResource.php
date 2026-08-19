@@ -6,6 +6,7 @@ namespace Intervention\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, GetCollection};
 use Intervention\Presentation\Api\Dto\Output\InterventionIssueOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Provider\InterventionIssueProvider;
 
 /**
@@ -21,6 +22,7 @@ use Intervention\Presentation\Api\Provider\InterventionIssueProvider;
   shortName: 'InterventionIssue',
   operations: [
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTION_ISSUES,
       uriTemplate: '/interventions/{id}/issues',
       output: InterventionIssueOutput::class,
       provider: InterventionIssueProvider::class,
