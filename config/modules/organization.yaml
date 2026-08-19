@@ -281,7 +281,12 @@ services:
   Organization\Application\Port\Inbound\TeamDirectoryPort:
     alias: Organization\Application\Service\TeamDirectoryService
 
+  Organization\Application\Port\Inbound\OrganizationCallerMembershipPort:
+    alias: Organization\Application\Service\OrganizationCallerMembershipService
+
   Organization\Application\Service\TeamDirectoryService: ~
+
+  Organization\Application\Service\OrganizationCallerMembershipService: ~
 
   Organization\Application\Service\OrganizationInvitationTokenHasher: ~
 

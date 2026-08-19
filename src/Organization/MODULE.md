@@ -20,12 +20,12 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | --- | --- | --- |
 | POST | `/api/organizations` | Create a Organization and owner membership |
 | GET | `/api/organizations` | List Organizations for current user (filter: `status`). Each item also carries the CALLER's membership info: `isOwner` (caller vs `ownerUserId`) and `roles` (`[{id, label}]`, the caller's assigned org-role labels, `[]` when none) — see Notes |
-| GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`) |
+| GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`). Carries the same caller-membership `isOwner`/`roles` as the list above — see Notes |
 | DELETE | `/api/organizations/{id}` | Archive the organization (reversible soft delete — see Notes; **not** a permanent removal). Requires `organization.delete` plus the danger-zone confirmation: a `slug` query parameter matching the organization's current slug (case-insensitive, trimmed). Missing or mismatched confirmation → HTTP 422, nothing archived. Idempotent when already archived, provided the confirmation is still correct |
-| POST | `/api/organizations/{id}/suspend` | Suspend the organization as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: false` toggle on the settings PATCH below. Requires `organization.settings.write`, the SAME permission the legacy toggle already requires — see Notes (P2.5). 409 when archived (restore it first). Idempotent when already suspended. Returns the refreshed `OrganizationOutput` |
-| POST | `/api/organizations/{id}/restore` | Restore the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: true` toggle. Requires `organization.settings.write` — see Notes (P2.5). Idempotent when already active. Returns the refreshed `OrganizationOutput` |
-| POST | `/api/organizations/{id}/transfer-ownership` | Transfer ownership to another active member. The caller must be an ACTIVE member of the organization — a stranger gets the same 404 a nonexistent organization id would produce, before the slug or owner checks ever run (closes an existence/slug oracle — see Notes). An active member who is not the organization's CURRENT owner gets 403 instead — RBAC-independent, no permission grants the right to give away someone else's ownership. Requires the same danger-zone `slug` confirmation as DELETE, now in the request body (missing/mismatched → 422), checked only once the caller is confirmed to be the owner. Target must be an active member (404 otherwise); an archived organization or a target already owning it → 409. The new owner is granted the system `admin` role if missing AND the acting (previous) owner still holds every permission that role carries (`OrganizationPermissionGrantGuardPort`, the same no-privilege-escalation check every other role-granting surface applies); a missing role, a guard refusal, or any other failure while granting it is logged and skipped — it never fails the already-committed transfer. Returns the refreshed `OrganizationOutput` — see Notes |
-| PATCH | `/api/organizations/{id}` | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the catalog default from `OrganizationComplianceDefaults`; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write` |
+| POST | `/api/organizations/{id}/suspend` | Suspend the organization as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: false` toggle on the settings PATCH below. Requires `organization.settings.write`, the SAME permission the legacy toggle already requires — see Notes (P2.5). 409 when archived (restore it first). Idempotent when already suspended. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included |
+| POST | `/api/organizations/{id}/restore` | Restore the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: true` toggle. Requires `organization.settings.write` — see Notes (P2.5). Idempotent when already active. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included |
+| POST | `/api/organizations/{id}/transfer-ownership` | Transfer ownership to another active member. The caller must be an ACTIVE member of the organization — a stranger gets the same 404 a nonexistent organization id would produce, before the slug or owner checks ever run (closes an existence/slug oracle — see Notes). An active member who is not the organization's CURRENT owner gets 403 instead — RBAC-independent, no permission grants the right to give away someone else's ownership. Requires the same danger-zone `slug` confirmation as DELETE, now in the request body (missing/mismatched → 422), checked only once the caller is confirmed to be the owner. Target must be an active member (404 otherwise); an archived organization or a target already owning it → 409. The new owner is granted the system `admin` role if missing AND the acting (previous) owner still holds every permission that role carries (`OrganizationPermissionGrantGuardPort`, the same no-privilege-escalation check every other role-granting surface applies); a missing role, a guard refusal, or any other failure while granting it is logged and skipped — it never fails the already-committed transfer. Returns the refreshed `OrganizationOutput` — see Notes. `isOwner` reflects the POST-transfer truth for the acting caller (`false`, since ownership just moved away from them) |
+| PATCH | `/api/organizations/{id}` | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the catalog default from `OrganizationComplianceDefaults`; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write`. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included |
 | GET | `/api/organizations/legal-types` | Reference catalog of organization legal entity type values/labels for the Legal profile settings tab select |
 | POST | `/api/organizations/{organizationId}/logo` | Upload the organization logo (multipart). Requires `organization.settings.write` |
 | DELETE | `/api/organizations/{organizationId}/logo` | Remove the organization logo. Requires `organization.settings.write` (same permission as upload). 409 when archived. Idempotent when the organization already has no logo — see Notes (P2.5) |
@@ -708,27 +708,66 @@ demonstrating that one person can belong to more than one tenant.
   of how many roles the organization has; roles absent from the map default
   to `memberCount: 0`.
 
-- **Caller membership info on the organization list**: `GET /api/organizations`
-  items expose `isOwner` and `roles` for the REQUESTING user (Account → Roles
+- **Caller membership projection (`isOwner`/`roles`), shared by the list, the
+  single GET, and every mutation output**: `GET /api/organizations` items,
+  `GET /api/organizations/{id}`, and the refreshed `OrganizationOutput`
+  returned by suspend/restore/transfer-ownership/settings-update all expose
+  `isOwner` and `roles` for the REQUESTING user (Account → Roles
   "Organization memberships" section; the org switcher ignores them).
-  `ListUserOrganizationsHandler` resolves both in the Application layer:
-  `isOwner` compares the organization's `ownerUserId` against the query's
-  `userId` (no extra read — the aggregate is already loaded), and `roles`
-  reuses the caller's membership already fetched by `findByUserId`, joining
-  `OrganizationMemberRepositoryPort::findRoleIdsForMember` then
-  `OrganizationRoleRepositoryPort::findByIdsInOrganization` per page item —
-  the same repository join as `ListOrganizationMembers` /
-  `GetCurrentOrganizationMemberProfile`, bounded by the page size. The fields
-  ride on the shared `GetOrganizationResult`/`OrganizationOutput` as
-  APPENDED NULLABLE members (`isOwner: ?bool`, `roles: ?list<{id, label}>`,
-  where `label` is the role name), so every other constructor of those types
-  (GetOrganization, the create/update/logo/plan processors, Onboarding) is
-  untouched and keeps emitting `null` — `null` means "caller membership not
-  resolved by this operation", while the list endpoint always emits concrete
-  values (`false`/`[]` fallbacks in `ListUserOrganizationsProvider`). A
-  member with no assigned role gets `roles: []`, never an error, and no role
-  query is issued for it. Read-only aggregation: no schema change, no
-  migration.
+  A single Inbound port, `OrganizationCallerMembershipPort` (implemented by
+  `Organization\Application\Service\OrganizationCallerMembershipService`),
+  is the ONE place the projection is computed, so the four consumers can
+  never disagree:
+  - `isOwner(organizationOwnerUserId, callerUserId)` — a plain equality
+    check against the `Organization` aggregate's own `ownerUserId`, never
+    membership-dependent (the owner stays the owner with an inactive or
+    missing membership row).
+  - `findActiveCallerMembership(organizationId, callerUserId)` — one
+    indexed `OrganizationMemberRepositoryPort::findByOrganizationAndUser`
+    lookup, filtered to ACTIVE (mirrors `ListUserOrganizationsHandler`'s own
+    active filter so the two can never disagree on who counts as a member).
+  - `resolveRoles(organizationId, ?membership)` — the
+    `findRoleIdsForMember` → `findByIdsInOrganization` join (same shape as
+    `ListOrganizationMembers` / `GetCurrentOrganizationMemberProfile`),
+    returning `[]` for a null membership or one with no assigned role.
+
+  `ListUserOrganizationsHandler` already has the caller's membership
+  bulk-loaded (one `findByUserId` call for the whole page), so it calls
+  `resolveRoles()` directly with that membership — no per-row query.
+  `GetOrganizationHandler` does not have it pre-loaded, so
+  `GetOrganizationQuery` grew an optional `?string $callerUserId`: when
+  provided, the handler pays one extra `findActiveCallerMembership` lookup
+  plus, only when the caller holds roles, the role-name join — at most 2
+  extra indexed queries beyond the existing `findById`/plan read. `null` (no
+  `callerUserId`) preserves the original behavior of leaving `isOwner`/
+  `roles` `null` — still true for the two callers of `GetOrganizationQuery`
+  that do not resolve caller membership (`ChangeOrganizationPlanProcessor`,
+  `UploadOrganizationLogoProcessor`).
+
+  Every other consumer of `GetOrganizationQuery` that DOES need the
+  projection (`GetOrganizationProvider` and the suspend/restore/
+  transfer-ownership/settings-update processors, all of which re-read
+  through this same query to build their response) now passes
+  `callerUserId: $user->getId()`. **Transfer ownership is the interesting
+  case**: `$callerUserId` is deliberately the ACTING user — the PREVIOUS
+  owner — and `GetOrganizationHandler` resolves `isOwner` against the
+  organization's (already updated) `ownerUserId`, so the response correctly
+  reports `isOwner: false` for the caller after a successful transfer,
+  without any special-casing in the processor.
+
+  The five HTTP consumers share the actual `GetOrganizationResult` →
+  `OrganizationOutput` field-by-field mapping too, through
+  `Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait`
+  (mirrors `InvitationOutputMapperTrait`'s existing shape), so a change to
+  one no longer risks drifting from the other four.
+
+  The fields ride on the shared `GetOrganizationResult`/`OrganizationOutput`
+  as NULLABLE members (`isOwner: ?bool`, `roles: ?list<{id, label}>`, where
+  `label` is the role name) — `null` means "caller membership not resolved
+  by this operation" (the two exceptions above), a concrete `bool`/list
+  everywhere else, including a member with no assigned role (`roles: []`,
+  never an error, no role query issued). Read-only aggregation: no schema
+  change, no migration.
 
 - **Sidebar navigation counters (L3.11)**: `GET /organizations/{organizationId}/navigation-counters`
   answers the "does this org have work waiting" badge question for the

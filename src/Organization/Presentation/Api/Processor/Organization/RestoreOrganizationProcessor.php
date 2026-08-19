@@ -11,9 +11,9 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RestoreOrganization\RestoreOrganizationCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Domain\ValueObject\OrganizationSettings;
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -41,6 +41,13 @@ use function is_string;
  */
 final readonly class RestoreOrganizationProcessor implements ProcessorInterface
 {
+  /**
+   * Trait OrganizationOutputMapperTrait.
+   *
+   * @see OrganizationOutputMapperTrait
+   */
+  use OrganizationOutputMapperTrait;
+
   // #region Traits
   /**
    * Trait UnwrapsOrganizationBusFailures.
@@ -124,7 +131,7 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    return $this->buildOutput($organizationId);
+    return $this->buildOutput($organizationId, $user->getId());
   }
 
   /**
@@ -133,46 +140,27 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
    * Re-reads the organization and maps it to the API output, the same
    * `buildOutput()` pattern `TransferOrganizationOwnershipProcessor`/
    * `UpdateOrganizationSettingsProcessor` use for every other mutating
-   * organization operation.
+   * organization operation. Passing `$callerUserId` through resolves
+   * `isOwner`/`roles` for the acting user via
+   * `OrganizationCallerMembershipPort` (see `GetOrganizationHandler`).
    *
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
+   * @param string $callerUserId the acting user identifier
    *
    * @return OrganizationOutput the refreshed organization output
    */
-  private function buildOutput(string $organizationId): OrganizationOutput
+  private function buildOutput(string $organizationId, string $callerUserId): OrganizationOutput
   {
     try {
       /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
+      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     }
 
-    $output = new OrganizationOutput();
-    $output->id = $result->id;
-    $output->name = $result->name;
-    $output->slug = $result->slug;
-    $output->ownerUserId = $result->ownerUserId;
-    $output->createdByUserId = $result->createdByUserId;
-    $output->status = $result->status;
-    $output->isActive = $result->isActive;
-    $output->description = $result->description;
-    $output->logoUrl = $result->logoUrl;
-    $output->memberCount = $result->memberCount;
-    $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
-    $output->planId = $result->planId;
-    $output->planName = $result->planName;
-    $output->country = $result->country;
-    $output->legalType = $result->legalType;
-    $output->legalName = $result->legalName;
-    $output->registrationNumber = $result->registrationNumber;
-    $output->vatNumber = $result->vatNumber;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->buildOrganizationOutput($result);
   }
 
   // #endregion

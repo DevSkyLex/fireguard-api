@@ -639,6 +639,95 @@ final class OrganizationApiTest extends WebTestCase
     );
   }
 
+  /**
+   * `isOwner`/`roles` on `GET /organizations/{id}` are resolved through the
+   * same `OrganizationCallerMembershipPort` projection as the organization
+   * list and every mutation output: the owner sees `isOwner: true` and their
+   * assigned role, a plain member with no role sees `isOwner: false` and an
+   * empty `roles` list.
+   */
+  #[Test]
+  public function testGetOrganizationReturnsIsOwnerTrueForTheOwnerAndFalseForAPlainMember(): void
+  {
+    $ownerClient = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655470200';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655470201';
+    $memberUserId = '550e8400-e29b-41d4-a716-446655470202';
+
+    $this->removeOrganizationIfExists($entityManager, $organizationId);
+
+    $organization = $this->seedSettingsWriteOrganization($entityManager, $organizationId, $ownerUserId, $now);
+
+    // A plain active member, granted a read-only role so it can reach the
+    // resource but is not the owner and holds no admin-level role.
+    $readRole = new OrganizationRoleRecord();
+    $readRole->id = substr($organizationId, 0, 35) . 'c';
+    $readRole->organization = $organization;
+    $readRole->name = 'read_only_role';
+    $readRole->permissions = ['organization.read'];
+    $readRole->description = 'Functional-test-only read-only role.';
+    $readRole->isSystem = false;
+    $readRole->createdAt = $now;
+    $entityManager->persist($readRole);
+
+    $member = new OrganizationMemberRecord();
+    $member->id = substr($organizationId, 0, 35) . 'd';
+    $member->organization = $organization;
+    $member->userId = $memberUserId;
+    $member->isActive = true;
+    $member->joinedAt = $now;
+    $entityManager->persist($member);
+
+    $memberRoleAssignment = new OrganizationMemberRoleRecord();
+    $memberRoleAssignment->member = $member;
+    $memberRoleAssignment->role = $readRole;
+    $memberRoleAssignment->assignedAt = $now;
+    $entityManager->persist($memberRoleAssignment);
+
+    $entityManager->flush();
+
+    // Owner.
+    $ownerClient->loginUser($this->securityUser($ownerUserId), 'api');
+    $ownerClient->request('GET', '/api/organizations/' . $organizationId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+    $ownerResponse = $ownerClient->getResponse();
+    self::assertSame(200, $ownerResponse->getStatusCode(), 'GET should succeed for the owner. Response: ' . $ownerResponse->getContent());
+
+    $ownerDecoded = json_decode($ownerResponse->getContent() ?: '{}', true);
+    self::assertIsArray($ownerDecoded);
+    self::assertTrue($ownerDecoded['isOwner'] ?? null);
+    $ownerRoles = $ownerDecoded['roles'] ?? null;
+    self::assertIsArray($ownerRoles);
+    $ownerFirstRole = $ownerRoles[0] ?? null;
+    self::assertIsArray($ownerFirstRole);
+    self::assertSame('full_access_role', $ownerFirstRole['label'] ?? null);
+
+    // Plain member: fresh client, own login, same organization.
+    static::ensureKernelShutdown();
+    $memberClient = static::createClient();
+    $memberClient->loginUser($this->securityUser($memberUserId), 'api');
+    $memberClient->request('GET', '/api/organizations/' . $organizationId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+    $memberResponse = $memberClient->getResponse();
+    self::assertSame(200, $memberResponse->getStatusCode(), 'GET should succeed for an entitled plain member. Response: ' . $memberResponse->getContent());
+
+    $memberDecoded = json_decode($memberResponse->getContent() ?: '{}', true);
+    self::assertIsArray($memberDecoded);
+    self::assertFalse($memberDecoded['isOwner'] ?? null);
+    $memberRoles = $memberDecoded['roles'] ?? null;
+    self::assertIsArray($memberRoles);
+    $memberFirstRole = $memberRoles[0] ?? null;
+    self::assertIsArray($memberFirstRole);
+    self::assertSame('read_only_role', $memberFirstRole['label'] ?? null);
+  }
+
   #[Test]
   public function testDeleteOrganizationRequiresAuthentication(): void
   {
@@ -689,6 +778,52 @@ final class OrganizationApiTest extends WebTestCase
       haystack: [401, 403],
       message: 'Expected 401 or 403 for unauthenticated DELETE /organizations/{id}?slug=..., got ' . $statusCode,
     );
+  }
+
+  /**
+   * `PATCH /organizations/{id}` re-reads through the same `GetOrganization`
+   * query as GET/suspend/restore/transfer, so its output carries the same
+   * caller-membership projection — no dedicated "settings-update" branch to
+   * drift out of sync with the others.
+   */
+  #[Test]
+  public function testUpdateOrganizationSettingsSucceedsAndReturnsCallerMembership(): void
+  {
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655470300';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655470301';
+
+    $this->removeOrganizationIfExists($entityManager, $organizationId);
+
+    $this->seedSettingsWriteOrganization($entityManager, $organizationId, $ownerUserId, $now);
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . $organizationId,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode(['name' => 'Renamed Settings-Write Test']),
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(200, $response->getStatusCode(), 'Settings update should succeed. Response: ' . $response->getContent());
+
+    $decoded = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($decoded);
+    self::assertSame('Renamed Settings-Write Test', $decoded['name'] ?? null);
+    self::assertTrue($decoded['isOwner'] ?? null);
+    $roles = $decoded['roles'] ?? null;
+    self::assertIsArray($roles);
+    $firstRole = $roles[0] ?? null;
+    self::assertIsArray($firstRole);
+    self::assertSame('full_access_role', $firstRole['label'] ?? null);
   }
 
   // -------------------------------------------------------------------------
@@ -746,6 +881,15 @@ final class OrganizationApiTest extends WebTestCase
     self::assertIsArray($decoded);
     self::assertSame('suspended', $decoded['status'] ?? null);
     self::assertFalse($decoded['isActive'] ?? null);
+    // The mutation output re-reads through the same caller-membership
+    // projection as GET /organizations/{id}: the acting owner sees isOwner
+    // true and the full_access_role seedSettingsWriteOrganization() grants.
+    self::assertTrue($decoded['isOwner'] ?? null);
+    $roles = $decoded['roles'] ?? null;
+    self::assertIsArray($roles);
+    $firstRole = $roles[0] ?? null;
+    self::assertIsArray($firstRole);
+    self::assertSame('full_access_role', $firstRole['label'] ?? null);
 
     // Idempotent: a repeat call against an already-suspended organization
     // still succeeds with 200, not a 409. Uses its own freshly authenticated
@@ -914,6 +1058,14 @@ final class OrganizationApiTest extends WebTestCase
     self::assertIsArray($decoded);
     self::assertSame('active', $decoded['status'] ?? null);
     self::assertTrue($decoded['isActive'] ?? null);
+    // Same shared caller-membership projection as suspend/GET: the acting
+    // owner sees isOwner true and their full_access_role.
+    self::assertTrue($decoded['isOwner'] ?? null);
+    $roles = $decoded['roles'] ?? null;
+    self::assertIsArray($roles);
+    $firstRole = $roles[0] ?? null;
+    self::assertIsArray($firstRole);
+    self::assertSame('full_access_role', $firstRole['label'] ?? null);
 
     // Idempotent: a repeat call against an already-active organization still
     // succeeds with 200. Uses its own freshly authenticated client: the
@@ -1461,6 +1613,11 @@ final class OrganizationApiTest extends WebTestCase
     $decoded = json_decode($response->getContent() ?: '{}', true);
     self::assertIsArray($decoded);
     self::assertSame($newOwnerUserId, $decoded['ownerUserId'] ?? null);
+    // The interesting isOwner case: the ACTING caller is the previous
+    // owner, and `ownerUserId` above already reflects the new owner — so
+    // isOwner must be false for the caller here, the post-transfer truth,
+    // not the pre-transfer one.
+    self::assertFalse($decoded['isOwner'] ?? null);
   }
 
   #[Test]
