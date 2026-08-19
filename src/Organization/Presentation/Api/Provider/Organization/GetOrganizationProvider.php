@@ -10,8 +10,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Domain\ValueObject\OrganizationSettings;
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -31,6 +31,15 @@ use function is_string;
  */
 final readonly class GetOrganizationProvider implements ProviderInterface
 {
+  // #region Traits
+  /**
+   * Trait OrganizationOutputMapperTrait.
+   *
+   * @see OrganizationOutputMapperTrait
+   */
+  use OrganizationOutputMapperTrait;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -83,34 +92,12 @@ final readonly class GetOrganizationProvider implements ProviderInterface
 
     try {
       /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
+      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $user->getId()));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     }
 
-    $output = new OrganizationOutput();
-    $output->id = $result->id;
-    $output->name = $result->name;
-    $output->slug = $result->slug;
-    $output->ownerUserId = $result->ownerUserId;
-    $output->createdByUserId = $result->createdByUserId;
-    $output->status = $result->status;
-    $output->isActive = $result->isActive;
-    $output->description = $result->description;
-    $output->logoUrl = $result->logoUrl;
-    $output->memberCount = $result->memberCount;
-    $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
-    $output->planId = $result->planId;
-    $output->planName = $result->planName;
-    $output->country = $result->country;
-    $output->legalType = $result->legalType;
-    $output->legalName = $result->legalName;
-    $output->registrationNumber = $result->registrationNumber;
-    $output->vatNumber = $result->vatNumber;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->buildOrganizationOutput($result);
   }
   // #endregion
 }

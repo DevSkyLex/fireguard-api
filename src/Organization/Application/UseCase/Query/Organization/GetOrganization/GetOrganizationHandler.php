@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganization;
 
+use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Plan\Plan;
@@ -33,11 +34,13 @@ final readonly class GetOrganizationHandler implements QueryHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    * @param PlanRepositoryPort $planRepository the plan repository
+   * @param OrganizationCallerMembershipPort $callerMembership the caller-membership projection port (isOwner/roles)
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private PlanRepositoryPort $planRepository,
+    private OrganizationCallerMembershipPort $callerMembership,
   ) {
   }
   // #endregion
@@ -47,7 +50,13 @@ final readonly class GetOrganizationHandler implements QueryHandler
   /**
    * Method __invoke.
    *
-   * Handles the corresponding use case execution.
+   * Handles the corresponding use case execution. When the query carries a
+   * `callerUserId`, `isOwner`/`roles` are resolved through
+   * {@see OrganizationCallerMembershipPort} — the same projection
+   * `ListUserOrganizationsHandler` uses — costing one extra indexed
+   * membership lookup plus, when the caller holds roles, the role-name
+   * join. Both stay null when no `callerUserId` is provided, unchanged from
+   * every other pre-existing caller of this query.
    *
    * @since 1.0.0
    *
@@ -64,6 +73,14 @@ final readonly class GetOrganizationHandler implements QueryHandler
     $planId = $organization->planId();
     $plan = null !== $planId ? $this->planRepository->findById($planId) : null;
     $plan ??= $this->planRepository->findDefault();
+
+    $isOwner = null;
+    $roles = null;
+    if (null !== $query->callerUserId) {
+      $isOwner = $this->callerMembership->isOwner($organization->ownerUserId(), $query->callerUserId);
+      $membership = $this->callerMembership->findActiveCallerMembership($organization->id(), $query->callerUserId);
+      $roles = $this->callerMembership->resolveRoles($organization->id(), $membership);
+    }
 
     return new GetOrganizationResult(
       id: (string) $organization->id(),
@@ -86,6 +103,8 @@ final readonly class GetOrganizationHandler implements QueryHandler
       legalName: $organization->legalName(),
       registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
       vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
+      isOwner: $isOwner,
+      roles: $roles,
     );
   }
   // #endregion

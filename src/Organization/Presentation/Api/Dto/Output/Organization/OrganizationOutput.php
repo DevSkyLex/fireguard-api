@@ -201,9 +201,16 @@ final class OrganizationOutput
   /**
    * Property isOwner.
    *
-   * Whether the authenticated user is the owner of this organization.
-   * Resolved on the user's organization list (`GET /api/organizations`);
-   * `null` on operations that do not resolve caller membership.
+   * Whether the authenticated user (the caller) is the owner of this
+   * organization. Resolved on the user's organization list
+   * (`GET /api/organizations`), on `GET /api/organizations/{id}`, and on
+   * every mutation that returns a refreshed organization (suspend, restore,
+   * transfer-ownership, the settings PATCH) — all through the same
+   * `OrganizationCallerMembershipPort` projection, so they can never
+   * disagree. After a successful ownership transfer, this reflects the
+   * POST-transfer truth for the acting caller (`false`, since ownership
+   * moved to the new owner). `null` only on the handful of operations that
+   * still do not resolve caller membership (plan change, logo upload).
    *
    * @since 1.5.0
    */
@@ -214,10 +221,12 @@ final class OrganizationOutput
   /**
    * Property roles.
    *
-   * Organization roles assigned to the authenticated user's membership
-   * (empty when the caller is a member without any assigned role).
-   * Resolved on the user's organization list (`GET /api/organizations`);
-   * `null` on operations that do not resolve caller membership.
+   * Organization roles assigned to the authenticated user's (the caller's)
+   * membership (empty when the caller is a member without any assigned
+   * role, or has no membership in this organization — e.g. a platform
+   * context). Resolved wherever `isOwner` above is; see that property for
+   * the exact list and the shared projection. `null` only on the
+   * operations that still do not resolve caller membership.
    *
    * @since 1.5.0
    *
