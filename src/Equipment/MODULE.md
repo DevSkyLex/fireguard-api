@@ -30,8 +30,10 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/tags` | Add (or create) a tag |
 | DELETE | `/api/organizations/{organizationId}/equipment/{equipmentId}/tags/{tagId}` | Remove a tag |
 | GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | List attachments |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | Upload attachment |
+| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | Upload attachment (base64 JSON — see below) |
 | DELETE | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}` | Delete attachment |
+| POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
+| GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
 
 An equipment may carry at most
 `Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
@@ -40,10 +42,48 @@ An equipment may carry at most
 storage; the resulting `InvalidAttachmentException` is mapped centrally to
 **422** by the shared `AttachmentConstraintExceptionSubscriber`, covering
 both `MediaProcessor` (multipart) and `AddAttachmentProcessor` (base64
-JSON) without either mapping it locally. This
-is the one part of the shared attachment kernel Equipment does honour — it
-still does not route through `MultipartAttachmentGuard`, so it remains
-without MIME/size validation (see `src/Shared/MODULE.md`).
+JSON) without either mapping it locally.
+
+**MIME/size validation (closed 2026-08-19).** Equipment now routes both
+upload paths through the same shared policy every other generalized
+attachment consumer (Facility, Intervention, Inspection, Messaging) enforces
+— `Shared\Domain\Attachment\AttachmentConstraints` (10 MiB cap, the shared
+image+document MIME allow-list: `image/jpeg`, `image/png`, `image/webp`,
+`image/gif`, `application/pdf`):
+
+- **`MediaProcessor`** (`POST /media`, multipart) now injects
+  `Shared\Presentation\Api\Attachment\MultipartAttachmentGuard` — the exact
+  kernel `FacilityMediaProcessor`/`InterventionMediaProcessor`/
+  `InspectionMediaProcessor`/`MessagingMediaProcessor` already route
+  through — and calls `fromRequest($request)` to extract AND validate the
+  uploaded file (size read from filesystem metadata before any content is
+  read into memory), **after** the equipment/intervention resolution and the
+  `assertWrite()` permission check, and **after** the `clientId` idempotent-
+  retry short-circuit (a replayed upload with an already-persisted client id
+  returns the existing record without re-reading or re-validating the file).
+  A violation surfaces as the guard's own **422**.
+- **`AddAttachmentProcessor`** (`POST .../equipment/{id}/attachments`,
+  base64 JSON) carries no multipart `Request` for the guard to extract from,
+  so it calls `AttachmentConstraints::validate($data->mimeType,
+  strlen($contents))` directly on the decoded payload — the identical policy
+  and reason codes (`mime` / `size`), just applied to bytes that arrived
+  JSON-encoded instead of multipart-encoded — and maps the resulting
+  `InvalidAttachmentException` to **422** itself (the same translation the
+  guard performs internally), since this validation runs before the command
+  bus dispatch and is never bus-wrapped.
+
+**Wire-shape decision.** `AddAttachmentInput` (`fileName`/`content` base64/
+`mimeType`/`label`) was deliberately KEPT rather than aligned to the
+multipart shape used by every sibling module: `fireguard-sso-web`'s
+`EquipmentService.addAttachment()` (`data-access/services/equipment/
+equipment.service.ts`) posts this exact base64 JSON payload today, so
+changing the wire shape would be a breaking change requiring a coordinated
+frontend release. The base64 path is validated with the same MIME/size
+policy instead. **The plan's 2.4 frontend equipment-attachments UI lot
+should target this endpoint AS-IS (base64 JSON `AddAttachmentInput`), not
+the multipart shape** — `EquipmentService.uploadEvidence()` (`POST
+/api/media`) remains the separate canonical/offline-evidence path, already
+multipart, unchanged by this work.
 
 ## Flows
 
@@ -478,6 +518,20 @@ Cross-module contracts and lifecycle invariants:
   already-tested repository calls — no new DQL, so no new integration test):
   `tests/Unit/Inspection/Infrastructure/Adapter/Equipment/EquipmentNonConformityStatisticsAdapterTest`.
 - Functional: `tests/Functional/Api/EquipmentApiTest::testGetEquipmentKpisRequiresAuthentication`.
+- Attachment MIME/size validation (closed 2026-08-19):
+  - `tests/Unit/Equipment/Presentation/Api/Processor/Media/MediaProcessorTest`
+    — `testUploadRejectsAFileJustOverTheMaxSizeBeforeDispatch` (oversize, unit
+    test only — see the class docblock for why the HTTP round trip cannot
+    reach the boundary in this environment) and
+    `testUploadRejectsADisallowedMimeTypeBeforeDispatch`, both asserting the
+    command bus is never dispatched.
+  - `tests/Unit/Equipment/Presentation/Api/Processor/Equipment/AddAttachmentProcessorTest`
+    — `testProcessRejectsADisallowedMimeTypeWith422` and
+    `testProcessRejectsAnOversizedPayloadWith422`.
+  - Functional: `tests/Functional/Api/EquipmentAttachmentApiTest.php` — both
+    upload paths: happy path unchanged (base64 JSON and multipart), 422 on a
+    disallowed MIME type (both paths) and on an oversized base64 payload, 403
+    missing-permission, 404 cross-org equipment, 401/403 unauthenticated.
 - Plan position (Phase 4):
   - `Domain/ValueObject/PlanPositionTest` — coordinate-bounds validation, the
     UUID check on `attachmentId`, and the `toArray()`/`fromArray()` round trip.
@@ -510,6 +564,11 @@ Cross-module contracts and lifecycle invariants:
 - `EquipmentAlreadyDecommissionedException` → 409 (processors map it via `ConflictHttpException`;
   note this module's own text elsewhere says 422 — treat 409 as authoritative, matching the code)
 - `AttachmentNotFoundException` → 404
+- `Shared\Domain\Attachment\InvalidAttachmentException` → 422 (MIME type,
+  size, or the 25-attachment-per-equipment cap; `AttachmentConstraintExceptionSubscriber`
+  maps the count-cap case wherever it is thrown through the command bus,
+  `MultipartAttachmentGuard` and `AddAttachmentProcessor` map the MIME/size
+  case themselves before dispatch — see "API Endpoints" above)
 - `TagNotFoundException` → 404
 - `EquipmentNotAssignedToFacilityException` → 409 (Phase 4 — equipment has no facility to place on a plan)
 - `FloorPlanAttachmentNotFoundException` → 404 (Phase 4, contract exception)

@@ -21,13 +21,15 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Domain\Attachment\AttachmentConstraints;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
 use function base64_encode;
+use function str_repeat;
 
 #[CoversClass(AddAttachmentProcessor::class)]
 final class AddAttachmentProcessorTest extends TestCase
@@ -142,6 +144,74 @@ final class AddAttachmentProcessorTest extends TestCase
 
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('File content must be valid base64-encoded data.');
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRejectsADisallowedMimeTypeWith422(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655458015');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $input = new AddAttachmentInput();
+    $input->fileName = 'payload.exe';
+    $input->content = base64_encode('MZ');
+    $input->mimeType = 'application/x-msdownload';
+
+    $processor = new AddAttachmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRejectsAnOversizedPayloadWith422(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655458016');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $input = new AddAttachmentInput();
+    $input->fileName = 'report.pdf';
+    $input->content = base64_encode(str_repeat('a', AttachmentConstraints::MAX_SIZE_BYTES + 1));
+    $input->mimeType = 'application/pdf';
+
+    $processor = new AddAttachmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
 
     $processor->process(
       data: $input,

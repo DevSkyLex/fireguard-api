@@ -22,12 +22,15 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Domain\Attachment\AttachmentConstraints;
+use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
+use function base64_decode;
 use function file_put_contents;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -43,6 +46,13 @@ final class MediaProcessorTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440003';
 
   private const string CLIENT_ID = '550e8400-e29b-41d4-a716-446655440004';
+
+  /**
+   * A real 1x1 GIF. MultipartAttachmentGuard sniffs the real bytes, not the
+   * client-supplied mimeType label, so every test whose upload must pass
+   * MIME validation needs real image bytes on disk.
+   */
+  private const string MINIMAL_GIF_BASE64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
 
   private ?string $uploadPath = null;
 
@@ -110,6 +120,7 @@ final class MediaProcessorTest extends TestCase
       $requestStack,
       new InterventionResourceManager($resources),
       new RevisionGuard($requestStack),
+      new MultipartAttachmentGuard(),
     )->process(null, new Delete(), ['id' => $attachment->id]);
 
     self::assertNull($result);
@@ -120,7 +131,7 @@ final class MediaProcessorTest extends TestCase
   {
     $path = tempnam(sys_get_temp_dir(), 'media-');
     self::assertIsString($path);
-    file_put_contents($path, 'photo');
+    file_put_contents($path, (string) base64_decode(self::MINIMAL_GIF_BASE64, true));
 
     try {
       $organization = new OrganizationRecord();
@@ -192,6 +203,7 @@ final class MediaProcessorTest extends TestCase
         $requestStack,
         new InterventionResourceManager($resources),
         new RevisionGuard($requestStack),
+        new MultipartAttachmentGuard(),
       )->process(null, new Post());
 
       self::assertSame($attachment->id, $result?->id);
@@ -234,6 +246,83 @@ final class MediaProcessorTest extends TestCase
     $this->expectExceptionMessage('Multipart field "clientId" must be a UUID.');
 
     $this->processor(requestStack: $this->uploadRequest(['clientId' => 'not-a-uuid']))->process(null, new Post());
+  }
+
+  /**
+   * `AttachmentConstraints::MAX_SIZE_BYTES` is 10 MiB. A file one byte over
+   * must be rejected by `MultipartAttachmentGuard`'s size check BEFORE the
+   * clientId-dedup short-circuit's own lookup is reached for a fresh upload,
+   * and BEFORE persistence — asserted here by the command bus never being
+   * dispatched. See `FacilityMediaProcessorTest`'s identical case: this
+   * environment's php.ini caps `upload_max_filesize` well under 10 MiB, so a
+   * real oversized multipart upload never reaches the guard through the HTTP
+   * layer and this boundary is exercised as a unit test instead.
+   */
+  #[Test]
+  public function testUploadRejectsAFileJustOverTheMaxSizeBeforeDispatch(): void
+  {
+    $equipment = $this->equipment();
+
+    $oversizedFile = new class ($this->uploadPath(), 'photo.jpg', 'image/jpeg', null, true) extends UploadedFile {
+      public function getSize(): int
+      {
+        return AttachmentConstraints::MAX_SIZE_BYTES + 1;
+      }
+    };
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      '/api/media',
+      'POST',
+      ['equipment' => '/api/equipment/' . self::EQUIPMENT_ID],
+      [],
+      ['file' => $oversizedFile],
+    ));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $this->processor(
+      entityManager: $this->entityManager([EquipmentRecord::class => $equipment]),
+      requestStack: $requestStack,
+      commandBus: $commandBus,
+    )->process(null, new Post());
+  }
+
+  #[Test]
+  public function testUploadRejectsADisallowedMimeTypeBeforeDispatch(): void
+  {
+    $equipment = $this->equipment();
+
+    $path = tempnam(sys_get_temp_dir(), 'media-exe-');
+    self::assertIsString($path);
+    file_put_contents($path, 'MZ');
+
+    try {
+      $requestStack = new RequestStack();
+      $requestStack->push(Request::create(
+        '/api/media',
+        'POST',
+        ['equipment' => '/api/equipment/' . self::EQUIPMENT_ID],
+        [],
+        ['file' => new UploadedFile($path, 'payload.exe', 'application/x-msdownload', null, true)],
+      ));
+
+      $commandBus = $this->createMock(CommandBusPort::class);
+      $commandBus->expects(self::never())->method('dispatch');
+
+      $this->expectException(UnprocessableEntityHttpException::class);
+
+      $this->processor(
+        entityManager: $this->entityManager([EquipmentRecord::class => $equipment]),
+        requestStack: $requestStack,
+        commandBus: $commandBus,
+      )->process(null, new Post());
+    } finally {
+      unlink($path);
+    }
   }
 
   #[Test]
@@ -571,6 +660,7 @@ final class MediaProcessorTest extends TestCase
       $requestStack,
       new InterventionResourceManager($resources, $memberPolicy),
       new RevisionGuard($requestStack),
+      new MultipartAttachmentGuard(),
     );
   }
 
@@ -623,7 +713,7 @@ final class MediaProcessorTest extends TestCase
     if (null === $this->uploadPath) {
       $path = tempnam(sys_get_temp_dir(), 'media-');
       self::assertIsString($path);
-      file_put_contents($path, 'photo');
+      file_put_contents($path, (string) base64_decode(self::MINIMAL_GIF_BASE64, true));
       $this->uploadPath = $path;
     }
 
