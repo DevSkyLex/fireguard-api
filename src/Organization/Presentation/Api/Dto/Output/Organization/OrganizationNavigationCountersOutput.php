@@ -41,5 +41,16 @@ final class OrganizationNavigationCountersOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public int $openNonConformities = 0;
+
+  /**
+   * Property submittedInterventions.
+   *
+   * The number of interventions awaiting review (status `submitted`). Zero
+   * when the caller lacks `organization.interventions.review` — the badge
+   * only means something to a member who may actually review.
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $submittedInterventions = 0;
   // #endregion
 }

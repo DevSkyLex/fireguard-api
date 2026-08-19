@@ -58,5 +58,20 @@ interface InterventionStatisticsPort
    * @return array{total: int, open: int, overdue: int} the overview counts
    */
   public function countOverview(string $organizationId, DateTimeImmutable $now): array;
+
+  /**
+   * Method countSubmitted.
+   *
+   * Counts the organization's interventions currently awaiting review —
+   * status `submitted` exactly. Feeds the sidebar's "to review" badge, so
+   * a reviewer sees at a glance that work is waiting on them.
+   *
+   * @since 1.2.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the number of submitted interventions
+   */
+  public function countSubmitted(string $organizationId): int;
   // #endregion
 }

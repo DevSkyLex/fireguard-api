@@ -104,6 +104,7 @@ final readonly class GetOrganizationNavigationCountersProvider implements Provid
     $output = new OrganizationNavigationCountersOutput();
     $output->openInterventions = $result->openInterventions;
     $output->openNonConformities = $result->openNonConformities;
+    $output->submittedInterventions = $result->submittedInterventions;
 
     return $output;
   }

@@ -64,6 +64,18 @@ final readonly class GetNavigationCountersHandler implements QueryHandler
   private const string NON_CONFORMITIES_READ_PERMISSION = 'organization.inspection.read';
 
   /**
+   * Constant INTERVENTIONS_REVIEW_PERMISSION.
+   *
+   * Soft-gates `submittedInterventions` — the "to review" badge only means
+   * something to a member who may actually review, so anyone else reads 0.
+   *
+   * @since 1.1.0
+   *
+   * @var string
+   */
+  private const string INTERVENTIONS_REVIEW_PERMISSION = 'organization.interventions.review';
+
+  /**
    * Constant OPEN_NON_CONFORMITY_STATUSES.
    *
    * @since 1.0.0
@@ -130,9 +142,14 @@ final readonly class GetNavigationCountersHandler implements QueryHandler
       ? $this->countOpenNonConformities($query->organizationId)
       : 0;
 
+    $submittedInterventions = $this->authorization->hasPermission($query->userId, $query->organizationId, self::INTERVENTIONS_REVIEW_PERMISSION)
+      ? $this->interventionStatistics->countSubmitted($query->organizationId)
+      : 0;
+
     return new GetNavigationCountersResult(
       openInterventions: $openInterventions,
       openNonConformities: $openNonConformities,
+      submittedInterventions: $submittedInterventions,
     );
   }
 

@@ -6,6 +6,7 @@ namespace Intervention\Infrastructure\Adapter\Organization;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Outbound\InterventionStatisticsPort;
@@ -114,6 +115,25 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
       ->getSingleScalarResult();
 
     return ['total' => $total, 'open' => $open, 'overdue' => $overdue];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function countSubmitted(string $organizationId): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+
+    return (int) $this->entityManager->createQueryBuilder()
+      ->select('COUNT(intervention.id)')
+      ->from(InterventionRecord::class, 'intervention')
+      ->where('intervention.organization = :organization')
+      ->andWhere('intervention.status = :status')
+      ->setParameter('organization', $organization)
+      ->setParameter('status', InterventionStatus::SUBMITTED->value)
+      ->getQuery()
+      ->getSingleScalarResult();
   }
   // #endregion
 }
