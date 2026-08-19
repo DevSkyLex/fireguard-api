@@ -87,7 +87,7 @@ final class InterventionProviderTest extends TestCase
         self::assertSame('intervention', $query->resource);
         self::assertSame(self::ORG_ID, $query->scopeId);
         self::assertSame(
-          ['name' => 'audit', 'responsibleId' => self::MEMBER_ID, 'siteId' => self::SITE_ID],
+          ['name' => 'audit', 'responsibleId' => [self::MEMBER_ID], 'siteId' => [self::SITE_ID]],
           $query->filters,
         );
         self::assertSame('updatedAt', $query->sorting->field);
@@ -105,6 +105,54 @@ final class InterventionProviderTest extends TestCase
       $items[0]->allowedActions,
       'The collection read path must advertise the caller action-capability block on every row.',
     );
+  }
+
+  #[Test]
+  public function testProvideAcceptsRepeatedValuesOnTheEnumAndIriFilters(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID
+      . '&status[]=draft&status[]=planned'
+      . '&type[]=site_setup&type[]=inventory'
+      . '&priority[]=high&priority[]=urgent'
+      . '&site[]=/api/facilities/' . self::SITE_ID
+      . '&label[]=/api/intervention-labels/550e8400-e29b-41d4-a716-446655449001'
+      . '&responsible[]=/api/organizations/' . self::ORG_ID . '/members/' . self::MEMBER_ID,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
+        self::assertSame(['site_setup', 'inventory'], $query->filters['type']);
+        self::assertSame(['draft', 'planned'], $query->filters['status']);
+        self::assertSame(['high', 'urgent'], $query->filters['priority']);
+        self::assertSame([self::SITE_ID], $query->filters['siteId']);
+        self::assertSame(['550e8400-e29b-41d4-a716-446655449001'], $query->filters['labelId']);
+        self::assertSame([self::MEMBER_ID], $query->filters['responsibleId']);
+
+        return true;
+      }))
+      ->willReturn(new ListInterventionWorkflowResult(new InterventionWorkflowPage([], 1, 30, 0)));
+
+    self::assertInstanceOf(
+      TraversablePaginator::class,
+      $this->provider($queryBus, $requestStack)->provide(new GetCollection()),
+    );
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnknownPriorityAmongRepeatedValues(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID . '&priority[]=high&priority[]=impossible',
+    );
+    $provider = $this->provider($this->createStub(QueryBusPort::class), $requestStack);
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
   }
 
   #[Test]

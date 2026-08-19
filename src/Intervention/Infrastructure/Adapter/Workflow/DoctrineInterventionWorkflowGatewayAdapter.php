@@ -43,6 +43,7 @@ use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -856,10 +857,39 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    *
    * @since 1.0.0
    *
-   * @param string $field the requested field
-   *
    * @return string the record property to order by
    */
+  /**
+   * Method filterValues.
+   *
+   * @static
+   *
+   * Normalizes an enum/IRI list filter that accepts one or several values: a
+   * plain string becomes a one-element list, a list keeps its non-empty
+   * string members. The provider already validates and normalizes; this keeps
+   * the gateway safe against a caller passing the legacy scalar form.
+   *
+   * @since 1.4.0
+   *
+   * @param mixed $raw the raw filter value
+   *
+   * @return list<string> the normalized values
+   */
+  private static function filterValues(mixed $raw): array
+  {
+    if (is_string($raw) && '' !== $raw) {
+      return [$raw];
+    }
+    if (!is_array($raw)) {
+      return [];
+    }
+
+    return array_values(array_filter(
+      array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $raw),
+      static fn (string $value): bool => '' !== $value,
+    ));
+  }
+
   private function interventionSortField(string $field): string
   {
     return match ($field) {
@@ -887,27 +917,23 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       ->where('m.organization = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('m.updatedAt', 'DESC');
-    foreach (['type', 'status', 'priority'] as $filter) {
-      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
-        $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+    foreach (['type', 'status', 'priority', 'responsibleId', 'siteId'] as $filter) {
+      $values = self::filterValues($filters[$filter] ?? null);
+      if ([] !== $values) {
+        $qb->andWhere('m.' . $filter . ' IN (:' . $filter . ')')->setParameter($filter, $values);
       }
     }
     if (is_string($filters['name'] ?? null)) {
       TrigramSearchExpression::apply($qb, 'name', $filters['name'], 'm.name');
     }
-    if (is_string($filters['responsibleId'] ?? null) && '' !== $filters['responsibleId']) {
-      $qb->andWhere('m.responsibleId = :responsibleId')->setParameter('responsibleId', $filters['responsibleId']);
-    }
-    if (is_string($filters['siteId'] ?? null) && '' !== $filters['siteId']) {
-      $qb->andWhere('m.siteId = :siteId')->setParameter('siteId', $filters['siteId']);
-    }
     if (is_int($filters['number'] ?? null)) {
       $qb->andWhere('m.number = :number')->setParameter('number', $filters['number']);
     }
-    if (is_string($filters['labelId'] ?? null) && '' !== $filters['labelId']) {
+    $labelIds = self::filterValues($filters['labelId'] ?? null);
+    if ([] !== $labelIds) {
       $qb->innerJoin('m.labels', 'l')
-        ->andWhere('l.id = :labelId')
-        ->setParameter('labelId', $filters['labelId']);
+        ->andWhere('l.id IN (:labelIds)')
+        ->setParameter('labelIds', $labelIds);
     }
     if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
       $ids = $this->entityManager->getConnection()->fetchFirstColumn(
