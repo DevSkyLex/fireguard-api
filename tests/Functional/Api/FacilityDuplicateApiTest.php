@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 use function json_decode;
+use function sprintf;
 
 /**
  * Test FacilityDuplicateApiTest.
@@ -209,9 +210,104 @@ final class FacilityDuplicateApiTest extends WebTestCase
     self::assertSame(409, $client->getResponse()->getStatusCode());
   }
 
+  #[Test]
+  public function testDuplicateReturns422WhenTheSourceSubtreeExceedsTheFiveHundredNodeCap(): void
+  {
+    $client = static::createClient();
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+
+    $organizationId = '550e8400-e29b-41d4-a716-448010000051';
+    $ownerUserId = '550e8400-e29b-41d4-a716-448010000052';
+
+    $organization = $this->seedOrganization($entityManager, $organizationId, $ownerUserId, $now);
+    $this->seedUnlimitedPlan($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000053', $now);
+    $role = $this->seedFullAccessRole($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000054', $now);
+    $owner = $this->seedMember($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000055', $ownerUserId, $now);
+    $this->assignRole($entityManager, $owner, $role, $now);
+
+    $sourceId = '550e8400-e29b-41d4-a716-448010000056';
+    $source = $this->seedFacility($entityManager, $sourceId, $organization, 'site', 'Oversized Site', $now);
+    $entityManager->flush();
+
+    // 501 flat children under the root: 502 traversed nodes (root included),
+    // above the handler's MAX_SUBTREE_NODES = 500 — cheap direct-EM inserts,
+    // batch-flushed, rather than 501 API calls.
+    for ($i = 0; $i < 501; ++$i) {
+      $childId = self::seedableUuid($i);
+      $this->seedFacility($entityManager, $childId, $organization, 'building', 'Oversized Child ' . $i, $now, parent: $source);
+      if (0 === ($i + 1) % 100) {
+        $entityManager->flush();
+      }
+    }
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/facilities/' . $sourceId . '/duplicate',
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: '{}',
+    );
+
+    self::assertSame(
+      expected: 422,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A source subtree traversing more than 500 nodes must be refused with 422 before any insert. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testDuplicateReturns409WhenTheCloneCountWouldExceedTheOrganizationPlanQuota(): void
+  {
+    $client = static::createClient();
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+
+    $organizationId = '550e8400-e29b-41d4-a716-448010000061';
+    $ownerUserId = '550e8400-e29b-41d4-a716-448010000062';
+
+    $organization = $this->seedOrganization($entityManager, $organizationId, $ownerUserId, $now);
+    // A `facilities` cap of 1: the source facility itself already occupies
+    // the organization's only slot, so duplicating it (at least one more
+    // active clone) always exceeds the quota.
+    $this->seedPlanWithFacilitiesLimit($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000063', 1, $now);
+    $role = $this->seedFullAccessRole($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000064', $now);
+    $owner = $this->seedMember($entityManager, $organization, '550e8400-e29b-41d4-a716-448010000065', $ownerUserId, $now);
+    $this->assignRole($entityManager, $owner, $role, $now);
+
+    $sourceId = '550e8400-e29b-41d4-a716-448010000066';
+    $this->seedFacility($entityManager, $sourceId, $organization, 'site', 'Quota-Capped Site', $now);
+
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/facilities/' . $sourceId . '/duplicate',
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: '{}',
+    );
+
+    self::assertSame(
+      expected: 409,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A duplication whose clone count would exceed the facilities plan quota must be refused with 409. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
+
+  /**
+   * Deterministic UUID-shaped id for the i-th bulk-seeded child, distinct
+   * from every other id literal in this file.
+   */
+  private static function seedableUuid(int $index): string
+  {
+    return sprintf('550e8400-e29b-41d4-a716-4480200%05d', $index);
+  }
 
   private function entityManager(): EntityManagerInterface
   {
@@ -275,6 +371,33 @@ final class FacilityDuplicateApiTest extends WebTestCase
     $plan->key = 'functional-test-plan-' . $id;
     $plan->name = 'Functional Test Plan';
     $plan->limits = ['facilities' => 1000, 'members' => 1000, 'equipment' => 1000, 'inspections' => 1000];
+    $plan->isActive = true;
+    $plan->isDefault = false;
+    $plan->sortOrder = 0;
+    $plan->createdAt = $now;
+    $plan->updatedAt = $now;
+    $entityManager->persist($plan);
+
+    $organization->planId = $id;
+  }
+
+  /**
+   * Seeds a plan whose `facilities` cap is the given (deliberately low)
+   * limit and assigns it to the organization, so the quota check refuses a
+   * duplication that would push the active-facility count past it.
+   */
+  private function seedPlanWithFacilitiesLimit(
+    EntityManagerInterface $entityManager,
+    OrganizationRecord $organization,
+    string $id,
+    int $facilitiesLimit,
+    DateTimeImmutable $now,
+  ): void {
+    $plan = new PlanRecord();
+    $plan->id = $id;
+    $plan->key = 'capped-plan-' . $id;
+    $plan->name = 'Functional Test Capped Plan';
+    $plan->limits = ['facilities' => $facilitiesLimit, 'members' => 1000, 'equipment' => 1000, 'inspections' => 1000];
     $plan->isActive = true;
     $plan->isDefault = false;
     $plan->sortOrder = 0;
