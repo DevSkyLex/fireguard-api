@@ -850,16 +850,6 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   }
 
   /**
-   * Method interventionSortField.
-   *
-   * Maps a requested sort field to a column, falling back to `updatedAt` so an
-   * unknown field can never reach DQL.
-   *
-   * @since 1.0.0
-   *
-   * @return string the record property to order by
-   */
-  /**
    * Method filterValues.
    *
    * @static
@@ -890,6 +880,18 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     ));
   }
 
+  /**
+   * Method interventionSortField.
+   *
+   * Maps a requested sort field to a column, falling back to `updatedAt` so an
+   * unknown field can never reach DQL.
+   *
+   * @since 1.0.0
+   *
+   * @param string $field the requested sort field
+   *
+   * @return string the record property to order by
+   */
   private function interventionSortField(string $field): string
   {
     return match ($field) {

@@ -12,7 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
-use Intervention\Domain\ValueObject\InterventionPriority;
+use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
@@ -109,18 +109,21 @@ final readonly class InterventionProvider implements ProviderInterface
         $filters[$filter] = $value;
       }
     }
-    foreach (['type', 'status', 'priority'] as $filter) {
+    // Reject an unknown enum value up front: the gateway's IN() filter would
+    // otherwise return a silently empty collection instead of a client error.
+    $enumGuards = [
+      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
+      'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
+      'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
+    ];
+    foreach ($enumGuards as $filter => [$tryFrom, $message]) {
       $values = $this->multiValue($query?->all()[$filter] ?? null);
       if ([] === $values) {
         continue;
       }
-      // Reject an unknown priority up front: the gateway's IN() filter would
-      // otherwise return a silently empty collection instead of a client error.
-      if ('priority' === $filter) {
-        foreach ($values as $priority) {
-          if (!InterventionPriority::tryFrom($priority) instanceof InterventionPriority) {
-            throw new BadRequestHttpException('The priority filter must be one of: low, normal, high, urgent.');
-          }
+      foreach ($values as $value) {
+        if (null === $tryFrom($value)) {
+          throw new BadRequestHttpException($message);
         }
       }
       $filters[$filter] = $values;

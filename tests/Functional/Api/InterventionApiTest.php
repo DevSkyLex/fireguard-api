@@ -7,7 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -257,6 +257,32 @@ final class InterventionApiTest extends WebTestCase
     );
 
     self::assertSame(428, $client->getResponse()->getStatusCode());
+  }
+
+  #[Test]
+  public function testPatchWorkItemRejectsAForbiddenStatusTransitionWith409(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention(
+      id: '650e8400-e29b-41d4-a716-449001000223',
+      status: 'in_progress',
+      number: 323,
+      responsibleId: self::ADMIN_MEMBER_ID,
+    );
+    $workItemId = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000280', $interventionId, 'completed');
+
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    // completed → skipped is outside InterventionWorkItemTransitionPolicy's table.
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/intervention-work-items/' . $workItemId,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'],
+      content: (string) json_encode(['status' => 'skipped', 'skipReason' => 'Not reachable anyway.']),
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(409, $response->getStatusCode(), (string) $response->getContent());
   }
 
   // #endregion
@@ -517,6 +543,35 @@ final class InterventionApiTest extends WebTestCase
     $intervention->createdAt = $now;
     $intervention->updatedAt = $now;
     $entityManager->persist($intervention);
+    $entityManager->flush();
+
+    return $id;
+  }
+
+  private function seedWorkItem(string $id, string $interventionId, string $status): string
+  {
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+
+    $existing = $entityManager->find(InterventionWorkItemRecord::class, $id);
+    if ($existing instanceof InterventionWorkItemRecord) {
+      $entityManager->remove($existing);
+      $entityManager->flush();
+    }
+
+    /** @var InterventionRecord $intervention */
+    $intervention = $entityManager->getReference(InterventionRecord::class, $interventionId);
+
+    $workItem = new InterventionWorkItemRecord();
+    $workItem->id = $id;
+    $workItem->intervention = $intervention;
+    $workItem->action = 'inspection';
+    $workItem->source = 'planned';
+    $workItem->status = $status;
+    $workItem->required = true;
+    $workItem->createdAt = $now;
+    $workItem->updatedAt = $now;
+    $entityManager->persist($workItem);
     $entityManager->flush();
 
     return $id;

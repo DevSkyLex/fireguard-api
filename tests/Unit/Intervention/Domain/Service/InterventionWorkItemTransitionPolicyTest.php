@@ -24,6 +24,7 @@ final class InterventionWorkItemTransitionPolicyTest extends TestCase
     yield 'skip in-progress work' => [InterventionWorkItemStatus::IN_PROGRESS, InterventionWorkItemStatus::SKIPPED, 'Access denied on site'];
     yield 'unplan in-progress work' => [InterventionWorkItemStatus::IN_PROGRESS, InterventionWorkItemStatus::PLANNED, null];
     yield 'reopen completed work' => [InterventionWorkItemStatus::COMPLETED, InterventionWorkItemStatus::IN_PROGRESS, null];
+    yield 'uncheck completed work back to planned' => [InterventionWorkItemStatus::COMPLETED, InterventionWorkItemStatus::PLANNED, null];
     yield 'replan skipped work' => [InterventionWorkItemStatus::SKIPPED, InterventionWorkItemStatus::PLANNED, null];
   }
 
@@ -49,7 +50,6 @@ final class InterventionWorkItemTransitionPolicyTest extends TestCase
   public static function refusedTransitions(): iterable
   {
     yield 'completed cannot skip' => [InterventionWorkItemStatus::COMPLETED, InterventionWorkItemStatus::SKIPPED];
-    yield 'completed cannot go directly to planned' => [InterventionWorkItemStatus::COMPLETED, InterventionWorkItemStatus::PLANNED];
     yield 'skipped cannot go directly to completed' => [InterventionWorkItemStatus::SKIPPED, InterventionWorkItemStatus::COMPLETED];
     yield 'skipped cannot go directly to in progress' => [InterventionWorkItemStatus::SKIPPED, InterventionWorkItemStatus::IN_PROGRESS];
   }
@@ -93,7 +93,7 @@ final class InterventionWorkItemTransitionPolicyTest extends TestCase
       $policy->allowedFrom(InterventionWorkItemStatus::IN_PROGRESS),
     );
     self::assertSame(
-      [InterventionWorkItemStatus::IN_PROGRESS],
+      [InterventionWorkItemStatus::IN_PROGRESS, InterventionWorkItemStatus::PLANNED],
       $policy->allowedFrom(InterventionWorkItemStatus::COMPLETED),
     );
     self::assertSame(

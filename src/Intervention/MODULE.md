@@ -997,7 +997,8 @@ returns are deliberate, to preserve the deployed frontend's flows):
 
 - `planned` → `in_progress`, `completed`, `skipped`
 - `in_progress` → `completed`, `skipped`, `planned`
-- `completed` → `in_progress`
+- `completed` → `in_progress`, `planned` (the frontend's checkbox toggle unchecks
+  a completed item straight back to `planned`)
 - `skipped` → `planned`
 
 Moving to `skipped` requires a non-empty `skipReason`, enforced by the same policy

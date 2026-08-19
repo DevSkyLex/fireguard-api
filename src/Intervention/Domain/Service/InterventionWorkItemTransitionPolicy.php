@@ -45,7 +45,7 @@ final readonly class InterventionWorkItemTransitionPolicy
       throw new InterventionConflictException(sprintf('Work item cannot transition from %s to %s.', $from->value, $to->value));
     }
 
-    if (InterventionWorkItemStatus::SKIPPED === $to && (null === $skipReason || '' === trim($skipReason))) {
+    if ($to->requiresSkipReason() && (null === $skipReason || '' === trim($skipReason))) {
       throw new InterventionValidationException('A skip reason is required.');
     }
   }
@@ -68,7 +68,7 @@ final readonly class InterventionWorkItemTransitionPolicy
     return match ($from) {
       InterventionWorkItemStatus::PLANNED => [InterventionWorkItemStatus::IN_PROGRESS, InterventionWorkItemStatus::COMPLETED, InterventionWorkItemStatus::SKIPPED],
       InterventionWorkItemStatus::IN_PROGRESS => [InterventionWorkItemStatus::COMPLETED, InterventionWorkItemStatus::SKIPPED, InterventionWorkItemStatus::PLANNED],
-      InterventionWorkItemStatus::COMPLETED => [InterventionWorkItemStatus::IN_PROGRESS],
+      InterventionWorkItemStatus::COMPLETED => [InterventionWorkItemStatus::IN_PROGRESS, InterventionWorkItemStatus::PLANNED],
       InterventionWorkItemStatus::SKIPPED => [InterventionWorkItemStatus::PLANNED],
     };
   }
