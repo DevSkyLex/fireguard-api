@@ -18,9 +18,8 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -131,7 +130,7 @@ final class CreateFacilityProcessorTest extends TestCase
         type: 'site',
         name: 'HQ',
       )),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 2)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 2)],
     );
 
     /** @var CommandBusPort&MockObject $commandBus */

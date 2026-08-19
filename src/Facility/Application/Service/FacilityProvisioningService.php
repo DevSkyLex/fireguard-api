@@ -16,7 +16,7 @@ use Facility\Domain\Exception\{
 };
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Throwable;

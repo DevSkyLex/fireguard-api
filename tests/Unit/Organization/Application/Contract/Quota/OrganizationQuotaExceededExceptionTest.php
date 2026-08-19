@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Organization\Domain\Exception;
+namespace Tests\Unit\Organization\Application\Contract\Quota;
 
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -24,7 +23,7 @@ final class OrganizationQuotaExceededExceptionTest extends TestCase
   public function testForResourceBuildsRuntimeException(): void
   {
     $exception = OrganizationQuotaExceededException::forResource(
-      OrganizationQuotaResource::MEMBERS,
+      OrganizationQuotaResource::MEMBERS->value,
       5,
     );
 
@@ -36,7 +35,7 @@ final class OrganizationQuotaExceededExceptionTest extends TestCase
   public function testForResourceMessageCarriesLimitAndResourceValue(): void
   {
     $exception = OrganizationQuotaExceededException::forResource(
-      OrganizationQuotaResource::FACILITIES,
+      OrganizationQuotaResource::FACILITIES->value,
       125,
     );
 
@@ -56,7 +55,7 @@ final class OrganizationQuotaExceededExceptionTest extends TestCase
     OrganizationQuotaResource $resource,
     string $expected,
   ): void {
-    $exception = OrganizationQuotaExceededException::forResource($resource, 10);
+    $exception = OrganizationQuotaExceededException::forResource($resource->value, 10);
 
     self::assertSame($expected, $exception->getMessage());
   }

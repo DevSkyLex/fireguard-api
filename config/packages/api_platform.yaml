@@ -3,7 +3,7 @@ api_platform:
   description: Fire-safety compliance platform API — identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance
   version: 1.0.0
   exception_to_status:
-    Organization\Domain\Exception\OrganizationQuotaExceededException: 409
+    Organization\Application\Contract\Quota\OrganizationQuotaExceededException: 409
     Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
     Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
   defaults:

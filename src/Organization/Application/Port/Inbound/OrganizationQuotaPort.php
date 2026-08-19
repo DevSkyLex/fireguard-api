@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Organization\Application\Port\Inbound;
 
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 
 /**
  * Port OrganizationQuotaPort.
  *
  * Inbound contract used across modules to enforce subscription quotas. Resolves
  * the quantity caps defined by an organization's current plan and the current
- * usage of each capped resource.
+ * usage of each capped resource. The whole surface is typed with
+ * `Application\Contract\Quota` types — the resource enum and the
+ * quota-exceeded exception — so a sibling module can call it without
+ * importing anything from `Organization\Domain`.
  *
  * @category Port
  *
@@ -67,8 +70,8 @@ interface OrganizationQuotaPort
    * @param string $organizationId the organization identifier
    * @param OrganizationQuotaResource $resource the resource to add
    *
-   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
-   *                                                                           when the plan cap has been reached
+   * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
+   *                                                                                     when the plan cap has been reached
    */
   public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void;
 
@@ -91,8 +94,8 @@ interface OrganizationQuotaPort
    * @param OrganizationQuotaResource $resource the resource to add
    * @param int $count the number of resources to add; a non-positive count is a no-op
    *
-   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
-   *                                                                           when adding `$count` would exceed the plan cap
+   * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
+   *                                                                                     when adding `$count` would exceed the plan cap
    */
   public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void;
 
@@ -114,8 +117,8 @@ interface OrganizationQuotaPort
    * @param OrganizationQuotaResource $resource the resource to project
    * @param int $additionalOffset resources already provisionally counted elsewhere in the same batch
    *
-   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
-   *                                                                           when the projected count would reach the plan cap
+   * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
+   *                                                                                     when the projected count would reach the plan cap
    */
   public function assertProjectedCanAdd(string $organizationId, OrganizationQuotaResource $resource, int $additionalOffset = 0): void;
 
@@ -135,8 +138,8 @@ interface OrganizationQuotaPort
    *
    * @param string $organizationId the organization identifier
    *
-   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
-   *                                                                           when the active member cap has been reached
+   * @throws \Organization\Application\Contract\Quota\OrganizationQuotaExceededException
+   *                                                                                     when the active member cap has been reached
    */
   public function assertCanAcceptMember(string $organizationId): void;
 

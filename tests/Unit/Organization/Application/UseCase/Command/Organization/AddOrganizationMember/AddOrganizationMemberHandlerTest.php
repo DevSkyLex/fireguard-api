@@ -9,16 +9,17 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler, AddOrganizationMemberResult};
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -841,7 +842,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with($organizationId, OrganizationQuotaResource::MEMBERS)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5));
 
     $handler = new AddOrganizationMemberHandler(
       organizationRepository: $organizationRepository,

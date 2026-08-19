@@ -8,10 +8,10 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\AddOrganizationMemberProcessor;
@@ -178,7 +178,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
         organizationId: '550e8400-e29b-41d4-a716-446655441210',
         userId: '550e8400-e29b-41d4-a716-446655441201',
       )),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5)],
     );
 
     /** @var CommandBusPort&MockObject $commandBus */

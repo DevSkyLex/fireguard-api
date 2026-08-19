@@ -7,13 +7,14 @@ namespace Organization\Application\UseCase\Command\Organization\InviteOrganizati
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\NotificationChannel;
+use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};

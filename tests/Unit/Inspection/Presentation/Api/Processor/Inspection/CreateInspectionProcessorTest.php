@@ -17,9 +17,8 @@ use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, I
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -345,7 +344,7 @@ final class CreateInspectionProcessorTest extends TestCase
         inspectorName: 'John Doe',
         inspectorUserId: self::USER_ID,
       )),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS, 100)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS->value, 100)],
     );
 
     $commandBus = $this->createStub(CommandBusPort::class);

@@ -8,10 +8,10 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException, OrganizationQuotaExceededException};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\InviteOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Organization\Presentation\Api\Processor\Organization\InviteOrganizationMemberProcessor;
@@ -165,7 +165,7 @@ final class InviteOrganizationMemberProcessorTest extends TestCase
         email: 'member@example.com',
         invitedByUserId: '550e8400-e29b-41d4-a716-446655441930',
       )),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5)],
     );
 
     /** @var CommandBusPort&MockObject $commandBus */

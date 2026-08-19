@@ -17,8 +17,8 @@ use Facility\Domain\Exception\{
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId};
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};

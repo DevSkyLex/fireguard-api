@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberHandler, ReactivateOrganizationMemberResult};
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException, OrganizationQuotaExceededException};
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationQuotaResource, OrganizationStatus};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -137,7 +138,7 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with(self::ORG_ID, OrganizationQuotaResource::MEMBERS)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);

@@ -14,9 +14,8 @@ use Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent;
 use Facility\Domain\Exception\{FacilityNotFoundException, FacilitySubtreeSourceArchivedException, FacilitySubtreeTooLargeException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -215,7 +214,7 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAddMultiple')
       ->with(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 1));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 1));
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');

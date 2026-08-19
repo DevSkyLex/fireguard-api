@@ -9,7 +9,7 @@ use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 

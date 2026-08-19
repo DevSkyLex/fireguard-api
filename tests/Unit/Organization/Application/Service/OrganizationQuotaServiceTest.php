@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Outbound\{
   EquipmentStatisticsPort,
   FacilityStatisticsPort,
@@ -16,10 +17,9 @@ use Organization\Application\Port\Outbound\{
   PlanRepositoryPort
 };
 use Organization\Application\Service\OrganizationQuotaService;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource, PlanId, PlanKey};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource as DomainQuotaResource, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -251,7 +251,7 @@ final class OrganizationQuotaServiceTest extends TestCase
     $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
     $quotaLock->expects(self::once())
       ->method('acquire')
-      ->with(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+      ->with(self::ORGANIZATION_ID, DomainQuotaResource::FACILITIES);
 
     $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
 
@@ -334,7 +334,7 @@ final class OrganizationQuotaServiceTest extends TestCase
     $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
     $quotaLock->expects(self::once())
       ->method('acquire')
-      ->with(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+      ->with(self::ORGANIZATION_ID, DomainQuotaResource::FACILITIES);
 
     $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
 

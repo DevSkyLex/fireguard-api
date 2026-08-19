@@ -9,9 +9,8 @@ use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquip
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\ValueObject\EquipmentId;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -121,7 +120,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with('550e8400-e29b-41d4-a716-446655440984', OrganizationQuotaResource::EQUIPMENT)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 50));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 50));
 
     $handler = $this->handler($repository, $uuidFactory, $quota);
 
@@ -185,7 +184,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertProjectedCanAdd')
       ->with($organizationId, OrganizationQuotaResource::EQUIPMENT, 2)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 10));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 10));
 
     $handler = $this->handler($repository, $uuidFactory, $quota);
 

@@ -8,9 +8,9 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationResult};
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationQuotaExceededException};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AcceptOrganizationInvitationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\AcceptOrganizationInvitationProcessor;
@@ -34,7 +34,7 @@ final class AcceptOrganizationInvitationProcessorTest extends TestCase
   {
     $processor = new AcceptOrganizationInvitationProcessor(
       commandBus: $this->throwingCommandBus(
-        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5),
+        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5),
       ),
       security: $this->securityWithUser(),
     );
