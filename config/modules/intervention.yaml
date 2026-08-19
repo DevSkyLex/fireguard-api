@@ -27,6 +27,13 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # Reports active (not closed) interventions targeting a facility as their
+  # site (for the facility archival guard) — mirrors
+  # Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter.
+  Intervention\Infrastructure\Adapter\Facility\FacilityInterventionDependencyAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort:
     alias: Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository
 

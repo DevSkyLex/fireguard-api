@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\Service;
 
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityInterventionDependencyPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityArchivalGuard;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -29,10 +29,13 @@ final class FacilityArchivalGuardTest extends TestCase
     $inspection = $this->createMock(FacilityInspectionDependencyPort::class);
     $inspection->expects(self::never())->method('hasActiveInspectionInFacility');
 
+    $intervention = $this->createMock(FacilityInterventionDependencyPort::class);
+    $intervention->expects(self::never())->method('hasActiveInterventionInFacility');
+
     $this->expectException(FacilityHasActiveDependentsException::class);
     $this->expectExceptionMessage('active child facilities');
 
-    new FacilityArchivalGuard($repository, $equipment, $inspection)
+    new FacilityArchivalGuard($repository, $equipment, $inspection, $intervention)
       ->assertNoActiveDependents(self::ORGANIZATION_ID, self::FACILITY_ID);
   }
 
@@ -51,10 +54,13 @@ final class FacilityArchivalGuardTest extends TestCase
     $inspection = $this->createMock(FacilityInspectionDependencyPort::class);
     $inspection->expects(self::never())->method('hasActiveInspectionInFacility');
 
+    $intervention = $this->createMock(FacilityInterventionDependencyPort::class);
+    $intervention->expects(self::never())->method('hasActiveInterventionInFacility');
+
     $this->expectException(FacilityHasActiveDependentsException::class);
     $this->expectExceptionMessage('active equipment');
 
-    new FacilityArchivalGuard($repository, $equipment, $inspection)
+    new FacilityArchivalGuard($repository, $equipment, $inspection, $intervention)
       ->assertNoActiveDependents(self::ORGANIZATION_ID, self::FACILITY_ID);
   }
 
@@ -73,10 +79,38 @@ final class FacilityArchivalGuardTest extends TestCase
       ->with(self::ORGANIZATION_ID, self::FACILITY_ID)
       ->willReturn(true);
 
+    $intervention = $this->createMock(FacilityInterventionDependencyPort::class);
+    $intervention->expects(self::never())->method('hasActiveInterventionInFacility');
+
     $this->expectException(FacilityHasActiveDependentsException::class);
     $this->expectExceptionMessage('in-progress inspections');
 
-    new FacilityArchivalGuard($repository, $equipment, $inspection)
+    new FacilityArchivalGuard($repository, $equipment, $inspection, $intervention)
+      ->assertNoActiveDependents(self::ORGANIZATION_ID, self::FACILITY_ID);
+  }
+
+  #[Test]
+  public function testRejectsWhenActiveInterventionExists(): void
+  {
+    $repository = $this->createStub(FacilityRepositoryPort::class);
+    $repository->method('hasActiveDescendants')->willReturn(false);
+
+    $equipment = $this->createStub(FacilityEquipmentDependencyPort::class);
+    $equipment->method('hasActiveEquipmentInFacility')->willReturn(false);
+
+    $inspection = $this->createStub(FacilityInspectionDependencyPort::class);
+    $inspection->method('hasActiveInspectionInFacility')->willReturn(false);
+
+    $intervention = $this->createMock(FacilityInterventionDependencyPort::class);
+    $intervention->expects(self::once())
+      ->method('hasActiveInterventionInFacility')
+      ->with(self::ORGANIZATION_ID, self::FACILITY_ID)
+      ->willReturn(true);
+
+    $this->expectException(FacilityHasActiveDependentsException::class);
+    $this->expectExceptionMessage('active interventions');
+
+    new FacilityArchivalGuard($repository, $equipment, $inspection, $intervention)
       ->assertNoActiveDependents(self::ORGANIZATION_ID, self::FACILITY_ID);
   }
 
@@ -92,7 +126,10 @@ final class FacilityArchivalGuardTest extends TestCase
     $inspection = $this->createStub(FacilityInspectionDependencyPort::class);
     $inspection->method('hasActiveInspectionInFacility')->willReturn(false);
 
-    new FacilityArchivalGuard($repository, $equipment, $inspection)
+    $intervention = $this->createStub(FacilityInterventionDependencyPort::class);
+    $intervention->method('hasActiveInterventionInFacility')->willReturn(false);
+
+    new FacilityArchivalGuard($repository, $equipment, $inspection, $intervention)
       ->assertNoActiveDependents(self::ORGANIZATION_ID, self::FACILITY_ID);
 
     $this->addToAssertionCount(1);

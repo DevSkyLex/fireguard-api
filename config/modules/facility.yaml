@@ -90,6 +90,9 @@ services:
   Facility\Application\Port\Outbound\FacilityInspectionDependencyPort:
     alias: Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter
 
+  Facility\Application\Port\Outbound\FacilityInterventionDependencyPort:
+    alias: Intervention\Infrastructure\Adapter\Facility\FacilityInterventionDependencyAdapter
+
   # Inbound port reused by the Import module's bulk CSV import: provisions
   # facilities through CreateFacilityHandler (quota + parentCode resolution included).
   Facility\Application\Service\FacilityProvisioningService: ~
