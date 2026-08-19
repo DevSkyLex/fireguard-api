@@ -136,6 +136,13 @@ final class EquipmentOperations
   public const string DELETE_ATTACHMENT = 'equipment_delete_attachment';
 
   /**
+   * Constant DOWNLOAD_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string DOWNLOAD_ATTACHMENT = 'equipment_download_attachment';
+
+  /**
    * Constant LIST_TAGS.
    *
    * @var string

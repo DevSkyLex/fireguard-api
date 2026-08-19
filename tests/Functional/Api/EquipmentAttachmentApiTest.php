@@ -204,6 +204,142 @@ final class EquipmentAttachmentApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testDownloadAttachmentRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      'GET',
+      '/api/organizations/' . self::DUMMY_UUID . '/equipment/' . self::DUMMY_UUID . '/attachments/' . self::DUMMY_UUID . '/download',
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(404, $statusCode, '.../attachments/{id}/download endpoint should exist (got 404)');
+    self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated download, got ' . $statusCode);
+  }
+
+  #[Test]
+  public function testDownloadAttachmentServesBytesWithAttachmentDispositionAndNosniff(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedEquipment();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+
+    $contents = '%PDF-1.4 attachment bytes for download round-trip';
+    $attachmentId = $this->uploadAttachment($client, 'inspection.pdf', $contents, 'application/pdf');
+
+    static::ensureKernelShutdown();
+    $downloadClient = static::createClient();
+    $this->loginAs($downloadClient, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+    $downloadClient->request(
+      'GET',
+      '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . self::EQUIPMENT_ID . '/attachments/' . $attachmentId . '/download',
+    );
+
+    $response = $downloadClient->getResponse();
+    self::assertSame(200, $response->getStatusCode(), 'Download should succeed. Response: ' . $response->getContent());
+    self::assertSame($contents, $response->getContent(), 'The download must serve the exact stored bytes.');
+    self::assertSame('application/pdf', $response->headers->get('Content-Type'));
+
+    $disposition = $response->headers->get('Content-Disposition');
+    self::assertIsString($disposition);
+    self::assertStringStartsWith(
+      'attachment',
+      $disposition,
+      'An equipment attachment must NEVER be served with an inline Content-Disposition — see AttachmentDownloadResponder.',
+    );
+
+    self::assertSame(
+      'nosniff',
+      $response->headers->get('X-Content-Type-Options'),
+      'The download response must carry X-Content-Type-Options: nosniff.',
+    );
+  }
+
+  #[Test]
+  public function testDownloadAttachmentRejectsMemberWithoutReadPermissionWith403(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedEquipment();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+
+    $attachmentId = $this->uploadAttachment($client, 'inspection.pdf', 'contents', 'application/pdf');
+
+    static::ensureKernelShutdown();
+    $memberClient = static::createClient();
+    $this->loginAs($memberClient, self::PLAIN_MEMBER_USER_ID, 'equipment-attachment-plain-member@example.com');
+    $memberClient->request(
+      'GET',
+      '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . self::EQUIPMENT_ID . '/attachments/' . $attachmentId . '/download',
+    );
+
+    self::assertSame(
+      403,
+      $memberClient->getResponse()->getStatusCode(),
+      'A member without organization.equipment.read must get 403.',
+    );
+  }
+
+  #[Test]
+  public function testDownloadAttachmentReturns404ForACallerFromAnotherOrganization(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedEquipment();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+
+    $attachmentId = $this->uploadAttachment($client, 'inspection.pdf', 'contents', 'application/pdf');
+
+    static::ensureKernelShutdown();
+    $outsiderClient = static::createClient();
+    $this->loginAs($outsiderClient, self::OUTSIDER_USER_ID, 'equipment-attachment-outsider@example.com');
+    $outsiderClient->request(
+      'GET',
+      '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . self::EQUIPMENT_ID . '/attachments/' . $attachmentId . '/download',
+    );
+
+    self::assertSame(
+      404,
+      $outsiderClient->getResponse()->getStatusCode(),
+      'A caller outside the owning organization must get 404, not 403.',
+    );
+  }
+
+  #[Test]
+  public function testDownloadAttachmentReturns404WhenTheEquipmentIdInThePathDoesNotOwnTheAttachment(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedEquipment();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+
+    $attachmentId = $this->uploadAttachment($client, 'inspection.pdf', 'contents', 'application/pdf');
+
+    // OUTSIDER_EQUIPMENT_ID belongs to a different organization altogether,
+    // so this exercises the SAME defense-in-depth outcome
+    // GetEquipmentAttachmentContentHandler enforces whether the mismatch is
+    // "wrong organization" or "wrong equipment within the right organization":
+    // a path whose equipmentId does not own the requested attachment id
+    // must never leak the file.
+    static::ensureKernelShutdown();
+    $wrongEquipmentClient = static::createClient();
+    $this->loginAs($wrongEquipmentClient, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+    $wrongEquipmentClient->request(
+      'GET',
+      '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . self::OUTSIDER_EQUIPMENT_ID . '/attachments/' . $attachmentId . '/download',
+    );
+
+    self::assertSame(
+      404,
+      $wrongEquipmentClient->getResponse()->getStatusCode(),
+      'An attachment requested through a mismatched equipmentId in the path must 404.',
+    );
+  }
+
+  #[Test]
   public function testUploadMediaAcceptsAnAllowedMimeType(): void
   {
     $client = static::createClient();
@@ -264,6 +400,35 @@ final class EquipmentAttachmentApiTest extends WebTestCase
   // with UPLOAD_ERR_INI_SIZE (400) before MultipartAttachmentGuard is ever
   // reached — see FacilityAttachmentApiTest's identical note. The boundary
   // is covered as a unit test instead: MediaProcessorTest::testUploadRejectsAFileJustOverTheMaxSizeBeforeDispatch.
+
+  /**
+   * Method uploadAttachment.
+   *
+   * Uploads a base64 JSON attachment to {@see self::EQUIPMENT_ID} as the
+   * currently logged-in client and returns the created attachment id.
+   */
+  private function uploadAttachment(KernelBrowser $client, string $fileName, string $contents, string $mimeType): string
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . self::ORGANIZATION_ID . '/equipment/' . self::EQUIPMENT_ID . '/attachments',
+      server: ['CONTENT_TYPE' => 'application/ld+json'],
+      content: (string) json_encode([
+        'fileName' => $fileName,
+        'content' => base64_encode($contents),
+        'mimeType' => $mimeType,
+      ]),
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(201, $response->getStatusCode(), 'Attachment upload should succeed. Response: ' . $response->getContent());
+
+    $decoded = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($decoded);
+    self::assertIsString($decoded['id']);
+
+    return $decoded['id'];
+  }
 
   /**
    * Method loginAs.
