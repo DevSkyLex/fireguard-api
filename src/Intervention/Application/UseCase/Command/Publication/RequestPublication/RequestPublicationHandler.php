@@ -7,6 +7,7 @@ namespace Intervention\Application\UseCase\Command\Publication\RequestPublicatio
 use Intervention\Application\Port\Outbound\{PublicationQueuePort, PublicationRepositoryPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
+use Intervention\Domain\ValueObject\PublicationStatus;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
@@ -72,8 +73,8 @@ final readonly class RequestPublicationHandler implements CommandHandler
     }
 
     $existing = $this->publications->findByInterventionRevision($command->interventionId, $command->interventionRevision);
-    if (null !== $existing && 'failed' !== $existing->status) {
-      if ('pending' === $existing->status) {
+    if (null !== $existing && PublicationStatus::FAILED->value !== $existing->status) {
+      if (PublicationStatus::PENDING->value === $existing->status) {
         $this->queue->dispatch($existing->id);
       }
 
@@ -101,7 +102,7 @@ final readonly class RequestPublicationHandler implements CommandHandler
         $command->interventionRevision,
       )
       : $this->publications->retryFailed($existing->id);
-    if ('pending' === $publication->status) {
+    if (PublicationStatus::PENDING->value === $publication->status) {
       $this->queue->dispatch($publication->id);
     }
 

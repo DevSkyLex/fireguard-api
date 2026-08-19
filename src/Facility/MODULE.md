@@ -455,10 +455,18 @@ Cross-module contracts and lifecycle invariants:
   archival guard applied on every archive surface (archive use case, canonical
   DELETE and PATCH-to-archived, intervention publication) and before the draft
   hard-delete. Refuses with `FacilityHasActiveDependentsException` (HTTP 409)
-  while the facility has an active descendant facility, active equipment, or an
-  in-progress inspection. The equipment/inspection checks are provided by the
-  owning modules through `FacilityEquipmentDependencyPort` /
-  `FacilityInspectionDependencyPort` (outbound, adapters in Equipment/Inspection).
+  while the facility has an active descendant facility, active equipment, an
+  in-progress inspection, or an active (not closed) intervention targeting it
+  as its site. The equipment/inspection/intervention checks are provided by
+  the owning modules through `FacilityEquipmentDependencyPort` /
+  `FacilityInspectionDependencyPort` / `FacilityInterventionDependencyPort`
+  (outbound, adapters in Equipment/Inspection/Intervention). "Active" for the
+  intervention check means any status outside `InterventionStatus::closedValues()`
+  (i.e. not `published` or `abandoned`) — including `draft`.
+  **Documented gap**: `intervention_recurrences.site_id` is not covered by this
+  guard (recurrence materialization reads it independently of the archival
+  check), so an archived facility can still receive newly materialized
+  interventions from an existing recurrence — a follow-up candidate.
 - **Equipment plan-position cross-module pair (Phase 4)**: two ports, one in
   each direction, both scoped to this feature only. Outbound —
   `FacilityEquipmentPlanPositionPort::findEquipmentPlacedOnPlan()`, consumed
@@ -758,7 +766,7 @@ other Facility endpoints (see the create/archive/move handlers).
 | `FacilityHierarchyException::parentInAnotherOrganization` | 400 | "Parent facility must belong to the same organization." |
 | `FacilityHierarchyException::hierarchyCycleDetected` | 400 | "Cannot move facility: hierarchy cycle detected." |
 | `FacilityHierarchyException::maxDepthExceeded($cap)` | 400 (Create/Move use cases, via the same `FacilityHierarchyException` catch as the other hierarchy errors); 422 on the canonical PATCH `parent` path (mirrors its existing cycle-check status); `InterventionConflictException` on the offline `apply()` path | "Facility hierarchy depth cap of `$cap` levels exceeded." |
-| `FacilityHasActiveDependentsException` | 409 | archival refused while an active child facility, active equipment, or an in-progress inspection exists |
+| `FacilityHasActiveDependentsException` | 409 | archival refused while an active child facility, active equipment, an in-progress inspection, or an active intervention exists |
 | `FacilityMetadataFieldNotFoundException` | 404 | Unknown id, or a field belonging to another organization (indistinguishable from unknown, see "Scope versus entitlement" above) |
 | `FacilityMetadataFieldKeyAlreadyExistsException` | 409 | Duplicate `(organizationId, key)` |
 | `FacilityMetadataFieldLimitExceededException` | 422 | Organization already has 50 field definitions |

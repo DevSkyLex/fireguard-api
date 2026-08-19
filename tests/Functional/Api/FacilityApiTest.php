@@ -8,6 +8,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityMetadataFieldRecord, FacilityRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -70,6 +71,10 @@ final class FacilityApiTest extends WebTestCase
   private const string ARCHIVE_PARENT_ID = '760e8400-e29b-41d4-a716-446655480030';
 
   private const string ARCHIVE_CHILD_ID = '760e8400-e29b-41d4-a716-446655480031';
+
+  private const string ARCHIVE_INTERVENTION_FACILITY_ID = '760e8400-e29b-41d4-a716-446655480032';
+
+  private const string ARCHIVE_INTERVENTION_ID = '760e8400-e29b-41d4-a716-446655480033';
 
   // #region Authentication
 
@@ -614,6 +619,74 @@ final class FacilityApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testArchiveFacilityRejectsWhenActiveInterventionExists(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedInterventionArchiveGuardFixtures('planned');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $client->request('POST', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::ARCHIVE_INTERVENTION_FACILITY_ID . '/archive');
+
+    self::assertSame(
+      expected: 409,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'Archiving a facility with an active intervention must be refused with 409. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testCanonicalFacilityDeleteRejectsWhenActiveInterventionExists(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedInterventionArchiveGuardFixtures('in_progress');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $client->request('DELETE', '/api/facilities/' . self::ARCHIVE_INTERVENTION_FACILITY_ID, server: ['HTTP_IF_MATCH' => '"revision-1"']);
+
+    self::assertSame(
+      expected: 409,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'Canonical DELETE on a facility with an active intervention must be refused with 409. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testArchiveFacilitySucceedsOncePublishedInterventionNoLongerBlocks(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedInterventionArchiveGuardFixtures('published');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $client->request('POST', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::ARCHIVE_INTERVENTION_FACILITY_ID . '/archive');
+
+    self::assertSame(
+      expected: 201,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A published (closed) intervention must not block archiving. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testArchiveFacilitySucceedsOnceAbandonedInterventionNoLongerBlocks(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedInterventionArchiveGuardFixtures('abandoned');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $client->request('POST', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::ARCHIVE_INTERVENTION_FACILITY_ID . '/archive');
+
+    self::assertSame(
+      expected: 201,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'An abandoned (closed) intervention must not block archiving. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
   // #endregion
 
   // #region Canonical resource
@@ -1034,6 +1107,54 @@ final class FacilityApiTest extends WebTestCase
 
     $child = $this->newFacilityRecord(self::ARCHIVE_CHILD_ID, $organization, 'building', 'Archive Guard Active Child', 'active', $parent, $now);
     $entityManager->persist($child);
+
+    $entityManager->flush();
+  }
+
+  /**
+   * Method seedInterventionArchiveGuardFixtures.
+   *
+   * Seeds (idempotently) a facility targeted, as its site, by one intervention
+   * in the given workflow status — exercising
+   * `FacilityArchivalGuard::assertNoActiveDependents()`'s intervention check.
+   *
+   * @param string $interventionStatus the intervention's workflow status
+   */
+  private function seedInterventionArchiveGuardFixtures(string $interventionStatus): void
+  {
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $existingIntervention = $entityManager->find(InterventionRecord::class, self::ARCHIVE_INTERVENTION_ID);
+    if ($existingIntervention instanceof InterventionRecord) {
+      $entityManager->remove($existingIntervention);
+      $entityManager->flush();
+    }
+
+    $existingFacility = $entityManager->find(FacilityRecord::class, self::ARCHIVE_INTERVENTION_FACILITY_ID);
+    if ($existingFacility instanceof FacilityRecord) {
+      $entityManager->remove($existingFacility);
+      $entityManager->flush();
+    }
+
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    /** @var OrganizationRecord $organization */
+    $organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+
+    $facility = $this->newFacilityRecord(self::ARCHIVE_INTERVENTION_FACILITY_ID, $organization, 'site', 'Archive Guard Intervention Site', 'active', null, $now);
+    $entityManager->persist($facility);
+
+    $intervention = new InterventionRecord();
+    $intervention->id = self::ARCHIVE_INTERVENTION_ID;
+    $intervention->organization = $organization;
+    $intervention->name = 'Archive Guard Intervention';
+    $intervention->number = 1;
+    $intervention->status = $interventionStatus;
+    $intervention->siteId = self::ARCHIVE_INTERVENTION_FACILITY_ID;
+    $intervention->responsibleId = self::ADMIN_USER_ID;
+    $intervention->createdAt = $now;
+    $intervention->updatedAt = $now;
+    $entityManager->persist($intervention);
 
     $entityManager->flush();
   }

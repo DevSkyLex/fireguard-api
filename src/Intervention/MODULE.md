@@ -34,7 +34,7 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/interventions` | Create intervention (starts as `draft`) |
-| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `member` *(responsible OR participant)*, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `label`, `number` *(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)*, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`, `due=overdue` *(shortcut restricting to `dueAt` in the past AND status not in `InterventionStatus::closedValues()` i.e. not `published`/`abandoned` — the exact definition `GET /interventions/statistics`'s `overdue` count uses; composes with `dueAtAfter`/`dueAtBefore`; 400 on any other value)*; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
+| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `member` *(responsible OR participant)*, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `label`, `responsible` — these six accept **repeated values** (`status[]=draft&status[]=planned`, OR-combined per filter via `IN()`; the single scalar form stays accepted), `number` *(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)*, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`, `due=overdue` *(shortcut restricting to `dueAt` in the past AND status not in `InterventionStatus::closedValues()` i.e. not `published`/`abandoned` — the exact definition `GET /interventions/statistics`'s `overdue` count uses; composes with `dueAtAfter`/`dueAtBefore`; 400 on any other value)*; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
 | GET | `/interventions/{id}` | Get intervention |
 | PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`status`) |
 | PUT | `/interventions/{id}` | Upsert (offline replay path; `201`) |
@@ -987,21 +987,73 @@ Aggregate invariants (enforced in `Intervention`):
 
 - `id`, `interventionId`
 - `action` (`site_setup` | `inventory` | `inspection`), `source`
-- `status` (`planned` | `in_progress` | `completed` | `skipped`)
+- `status` (`InterventionWorkItemStatus`: `planned` | `in_progress` | `completed` | `skipped`)
 - `assignee`, `target`, `required`, `skipReason`, `revision`
 - `evidenceCount` (Phase 5d.1, read-only, output-only — see Attachments above)
+
+Work item status transitions (`InterventionWorkItemTransitionPolicy::assertAllowed`,
+enforced by `DoctrineInterventionWorkflowGatewayAdapter::mutateWorkItem`; the explicit
+returns are deliberate, to preserve the deployed frontend's flows):
+
+- `planned` → `in_progress`, `completed`, `skipped`
+- `in_progress` → `completed`, `skipped`, `planned`
+- `completed` → `in_progress`, `planned` (the frontend's checkbox toggle unchecks
+  a completed item straight back to `planned`)
+- `skipped` → `planned`
+
+Moving to `skipped` requires a non-empty `skipReason`, enforced by the same policy
+(`InterventionValidationException` when absent or blank). Starting work on any item
+still auto-advances the parent intervention `planned` → `in_progress` (unchanged).
 
 `InterventionChange` main fields:
 
 - `id`, `interventionId`, `resource`
-- `status` (`proposed` | `applied` | `rejected`) — governed by `InterventionChangePolicy`
+- `status` (`InterventionChangeStatus`: `proposed` | `rejected` | `applied`) — the
+  request-level guard (`assertCanChangeStatus`) and the state-machine transition
+  (`assertTransitionAllowed`) both live in `InterventionChangePolicy`
 - patch payload
+
+Change status transitions (`InterventionChangePolicy::assertTransitionAllowed`,
+enforced by `DoctrineInterventionWorkflowGatewayAdapter::mutateChange` and by
+`DoctrinePublicationAdapter::publish`):
+
+- `proposed` → `rejected`, `applied`
+- `rejected` → `proposed`
+- `applied` → *(terminal)*
+
+`applied` is **system-only**: it is set exclusively by the publication path
+(`DoctrinePublicationAdapter::publish`) when a proposed change is carried into the
+target resource. The `UpdateInterventionChangeInput` DTO's `Assert\Choice` lists only
+`proposed`/`rejected` — user input can never request `applied` directly, and the PATCH
+endpoint documents this (see the endpoint table above).
+
+`Publication` main fields:
+
+- `id`, `interventionId`, `interventionRevision`
+- `status` (`PublicationStatus`: `pending` | `processing` | `completed` | `failed`)
+- `error` (nullable), `createdAt`, `completedAt`
+
+Publication status transitions (`PublicationTransitionPolicy::assertAllowed`,
+enforced by `DoctrinePublicationAdapter`):
+
+- `pending` → `processing`, `failed`
+- `processing` → `completed`, `failed`
+- `failed` → `pending` (retry)
+- `completed` → *(terminal)*
+
+The entity-manager-closed fallback in `DoctrinePublicationAdapter::markFailed` (a prior
+flush failure left the EM closed) still runs a raw SQL `UPDATE …
+WHERE status <> :completed AND status <> :failed`; it derives those two excluded
+literals from `PublicationStatus::COMPLETED->value` / `PublicationStatus::FAILED->value`
+rather than hard-coding them, but does not go through the policy object itself since no
+ORM entity is loaded on that path.
 
 Issues (`InterventionIssue`, computed — not persisted) carry a `severity`
 (`blocker` | `warning` | `recommendation`); a `blocker` prevents publication.
 
 Value objects (`Domain/ValueObject/`): `InterventionStatus`, `InterventionType`,
-`InterventionPriority`, `InterventionResourceType` (`facility` | `equipment` | `inspection`).
+`InterventionPriority`, `InterventionResourceType` (`facility` | `equipment` | `inspection`),
+`InterventionWorkItemStatus`, `InterventionChangeStatus`, `PublicationStatus`.
 
 Activity feed rows (`InterventionActivityRecord`, append-only, no domain
 aggregate — persisted directly through `InterventionActivityPort`):

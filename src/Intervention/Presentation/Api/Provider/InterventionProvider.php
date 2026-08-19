@@ -12,7 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
-use Intervention\Domain\ValueObject\InterventionPriority;
+use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
@@ -25,8 +25,11 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
+use function array_filter;
 use function array_map;
+use function array_values;
 use function ctype_digit;
+use function is_array;
 use function is_string;
 use function max;
 use function min;
@@ -100,16 +103,30 @@ final readonly class InterventionProvider implements ProviderInterface
       throw new BadRequestHttpException('The organization filter is required.');
     }
     $filters = [];
-    foreach (['name', 'type', 'status', 'priority', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
+    foreach (['name', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;
       }
     }
-    // Reject an unknown priority up front: the gateway's equality filter would
+    // Reject an unknown enum value up front: the gateway's IN() filter would
     // otherwise return a silently empty collection instead of a client error.
-    if (isset($filters['priority']) && !InterventionPriority::tryFrom((string) $filters['priority']) instanceof InterventionPriority) {
-      throw new BadRequestHttpException('The priority filter must be one of: low, normal, high, urgent.');
+    $enumGuards = [
+      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
+      'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
+      'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
+    ];
+    foreach ($enumGuards as $filter => [$tryFrom, $message]) {
+      $values = $this->multiValue($query?->all()[$filter] ?? null);
+      if ([] === $values) {
+        continue;
+      }
+      foreach ($values as $value) {
+        if (null === $tryFrom($value)) {
+          throw new BadRequestHttpException($message);
+        }
+      }
+      $filters[$filter] = $values;
     }
     $due = $query?->get('due');
     if (is_string($due) && '' !== $due) {
@@ -118,19 +135,23 @@ final readonly class InterventionProvider implements ProviderInterface
       }
       $filters['due'] = $due;
     }
-    foreach (['responsible' => 'responsibleId', 'participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
+    $responsibles = $this->multiValue($query?->all()['responsible'] ?? null);
+    if ([] !== $responsibles) {
+      $filters['responsibleId'] = array_map(ResourceIriParser::memberId(...), $responsibles);
+    }
+    foreach (['participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$target] = ResourceIriParser::memberId($value);
       }
     }
-    $site = $query?->get('site');
-    if (is_string($site) && '' !== $site) {
-      $filters['siteId'] = ResourceIriParser::id($site, 'facilities');
+    $sites = $this->multiValue($query?->all()['site'] ?? null);
+    if ([] !== $sites) {
+      $filters['siteId'] = array_map(static fn (string $site): string => ResourceIriParser::id($site, 'facilities'), $sites);
     }
-    $label = $query?->get('label');
-    if (is_string($label) && '' !== $label) {
-      $filters['labelId'] = ResourceIriParser::id($label, 'intervention-labels');
+    $labels = $this->multiValue($query?->all()['label'] ?? null);
+    if ([] !== $labels) {
+      $filters['labelId'] = array_map(static fn (string $label): string => ResourceIriParser::id($label, 'intervention-labels'), $labels);
     }
     // Accept the client's `FG-` prefix and strip it before validating the
     // remainder is numeric, mirroring the priority guard above.
@@ -193,5 +214,34 @@ final readonly class InterventionProvider implements ProviderInterface
     }
 
     return $user;
+  }
+
+  /**
+   * Method multiValue.
+   *
+   * Normalizes a query value that accepts repetition (`status[]=a&status[]=b`)
+   * while still taking the single scalar form (`status=a`): a raw scalar
+   * becomes a one-element list, an array keeps its non-empty string members,
+   * anything else is an empty list.
+   *
+   * @since 1.4.0
+   *
+   * @param mixed $raw the raw query value
+   *
+   * @return list<string> the normalized values
+   */
+  private function multiValue(mixed $raw): array
+  {
+    if (is_string($raw) && '' !== $raw) {
+      return [$raw];
+    }
+    if (!is_array($raw)) {
+      return [];
+    }
+
+    return array_values(array_filter(
+      array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $raw),
+      static fn (string $value): bool => '' !== $value,
+    ));
   }
 }

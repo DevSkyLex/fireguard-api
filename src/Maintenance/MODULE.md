@@ -102,6 +102,14 @@ equipment (`target: {"equipmentId": "..."}`).
 - **Infrastructure** (`src/Maintenance/Infrastructure`): Doctrine record/repository,
   the Inspection-side synchronizer adapter, and the hourly scheduler.
 
+**Documented gap**: `maintenance_schedules.facility_id` is a denormalized,
+FK-less string link (see `## Persistence`), and Maintenance has no outbound
+dependency port consumed by `Facility\Application\Service\FacilityArchivalGuard`.
+Archiving a facility does **not** stop its schedules from generating —
+the recurring sweep keeps materializing maintenance work against an archived
+facility. Deliberate for now; a follow-up candidate if this proves to matter
+in practice.
+
 ### Ports & adapters (`config/modules/maintenance.yaml`)
 
 | Port | Adapter |

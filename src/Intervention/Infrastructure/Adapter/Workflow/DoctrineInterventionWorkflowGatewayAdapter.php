@@ -27,8 +27,8 @@ use Intervention\Domain\Exception\{
   InterventionValidationException
 };
 use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
-use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy};
-use Intervention\Domain\ValueObject\{InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType};
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy, InterventionWorkItemTransitionPolicy};
+use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType, InterventionWorkItemStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\{InterventionMapper, InterventionViewMapper};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
@@ -43,6 +43,7 @@ use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -81,6 +82,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param InterventionTransitionPolicy $transitionPolicy the transition policy value
    * @param InterventionChangePolicy $changePolicy the change policy value
+   * @param InterventionWorkItemTransitionPolicy $workItemTransitionPolicy the work item transition policy value
    * @param InterventionMemberPolicy $memberPolicy the member policy value
    * @param InterventionNotificationService $notifications the notifications value
    * @param InterventionResourceGatewayPort $resources the resources value
@@ -94,6 +96,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private UuidFactory $uuidFactory,
     private InterventionTransitionPolicy $transitionPolicy,
     private InterventionChangePolicy $changePolicy,
+    private InterventionWorkItemTransitionPolicy $workItemTransitionPolicy,
     private InterventionMemberPolicy $memberPolicy,
     private InterventionNotificationService $notifications,
     private InterventionResourceGatewayPort $resources,
@@ -618,10 +621,9 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
       $skipReason = $this->nullableString($mutation->payload, 'skipReason');
-      if ('skipped' === $status && (null === $skipReason || '' === trim($skipReason))) {
-        throw new InterventionValidationException('A skip reason is required.');
-      }
-      $record->status = $status;
+      $nextWorkItemStatus = InterventionWorkItemStatus::from($status);
+      $this->workItemTransitionPolicy->assertAllowed(InterventionWorkItemStatus::from($record->status), $nextWorkItemStatus, $skipReason);
+      $record->status = $nextWorkItemStatus->value;
       if ('planned' === $intervention->status && 'planned' !== $status) {
         $intervention->status = 'in_progress';
         $interventionAutoStarted = true;
@@ -789,8 +791,10 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
-      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $status);
-      $record->status = $status;
+      $nextChangeStatus = InterventionChangeStatus::from($status);
+      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $nextChangeStatus);
+      $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($record->status), $nextChangeStatus);
+      $record->status = $nextChangeStatus->value;
     }
     $now = new DateTimeImmutable();
     ++$record->revision;
@@ -846,6 +850,37 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   }
 
   /**
+   * Method filterValues.
+   *
+   * @static
+   *
+   * Normalizes an enum/IRI list filter that accepts one or several values: a
+   * plain string becomes a one-element list, a list keeps its non-empty
+   * string members. The provider already validates and normalizes; this keeps
+   * the gateway safe against a caller passing the legacy scalar form.
+   *
+   * @since 1.4.0
+   *
+   * @param mixed $raw the raw filter value
+   *
+   * @return list<string> the normalized values
+   */
+  private static function filterValues(mixed $raw): array
+  {
+    if (is_string($raw) && '' !== $raw) {
+      return [$raw];
+    }
+    if (!is_array($raw)) {
+      return [];
+    }
+
+    return array_values(array_filter(
+      array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $raw),
+      static fn (string $value): bool => '' !== $value,
+    ));
+  }
+
+  /**
    * Method interventionSortField.
    *
    * Maps a requested sort field to a column, falling back to `updatedAt` so an
@@ -853,7 +888,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    *
    * @since 1.0.0
    *
-   * @param string $field the requested field
+   * @param string $field the requested sort field
    *
    * @return string the record property to order by
    */
@@ -884,27 +919,23 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       ->where('m.organization = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('m.updatedAt', 'DESC');
-    foreach (['type', 'status', 'priority'] as $filter) {
-      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
-        $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+    foreach (['type', 'status', 'priority', 'responsibleId', 'siteId'] as $filter) {
+      $values = self::filterValues($filters[$filter] ?? null);
+      if ([] !== $values) {
+        $qb->andWhere('m.' . $filter . ' IN (:' . $filter . ')')->setParameter($filter, $values);
       }
     }
     if (is_string($filters['name'] ?? null)) {
       TrigramSearchExpression::apply($qb, 'name', $filters['name'], 'm.name');
     }
-    if (is_string($filters['responsibleId'] ?? null) && '' !== $filters['responsibleId']) {
-      $qb->andWhere('m.responsibleId = :responsibleId')->setParameter('responsibleId', $filters['responsibleId']);
-    }
-    if (is_string($filters['siteId'] ?? null) && '' !== $filters['siteId']) {
-      $qb->andWhere('m.siteId = :siteId')->setParameter('siteId', $filters['siteId']);
-    }
     if (is_int($filters['number'] ?? null)) {
       $qb->andWhere('m.number = :number')->setParameter('number', $filters['number']);
     }
-    if (is_string($filters['labelId'] ?? null) && '' !== $filters['labelId']) {
+    $labelIds = self::filterValues($filters['labelId'] ?? null);
+    if ([] !== $labelIds) {
       $qb->innerJoin('m.labels', 'l')
-        ->andWhere('l.id = :labelId')
-        ->setParameter('labelId', $filters['labelId']);
+        ->andWhere('l.id IN (:labelIds)')
+        ->setParameter('labelIds', $labelIds);
     }
     if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
       $ids = $this->entityManager->getConnection()->fetchFirstColumn(

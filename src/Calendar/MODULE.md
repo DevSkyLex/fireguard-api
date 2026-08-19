@@ -200,6 +200,13 @@ Table (**main** database), created by `Version20260718124213`:
   `organizations`/`facilities` — mirrors `automation_runs`/
   `approval_requests`.
 
+**Documented gap**: `facility_id` is not covered by
+`Facility\Application\Service\FacilityArchivalGuard` — Calendar has no
+outbound dependency port and never blocks facility archival. This is
+deliberate: calendar reads are display-only (the module never writes back to
+a facility), so an event referencing an archived facility is harmless — it
+simply keeps showing on the calendar.
+
 Doctrine record: `src/Calendar/Infrastructure/Persistence/Doctrine/Record/
 CalendarEventRecord.php` (unchanged since L2.0).
 
