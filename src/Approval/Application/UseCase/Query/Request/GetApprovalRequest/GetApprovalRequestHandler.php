@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Approval\Application\UseCase\Query\Request\GetApprovalRequest;
 
 use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
-use Approval\Domain\Exception\ApprovalRequestNotFoundException;
+use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
@@ -13,7 +13,10 @@ use Shared\Application\Message\QueryHandler;
 /**
  * UseCase GetApprovalRequestHandler.
  *
- * Self-enforces `organization.approvals.read`.
+ * Self-enforces `organization.approvals.read`, separating "not a member of
+ * this organization" (404, the same answer an unknown request identifier
+ * produces) from "member, but not entitled" (403) — see
+ * {@see \Organization\Application\Contract\Authorization\OrganizationAccessDecision}.
  *
  * @category UseCase
  *
@@ -51,9 +54,13 @@ final readonly class GetApprovalRequestHandler implements QueryHandler
    */
   public function __invoke(GetApprovalRequestQuery $query): GetApprovalRequestResult
   {
-    $this->authorization->assertGrantedPermissions($query->userId, $query->organizationId, [
-      'organization.approvals.read',
-    ]);
+    $decision = $this->authorization->resolveAccess($query->userId, $query->organizationId, 'organization.approvals.read');
+    if ($decision->isOutsideScope()) {
+      throw ApprovalRequestNotFoundException::withId($query->requestId);
+    }
+    if (!$decision->isGranted()) {
+      throw ApprovalAccessDeniedException::missingPermission('organization.approvals.read');
+    }
 
     $request = $this->requests->findById(ApprovalRequestId::fromString($query->requestId));
 

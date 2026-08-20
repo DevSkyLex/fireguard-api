@@ -36,6 +36,23 @@ finer-grained permission checks are self-enforced in the application layer
 by each handler through `OrganizationAuthorizationPort` (the
 Webhook/Import/Maintenance convention) — processors stay thin.
 
+**Scope before entitlement.** All four handlers decide access with
+`OrganizationAuthorizationPort::resolveAccess()`, never the flat
+`assertGrantedPermissions()`: `OUTSIDE_SCOPE` (no active membership) maps to
+the same 404 an unknown identifier produces, and `MISSING_PERMISSION` to 403.
+The decision handlers look a request up by path id *before* they know who
+owns it, so collapsing both denials into 403 confirmed to an outsider that a
+request exists while an unknown id answered 404 — an existence oracle across
+organizations. Aligned with the Maintenance hardening (`fix(maintenance):
+return 404 for schedules outside the caller's organization`) and the rule
+`OrganizationAccessDecision` states in its own docblock.
+
+**Known contract drift:** `/approve` and `/reject` are bare API Platform
+`Post` operations with no `status:`, so a successful decision answers **201
+Created** even though it creates nothing, while `ApprovalRequestResource`
+documents 200. The tests assert 201, the behaviour as shipped; reconciling
+the two is a wire change for the frontend and has not been made.
+
 **Deviation from the lot brief's prose sketch:** the brief's narrative
 description implies a flatter, unprefixed `/approval-requests` route family
 with the organization resolved from a query parameter. This module instead
@@ -101,7 +118,12 @@ sequenceDiagram
   approve/reject/cancel/expire/markExecuted/markExecutionFailed,
   isPending), `ApprovalRequestId`, `ApprovalStatus` (enum:
   pending|approved|rejected|cancelled|expired), domain events
-  (`Domain/Event/Request`), exceptions.
+  (`Domain/Event/Request`), exceptions — including the module-owned
+  `ApprovalAccessDeniedException` the handlers raise instead of importing
+  Organization's `OrganizationAccessDeniedException` (that cross-module
+  **Domain** import is what `CrossModuleDomainBoundaryTest` ratchets; the
+  `Approval => Organization` baseline came down 4 → 2 with it, the two
+  survivors being `ApprovalGate` and `ApprovalExceptionMapperTrait`).
 - **Application** (`src/Approval/Application`): `ApprovalActionTypes` /
   `ApprovalGateRequest` / `ApprovalGateDecision` / `ApprovalPolicy` /
   `DeferredActionContext` / `ApprovalReservation` (Contract), inbound
@@ -331,14 +353,26 @@ consumer, pending requests never expire.
   `tests/Unit/Equipment/Infrastructure/Adapter/Approval`, and gate-consulting
   processor tests in `tests/Unit/Inspection/Presentation/Api/Processor/NonConformity`
   and `tests/Unit/Equipment/Presentation/Api/Processor/Equipment`.
-- Functional: `tests/Functional/Api/ApprovalRequestApiTest.php`.
+- Functional: `tests/Functional/Api/ApprovalRequestApiTest.php` — the HTTP
+  denial paths, seeding organizations, roles, members and `approval_requests`
+  rows straight through Doctrine (mirrors `MaintenanceApiTest`): 401, 403 for
+  a member without `decide`, 403 for a decider below `minApproverRole`, 403
+  on self-approval, 409 already-decided, 409 `DeferredActionNoLongerApplicable`
+  (with the request left `cancelled`, never `approved`), and the
+  cross-organization 404s on list/get/approve/reject.
+- E2E: `tests/E2E/ApprovalPresentationFlowTest.php` — the full gate over
+  HTTP: enable the policy on the org settings, create equipment, POST
+  decommission as a requester holding neither `decide` nor the admin tier
+  (202 + `approvalRequestId`, equipment untouched), then approve as the owner
+  (equipment becomes `decommissioned`) or reject (it does not, and a second
+  decision conflicts).
 - Run module tests: `php vendor/bin/phpunit tests/Unit/Approval`
 ## Error Codes
 
 | Exception | HTTP |
 | --- | --- |
-| `ApprovalRequestNotFoundException` | 404 Not Found |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException` / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` | 403 Forbidden |
+| `ApprovalRequestNotFoundException` | 404 Not Found — unknown id, a request owned by another organization, **and an organization the caller is not an active member of** (`::forOrganizationScope()` on the listing) |
+| `ApprovalAccessDeniedException` (member, but missing the required permission) / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` (still raised by `ApprovalGate`) | 403 Forbidden |
 | `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException` | 409 Conflict |
 | `InvalidArgumentException` | 400 Bad Request |
 

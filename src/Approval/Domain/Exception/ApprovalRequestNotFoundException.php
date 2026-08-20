@@ -39,5 +39,30 @@ final class ApprovalRequestNotFoundException extends RuntimeException
   {
     return new self(sprintf('Approval request with ID "%s" not found.', $id));
   }
+
+  /**
+   * Method forOrganizationScope.
+   *
+   * @static
+   *
+   * Builds the exception for an organization the caller is not an active
+   * member of, on a route whose scope the caller supplied directly (the
+   * queue listing) rather than reaching through a request identifier.
+   *
+   * Deliberately the SAME class, and therefore the same 404, that an unknown
+   * identifier produces: a distinct status here would tell an outsider which
+   * organization identifiers are real. Mirrors
+   * {@see \Maintenance\Domain\Exception\MaintenanceNotFoundException::forOrganizationScope()}.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return self the exception instance
+   */
+  public static function forOrganizationScope(string $organizationId): self
+  {
+    return new self(sprintf('Organization with ID "%s" not found.', $organizationId));
+  }
   // #endregion
 }

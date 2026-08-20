@@ -14,11 +14,12 @@ use Approval\Domain\Exception\{
   ApproverNotAuthorizedException,
   SelfApprovalNotAllowedException
 };
+use Approval\Domain\Exception\ApprovalAccessDeniedException;
 use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -56,6 +57,47 @@ final class RejectApprovalRequestHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsNotFoundWhenRequestMissing(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn(null);
+
+    $this->expectException(ApprovalRequestNotFoundException::class);
+
+    $this->handler($requests)(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsAccessDeniedWhenMemberLacksTheDecidePermission(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    $this->expectException(ApprovalAccessDeniedException::class);
+
+    $this->handler(
+      $requests,
+      authorization: $this->authorizationDeciding(OrganizationAccessDecision::MISSING_PERMISSION),
+    )(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheOrganizationIsOutsideTheCallersScope(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    // Not-found rather than access-denied: a 403 would confirm to a caller
+    // from another organization that the request exists.
+    $this->expectException(ApprovalRequestNotFoundException::class);
+
+    $this->handler(
+      $requests,
+      authorization: $this->authorizationDeciding(OrganizationAccessDecision::OUTSIDE_SCOPE),
+    )(self::command());
+  }
+
+  #[Test]
   public function testInvokeThrowsSelfApprovalNotAllowedWhenRejecterIsRequester(): void
   {
     $request = $this->pendingRequest();
@@ -86,7 +128,7 @@ final class RejectApprovalRequestHandlerTest extends TestCase
     $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
     $memberDirectory->method('resolveMemberId')->willReturn(null);
 
-    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectException(ApprovalAccessDeniedException::class);
 
     $this->handler($requests, $memberDirectory)(
       new RejectApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::APPROVER_MEMBER_ID),
@@ -192,6 +234,23 @@ final class RejectApprovalRequestHandlerTest extends TestCase
     );
   }
 
+  private static function command(): RejectApprovalRequestCommand
+  {
+    return new RejectApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::APPROVER_MEMBER_ID);
+  }
+
+  /**
+   * Builds an authorization port stub resolving every access check to the
+   * given decision.
+   */
+  private function authorizationDeciding(OrganizationAccessDecision $decision): OrganizationAuthorizationPort
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn($decision);
+
+    return $authorization;
+  }
+
   private function handler(
     ApprovalRequestRepositoryPort $requests,
     ?ApprovalMemberDirectoryPort $memberDirectory = null,
@@ -201,7 +260,7 @@ final class RejectApprovalRequestHandlerTest extends TestCase
   ): RejectApprovalRequestHandler {
     $memberDirectory ??= $this->createStub(ApprovalMemberDirectoryPort::class);
     $policy ??= $this->createStub(ApprovalPolicyPort::class);
-    $authorization ??= $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization ??= $this->authorizationDeciding(OrganizationAccessDecision::GRANTED);
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
 
     $clock = $this->createStub(ClockPort::class);

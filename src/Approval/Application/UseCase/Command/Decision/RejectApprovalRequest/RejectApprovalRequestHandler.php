@@ -7,6 +7,7 @@ namespace Approval\Application\UseCase\Command\Decision\RejectApprovalRequest;
 use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
 use Approval\Domain\Event\Request\ApprovalRejectedEvent;
 use Approval\Domain\Exception\{
+  ApprovalAccessDeniedException,
   ApprovalRequestNotFoundException,
   ApprovalRequestNotPendingException,
   ApproverNotAuthorizedException,
@@ -14,7 +15,6 @@ use Approval\Domain\Exception\{
 };
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
 
@@ -74,13 +74,17 @@ final readonly class RejectApprovalRequestHandler implements CommandHandler
       throw ApprovalRequestNotFoundException::withId($command->requestId);
     }
 
-    $this->authorization->assertGrantedPermissions($command->actorUserId, $command->organizationId, [
-      'organization.approvals.decide',
-    ]);
+    $decision = $this->authorization->resolveAccess($command->actorUserId, $command->organizationId, 'organization.approvals.decide');
+    if ($decision->isOutsideScope()) {
+      throw ApprovalRequestNotFoundException::withId($command->requestId);
+    }
+    if (!$decision->isGranted()) {
+      throw ApprovalAccessDeniedException::missingPermission('organization.approvals.decide');
+    }
 
     $approverMemberId = $this->memberDirectory->resolveMemberId($command->organizationId, $command->actorUserId);
     if (null === $approverMemberId) {
-      throw OrganizationAccessDeniedException::missingPermission('organization.approvals.decide');
+      throw ApprovalAccessDeniedException::missingPermission('organization.approvals.decide');
     }
 
     $policy = $this->policy->policyFor($command->organizationId);
