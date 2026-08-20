@@ -206,9 +206,6 @@ services:
   # unlike DownloadFacilityAttachmentController's Facility twin, which reads
   # the record straight off the entity manager and must name it explicitly.
 
-  Equipment\Application\UseCase\Query\Equipment\ListEquipmentTypes\ListEquipmentTypesHandler:
-    tags: ['messenger.message_handler']
-
   Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\ListMaintenanceLogsHandler:
     tags: ['messenger.message_handler']
 

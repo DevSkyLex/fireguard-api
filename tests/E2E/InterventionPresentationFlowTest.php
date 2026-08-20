@@ -16,7 +16,6 @@ use function array_key_exists;
 use function basename;
 use function file_put_contents;
 use function http_build_query;
-use function is_array;
 use function is_string;
 use function json_encode;
 use function sprintf;
@@ -49,21 +48,6 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
   private const string FAKE_ID = '550e8400-e29b-41d4-a716-446655440000';
 
   private const string FAKE_ORG_ID = '11111111-1111-4111-8111-111111111111';
-
-  public function testInterventionTypeCatalogIsListedForAuthenticatedUser(): void
-  {
-    [$client, $token] = $this->setUp_('type');
-
-    $collection = $this->get($client, $token, '/api/intervention-types');
-    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
-
-    $members = $this->members($collection);
-    self::assertNotSame([], $members, 'The intervention-type catalog must expose at least one type.');
-    $first = $members[0];
-    self::assertArrayHasKey('id', $first);
-    self::assertArrayHasKey('label', $first);
-    self::assertIsString($first['id']);
-  }
 
   public function testInterventionIssuesCollectionForADraftIsAHydraCollection(): void
   {
@@ -248,7 +232,6 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
 
     /** @var list<array{0: string, 1: string, 2: ?array<string, mixed>}> $routes */
     $routes = [
-      ['GET', '/api/intervention-types', null],
       ['GET', '/api/interventions/' . self::FAKE_ID . '/issues', null],
       ['GET', '/api/intervention-changes?' . http_build_query(['intervention' => $interventionIri]), null],
       ['GET', '/api/intervention-changes/' . self::FAKE_ID, null],
@@ -362,31 +345,6 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
     $client->request('GET', $uri, server: $this->headers($token));
 
     return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
-  }
-
-  /**
-   * Extracts the Hydra collection members as plain arrays.
-   *
-   * @param array<string, mixed> $collection
-   *
-   * @return list<array<string, mixed>>
-   */
-  private function members(array $collection): array
-  {
-    $members = $collection['member'] ?? [];
-    if (!is_array($members)) {
-      return [];
-    }
-
-    $items = [];
-    foreach ($members as $member) {
-      if (is_array($member)) {
-        /** @var array<string, mixed> $member */
-        $items[] = $member;
-      }
-    }
-
-    return $items;
   }
 
   /**

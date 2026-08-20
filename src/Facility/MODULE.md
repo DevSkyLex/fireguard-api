@@ -16,7 +16,6 @@ Main goals:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/api/facilities/types` | List facility types for selects |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
@@ -30,6 +29,10 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/duplicate` | Duplicate a facility and its full subtree into a new branch |
 | GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
 | GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
+
+Removed 2026-08-20: `GET /api/facilities/types` and `GET /api/facilities/statuses`
+(unconsumed reference catalogs; the frontend's localized typed registries are the
+source of these values).
 
 Lazy tree reads should use `/facilities?rootsOnly=true` for the initial level and
 `/facilities/{facilityId}/children` when a node is expanded. The

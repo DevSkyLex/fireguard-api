@@ -38,18 +38,6 @@ final class FacilityStatusTest extends TestCase
   }
 
   #[Test]
-  public function testLabelForActive(): void
-  {
-    self::assertSame('Active', FacilityStatus::ACTIVE->label());
-  }
-
-  #[Test]
-  public function testLabelForArchived(): void
-  {
-    self::assertSame('Archived', FacilityStatus::ARCHIVED->label());
-  }
-
-  #[Test]
   public function testFromReconstructsCase(): void
   {
     self::assertSame(FacilityStatus::ARCHIVED, FacilityStatus::from('archived'));

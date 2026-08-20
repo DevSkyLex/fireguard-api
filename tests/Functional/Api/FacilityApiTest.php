@@ -79,28 +79,6 @@ final class FacilityApiTest extends WebTestCase
   // #region Authentication
 
   #[Test]
-  public function testListFacilityStatusesRequiresAuthentication(): void
-  {
-    $client = static::createClient();
-
-    $client->request('GET', '/api/facilities/statuses');
-
-    $statusCode = $client->getResponse()->getStatusCode();
-
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /facilities/statuses endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /facilities/statuses, got ' . $statusCode,
-    );
-  }
-
-  #[Test]
   public function testCreateFacilityRequiresAuthentication(): void
   {
     $client = static::createClient();

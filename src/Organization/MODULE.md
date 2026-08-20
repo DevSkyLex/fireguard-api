@@ -27,6 +27,11 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | POST | `/api/organizations/{id}/transfer-ownership` | Transfer ownership to another active member. The caller must be an ACTIVE member of the organization — a stranger gets the same 404 a nonexistent organization id would produce, before the slug or owner checks ever run (closes an existence/slug oracle — see Notes). An active member who is not the organization's CURRENT owner gets 403 instead — RBAC-independent, no permission grants the right to give away someone else's ownership. Requires the same danger-zone `slug` confirmation as DELETE, now in the request body (missing/mismatched → 422), checked only once the caller is confirmed to be the owner. Target must be an active member (404 otherwise); an archived organization or a target already owning it → 409. The new owner is granted the system `admin` role if missing AND the acting (previous) owner still holds every permission that role carries (`OrganizationPermissionGrantGuardPort`, the same no-privilege-escalation check every other role-granting surface applies); a missing role, a guard refusal, or any other failure while granting it is logged and skipped — it never fails the already-committed transfer. Returns the refreshed `OrganizationOutput` — see Notes. `isOwner` reflects the POST-transfer truth for the acting caller (`false`, since ownership just moved away from them) |
 | PATCH | `/api/organizations/{id}` | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the catalog default from `OrganizationComplianceDefaults`; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write`. Returns the refreshed `OrganizationOutput`, caller-membership `isOwner`/`roles` included |
 | GET | `/api/organizations/legal-types` | Reference catalog of organization legal entity type values/labels for the Legal profile settings tab select |
+
+Removed 2026-08-20: `GET /api/organizations/statuses` and
+`GET /api/organizations/invitation-statuses` (unconsumed reference catalogs; the
+frontend's localized typed registries are the source of these values).
+`/api/organizations/legal-types` is kept — it has a real frontend consumer.
 | POST | `/api/organizations/{organizationId}/logo` | Upload the organization logo (multipart). Requires `organization.settings.write` |
 | DELETE | `/api/organizations/{organizationId}/logo` | Remove the organization logo. Requires `organization.settings.write` (same permission as upload). 409 when archived. Idempotent when the organization already has no logo — see Notes (P2.5) |
 | GET | `/api/organizations/{organizationId}/logo.webp` | Stream the organization logo (public) |
@@ -657,8 +662,8 @@ demonstrating that one person can belong to more than one tenant.
   `legalType` (`Domain/ValueObject/OrganizationLegalType`, a country-agnostic
   enum: sole proprietorship, partnership, limited liability company, public
   limited company, non-profit association, public entity, other — see
-  `GET /organizations/legal-types` for the value/label catalog, following
-  `OrganizationStatusResource`'s reference-catalog shape), `legalName` (free
+  `GET /organizations/legal-types` for the value/label catalog, a dedicated
+  reference-catalog resource), `legalName` (free
   text, may differ from the display `name`), `registrationNumber` and
   `vatNumber` (the two previously-orphan value objects
   `Domain/ValueObject/OrganizationRegistrationNumber` /

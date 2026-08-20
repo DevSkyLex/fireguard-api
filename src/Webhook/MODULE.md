@@ -34,6 +34,11 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliver` | Re-enqueue a delivery (any status, including terminally `failed`) | `organization.webhooks.manage` |
 | GET | `/api/webhooks/event-types` | Reference catalog of subscribable event types | `ROLE_USER` |
 
+`/api/webhooks/event-types` has no first-party web consumer today — it is retained
+deliberately as a public-API discovery affordance for external integrators wiring up
+webhook subscriptions, unlike the other unconsumed reference catalogs removed
+2026-08-20 elsewhere in the codebase. This is a recorded decision, not an oversight.
+
 Every operation requires `ROLE_USER` at the resource level; the
 finer-grained permission checks above are self-enforced in the application
 layer by each handler through `OrganizationAuthorizationPort`, mirroring

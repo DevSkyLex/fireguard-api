@@ -4857,87 +4857,6 @@
                 }
             }
         },
-        "/api/checklists/statuses": {
-            "get": {
-                "operationId": "inspection_list_checklist_statuses",
-                "tags": [
-                    "Checklist"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Checklist statuses retrieved successfully",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "ChecklistCatalog.InspectionOptionOutput.jsonld-inspection.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/ChecklistCatalog.InspectionOptionOutput.jsonld-inspection.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List checklist statuses",
-                "description": "Returns supported checklist status values for filters and select inputs.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
         "/api/organizations/{organizationId}/checklists": {
             "get": {
                 "operationId": "inspection_list_checklists",
@@ -8252,186 +8171,6 @@
                 }
             }
         },
-        "/api/organizations/{organizationId}/equipment-statuses": {
-            "get": {
-                "operationId": "equipment_statuses_list",
-                "tags": [
-                    "Equipment"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "EquipmentStatus collection",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "EquipmentStatus.EquipmentStatusOptionOutput.jsonld-equipment.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/EquipmentStatus.EquipmentStatusOptionOutput.jsonld-equipment.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List equipment statuses",
-                "description": "Lists all supported equipment statuses with their human-readable labels.",
-                "parameters": [
-                    {
-                        "name": "organizationId",
-                        "in": "path",
-                        "description": "EquipmentStatus identifier",
-                        "required": true,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "style": "simple",
-                        "explode": false
-                    },
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
-        "/api/organizations/{organizationId}/equipment-types": {
-            "get": {
-                "operationId": "equipment_types_list",
-                "tags": [
-                    "Equipment"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "EquipmentType collection",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "EquipmentType.EquipmentTypeOutput.jsonld-equipment.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/EquipmentType.EquipmentTypeOutput.jsonld-equipment.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List equipment types",
-                "description": "Lists all supported equipment types with their human-readable labels.",
-                "parameters": [
-                    {
-                        "name": "organizationId",
-                        "in": "path",
-                        "description": "EquipmentType identifier",
-                        "required": true,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "style": "simple",
-                        "explode": false
-                    },
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
         "/api/organizations/{organizationId}/equipment/kpis": {
             "get": {
                 "operationId": "equipment_get_kpis",
@@ -10397,162 +10136,6 @@
                     },
                     "required": true
                 }
-            }
-        },
-        "/api/facilities/statuses": {
-            "get": {
-                "operationId": "facility_status_list",
-                "tags": [
-                    "Facility"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "FacilityStatus collection",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "FacilityStatus.FacilityStatusOptionOutput.jsonld-facility.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/FacilityStatus.FacilityStatusOptionOutput.jsonld-facility.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List facility statuses",
-                "description": "Returns facility statuses for filters and UI selects.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
-        "/api/facilities/types": {
-            "get": {
-                "operationId": "facility_type_list",
-                "tags": [
-                    "Facility"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "FacilityType collection",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "FacilityType.FacilityTypeOptionOutput.jsonld-facility.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/FacilityType.FacilityTypeOptionOutput.jsonld-facility.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List facility types",
-                "description": "Returns facility types for UI selects.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
             }
         },
         "/api/facilities/{facilityId}/attachments": {
@@ -13858,249 +13441,6 @@
                     },
                     "required": true
                 }
-            }
-        },
-        "/api/inspections/inspector-types": {
-            "get": {
-                "operationId": "inspection_list_inspector_types",
-                "tags": [
-                    "Inspection"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Inspector types retrieved successfully",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List inspector types",
-                "description": "Returns supported inspector types for inspection creation flows.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
-        "/api/inspections/results": {
-            "get": {
-                "operationId": "inspection_list_results",
-                "tags": [
-                    "Inspection"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Inspection results retrieved successfully",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List inspection results",
-                "description": "Returns supported inspection result values for filters and select inputs.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
-        "/api/inspections/statuses": {
-            "get": {
-                "operationId": "inspection_list_statuses",
-                "tags": [
-                    "Inspection"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Inspection statuses retrieved successfully",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List inspection statuses",
-                "description": "Returns supported inspection status values for filters and UI badges.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
             }
         },
         "/api/inspections/{id}": {
@@ -20446,70 +19786,6 @@
                 }
             }
         },
-        "/api/intervention-types": {
-            "get": {
-                "operationId": "intervention_type_list",
-                "tags": [
-                    "InterventionType"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "InterventionType collection",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "InterventionType.InterventionTypeOutput.jsonld collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/InterventionType.InterventionTypeOutput.jsonld"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "Retrieves the collection of InterventionType resources.",
-                "description": "Retrieves the collection of InterventionType resources.",
-                "parameters": []
-            }
-        },
         "/api/intervention-work-items": {
             "get": {
                 "operationId": "intervention_work_item_list",
@@ -23593,87 +22869,6 @@
                             "type": "string"
                         },
                         "style": "simple",
-                        "explode": false
-                    }
-                ]
-            }
-        },
-        "/api/non-conformities/statuses": {
-            "get": {
-                "operationId": "inspection_list_non_conformity_statuses",
-                "tags": [
-                    "NonConformity"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Non-conformity statuses retrieved successfully",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "NonConformityCatalog.InspectionOptionOutput.jsonld-inspection.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/NonConformityCatalog.InspectionOptionOutput.jsonld-inspection.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List non-conformity statuses",
-                "description": "Returns supported non-conformity status values for filters and select inputs.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
                         "explode": false
                     }
                 ]
@@ -27351,87 +26546,6 @@
                 ]
             }
         },
-        "/api/organizations/statuses": {
-            "get": {
-                "operationId": "listOrganizationStatuses",
-                "tags": [
-                    "Organization"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Organization statuses retrieved",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "OrganizationStatus.OrganizationStatusOptionOutput.jsonld-Organization.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/OrganizationStatus.OrganizationStatusOptionOutput.jsonld-Organization.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List organization statuses",
-                "description": "Returns organization status values for filters and UI selects.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ]
-            }
-        },
         "/api/organizations/{id}": {
             "get": {
                 "operationId": "getOrganization",
@@ -29751,87 +28865,6 @@
                             "type": "string"
                         },
                         "style": "simple",
-                        "explode": false
-                    }
-                ]
-            }
-        },
-        "/api/organizations/invitation-statuses": {
-            "get": {
-                "operationId": "listOrganizationInvitationStatuses",
-                "tags": [
-                    "Organization Invitations"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Organization invitation statuses retrieved",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "OrganizationInvitationStatus.OrganizationInvitationStatusOptionOutput.jsonld-Organization.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/OrganizationInvitationStatus.OrganizationInvitationStatusOptionOutput.jsonld-Organization.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    }
-                },
-                "summary": "List organization invitation statuses",
-                "description": "Returns invitation status values for filters and UI selects.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
                         "explode": false
                     }
                 ]
@@ -35877,74 +34910,6 @@
                 ]
             }
         },
-        "/api/users/statuses": {
-            "get": {
-                "operationId": "user_list_statuses",
-                "tags": [
-                    "Users"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "User statuses retrieved successfully",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "type": "object",
-                                    "description": "UserStatus.UserStatusOptionOutput.jsonld-user.read collection.",
-                                    "allOf": [
-                                        {
-                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
-                                        },
-                                        {
-                                            "type": "object",
-                                            "required": [
-                                                "member"
-                                            ],
-                                            "properties": {
-                                                "member": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "$ref": "#/components/schemas/UserStatus.UserStatusOptionOutput.jsonld-user.read"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Authentication required"
-                    },
-                    "403": {
-                        "description": "Insufficient permissions"
-                    }
-                },
-                "summary": "List user statuses",
-                "description": "Returns supported user statuses for filters and select inputs. Requires users.read permission.",
-                "parameters": [
-                    {
-                        "name": "page",
-                        "in": "query",
-                        "description": "The collection page number",
-                        "required": false,
-                        "deprecated": false,
-                        "schema": {
-                            "type": "integer",
-                            "default": 1
-                        },
-                        "style": "form",
-                        "explode": false
-                    }
-                ],
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
         "/api/users/{id}": {
             "get": {
                 "operationId": "user_get",
@@ -39506,29 +38471,6 @@
                     }
                 }
             },
-            "ChecklistCatalog.InspectionOptionOutput.jsonld-inspection.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data used by checklist forms and filters."
-            },
             "ChecklistItemInput-inspection.write": {
                 "type": "object",
                 "required": [
@@ -41483,29 +40425,6 @@
                 ],
                 "description": "Maintenance windows recorded for equipment items."
             },
-            "EquipmentStatus.EquipmentStatusOptionOutput.jsonld-equipment.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Equipment status catalog (read-only)."
-            },
             "EquipmentTag.AddTagInput-equipment.write": {
                 "type": "object",
                 "description": "Tags associated with equipment items.",
@@ -41553,31 +40472,6 @@
                     }
                 ],
                 "description": "Tags associated with equipment items."
-            },
-            "EquipmentType.EquipmentTypeOutput.jsonld-equipment.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "description": "Property value.",
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "description": "Property label.",
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Equipment type catalog (read-only)."
             },
             "Error": {
                 "type": "object",
@@ -42350,29 +41244,6 @@
                     }
                 }
             },
-            "FacilityStatus.FacilityStatusOptionOutput.jsonld-facility.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data for facility statuses."
-            },
             "FacilityTree.FacilityTreeOutput.jsonld": {
                 "allOf": [
                     {
@@ -42427,31 +41298,6 @@
                     }
                 ],
                 "description": "Enriched facility hierarchy (Site/Building/Floor/Zone) with per-node equipment count and compliance verdict/rate, batched by facility-id list. Requires organization.compliance.read."
-            },
-            "FacilityType.FacilityTypeOptionOutput.jsonld-facility.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "description": "Property value.",
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "description": "Property label.",
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data for facility types."
             },
             "Health.HealthOutput.jsonld-health.read_health.read.details": {
                 "allOf": [
@@ -43292,29 +42138,6 @@
                     }
                 ],
                 "description": "File attachments linked to an inspection or a non-conformity."
-            },
-            "InspectionCatalog.InspectionOptionOutput.jsonld-inspection.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data used by inspection forms and filters."
             },
             "InspectionResponse.CreateInspectionResponseInput": {
                 "type": "object",
@@ -45520,41 +44343,6 @@
                         ]
                     }
                 }
-            },
-            "InterventionType.InterventionTypeOutput.jsonld": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "description": "Property id.",
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "description": "Property label.",
-                                "default": "",
-                                "type": "string"
-                            },
-                            "description": {
-                                "description": "Property description.",
-                                "default": "",
-                                "type": "string"
-                            },
-                            "actions": {
-                                "description": "Property actions.",
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                ],
-                "description": "Resource InterventionTypeResource."
             },
             "InterventionWorkItem.CreateInterventionWorkItemInput": {
                 "type": "object",
@@ -47909,29 +46697,6 @@
                         "type": "string"
                     }
                 }
-            },
-            "NonConformityCatalog.InspectionOptionOutput.jsonld-inspection.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data used by non-conformity forms and filters."
             },
             "Notification.MarkAllNotificationsAsReadOutput.jsonld-notification.mark_all_as_read": {
                 "allOf": [
@@ -50386,31 +49151,6 @@
                 ],
                 "description": "Organization invitation management."
             },
-            "OrganizationInvitationStatus.OrganizationInvitationStatusOptionOutput.jsonld-Organization.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "description": "Property value.",
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "description": "Property label.",
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data for organization invitation statuses."
-            },
             "OrganizationLegalType.OrganizationLegalTypeOptionOutput.jsonld-Organization.read": {
                 "allOf": [
                     {
@@ -51437,29 +50177,6 @@
                         "$ref": "#/components/schemas/OrganizationAssistantSettingsOutput.jsonld-Organization.read"
                     }
                 }
-            },
-            "OrganizationStatus.OrganizationStatusOptionOutput.jsonld-Organization.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data for organization statuses."
             },
             "OtpConfig.ChannelOutput.jsonld": {
                 "allOf": [
@@ -54089,29 +52806,6 @@
                 ],
                 "description": "Resource UserResource."
             },
-            "UserStatus.UserStatusOptionOutput.jsonld-user.read": {
-                "allOf": [
-                    {
-                        "$ref": "#/components/schemas/HydraItemBaseSchema"
-                    },
-                    {
-                        "type": "object",
-                        "properties": {
-                            "value": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            },
-                            "label": {
-                                "readOnly": true,
-                                "default": "",
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "description": "Reference data for user statuses."
-            },
             "WebhookDelivery.WebhookDeliveryOutput.jsonld-Webhook.read": {
                 "allOf": [
                     {
@@ -54516,11 +53210,11 @@
         },
         {
             "name": "Organization",
-            "description": "Reference data for organization statuses."
+            "description": "Organization management and membership entry points."
         },
         {
             "name": "Organization Invitations",
-            "description": "Reference data for organization invitation statuses."
+            "description": "Organization invitation management."
         },
         {
             "name": "Organization Permissions",
@@ -54544,11 +53238,11 @@
         },
         {
             "name": "Facility",
-            "description": "Reference data for facility types."
+            "description": "Generic organizational facilities (site/building/floor/zone/area)."
         },
         {
             "name": "Equipment",
-            "description": "Equipment type catalog (read-only)."
+            "description": "Tags associated with equipment items."
         },
         {
             "name": "Media",
@@ -54565,10 +53259,6 @@
         {
             "name": "InspectionResponse",
             "description": "Resource InspectionResponseResource."
-        },
-        {
-            "name": "NonConformity",
-            "description": "Reference data used by non-conformity forms and filters."
         },
         {
             "name": "InterventionActivity",
@@ -54605,10 +53295,6 @@
         {
             "name": "InterventionTemplate",
             "description": "Resource InterventionTemplateResource.\n\nOrganization-scoped intervention templates: reusable blueprints (type,\npriority, defaults, planned items) instantiated into real intervention\ndrafts (without recurrence \u2014 see the module changelog for later lots)."
-        },
-        {
-            "name": "InterventionType",
-            "description": "Resource InterventionTypeResource."
         },
         {
             "name": "InterventionWorkItem",
@@ -54720,7 +53406,7 @@
         },
         {
             "name": "Users",
-            "description": "Reference data for user statuses."
+            "description": "Resource UserResource."
         },
         {
             "name": "Password Reset",

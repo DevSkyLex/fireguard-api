@@ -17,11 +17,7 @@ final class OrganizationOperations
 {
   public const string CREATE_ORGANIZATION = 'createOrganization';
 
-  public const string LIST_ORGANIZATION_STATUSES = 'listOrganizationStatuses';
-
   public const string LIST_ORGANIZATION_LEGAL_TYPES = 'listOrganizationLegalTypes';
-
-  public const string LIST_ORGANIZATION_INVITATION_STATUSES = 'listOrganizationInvitationStatuses';
 
   public const string LIST_USER_ORGANIZATIONS = 'listUserOrganizations';
 

@@ -30,28 +30,6 @@ final class OrganizationApiTest extends WebTestCase
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   #[Test]
-  public function testListOrganizationStatusesRequiresAuthentication(): void
-  {
-    $client = static::createClient();
-
-    $client->request('GET', '/api/organizations/statuses');
-
-    $statusCode = $client->getResponse()->getStatusCode();
-
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/statuses endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/statuses, got ' . $statusCode,
-    );
-  }
-
-  #[Test]
   public function testListOrganizationLegalTypesRequiresAuthentication(): void
   {
     $client = static::createClient();
@@ -70,28 +48,6 @@ final class OrganizationApiTest extends WebTestCase
       needle: $statusCode,
       haystack: [401, 403],
       message: 'Expected 401 or 403 for unauthenticated GET /organizations/legal-types, got ' . $statusCode,
-    );
-  }
-
-  #[Test]
-  public function testListOrganizationInvitationStatusesRequiresAuthentication(): void
-  {
-    $client = static::createClient();
-
-    $client->request('GET', '/api/organizations/invitation-statuses');
-
-    $statusCode = $client->getResponse()->getStatusCode();
-
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/invitation-statuses endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/invitation-statuses, got ' . $statusCode,
     );
   }
 

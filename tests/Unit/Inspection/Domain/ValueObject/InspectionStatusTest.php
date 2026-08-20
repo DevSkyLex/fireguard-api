@@ -51,13 +51,4 @@ final class InspectionStatusTest extends TestCase
     self::assertTrue(InspectionStatus::CANCELLED->isCancelled());
     self::assertFalse(InspectionStatus::DRAFT->isCancelled());
   }
-
-  #[Test]
-  public function itLabelsEveryCase(): void
-  {
-    self::assertSame('Draft', InspectionStatus::DRAFT->label());
-    self::assertSame('Submitted', InspectionStatus::SUBMITTED->label());
-    self::assertSame('Closed', InspectionStatus::CLOSED->label());
-    self::assertSame('Cancelled', InspectionStatus::CANCELLED->label());
-  }
 }

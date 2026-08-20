@@ -30,18 +30,6 @@ final class OrganizationPresentationFlowTest extends OAuth2WebTestCase
 {
   private const string OWNER_PASSWORD = 'OwnerPassword123!';
 
-  public function testOrganizationInvitationStatusesReferenceCatalogIsExposedToMembers(): void
-  {
-    $client = static::createClientWithFixtures();
-    $token = $this->authenticateOwner($client);
-
-    $data = $this->getJson($client, '/api/organizations/invitation-statuses', $token);
-    $this->assertArrayHasKey('member', $data, 'Invitation-status catalog should be a Hydra collection.');
-    $this->assertTrue(is_array($data['member'] ?? null), 'Invitation-status catalog member should be a list.');
-
-    $this->assertRequiresAuthentication($client, '/api/organizations/invitation-statuses');
-  }
-
   public function testOrganizationQuotaEndpointReturnsUsageForOwner(): void
   {
     $client = static::createClientWithFixtures();

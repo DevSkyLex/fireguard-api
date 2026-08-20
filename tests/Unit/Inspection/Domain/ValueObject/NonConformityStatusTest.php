@@ -37,13 +37,4 @@ final class NonConformityStatusTest extends TestCase
     self::assertFalse(NonConformityStatus::OPEN->isResolved());
     self::assertFalse(NonConformityStatus::IN_PROGRESS->isResolved());
   }
-
-  #[Test]
-  public function itLabelsEveryCase(): void
-  {
-    self::assertSame('Open', NonConformityStatus::OPEN->label());
-    self::assertSame('In progress', NonConformityStatus::IN_PROGRESS->label());
-    self::assertSame('Done', NonConformityStatus::DONE->label());
-    self::assertSame('Waived', NonConformityStatus::WAIVED->label());
-  }
 }

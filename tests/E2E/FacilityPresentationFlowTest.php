@@ -241,8 +241,6 @@ final class FacilityPresentationFlowTest extends OAuth2WebTestCase
     $attachmentId = '550e8400-e29b-41d4-a716-446655440002';
 
     $cases = [
-      ['GET', '/api/facilities/statuses'],
-      ['GET', '/api/facilities/types'],
       ['GET', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/children'],
       ['GET', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/descendants'],
       ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/archive'],

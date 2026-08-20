@@ -15,6 +15,11 @@ Main goals:
 
 ## API Endpoints
 
+Removed 2026-08-20: `GET /api/inspections/results`, `GET /api/inspections/statuses`,
+`GET /api/inspections/inspector-types`, `GET /api/checklists/statuses`, and
+`GET /api/non-conformities/statuses` (unconsumed reference catalogs; the frontend's
+localized typed registries are the source of these values).
+
 ### Inspections
 
 | Method | Path | Description |

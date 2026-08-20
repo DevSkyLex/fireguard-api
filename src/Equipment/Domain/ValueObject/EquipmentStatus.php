@@ -40,15 +40,5 @@ enum EquipmentStatus: string
   {
     return self::DECOMMISSIONED === $this;
   }
-
-  public function label(): string
-  {
-    return match ($this) {
-      self::IN_STOCK => 'In stock',
-      self::OPERATIONAL => 'Operational',
-      self::UNDER_MAINTENANCE => 'Under maintenance',
-      self::DECOMMISSIONED => 'Decommissioned',
-    };
-  }
   // #endregion
 }
