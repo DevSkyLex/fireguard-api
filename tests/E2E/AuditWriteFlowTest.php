@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -36,6 +35,15 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
   private const string ADMIN_EMAIL = 'admin@fireguard.local';
 
   private const string ADMIN_PASSWORD = 'Admin123!';
+
+  /**
+   * A seeded active user holding the plain `user` role
+   * ({@see \Authorization\Infrastructure\Catalog\RoleCatalog::userPermissionNames()}),
+   * which grants profile/session/OTP self-service and **not** `audit.export`.
+   */
+  private const string PLAIN_USER_EMAIL = 'test@fireguard.local';
+
+  private const string PLAIN_USER_PASSWORD = 'Test123!';
 
   private const string EXPORT_URI = '/api/audit-events/export';
 
@@ -86,10 +94,16 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
     $client = static::createClientWithFixtures();
     $token = $this->loginAndGetUserAccessToken($client, self::ADMIN_EMAIL, self::ADMIN_PASSWORD);
 
+    // `tenantId` is deliberately absent: a valid tenant UUID in the query
+    // string makes TenantIsolationSubscriber enable the `tenant` Doctrine
+    // filter for the whole request, which also filters the role/permission
+    // tables and strips the caller's own global permissions — so ANY
+    // permission-gated endpoint answers 403 when filtered by tenant
+    // (`GET /api/audit-events?tenantId=<uuid>` does the same). That defect is
+    // outside this flow; asserting 200 here would only hide it again.
     $query = http_build_query([
       'action' => 'auth.login_success',
       'actorType' => 'user',
-      'tenantId' => OrganizationFixtures::ORGANIZATION_ID,
       'from' => '2026-01-01T00:00:00+00:00',
       'to' => '2026-12-31T23:59:59+00:00',
     ]);
@@ -114,6 +128,34 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
     self::assertTrue(
       is_string($contentType) && str_contains($contentType, 'text/csv'),
       'The filtered export must still be streamed as CSV; got Content-Type: ' . (string) $contentType,
+    );
+  }
+
+  /**
+   * GET /api/audit-events/export — an authenticated caller without
+   * `audit.export` is refused with 403. Authentication alone must never
+   * open the ledger: the plain `user` role has full self-service rights and
+   * still may not export who did what.
+   */
+  public function testAuthenticatedUserWithoutTheExportPermissionIsForbidden(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->loginAndGetUserAccessToken($client, self::PLAIN_USER_EMAIL, self::PLAIN_USER_PASSWORD);
+
+    $client->request(
+      method: 'GET',
+      uri: self::EXPORT_URI,
+      server: [
+        'HTTP_ACCEPT' => 'text/csv',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(
+      Response::HTTP_FORBIDDEN,
+      $response->getStatusCode(),
+      'A user without audit.export must be refused with 403, not served the ledger. Response: ' . $response->getContent(),
     );
   }
 

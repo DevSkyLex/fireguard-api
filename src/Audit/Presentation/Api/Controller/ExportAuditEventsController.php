@@ -10,12 +10,14 @@ use Audit\Domain\Exception\AuditExportTooLargeException;
 use Audit\Presentation\Api\Service\{AuditEventCsvWriter, AuditEventExportCriteriaFactory};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnprocessableEntityHttpException};
+use Throwable;
 
 use function fclose;
 use function fopen;
@@ -30,8 +32,15 @@ use function sprintf;
  * uses for its non-resource binary `Response`). Kept thin: authenticate,
  * parse the same filters the list endpoint supports, ask the query bus (the
  * handler enforces the export's row cap), stream the CSV, and emit the
- * export's own audit event. `security: "is_granted('audit.export')"` on the
- * resource operation gates access before this controller ever runs.
+ * export's own audit event.
+ *
+ * The `audit.export` permission is checked **here**, not by the operation's
+ * `security:` metadata. API Platform evaluates `security:` inside the state
+ * provider chain ({@see \ApiPlatform\Symfony\Security\State\AccessCheckerProvider}),
+ * which this operation never enters: it declares `read: false` and a custom
+ * `controller:`, so the expression is documentation-only and every
+ * authenticated caller would otherwise stream the whole ledger. The metadata
+ * is kept for the OpenAPI contract; this check is what enforces it.
  *
  * @category Controller
  *
@@ -41,6 +50,22 @@ use function sprintf;
  */
 final class ExportAuditEventsController extends AbstractController
 {
+  use MessengerExceptionUnwrapperTrait;
+
+  // #region Constants
+  /**
+   * Constant EXPORT_PERMISSION.
+   *
+   * The RBAC permission the export requires — the same name the operation's
+   * `security:` metadata and the OpenAPI 403 description carry.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string EXPORT_PERMISSION = 'audit.export';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -80,13 +105,26 @@ final class ExportAuditEventsController extends AbstractController
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
+    if (!$this->security->isGranted(self::EXPORT_PERMISSION)) {
+      throw new AccessDeniedHttpException('Insufficient permissions (requires audit.export).');
+    }
+
     $criteria = $this->criteriaFactory->fromRequest($request);
 
     try {
       /** @var ExportAuditEventsResult $result */
       $result = $this->queryBus->ask(new ExportAuditEventsQuery(criteria: $criteria));
-    } catch (AuditExportTooLargeException $exception) {
-      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
+    } catch (Throwable $exception) {
+      // The query bus wraps handler exceptions (MessengerRuntimeException ->
+      // HandlerFailedException -> domain), so a direct catch of the domain
+      // exception never matches — unwrap the chain, or the documented 422
+      // degrades to a bare 500.
+      $tooLarge = $this->findException($exception, AuditExportTooLargeException::class);
+      if ($tooLarge instanceof AuditExportTooLargeException) {
+        throw new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $this->eventDispatcher->dispatch(new AuditEventsExportedEvent(
