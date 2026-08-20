@@ -21,6 +21,9 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
   InterventionLabelRecord,
   InterventionRecord,
+  InterventionRecurrenceRecord,
+  InterventionRecurrenceRunRecord,
+  InterventionTemplateRecord,
   InterventionWorkItemRecord
 };
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
@@ -73,6 +76,18 @@ final class InterventionViewMapperTest extends KernelTestCase
   private const string CHANGE_WITH_WORK_ITEM_ID = 'a10e8400-e29b-41d4-a716-446655440301';
 
   private const string CHANGE_WITHOUT_WORK_ITEM_ID = 'a10e8400-e29b-41d4-a716-446655440302';
+
+  /**
+   * An intervention the recurrence sweep materialized: a successful
+   * `intervention_recurrence_runs` row points at it.
+   */
+  private const string MATERIALIZED_INTERVENTION_ID = 'a10e8400-e29b-41d4-a716-446655440007';
+
+  private const string TEMPLATE_ID = 'a10e8400-e29b-41d4-a716-446655440401';
+
+  private const string RECURRENCE_ID = 'a10e8400-e29b-41d4-a716-446655440402';
+
+  private const string RECURRENCE_RUN_ID = 'a10e8400-e29b-41d4-a716-446655440403';
 
   private EntityManagerInterface $entityManager;
 
@@ -236,6 +251,41 @@ final class InterventionViewMapperTest extends KernelTestCase
     self::assertSame(1, $data['commentsCount']);
     self::assertFalse($data['hasSignature']);
     self::assertSame([], $data['labels']);
+    // Manually created: no run row links it to a recurrence.
+    self::assertNull($data['recurrence']);
+  }
+
+  #[Test]
+  public function testInterventionViewWithoutMetricsResolvesTheRecurrenceThatMaterializedIt(): void
+  {
+    $materialized = $this->entityManager->find(InterventionRecord::class, self::MATERIALIZED_INTERVENTION_ID);
+    self::assertInstanceOf(InterventionRecord::class, $materialized);
+
+    $view = $this->mapper->interventionView($materialized);
+
+    // `intervention_recurrence_runs` is the only link back to the series;
+    // before this, the row existed and nothing could read it.
+    self::assertSame(
+      expected: '/api/intervention-recurrences/' . self::RECURRENCE_ID,
+      actual: $view->data['recurrence'],
+      message: 'A materialized intervention must expose the recurrence that produced it.',
+    );
+  }
+
+  #[Test]
+  public function testInterventionViewWithPreloadedMetricsLeavesTheRecurrenceUnresolved(): void
+  {
+    $materialized = $this->entityManager->find(InterventionRecord::class, self::MATERIALIZED_INTERVENTION_ID);
+    self::assertInstanceOf(InterventionRecord::class, $materialized);
+
+    $view = $this->mapper->interventionView($materialized, new InterventionListMetrics());
+
+    // Deliberate: the list path would pay one extra query per row for a field
+    // no list renders. A client must not read this null as "not recurring".
+    self::assertNull(
+      actual: $view->data['recurrence'],
+      message: 'The paginated list path must not resolve the recurrence origin.',
+    );
   }
 
   #[Test]
@@ -346,6 +396,41 @@ final class InterventionViewMapperTest extends KernelTestCase
 
     $minimal = $this->newIntervention(self::MINIMAL_INTERVENTION_ID, 3, 'site_setup', $organization, $timestamp);
     $this->entityManager->persist($minimal);
+
+    // The recurrence chain: a template, the recurrence built on it, an
+    // intervention, and the successful run row that links the two. Only the
+    // run row carries the link — there is no column on `interventions`.
+    $materialized = $this->newIntervention(self::MATERIALIZED_INTERVENTION_ID, 4, 'site_setup', $organization, $timestamp);
+    $this->entityManager->persist($materialized);
+
+    $template = new InterventionTemplateRecord();
+    $template->id = self::TEMPLATE_ID;
+    $template->organization = $organization;
+    $template->name = 'Quarterly panel check';
+    $template->createdAt = $timestamp;
+    $template->updatedAt = $timestamp;
+    $this->entityManager->persist($template);
+
+    $recurrence = new InterventionRecurrenceRecord();
+    $recurrence->id = self::RECURRENCE_ID;
+    $recurrence->organization = $organization;
+    $recurrence->template = $template;
+    $recurrence->name = 'Quarterly panel check';
+    $recurrence->frequency = 'quarterly';
+    $recurrence->anchorDate = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $recurrence->nextOccurrenceAt = new DateTimeImmutable('2026-07-01T00:00:00+00:00');
+    $recurrence->createdAt = $timestamp;
+    $recurrence->updatedAt = $timestamp;
+    $this->entityManager->persist($recurrence);
+
+    $run = new InterventionRecurrenceRunRecord();
+    $run->id = self::RECURRENCE_RUN_ID;
+    $run->recurrence = $recurrence;
+    $run->occurrenceDate = new DateTimeImmutable('2026-04-01T00:00:00+00:00');
+    $run->status = 'succeeded';
+    $run->interventionId = self::MATERIALIZED_INTERVENTION_ID;
+    $run->createdAt = $timestamp;
+    $this->entityManager->persist($run);
 
     $label = new InterventionLabelRecord();
     $label->id = self::LABEL_ID;
@@ -500,6 +585,20 @@ final class InterventionViewMapperTest extends KernelTestCase
     );
     $connection->executeStatement(
       'DELETE FROM intervention_labels WHERE organization_id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    // Runs first: their FK to the recurrence is ON DELETE CASCADE, but the
+    // recurrence itself must go before the template it points at.
+    $connection->executeStatement(
+      'DELETE FROM intervention_recurrence_runs WHERE recurrence_id IN (SELECT id FROM intervention_recurrences WHERE organization_id = :organizationId)',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $connection->executeStatement(
+      'DELETE FROM intervention_recurrences WHERE organization_id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $connection->executeStatement(
+      'DELETE FROM intervention_templates WHERE organization_id = :organizationId',
       ['organizationId' => self::ORGANIZATION_ID],
     );
     $connection->executeStatement(

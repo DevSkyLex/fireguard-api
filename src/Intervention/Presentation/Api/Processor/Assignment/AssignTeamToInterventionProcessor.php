@@ -13,6 +13,7 @@ use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
@@ -44,11 +45,13 @@ final readonly class AssignTeamToInterventionProcessor implements ProcessorInter
    * @param CommandBusPort $commandBus the command bus
    * @param InterventionOutputFactory $mapper the intervention output mapper
    * @param Security $security the security service
+   * @param RevisionGuard $revisionGuard the optimistic-concurrency `If-Match` reader
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private InterventionOutputFactory $mapper,
     private Security $security,
+    private RevisionGuard $revisionGuard,
   ) {
   }
 
@@ -78,12 +81,19 @@ final readonly class AssignTeamToInterventionProcessor implements ProcessorInter
       throw new BadRequestHttpException('The intervention id URI parameter is required.');
     }
 
+    // Outside the try: 428/412 are the guard's own HTTP answers, not workflow
+    // exceptions to translate. The assignment writes `participants` through
+    // the same workflow mutation a manual edit uses, and that path refuses a
+    // mutation whose expected revision is unknown.
+    $expectedRevision = $this->revisionGuard->expectedRevision();
+
     try {
       /** @var AssignTeamToInterventionResult $result */
       $result = $this->commandBus->dispatch(new AssignTeamToInterventionCommand(
         userId: $user->getId(),
         interventionId: $interventionId,
         teamId: $data->teamId,
+        expectedRevision: $expectedRevision,
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

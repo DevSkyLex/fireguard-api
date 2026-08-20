@@ -56,4 +56,25 @@ final class InterventionNotFoundException extends RuntimeException
   {
     return new self(sprintf('Organization with ID "%s" not found.', $organizationId));
   }
+
+  /**
+   * Method forTeam.
+   *
+   * Builds the exception for a team the caller referenced by identifier in a
+   * payload — unknown, malformed, or owned by another organization.
+   *
+   * Deliberately the SAME class, and therefore the same 404, in all three
+   * cases: a distinct status for a real team would tell a caller which team
+   * identifiers exist outside their own organization.
+   *
+   * @since 1.2.0
+   *
+   * @param string $teamId the team identifier
+   *
+   * @return self the for team result
+   */
+  public static function forTeam(string $teamId): self
+  {
+    return new self(sprintf('Team with ID "%s" not found.', $teamId));
+  }
 }

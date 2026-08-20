@@ -16,6 +16,8 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
   InterventionLabelRecord,
   InterventionRecord,
+  InterventionRecurrenceRecord,
+  InterventionRecurrenceRunRecord,
   InterventionWorkItemRecord
 };
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -62,7 +64,7 @@ final readonly class InterventionViewMapper
    * @since 1.0.0
    *
    * @param InterventionRecord $intervention the intervention value
-   * @param ?InterventionListMetrics $metrics preloaded collection metrics
+   * @param ?InterventionListMetrics $metrics preloaded collection metrics; non-null marks the paginated list path
    *
    * @return InterventionWorkflowView the intervention view result
    */
@@ -89,6 +91,11 @@ final readonly class InterventionViewMapper
       ],
       $intervention->labels->toArray(),
     );
+    // Detail and write paths only. The recurrence origin is a per-row lookup
+    // in another table, and unlike commentsCount it answers a question the
+    // list never asks — adding it to the paginated path would buy a query per
+    // row for a field no row in a list renders.
+    $recurrenceId = null === $metrics ? $this->recurrenceIdOf($intervention->id) : null;
     if (null === $metrics) {
       $summary = $this->resources->summary($intervention->id);
       $workItems = $this->resources->workItemSummary($intervention->id);
@@ -140,6 +147,7 @@ final readonly class InterventionViewMapper
       'dueAt' => $intervention->dueAt?->format('c'),
       'reviewNote' => $intervention->reviewNote,
       'revision' => $intervention->revision,
+      'recurrence' => null === $recurrenceId ? null : '/api/intervention-recurrences/' . $recurrenceId,
       'facilitiesCount' => $facilitiesCount,
       'equipmentCount' => $equipmentCount,
       'inspectionsCount' => $inspectionsCount,
@@ -243,6 +251,35 @@ final readonly class InterventionViewMapper
       'payload' => $record->payload,
       'createdAt' => $record->createdAt->format('c'),
     ]);
+  }
+
+  /**
+   * Method recurrenceIdOf.
+   *
+   * Resolves the recurrence that materialized an intervention, through the
+   * `intervention_recurrence_runs` row the sweep wrote. Only a successful run
+   * carries an intervention id, so a failed occurrence never claims one.
+   *
+   * Manually created interventions — the overwhelming majority — have no run
+   * at all and answer `null`; API Platform then omits the field entirely.
+   *
+   * @since 1.2.0
+   *
+   * @param string $interventionId the intervention identifier
+   *
+   * @return ?string the owning recurrence identifier, or null when the intervention was not materialized
+   */
+  private function recurrenceIdOf(string $interventionId): ?string
+  {
+    $run = $this->entityManager->getRepository(InterventionRecurrenceRunRecord::class)->findOneBy([
+      'interventionId' => $interventionId,
+    ]);
+
+    if (!$run instanceof InterventionRecurrenceRunRecord || !$run->recurrence instanceof InterventionRecurrenceRecord) {
+      return null;
+    }
+
+    return $run->recurrence->id;
   }
 
   /**

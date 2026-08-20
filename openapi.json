@@ -20470,14 +20470,20 @@
                         },
                         "links": {}
                     },
+                    "412": {
+                        "description": "The intervention revision is stale"
+                    },
+                    "428": {
+                        "description": "If-Match header is required"
+                    },
                     "409": {
-                        "description": "The intervention has left the draft planning stage"
+                        "description": "The intervention is frozen: submitted (withdraw it to replan), published or abandoned"
                     },
                     "403": {
                         "description": "Insufficient permissions"
                     },
                     "404": {
-                        "description": "Intervention not found"
+                        "description": "Intervention or team not found, or outside the caller's organization"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -20502,8 +20508,20 @@
                     }
                 },
                 "summary": "Assign a team to an intervention",
-                "description": "Snapshot-expands the CURRENT active members of an organization team into the intervention participants list (union, deduped). Draft-only: requires organization.interventions.plan and is rejected once the intervention leaves draft.",
+                "description": "Snapshot-expands the CURRENT active members of an organization team into the intervention participants list (union, deduped). Requires organization.interventions.plan and an If-Match: \"revision-N\" header, since it writes participants through the same optimistic-concurrency path a manual edit uses. Participants stay assignable while the intervention is draft, planned, in_progress or changes_requested; the assignment is refused once it is submitted (frozen under review \u2014 withdraw it first) or published/abandoned (immutable). A teamId that does not exist in the caller's organization answers 404; 422 means the team exists but has no active members.",
                 "parameters": [
+                    {
+                        "name": "If-Match",
+                        "in": "header",
+                        "description": "The intervention revision being mutated, as `\"revision-N\"`.",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
                     {
                         "name": "id",
                         "in": "path",
@@ -42597,6 +42615,13 @@
                                 "default": 1,
                                 "type": "integer"
                             },
+                            "recurrence": {
+                                "description": "Property recurrence.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "allowedTransitions": {
                                 "description": "Property allowedTransitions.",
                                 "type": "array",
@@ -43770,7 +43795,7 @@
             },
             "InterventionTeamAssignment.AssignInterventionTeamInput": {
                 "type": "object",
-                "description": "Resource InterventionTeamAssignmentResource.\n\nSnapshot-expands an organization team's active members into an\nintervention's participants list (draft-only, requires\norganization.interventions.plan). Kept as a dedicated resource file to\navoid growing the large {@see InterventionResource}.",
+                "description": "Resource InterventionTeamAssignmentResource.\n\nSnapshot-expands an organization team's active members into an\nintervention's participants list (requires\norganization.interventions.plan). Participants follow the schedule\nmutability guard {@see \\Intervention\\Domain\\Model\\Intervention\\Intervention}\nenforces, not a draft-only freeze: the assignment stays possible through\n`planned`, `in_progress` and `changes_requested`, and is refused only once\nthe intervention is `submitted` (frozen under review) or `published` /\n`abandoned` (immutable). Kept as a dedicated resource file to avoid growing\nthe large {@see InterventionResource}.",
                 "required": [
                     "teamId"
                 ],
@@ -43883,6 +43908,13 @@
                                 "default": 1,
                                 "type": "integer"
                             },
+                            "recurrence": {
+                                "description": "Property recurrence.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "allowedTransitions": {
                                 "description": "Property allowedTransitions.",
                                 "type": "array",
@@ -43968,7 +44000,7 @@
                         }
                     }
                 ],
-                "description": "Resource InterventionTeamAssignmentResource.\n\nSnapshot-expands an organization team's active members into an\nintervention's participants list (draft-only, requires\norganization.interventions.plan). Kept as a dedicated resource file to\navoid growing the large {@see InterventionResource}."
+                "description": "Resource InterventionTeamAssignmentResource.\n\nSnapshot-expands an organization team's active members into an\nintervention's participants list (requires\norganization.interventions.plan). Participants follow the schedule\nmutability guard {@see \\Intervention\\Domain\\Model\\Intervention\\Intervention}\nenforces, not a draft-only freeze: the assignment stays possible through\n`planned`, `in_progress` and `changes_requested`, and is refused only once\nthe intervention is `submitted` (frozen under review) or `published` /\n`abandoned` (immutable). Kept as a dedicated resource file to avoid growing\nthe large {@see InterventionResource}."
             },
             "InterventionTemplate.CreateInterventionTemplateInput": {
                 "type": "object",
@@ -53328,7 +53360,7 @@
         },
         {
             "name": "Interventions",
-            "description": "Resource InterventionTeamAssignmentResource.\n\nSnapshot-expands an organization team's active members into an\nintervention's participants list (draft-only, requires\norganization.interventions.plan). Kept as a dedicated resource file to\navoid growing the large {@see InterventionResource}."
+            "description": "Resource InterventionTeamAssignmentResource.\n\nSnapshot-expands an organization team's active members into an\nintervention's participants list (requires\norganization.interventions.plan). Participants follow the schedule\nmutability guard {@see \\Intervention\\Domain\\Model\\Intervention\\Intervention}\nenforces, not a draft-only freeze: the assignment stays possible through\n`planned`, `in_progress` and `changes_requested`, and is refused only once\nthe intervention is `submitted` (frozen under review) or `published` /\n`abandoned` (immutable). Kept as a dedicated resource file to avoid growing\nthe large {@see InterventionResource}."
         },
         {
             "name": "InterventionTemplate",

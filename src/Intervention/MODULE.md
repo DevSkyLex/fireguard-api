@@ -242,6 +242,26 @@ Every processed occurrence (success or failure) also dispatches
 `intervention.recurrence_materialized` for the audit ledger, with a system
 actor.
 
+#### Reading the origin back
+
+`intervention_recurrence_runs` is the only link from a materialized
+intervention back to its series — there is no column on `interventions`, on
+purpose: the link belongs to the run that created it, and a recurrence
+deleted later must not leave a dangling reference on the intervention.
+
+`InterventionOutput.recurrence` exposes that link as the recurrence IRI, so a
+client can show where a scheduled intervention came from. It is resolved in
+`InterventionViewMapper::interventionView()` **only on the metrics-less
+branch** — the detail read and the write responses — because it costs one
+query against the runs table and no paginated list renders it. On the
+collection path the field is left unset, which API Platform omits along with
+every other null: a client must not read its absence in a list as "not
+recurring". A manually created intervention has no run row and omits the
+field everywhere.
+
+A failed run carries no intervention id, so a failed occurrence never claims
+an intervention it did not create.
+
 The reservation step (`reserveRun`) deliberately uses a raw DBAL statement
 rather than the ORM's `persist()`/`flush()`: the sweep processes many
 recurrences per request, and a unique-constraint violation raised during an
@@ -295,20 +315,53 @@ processed independently to keep memory bounded.
 resolves the intervention's context (organization, current `participants`)
 through the existing `InterventionWorkflowGatewayPort`, checks
 `organization.interventions.plan` (the same "prepare and assign" permission
-templates/recurrences use), then reads the team's CURRENT active member ids
+templates/recurrences use), then resolves the team
 through Organization's inbound `Organization\Application\Port\Inbound\TeamDirectoryPort`
-(`listActiveMemberIds`) — consumed directly cross-module, exactly like
+(`resolveTeam`) — consumed directly cross-module, exactly like
 `OrganizationAuthorizationPort`; no new Organization adapter, no Intervention
-Domain change. The union of the existing `participants` and the team's
+Domain change. `resolveTeam` rather than the port's `listActiveMemberIds`
+because the latter flattens an unknown, malformed or foreign team into the
+same empty list an existing team with no active members returns, and the two
+are distinct answers here (`404` and `422`, table below). The
+union of the existing `participants` and the team's
 active member ids (deduplicated) is applied through the **existing**
 `MutateInterventionWorkflowCommand` (`resource: 'intervention', action: 'update'`,
 `payload: ['participants' => ...]`), so numbering, activities, ETag/revision
-bumps, and the planning freeze (`Intervention::assertPlanningMutable`) all
-apply identically to a manual participants edit: the assignment is only
-possible while the intervention is `draft`, otherwise it fails the same way
-a manual participants PATCH would (`409 Conflict`). An empty team (no
-active members) is rejected with `422 Unprocessable Entity` rather than
-silently no-op'ing.
+bumps, and the schedule mutability guard (`Intervention::assertScheduleMutable`,
+the participants row of the mutability matrix below) all apply identically to
+a manual participants edit — **including the optimistic-concurrency
+precondition**: the processor reads `If-Match: "revision-N"` through
+`RevisionGuard` and forwards it as the command's `expectedRevision`, exactly
+as `InterventionProcessor` does for a `PATCH`. Participants are **not**
+draft-only: the
+assignment stays possible while the intervention is `draft`, `planned`,
+`in_progress` or `changes_requested`, and fails the same way a manual
+participants PATCH would (`409 Conflict`) once it is `submitted` (frozen
+under review — withdraw it to replan) or `published` / `abandoned`
+(immutable).
+
+| Status | When |
+| --- | --- |
+| 200 | Team assigned; the updated intervention is returned |
+| 403 | Authenticated member of the organization without `organization.interventions.plan` |
+| 404 | Unknown intervention, an intervention outside the caller's organization, or a `teamId` unknown or owned by another organization |
+| 409 | The intervention is `submitted`, `published` or `abandoned` |
+| 412 | `If-Match` names a revision the intervention has moved past |
+| 422 | The team exists in the organization but has no active members (a malformed `teamId` is caught earlier by the input validator, also 422) |
+| 428 | No `If-Match` header |
+
+The 404 covers the team as well as the intervention on purpose: a distinct
+status for a team that exists elsewhere would tell a caller which team
+identifiers are real outside their own organization. An empty team is a
+`422` rather than a silent no-op, so a caller who assigned nothing learns
+that nothing was assigned.
+
+> The `expectedRevision` wiring is recent. Until then the processor never
+> read `If-Match` and the handler passed `expectedRevision: null`, which
+> `DoctrineInterventionWorkflowGatewayAdapter::assertRevision()` refuses
+> outright — the endpoint answered `428` to every call and could not
+> succeed. The only test it had asserted the authentication guard, which
+> passes before the mutation is ever reached.
 
 This is a deliberate **snapshot**, not a dynamic/live binding: expansion
 happens once, at assignment time. A later team-membership change never
@@ -1272,7 +1325,13 @@ exactly like labels):
   recurrence still references it. `intervention_recurrence_runs.recurrence_id`
   cascades on delete. The unique constraint
   `uniq_intervention_recurrence_run_occurrence (recurrence_id, occurrence_date)`
-  is the materializer's idempotence guard.
+  is the materializer's idempotence guard, and
+  `idx_intervention_recurrence_run_intervention (intervention_id)`
+  (`migrations/main/Version20260818120000.php`) backs the reverse lookup the
+  intervention detail read uses to expose `InterventionOutput.recurrence`.
+  Note `intervention_id` is a **plain column, not a foreign key**: deleting a
+  materialized intervention leaves its run row intact as the audit record
+  that the occurrence was processed.
 - `intervention_label_assignments` is the `Intervention` ↔ `InterventionLabel`
   many-to-many join table, owning side on `InterventionRecord::$labels`; both
   join columns cascade on delete.
@@ -1460,7 +1519,11 @@ pulled this document" traceability.
   intervention's own signature only (scoped correctly across interventions,
   `null`/`false` when none exists).
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
-  `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
+  `tests/Functional/Api/InterventionTeamAssignmentApiTest.php` — the full
+  status table above: 200 on `draft` **and** on `planned` (the guard against
+  re-tightening the assignment to draft-only), 403 unentitled, 404 for an
+  intervention or a team outside the caller's organization, 409 on
+  `submitted`, 412 stale, 422 empty team, 428 without `If-Match`;
   `tests/Functional/Api/InterventionAttachmentApiTest.php`,
   `tests/Functional/Api/InterventionStatisticsApiTest.php` — 200 with the
   full shape (all 7 status keys, all 4 priority keys, `bySite` name

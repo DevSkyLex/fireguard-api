@@ -126,6 +126,23 @@ final class InterventionOutput
   public int $revision = 1;
 
   /**
+   * Property recurrence.
+   *
+   * IRI of the recurrence that materialized this intervention, letting a
+   * client show where a scheduled intervention came from and link back to the
+   * series. Null — and therefore absent from the payload, since API Platform
+   * omits null fields — for a manually created intervention.
+   *
+   * **Detail reads only.** Resolving it costs a query against
+   * `intervention_recurrence_runs`, so the paginated collection leaves it
+   * unset rather than paying that per row; a client must not read its absence
+   * in a list as "not recurring".
+   *
+   * @since 1.2.0
+   */
+  public ?string $recurrence = null;
+
+  /**
    * Property allowedTransitions.
    *
    * Workflow-legal next statuses reachable from the current status, straight
