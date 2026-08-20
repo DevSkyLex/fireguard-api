@@ -14,6 +14,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use PHPUnit\Framework\Attributes\{CoversClass, IgnoreDeprecations, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -132,36 +133,95 @@ final class ExportAuditEventsControllerTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
 
-    $controller = new ExportAuditEventsController(
-      queryBus: $queryBus,
-      eventDispatcher: $this->createStub(EventDispatcherPort::class),
-      security: $security,
-      criteriaFactory: new AuditEventExportCriteriaFactory(),
-      csvWriter: new AuditEventCsvWriter(),
-    );
-
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $controller->__invoke(new Request());
+    $this->controllerWithSecurity($queryBus, $this->createStub(EventDispatcherPort::class), $security)
+      ->__invoke(new Request());
   }
 
   #[Test]
-  public function testItRefusesAnExportExceedingTheRowCap(): void
+  public function testItRefusesAnAuthenticatedCallerWithoutTheExportPermission(): void
   {
+    // The operation's `security: "is_granted('audit.export')"` metadata is
+    // inert — API Platform evaluates it inside the state provider chain, which
+    // a `read: false` operation with a custom controller never enters. The
+    // controller's own check is the only thing standing between an ordinary
+    // authenticated user and the whole ledger.
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Insufficient permissions (requires audit.export).');
+
+    $this->controllerWithSecurity($queryBus, $eventDispatcher, $this->security(isGranted: false))
+      ->__invoke(new Request());
+  }
+
+  #[Test]
+  public function testItRefusesAnExportExceedingTheRowCapThroughTheBusWrapping(): void
+  {
+    // The real query bus never surfaces the domain exception directly: Messenger
+    // wraps it in HandlerFailedException, re-wrapped by the adapter into
+    // MessengerRuntimeException. The controller must unwrap that chain, or the
+    // documented 422 degrades to a 500 with no RFC 7807 body.
     $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willThrowException(AuditExportTooLargeException::exceedsCap(120000, 100000));
+    $queryBus->method('ask')->willThrowException(new RuntimeException(
+      'Query handling failed.',
+      0,
+      new RuntimeException(
+        'Handler failed.',
+        0,
+        AuditExportTooLargeException::exceedsCap(120000, 50000),
+      ),
+    ));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('exceeding the 50000 row export cap');
+
+    $this->createController($queryBus, $eventDispatcher)->__invoke(new Request());
+  }
+
+  #[Test]
+  public function testItLetsAnUnrelatedBusFailureThrough(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('Database is down.'));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Database is down.');
 
     $this->createController($queryBus, $eventDispatcher)->__invoke(new Request());
   }
 
   private function createController(QueryBusPort $queryBus, EventDispatcherPort $eventDispatcher): ExportAuditEventsController
+  {
+    return new ExportAuditEventsController(
+      queryBus: $queryBus,
+      eventDispatcher: $eventDispatcher,
+      security: $this->security(isGranted: true),
+      criteriaFactory: new AuditEventExportCriteriaFactory(),
+      csvWriter: new AuditEventCsvWriter(),
+    );
+  }
+
+  /**
+   * A `Security` stub returning an authenticated auditor, granting or refusing
+   * `audit.export` as asked.
+   */
+  private function security(bool $isGranted): Security
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
@@ -172,7 +232,13 @@ final class ExportAuditEventsControllerTest extends TestCase
       scopes: [],
       isActive: true,
     ));
+    $security->method('isGranted')->willReturn($isGranted);
 
+    return $security;
+  }
+
+  private function controllerWithSecurity(QueryBusPort $queryBus, EventDispatcherPort $eventDispatcher, Security $security): ExportAuditEventsController
+  {
     return new ExportAuditEventsController(
       queryBus: $queryBus,
       eventDispatcher: $eventDispatcher,

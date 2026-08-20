@@ -39,6 +39,20 @@ as the list endpoint (`action`, `actorType`, `actorId`, `subjectType`,
 `AuditEventExportCriteriaFactory` so an export always matches what the caller
 is currently looking at.
 
+- **`audit.export` is enforced by the controller, not by the operation's
+  `security:` metadata.** API Platform evaluates `security:` inside the state
+  provider chain (`AccessCheckerProvider`), which a `read: false` operation
+  with a custom `controller:` never enters — the expression is
+  documentation-only. `ExportAuditEventsController` therefore checks
+  `ExportAuditEventsController::EXPORT_PERMISSION` itself before touching the
+  query bus. Any future export endpoint built on the same
+  `controller:` + `read: false` pattern must do the same, or every
+  authenticated caller streams the whole ledger.
+- **The row cap surfaces as 422 only because the controller unwraps the bus
+  exception chain.** `MessengerQueryBusAdapter` wraps every handler failure
+  (`MessengerRuntimeException` → `HandlerFailedException` → domain), so a
+  direct `catch (AuditExportTooLargeException)` is dead code.
+
 - **Format — CSV, not PDF.** The ledger is an append-only, tabular event log
   that auditors filter/pivot in a spreadsheet — CSV is the natural fit and
   needs no template rendering. A PDF renderer already exists in this codebase
