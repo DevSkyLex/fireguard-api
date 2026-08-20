@@ -128,6 +128,7 @@ final class AuditEventSubscriberTest extends TestCase
       'approval.approval_expired_event' => 'onApprovalExpired',
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
+      'intervention.interventions_exported_event' => 'onInterventionsExported',
     ], AuditEventSubscriber::getSubscribedEvents());
   }
 

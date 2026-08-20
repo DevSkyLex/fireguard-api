@@ -269,3 +269,6 @@ services:
 
   Intervention\Application\UseCase\Query\Workflow\GetInterventionStatistics\GetInterventionStatisticsHandler:
     tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\ExportInterventions\ExportInterventionsHandler:
+    tags: ['messenger.message_handler']

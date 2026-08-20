@@ -9,6 +9,7 @@ use DateTimeInterface;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
+use Intervention\Application\Contract\Export\InterventionExportCandidate;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowMutation,
@@ -280,6 +281,63 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }, $records);
 
     return new InterventionWorkflowPage($items, $page, $itemsPerPage, $total);
+  }
+
+  /**
+   * Method countInterventions.
+   *
+   * Executes the count interventions operation.
+   *
+   * @since 1.5.0
+   *
+   * @param string $organizationId the organization id value
+   * @param array<string, mixed> $filters the filters value
+   *
+   * @return int the count interventions result
+   */
+  public function countInterventions(string $organizationId, array $filters): int
+  {
+    $qb = $this->interventionListQuery($organizationId, $filters);
+
+    return (int) $qb->resetDQLPart('orderBy')->select('COUNT(m.id)')->getQuery()->getSingleScalarResult();
+  }
+
+  /**
+   * Method listInterventionExportCandidates.
+   *
+   * Executes the list intervention export candidates operation.
+   *
+   * @since 1.5.0
+   *
+   * @param string $organizationId the organization id value
+   * @param array<string, mixed> $filters the filters value
+   *
+   * @return list<InterventionExportCandidate> the list intervention export candidates result
+   */
+  public function listInterventionExportCandidates(string $organizationId, array $filters): array
+  {
+    $qb = $this->interventionListQuery($organizationId, $filters)
+      ->orderBy('m.updatedAt', 'DESC')
+      ->addOrderBy('m.id', 'ASC');
+
+    /** @var list<InterventionRecord> $records */
+    $records = $qb->getQuery()->getResult();
+
+    return array_map(
+      static fn (InterventionRecord $record): InterventionExportCandidate => new InterventionExportCandidate(
+        id: $record->id,
+        name: $record->name,
+        type: $record->type,
+        status: $record->status,
+        priority: $record->priority,
+        siteId: $record->siteId,
+        responsibleId: $record->responsibleId,
+        dueAt: $record->dueAt?->format(DateTimeInterface::ATOM),
+        createdAt: $record->createdAt->format(DateTimeInterface::ATOM),
+        updatedAt: $record->updatedAt->format(DateTimeInterface::ATOM),
+      ),
+      $records,
+    );
   }
 
   /**

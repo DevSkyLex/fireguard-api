@@ -17250,6 +17250,168 @@
                 }
             }
         },
+        "/api/interventions/export": {
+            "get": {
+                "operationId": "intervention_export",
+                "tags": [
+                    "Intervention"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV export streamed successfully"
+                    },
+                    "400": {
+                        "description": "Missing organization filter or an invalid enum filter value"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.interventions.read"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Export exceeds the row cap; narrow the filters and retry"
+                    },
+                    "204": {
+                        "description": "Intervention resource"
+                    }
+                },
+                "summary": "Export interventions (CSV)",
+                "description": "Streams a CSV export of interventions (Content-Disposition: attachment) for the given organization, using the same filter subset as the list endpoint. Requires `organization.interventions.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow with a shorter due date range or a more specific filter and retry.",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "query",
+                        "description": "Organization IRI.",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "Case-insensitive partial match on the intervention name.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Intervention type.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Intervention status.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "priority",
+                        "in": "query",
+                        "description": "Intervention priority: low, normal, high, urgent.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "site",
+                        "in": "query",
+                        "description": "Site (facility) IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "responsible",
+                        "in": "query",
+                        "description": "Responsible member IRI.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "dueAtAfter",
+                        "in": "query",
+                        "description": "Inclusive lower due-date bound.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "dueAtBefore",
+                        "in": "query",
+                        "description": "Inclusive upper due-date bound.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "due",
+                        "in": "query",
+                        "description": "Overdue shortcut: `overdue`, same definition as the list endpoint.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "overdue"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/interventions/statistics": {
             "get": {
                 "operationId": "intervention_get_statistics",

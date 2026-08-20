@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Intervention\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post, Put};
-use ApiPlatform\OpenApi\Model\{Operation, Parameter};
+use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response as OpenApiResponse};
+use Intervention\Application\UseCase\Query\ExportInterventions\ExportInterventionsHandler;
+use Intervention\Presentation\Api\Controller\ExportInterventionsController;
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionInput, UpdateInterventionInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Operation\InterventionOperations;
@@ -55,6 +57,48 @@ use Symfony\Component\HttpFoundation\Response;
         new Parameter(name: 'plannedStartAtAfter', in: 'query', description: 'Inclusive lower planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         new Parameter(name: 'plannedStartAtBefore', in: 'query', description: 'Inclusive upper planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
       ]),
+    ),
+    new Get(
+      name: InterventionOperations::EXPORT_INTERVENTIONS,
+      description: 'Streams a bounded CSV export of interventions using the same filter subset as the list endpoint.',
+      uriTemplate: '/interventions/export',
+      controller: ExportInterventionsController::class,
+      read: false,
+      write: false,
+      deserialize: false,
+      serialize: false,
+      output: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Intervention'],
+        summary: 'Export interventions (CSV)',
+        description: 'Streams a CSV export of interventions (Content-Disposition: attachment) for the given '
+          . 'organization, using the same filter subset as the list endpoint. Requires '
+          . '`organization.interventions.read` on the organization, resolved the same way the list endpoint '
+          . 'resolves it — a resource-level ROLE_USER check alone does not grant access. Bounded to '
+          . ExportInterventionsHandler::MAX_EXPORT_ROWS . ' matching rows — the request is rejected with 422 if '
+          . 'the filters match more; narrow with a shorter due date range or a more specific filter and retry.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+          new Parameter(name: 'name', in: 'query', description: 'Case-insensitive partial match on the intervention name.', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'type', in: 'query', description: 'Intervention type.', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'status', in: 'query', description: 'Intervention status.', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'priority', in: 'query', description: 'Intervention priority: low, normal, high, urgent.', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'site', in: 'query', description: 'Site (facility) IRI.', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'responsible', in: 'query', description: 'Responsible member IRI.', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'dueAtAfter', in: 'query', description: 'Inclusive lower due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'dueAtBefore', in: 'query', description: 'Inclusive upper due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'due', in: 'query', description: 'Overdue shortcut: `overdue`, same definition as the list endpoint.', required: false, schema: ['type' => 'string', 'enum' => ['overdue']]),
+        ],
+        responses: [
+          Response::HTTP_OK => new OpenApiResponse(description: 'CSV export streamed successfully'),
+          Response::HTTP_BAD_REQUEST => new OpenApiResponse(description: 'Missing organization filter or an invalid enum filter value'),
+          Response::HTTP_FORBIDDEN => new OpenApiResponse(description: 'Authenticated but missing organization.interventions.read'),
+          Response::HTTP_NOT_FOUND => new OpenApiResponse(description: 'The organization is outside the caller\'s scope'),
+          Response::HTTP_UNPROCESSABLE_ENTITY => new OpenApiResponse(description: 'Export exceeds the row cap; narrow the filters and retry'),
+        ],
+      ),
     ),
     new Get(name: InterventionOperations::GET_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),
     new Patch(name: InterventionOperations::UPDATE_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),

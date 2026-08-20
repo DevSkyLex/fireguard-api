@@ -39,6 +39,7 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`status`) |
 | PUT | `/interventions/{id}` | Upsert (offline replay path; `201`) |
 | DELETE | `/interventions/{id}` | Delete intervention |
+| GET | `/interventions/export` | Streams a bounded CSV export of interventions (see Export below) |
 | GET | `/interventions/{id}/issues` | List computed validation issues (blocker/warning/recommendation) |
 
 ### Work items (draft scope)
@@ -604,6 +605,55 @@ which reaches into the `auth` database's `User` module through
 `OrganizationMessagingMemberDirectoryAdapter::displayNamesFor` already uses,
 since `OrganizationMemberRecord` itself carries no display name).
 
+### Export (CSV)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/interventions/export` | Streams a bounded CSV export (filters: `organization` *(required)*, `name`, `type`, `status`, `priority` *(multi-value, 400 on an unknown value — same guard as the list endpoint)*, `site`, `responsible`, `dueAtAfter`, `dueAtBefore`, `due=overdue`) |
+
+**Synchronous and streamed — deliberately not 202+poll**, mirroring
+`Audit\...\ExportAuditEventsController`/`GET /audit-events/export`: the
+request is bounded by a hard row cap
+(`ExportInterventionsHandler::MAX_EXPORT_ROWS` = 50 000, checked with a cheap
+`COUNT` before a single row is fetched), so a background job is unnecessary —
+a request that would exceed the cap is rejected with `422` instead
+(`InterventionExportTooLargeException`), asking the caller to narrow the
+filters (a shorter due date range, or a specific facility/assignee) and
+retry.
+
+Filters are a **documented subset** of the list endpoint's full set
+(`name`, `type`, `status`, `priority`, `dueAtAfter`/`dueAtBefore`, `site`,
+`responsible`, `due=overdue`) — parsed by
+`InterventionExportCriteriaFactory`, deliberately not `participant`/`member`/
+`label`/`number`/`plannedStartAt*`, which the list endpoint additionally
+supports. Resource-level `is_granted('ROLE_USER')` is only the coarse gate:
+the `organization.interventions.read` entitlement and the organization scope
+check happen inside `ExportInterventionsHandler`, exactly like
+`ListInterventionWorkflowHandler`/`GetInterventionStatisticsHandler` — a
+member of the requested organization missing the entitlement gets `403`,
+while a caller outside the organization's scope gets `404`.
+
+CSV columns: `id`, `name`, `type`, `status`, `priority`, `facility`,
+`assignee`, `due_at`, `created_at`, `updated_at`. `facility`/`assignee` are
+resolved display names — falling back to the raw site/member identifier when
+the id is set but no longer resolvable (a deleted facility, a member who
+left), and to an empty cell only when the intervention carries no
+site/responsible at all. Names are resolved in exactly two bulk round trips
+(`InterventionSiteNamingPort::findNamesByIds()`,
+`InterventionMemberNamingPort::displayNamesFor()`) over the distinct
+identifiers in the matched page, never one query per row — the same
+naming ports the Statistics endpoint above already uses for its
+`bySite`/`byResponsible` breakdown.
+
+Ledger wiring: the export dispatches
+`Intervention\Domain\Event\Export\InterventionsExportedEvent` after
+streaming starts, recorded by `Audit\...\AuditEventSubscriber` as
+`intervention.list_exported` (subject: the organization; metadata:
+`row_count`, `filter_keys` — the applied filter **names** only, never their
+raw values), mirroring how the audit ledger records its own
+`audit.audit_events_exported_event` and how Compliance records
+`compliance.register_exported`.
+
 ## Flows
 
 ### Create / transition intervention (Command)
@@ -777,7 +827,7 @@ bug waiting for the backend to change underneath it:
 | Outbound port | Adapter |
 | --- | --- |
 | `InterventionResourceGatewayPort` | `DoctrineInterventionResourceGatewayAdapter` |
-| `InterventionWorkflowGatewayPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
+| `InterventionWorkflowGatewayPort` | `DoctrineInterventionWorkflowGatewayAdapter` — also backs `/interventions/export` via `countInterventions()`/`listInterventionExportCandidates()` |
 | `InterventionIssueQueryPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
 | `PublicationRepositoryPort` | `DoctrinePublicationAdapter` |
 | `PublicationQueuePort` | `MessengerPublicationQueueAdapter` |
@@ -787,8 +837,8 @@ bug waiting for the backend to change underneath it:
 | `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
 | `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
 | `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
-| `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves |
-| `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` |
+| `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves; also backs the `/interventions/export` `facility` column |
+| `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` — also backs the `/interventions/export` `assignee` column |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
 | `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
 | `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
@@ -1352,6 +1402,17 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   all: the handler resolves both cases through
   `OrganizationAuthorizationPort::resolveAccess()`, and `isOutsideScope()`
   maps to 404 so a non-member cannot confirm the organization even exists.
+  `tests/Functional/Api/InterventionExportApiTest.php` — 200 with the CSV
+  content type, the `Content-Disposition: attachment` header, the documented
+  header row, and one data row per matching intervention; 400 for an unknown
+  `status` filter value; 401 unauthenticated; 403 for a member without
+  `organization.interventions.read`. The 422 row-cap path (`MAX_EXPORT_ROWS`
+  is a class constant, not injectable) is covered instead by
+  `tests/Unit/Intervention/Application/UseCase/Query/ExportInterventions/ExportInterventionsHandlerTest.php`,
+  which also covers the bulk name resolution (and its raw-id fallback when a
+  site/member no longer resolves) and the `due=overdue` filter translation;
+  `tests/Unit/Intervention/Presentation/Api/Service/InterventionCsvWriterTest.php`
+  covers the CSV formatting itself.
   `tests/Functional/Api/InterventionOverdueFilterApiTest.php` — seeds
   interventions directly through the entity manager (like the statistics
   test, so a terminal status can carry a past due date without the workflow
@@ -1445,4 +1506,12 @@ Specializations (`InterventionBlockedException`,
 `InterventionResourceNotFoundException`, `PublicationNotFoundException`,
 `ClientResourceAlreadyExistsException`) resolve through their parent in the same
 mapper (conflict / precondition / not-found families).
+
+`InterventionExportTooLargeException` is caught explicitly in
+`ExportInterventionsController` (not through the trait, since it needs its
+own message rather than falling through to `InvalidArgumentException`'s 400)
+and mapped to **422 Unprocessable Entity** — thrown by
+`ExportInterventionsHandler` when the `/interventions/export` filters match
+more than `MAX_EXPORT_ROWS` (50 000) interventions, mirroring
+`Audit\Domain\Exception\AuditExportTooLargeException`.
 

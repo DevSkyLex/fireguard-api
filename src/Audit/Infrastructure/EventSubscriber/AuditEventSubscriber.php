@@ -26,6 +26,7 @@ use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent,
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
+use Intervention\Domain\Event\Export\InterventionsExportedEvent;
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
@@ -200,6 +201,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'approval.approval_expired_event' => 'onApprovalExpired',
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
+      'intervention.interventions_exported_event' => 'onInterventionsExported',
     ];
   }
 
@@ -2120,6 +2122,35 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'scope' => $event->scope,
         'plan_key' => $event->planKey,
         'generated_at' => $event->generatedAt,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onInterventionsExported.
+   *
+   * Records every CSV export of an organization's interventions — the
+   * intervention module auditing its own export action, mirroring
+   * {@see self::onAuditEventsExported()} and
+   * {@see self::onSafetyRegisterExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.5.0
+   *
+   * @param InterventionsExportedEvent $event the domain event
+   */
+  public function onInterventionsExported(InterventionsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'intervention.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
       ],
       occurredAt: $event->occurredAt,
       actorUserId: $event->actorUserId,

@@ -7,6 +7,7 @@ namespace Intervention\Presentation\Api\Trait;
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
   InterventionConflictException,
+  InterventionExportTooLargeException,
   InterventionNotFoundException,
   InterventionPreconditionFailedException,
   InterventionPreconditionRequiredException,
@@ -56,6 +57,7 @@ trait InterventionWorkflowExceptionMapperTrait
         $current instanceof InterventionPreconditionRequiredException => new PreconditionRequiredHttpException($current->getMessage(), $exception),
         $current instanceof InterventionPreconditionFailedException => new PreconditionFailedHttpException($current->getMessage(), $exception),
         $current instanceof InterventionValidationException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
+        $current instanceof InterventionExportTooLargeException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
         $current instanceof InterventionConflictException => new ConflictHttpException($current->getMessage(), $exception),
         $current instanceof InvalidArgumentException => new BadRequestHttpException($current->getMessage(), $exception),
         default => null,
