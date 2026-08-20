@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Port\Outbound;
 
+use Intervention\Application\Contract\Export\InterventionExportCandidate;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowMutation,
@@ -92,4 +93,41 @@ interface InterventionWorkflowGatewayPort
    * @return InterventionWorkflowPage the list result
    */
   public function list(string $resource, string $scopeId, array $filters, int $page, int $itemsPerPage, Sorting $sorting = new Sorting('updatedAt', SortDirection::DESC)): InterventionWorkflowPage;
+
+  /**
+   * Method countInterventions.
+   *
+   * Counts interventions matching the given organization and filters —
+   * exactly the same filter set {@see self::list()} applies for the
+   * `intervention` resource — without fetching a single row. Backs the CSV
+   * export's row cap, mirroring `AuditEventRepositoryPort::countMatching()`.
+   *
+   * @since 1.5.0
+   *
+   * @param string $organizationId the organization value
+   * @param array<string, mixed> $filters
+   *
+   * @return int the matching intervention count
+   */
+  public function countInterventions(string $organizationId, array $filters): int;
+
+  /**
+   * Method listInterventionExportCandidates.
+   *
+   * Lists every intervention matching the given organization and filters, in
+   * the CSV export's stable order (`updatedAt` DESC, `id` ASC), as
+   * lightweight {@see InterventionExportCandidate} rows — never the heavier
+   * {@see InterventionWorkflowView} the read endpoints use, which computes
+   * per-row aggregate counts ({@see self::list()}'s `metrics`) the export
+   * does not need. Callers must first bound the result with
+   * {@see self::countInterventions()}.
+   *
+   * @since 1.5.0
+   *
+   * @param string $organizationId the organization value
+   * @param array<string, mixed> $filters
+   *
+   * @return list<InterventionExportCandidate> the matching intervention rows
+   */
+  public function listInterventionExportCandidates(string $organizationId, array $filters): array;
 }

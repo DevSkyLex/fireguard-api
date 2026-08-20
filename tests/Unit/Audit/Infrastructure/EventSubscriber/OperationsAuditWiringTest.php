@@ -10,6 +10,7 @@ use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
 use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
 use DateTimeImmutable;
+use Intervention\Domain\Event\Export\InterventionsExportedEvent;
 use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
   InterventionRecurrenceDeletedEvent,
@@ -88,6 +89,26 @@ final class OperationsAuditWiringTest extends TestCase
       'intervention.recurrence_updated' => ['intervention_recurrence', 'rec-1', ['organization_id' => self::ORGANIZATION_ID]],
       'intervention.recurrence_deleted' => ['intervention_recurrence', 'rec-1', ['organization_id' => self::ORGANIZATION_ID]],
       'intervention.recurrence_materialized' => ['intervention_recurrence', 'rec-1', ['succeeded' => false, 'intervention_id' => null, 'error' => 'template removed', 'organization_id' => self::ORGANIZATION_ID]],
+    ];
+
+    $this->assertEventsProduce($events, $expected);
+  }
+
+  #[Test]
+  public function testInterventionsExportedEventProducesItsAuditRecord(): void
+  {
+    $events = [
+      'intervention.list_exported' => new InterventionsExportedEvent(
+        organizationId: self::ORGANIZATION_ID,
+        actorUserId: self::ACTOR_USER_ID,
+        format: 'csv',
+        rowCount: 42,
+        filterKeys: ['status', 'type'],
+      ),
+    ];
+
+    $expected = [
+      'intervention.list_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 42, 'filter_keys' => ['status', 'type'], 'organization_id' => self::ORGANIZATION_ID]],
     ];
 
     $this->assertEventsProduce($events, $expected);

@@ -121,6 +121,7 @@ final class OrganizationAuditMetadataProjection
     'intervention.recurrence_deleted' => [],
     // 'error' is raw exception text.
     'intervention.recurrence_materialized' => ['succeeded', 'intervention_id'],
+    'intervention.list_exported' => ['row_count', 'filter_keys'],
 
     // Maintenance
     'maintenance.schedule_overridden' => ['equipment_id', 'interval_override'],

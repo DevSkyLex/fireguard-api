@@ -165,6 +165,13 @@ and appends one ledger entry per action:
   (emitted by `MaterializeDueRecurrencesHandler` for every due occurrence it
   processes, success or failure; metadata: `succeeded`, `intervention_id`,
   `error`; actor is always `system`, since the recurring sweep has no user).
+- `intervention.list_exported` — every CSV export of an organization's
+  interventions (`GET /interventions/export`, the same synchronous,
+  streamed, row-capped pattern as `audit.audit_events_exported_event`);
+  subject is the organization; metadata: `row_count`, `filter_keys` (the
+  applied filter **names** only, never the raw values); actor is the
+  exporting user. Emitted by `ExportInterventionsController` after the
+  bounded result is fetched, before the response is streamed.
 - `automation.rule_*` — `rule_executed` (metadata: `rule_key`,
   `intervention_id`) and `rule_failed` (metadata: `rule_key`, `error`), both
   emitted by `ExecuteAutomationRuleHandler`; actor is always `system`

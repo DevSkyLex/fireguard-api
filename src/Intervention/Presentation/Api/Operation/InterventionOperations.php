@@ -59,6 +59,13 @@ final class InterventionOperations
    */
   public const string DELETE_INTERVENTION = 'intervention_delete';
 
+  /**
+   * Constant EXPORT_INTERVENTIONS.
+   *
+   * @var string
+   */
+  public const string EXPORT_INTERVENTIONS = 'intervention_export';
+
   // Intervention statistics
   /**
    * Constant GET_INTERVENTION_STATISTICS.
