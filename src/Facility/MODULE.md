@@ -289,12 +289,18 @@ unique per organization), `label`, `fieldType`
 `select`, ≥2 unique non-blank values), an optional `facilityType` scope
 (null = every type), `required`, and an optional `unit` (≤16 chars). Capped
 at **50** definitions per organization (`422` once reached).
-`GET /facility-metadata-fields` doubles as the frontend's form-schema source
-(`Facility\Presentation\Api\Dto\Output\MetadataField\FacilityMetadataFieldOutput`);
-it is a business resource, not a reference catalog, because the organization
-owns and edits its own values — so its provider gates on
-`organization.facilities.read` explicitly, the same 403-vs-404 scope rule as
-every other Facility provider (see below).
+`GET /facility-metadata-fields` is designed to serve as the frontend's
+form-schema source
+(`Facility\Presentation\Api\Dto\Output\MetadataField\FacilityMetadataFieldOutput`)
+— **no frontend surface consumes it today** (neither a schema-admin screen nor
+a schema-driven metadata form exists; the web app does not even render the
+free `metadata` field). Building that UI is explicitly out of scope for now
+(decision 2026-08-20); the contract stays because `FacilityMetadataSchemaGuard`
+enforces it server-side on every facility create/update, so the endpoints are
+load-bearing regardless of UI. It is a business resource, not a reference
+catalog, because the organization owns and edits its own values — so its
+provider gates on `organization.facilities.read` explicitly, the same
+403-vs-404 scope rule as every other Facility provider (see below).
 
 **Deleting a field definition does not touch any facility's stored
 `metadata` values** — they simply become "unschema'd" free-form entries
