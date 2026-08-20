@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -94,16 +95,14 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
     $client = static::createClientWithFixtures();
     $token = $this->loginAndGetUserAccessToken($client, self::ADMIN_EMAIL, self::ADMIN_PASSWORD);
 
-    // `tenantId` is deliberately absent: a valid tenant UUID in the query
-    // string makes TenantIsolationSubscriber enable the `tenant` Doctrine
-    // filter for the whole request, which also filters the role/permission
-    // tables and strips the caller's own global permissions — so ANY
-    // permission-gated endpoint answers 403 when filtered by tenant
-    // (`GET /api/audit-events?tenantId=<uuid>` does the same). That defect is
-    // outside this flow; asserting 200 here would only hide it again.
+    // `tenantId` also switches TenantIsolationSubscriber's `tenant` Doctrine
+    // filter on for the whole request. The authorization tables opt out of it
+    // through TenantFilterExempt, so the caller keeps its own grants and the
+    // export stays a 200 instead of the 403 this used to produce.
     $query = http_build_query([
       'action' => 'auth.login_success',
       'actorType' => 'user',
+      'tenantId' => OrganizationFixtures::ORGANIZATION_ID,
       'from' => '2026-01-01T00:00:00+00:00',
       'to' => '2026-12-31T23:59:59+00:00',
     ]);
@@ -156,6 +155,36 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
       Response::HTTP_FORBIDDEN,
       $response->getStatusCode(),
       'A user without audit.export must be refused with 403, not served the ledger. Response: ' . $response->getContent(),
+    );
+  }
+
+  /**
+   * GET /api/audit-events?tenantId=<uuid> — the sibling list endpoint stays
+   * readable under the same tenant scope. Both routes are permission-gated,
+   * and the `tenant` Doctrine filter must not reach the tables the caller's
+   * own grants are read from.
+   */
+  public function testAdminListsAuditEventsFilteredByTenant(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->loginAndGetUserAccessToken($client, self::ADMIN_EMAIL, self::ADMIN_PASSWORD);
+
+    $client->request(
+      method: 'GET',
+      uri: '/api/audit-events?' . http_build_query([
+        'tenantId' => OrganizationFixtures::ORGANIZATION_ID,
+      ]),
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(
+      Response::HTTP_OK,
+      $response->getStatusCode(),
+      'A tenant-filtered list should stay readable for an admin holding audit.read. Response: ' . $response->getContent(),
     );
   }
 

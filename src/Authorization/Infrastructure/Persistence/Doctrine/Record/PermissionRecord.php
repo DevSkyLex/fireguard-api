@@ -6,6 +6,7 @@ namespace Authorization\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
+use Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt;
 
 /**
  * Record PermissionRecord.
@@ -19,6 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ORM\Entity]
+#[TenantFilterExempt]
 #[ORM\Table(name: 'permissions')]
 #[ORM\UniqueConstraint(name: 'uniq_permissions_name', columns: ['name'])]
 class PermissionRecord
