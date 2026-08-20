@@ -102,6 +102,7 @@ final class AuditEventSubscriberTest extends TestCase
       'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
       'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
       'intervention.intervention_recurrence_materialized_event' => 'onInterventionRecurrenceMaterialized',
+      'intervention.intervention_report_exported_event' => 'onInterventionReportExported',
       'maintenance.maintenance_schedule_overridden_event' => 'onMaintenanceScheduleOverridden',
       'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
       'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
