@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maintenance\Application\UseCase\Query\Schedule\ListMaintenanceSchedules;
 
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort;
-use Maintenance\Domain\Exception\MaintenanceAccessDeniedException;
+use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 
@@ -45,7 +45,11 @@ final readonly class ListMaintenanceSchedulesHandler implements QueryHandler
    */
   public function __invoke(ListMaintenanceSchedulesQuery $query): ListMaintenanceSchedulesResult
   {
-    if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.maintenance.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $query->organizationId, 'organization.maintenance.read');
+    if ($decision->isOutsideScope()) {
+      throw MaintenanceNotFoundException::forOrganizationScope($query->organizationId);
+    }
+    if (!$decision->isGranted()) {
       throw new MaintenanceAccessDeniedException('Missing organization.maintenance.read permission.');
     }
 

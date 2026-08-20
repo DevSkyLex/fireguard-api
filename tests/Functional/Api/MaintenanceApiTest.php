@@ -20,8 +20,9 @@ use function json_decode;
  *
  * The Maintenance schedule/campaign HTTP contract, denial paths first:
  * 401 unauthenticated, 403 authenticated-but-unentitled, and 404 (not 403)
- * for a schedule owned by another organization — a 403 there would confirm
- * to an outsider that the schedule exists.
+ * for a schedule owned by another organization — or for a listing/campaign
+ * scoped to an organization the caller is not a member of — a 403 there
+ * would confirm to an outsider that the record or organization exists.
  *
  * @category Functional Tests
  *
@@ -152,6 +153,23 @@ final class MaintenanceApiTest extends WebTestCase
     $client->request('GET', '/api/maintenance/schedules?organization=' . self::ORGANIZATION_ID);
 
     self::assertSame(403, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+  }
+
+  #[Test]
+  public function testListMaintenanceSchedulesReturns404ForAnOrganizationTheCallerIsNotAMemberOf(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizations();
+    $this->seedSchedules();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'maintenance-admin@example.com');
+
+    $client->request('GET', '/api/maintenance/schedules?organization=' . self::OUTSIDER_ORGANIZATION_ID);
+
+    self::assertSame(
+      expected: 404,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A caller must get 404 (not 403) when listing schedules of an organization they are not a member of.',
+    );
   }
 
   #[Test]
@@ -293,6 +311,25 @@ final class MaintenanceApiTest extends WebTestCase
       expected: 403,
       actual: $client->getResponse()->getStatusCode(),
       message: 'Campaign generation requires organization.interventions.plan on top of organization.maintenance.manage. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testGenerateInspectionCampaignReturns404ForAnOrganizationTheCallerIsNotAMemberOf(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizations();
+    $this->seedSchedules();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'maintenance-admin@example.com');
+
+    $client->request('POST', '/api/maintenance/campaigns', server: [
+      'CONTENT_TYPE' => 'application/ld+json',
+    ], content: '{"organization":"/api/organizations/' . self::OUTSIDER_ORGANIZATION_ID . '","name":"Q1 Campaign","dueBefore":"2026-12-31T00:00:00+00:00"}');
+
+    self::assertSame(
+      expected: 404,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A caller must get 404 (not 403) when generating a campaign for an organization they are not a member of.',
     );
   }
 

@@ -30,11 +30,19 @@ Main goals:
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors the
-Intervention module's templates/labels). The by-id schedule handlers decide
-access through `OrganizationAuthorizationPort::resolveAccess()`: a schedule
-owned by an organization the caller has no active membership in yields the
-same 404 an unknown id produces (a 403 would confirm the schedule exists),
-while a member lacking the required permission gets 403.
+Intervention module's templates/labels). Every user-facing handler is
+scope-aware: the by-id and list schedule handlers decide access through
+`OrganizationAuthorizationPort::resolveAccess()`, and the campaign handler —
+which must assert two permissions — gates on
+`OrganizationAuthorizationPort::isMemberOf()` first. A schedule owned by, or a
+listing/campaign scoped to, an organization the caller has no active
+membership in yields the same 404 an unknown id produces
+(`MaintenanceNotFoundException::withId()` / `::forOrganizationScope()` — a 403
+would confirm the record or organization exists), while a member lacking the
+required permission gets 403. The invariant is pinned by
+`tests/Architecture/Unit/MaintenanceAuthorizationEnforcementTest.php`
+(`RecomputeMaintenanceSchedulesHandler`, the user-less system sweep, is the
+single justified exemption).
 
 ## Flows
 
@@ -80,7 +88,9 @@ everything page-wise (bounded memory):
 
 ### Generate an inspection campaign (synchronous)
 
-`GenerateInspectionCampaignHandler` asserts BOTH
+`GenerateInspectionCampaignHandler` gates on
+`OrganizationAuthorizationPort::isMemberOf()` first (a non-member gets 404,
+see API Endpoints above), then asserts BOTH
 `organization.maintenance.manage` and `organization.interventions.plan`
 (the draft factory itself does not authorize), selects `due_soon`/`overdue`
 schedules matching the given filters, and routes through
