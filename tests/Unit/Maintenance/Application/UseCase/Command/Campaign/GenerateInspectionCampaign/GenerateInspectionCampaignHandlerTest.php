@@ -14,7 +14,7 @@ use Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\
   GenerateInspectionCampaignHandler,
   GenerateInspectionCampaignResult
 };
-use Maintenance\Domain\Exception\MaintenanceValidationException;
+use Maintenance\Domain\Exception\{MaintenanceNotFoundException, MaintenanceValidationException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -69,6 +69,10 @@ final class GenerateInspectionCampaignHandlerTest extends TestCase
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
+      ->method('isMemberOf')
+      ->with(self::USER_ID, self::ORG_ID)
+      ->willReturn(true);
+    $authorization->expects(self::once())
       ->method('assertGrantedPermissions')
       ->with(self::USER_ID, self::ORG_ID, ['organization.maintenance.manage', 'organization.interventions.plan']);
 
@@ -103,6 +107,7 @@ final class GenerateInspectionCampaignHandlerTest extends TestCase
     $draftFactory->expects(self::never())->method('create');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -132,6 +137,7 @@ final class GenerateInspectionCampaignHandlerTest extends TestCase
     $draftFactory->expects(self::never())->method('create');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('assertGrantedPermissions')
       ->willThrowException(new OrganizationAccessDeniedException('Missing permission.'));
 
@@ -140,6 +146,40 @@ final class GenerateInspectionCampaignHandlerTest extends TestCase
     $handler = new GenerateInspectionCampaignHandler($schedules, $draftFactory, $authorization, $eventDispatcher);
 
     $this->expectException(OrganizationAccessDeniedException::class);
+
+    $handler->__invoke(new GenerateInspectionCampaignCommand(
+      organizationId: self::ORG_ID,
+      actorUserId: self::USER_ID,
+      name: 'Q1 Campaign',
+      facilityId: null,
+      equipmentType: null,
+      dueBefore: new DateTimeImmutable(),
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOrganization(): void
+  {
+    $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
+    $schedules->expects(self::never())->method('listDueForCampaign');
+
+    $draftFactory = $this->createMock(InterventionDraftFactoryPort::class);
+    $draftFactory->expects(self::never())->method('create');
+
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('isMemberOf')
+      ->with(self::USER_ID, self::ORG_ID)
+      ->willReturn(false);
+    $authorization->expects(self::never())->method('assertGrantedPermissions');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new GenerateInspectionCampaignHandler($schedules, $draftFactory, $authorization, $eventDispatcher);
+
+    $this->expectException(MaintenanceNotFoundException::class);
 
     $handler->__invoke(new GenerateInspectionCampaignCommand(
       organizationId: self::ORG_ID,

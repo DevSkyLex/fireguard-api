@@ -67,7 +67,11 @@ final readonly class SetMaintenanceScheduleOverrideHandler implements CommandHan
       throw MaintenanceNotFoundException::withId($command->scheduleId);
     }
 
-    if (!$this->authorization->hasPermission($command->userId, $schedule->organizationId, 'organization.maintenance.manage')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $schedule->organizationId, 'organization.maintenance.manage');
+    if ($decision->isOutsideScope()) {
+      throw MaintenanceNotFoundException::withId($command->scheduleId);
+    }
+    if (!$decision->isGranted()) {
       throw new MaintenanceAccessDeniedException('Missing organization.maintenance.manage permission.');
     }
 
