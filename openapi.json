@@ -24574,6 +24574,27 @@
                             }
                         },
                         "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
                     }
                 },
                 "summary": "Introspect Token",
@@ -24635,6 +24656,10 @@
                     },
                     "422": {
                         "description": "An error occurred",
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "links": {}
                     }
                 },

@@ -71,12 +71,15 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $accessToken = is_string($tokenValue) ? $tokenValue : '';
 
     // Step 2: Introspect token
+    $callerToken = $this->authenticateAsSeededAdmin($client);
+
     $client->request(
       method: 'POST',
       uri: '/api/oauth2/token/introspect',
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $callerToken,
       ],
       content: json_encode([
         'token' => $accessToken,
@@ -118,6 +121,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $callerToken,
       ],
       content: json_encode([
         'token' => $accessToken,
@@ -138,6 +142,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $callerToken,
       ],
       content: json_encode([
         'token' => $accessToken,
@@ -381,6 +386,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
   public function testIntrospectionWithInvalidToken(): void
   {
     $client = static::createClientWithFixtures();
+    $callerToken = $this->authenticateAsSeededAdmin($client);
 
     $client->request(
       method: 'POST',
@@ -388,6 +394,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $callerToken,
       ],
       content: json_encode([
         'token' => 'invalid_token_string',
@@ -411,6 +418,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
   public function testRevocationWithInvalidToken(): void
   {
     $client = static::createClientWithFixtures();
+    $callerToken = $this->authenticateAsSeededAdmin($client);
 
     $client->request(
       method: 'POST',
@@ -418,6 +426,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $callerToken,
       ],
       content: json_encode([
         'token' => 'invalid_token_string',
@@ -478,6 +487,8 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertCount(count($tokens), array_unique($tokens), 'All tokens should be unique');
 
     // All tokens should be valid
+    $callerToken = $this->authenticateAsSeededAdmin($client);
+
     foreach ($tokens as $token) {
       $client->request(
         method: 'POST',
@@ -485,6 +496,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
         server: [
           'CONTENT_TYPE' => 'application/ld+json',
           'HTTP_ACCEPT' => 'application/ld+json',
+          'HTTP_AUTHORIZATION' => 'Bearer ' . $callerToken,
         ],
         content: json_encode(['token' => $token]) ?: '',
       );
