@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Auth;
 
+use Auth\Infrastructure\Security\User\SecurityUser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -124,6 +125,7 @@ final class OAuth2FlowTest extends WebTestCase
    */
   public function testIntrospectionEndpointRequiresToken(): void
   {
+    $this->loginAsApiUser();
     $this->client?->request(
       method: 'POST',
       uri: '/api/oauth2/token/introspect',
@@ -143,6 +145,7 @@ final class OAuth2FlowTest extends WebTestCase
    */
   public function testIntrospectionEndpointReturnsInactiveForInvalidToken(): void
   {
+    $this->loginAsApiUser();
     $this->client?->request(
       method: 'POST',
       uri: '/api/oauth2/token/introspect',
@@ -170,6 +173,7 @@ final class OAuth2FlowTest extends WebTestCase
    */
   public function testRevocationEndpointAcceptsToken(): void
   {
+    $this->loginAsApiUser();
     $this->client?->request(
       method: 'POST',
       uri: '/api/oauth2/token/revoke',
@@ -231,6 +235,29 @@ final class OAuth2FlowTest extends WebTestCase
     $response = $this->client?->getResponse();
     $this->assertNotNull($response);
     $this->assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $response->getStatusCode());
+  }
+  // #endregion
+
+  // #region Helpers
+  /**
+   * Method loginAsApiUser.
+   *
+   * Authenticates the client against the stateless `api` firewall. Token
+   * revocation and introspection are RFC-restricted to authenticated callers,
+   * so every case exercising their payload contract has to sign in first —
+   * anonymously they answer 401 before the payload is ever read.
+   */
+  private function loginAsApiUser(): void
+  {
+    $this->client?->loginUser(
+      new SecurityUser(
+        id: '00000000-0000-4000-8000-000000000001',
+        email: 'oauth-flow@fireguard.test',
+        password: 'hashed-password',
+        roles: ['ROLE_USER'],
+      ),
+      'api',
+    );
   }
   // #endregion
 }

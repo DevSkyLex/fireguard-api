@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 use function json_decode;
 use function json_encode;
+use function sprintf;
 
 /**
  * Test OAuth2ApiTest.
@@ -23,6 +24,22 @@ use function json_encode;
 final class OAuth2ApiTest extends WebTestCase
 {
   // #region Properties
+  /**
+   * Constant TOKEN_ENDPOINT_INPUT_FORMATS.
+   *
+   * The body formats the revocation and introspection endpoints accept, mapped
+   * to a minimal payload. Denial tests iterate all of them: the two endpoints
+   * were reachable anonymously through the JSON body while the form body
+   * errored, so a single-format assertion would have missed the hole.
+   *
+   * @var array<string, string>
+   */
+  private const array TOKEN_ENDPOINT_INPUT_FORMATS = [
+    'application/ld+json' => '{"token":"test"}',
+    'application/json' => '{"token":"test"}',
+    'application/x-www-form-urlencoded' => 'token=test',
+  ];
+
   private ?KernelBrowser $client = null;
   // #endregion
 
@@ -132,6 +149,37 @@ final class OAuth2ApiTest extends WebTestCase
     $this->assertNotNull($response);
     $this->assertNotSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
   }
+
+  /**
+   * Method testIntrospectionEndpointRequiresAuthentication.
+   *
+   * Tests that introspection rejects an unauthenticated caller, in every input
+   * format it accepts. RFC 7662 restricts this endpoint to authenticated
+   * callers: an open one is an oracle that confirms whether a stolen token is
+   * live and discloses its scope, client and username.
+   */
+  public function testIntrospectionEndpointRequiresAuthentication(): void
+  {
+    foreach (self::TOKEN_ENDPOINT_INPUT_FORMATS as $contentType => $content) {
+      $this->client?->request(
+        method: 'POST',
+        uri: '/api/oauth2/token/introspect',
+        server: [
+          'CONTENT_TYPE' => $contentType,
+          'HTTP_ACCEPT' => 'application/ld+json',
+        ],
+        content: $content,
+      );
+
+      $response = $this->client?->getResponse();
+      $this->assertNotNull($response);
+      $this->assertSame(
+        Response::HTTP_UNAUTHORIZED,
+        $response->getStatusCode(),
+        sprintf('Introspection must reject an anonymous %s request.', $contentType),
+      );
+    }
+  }
   // #endregion
 
   // #region Revocation Endpoint Tests
@@ -155,6 +203,36 @@ final class OAuth2ApiTest extends WebTestCase
     $response = $this->client?->getResponse();
     $this->assertNotNull($response);
     $this->assertNotSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
+  }
+
+  /**
+   * Method testRevocationEndpointRequiresAuthentication.
+   *
+   * Tests that revocation rejects an unauthenticated caller, in every input
+   * format it accepts. An open revocation endpoint lets any caller invalidate
+   * another party's token on demand.
+   */
+  public function testRevocationEndpointRequiresAuthentication(): void
+  {
+    foreach (self::TOKEN_ENDPOINT_INPUT_FORMATS as $contentType => $content) {
+      $this->client?->request(
+        method: 'POST',
+        uri: '/api/oauth2/token/revoke',
+        server: [
+          'CONTENT_TYPE' => $contentType,
+          'HTTP_ACCEPT' => 'application/ld+json',
+        ],
+        content: $content,
+      );
+
+      $response = $this->client?->getResponse();
+      $this->assertNotNull($response);
+      $this->assertSame(
+        Response::HTTP_UNAUTHORIZED,
+        $response->getStatusCode(),
+        sprintf('Revocation must reject an anonymous %s request.', $contentType),
+      );
+    }
   }
   // #endregion
 

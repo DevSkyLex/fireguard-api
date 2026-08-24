@@ -38,6 +38,18 @@ abstract class OAuth2WebTestCase extends WebTestCase
 
   protected const string API_CLIENT_SECRET = 'api_secret_789';
 
+  /**
+   * Constant SEEDED_ADMIN_EMAIL.
+   *
+   * The fixtures account used to authenticate flows that need a real user.
+   */
+  protected const string SEEDED_ADMIN_EMAIL = 'admin@fireguard.local';
+
+  /**
+   * Constant SEEDED_ADMIN_PASSWORD.
+   */
+  protected const string SEEDED_ADMIN_PASSWORD = 'Admin123!';
+
   protected ?string $accessToken = null;
 
   /**
@@ -160,6 +172,51 @@ abstract class OAuth2WebTestCase extends WebTestCase
 
     // Clear entity manager to ensure fresh data
     $em->clear();
+  }
+
+  /**
+   * Sign a seeded user in and return their access token.
+   *
+   * Token revocation and introspection are restricted to authenticated
+   * callers, and a `client_credentials` token cannot stand in: the
+   * authenticator resolves a `sub` claim to a real user, which a machine token
+   * has none of. Flows exercising those two endpoints therefore log in first.
+   *
+   * @param KernelBrowser $client the E2E client
+   * @param string $email the seeded account's address
+   * @param string $password the seeded account's password
+   *
+   * @return string the bearer token to send on subsequent calls
+   */
+  protected function authenticateAsSeededAdmin(
+    KernelBrowser $client,
+    string $email = self::SEEDED_ADMIN_EMAIL,
+    string $password = self::SEEDED_ADMIN_PASSWORD,
+  ): string {
+    $client->request(
+      method: 'POST',
+      uri: '/api/auth/login',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'email' => $email,
+        'password' => $password,
+      ]) ?: '',
+    );
+
+    $response = $client->getResponse();
+    self::assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed for the seeded account. Response: ' . $response->getContent(),
+    );
+
+    $token = $this->decodeJsonResponse($response->getContent() ?: '{}')['access_token'] ?? null;
+    self::assertTrue(is_string($token) && '' !== $token, 'Login should return an access_token.');
+
+    return $token;
   }
 
   /**

@@ -224,6 +224,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: RevokeTokenProcessor::class,
+      security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['OAuth2'],
         summary: 'Revoke Token',
@@ -262,6 +263,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: IntrospectTokenProcessor::class,
+      security: "is_granted('ROLE_USER')",
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_WRITE]],
       openapi: new Operation(
