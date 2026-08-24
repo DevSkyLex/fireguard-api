@@ -74,6 +74,27 @@ Once a target organization is selected during onboarding, it is pinned in the se
 If the pinned organization is deleted externally, the flow resets to `create_organization`
 and does NOT silently switch to another organization the user may belong to.
 
+Only an organization created during the session is adopted as the pinned target. A
+pre-existing one is never pinned, because `rollback` of `create_organization` deletes
+the organization it pinned — adopting a production organization would put it within
+reach of that deletion.
+
+## Members Who Arrive Through an Invitation
+
+A member who accepted an invitation already has a workspace, and no organization was
+created during their session for the rule above to adopt. Their flow therefore completes
+immediately against the organization they belong to: `state` is `completed`, every step
+is marked done, and `rollbackStack` is cleared so that organization can never be deleted
+by a later rollback.
+
+Without this, such a member is sent to `create_organization` on every request. The
+frontend's `onboardingRequiredGuard` holds any non-completed record on the wizard, so
+they never reach a single page of the product — the whole seeded staff was locked out
+this way.
+
+Only a session that never pinned an organization qualifies. A pinned organization that
+disappeared keeps resetting the flow, as described above.
+
 ## Architecture
 
 - Presentation: API resource, provider, processors, DTOs
