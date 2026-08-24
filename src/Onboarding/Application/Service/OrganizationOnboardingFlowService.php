@@ -392,6 +392,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     $targetOrganization = $this->resolveTargetOrganization($session, $organizationsResult);
 
     if (!$targetOrganization instanceof GetOrganizationResult) {
+      $joinedOrganization = $this->resolveAlreadyJoinedOrganization($session, $organizationsResult);
+      if ($joinedOrganization instanceof GetOrganizationResult) {
+        return $this->completeForAlreadyJoinedOrganization($session, $joinedOrganization);
+      }
+
       $session->clearTargetOrganization();
       foreach (OrganizationOnboardingStep::all() as $step) {
         $session->markStepPending($step);
@@ -622,6 +627,86 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       lastRollbackableStep: $lastRollbackStep,
       dismissed: $session->isDismissed(),
       dismissedAt: $session->dismissedAt()?->format('c'),
+    );
+  }
+
+  /**
+   * Method resolveAlreadyJoinedOrganization.
+   *
+   * Finds the organization a member already belongs to without having created
+   * it here — the shape of an invitation: they accepted, so they have a
+   * workspace, but no organization was created during this onboarding session
+   * for {@see self::resolveTargetOrganization()} to adopt.
+   *
+   * Only a session that never pinned an organization qualifies. A pinned one
+   * that disappeared is a different story, and resetting the flow there stays
+   * deliberate.
+   *
+   * @since 1.2.0
+   *
+   * @param OrganizationOnboardingSession $session the onboarding session aggregate
+   * @param PaginatedResult<GetOrganizationResult> $organizationsResult the current organizations list
+   *
+   * @return ?GetOrganizationResult the membership to complete the flow against
+   */
+  private function resolveAlreadyJoinedOrganization(
+    OrganizationOnboardingSession $session,
+    PaginatedResult $organizationsResult,
+  ): ?GetOrganizationResult {
+    $pinnedOrganizationId = $session->targetOrganizationId();
+    if (is_string($pinnedOrganizationId) && '' !== $pinnedOrganizationId) {
+      return null;
+    }
+
+    $candidate = null;
+    foreach ($organizationsResult->items as $organization) {
+      if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
+        $candidate = $organization;
+      }
+    }
+
+    return $candidate;
+  }
+
+  /**
+   * Method completeForAlreadyJoinedOrganization.
+   *
+   * Closes the flow for a member who arrived through an invitation. Without
+   * this the activation wizard has no organization to adopt, resets to
+   * `create_organization`, and `onboardingRequiredGuard` holds the member on
+   * the wizard for good — locked out of every page of the product.
+   *
+   * The rollback stack is cleared rather than extended: this organization
+   * predates the session and must never become something a later rollback can
+   * delete, which is exactly why {@see self::resolveTargetOrganization()}
+   * refuses to adopt it in the first place.
+   *
+   * @since 1.2.0
+   *
+   * @param OrganizationOnboardingSession $session the onboarding session aggregate
+   * @param GetOrganizationResult $organization the organization the member already belongs to
+   *
+   * @return ComputedOnboardingState the completed flow state
+   */
+  private function completeForAlreadyJoinedOrganization(
+    OrganizationOnboardingSession $session,
+    GetOrganizationResult $organization,
+  ): ComputedOnboardingState {
+    $session->setTargetOrganization($organization->id, $organization->name);
+    $session->clearRollbackStack();
+
+    foreach (OrganizationOnboardingStep::all() as $step) {
+      $session->markStepCompleted($step);
+    }
+
+    $session->setCompleted();
+
+    return new ComputedOnboardingState(
+      state: OrganizationOnboardingState::COMPLETED,
+      nextStep: null,
+      blockedReason: null,
+      targetOrganizationId: $organization->id,
+      targetOrganizationName: $organization->name,
     );
   }
 
