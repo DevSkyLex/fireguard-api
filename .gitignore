@@ -18,6 +18,11 @@
 phpstan.neon
 ###< phpstan/phpstan ###
 
+# phpstan writes its report to stdout; redirecting it to a file is a debugging
+# habit, and one such dump reached the repository once. Kept outside the Flex
+# block above so `composer recipes:update` cannot drop it.
+.phpstan_*.json
+
 ###> jwt keys ###
 /config/jwt/
 ###< jwt keys ###
