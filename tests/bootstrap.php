@@ -417,6 +417,27 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
       ));
     }
 
+    // Refuse a DSN that names anything but a test database. `compose.yaml`
+    // exports AUTH_DATABASE_URL/MAIN_DATABASE_URL on the app container pointing
+    // at the *development* databases, and a real environment variable wins over
+    // `.env.test` — so running the suite inside the container (rather than on
+    // the host, as the Makefile does) silently asserts against development
+    // data. The suite still passes; only the exact-count assertions drift, in
+    // whichever direction that day's clicking happened to push them. Same
+    // failure mode as the SQLite fallback above: a green run that proved
+    // something other than what it claimed.
+    $databaseName = ltrim((string) (parse_url($databaseUrl, PHP_URL_PATH) ?? ''), '/');
+
+    if (!str_ends_with($databaseName, '_test') && !str_ends_with($databaseName, '_e2e')) {
+      throw new RuntimeException(sprintf(
+        '%s points at "%s", which is not a test database. Expected a name ending in _test or _e2e. '
+        . 'Run the suite on the host (`make test`), not inside the app container: compose exports '
+        . 'this variable pointing at the development database, and it overrides .env.test.',
+        $envVar,
+        '' === $databaseName ? '(none)' : $databaseName,
+      ));
+    }
+
     if ($usesOwnDatabases) {
       $_SERVER[$envVar] = $_ENV[$envVar] = fireguard_isolated_database_url($databaseUrl, (string) $testToken);
     }

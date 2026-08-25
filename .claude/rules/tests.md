@@ -49,6 +49,10 @@ A suite that only covers 200 proves the endpoint exists and nothing about who ma
 
 Setup: `make test-db` once, then `make seed-fixtures` (it knows about both databases). The suite runs on **PostgreSQL because production does** — never substitute SQLite.
 
+## Run the suite on the host, never inside the app container
+
+`make test` and `php vendor/bin/phpunit` are **host** commands. `compose.yaml` exports `AUTH_DATABASE_URL`/`MAIN_DATABASE_URL` on the `app` container pointing at the *development* databases, and a real environment variable beats `.env.test` — so `docker compose exec app make test` asserts against development data. The suite still goes green; only the exact-count assertions drift, by however many rows that day's clicking added. `tests/bootstrap.php` now refuses to start on a database whose name does not end in `_test` or `_e2e`, so the mistake fails loudly instead of lying.
+
 ## `phpunit` takes no `-d memory_limit` — `bin/console` does
 
 The rule that every backend command needs `-d memory_limit=1G` is about **`bin/console`**, which builds the container and dies at the 128 MB default. It does **not** extend to phpunit, and adding it there is a small regression: `permissions.allow` lists `Bash(php vendor/bin/phpunit:*)`, and the `php -d …` form does not match that prefix, so every test run starts asking for approval.
