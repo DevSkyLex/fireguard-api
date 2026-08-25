@@ -20,7 +20,7 @@ use Billing\Domain\ValueObject\SubscriptionId;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 
 /**
  * Test HandleStripeWebhookHandlerTest.
@@ -66,6 +66,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
 
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
@@ -103,6 +104,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
 
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
@@ -127,6 +129,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
 
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
