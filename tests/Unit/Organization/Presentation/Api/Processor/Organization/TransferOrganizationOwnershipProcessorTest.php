@@ -31,13 +31,9 @@ use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
-  BadRequestHttpException,
-  ConflictHttpException,
-  NotFoundHttpException,
-  UnprocessableEntityHttpException
+  BadRequestHttpException
 };
 use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 #[CoversClass(TransferOrganizationOwnershipProcessor::class)]
 final class TransferOrganizationOwnershipProcessorTest extends TestCase
@@ -115,7 +111,10 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(AccessDeniedHttpException::class);
+    // The processor no longer maps: `api_platform.exception_to_status` carries
+    // the 403 and `BusFailureUnwrappingSubscriber` unwraps the bus envelope.
+    // The unit's job is to let the domain exception through untouched.
+    $this->expectException(OrganizationAccessDeniedException::class);
 
     $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
@@ -129,7 +128,7 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectException(OrganizationDeletionConfirmationMismatchException::class);
 
     $processor->process($this->transferInput(slug: null), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
@@ -143,7 +142,7 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectException(OrganizationDeletionConfirmationMismatchException::class);
 
     $processor->process($this->transferInput(slug: 'wrong-slug'), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
@@ -157,7 +156,7 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
 
     $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
@@ -171,7 +170,7 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationMemberNotFoundException::class);
 
     $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
@@ -185,7 +184,7 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(ConflictHttpException::class);
+    $this->expectException(OrganizationArchivedException::class);
 
     $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
@@ -199,56 +198,15 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(ConflictHttpException::class);
+    $this->expectException(OrganizationOwnershipUnchangedException::class);
 
     $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
   }
 
-  #[Test]
-  public function testProcessThrowsForbiddenWhenAccessDeniedIsWrappedInMessengerRuntimeException(): void
-  {
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new TransferOrganizationOwnershipCommand(
-        organizationId: self::ORGANIZATION_ID,
-        actingUserId: self::USER_ID,
-        newOwnerUserId: self::NEW_OWNER_USER_ID,
-        slugConfirmation: 'fireguard-nice',
-      )),
-      [OrganizationAccessDeniedException::ownershipTransferRequiresCurrentOwner()],
-    );
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $processor = $this->createProcessor($commandBus);
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
-  }
-
-  #[Test]
-  public function testProcessThrowsConflictWhenArchivedIsWrappedInMessengerRuntimeException(): void
-  {
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new TransferOrganizationOwnershipCommand(
-        organizationId: self::ORGANIZATION_ID,
-        actingUserId: self::USER_ID,
-        newOwnerUserId: self::NEW_OWNER_USER_ID,
-        slugConfirmation: 'fireguard-nice',
-      )),
-      [OrganizationArchivedException::cannotTransferOwnership()],
-    );
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $processor = $this->createProcessor($commandBus);
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
-  }
+  // The two "…IsWrappedInMessengerRuntimeException" tests are gone: unwrapping
+  // is now `BusFailureUnwrappingSubscriber`'s job, covered by its own test and
+  // by the functional tests that exercise the real kernel. Re-asserting it here
+  // against a stub bus only froze the processor's former duplicate of it.
 
   #[Test]
   public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
@@ -280,7 +238,7 @@ final class TransferOrganizationOwnershipProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus, $queryBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
 
     $processor->process($this->transferInput(), new Post(), ['id' => self::ORGANIZATION_ID]);
   }

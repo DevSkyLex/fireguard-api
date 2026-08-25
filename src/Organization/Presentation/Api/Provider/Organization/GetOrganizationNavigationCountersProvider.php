@@ -8,13 +8,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\GetNavigationCounters\{GetNavigationCountersQuery, GetNavigationCountersResult};
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationNavigationCountersOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 
@@ -31,23 +28,6 @@ use function is_string;
  */
 final readonly class GetOrganizationNavigationCountersProvider implements ProviderInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The query bus wraps every handler-thrown exception into
-   * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so
-   * a direct `catch (OrganizationNotFoundException|OrganizationMemberNotFoundException)`
-   * around `queryBus->ask()` alone would never match at runtime — this trait
-   * (already used by `GetOrganizationDashboardProvider`) walks the wrapped
-   * exception's `getPrevious()`/`HandlerFailedException` chain to find the
-   * real domain exception underneath.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.

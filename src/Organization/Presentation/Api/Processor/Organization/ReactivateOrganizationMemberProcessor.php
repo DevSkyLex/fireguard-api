@@ -9,12 +9,7 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberResult};
-use Organization\Domain\Exception\{
-  OrganizationNotFoundException
-};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -34,24 +29,6 @@ use function is_string;
  */
 final readonly class ReactivateOrganizationMemberProcessor implements ProcessorInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The command bus wraps every handler-thrown exception into
-   * `MessengerRuntimeException` (see `MessengerCommandBusAdapter::dispatch()`),
-   * so a direct `catch (OrganizationNotFoundException|…)` around
-   * `commandBus->dispatch()` alone would never match at runtime — this trait
-   * walks the wrapped exception's `getPrevious()`/`HandlerFailedException`
-   * chain to find the real domain exception underneath. See
-   * `DeleteOrganizationProcessor` and `GetOrganizationNavigationCountersProvider`
-   * for the same pattern.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.

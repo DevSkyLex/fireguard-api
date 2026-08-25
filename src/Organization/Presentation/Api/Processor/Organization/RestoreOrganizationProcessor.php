@@ -10,15 +10,12 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RestoreOrganization\RestoreOrganizationCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationStatus;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -48,20 +45,6 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
    * @see OrganizationOutputMapperTrait
    */
   use OrganizationOutputMapperTrait;
-
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The bus adapters wrap every handler failure into
-   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
-   * bare in-process throw. The `MessengerRuntimeException` clauses using
-   * this trait are what map the real dispatch path.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
 
   // #region Constructor
   /**
@@ -136,21 +119,10 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
       );
     }
 
-    try {
-      $this->commandBus->dispatch(new RestoreOrganizationCommand(
-        organizationId: $organizationId,
-        actingUserId: $user->getId(),
-      ));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new RestoreOrganizationCommand(
+      organizationId: $organizationId,
+      actingUserId: $user->getId(),
+    ));
 
     return $this->buildOutput($organizationId, $user->getId());
   }
@@ -170,12 +142,8 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
    */
   private function isArchived(string $organizationId, string $callerUserId): bool
   {
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
 
     return OrganizationStatus::ARCHIVED->value === $result->status;
   }
@@ -199,12 +167,8 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
    */
   private function buildOutput(string $organizationId, string $callerUserId): OrganizationOutput
   {
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
 
     return $this->buildOrganizationOutput($result);
   }

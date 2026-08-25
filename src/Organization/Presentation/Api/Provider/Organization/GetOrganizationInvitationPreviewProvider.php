@@ -8,7 +8,6 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\{GetOrganizationInvitationPreviewQuery, GetOrganizationInvitationPreviewResult};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationPreviewOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -30,8 +29,6 @@ use function is_string;
  */
 final readonly class GetOrganizationInvitationPreviewProvider implements ProviderInterface
 {
-  use UnwrapsOrganizationBusFailures;
-
   // #region Constructor
   /**
    * Constructor.

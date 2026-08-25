@@ -9,8 +9,6 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -30,20 +28,6 @@ use function is_string;
  */
 final readonly class RemoveOrganizationRoleFromMemberProcessor implements ProcessorInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * Every failure of this endpoint — including the last-administrator refusal,
-   * which the handler now raises from inside its own transaction — arrives
-   * wrapped in `MessengerRuntimeException`, so the clause using this trait is
-   * what maps them all.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.

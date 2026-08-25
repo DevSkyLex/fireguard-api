@@ -12,8 +12,6 @@ use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSett
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -48,19 +46,6 @@ use function time;
  */
 final readonly class UploadOrganizationLogoProcessor implements ProcessorInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * Both buses wrap every handler failure into `MessengerRuntimeException`,
-   * so the direct `catch` on the domain exception never fires for the real
-   * dispatch/ask paths — the clauses using this trait do.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
-
   // #region Constants
   /**
    * Constant MAX_FILE_SIZE.
