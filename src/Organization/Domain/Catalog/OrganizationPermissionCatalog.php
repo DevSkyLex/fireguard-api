@@ -6,6 +6,8 @@ namespace Organization\Domain\Catalog;
 
 use InvalidArgumentException;
 
+use function str_ends_with;
+
 /**
  * OrganizationPermissionCatalog.
  *
@@ -20,6 +22,40 @@ use InvalidArgumentException;
  */
 final class OrganizationPermissionCatalog
 {
+  /**
+   * The one write permission a suspended organization keeps.
+   *
+   * Suspension is read-only, but restoring is itself a write. Without this
+   * escape hatch a suspended organization would wall itself in: `RestoreOrganization`
+   * requires exactly this permission and there is no platform-level bypass.
+   *
+   * @since 1.2.0
+   */
+  private const string SUSPENSION_ESCAPE_HATCH = 'organization.settings.write';
+
+  /**
+   * Method isReadOnlySafe.
+   *
+   * Tells whether a permission may still be exercised while the organization is
+   * suspended, i.e. whether it is a read (or the restore escape hatch).
+   *
+   * The rule is the `.read` suffix rather than an enumerated list, so a
+   * permission added later is classified correctly without touching this
+   * method. Two non-mutating permissions are nevertheless refused on purpose:
+   * `organization.compliance.export` and `organization.assistant.use` consume
+   * resources on behalf of an organization whose access has been withdrawn.
+   *
+   * @since 1.2.0
+   *
+   * @param string $name the permission name
+   *
+   * @return bool true when the permission survives suspension
+   */
+  public static function isReadOnlySafe(string $name): bool
+  {
+    return self::SUSPENSION_ESCAPE_HATCH === $name || str_ends_with($name, '.read');
+  }
+
   /**
    * Method dashboardReadDependencies.
    *

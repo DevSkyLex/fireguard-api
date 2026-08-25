@@ -15,6 +15,7 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use function addcslashes;
 use function array_map;
 use function is_array;
+use function is_string;
 use function mb_strtolower;
 use function strtoupper;
 
@@ -112,6 +113,35 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     }
 
     return OrganizationMapper::toDomain($record);
+  }
+
+  /**
+   * Method statusOf
+   * {@inheritDoc}
+   */
+  public function statusOf(OrganizationId $id): ?OrganizationStatus
+  {
+    // Scalar read, no hydration: the authorization path asks this on every
+    // permission check. Both columns are selected because `status` was added
+    // after `isActive` and older rows still carry an empty one — the same
+    // fallback OrganizationMapper applies, kept in step deliberately.
+    $row = $this->entityManager->createQueryBuilder()
+      ->select('o.status', 'o.isActive')
+      ->from(OrganizationRecord::class, 'o')
+      ->where('o.id = :id')
+      ->setParameter('id', (string) $id)
+      ->getQuery()
+      ->getOneOrNullResult();
+
+    if (!is_array($row)) {
+      return null;
+    }
+
+    $status = is_string($row['status'] ?? null) ? $row['status'] : '';
+
+    return '' !== $status
+      ? OrganizationStatus::from($status)
+      : OrganizationStatus::fromIsActive((bool) ($row['isActive'] ?? true));
   }
 
   /**

@@ -20,6 +20,29 @@ use function sprintf;
 final class OrganizationAccessDeniedException extends RuntimeException
 {
   /**
+   * Method organizationSuspended.
+   *
+   * Creates an exception for a write attempted against a suspended
+   * organization. Distinct from {@see self::missingPermission()} on purpose:
+   * the caller holds the permission, the organization's state is what refuses
+   * it, and telling them "missing permission" would send them looking at their
+   * role.
+   *
+   * @since 1.2.0
+   *
+   * @param string $permission the permission that was refused
+   *
+   * @return self the exception instance
+   */
+  public static function organizationSuspended(string $permission): self
+  {
+    return new self(sprintf(
+      'This organization is suspended and is read-only; "%s" is unavailable until it is restored.',
+      $permission,
+    ));
+  }
+
+  /**
    * Method missingPermission.
    *
    * Creates an exception for a missing organization permission.
