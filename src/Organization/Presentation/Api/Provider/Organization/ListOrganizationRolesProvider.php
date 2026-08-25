@@ -21,7 +21,7 @@ use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function array_map;
 use function array_slice;
@@ -123,18 +123,9 @@ final readonly class ListOrganizationRolesProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing Organization.roles.read permission.');
     }
 
-    try {
-      // Deliberately unpaginated — see the class docblock for why.
-      /** @var ListOrganizationRolesResult $result */
-      $result = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    // Deliberately unpaginated — see the class docblock for why.
+    /** @var ListOrganizationRolesResult $result */
+    $result = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
 
     $outputs = [];
     foreach ($result->roles as $role) {

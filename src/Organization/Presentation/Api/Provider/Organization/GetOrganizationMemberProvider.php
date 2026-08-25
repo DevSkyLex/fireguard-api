@@ -102,17 +102,8 @@ final readonly class GetOrganizationMemberProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.members.read permission.');
     }
 
-    try {
-      /** @var GetOrganizationMemberResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationMemberQuery($memberId));
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationMemberNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var GetOrganizationMemberResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationMemberQuery($memberId));
 
     if ($result->organizationId !== $organizationId) {
       throw new NotFoundHttpException('Organization member not found in this organization.');

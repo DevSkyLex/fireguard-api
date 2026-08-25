@@ -9,12 +9,11 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function is_string;
 
@@ -90,12 +89,8 @@ final readonly class GetOrganizationProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.read permission.');
     }
 
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $user->getId()));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $user->getId()));
 
     return $this->buildOrganizationOutput($result);
   }

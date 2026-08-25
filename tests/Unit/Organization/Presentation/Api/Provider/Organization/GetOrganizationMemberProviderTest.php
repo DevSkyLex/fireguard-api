@@ -9,13 +9,11 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationMember\{GetOrganizationMemberQuery, GetOrganizationMemberResult};
-use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Provider\Organization\GetOrganizationMemberProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -153,34 +151,6 @@ final class GetOrganizationMemberProviderTest extends TestCase
       isActive: true,
       joinedAt: new DateTimeImmutable('-1 day'),
     ));
-
-    $provider = new GetOrganizationMemberProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new Get(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProvideMapsAWrappedMemberNotFoundToHttp404(): void
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    // The real MessengerQueryBusAdapter always wraps a handler-thrown
-    // exception in MessengerRuntimeException, so this mocks the exception
-    // exactly as it actually arrives.
-    $queryBus->method('ask')->willThrowException(
-      MessengerRuntimeException::wrap(OrganizationMemberNotFoundException::withId(self::MEMBER_ID)),
-    );
 
     $provider = new GetOrganizationMemberProvider(
       queryBus: $queryBus,

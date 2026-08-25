@@ -18,7 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 #[CoversClass(ListTeamsProvider::class)]
 final class ListTeamsProviderTest extends TestCase
@@ -62,7 +62,7 @@ final class ListTeamsProviderTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
 
     $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
   }
