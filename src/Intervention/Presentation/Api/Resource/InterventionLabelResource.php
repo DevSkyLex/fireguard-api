@@ -44,6 +44,7 @@ use Symfony\Component\HttpFoundation\Response;
       provider: InterventionLabelProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [

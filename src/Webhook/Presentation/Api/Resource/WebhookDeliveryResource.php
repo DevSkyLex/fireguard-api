@@ -38,6 +38,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       provider: ListWebhookDeliveriesProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

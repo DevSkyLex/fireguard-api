@@ -36,6 +36,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationEnabled: true,
       paginationItemsPerPage: 30,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       openapi: new Operation(parameters: [
         new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
       ]),

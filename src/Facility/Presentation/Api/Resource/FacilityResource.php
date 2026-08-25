@@ -78,6 +78,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilitiesProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the frontend's
+      // facility store loads every parent option in one page for the create
+      // form's picker, and a lower ceiling would silently drop options past
+      // the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -171,6 +176,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilityChildrenProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the frontend's
+      // facility-plans store asks for a facility's children in one page to
+      // build its zone-candidate list, and a lower ceiling would silently drop
+      // candidates past the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

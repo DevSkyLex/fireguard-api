@@ -41,6 +41,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListApprovalRequestsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

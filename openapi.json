@@ -173,7 +173,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -572,7 +572,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -4011,7 +4011,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -4948,7 +4948,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -6323,7 +6323,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -7178,7 +7178,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -7419,7 +7419,7 @@
                             "type": "integer",
                             "default": 50,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -8069,7 +8069,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 200
                         },
                         "style": "form",
                         "explode": false
@@ -8328,7 +8328,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -9340,7 +9340,7 @@
                             "type": "integer",
                             "default": 20,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -9901,7 +9901,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -10034,7 +10034,7 @@
                             "type": "integer",
                             "default": 50,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -11072,7 +11072,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 200
                         },
                         "style": "form",
                         "explode": false
@@ -11566,7 +11566,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 200
                         },
                         "style": "form",
                         "explode": false
@@ -12729,7 +12729,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -13339,7 +13339,7 @@
                             "type": "integer",
                             "default": 50,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -14311,7 +14311,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -14498,7 +14498,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 200
                         },
                         "style": "form",
                         "explode": false
@@ -15032,7 +15032,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -15542,7 +15542,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -15687,7 +15687,7 @@
                             "type": "integer",
                             "default": 50,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -16486,7 +16486,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -17305,7 +17305,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -18530,7 +18530,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -18910,7 +18910,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -19366,7 +19366,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -20791,7 +20791,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -26439,7 +26439,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -29224,7 +29224,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -29730,7 +29730,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -30680,7 +30680,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -32441,7 +32441,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -33441,7 +33441,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -34097,7 +34097,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -35868,7 +35868,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false
@@ -36347,7 +36347,7 @@
                             "type": "integer",
                             "default": 30,
                             "minimum": 0,
-                            "maximum": 30
+                            "maximum": 100
                         },
                         "style": "form",
                         "explode": false

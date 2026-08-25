@@ -35,6 +35,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListUserSessionsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [SessionSerializationGroup::READ]],
       security: "is_granted('sessions.read')",

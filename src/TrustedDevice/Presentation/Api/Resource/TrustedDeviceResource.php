@@ -58,6 +58,7 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
       provider: ListTrustedDevicesProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [TrustedDeviceSerializationGroup::READ]],
       security: "is_granted('trusted_devices.read')",
