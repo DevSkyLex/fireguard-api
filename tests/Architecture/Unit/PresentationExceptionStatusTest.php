@@ -161,7 +161,6 @@ final class PresentationExceptionStatusTest extends TestCase
     'InterventionValidationException' => 'UnprocessableEntityHttpException',
     'InvalidArgumentException' => 'BadRequestHttpException',
     'InvalidAttachmentException' => 'UnprocessableEntityHttpException',
-    'InvalidClientException' => 'NotFoundHttpException',
     'InvalidValueException' => 'BadRequestHttpException',
     'LogicException' => 'ConflictHttpException',
     'MaintenanceAccessDeniedException' => 'AccessDeniedHttpException',

@@ -46,6 +46,10 @@ api_platform:
     # generic `firstFailureOf($e, X::class)` helper — a fourth mapping shape the
     # baseline extractor cannot see, since the caught class is the wrapper and
     # the domain class is a runtime argument.
+    # The OAuth CLIENT-MANAGEMENT surface, not the OAuth2 protocol endpoints:
+    # those answer in RFC 6749's error format and keep their own handling.
+    OAuth\Domain\Exception\Client\InvalidClientException: 404
+
     Billing\Domain\Exception\NoActiveSubscriptionException: 409
     Billing\Domain\Exception\BillingCustomerNotFoundException: 409
     Billing\Domain\Exception\BillingGatewayUnavailableException: 503
