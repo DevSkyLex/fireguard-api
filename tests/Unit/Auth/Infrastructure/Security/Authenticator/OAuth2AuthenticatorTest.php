@@ -161,7 +161,7 @@ final class OAuth2AuthenticatorTest extends TestCase
       ->willReturn(new AccessTokenStatus(['read', 'write'], false, false));
 
     $authenticator = $this->createAuthenticator($lookup);
-    $token = $this->buildHmacToken();
+    $token = $this->buildRsaToken();
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer ' . $token);
@@ -183,7 +183,7 @@ final class OAuth2AuthenticatorTest extends TestCase
       ->willReturn(new AccessTokenStatus(['read'], true, false));
 
     $authenticator = $this->createAuthenticator($lookup);
-    $token = $this->buildHmacToken();
+    $token = $this->buildRsaToken();
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer ' . $token);
@@ -204,13 +204,36 @@ final class OAuth2AuthenticatorTest extends TestCase
       ->willReturn(new AccessTokenStatus(['read'], false, true));
 
     $authenticator = $this->createAuthenticator($lookup);
-    $token = $this->buildHmacToken();
+    $token = $this->buildRsaToken();
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer ' . $token);
 
     $this->expectException(CustomUserMessageAuthenticationException::class);
     $this->expectExceptionMessage('Token has expired');
+
+    $authenticator->authenticate($request);
+  }
+
+  #[Test]
+  public function testAuthenticateRejectsForgedTokenReusingAKnownAccessTokenId(): void
+  {
+    // The database lookup keys on `jti` alone and never binds it back to the
+    // subject, so an unverified token carrying a live `jti` and an attacker's
+    // `sub` would have authenticated as that subject with the real token's
+    // scopes. The signature check now runs first, and the lookup is never
+    // reached.
+    $lookup = $this->createMock(AccessTokenLookupPort::class);
+    $lookup->expects(self::never())->method('find');
+
+    $authenticator = $this->createAuthenticator($lookup);
+    $token = $this->buildHmacToken(subject: 'victim-456');
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $token);
+
+    $this->expectException(CustomUserMessageAuthenticationException::class);
+    $this->expectExceptionMessage('Invalid token signature');
 
     $authenticator->authenticate($request);
   }
@@ -277,11 +300,9 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testAuthenticateRejectsInvalidSignature(): void
   {
+    // No lookup: an unverifiable token is rejected before it costs a query.
     $lookup = $this->createMock(AccessTokenLookupPort::class);
-    $lookup->expects(self::once())
-      ->method('find')
-      ->with('token-123')
-      ->willReturn(null);
+    $lookup->expects(self::never())->method('find');
 
     $authenticator = $this->createAuthenticator($lookup);
     $token = $this->buildHmacToken('other-secret-other-secret-other-secret-1234');
@@ -298,11 +319,9 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testAuthenticateRejectsExpiredJwt(): void
   {
+    // No lookup: expiry is read from the signed claims, before any query.
     $lookup = $this->createMock(AccessTokenLookupPort::class);
-    $lookup->expects(self::once())
-      ->method('find')
-      ->with('token-123')
-      ->willReturn(null);
+    $lookup->expects(self::never())->method('find');
 
     $authenticator = $this->createAuthenticator($lookup);
     $token = $this->buildRsaToken(expiresAt: new DateTimeImmutable('-10 minutes'));
@@ -450,10 +469,12 @@ final class OAuth2AuthenticatorTest extends TestCase
 
   /**
    * @param non-empty-string $secret
+   * @param non-empty-string $subject
    */
   private function buildHmacToken(
     string $secret = 'secret-secret-secret-secret-secret-1234',
     ?string $fireguardTokenUse = null,
+    string $subject = 'user-123',
   ): string {
     $config = Configuration::forSymmetricSigner(
       signer: new HmacSha256(),
@@ -465,7 +486,7 @@ final class OAuth2AuthenticatorTest extends TestCase
       ->issuedAt($now)
       ->expiresAt($now->modify('+1 hour'))
       ->identifiedBy('token-123')
-      ->relatedTo('user-123');
+      ->relatedTo($subject);
 
     if (null !== $fireguardTokenUse) {
       $builder = $builder->withClaim('_fireguard_token_use', $fireguardTokenUse);
