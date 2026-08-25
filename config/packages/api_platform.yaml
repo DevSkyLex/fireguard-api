@@ -24,6 +24,13 @@ api_platform:
     Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
     Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
 
+    # GetPermissionProvider and GetRoleProvider catch these to return null, so
+    # that API Platform answers 404. The query bus wraps every handler failure,
+    # so neither catch has ever matched: both endpoints answer 500 for an
+    # unknown id. Declaring them here is what makes the intended 404 happen.
+    Authorization\Domain\Exception\PermissionNotFoundException: 404
+    Authorization\Domain\Exception\RoleNotFoundException: 404
+
     # Reached only through the `catch (Throwable)` + private-finder shape, which
     # the first extraction pass did not read. Found by starting step 3 on the
     # smallest module and discovering its catch mapped an exception nothing knew
