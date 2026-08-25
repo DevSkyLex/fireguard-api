@@ -71,6 +71,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: ApprovalOperations::APPROVE_APPROVAL_REQUEST,
       uriTemplate: '/{organizationId}/approval-requests/{requestId}/approve',
+      status: HttpResponse::HTTP_OK,
       input: ApproveApprovalRequestInput::class,
       output: ApprovalRequestOutput::class,
       processor: ApproveApprovalRequestProcessor::class,
@@ -91,6 +92,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: ApprovalOperations::REJECT_APPROVAL_REQUEST,
       uriTemplate: '/{organizationId}/approval-requests/{requestId}/reject',
+      status: HttpResponse::HTTP_OK,
       input: RejectApprovalRequestInput::class,
       output: ApprovalRequestOutput::class,
       processor: RejectApprovalRequestProcessor::class,

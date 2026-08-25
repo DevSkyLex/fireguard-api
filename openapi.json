@@ -261,16 +261,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Approved and deferred action executed"
-                    },
-                    "403": {
-                        "description": "Insufficient permissions, below the minimum approver role, or self-approval"
-                    },
-                    "409": {
-                        "description": "Request no longer pending, or the deferred action is no longer applicable"
-                    },
-                    "201": {
-                        "description": "ApprovalRequest resource created",
+                        "description": "Approved and deferred action executed",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -279,6 +270,12 @@
                             }
                         },
                         "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions, below the minimum approver role, or self-approval"
+                    },
+                    "409": {
+                        "description": "Request no longer pending, or the deferred action is no longer applicable"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -372,16 +369,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Rejected"
-                    },
-                    "403": {
-                        "description": "Insufficient permissions, below the minimum approver role, or self-approval"
-                    },
-                    "409": {
-                        "description": "Request no longer pending"
-                    },
-                    "201": {
-                        "description": "ApprovalRequest resource created",
+                        "description": "Rejected",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -390,6 +378,12 @@
                             }
                         },
                         "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions, below the minimum approver role, or self-approval"
+                    },
+                    "409": {
+                        "description": "Request no longer pending"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -1382,6 +1376,13 @@
                 "responses": {
                     "200": {
                         "description": "Login successful - access token returned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "RefreshToken": {
                                 "operationId": "refresh",
@@ -1431,17 +1432,6 @@
                     },
                     "429": {
                         "description": "Too many authentication attempts"
-                    },
-                    "201": {
-                        "description": "Auth resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -2642,6 +2632,13 @@
                 "responses": {
                     "200": {
                         "description": "Permission added successfully - role returned with updated permissions",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Role.RoleOutput.jsonld-role.read"
+                                }
+                            }
+                        },
                         "links": {
                             "GetRole": {
                                 "operationId": "role_get",
@@ -2688,17 +2685,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions - roles.update required"
-                    },
-                    "201": {
-                        "description": "Role resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Role.RoleOutput.jsonld-role.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -2902,16 +2888,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Cancellation scheduled"
-                    },
-                    "409": {
-                        "description": "No active subscription to cancel"
-                    },
-                    "403": {
-                        "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "OrganizationBilling resource created",
+                        "description": "Cancellation scheduled",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -2920,6 +2897,12 @@
                             }
                         },
                         "links": {}
+                    },
+                    "409": {
+                        "description": "No active subscription to cancel"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -3308,16 +3291,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Cancellation cleared"
-                    },
-                    "409": {
-                        "description": "No subscription to resume"
-                    },
-                    "403": {
-                        "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "OrganizationBilling resource created",
+                        "description": "Cancellation cleared",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -3326,6 +3300,12 @@
                             }
                         },
                         "links": {}
+                    },
+                    "409": {
+                        "description": "No subscription to resume"
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -5893,13 +5873,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Secret regenerated successfully"
-                    },
-                    "404": {
-                        "description": "Client not found"
-                    },
-                    "201": {
-                        "description": "Client resource created",
+                        "description": "Secret regenerated successfully",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -5908,6 +5882,9 @@
                             }
                         },
                         "links": {}
+                    },
+                    "404": {
+                        "description": "Client not found"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -8496,7 +8473,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Equipment assigned"
+                        "description": "Equipment assigned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -8524,17 +8509,6 @@
                     },
                     "404": {
                         "description": "Equipment not found"
-                    },
-                    "201": {
-                        "description": "LegacyEquipment resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -8927,7 +8901,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Equipment commissioned"
+                        "description": "Equipment commissioned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid identifier or equipment not assigned to a facility",
@@ -8958,17 +8940,6 @@
                     },
                     "404": {
                         "description": "Equipment not found"
-                    },
-                    "201": {
-                        "description": "LegacyEquipment resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -9617,7 +9588,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Equipment unassigned"
+                        "description": "Equipment unassigned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid identifier",
@@ -9645,17 +9624,6 @@
                     },
                     "404": {
                         "description": "Equipment not found"
-                    },
-                    "201": {
-                        "description": "LegacyEquipment resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -11772,7 +11740,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Facility moved"
+                        "description": "Facility moved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.FacilityOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid hierarchy",
@@ -11800,17 +11776,6 @@
                     },
                     "404": {
                         "description": "Facility not found"
-                    },
-                    "201": {
-                        "description": "LegacyFacility resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyFacility.FacilityOutput.jsonld-facility.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -24354,6 +24319,13 @@
                 "responses": {
                     "200": {
                         "description": "Access token issued successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OAuth2.TokenOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "IntrospectToken": {
                                 "operationId": "introspect_token",
@@ -24411,17 +24383,6 @@
                     },
                     "429": {
                         "description": "Too many token requests"
-                    },
-                    "201": {
-                        "description": "OAuth2 resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/OAuth2.TokenOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -25422,7 +25383,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "TOTP disabled successfully"
+                        "description": "TOTP disabled successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Totp.DisableTotpOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "422": {
                         "description": "Invalid verification code",
@@ -25450,17 +25419,6 @@
                     },
                     "429": {
                         "description": "Too many disable attempts"
-                    },
-                    "201": {
-                        "description": "Totp resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Totp.DisableTotpOutput.jsonld"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -32013,8 +31971,15 @@
                     "Registration"
                 ],
                 "responses": {
-                    "200": {
+                    "201": {
                         "description": "Account created. A verification code has been sent to the email.",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Registration.RegisterOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "ConfirmRegistration": {
                                 "operationId": "confirm_registration",
@@ -32048,17 +32013,6 @@
                     },
                     "429": {
                         "description": "Too many registration requests"
-                    },
-                    "201": {
-                        "description": "Registration resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Registration.RegisterOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",

@@ -520,10 +520,10 @@ final class FacilityApiTest extends WebTestCase
     );
 
     $response = $client->getResponse();
-    // The Post operation carries no explicit status override, so API Platform
-    // applies its 201 default for POST even though this is a state-transition
-    // action rather than a creation.
-    self::assertSame(201, $response->getStatusCode(), 'Detaching a facility from its parent should succeed. Response: ' . $response->getContent());
+    // 200: `move` is a state transition, not a creation. The operation now
+    // spells out `status: HttpResponse::HTTP_OK`, matching what its own
+    // `openapi` block always documented.
+    self::assertSame(200, $response->getStatusCode(), 'Detaching a facility from its parent should succeed. Response: ' . $response->getContent());
     $decoded = json_decode((string) $response->getContent(), true);
     self::assertIsArray($decoded);
     // A null field is omitted from the JSON-LD payload rather than serialized
