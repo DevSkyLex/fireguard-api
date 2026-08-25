@@ -293,6 +293,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: FacilityOperations::MOVE_FACILITY,
       uriTemplate: '/{organizationId}/facilities/{facilityId}/move',
+      status: HttpResponse::HTTP_OK,
       input: MoveFacilityInput::class,
       output: FacilityOutput::class,
       processor: MoveFacilityProcessor::class,

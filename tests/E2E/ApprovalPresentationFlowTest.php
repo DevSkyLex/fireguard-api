@@ -668,12 +668,11 @@ final class ApprovalPresentationFlowTest extends OAuth2WebTestCase
     );
 
     $response = $client->getResponse();
-    // 201 rather than 200: the decision operations are bare API Platform
-    // `Post`s with no `status:`, so they answer Created even though they
-    // create nothing. `ApprovalRequestResource` documents 200 — a drift left
-    // as-is here, since reconciling it changes the wire for the frontend.
+    // 200: the decision operations create nothing, and both now carry
+    // `status: HttpResponse::HTTP_OK` so the wire matches the 200 that
+    // `ApprovalRequestResource` always documented.
     $this->assertSame(
-      Response::HTTP_CREATED,
+      Response::HTTP_OK,
       $response->getStatusCode(),
       'Deciding an approval request should succeed. Response: ' . $response->getContent(),
     );

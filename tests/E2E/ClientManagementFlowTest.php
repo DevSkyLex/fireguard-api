@@ -190,7 +190,11 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
       $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
-      $this->assertArrayHasKey('secret', $data, 'Response should contain new secret');
+      // `client_secret`, not `secret`: `ClientOutput::$secret` carries
+      // `#[SerializedName('client_secret')]`. This assertion had never
+      // actually run — the operation answered 201 until the status override
+      // was added, so the branch was dead and the wrong key went unnoticed.
+      $this->assertArrayHasKey('client_secret', $data, 'Response should contain new secret');
     }
   }
 

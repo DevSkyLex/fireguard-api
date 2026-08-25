@@ -92,6 +92,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OtpOperations::DISABLE_TOTP,
       uriTemplate: '/disable',
+      status: HttpResponse::HTTP_OK,
       input: DisableTotpInput::class,
       output: DisableTotpOutput::class,
       processor: DisableTotpProcessor::class,

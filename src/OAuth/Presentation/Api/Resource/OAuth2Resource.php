@@ -153,6 +153,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OAuthOperations::TOKEN,
       uriTemplate: '/token',
+      status: HttpResponse::HTTP_OK,
       input: TokenInput::class,
       output: TokenOutput::class,
       inputFormats: [

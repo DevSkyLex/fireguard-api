@@ -59,7 +59,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         summary: 'Register a new account',
         description: 'Creates a pending-verification account and emails an OTP verification code.',
         responses: [
-          HttpResponse::HTTP_OK => new Response(
+          // 201, not 200: unlike the action posts corrected alongside it, this
+          // one genuinely creates a resource, so API Platform's default is
+          // right and the documentation was what lied.
+          HttpResponse::HTTP_CREATED => new Response(
             description: 'Account created. A verification code has been sent to the email.',
             links: new ArrayObject([
               'ConfirmRegistration' => [

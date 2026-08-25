@@ -252,6 +252,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::ASSIGN_TO_FACILITY,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/assign',
+      status: HttpResponse::HTTP_OK,
       input: AssignToFacilityInput::class,
       output: EquipmentOutput::class,
       processor: AssignToFacilityProcessor::class,
@@ -273,6 +274,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::UNASSIGN_FROM_FACILITY,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/unassign',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: UnassignFromFacilityProcessor::class,
@@ -293,6 +295,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::COMMISSION_EQUIPMENT,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/commission',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: CommissionEquipmentProcessor::class,

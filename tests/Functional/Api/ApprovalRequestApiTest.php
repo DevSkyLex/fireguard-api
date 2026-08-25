@@ -478,12 +478,10 @@ final class ApprovalRequestApiTest extends WebTestCase
     ], content: '{"decisionNote":"Equipment still in service."}');
 
     $response = $client->getResponse();
-    // CONTRACT DRIFT, asserted as it actually behaves: the operation is a
-    // bare API Platform `Post` with no `status:`, so it answers 201 Created
-    // even though it creates nothing and `ApprovalRequestResource` documents
-    // 200 for both decisions. Reconciling the two is a wire change for the
-    // frontend and is deliberately left out of this test-coverage change.
-    self::assertSame(201, $response->getStatusCode(), (string) $response->getContent());
+    // 200: the operation now carries `status: HttpResponse::HTTP_OK`, so the
+    // wire matches the 200 `ApprovalRequestResource` always documented for
+    // both decisions. It creates nothing.
+    self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
 
     $decoded = json_decode((string) $response->getContent(), true);
     self::assertIsArray($decoded);

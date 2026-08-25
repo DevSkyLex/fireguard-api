@@ -45,6 +45,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: AuthOperations::LOGIN,
       uriTemplate: '/login',
+      status: HttpResponse::HTTP_OK,
       input: LoginInput::class,
       output: LoginOutput::class,
       processor: LoginProcessor::class,
