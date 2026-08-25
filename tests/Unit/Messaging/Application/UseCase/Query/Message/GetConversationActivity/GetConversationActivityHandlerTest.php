@@ -32,6 +32,38 @@ final class GetConversationActivityHandlerTest extends TestCase
   private const string CONVERSATION_ID = 'conversation-1';
 
   #[Test]
+  public function testInvokeAnswersNotFoundRatherThanForbiddenForAConversationInAnotherOrganization(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->view());
+
+    // Outside the conversation's organization: no active member resolves. A 403
+    // here would confirm to an outsider that this conversation exists — the
+    // cross-tenant existence oracle the identical 404 exists to prevent.
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(null);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('assertGrantedPermissions')->willThrowException(
+      new MessagingAccessDeniedException('Missing permission.'),
+    );
+
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::never())->method('countByConversationDay');
+
+    $handler = new GetConversationActivityHandler(
+      $conversations,
+      $messages,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new GetConversationActivityQuery('user-1', self::CONVERSATION_ID, buckets: 5));
+  }
+
+  #[Test]
   public function testInvokeReturnsBucketsZeroFilledFromTheRepositoryCounts(): void
   {
     $conversations = $this->createStub(MessagingConversationRepositoryPort::class);

@@ -106,6 +106,42 @@ final class DownloadMessageAttachmentHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeAnswersNotFoundRatherThanForbiddenForAnAttachmentInAnotherOrganization(): void
+  {
+    $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('findById')->willReturn($this->attachment());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->view());
+
+    // Outside the conversation's organization: no active member resolves. A 403
+    // here would confirm to an outsider that this attachment exists — the
+    // cross-tenant existence oracle the identical 404 exists to prevent.
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(null);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('assertGrantedPermissions')->willThrowException(
+      new MessagingAccessDeniedException('Missing permission.'),
+    );
+
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('read');
+
+    $handler = new DownloadMessageAttachmentHandler(
+      $attachments,
+      $conversations,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+      $fileStorage,
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new DownloadMessageAttachmentQuery('user-1', self::ATTACHMENT_ID));
+  }
+
+  #[Test]
   public function testInvokeNeverReadsTheFileWhenSubjectReadPermissionIsMissing(): void
   {
     $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
@@ -188,9 +224,16 @@ final class DownloadMessageAttachmentHandlerTest extends TestCase
 
   private function accessPolicy(OrganizationAuthorizationPort $authorization): MessagingAccessPolicy
   {
+    // The caller must resolve to an active member: the handler now checks
+    // membership BEFORE the visibility branch, so a directory returning null
+    // would answer 404 and these tests would never reach the permission
+    // assertion they exist to exercise.
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn('member-1');
+
     return new MessagingAccessPolicy(
       $authorization,
-      $this->createStub(MessagingMemberDirectoryPort::class),
+      $members,
       $this->createStub(MessagingParticipantRepositoryPort::class),
     );
   }
