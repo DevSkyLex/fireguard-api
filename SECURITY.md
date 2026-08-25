@@ -33,6 +33,12 @@ JWT keys:
 - In production, cookies are marked Secure and use the `__Host-` prefix.
 - Keep short access token lifetimes and use refresh tokens for renewals.
 - Revoke tokens on logout and suspicious activity.
+- **Revoking a session invalidates its access token on the next request.**
+  Login-flow tokens are not rows in the OAuth2 token table, so `OAuth2Authenticator`
+  resolves them through `SessionStatusPort` instead. A token whose session was never
+  recorded is accepted rather than rejected — session recording is deliberately
+  best-effort, and treating an absent row as a revocation would lock a user out for
+  the token's full lifetime after a failure they never saw.
 - Access tokens include email/roles/permissions by default for backward compatibility.
   - To minimize token size and reduce data exposure, set `ACCESS_TOKEN_INCLUDE_EMAIL=false` and `ACCESS_TOKEN_INCLUDE_RBAC=false`.
 
