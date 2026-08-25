@@ -47,6 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListChecklistsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

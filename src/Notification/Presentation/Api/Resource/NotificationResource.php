@@ -41,6 +41,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListNotificationsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 20,
       normalizationContext: ['groups' => [NotificationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

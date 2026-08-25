@@ -71,6 +71,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListEquipmentsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the facility overview previews a site's equipment in one page,
+      // and a lower ceiling would silently drop rows past the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -144,6 +147,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListEquipmentsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

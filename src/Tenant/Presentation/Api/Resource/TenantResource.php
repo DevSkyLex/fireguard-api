@@ -103,6 +103,7 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
       provider: ListTenantsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [TenantSerializationGroup::READ]],
       security: "is_granted('tenants.read')",

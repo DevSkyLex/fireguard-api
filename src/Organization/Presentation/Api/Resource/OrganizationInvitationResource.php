@@ -50,6 +50,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       provider: ListOrganizationInvitationsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

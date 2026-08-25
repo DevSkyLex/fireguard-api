@@ -32,6 +32,7 @@ use Symfony\Component\HttpFoundation\Response;
       provider: CanonicalInspectionProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 50,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
