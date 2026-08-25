@@ -34,10 +34,17 @@ final class OrganizationAccessDeniedException extends RuntimeException
    *
    * @return self the exception instance
    */
-  public static function organizationSuspended(string $permission): self
+  public static function organizationSuspended(string $permission, bool $archived = false): self
   {
+    // The two states differ in the way out, so the message must too: a
+    // suspended organization is restored by anyone holding
+    // `organization.settings.write`, an archived one only by a platform
+    // administrator. Telling an archived organization's members to restore it
+    // would be advice they cannot act on.
     return new self(sprintf(
-      'This organization is suspended and is read-only; "%s" is unavailable until it is restored.',
+      $archived
+        ? 'This organization is archived and is read-only; "%s" is unavailable, and only a platform administrator can reopen it.'
+        : 'This organization is suspended and is read-only; "%s" is unavailable until it is restored.',
       $permission,
     ));
   }

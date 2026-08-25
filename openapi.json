@@ -26922,7 +26922,7 @@
                         "links": {}
                     },
                     "403": {
-                        "description": "Insufficient permissions"
+                        "description": "Insufficient permissions \u2014 and, for an archived organization, held by every caller who is not a platform administrator"
                     },
                     "404": {
                         "description": "Organization not found"
@@ -26971,7 +26971,7 @@
                     }
                 },
                 "summary": "Restore Organization",
-                "description": "Restores the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action \u2014 coexists with (does not replace) the legacy isActive: true toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires. Idempotent when already active.",
+                "description": "Restores the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action \u2014 coexists with (does not replace) the legacy isActive: true toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires \u2014 OR platform administrator privileges, which bypass it. The bypass is not a convenience: an ARCHIVED organization refuses organization.settings.write like every other write, so a platform administrator is the only caller who can reopen one. A SUSPENDED organization keeps its self-service path. Idempotent when already active.",
                 "parameters": [
                     {
                         "name": "id",

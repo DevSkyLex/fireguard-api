@@ -34,26 +34,71 @@ final class OrganizationPermissionCatalog
   private const string SUSPENSION_ESCAPE_HATCH = 'organization.settings.write';
 
   /**
-   * Method isReadOnlySafe.
+   * Method isRead.
    *
-   * Tells whether a permission may still be exercised while the organization is
-   * suspended, i.e. whether it is a read (or the restore escape hatch).
+   * Tells whether a permission only reads, and therefore survives any
+   * non-active organization status.
    *
    * The rule is the `.read` suffix rather than an enumerated list, so a
    * permission added later is classified correctly without touching this
-   * method. Two non-mutating permissions are nevertheless refused on purpose:
-   * `organization.compliance.export` and `organization.assistant.use` consume
+   * method. Two non-mutating permissions are nevertheless excluded on purpose:
+   * `organization.compliance.export` and `organization.assistant.use` spend
    * resources on behalf of an organization whose access has been withdrawn.
    *
    * @since 1.2.0
    *
    * @param string $name the permission name
    *
-   * @return bool true when the permission survives suspension
+   * @return bool true when the permission is a pure read
    */
-  public static function isReadOnlySafe(string $name): bool
+  public static function isRead(string $name): bool
   {
-    return self::SUSPENSION_ESCAPE_HATCH === $name || str_ends_with($name, '.read');
+    return str_ends_with($name, '.read');
+  }
+
+  /**
+   * Method isSuspensionEscapeHatch.
+   *
+   * Tells whether a permission is the one write a suspended organization keeps,
+   * so that it can be restored from inside. Archived organizations do not get
+   * this hatch — see MODULE.md.
+   *
+   * @since 1.2.0
+   *
+   * @param string $name the permission name
+   *
+   * @return bool true for the restore escape hatch
+   */
+  public static function isSuspensionEscapeHatch(string $name): bool
+  {
+    return self::SUSPENSION_ESCAPE_HATCH === $name;
+  }
+
+  /**
+   * Method isArchivalGuardedDownstream.
+   *
+   * Tells whether a permission gates operations that already refuse an
+   * archived organization from their own handler, with a 409 naming the
+   * archived state.
+   *
+   * Those permissions are let through the archived read-only rule so the
+   * specific answer survives. Denying them here would flatten five documented
+   * 409s — suspend, update settings, remove logo, transfer ownership,
+   * reactivate member — into a bare 403, which tells the caller less. The
+   * authorization layer defers where a more precise answer already exists.
+   *
+   * This applies to `ARCHIVED` only. Suspension has no such handler guards, so
+   * nothing there would be shadowed.
+   *
+   * @since 1.2.0
+   *
+   * @param string $name the permission name
+   *
+   * @return bool true when the archived state is already answered downstream
+   */
+  public static function isArchivalGuardedDownstream(string $name): bool
+  {
+    return self::SUSPENSION_ESCAPE_HATCH === $name || 'organization.members.manage' === $name;
   }
 
   /**
