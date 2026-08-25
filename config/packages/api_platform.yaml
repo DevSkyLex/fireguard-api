@@ -24,6 +24,16 @@ api_platform:
     Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
     Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
 
+    # Reached only through the `catch (Throwable)` + private-finder shape, which
+    # the first extraction pass did not read. Found by starting step 3 on the
+    # smallest module and discovering its catch mapped an exception nothing knew
+    # about — removing it would have turned a 404 into a 500.
+    Notification\Application\Exception\NotificationNotFoundException: 404
+    Session\Domain\Exception\SessionNotFoundException: 404
+    Tenant\Domain\Exception\TenantNotFoundException: 404
+    Otp\Application\Exception\TotpPendingEnrollmentNotFoundException: 404
+    TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException: 404
+
     Approval\Domain\Exception\ApprovalAccessDeniedException: 403
     Approval\Domain\Exception\ApprovalRequestNotFoundException: 404
     Approval\Domain\Exception\ApprovalRequestNotPendingException: 409

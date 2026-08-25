@@ -173,6 +173,11 @@ final class PresentationExceptionStatusTest extends TestCase
     'MessagingNotFoundException' => 'NotFoundHttpException',
     'MessagingSubjectNotFoundException' => 'NotFoundHttpException',
     'MessagingValidationException' => 'UnprocessableEntityHttpException',
+    'NotificationNotFoundException' => 'NotFoundHttpException',
+    'SessionNotFoundException' => 'NotFoundHttpException',
+    'TenantNotFoundException' => 'NotFoundHttpException',
+    'TotpPendingEnrollmentNotFoundException' => 'NotFoundHttpException',
+    'TrustedDeviceNotFoundException' => 'NotFoundHttpException',
     'NonConformityAlreadyResolvedException' => 'ConflictHttpException',
     'NonConformityNotFoundException' => 'NotFoundHttpException',
     'OrganizationAccessDeniedException' => 'AccessDeniedHttpException',
@@ -364,6 +369,7 @@ final class PresentationExceptionStatusTest extends TestCase
 
       self::collectFromLines($lines, $mappings);
       self::collectFromMatchArms($lines, $mappings);
+      self::collectFromFinderMethods($lines, $mappings);
     }
 
     ksort($mappings);
@@ -443,6 +449,64 @@ final class PresentationExceptionStatusTest extends TestCase
       }
 
       $pending = [];
+    }
+  }
+
+  /**
+   * Method collectFromFinderMethods.
+   *
+   * Reads the third shape: `catch (Throwable)` plus a private finder.
+   *
+   * ```php
+   * } catch (Throwable $exception) {
+   *   $notFound = $this->findSessionNotFound($exception);
+   *   if (null !== $notFound) {
+   *     throw new NotFoundHttpException($notFound->getMessage(), $exception);
+   *   }
+   * ```
+   *
+   * 128 Presentation files do this, and the catch names only `Throwable` — so
+   * the two other collectors see a wrapper and skip the file entirely. Missing
+   * it is not cosmetic: the exceptions mapped this way would have no entry in
+   * `exception_to_status`, and retiring their catch would turn a 404 into a 500.
+   *
+   * The exception's identity comes from the finder's **return type**, which is
+   * the one place it is stated unambiguously.
+   *
+   * @param list<string> $lines the file's lines
+   * @param array<string, array<string, int>> $mappings the accumulator, by reference
+   */
+  private static function collectFromFinderMethods(array $lines, array &$mappings): void
+  {
+    $returnTypes = [];
+    $assignments = [];
+
+    // Two passes on purpose: the private finders are declared BELOW the throws
+    // that use them, so a single forward pass never knows their return type by
+    // the time it meets the throw.
+    foreach ($lines as $line) {
+      if (1 === preg_match('/private function (\w+)\([^)]*\)\s*:\s*\?\s*([A-Za-z0-9_\\\\]*Exception)\b/', $line, $declared)) {
+        $returnTypes[$declared[1]] = substr((string) strrchr('\\' . $declared[2], '\\'), 1);
+      }
+
+      if (1 === preg_match('/\$(\w+)\s*=\s*\$this->(\w+)\(/', $line, $assigned)) {
+        $assignments[$assigned[1]] = $assigned[2];
+      }
+    }
+
+    foreach ($lines as $line) {
+      if (1 !== preg_match('/throw new (\w*HttpException)\(\$(\w+)->getMessage\(\)/', $line, $thrown)) {
+        continue;
+      }
+
+      $finder = $assignments[$thrown[2]] ?? null;
+      $short = null === $finder ? null : ($returnTypes[$finder] ?? null);
+
+      if (null === $short || self::isWrapper($short)) {
+        continue;
+      }
+
+      $mappings[$short][$thrown[1]] = ($mappings[$short][$thrown[1]] ?? 0) + 1;
     }
   }
 
