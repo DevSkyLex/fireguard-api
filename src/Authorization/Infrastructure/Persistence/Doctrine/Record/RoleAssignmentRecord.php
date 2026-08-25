@@ -6,6 +6,7 @@ namespace Authorization\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
+use Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt;
 
 /**
  * Record RoleAssignmentRecord.
@@ -19,6 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ORM\Entity]
+#[TenantFilterExempt]
 #[ORM\Table(name: 'role_assignments')]
 #[ORM\Index(name: 'idx_role_assignments_subject', columns: ['subject_type', 'subject_id'])]
 #[ORM\Index(name: 'idx_role_assignments_role', columns: ['role_id'])]
