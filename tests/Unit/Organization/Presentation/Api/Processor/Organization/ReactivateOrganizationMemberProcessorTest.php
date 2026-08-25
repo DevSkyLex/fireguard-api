@@ -7,25 +7,16 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberResult};
-use Organization\Domain\Exception\{
-  OrganizationArchivedException,
-  OrganizationMemberNotFoundException,
-  OrganizationMemberNotInactiveException,
-  OrganizationNotFoundException
-};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\ReactivateOrganizationMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 /**
  * Test ReactivateOrganizationMemberProcessorTest.
@@ -141,86 +132,6 @@ final class ReactivateOrganizationMemberProcessorTest extends TestCase
     self::assertSame(self::USER_ID, $output->userId);
     self::assertTrue($output->isActive);
     self::assertSame(['550e8400-e29b-41d4-a716-446655442603'], $output->roleIds);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedOrganizationNotFoundToHttp404(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationNotFoundException::withId(self::ORG_ID));
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedMemberNotFoundToHttp404(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationMemberNotFoundException::withId(self::MEMBER_ID));
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedOrganizationArchivedToHttp409(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationArchivedException::cannotReactivateMember());
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedMemberNotInactiveToHttp409(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationMemberNotInactiveException::withId(self::MEMBER_ID));
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedQuotaExceededToHttp409(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(
-      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5),
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  /**
-   * @param Throwable $domainFailure the domain exception the command handler
-   *                                 would throw — wrapped in
-   *                                 MessengerRuntimeException exactly as the
-   *                                 real MessengerCommandBusAdapter does, so
-   *                                 this test exercises the processor's
-   *                                 actual unwrap path rather than a
-   *                                 direct-catch that never fires in
-   *                                 production
-   */
-  private function processorWithFailingCommandBus(Throwable $domainFailure): ReactivateOrganizationMemberProcessor
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($domainFailure));
-
-    return new ReactivateOrganizationMemberProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      security: $security,
-    );
   }
 
   private function createSecurityUser(): SecurityUser

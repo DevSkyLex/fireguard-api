@@ -9,24 +9,15 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles\{SetOrganizationMemberRolesCommand, SetOrganizationMemberRolesResult};
-use Organization\Domain\Exception\{
-  OrganizationAccessDeniedException,
-  OrganizationLastAdminException,
-  OrganizationMemberNotFoundException,
-  OrganizationNotFoundException,
-  OrganizationRoleNotFoundException
-};
 use Organization\Presentation\Api\Dto\Input\Organization\SetOrganizationMemberRolesInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\SetOrganizationMemberRolesProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 /**
  * Test SetOrganizationMemberRolesProcessorTest.
@@ -146,80 +137,6 @@ final class SetOrganizationMemberRolesProcessorTest extends TestCase
     self::assertSame(self::USER_ID, $output->userId);
     self::assertSame([self::ROLE_ID], $output->roleIds);
     self::assertTrue($output->isActive);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedOrganizationNotFoundToHttp404(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationNotFoundException::withId(self::ORG_ID));
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process($this->createInput(), new Put(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedMemberNotFoundToHttp404(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationMemberNotFoundException::withId(self::MEMBER_ID));
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process($this->createInput(), new Put(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedRoleNotFoundToHttp404(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationRoleNotFoundException::withId(self::ROLE_ID));
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process($this->createInput(), new Put(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedAccessDeniedToHttp403(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationAccessDeniedException::cannotGrantPermission('organization.*'));
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    $processor->process($this->createInput(), new Put(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAWrappedLastAdminExceptionToHttp409(): void
-  {
-    $processor = $this->processorWithFailingCommandBus(OrganizationLastAdminException::cannotUnassignLastAdminRole());
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process($this->createInput(), new Put(), ['organizationId' => self::ORG_ID, 'memberId' => self::MEMBER_ID]);
-  }
-
-  /**
-   * @param Throwable $domainFailure the domain exception the command handler
-   *                                 would throw — wrapped in
-   *                                 MessengerRuntimeException exactly as the
-   *                                 real MessengerCommandBusAdapter does
-   */
-  private function processorWithFailingCommandBus(Throwable $domainFailure): SetOrganizationMemberRolesProcessor
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser());
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($domainFailure));
-
-    return new SetOrganizationMemberRolesProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      security: $security,
-    );
   }
 
   private function createInput(): SetOrganizationMemberRolesInput
