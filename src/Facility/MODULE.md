@@ -620,6 +620,17 @@ and `CreateFacilityConsoleCommand` — are unrelated to quotas; the eventual
 fix is Organization publishing a contract identifier type. Do not add a
 third import; extend the contract surface instead.
 
+**Architecture debt — `Presentation` reaching into `Organization\Infrastructure` (2).**
+`CanonicalFacilityMutationProcessor` and `CanonicalFacilityProvider` each
+resolve the owning organization with
+`$entityManager->find(OrganizationRecord::class, …)`, then permission-check
+against `$organization->id`. That is a raw read of another module's table from
+the layer that should only translate HTTP — CLAUDE.md rule 5, invisible to
+deptrac because its collectors are layer-shaped rather than module-shaped.
+Pinned by `PresentationInfrastructureBoundaryTest`; the fix is Organization
+publishing an `Application\Port\Inbound` lookup port (it has none today) and
+the surrounding decision moving into a handler. Do not add a third.
+
 ## Error Codes
 
 | Exception | HTTP status | When |

@@ -500,6 +500,20 @@ of a foreign domain exception — then this baseline shrinks back. The other
 two imports are `OrganizationQuotaResource` / `OrganizationQuotaExceededException`
 on the inspection-creation quota path.
 
+**Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (5).**
+Four files resolve the owning organization with
+`$entityManager->find(OrganizationRecord::class, …)` and permission-check
+against `$organization->id`: `CanonicalInspectionMutationProcessor`,
+`CanonicalInspectionProvider`, `InspectionResponseProcessor` and
+`InspectionResponseProvider`. `InspectionResponseProcessor` additionally reads
+`Intervention\…\Record\InterventionRecord` to attach the response to its
+intervention. These are raw reads of another module's tables from the layer
+that should only translate HTTP — CLAUDE.md rule 5, invisible to deptrac
+because its collectors are layer-shaped rather than module-shaped. Pinned by
+`PresentationInfrastructureBoundaryTest`; the fix is the owning modules
+publishing `Application\Port\Inbound` lookup ports (Organization has none
+today) and the surrounding decisions moving into handlers. Do not add a sixth.
+
 ## Configuration
 
 - Service wiring: `config/modules/inspection.yaml`
