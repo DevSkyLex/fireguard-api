@@ -7,7 +7,6 @@ namespace Tests\Unit\Notification\Presentation\Api\Processor\Notification;
 use ApiPlatform\Metadata\Patch;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Notification\Application\Exception\NotificationNotFoundException;
 use Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\{MarkNotificationAsReadCommand, MarkNotificationAsReadResult};
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
 use Notification\Presentation\Api\Processor\Notification\MarkNotificationAsReadProcessor;
@@ -114,38 +113,10 @@ final class MarkNotificationAsReadProcessorTest extends TestCase
     self::assertNotNull($output->readAt);
   }
 
-  #[Test]
-  public function testProcessMapsNestedNotFoundException(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655442400'));
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException(new RuntimeException(
-        'wrapped',
-        0,
-        NotificationNotFoundException::withId('550e8400-e29b-41d4-a716-446655442401'),
-      ));
-
-    $processor = new MarkNotificationAsReadProcessor(
-      commandBus: $commandBus,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(
-      data: new stdClass(),
-      operation: new Patch(),
-      uriVariables: ['id' => '550e8400-e29b-41d4-a716-446655442401'],
-      context: [],
-    );
-  }
+  // The test that fed a nested exception here to prove the processor unwrapped
+  // and mapped it is gone with the mapping. Unwrapping is one behaviour in one
+  // place now — BusFailureUnwrappingSubscriberTest — and the status comes from
+  // `exception_to_status`.
 
   #[Test]
   public function testProcessRethrowsNestedInvalidValueException(): void

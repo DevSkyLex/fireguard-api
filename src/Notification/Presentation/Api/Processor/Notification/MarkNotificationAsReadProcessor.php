@@ -8,13 +8,11 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Notification\Application\Contract\Notification\NotificationType;
-use Notification\Application\Exception\NotificationNotFoundException;
 use Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\{MarkNotificationAsReadCommand, MarkNotificationAsReadResult};
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -72,20 +70,11 @@ final readonly class MarkNotificationAsReadProcessor implements ProcessorInterfa
       throw new NotFoundHttpException('Notification not found.');
     }
 
-    try {
-      /** @var MarkNotificationAsReadResult $result */
-      $result = $this->commandBus->dispatch(new MarkNotificationAsReadCommand(
-        userId: $user->getId(),
-        notificationId: $notificationId,
-      ));
-    } catch (Throwable $exception) {
-      $notFound = $this->findNotificationNotFound($exception);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var MarkNotificationAsReadResult $result */
+    $result = $this->commandBus->dispatch(new MarkNotificationAsReadCommand(
+      userId: $user->getId(),
+      notificationId: $notificationId,
+    ));
 
     $output = new NotificationOutput();
     $output->id = $result->id;
@@ -101,29 +90,6 @@ final readonly class MarkNotificationAsReadProcessor implements ProcessorInterfa
     $output->organizationId = $result->organizationId;
 
     return $output;
-  }
-
-  /**
-   * Method findNotificationNotFound.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the exception chain root
-   *
-   * @return NotificationNotFoundException|null the not found exception when present
-   */
-  private function findNotificationNotFound(Throwable $exception): ?NotificationNotFoundException
-  {
-    $current = $exception;
-    while (null !== $current) {
-      if ($current instanceof NotificationNotFoundException) {
-        return $current;
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return null;
   }
 
   // #endregion
