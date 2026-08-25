@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Audit\Application\UseCase\Query\ExportAuditEvents;
 
+use Audit\Application\Contract\AuditExportTooLargeException;
 use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
-use Audit\Domain\Exception\AuditExportTooLargeException;
 use Shared\Application\Message\QueryHandler;
 
 /**

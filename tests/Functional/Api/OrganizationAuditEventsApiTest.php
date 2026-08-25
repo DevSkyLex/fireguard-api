@@ -277,6 +277,81 @@ final class OrganizationAuditEventsApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testExportOrganizationAuditEventsRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/audit-events/export');
+
+    self::assertContains(
+      needle: $client->getResponse()->getStatusCode(),
+      haystack: [401, 403],
+      message: 'Unauthenticated export must be refused, not answered.',
+    );
+  }
+
+  #[Test]
+  public function testExportOrganizationAuditEventsRejectsMemberWithoutTheExportPermission(): void
+  {
+    // The whole point of the separate permission: this member CAN read the
+    // feed on screen and still must not be able to walk away with a file.
+    $client = static::createClient();
+    $this->seedOrganizations();
+
+    $this->loginAs($client, self::PLAIN_MEMBER_USER_ID, 'org-audit-member@example.com');
+
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/audit-events/export');
+
+    self::assertSame(
+      expected: 403,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A member without organization.audit.export must get 403.',
+    );
+  }
+
+  #[Test]
+  public function testExportOrganizationAuditEventsRejectsNonMemberWith404(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizations();
+
+    $this->loginAs($client, self::OUTSIDER_USER_ID, 'org-audit-outsider@example.com');
+
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/audit-events/export');
+
+    self::assertSame(
+      expected: 404,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A non-member must get 404 — 403 would confirm the organization exists.',
+    );
+  }
+
+  #[Test]
+  public function testExportOrganizationAuditEventsStreamsOnlyOwnOrganizationEventsWithoutPii(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizations();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'org-audit-admin@example.com');
+
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/audit-events/export');
+    $response = $client->getResponse();
+
+    self::assertSame(200, $response->getStatusCode());
+    self::assertStringContainsString('text/csv', (string) $response->headers->get('Content-Type'));
+    self::assertStringContainsString(
+      needle: 'attachment;',
+      haystack: (string) $response->headers->get('Content-Disposition'),
+      message: 'The export must download rather than render.',
+    );
+
+    // The column set is asserted where it is decided, in
+    // Tests\Unit\Organization\Presentation\Api\Service\OrganizationAuditEventCsvWriterTest:
+    // draining a StreamedResponse here would assert the framework's plumbing
+    // more than this endpoint's contract.
+  }
+
   /**
    * Method loginAs.
    *

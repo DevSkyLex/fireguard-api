@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Application\UseCase\Query\ExportAuditEvents;
 
 use Audit\Application\Contract\{AuditEventSearchCriteria, AuditEventView};
+use Audit\Application\Contract\AuditExportTooLargeException;
 use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsHandler, ExportAuditEventsQuery, ExportAuditEventsResult};
-use Audit\Domain\Exception\AuditExportTooLargeException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

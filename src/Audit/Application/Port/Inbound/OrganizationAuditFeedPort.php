@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Audit\Application\Port\Inbound;
 
-use Audit\Application\Contract\OrganizationAuditEntry;
+use Audit\Application\Contract\{AuditExportTooLargeException, OrganizationAuditEntry};
 use DateTimeImmutable;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 
@@ -60,5 +60,35 @@ interface OrganizationAuditFeedPort
     ?DateTimeImmutable $to = null,
     Pagination $pagination = new Pagination(),
   ): PaginatedResult;
+
+  /**
+   * Method exportForOrganization.
+   *
+   * Returns every audit entry matching the filters, for a CSV export, with the
+   * same non-negotiable organization scoping as {@see self::listForOrganization()}.
+   *
+   * The scoping matters more here than on the list: an export is the one place
+   * where a missing constraint leaks a whole ledger in a single file. It is
+   * therefore a parameter of this method, never a filter the caller composes —
+   * the platform-level export takes its criteria from the request, and that is
+   * exactly why it is reserved to platform operators.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier to scope to
+   * @param string|null $action optional exact audit action filter
+   * @param DateTimeImmutable|null $from optional inclusive lower bound on the occurrence datetime
+   * @param DateTimeImmutable|null $to optional inclusive upper bound on the occurrence datetime
+   *
+   * @throws AuditExportTooLargeException when the filters match more rows than the export cap
+   *
+   * @return iterable<OrganizationAuditEntry> every matching entry, streamed newest first
+   */
+  public function exportForOrganization(
+    string $organizationId,
+    ?string $action = null,
+    ?DateTimeImmutable $from = null,
+    ?DateTimeImmutable $to = null,
+  ): iterable;
   // #endregion
 }

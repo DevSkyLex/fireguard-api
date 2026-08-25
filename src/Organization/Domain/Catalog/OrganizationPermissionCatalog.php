@@ -258,6 +258,7 @@ final class OrganizationPermissionCatalog
       // deliberately not part of the member system role — admins hold it
       // through the organization.* wildcard and may grant it explicitly)
       ['name' => 'organization.audit.read', 'description' => 'View the organization activity feed (audit events scoped to the organization)'],
+      ['name' => 'organization.audit.export', 'description' => 'Export the organization activity feed as CSV (separate from reading it: an export leaves the product)'],
 
       // Four-eyes approval workflows
       ['name' => 'organization.approvals.read', 'description' => 'View the organization\'s pending and decided four-eyes approval requests'],
