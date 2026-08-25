@@ -7,9 +7,9 @@ namespace Assistant\Application\UseCase\Query\Thread\GetAssistantThread;
 use Assistant\Application\Contract\Message\AssistantMessageView;
 use Assistant\Application\Contract\Thread\AssistantThreadView;
 use Assistant\Application\Port\Outbound\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Domain\ValueObject\AssistantThreadId;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 
 use function array_map;
@@ -41,12 +41,12 @@ final readonly class GetAssistantThreadHandler implements QueryHandler
    *
    * @param AssistantThreadRepositoryPort $threads the assistant thread repository port
    * @param AssistantMessageRepositoryPort $messages the assistant message repository port
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param AssistantAccessPolicy $accessPolicy the permission and organization-toggle gate
    */
   public function __construct(
     private AssistantThreadRepositoryPort $threads,
     private AssistantMessageRepositoryPort $messages,
-    private OrganizationAuthorizationPort $authorization,
+    private AssistantAccessPolicy $accessPolicy,
   ) {
   }
   // #endregion
@@ -63,9 +63,7 @@ final readonly class GetAssistantThreadHandler implements QueryHandler
    */
   public function __invoke(GetAssistantThreadQuery $query): GetAssistantThreadResult
   {
-    $this->authorization->assertGrantedPermissions($query->actorUserId, $query->organizationId, [
-      'organization.assistant.use',
-    ]);
+    $this->accessPolicy->assertCanUseAssistant($query->actorUserId, $query->organizationId);
 
     $thread = $this->threads->findById(AssistantThreadId::fromString($query->threadId));
 

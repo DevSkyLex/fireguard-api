@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Application\UseCase\Query\Thread\ListAssistantThreads;
 
 use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
+use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Query\Thread\ListAssistantThreads\{ListAssistantThreadsHandler, ListAssistantThreadsQuery};
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\ValueObject\AssistantThreadId;
@@ -35,10 +37,11 @@ final class ListAssistantThreadsHandlerTest extends TestCase
     $authorization->method('assertGrantedPermissions')->willThrowException(
       OrganizationAccessDeniedException::missingPermission('organization.assistant.use'),
     );
+    $accessPolicy = $this->enabledAccessPolicy($authorization);
 
     $this->expectException(OrganizationAccessDeniedException::class);
 
-    $handler = new ListAssistantThreadsHandler($this->createStub(AssistantThreadRepositoryPort::class), $authorization);
+    $handler = new ListAssistantThreadsHandler($this->createStub(AssistantThreadRepositoryPort::class), $accessPolicy);
 
     $handler(new ListAssistantThreadsQuery(self::ORG_ID, self::USER_ID));
   }
@@ -61,14 +64,30 @@ final class ListAssistantThreadsHandlerTest extends TestCase
       ->willReturn([$thread]);
     $threads->method('countByOrganizationAndMember')->with(self::ORG_ID, self::USER_ID)->willReturn(1);
 
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $accessPolicy = $this->enabledAccessPolicy();
 
-    $handler = new ListAssistantThreadsHandler($threads, $authorization);
+    $handler = new ListAssistantThreadsHandler($threads, $accessPolicy);
 
     $result = $handler(new ListAssistantThreadsQuery(self::ORG_ID, self::USER_ID));
 
     self::assertCount(1, $result->items);
     self::assertSame(self::USER_ID, $result->items[0]->memberId);
     self::assertSame(1, $result->total);
+  }
+
+  /**
+   * Builds the real policy over doubled ports, with the organization toggle on.
+   */
+  private function enabledAccessPolicy(
+    ?OrganizationAuthorizationPort $authorization = null,
+    bool $assistantEnabled = true,
+  ): AssistantAccessPolicy {
+    $settings = $this->createStub(AssistantOrganizationSettingsPort::class);
+    $settings->method('isEnabledFor')->willReturn($assistantEnabled);
+
+    return new AssistantAccessPolicy(
+      $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
+      $settings,
+    );
   }
 }

@@ -47,6 +47,8 @@ final class AssistantPresentationFlowTest extends OAuth2WebTestCase
     $organizationId = $this->createOrganization($client, $ownerToken, 'Assistant Org ' . uniqid());
     self::assertNotNull($organizationId, 'Organization should be created successfully.');
 
+    $this->enableAssistantFor($client, $ownerToken, $organizationId);
+
     // Endpoint 1: GetCollection — list my assistant threads (initially empty).
     $client->request(
       method: 'GET',
@@ -270,6 +272,34 @@ final class AssistantPresentationFlowTest extends OAuth2WebTestCase
     self::assertTrue(is_string($token) && '' !== $token, 'Login response should contain access_token.');
 
     return $token;
+  }
+
+  /**
+   * Turns the assistant on for the organization.
+   *
+   * The assistant is opt-in: `OrganizationAssistantDefaults::ENABLED` is
+   * `false`, so a freshly created organization has it off and every endpoint
+   * answers 403 through `AssistantAccessPolicy`. This flow exercises the
+   * assistant, so it does what an administrator would do first.
+   */
+  private function enableAssistantFor(KernelBrowser $client, string $token, string $organizationId): void
+  {
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'CONTENT_TYPE' => 'application/merge-patch+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode(['assistant' => ['enabled' => true]]) ?: '',
+    );
+
+    self::assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'Enabling the assistant should succeed. Response: ' . $client->getResponse()->getContent(),
+    );
   }
 
   private function createOrganization(KernelBrowser $client, string $token, string $name): ?string

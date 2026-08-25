@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Application\UseCase\Command\Thread\StartAssistantThread;
 
 use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
+use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Command\Thread\StartAssistantThread\{StartAssistantThreadCommand, StartAssistantThreadHandler};
 use Assistant\Domain\Event\Thread\AssistantThreadStartedEvent;
 use Assistant\Domain\Exception\AssistantValidationException;
@@ -41,10 +43,11 @@ final class StartAssistantThreadHandlerTest extends TestCase
     $authorization->method('assertGrantedPermissions')->willThrowException(
       OrganizationAccessDeniedException::missingPermission('organization.assistant.use'),
     );
+    $accessPolicy = $this->enabledAccessPolicy($authorization);
 
     $this->expectException(OrganizationAccessDeniedException::class);
 
-    $this->handler(authorization: $authorization)(new StartAssistantThreadCommand(self::ORG_ID, self::USER_ID));
+    $this->handler(accessPolicy: $accessPolicy)(new StartAssistantThreadCommand(self::ORG_ID, self::USER_ID));
   }
 
   #[Test]
@@ -104,12 +107,12 @@ final class StartAssistantThreadHandlerTest extends TestCase
 
   private function handler(
     ?AssistantThreadRepositoryPort $threads = null,
-    ?OrganizationAuthorizationPort $authorization = null,
+    ?AssistantAccessPolicy $accessPolicy = null,
     ?AssistantModelPolicy $modelPolicy = null,
     ?EventDispatcherPort $eventDispatcher = null,
   ): StartAssistantThreadHandler {
     $threads ??= $this->createStub(AssistantThreadRepositoryPort::class);
-    $authorization ??= $this->createStub(OrganizationAuthorizationPort::class);
+    $accessPolicy ??= $this->enabledAccessPolicy();
     $modelPolicy ??= new AssistantModelPolicy([]);
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
 
@@ -121,11 +124,27 @@ final class StartAssistantThreadHandlerTest extends TestCase
 
     return new StartAssistantThreadHandler(
       threads: $threads,
-      authorization: $authorization,
+      accessPolicy: $accessPolicy,
       modelPolicy: $modelPolicy,
       uuidFactory: new UuidFactory($uuidGenerator),
       eventDispatcher: $eventDispatcher,
       clock: $clock,
+    );
+  }
+
+  /**
+   * Builds the real policy over doubled ports, with the organization toggle on.
+   */
+  private function enabledAccessPolicy(
+    ?OrganizationAuthorizationPort $authorization = null,
+    bool $assistantEnabled = true,
+  ): AssistantAccessPolicy {
+    $settings = $this->createStub(AssistantOrganizationSettingsPort::class);
+    $settings->method('isEnabledFor')->willReturn($assistantEnabled);
+
+    return new AssistantAccessPolicy(
+      $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
+      $settings,
     );
   }
 }

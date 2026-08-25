@@ -6,11 +6,11 @@ namespace Assistant\Application\UseCase\Command\Message\AskAssistantQuestion;
 
 use Assistant\Application\Contract\Message\AssistantMessageView;
 use Assistant\Application\Port\Outbound\{AssistantGenerationDispatcherPort, AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Domain\Event\Message\AssistantQuestionAskedEvent;
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantThreadId};
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
@@ -48,7 +48,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
    * @param AssistantThreadRepositoryPort $threads the assistant thread repository port
    * @param AssistantMessageRepositoryPort $messages the assistant message repository port
    * @param AssistantGenerationDispatcherPort $dispatcher the generation dispatcher port
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param AssistantAccessPolicy $accessPolicy the permission and organization-toggle gate
    * @param UuidFactory $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
@@ -57,7 +57,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
     private AssistantThreadRepositoryPort $threads,
     private AssistantMessageRepositoryPort $messages,
     private AssistantGenerationDispatcherPort $dispatcher,
-    private OrganizationAuthorizationPort $authorization,
+    private AssistantAccessPolicy $accessPolicy,
     private UuidFactory $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
@@ -77,9 +77,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
    */
   public function __invoke(AskAssistantQuestionCommand $command): AskAssistantQuestionResult
   {
-    $this->authorization->assertGrantedPermissions($command->actorUserId, $command->organizationId, [
-      'organization.assistant.use',
-    ]);
+    $this->accessPolicy->assertCanUseAssistant($command->actorUserId, $command->organizationId);
 
     $thread = $this->threads->findById(AssistantThreadId::fromString($command->threadId));
 

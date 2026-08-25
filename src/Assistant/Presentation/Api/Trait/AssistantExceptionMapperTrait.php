@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Assistant\Presentation\Api\Trait;
 
-use Assistant\Domain\Exception\{AssistantMessageIllegalStatusTransitionException, AssistantThreadNotFoundException, AssistantValidationException};
+use Assistant\Domain\Exception\{AssistantDisabledException, AssistantMessageIllegalStatusTransitionException, AssistantThreadNotFoundException, AssistantValidationException};
 use InvalidArgumentException;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -44,6 +44,7 @@ trait AssistantExceptionMapperTrait
     do {
       $mapped = match (true) {
         $current instanceof OrganizationAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
+        $current instanceof AssistantDisabledException => new AccessDeniedHttpException($current->getMessage(), $exception),
         $current instanceof AssistantThreadNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
         $current instanceof AssistantMessageIllegalStatusTransitionException => new ConflictHttpException($current->getMessage(), $exception),
         $current instanceof AssistantValidationException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
