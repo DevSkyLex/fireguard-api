@@ -2,10 +2,115 @@ api_platform:
   title: FireGuard API
   description: Fire-safety compliance platform API — identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance
   version: 1.0.0
+  # Domain exception -> HTTP status, declaratively.
+  #
+  # FG-035 step 2. These entries only take effect once BusFailureUnwrappingSubscriber
+  # has replaced the bus envelope with the domain exception, and only for a failure
+  # no processor caught first — a processor's own catch still wins, which is what
+  # lets the two mechanisms coexist while the catches are retired module by module.
+  #
+  # The map is the one PresentationExceptionStatusTest freezes. Changing a value
+  # here without changing it there fails that test, on purpose: a status is a
+  # published contract, not a configuration detail.
+  #
+  # PHP's own exceptions are deliberately absent. Mapping InvalidArgumentException
+  # globally to 400 would turn every genuine programming error into a client error,
+  # and the 77 processors that map it today do so knowing which call raised it.
   exception_to_status:
+    # The three that predate FG-035. They already worked because all three are
+    # raised BEFORE the command bus wraps anything — which is precisely the
+    # limitation step 1 removes.
     Organization\Application\Contract\Quota\OrganizationQuotaExceededException: 409
     Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
     Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
+
+    Approval\Domain\Exception\ApprovalAccessDeniedException: 403
+    Approval\Domain\Exception\ApprovalRequestNotFoundException: 404
+    Approval\Domain\Exception\ApprovalRequestNotPendingException: 409
+    Approval\Domain\Exception\ApproverNotAuthorizedException: 403
+    Approval\Domain\Exception\DeferredActionNoLongerApplicableException: 409
+    Approval\Domain\Exception\SelfApprovalNotAllowedException: 403
+    Assistant\Domain\Exception\AssistantDisabledException: 403
+    Assistant\Domain\Exception\AssistantMessageIllegalStatusTransitionException: 409
+    Assistant\Domain\Exception\AssistantThreadNotFoundException: 404
+    Assistant\Domain\Exception\AssistantValidationException: 422
+    Calendar\Domain\Exception\CalendarEventNotFoundException: 404
+    Calendar\Domain\Exception\CalendarEventValidationException: 422
+    Compliance\Domain\Exception\ComplianceAccessDeniedException: 403
+    Compliance\Domain\Exception\ComplianceExportNotEntitledException: 403
+    Compliance\Domain\Exception\ComplianceNotFoundException: 404
+    Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotFoundException: 404
+    Equipment\Domain\Exception\AttachmentNotFoundException: 404
+    Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException: 409
+    Equipment\Domain\Exception\EquipmentNotFoundException: 404
+    Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException: 409
+    Equipment\Domain\Exception\TagNotFoundException: 404
+    Facility\Domain\Exception\FacilityArchivedException: 400
+    Facility\Domain\Exception\FacilityAttachmentNotAncestorException: 409
+    Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException: 409
+    Facility\Domain\Exception\FacilityAttachmentNotFoundException: 404
+    Facility\Domain\Exception\FacilityCodeAlreadyExistsException: 409
+    Facility\Domain\Exception\FacilityHierarchyException: 400
+    Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
+    Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
+    Facility\Domain\Exception\FacilityMetadataFieldNotFoundException: 404
+    Facility\Domain\Exception\FacilityNotFoundException: 404
+    Facility\Domain\Exception\FacilitySubtreeSourceArchivedException: 409
+    Facility\Domain\Exception\FacilitySubtreeTooLargeException: 422
+    Import\Domain\Exception\ImportAccessDeniedException: 403
+    Import\Domain\Exception\ImportJobNotFoundException: 404
+    Inspection\Domain\Exception\ChecklistArchivedException: 409
+    Inspection\Domain\Exception\ChecklistInUseException: 409
+    Inspection\Domain\Exception\ChecklistNotFoundException: 404
+    Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException: 409
+    Inspection\Domain\Exception\InspectionAlreadyCancelledException: 409
+    Inspection\Domain\Exception\InspectionAlreadyClosedException: 409
+    Inspection\Domain\Exception\InspectionAlreadySubmittedException: 409
+    Inspection\Domain\Exception\InspectionNotFoundException: 404
+    Inspection\Domain\Exception\InspectionNotSubmittedException: 409
+    Inspection\Domain\Exception\NonConformityAlreadyResolvedException: 409
+    Inspection\Domain\Exception\NonConformityNotFoundException: 404
+    Intervention\Domain\Exception\InterventionAccessDeniedException: 403
+    Intervention\Domain\Exception\InterventionBlockedException: 422
+    Intervention\Domain\Exception\InterventionConflictException: 409
+    Intervention\Domain\Exception\InterventionExportTooLargeException: 422
+    Intervention\Domain\Exception\InterventionNotFoundException: 404
+    Intervention\Domain\Exception\InterventionPreconditionFailedException: 412
+    Intervention\Domain\Exception\InterventionPreconditionRequiredException: 428
+    Intervention\Domain\Exception\InterventionResourceNotFoundException: 404
+    Intervention\Domain\Exception\InterventionValidationException: 422
+    Intervention\Domain\Exception\PublicationNotFoundException: 404
+    Maintenance\Domain\Exception\MaintenanceAccessDeniedException: 403
+    Maintenance\Domain\Exception\MaintenanceNotFoundException: 404
+    Maintenance\Domain\Exception\MaintenanceValidationException: 422
+    Messaging\Domain\Exception\MessagingAccessDeniedException: 403
+    Messaging\Domain\Exception\MessagingAttachmentNotFoundException: 404
+    Messaging\Domain\Exception\MessagingConflictException: 409
+    Messaging\Domain\Exception\MessagingNotFoundException: 404
+    Messaging\Domain\Exception\MessagingSubjectNotFoundException: 404
+    Messaging\Domain\Exception\MessagingValidationException: 422
+    Organization\Domain\Exception\OrganizationAccessDeniedException: 403
+    Organization\Domain\Exception\OrganizationArchivedException: 409
+    Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422
+    Organization\Domain\Exception\OrganizationInvitationNotFoundException: 404
+    Organization\Domain\Exception\OrganizationLastAdminException: 409
+    Organization\Domain\Exception\OrganizationMemberNotFoundException: 404
+    Organization\Domain\Exception\OrganizationNotFoundException: 404
+    Organization\Domain\Exception\OrganizationOwnerCannotLeaveException: 409
+    Organization\Domain\Exception\OrganizationOwnershipUnchangedException: 409
+    Organization\Domain\Exception\OrganizationRoleNotFoundException: 404
+    Organization\Domain\Exception\OrganizationSlugAlreadyExistsException: 409
+    Organization\Domain\Exception\PlanKeyAlreadyExistsException: 409
+    Organization\Domain\Exception\PlanNotFoundException: 404
+    Organization\Domain\Exception\TeamMemberNotFoundException: 404
+    Organization\Domain\Exception\TeamNameAlreadyExistsException: 409
+    Organization\Domain\Exception\TeamNotFoundException: 404
+    Shared\Domain\Attachment\InvalidAttachmentException: 422
+    Shared\Domain\Exception\InvalidValueException: 400
+    User\Domain\Exception\UserNotFoundException: 404
+    Webhook\Domain\Exception\WebhookDeliveryNotFoundException: 404
+    Webhook\Domain\Exception\WebhookSubscriptionNotFoundException: 404
+    Webhook\Domain\Exception\WebhookValidationException: 422
   defaults:
     stateless: true
     cache_headers:
