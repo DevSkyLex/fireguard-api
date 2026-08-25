@@ -90,8 +90,14 @@ final readonly class GetConversationActivityHandler implements QueryHandler
       throw MessagingNotFoundException::conversation($query->conversationId);
     }
 
+    // Membership is resolved BEFORE the visibility branch, not inside it.
+    // `resolveActiveMemberId()` answers 404 for a caller outside the
+    // conversation's organization, whereas `assertCanReadThread()` answers 403 —
+    // which would confirm to an outsider that the conversation exists. Nine
+    // sibling handlers already hoist it; these four did not.
+    $memberId = $this->accessPolicy->resolveActiveMemberId($conversation->organizationId, $query->userId);
+
     if (ConversationVisibility::PARTICIPANTS->value === $conversation->visibility) {
-      $memberId = $this->accessPolicy->resolveActiveMemberId($conversation->organizationId, $query->userId);
       $this->accessPolicy->assertCanReadChannel($query->userId, $conversation->organizationId, $conversation->id, $memberId);
     } else {
       $requiredSubjectPermission = 'organization.messaging.read';

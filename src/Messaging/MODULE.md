@@ -795,6 +795,20 @@ from `assertCanReadThread()` / `assertCanWrite()` / `assertCanReadChannel()`.
 Scope is 404, permission is 403 — the same split the Organization module's
 `resolveAccess()` makes.
 
+**Four handlers did not honour this until 2026-08-25**, and the paragraph above
+overstated the code when it said "every handler". They resolved membership
+*inside* the `ConversationVisibility::PARTICIPANTS` branch rather than before
+it, so a **subject-visibility** conversation belonging to another organization
+reached `assertCanReadThread()` first and answered **403** — the very oracle
+this section forbids. The four were
+`DownloadMessageAttachmentHandler`, `ListConversationAttachmentsHandler`,
+`ListConversationLinksHandler` and `GetConversationActivityHandler`; nine
+sibling handlers already hoisted the call. The resolution is now above the
+branch in all thirteen, and each of the four carries a unit test named
+`testInvokeAnswersNotFoundRatherThanForbidden…` that fails against the old
+shape. **Keep the resolution above the branch** — putting it back inside one
+reopens the oracle silently, since the happy path is unaffected.
+
 `organization.messaging.read` / `.write` / `.manage`
 (`Organization\Domain\Catalog\OrganizationPermissionCatalog`).
 `organization.messaging.read` is included in the `member` system role's
