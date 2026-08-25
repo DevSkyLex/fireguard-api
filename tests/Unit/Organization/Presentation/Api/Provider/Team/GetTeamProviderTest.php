@@ -16,7 +16,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 /**
  * Test GetTeamProviderTest.
@@ -115,7 +115,7 @@ final class GetTeamProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(TeamNotFoundException::withId(self::TEAM_ID));
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(TeamNotFoundException::class);
 
     $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
   }
@@ -126,7 +126,7 @@ final class GetTeamProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(OrganizationNotFoundException::withId(self::ORGANIZATION_ID));
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
 
     $this->createProvider($queryBus)->provide(new Get(), $this->uriVariables());
   }

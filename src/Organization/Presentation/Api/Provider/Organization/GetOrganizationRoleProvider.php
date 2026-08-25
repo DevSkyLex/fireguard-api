@@ -10,13 +10,13 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationRole\{GetOrganizationRoleQuery, GetOrganizationRoleResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function array_map;
 use function is_string;
@@ -104,18 +104,8 @@ final readonly class GetOrganizationRoleProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.roles.read permission.');
     }
 
-    try {
-      /** @var GetOrganizationRoleResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationRoleQuery($organizationId, $roleId));
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var GetOrganizationRoleResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationRoleQuery($organizationId, $roleId));
 
     $output = new OrganizationRoleOutput();
     $output->id = $result->id;

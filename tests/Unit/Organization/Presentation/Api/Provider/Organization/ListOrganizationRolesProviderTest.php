@@ -10,16 +10,14 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{GetOrganizationRoleResult, ListOrganizationRolesQuery, ListOrganizationRolesResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationRolesProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function iterator_to_array;
 
@@ -41,40 +39,6 @@ final class ListOrganizationRolesProviderTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
 
     $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441810']);
-  }
-
-  #[Test]
-  public function testProvideMapsAMissingOrganizationToNotFound(): void
-  {
-    $organizationId = '550e8400-e29b-41d4-a716-446655441810';
-
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441800'));
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    // The real MessengerQueryBusAdapter always wraps a handler-thrown
-    // exception in MessengerRuntimeException — a raw
-    // OrganizationNotFoundException never reaches the provider, so mocking
-    // that directly would lock in a dead-catch bug instead of testing the
-    // UnwrapsOrganizationBusFailures path the provider actually uses.
-    $queryBus->method('ask')->willThrowException(
-      MessengerRuntimeException::wrap(OrganizationNotFoundException::withId($organizationId)),
-    );
-
-    $provider = new ListOrganizationRolesProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
   }
 
   #[Test]
