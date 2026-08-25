@@ -6,11 +6,11 @@ namespace Assistant\Application\UseCase\Command\Thread\StartAssistantThread;
 
 use Assistant\Application\Contract\Thread\AssistantThreadView;
 use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Domain\Event\Thread\AssistantThreadStartedEvent;
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\Service\AssistantModelPolicy;
 use Assistant\Domain\ValueObject\AssistantThreadId;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
@@ -53,7 +53,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param AssistantThreadRepositoryPort $threads the assistant thread repository port
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param AssistantAccessPolicy $accessPolicy the permission and organization-toggle gate
    * @param AssistantModelPolicy $modelPolicy the tenant model allowlist policy
    * @param UuidFactory $uuidFactory the uuid factory
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
@@ -61,7 +61,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
    */
   public function __construct(
     private AssistantThreadRepositoryPort $threads,
-    private OrganizationAuthorizationPort $authorization,
+    private AssistantAccessPolicy $accessPolicy,
     private AssistantModelPolicy $modelPolicy,
     private UuidFactory $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
@@ -82,9 +82,7 @@ final readonly class StartAssistantThreadHandler implements CommandHandler
    */
   public function __invoke(StartAssistantThreadCommand $command): StartAssistantThreadResult
   {
-    $this->authorization->assertGrantedPermissions($command->actorUserId, $command->organizationId, [
-      'organization.assistant.use',
-    ]);
+    $this->accessPolicy->assertCanUseAssistant($command->actorUserId, $command->organizationId);
 
     if (null !== $command->model && '' !== $command->model) {
       $this->modelPolicy->assertAllowed($command->model);

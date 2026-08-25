@@ -703,13 +703,14 @@ demonstrating that one person can belong to more than one tenant.
   `Infrastructure/Adapter/Assistant/OrganizationAssistantSettingsAdapter`,
   mirrors `OrganizationApprovalPolicyAdapter`) exposes
   `isEnabledFor()`/`includeBusinessContextFor()` reading the organization's
-  own `OrganizationAssistantSettings` value object. Only
-  `includeBusinessContextFor()` is actually consumed so far
-  (`GenerateAssistantReplyHandler` gates `AssistantPromptBuilder`'s
-  business-context injection on it); `isEnabledFor()` remains declared but
-  uncalled — see `src/Assistant/MODULE.md`'s "Deferred cross-module work".
+  own `OrganizationAssistantSettings` value object. Both are consumed:
+  `isEnabledFor()` by `Assistant\Application\Service\AssistantAccessPolicy`,
+  which every assistant endpoint passes through, and
+  `includeBusinessContextFor()` by `GenerateAssistantReplyHandler`, gating
+  `AssistantPromptBuilder`'s business-context injection.
   Fails closed (both methods return `false`) on an unknown/malformed
-  organization, never leaking business context on a lookup failure.
+  organization — so a lookup failure disables the assistant rather than
+  leaking business context.
 - **Member `isOwner` / role `memberCount`**: `ListOrganizationMembersHandler`
   resolves the organization's `ownerUserId` ONCE (the same `findById` read
   already used for the not-found check) and compares it against each

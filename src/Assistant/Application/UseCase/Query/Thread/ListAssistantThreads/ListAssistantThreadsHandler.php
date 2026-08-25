@@ -6,7 +6,7 @@ namespace Assistant\Application\UseCase\Query\Thread\ListAssistantThreads;
 
 use Assistant\Application\Contract\Thread\AssistantThreadView;
 use Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Shared\Application\Message\QueryHandler;
 
 use function array_map;
@@ -35,11 +35,11 @@ final readonly class ListAssistantThreadsHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param AssistantThreadRepositoryPort $threads the assistant thread repository port
-   * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param AssistantAccessPolicy $accessPolicy the permission and organization-toggle gate
    */
   public function __construct(
     private AssistantThreadRepositoryPort $threads,
-    private OrganizationAuthorizationPort $authorization,
+    private AssistantAccessPolicy $accessPolicy,
   ) {
   }
   // #endregion
@@ -56,9 +56,7 @@ final readonly class ListAssistantThreadsHandler implements QueryHandler
    */
   public function __invoke(ListAssistantThreadsQuery $query): ListAssistantThreadsResult
   {
-    $this->authorization->assertGrantedPermissions($query->actorUserId, $query->organizationId, [
-      'organization.assistant.use',
-    ]);
+    $this->accessPolicy->assertCanUseAssistant($query->actorUserId, $query->organizationId);
 
     $memberId = $query->actorUserId;
 

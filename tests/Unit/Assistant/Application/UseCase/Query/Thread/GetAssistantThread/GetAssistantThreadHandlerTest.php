@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Application\UseCase\Query\Thread\GetAssistantThread;
 
 use Assistant\Application\Port\Outbound\{AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Query\Thread\GetAssistantThread\{GetAssistantThreadHandler, GetAssistantThreadQuery};
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Domain\Model\Message\AssistantMessage;
@@ -105,12 +107,28 @@ final class GetAssistantThreadHandlerTest extends TestCase
   private function handler(
     ?AssistantThreadRepositoryPort $threads = null,
     ?AssistantMessageRepositoryPort $messages = null,
-    ?OrganizationAuthorizationPort $authorization = null,
+    ?AssistantAccessPolicy $accessPolicy = null,
   ): GetAssistantThreadHandler {
     $threads ??= $this->createStub(AssistantThreadRepositoryPort::class);
     $messages ??= $this->createStub(AssistantMessageRepositoryPort::class);
-    $authorization ??= $this->createStub(OrganizationAuthorizationPort::class);
+    $accessPolicy ??= $this->enabledAccessPolicy();
 
-    return new GetAssistantThreadHandler($threads, $messages, $authorization);
+    return new GetAssistantThreadHandler($threads, $messages, $accessPolicy);
+  }
+
+  /**
+   * Builds the real policy over doubled ports, with the organization toggle on.
+   */
+  private function enabledAccessPolicy(
+    ?OrganizationAuthorizationPort $authorization = null,
+    bool $assistantEnabled = true,
+  ): AssistantAccessPolicy {
+    $settings = $this->createStub(AssistantOrganizationSettingsPort::class);
+    $settings->method('isEnabledFor')->willReturn($assistantEnabled);
+
+    return new AssistantAccessPolicy(
+      $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
+      $settings,
+    );
   }
 }

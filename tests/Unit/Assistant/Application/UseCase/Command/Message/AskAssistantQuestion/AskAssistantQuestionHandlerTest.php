@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Application\UseCase\Command\Message\AskAssistantQuestion;
 
 use Assistant\Application\Port\Outbound\{AssistantGenerationDispatcherPort, AssistantMessageRepositoryPort, AssistantThreadRepositoryPort};
+use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort;
+use Assistant\Application\Service\AssistantAccessPolicy;
 use Assistant\Application\UseCase\Command\Message\AskAssistantQuestion\{AskAssistantQuestionCommand, AskAssistantQuestionHandler};
 use Assistant\Domain\Event\Message\AssistantQuestionAskedEvent;
 use Assistant\Domain\Exception\AssistantThreadNotFoundException;
@@ -142,13 +144,13 @@ final class AskAssistantQuestionHandlerTest extends TestCase
     ?AssistantThreadRepositoryPort $threads = null,
     ?AssistantMessageRepositoryPort $messages = null,
     ?AssistantGenerationDispatcherPort $dispatcher = null,
-    ?OrganizationAuthorizationPort $authorization = null,
+    ?AssistantAccessPolicy $accessPolicy = null,
     ?EventDispatcherPort $eventDispatcher = null,
   ): AskAssistantQuestionHandler {
     $threads ??= $this->createStub(AssistantThreadRepositoryPort::class);
     $messages ??= $this->createStub(AssistantMessageRepositoryPort::class);
     $dispatcher ??= $this->createStub(AssistantGenerationDispatcherPort::class);
-    $authorization ??= $this->createStub(OrganizationAuthorizationPort::class);
+    $accessPolicy ??= $this->enabledAccessPolicy();
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
 
     $uuidGenerator = $this->createStub(UuidGeneratorPort::class);
@@ -161,10 +163,26 @@ final class AskAssistantQuestionHandlerTest extends TestCase
       threads: $threads,
       messages: $messages,
       dispatcher: $dispatcher,
-      authorization: $authorization,
+      accessPolicy: $accessPolicy,
       uuidFactory: new UuidFactory($uuidGenerator),
       eventDispatcher: $eventDispatcher,
       clock: $clock,
+    );
+  }
+
+  /**
+   * Builds the real policy over doubled ports, with the organization toggle on.
+   */
+  private function enabledAccessPolicy(
+    ?OrganizationAuthorizationPort $authorization = null,
+    bool $assistantEnabled = true,
+  ): AssistantAccessPolicy {
+    $settings = $this->createStub(AssistantOrganizationSettingsPort::class);
+    $settings->method('isEnabledFor')->willReturn($assistantEnabled);
+
+    return new AssistantAccessPolicy(
+      $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
+      $settings,
     );
   }
 }
