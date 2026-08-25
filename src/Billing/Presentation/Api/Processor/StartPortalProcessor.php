@@ -9,13 +9,11 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Command\StartPortal\{StartPortalCommand, StartPortalResult};
-use Billing\Domain\Exception\BillingCustomerNotFoundException;
 use Billing\Presentation\Api\Dto\Output\PortalSessionOutput;
 use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -84,16 +82,8 @@ final readonly class StartPortalProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
     }
 
-    try {
-      /** @var StartPortalResult $result */
-      $result = $this->commandBus->dispatch(new StartPortalCommand(organizationId: $organizationId));
-    } catch (MessengerRuntimeException $exception) {
-      if (null !== $this->firstFailureOf($exception, BillingCustomerNotFoundException::class)) {
-        throw new ConflictHttpException('No billing customer exists for this organization yet.', $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var StartPortalResult $result */
+    $result = $this->commandBus->dispatch(new StartPortalCommand(organizationId: $organizationId));
 
     $output = new PortalSessionOutput();
     $output->organizationId = $organizationId;
