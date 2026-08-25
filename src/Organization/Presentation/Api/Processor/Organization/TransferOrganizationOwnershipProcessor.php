@@ -12,27 +12,14 @@ use Organization\Application\UseCase\Command\Organization\TransferOrganizationOw
   TransferOrganizationOwnershipResult
 };
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\{
-  OrganizationAccessDeniedException,
-  OrganizationArchivedException,
-  OrganizationDeletionConfirmationMismatchException,
-  OrganizationMemberNotFoundException,
-  OrganizationNotFoundException,
-  OrganizationOwnershipUnchangedException
-};
 use Organization\Presentation\Api\Dto\Input\Organization\TransferOrganizationOwnershipInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
-  BadRequestHttpException,
-  ConflictHttpException,
-  NotFoundHttpException,
-  UnprocessableEntityHttpException
+  BadRequestHttpException
 };
 
 use function is_string;
@@ -64,20 +51,6 @@ final readonly class TransferOrganizationOwnershipProcessor implements Processor
    * @see OrganizationOutputMapperTrait
    */
   use OrganizationOutputMapperTrait;
-
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The bus adapters wrap every handler failure into
-   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
-   * bare in-process throw. The `MessengerRuntimeException` clauses using
-   * this trait are what map the real dispatch path.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
 
   // #region Constructor
   /**
@@ -127,47 +100,13 @@ final readonly class TransferOrganizationOwnershipProcessor implements Processor
       throw new BadRequestHttpException('Organization identifier is required.');
     }
 
-    try {
-      /** @var TransferOrganizationOwnershipResult $result */
-      $result = $this->commandBus->dispatch(new TransferOrganizationOwnershipCommand(
-        organizationId: $organizationId,
-        actingUserId: $user->getId(),
-        newOwnerUserId: $data->newOwnerUserId,
-        slugConfirmation: $data->slug,
-      ));
-    } catch (OrganizationDeletionConfirmationMismatchException $exception) {
-      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationAccessDeniedException $exception) {
-      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationNotFoundException|OrganizationMemberNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationArchivedException|OrganizationOwnershipUnchangedException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $unprocessable = $this->findWrappedException($exception, OrganizationDeletionConfirmationMismatchException::class);
-      if (null !== $unprocessable) {
-        throw new UnprocessableEntityHttpException($unprocessable->getMessage(), $exception);
-      }
-
-      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
-      if (null !== $accessDenied) {
-        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
-      }
-
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $conflict = $this->findWrappedException($exception, OrganizationArchivedException::class)
-        ?? $this->findWrappedException($exception, OrganizationOwnershipUnchangedException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var TransferOrganizationOwnershipResult $result */
+    $result = $this->commandBus->dispatch(new TransferOrganizationOwnershipCommand(
+      organizationId: $organizationId,
+      actingUserId: $user->getId(),
+      newOwnerUserId: $data->newOwnerUserId,
+      slugConfirmation: $data->slug,
+    ));
 
     return $this->buildOutput($result->organizationId, $user->getId());
   }
@@ -196,12 +135,8 @@ final readonly class TransferOrganizationOwnershipProcessor implements Processor
    */
   private function buildOutput(string $organizationId, string $callerUserId): OrganizationOutput
   {
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
 
     return $this->buildOrganizationOutput($result);
   }

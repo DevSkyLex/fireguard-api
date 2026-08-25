@@ -9,8 +9,6 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -41,20 +39,6 @@ use function is_string;
  */
 final readonly class DeleteOrganizationProcessor implements ProcessorInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The bus adapters wrap every handler failure into
-   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
-   * bare in-process throw. The `MessengerRuntimeException` clauses using
-   * this trait are what map the real dispatch path.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.

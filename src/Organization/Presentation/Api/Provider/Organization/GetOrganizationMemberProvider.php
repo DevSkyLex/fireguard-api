@@ -9,10 +9,7 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationMember\{GetOrganizationMemberQuery, GetOrganizationMemberResult};
-use Organization\Domain\Exception\OrganizationMemberNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -32,22 +29,6 @@ use function is_string;
  */
 final readonly class GetOrganizationMemberProvider implements ProviderInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationBusFailures.
-   *
-   * The query bus wraps every handler-thrown exception into
-   * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so a
-   * direct `catch (OrganizationMemberNotFoundException)` around
-   * `queryBus->ask()` alone would never match at runtime — this trait walks
-   * the wrapped exception's `getPrevious()`/`HandlerFailedException` chain to
-   * find the real domain exception underneath.
-   *
-   * @see UnwrapsOrganizationBusFailures
-   */
-  use UnwrapsOrganizationBusFailures;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.
