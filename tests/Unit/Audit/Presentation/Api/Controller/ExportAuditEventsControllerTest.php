@@ -18,7 +18,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function json_encode;
 use function ob_get_clean;
@@ -162,12 +162,11 @@ final class ExportAuditEventsControllerTest extends TestCase
   }
 
   #[Test]
-  public function testItRefusesAnExportExceedingTheRowCapThroughTheBusWrapping(): void
+  public function testItDoesNotRecordAnExportThatExceededTheRowCap(): void
   {
-    // The real query bus never surfaces the domain exception directly: Messenger
-    // wraps it in HandlerFailedException, re-wrapped by the adapter into
-    // MessengerRuntimeException. The controller must unwrap that chain, or the
-    // documented 422 degrades to a 500 with no RFC 7807 body.
+    // What the controller still owns: not announcing an export that never
+    // happened. The unwrapping this test used to assert moved to
+    // BusFailureUnwrappingSubscriber, and the 422 to `exception_to_status`.
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(new RuntimeException(
       'Query handling failed.',
@@ -183,8 +182,7 @@ final class ExportAuditEventsControllerTest extends TestCase
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
-    $this->expectException(UnprocessableEntityHttpException::class);
-    $this->expectExceptionMessage('exceeding the 50000 row export cap');
+    $this->expectException(RuntimeException::class);
 
     $this->createController($queryBus, $eventDispatcher)->__invoke(new Request());
   }

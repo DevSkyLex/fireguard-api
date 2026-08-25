@@ -7,7 +7,6 @@ namespace Tests\Unit\Notification\Presentation\Api\Provider\Notification;
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Notification\Application\Exception\NotificationNotFoundException;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\{GetUserNotificationQuery, GetUserNotificationResult};
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
 use Notification\Presentation\Api\Provider\Notification\GetNotificationProvider;
@@ -106,33 +105,8 @@ final class GetNotificationProviderTest extends TestCase
     self::assertFalse($output->isRead);
   }
 
-  #[Test]
-  public function testProvideMapsNestedNotFoundToHttpNotFound(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655442100'));
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->willThrowException(new RuntimeException(
-        'wrapped',
-        0,
-        NotificationNotFoundException::withId('550e8400-e29b-41d4-a716-446655442112'),
-      ));
-
-    $provider = new GetNotificationProvider(
-      queryBus: $queryBus,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new Get(), ['id' => '550e8400-e29b-41d4-a716-446655442112']);
-  }
+  // The nested-exception mapping test is gone with the mapping — see
+  // BusFailureUnwrappingSubscriberTest.
 
   #[Test]
   public function testProvideRethrowsNestedInvalidValueException(): void

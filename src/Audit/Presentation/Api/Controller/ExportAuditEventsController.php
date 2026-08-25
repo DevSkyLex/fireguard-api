@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Audit\Presentation\Api\Controller;
 
-use Audit\Application\Contract\AuditExportTooLargeException;
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsQuery, ExportAuditEventsResult};
 use Audit\Domain\Event\AuditEventsExportedEvent;
 use Audit\Presentation\Api\Service\{AuditEventCsvWriter, AuditEventExportCriteriaFactory};
@@ -16,8 +15,7 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnprocessableEntityHttpException};
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function fclose;
 use function fopen;
@@ -111,21 +109,11 @@ final class ExportAuditEventsController extends AbstractController
 
     $criteria = $this->criteriaFactory->fromRequest($request);
 
-    try {
-      /** @var ExportAuditEventsResult $result */
-      $result = $this->queryBus->ask(new ExportAuditEventsQuery(criteria: $criteria));
-    } catch (Throwable $exception) {
-      // The query bus wraps handler exceptions (MessengerRuntimeException ->
-      // HandlerFailedException -> domain), so a direct catch of the domain
-      // exception never matches — unwrap the chain, or the documented 422
-      // degrades to a bare 500.
-      $tooLarge = $this->findException($exception, AuditExportTooLargeException::class);
-      if ($tooLarge instanceof AuditExportTooLargeException) {
-        throw new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    // The cap failure now reaches the client as the documented 422 without a
+    // catch here: BusFailureUnwrappingSubscriber opens the envelope the comment
+    // this replaces described, and `exception_to_status` carries the status.
+    /** @var ExportAuditEventsResult $result */
+    $result = $this->queryBus->ask(new ExportAuditEventsQuery(criteria: $criteria));
 
     $this->eventDispatcher->dispatch(new AuditEventsExportedEvent(
       actorUserId: $user->getId(),
