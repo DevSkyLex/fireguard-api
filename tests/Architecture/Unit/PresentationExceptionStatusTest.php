@@ -196,7 +196,6 @@ final class PresentationExceptionStatusTest extends TestCase
     'TeamMemberNotFoundException' => 'NotFoundHttpException',
     'TeamNameAlreadyExistsException' => 'ConflictHttpException',
     'TeamNotFoundException' => 'NotFoundHttpException',
-    'UserNotFoundException' => 'NotFoundHttpException',
     'ValueError' => 'BadRequestHttpException',
     'WebhookDeliveryNotFoundException' => 'NotFoundHttpException',
     'WebhookSubscriptionNotFoundException' => 'NotFoundHttpException',
