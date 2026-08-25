@@ -114,7 +114,7 @@ final class GetSessionProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideMapsNotFoundException(): void
+  public function testProvideLetsAMissingSessionPropagate(): void
   {
     $user = $this->createStub(UserInterface::class);
 
@@ -134,7 +134,9 @@ final class GetSessionProviderTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    // The provider no longer maps; `exception_to_status` does, once
+    // BusFailureUnwrappingSubscriber has opened the envelope.
+    $this->expectException(SessionNotFoundException::class);
 
     $provider->provide(new Get(), ['id' => 'session-2']);
   }

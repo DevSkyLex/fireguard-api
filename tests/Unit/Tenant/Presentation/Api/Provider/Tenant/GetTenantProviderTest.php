@@ -118,7 +118,7 @@ final class GetTenantProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideMapsNotFound(): void
+  public function testProvideLetsAMissingTenantPropagate(): void
   {
     $user = $this->createStub(UserInterface::class);
     $security = $this->createMock(Security::class);
@@ -137,7 +137,9 @@ final class GetTenantProviderTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    // The provider no longer maps; `exception_to_status` does, once
+    // BusFailureUnwrappingSubscriber has opened the envelope.
+    $this->expectException(TenantNotFoundException::class);
 
     $provider->provide(new Get(), ['id' => 'tenant-2']);
   }

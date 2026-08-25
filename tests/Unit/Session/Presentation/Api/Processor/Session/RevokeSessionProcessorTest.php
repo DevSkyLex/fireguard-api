@@ -60,12 +60,19 @@ final class RevokeSessionProcessorTest extends TestCase
   }
 
   /**
-   * Method testProcessThrowsNotFoundWhenSessionMissing.
+   * Method testProcessLetsAMissingSessionPropagate.
    *
-   * Test that process throws NotFoundHttpException when session is missing.
+   * The processor no longer maps: `exception_to_status` does, once
+   * `BusFailureUnwrappingSubscriber` has opened the envelope. Its job here is
+   * to get out of the way, which is what this asserts.
+   *
+   * The companion test that fed a NESTED exception is gone with the mapping —
+   * unwrapping is now one behaviour in one place, covered by
+   * `BusFailureUnwrappingSubscriberTest`, instead of being re-proven at every
+   * processor that used to re-implement it.
    */
   #[Test]
-  public function testProcessThrowsNotFoundWhenSessionMissing(): void
+  public function testProcessLetsAMissingSessionPropagate(): void
   {
     $sessionId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -80,34 +87,7 @@ final class RevokeSessionProcessorTest extends TestCase
       security: $this->createSecurityMock(),
     );
 
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(
-      data: new stdClass(),
-      operation: new Delete(),
-      uriVariables: ['id' => $sessionId],
-      context: [],
-    );
-  }
-
-  #[Test]
-  public function testProcessThrowsNotFoundWhenNestedSessionMissing(): void
-  {
-    $sessionId = '123e4567-e89b-12d3-a456-426614174001';
-    $nested = SessionNotFoundException::withId(id: $sessionId);
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException(new RuntimeException('boom', 0, $nested));
-
-    $processor = new RevokeSessionProcessor(
-      commandBus: $commandBus,
-      security: $this->createSecurityMock(),
-    );
-
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(SessionNotFoundException::class);
 
     $processor->process(
       data: new stdClass(),
