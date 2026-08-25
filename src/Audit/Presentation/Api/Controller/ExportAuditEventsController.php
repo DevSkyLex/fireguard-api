@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Audit\Presentation\Api\Controller;
 
+use Audit\Application\Contract\AuditExportTooLargeException;
 use Audit\Application\UseCase\Query\ExportAuditEvents\{ExportAuditEventsQuery, ExportAuditEventsResult};
 use Audit\Domain\Event\AuditEventsExportedEvent;
-use Audit\Domain\Exception\AuditExportTooLargeException;
 use Audit\Presentation\Api\Service\{AuditEventCsvWriter, AuditEventExportCriteriaFactory};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;

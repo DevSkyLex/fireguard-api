@@ -4,16 +4,14 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents;
 
-use Audit\Application\Contract\OrganizationAuditEntry;
 use Audit\Application\Port\Inbound\OrganizationAuditFeedPort;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Service\OrganizationAuditEntryProjector;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
-
-use function array_key_exists;
 
 /**
  * Handler ListOrganizationAuditEventsHandler.
@@ -58,12 +56,14 @@ final readonly class ListOrganizationAuditEventsHandler implements QueryHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    * @param OrganizationAuditFeedPort $auditFeed the Audit module's published organization feed
+   * @param OrganizationAuditEntryProjector $projector the audience-safe entry projector, shared with the export
    */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationAuditFeedPort $auditFeed,
+    private OrganizationAuditEntryProjector $projector,
   ) {
   }
   // #endregion
@@ -115,11 +115,10 @@ final readonly class ListOrganizationAuditEventsHandler implements QueryHandler
       pagination: $query->pagination,
     );
 
-    /** @var array<string, bool> $membershipCache */
-    $membershipCache = [];
+    $this->projector->reset();
     $items = [];
     foreach ($result->items as $entry) {
-      $items[] = $this->mapToResult($entry, $organizationId, $membershipCache);
+      $items[] = $this->projector->project($entry, $organizationId);
     }
 
     return new PaginatedResult(
@@ -130,81 +129,5 @@ final readonly class ListOrganizationAuditEventsHandler implements QueryHandler
     );
   }
 
-  /**
-   * Method mapToResult.
-   *
-   * Maps one published ledger entry to the use case result, deciding whether
-   * the actor may be named to this audience.
-   *
-   * @since 1.1.0
-   *
-   * @param OrganizationAuditEntry $entry the published ledger entry
-   * @param OrganizationId $organizationId the organization being read
-   * @param array<string, bool> $membershipCache per-invocation membership cache
-   *
-   * @return OrganizationAuditEventResult the result item
-   */
-  private function mapToResult(
-    OrganizationAuditEntry $entry,
-    OrganizationId $organizationId,
-    array &$membershipCache,
-  ): OrganizationAuditEventResult {
-    return new OrganizationAuditEventResult(
-      id: $entry->id,
-      action: $entry->action,
-      actorType: $entry->actorType,
-      actorId: $entry->actorId,
-      actorIsOrganizationMember: $this->actorIsOrganizationMember($entry, $organizationId, $membershipCache),
-      subjectType: $entry->subjectType,
-      subjectId: $entry->subjectId,
-      metadata: $entry->metadata,
-      occurredAt: $entry->occurredAt,
-      recordedAt: $entry->recordedAt,
-    );
-  }
-
-  /**
-   * Method actorIsOrganizationMember.
-   *
-   * Decides whether an actor is nameable to this organization.
-   *
-   * A ledger row's actor is not necessarily one of the organization's people:
-   * a platform operator acting on the organization is recorded here too, and
-   * resolving their display name would disclose the identity of a user the
-   * reader has no relationship with. So the answer is membership-based, not
-   * "is there a user record": anyone with a membership row in THIS
-   * organization (active or deactivated — a former colleague stays nameable,
-   * otherwise the feed's history becomes anonymous the moment someone
-   * leaves) is nameable, everyone else is not.
-   *
-   * Bounded by the page size (100), and cached per distinct actor within one
-   * invocation.
-   *
-   * @since 1.1.0
-   *
-   * @param OrganizationAuditEntry $entry the published ledger entry
-   * @param OrganizationId $organizationId the organization being read
-   * @param array<string, bool> $cache per-invocation membership cache
-   *
-   * @return bool true when the actor may be named to this audience
-   */
-  private function actorIsOrganizationMember(
-    OrganizationAuditEntry $entry,
-    OrganizationId $organizationId,
-    array &$cache,
-  ): bool {
-    if ('user' !== $entry->actorType || null === $entry->actorId) {
-      return false;
-    }
-
-    if (array_key_exists($entry->actorId, $cache)) {
-      return $cache[$entry->actorId];
-    }
-
-    $isMember = null !== $this->memberRepository->findByOrganizationAndUser($organizationId, $entry->actorId);
-    $cache[$entry->actorId] = $isMember;
-
-    return $isMember;
-  }
   // #endregion
 }

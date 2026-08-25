@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Audit\Domain\Exception;
+namespace Tests\Unit\Audit\Application\Contract;
 
-use Audit\Domain\Exception\AuditExportTooLargeException;
+use Audit\Application\Contract\AuditExportTooLargeException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

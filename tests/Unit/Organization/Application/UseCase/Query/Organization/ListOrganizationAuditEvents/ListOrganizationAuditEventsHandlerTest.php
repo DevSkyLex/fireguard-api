@@ -9,6 +9,7 @@ use Audit\Application\Port\Inbound\OrganizationAuditFeedPort;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Service\OrganizationAuditEntryProjector;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents\{ListOrganizationAuditEventsHandler, ListOrganizationAuditEventsQuery, OrganizationAuditEventResult};
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
@@ -84,6 +85,7 @@ final class ListOrganizationAuditEventsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       auditFeed: $auditFeed,
+      projector: new OrganizationAuditEntryProjector($memberRepository),
     );
 
     $result = $handler->__invoke(new ListOrganizationAuditEventsQuery(
@@ -143,6 +145,7 @@ final class ListOrganizationAuditEventsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       auditFeed: $auditFeed,
+      projector: new OrganizationAuditEntryProjector($memberRepository),
     );
 
     $result = $handler->__invoke(new ListOrganizationAuditEventsQuery(
@@ -173,6 +176,7 @@ final class ListOrganizationAuditEventsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       auditFeed: $auditFeed,
+      projector: new OrganizationAuditEntryProjector($this->createStub(OrganizationMemberRepositoryPort::class)),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -202,6 +206,7 @@ final class ListOrganizationAuditEventsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       auditFeed: $auditFeed,
+      projector: new OrganizationAuditEntryProjector($memberRepository),
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -234,6 +239,7 @@ final class ListOrganizationAuditEventsHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       auditFeed: $auditFeed,
+      projector: new OrganizationAuditEntryProjector($memberRepository),
     );
 
     $this->expectException(OrganizationAccessDeniedException::class);

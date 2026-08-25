@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Audit\Domain\Exception;
+namespace Audit\Application\Contract;
 
 use RuntimeException;
 

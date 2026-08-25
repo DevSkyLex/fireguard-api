@@ -23,6 +23,18 @@ intended for authenticated user flows or internal service usage.
 | POST | `/api/otp/totp/confirm` | Confirm TOTP (activates the PENDING secret) | `ConfirmTotpProcessor` |
 | POST | `/api/otp/totp/disable` | Disable TOTP (requires a valid current code) | `DisableTotpProcessor` |
 
+`/api/otp/purposes` and `/api/otp/channels` have **no first-party web consumer**
+today. They are retained deliberately as public-API discovery affordances for
+external integrators driving the OTP challenge flow, on the same reasoning that
+keeps `/api/webhooks/event-types` (see `src/Webhook/MODULE.md`) — a client
+composing a challenge needs to know which purposes and channels the server will
+accept, and hard-coding them into every integration is what a reference catalog
+exists to avoid.
+
+This is a **recorded decision, not an oversight**: the check that surfaced it
+counted zero consumers under `src/` in the web application, and the answer was
+to write the reason down rather than to delete the endpoints.
+
 ## Flows
 
 ### Challenge (Email/SMS)

@@ -173,6 +173,18 @@ services:
   Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents\ListOrganizationAuditEventsHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\ExportOrganizationAuditEvents\ExportOrganizationAuditEventsHandler:
+    tags: ['messenger.message_handler']
+
+  # Shared by the audit list and the audit export: it carries the rule deciding
+  # which actors may be named to an organization audience.
+  Organization\Application\Service\OrganizationAuditEntryProjector: ~
+
+  Organization\Presentation\Api\Service\OrganizationAuditEventCsvWriter: ~
+
+  Organization\Presentation\Api\Controller\ExportOrganizationAuditEventsController:
+    tags: ['controller.service_arguments']
+
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
     tags: ['messenger.message_handler']
 
