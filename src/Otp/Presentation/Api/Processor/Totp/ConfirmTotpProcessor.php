@@ -6,18 +6,14 @@ namespace Otp\Presentation\Api\Processor\Totp;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Otp\Application\Exception\TotpPendingEnrollmentNotFoundException;
 use Otp\Application\UseCase\Command\Totp\ConfirmTotp\{ConfirmTotpCommand, ConfirmTotpResult};
 use Otp\Presentation\Api\Dto\Input\Totp\ConfirmTotpInput;
 use Otp\Presentation\Api\Dto\Output\Totp\ConfirmTotpOutput;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyRequestsHttpException, UnauthorizedHttpException, UnprocessableEntityHttpException};
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException, UnprocessableEntityHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
-use Throwable;
 
 use function hash;
 use function is_string;
@@ -76,22 +72,11 @@ final readonly class ConfirmTotpProcessor implements ProcessorInterface
 
     $this->enforceRateLimit($userId);
 
-    try {
-      $command = new ConfirmTotpCommand(
-        userId: $userId,
-        code: $data->code,
-      );
-
-      /** @var ConfirmTotpResult $result */
-      $result = $this->commandBus->dispatch($command);
-    } catch (Throwable $exception) {
-      $notFound = $this->extractPendingEnrollmentNotFoundException($exception);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage());
-      }
-
-      throw $exception;
-    }
+    /** @var ConfirmTotpResult $result */
+    $result = $this->commandBus->dispatch(new ConfirmTotpCommand(
+      userId: $userId,
+      code: $data->code,
+    ));
 
     if (!$result->success) {
       throw new UnprocessableEntityHttpException($result->error ?? 'Invalid TOTP code.');
@@ -101,45 +86,6 @@ final readonly class ConfirmTotpProcessor implements ProcessorInterface
     $output->success = true;
 
     return $output;
-  }
-
-  private function extractPendingEnrollmentNotFoundException(Throwable $exception): ?TotpPendingEnrollmentNotFoundException
-  {
-    if ($exception instanceof TotpPendingEnrollmentNotFoundException) {
-      return $exception;
-    }
-
-    if ($exception instanceof HandlerFailedException) {
-      foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof TotpPendingEnrollmentNotFoundException) {
-          return $nestedException;
-        }
-      }
-
-      return null;
-    }
-
-    if ($exception instanceof MessengerRuntimeException) {
-      $previous = $exception->getPrevious();
-
-      if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof TotpPendingEnrollmentNotFoundException) {
-            return $nestedException;
-          }
-        }
-      }
-
-      while ($previous) {
-        if ($previous instanceof TotpPendingEnrollmentNotFoundException) {
-          return $previous;
-        }
-
-        $previous = $previous->getPrevious();
-      }
-    }
-
-    return null;
   }
 
   private function enforceRateLimit(string $userId): void

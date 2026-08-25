@@ -39,6 +39,7 @@ api_platform:
     Session\Domain\Exception\SessionNotFoundException: 404
     Tenant\Domain\Exception\TenantNotFoundException: 404
     Otp\Application\Exception\TotpPendingEnrollmentNotFoundException: 404
+    Otp\Application\Exception\OtpNotFoundException: 404
     TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException: 404
 
     Approval\Domain\Exception\ApprovalAccessDeniedException: 403
