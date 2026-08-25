@@ -12,6 +12,7 @@ use Organization\Presentation\Api\Operation\OrganizationOperations;
 use Organization\Presentation\Api\Processor\Organization\{AcceptOrganizationInvitationProcessor, InviteOrganizationMemberProcessor, ResendOrganizationInvitationProcessor, RevokeOrganizationInvitationProcessor};
 use Organization\Presentation\Api\Provider\Organization\{GetOrganizationInvitationPreviewProvider, ListOrganizationInvitationsProvider};
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Resource OrganizationInvitationResource.
@@ -78,6 +79,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
     new Post(
       name: OrganizationOperations::REVOKE_ORGANIZATION_INVITATION,
       uriTemplate: '/{organizationId}/invitations/{invitationId}/revoke',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: OrganizationInvitationOutput::class,
       processor: RevokeOrganizationInvitationProcessor::class,
@@ -92,6 +94,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
     new Post(
       name: OrganizationOperations::RESEND_ORGANIZATION_INVITATION,
       uriTemplate: '/{organizationId}/invitations/{invitationId}/resend',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: OrganizationInvitationOutput::class,
       processor: ResendOrganizationInvitationProcessor::class,

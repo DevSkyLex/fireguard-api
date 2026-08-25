@@ -83,6 +83,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: RegistrationOperations::RESEND,
       uriTemplate: '/register/resend',
+      status: HttpResponse::HTTP_OK,
       input: ResendRegistrationInput::class,
       output: RegisterOutput::class,
       processor: ResendRegistrationProcessor::class,
@@ -111,6 +112,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: RegistrationOperations::CONFIRM,
       uriTemplate: '/register/verify',
+      status: HttpResponse::HTTP_OK,
       input: ConfirmRegistrationInput::class,
       output: LoginOutput::class,
       processor: ConfirmRegistrationProcessor::class,

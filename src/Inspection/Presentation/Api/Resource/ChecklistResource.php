@@ -86,6 +86,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: InspectionOperations::ARCHIVE_CHECKLIST,
       uriTemplate: '/{organizationId}/checklists/{checklistId}/archive',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: ChecklistOutput::class,
       processor: ArchiveChecklistProcessor::class,

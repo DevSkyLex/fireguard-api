@@ -176,6 +176,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OrganizationOperations::UPLOAD_ORGANIZATION_LOGO,
       uriTemplate: '/{organizationId}/logo',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: OrganizationOutput::class,
       processor: UploadOrganizationLogoProcessor::class,

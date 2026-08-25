@@ -251,6 +251,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: FacilityOperations::ARCHIVE_FACILITY,
       uriTemplate: '/{organizationId}/facilities/{facilityId}/archive',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: FacilityOutput::class,
       processor: ArchiveFacilityProcessor::class,
