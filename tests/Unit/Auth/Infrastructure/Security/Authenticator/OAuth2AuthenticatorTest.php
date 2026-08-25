@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Infrastructure\Security\Authenticator;
 
 use Auth\Application\Contract\Token\AccessTokenStatus;
-use Auth\Application\Port\Outbound\AccessTokenLookupPort;
+use Auth\Application\Port\Outbound\{AccessTokenLookupPort, SessionStatusPort};
 use Auth\Infrastructure\Security\Authenticator\OAuth2Authenticator;
 use Auth\Infrastructure\Security\User\{SecurityUser, SecurityUserProvider};
 use Authorization\Application\Port\Inbound\AuthorizationPort;
@@ -123,6 +123,7 @@ final class OAuth2AuthenticatorTest extends TestCase
     $authenticator = new OAuth2Authenticator(
       accessTokenLookup: $this->createStub(AccessTokenLookupPort::class),
       userProvider: $this->createUserProvider(),
+      sessionStatus: $this->createStub(SessionStatusPort::class),
       publicKeyPath: $this->getPublicKeyPath(),
       parser: $parser,
     );
@@ -280,6 +281,74 @@ final class OAuth2AuthenticatorTest extends TestCase
   }
 
   #[Test]
+  public function testAuthenticateRejectsLoginJwtWhoseSessionWasRevoked(): void
+  {
+    $lookup = $this->createMock(AccessTokenLookupPort::class);
+    $lookup->expects(self::never())->method('find');
+
+    $sessionStatus = $this->createMock(SessionStatusPort::class);
+    $sessionStatus->expects(self::once())
+      ->method('isAccessTokenRevoked')
+      ->with('token-123')
+      ->willReturn(true);
+
+    $authenticator = $this->createAuthenticator($lookup, $sessionStatus);
+    $token = $this->buildRsaToken(scopes: ['read'], fireguardTokenUse: 'auth_session');
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $token);
+
+    $this->expectException(CustomUserMessageAuthenticationException::class);
+    $this->expectExceptionMessage('Token has been revoked');
+
+    $authenticator->authenticate($request);
+  }
+
+  #[Test]
+  public function testAuthenticateAcceptsLoginJwtWhoseSessionIsNotTracked(): void
+  {
+    // Session recording is best-effort at every issuance site, so an absent
+    // row must not read as a revocation — that would lock the user out for the
+    // whole token lifetime after a transient failure they never saw.
+    $sessionStatus = $this->createMock(SessionStatusPort::class);
+    $sessionStatus->expects(self::once())
+      ->method('isAccessTokenRevoked')
+      ->with('token-123')
+      ->willReturn(false);
+
+    $authenticator = $this->createAuthenticator(
+      $this->createStub(AccessTokenLookupPort::class),
+      $sessionStatus,
+    );
+    $token = $this->buildRsaToken(scopes: ['read'], fireguardTokenUse: 'auth_session');
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $token);
+
+    $user = $authenticator->authenticate($request)->getUser();
+
+    self::assertInstanceOf(SecurityUser::class, $user);
+    self::assertSame(['read'], $user->getScopes());
+  }
+
+  #[Test]
+  public function testAuthenticateDoesNotConsultSessionStatusForOAuth2Token(): void
+  {
+    $lookup = $this->createStub(AccessTokenLookupPort::class);
+    $lookup->method('find')->willReturn(new AccessTokenStatus(['read'], false, false));
+
+    $sessionStatus = $this->createMock(SessionStatusPort::class);
+    $sessionStatus->expects(self::never())->method('isAccessTokenRevoked');
+
+    $authenticator = $this->createAuthenticator($lookup, $sessionStatus);
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $this->buildRsaToken());
+
+    self::assertInstanceOf(SecurityUser::class, $authenticator->authenticate($request)->getUser());
+  }
+
+  #[Test]
   public function testAuthenticateRejectsInvalidInternalLoginJwtWithoutDatabaseLookup(): void
   {
     $lookup = $this->createMock(AccessTokenLookupPort::class);
@@ -357,6 +426,7 @@ final class OAuth2AuthenticatorTest extends TestCase
     new OAuth2Authenticator(
       accessTokenLookup: $this->createStub(AccessTokenLookupPort::class),
       userProvider: $this->createUserProvider(),
+      sessionStatus: $this->createStub(SessionStatusPort::class),
       publicKeyPath: '',
     );
   }
@@ -384,11 +454,14 @@ final class OAuth2AuthenticatorTest extends TestCase
   // #endregion
 
   // #region Helpers
-  private function createAuthenticator(AccessTokenLookupPort $lookup): OAuth2Authenticator
-  {
+  private function createAuthenticator(
+    AccessTokenLookupPort $lookup,
+    ?SessionStatusPort $sessionStatus = null,
+  ): OAuth2Authenticator {
     return new OAuth2Authenticator(
       accessTokenLookup: $lookup,
       userProvider: $this->createUserProvider(),
+      sessionStatus: $sessionStatus ?? $this->createStub(SessionStatusPort::class),
       publicKeyPath: $this->getPublicKeyPath(),
     );
   }

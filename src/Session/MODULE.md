@@ -96,6 +96,26 @@ Session's Domain or Infrastructure:
   deactivation (admin and self-service paths) so the user is signed out
   everywhere.
 
+`Session\Application\Port\Inbound\Tracking\SessionStatusPort` is what makes
+those revocations take effect immediately. `Auth`'s `OAuth2Authenticator`
+consults it on every request carrying a login-flow (`auth_session`) access
+token: those tokens are not rows in the OAuth2 token table, so the session is
+the only place their revocation state lives. Before it existed, revoking a
+session left the access token usable until it expired.
+
+**An untracked token answers `false`, not `true`.** Session recording is
+best-effort at every issuance site — `LoginHandler::recordSession()` wraps the
+call in `catch (Throwable)` with "login must not fail" — so a missing row means
+"we never recorded this", not "this was revoked". Reading it as a revocation
+would convert a transient tracking failure the user never saw into a lockout
+lasting the whole token lifetime. The distinction is carried explicitly by
+`GetSessionByAccessTokenResult::$tracked`, kept separate from `$revoked` for
+exactly this reason.
+
+The lookup rides `idx_session_access_token_id`, and `UpdateSessionTokens` keeps
+`access_token_id` current across refreshes, so a rotated token resolves to the
+same session.
+
 ## Configuration
 
 - Service wiring: `config/modules/session.yaml`

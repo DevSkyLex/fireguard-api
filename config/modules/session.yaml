@@ -13,6 +13,12 @@ services:
 
     Session\Application\Service\SessionTrackingService: ~
 
+    # Inbound Port (Session Status)
+    Session\Application\Port\Inbound\Tracking\SessionStatusPort:
+        alias: Session\Application\Service\SessionStatusService
+
+    Session\Application\Service\SessionStatusService: ~
+
     # Command Handlers
     Session\Application\UseCase\Command\Session\CreateSession\CreateSessionHandler:
         tags: ['messenger.message_handler']
@@ -31,6 +37,8 @@ services:
     Session\Application\UseCase\Query\Session\GetSession\GetSessionHandler:
         tags: ['messenger.message_handler']
     Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsHandler:
+        tags: ['messenger.message_handler']
+    Session\Application\UseCase\Query\Session\GetSessionByAccessToken\GetSessionByAccessTokenHandler:
         tags: ['messenger.message_handler']
 
     # Repository

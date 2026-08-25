@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Security\Authenticator;
 
 use Auth\Application\Contract\Token\AccessTokenStatus;
-use Auth\Application\Port\Outbound\AccessTokenLookupPort;
+use Auth\Application\Port\Outbound\{AccessTokenLookupPort, SessionStatusPort};
 use Auth\Infrastructure\Security\User\SecurityUserProvider;
 use DateTimeImmutable;
 use InvalidArgumentException;
@@ -67,10 +67,12 @@ final class OAuth2Authenticator extends AbstractAuthenticator
    *
    * @param AccessTokenLookupPort $accessTokenLookup the access token lookup port
    * @param SecurityUserProvider $userProvider the security user provider
+   * @param SessionStatusPort $sessionStatus the session revocation lookup for login-flow tokens
    */
   public function __construct(
     private readonly AccessTokenLookupPort $accessTokenLookup,
     private readonly SecurityUserProvider $userProvider,
+    private readonly SessionStatusPort $sessionStatus,
     #[Autowire('%kernel.project_dir%/config/jwt/public.key')]
     string $publicKeyPath,
     private readonly ?JwtParser $parser = null,
@@ -181,7 +183,17 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       }
 
       $accessToken = null;
-      if (self::ACCESS_TOKEN_USE_AUTH_SESSION !== $claims->get('_fireguard_token_use', null)) {
+      if (self::ACCESS_TOKEN_USE_AUTH_SESSION === $claims->get('_fireguard_token_use', null)) {
+        // Login-flow tokens are not rows in the OAuth2 token table; the session
+        // that issued them is what carries their revocation state. Without this
+        // check, revoking a session — "sign out everywhere", a password change,
+        // a password reset — left the access token usable until it expired.
+        if ($this->sessionStatus->isAccessTokenRevoked($tokenId)) {
+          throw new CustomUserMessageAuthenticationException(
+            message: 'Token has been revoked',
+          );
+        }
+      } else {
         // OAuth2 tokens must keep database-backed revocation and expiry checks.
         $accessToken = $this->accessTokenLookup->find($tokenId);
       }

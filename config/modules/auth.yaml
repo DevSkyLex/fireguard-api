@@ -19,6 +19,9 @@ services:
   Auth\Application\Port\Outbound\SessionTrackingPort:
     alias: Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter
 
+  Auth\Application\Port\Outbound\SessionStatusPort:
+    alias: Auth\Infrastructure\Adapter\Session\SessionStatusAdapter
+
   Auth\Application\Port\Outbound\TrustedDeviceCheckPort:
     alias: TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter
 
@@ -30,6 +33,7 @@ services:
   Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
   Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
   Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter: ~
+  Auth\Infrastructure\Adapter\Session\SessionStatusAdapter: ~
   Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter: ~
 
   # JWT Token Adapter (uses #[Autowire] attributes)
