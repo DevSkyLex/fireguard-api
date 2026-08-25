@@ -173,7 +173,6 @@ final class PresentationExceptionStatusTest extends TestCase
     'MessagingNotFoundException' => 'NotFoundHttpException',
     'MessagingSubjectNotFoundException' => 'NotFoundHttpException',
     'MessagingValidationException' => 'UnprocessableEntityHttpException',
-    'TotpPendingEnrollmentNotFoundException' => 'NotFoundHttpException',
     'NonConformityAlreadyResolvedException' => 'ConflictHttpException',
     'NonConformityNotFoundException' => 'NotFoundHttpException',
     'OrganizationAccessDeniedException' => 'AccessDeniedHttpException',

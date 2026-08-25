@@ -6,17 +6,13 @@ namespace Otp\Presentation\Api\Processor\Challenge;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Otp\Application\Exception\OtpNotFoundException;
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\{VerifyOtpCommand, VerifyOtpResult};
 use Otp\Presentation\Api\Dto\Input\Challenge\VerifyOtpInput;
 use Otp\Presentation\Api\Dto\Output\Challenge\VerifyOtpOutput;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, TooManyRequestsHttpException};
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
-use Throwable;
 
 use function ctype_digit;
 use function hash;
@@ -76,69 +72,19 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Invalid code format.');
     }
 
-    try {
-      $command = new VerifyOtpCommand(
-        otpId: is_string($otpId) ? $otpId : null,
-        challengeToken: is_string($challengeToken) ? $challengeToken : null,
-        code: $data->code,
-      );
+    /** @var VerifyOtpResult $result */
+    $result = $this->commandBus->dispatch(new VerifyOtpCommand(
+      otpId: is_string($otpId) ? $otpId : null,
+      challengeToken: is_string($challengeToken) ? $challengeToken : null,
+      code: $data->code,
+    ));
 
-      /** @var VerifyOtpResult $result */
-      $result = $this->commandBus->dispatch($command);
+    $output = new VerifyOtpOutput();
+    $output->success = $result->success;
+    $output->attemptsRemaining = $result->attemptsRemaining;
+    $output->error = $result->error;
 
-      $output = new VerifyOtpOutput();
-      $output->success = $result->success;
-      $output->attemptsRemaining = $result->attemptsRemaining;
-      $output->error = $result->error;
-
-      return $output;
-    } catch (Throwable $exception) {
-      $otpNotFound = $this->extractOtpNotFoundException($exception);
-      if (null !== $otpNotFound) {
-        throw new NotFoundHttpException('OTP not found.');
-      }
-
-      throw $exception;
-    }
-  }
-
-  private function extractOtpNotFoundException(Throwable $exception): ?OtpNotFoundException
-  {
-    if ($exception instanceof OtpNotFoundException) {
-      return $exception;
-    }
-
-    if ($exception instanceof HandlerFailedException) {
-      foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof OtpNotFoundException) {
-          return $nestedException;
-        }
-      }
-
-      return null;
-    }
-
-    if ($exception instanceof MessengerRuntimeException) {
-      $previous = $exception->getPrevious();
-
-      if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof OtpNotFoundException) {
-            return $nestedException;
-          }
-        }
-      }
-
-      while ($previous) {
-        if ($previous instanceof OtpNotFoundException) {
-          return $previous;
-        }
-
-        $previous = $previous->getPrevious();
-      }
-    }
-
-    return null;
+    return $output;
   }
 
   private function isValidOtpCode(string $code): bool
