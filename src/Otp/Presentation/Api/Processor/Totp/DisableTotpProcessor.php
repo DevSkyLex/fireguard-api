@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Otp\Application\Exception\TotpEnrollmentNotEnabledException;
 use Otp\Application\UseCase\Command\Totp\DisableTotp\{DisableTotpCommand, DisableTotpResult};
+use Otp\Domain\Exception\TotpDisableTemporarilyLockedException;
 use Otp\Presentation\Api\Dto\Input\Totp\DisableTotpInput;
 use Otp\Presentation\Api\Dto\Output\Totp\DisableTotpOutput;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -85,9 +86,17 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
       /** @var DisableTotpResult $result */
       $result = $this->commandBus->dispatch($command);
     } catch (Throwable $exception) {
-      $notEnabled = $this->extractNotEnabledException($exception);
+      $notEnabled = $this->extractWrapped($exception, TotpEnrollmentNotEnabledException::class);
       if (null !== $notEnabled) {
         throw new NotFoundHttpException($notEnabled->getMessage());
+      }
+
+      // The per-enrollment cooldown, distinct from the request rate limiter
+      // above: that one throttles bursts, this one survives across them and is
+      // what actually bounds a slow, patient guessing run.
+      $locked = $this->extractWrapped($exception, TotpDisableTemporarilyLockedException::class);
+      if ($locked instanceof TotpDisableTemporarilyLockedException) {
+        throw new TooManyRequestsHttpException($locked->retryAfterSeconds, $locked->getMessage());
       }
 
       throw $exception;
@@ -103,15 +112,29 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
     return $output;
   }
 
-  private function extractNotEnabledException(Throwable $exception): ?TotpEnrollmentNotEnabledException
+  /**
+   * Method extractWrapped.
+   *
+   * Digs a domain exception of the requested class out of the bus wrappers.
+   *
+   * @since 1.1.0
+   *
+   * @template T of Throwable
+   *
+   * @param Throwable $exception the exception as caught
+   * @param class-string<T> $type the domain exception class to look for
+   *
+   * @return T|null the unwrapped exception, or null when absent
+   */
+  private function extractWrapped(Throwable $exception, string $type): ?Throwable
   {
-    if ($exception instanceof TotpEnrollmentNotEnabledException) {
+    if ($exception instanceof $type) {
       return $exception;
     }
 
     if ($exception instanceof HandlerFailedException) {
       foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof TotpEnrollmentNotEnabledException) {
+        if ($nestedException instanceof $type) {
           return $nestedException;
         }
       }
@@ -124,14 +147,14 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
 
       if ($previous instanceof HandlerFailedException) {
         foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof TotpEnrollmentNotEnabledException) {
+          if ($nestedException instanceof $type) {
             return $nestedException;
           }
         }
       }
 
       while ($previous) {
-        if ($previous instanceof TotpEnrollmentNotEnabledException) {
+        if ($previous instanceof $type) {
           return $previous;
         }
 
