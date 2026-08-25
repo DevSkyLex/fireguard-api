@@ -158,6 +158,33 @@ demonstrating that one person can belong to more than one tenant.
 
 - Auth identities stay in the auth database (`users`, tokens, sessions, etc.).
 - Organization RBAC is contextual and evaluated through `OrganizationAuthorizationPort`.
+- **A suspended organization is read-only, enforced centrally.**
+  `OrganizationAuthorizationService` refuses every permission that is not a
+  read while `status` is `SUSPENDED`, before any grant is consulted. Three
+  properties of that check are load-bearing:
+  - It reads the **requested** permission, never the granted set. A member may
+    hold `organization.*`; filtering the grants would strip their reads along
+    with their writes.
+  - `organization.settings.write` is the one write that survives. Without that
+    escape hatch a suspended organization walls itself in: `RestoreOrganization`
+    requires exactly this permission and there is **no platform-level bypass**.
+  - An unreadable status is treated as operational, not as suspended. Failing
+    closed would lock every member out of an organization that was never
+    suspended, on nothing worse than a database blip.
+
+  `organization.compliance.export` and `organization.assistant.use` are refused
+  even though neither mutates: both spend resources for an organization whose
+  access has been withdrawn.
+
+  The classifier is `OrganizationPermissionCatalog::isReadOnlySafe()`, keyed on
+  the `.read` suffix so a permission added later is classified without touching
+  it.
+
+  **`ARCHIVED` is deliberately unaffected.** Applying the same rule would strand
+  archived organizations for the reason above — restore is organization-scoped
+  and there is no platform route to it. Tightening `ARCHIVED` requires adding
+  that route first; until then the status is a marker, not an access control,
+  and this note is the record of that.
 - **Bus failures are unwrapped, never caught bare (enforced).** Symfony
   Messenger's `HandleMessageMiddleware` wraps whatever a handler throws in
   `HandlerFailedException`, and `MessengerCommandBusAdapter::dispatch()` /

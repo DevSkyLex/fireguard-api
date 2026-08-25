@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationAuthorizationService;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +32,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       )
       ->willReturn(['organization.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertTrue($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -50,7 +50,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.*']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertTrue($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -74,7 +74,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.dashboard.read', 'organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertTrue($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -102,7 +102,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->willReturn(['organization.read']);
     $cache->expects(self::never())->method('set');
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
 
     self::assertSame(
       ['organization.read'],
@@ -135,7 +135,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
         self::anything(),
       );
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
 
     self::assertSame(
       ['organization.*'],
@@ -155,7 +155,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
         ['organization.manage'],
       );
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertInstanceOf(ResetInterface::class, $service);
     self::assertTrue($service->hasPermission(
@@ -182,7 +182,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -200,7 +200,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -222,7 +222,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       )
       ->willReturn(['organization.read', 'organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertSame(
       ['organization.read', 'organization.members.read'],
@@ -243,7 +243,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       )
       ->willReturn(['organization.*']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     $service->assertGrantedPermissions(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -265,7 +265,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       )
       ->willReturn(['organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     $this->expectException(OrganizationAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.roles.manage permission.');
@@ -290,7 +290,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       )
       ->willReturn(['organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     $this->expectException(OrganizationAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.roles.manage permission.');
@@ -311,7 +311,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -329,7 +329,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -348,7 +348,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
         ->method('getPermissionNamesForUserInOrganization')
         ->willReturn([$wildcard]);
 
-      $service = new OrganizationAuthorizationService($memberRepository);
+      $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
       self::assertTrue($service->hasPermission(
         userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -367,7 +367,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.*.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertTrue($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -391,7 +391,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.*.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -409,7 +409,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.members.read']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -427,7 +427,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.members']);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -445,7 +445,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn([]);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertFalse($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
@@ -474,7 +474,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
     $cache->expects(self::never())->method('get');
     $cache->expects(self::never())->method('set');
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache, 0);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache, 0);
 
     self::assertSame(
       ['organization.read'],
@@ -498,7 +498,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->willThrowException(new RuntimeException('cache down'));
     $cache->expects(self::once())->method('set');
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
 
     self::assertSame(
       ['organization.read'],
@@ -522,7 +522,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->willReturn('corrupted-entry');
     $cache->expects(self::once())->method('set');
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
 
     self::assertSame(
       ['organization.read'],
@@ -544,7 +544,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->willReturn(['organization.read', 42, 'organization.members.read', null]);
     $cache->expects(self::never())->method('set');
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
 
     self::assertSame(
       ['organization.read', 'organization.members.read'],
@@ -570,7 +570,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->method('set')
       ->willThrowException(new RuntimeException('cache write failed'));
 
-    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
 
     self::assertSame(
       ['organization.read'],
@@ -592,7 +592,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ->willReturn(['organization.read']);
     $memberRepository->expects(self::never())->method('hasActiveMembership');
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertSame(
       OrganizationAccessDecision::GRANTED,
@@ -618,7 +618,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       )
       ->willReturn(true);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertSame(
       OrganizationAccessDecision::MISSING_PERMISSION,
@@ -638,7 +638,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
     $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn([]);
     $memberRepository->expects(self::once())->method('hasActiveMembership')->willReturn(false);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertSame(
       OrganizationAccessDecision::OUTSIDE_SCOPE,
@@ -661,7 +661,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
     $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn([]);
     $memberRepository->method('hasActiveMembership')->willReturn(true);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertSame(
       OrganizationAccessDecision::MISSING_PERMISSION,
@@ -681,7 +681,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
     $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn([]);
     $memberRepository->expects(self::exactly(2))->method('hasActiveMembership')->willReturn(false);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     // Two denials in the same request share one membership query...
     $service->resolveAccess('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.read');
@@ -701,11 +701,163 @@ final class OrganizationAuthorizationServiceTest extends TestCase
     $memberRepository->expects(self::never())->method('getPermissionNamesForUserInOrganization');
     $memberRepository->expects(self::once())->method('hasActiveMembership')->willReturn(true);
 
-    $service = new OrganizationAuthorizationService($memberRepository);
+    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository());
 
     self::assertTrue($service->isMemberOf(
       userId: '550e8400-e29b-41d4-a716-446655440001',
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
     ));
+  }
+
+  #[Test]
+  public function testSuspendedOrganizationRefusesAWriteEvenToAWildcardHolder(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::SUSPENDED),
+    );
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.facilities.write',
+    ));
+  }
+
+  #[Test]
+  public function testSuspendedOrganizationStillAllowsReads(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::SUSPENDED),
+    );
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.facilities.read',
+    ));
+  }
+
+  #[Test]
+  public function testSuspendedOrganizationStillAllowsTheRestoreEscapeHatch(): void
+  {
+    // Without this, a suspended organization walls itself in: RestoreOrganization
+    // requires exactly this permission and there is no platform-level bypass.
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.settings.write']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::SUSPENDED),
+    );
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.settings.write',
+    ));
+  }
+
+  #[Test]
+  public function testSuspendedOrganizationRefusalNamesSuspensionNotAMissingPermission(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::SUSPENDED),
+    );
+
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectExceptionMessage('suspended');
+
+    $service->assertGrantedPermissions(
+      '550e8400-e29b-41d4-a716-446655440001',
+      '550e8400-e29b-41d4-a716-446655440010',
+      ['organization.facilities.write'],
+    );
+  }
+
+  #[Test]
+  public function testArchivedOrganizationIsNotRestrictedByThisChange(): void
+  {
+    // ARCHIVED is deliberately left alone: tightening it would strand archived
+    // organizations, since restore is gated on an organization-scoped
+    // permission and no platform bypass exists yet.
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::ARCHIVED),
+    );
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.facilities.write',
+    ));
+  }
+
+  #[Test]
+  public function testAnUnreadableStatusDoesNotDenyAccess(): void
+  {
+    // Failing closed here would lock every member out of an organization that
+    // was never suspended, on nothing worse than a database blip.
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('statusOf')->willThrowException(new RuntimeException('database down'));
+
+    $service = new OrganizationAuthorizationService($memberRepository, $organizationRepository);
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.facilities.write',
+    ));
+  }
+
+  #[Test]
+  public function testStatusIsReadOncePerRequestAndClearedByReset(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::exactly(2))
+      ->method('statusOf')
+      ->willReturn(OrganizationStatus::ACTIVE);
+
+    $service = new OrganizationAuthorizationService($memberRepository, $organizationRepository);
+
+    $service->hasPermission('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.facilities.write');
+    $service->hasPermission('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.equipment.write');
+
+    $service->reset();
+
+    $service->hasPermission('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.facilities.write');
+  }
+
+  private function activeOrganizationRepository(): OrganizationRepositoryPort
+  {
+    return $this->organizationRepositoryWithStatus(OrganizationStatus::ACTIVE);
+  }
+
+  private function organizationRepositoryWithStatus(OrganizationStatus $status): OrganizationRepositoryPort
+  {
+    $repository = $this->createStub(OrganizationRepositoryPort::class);
+    $repository->method('statusOf')->willReturn($status);
+
+    return $repository;
   }
 }

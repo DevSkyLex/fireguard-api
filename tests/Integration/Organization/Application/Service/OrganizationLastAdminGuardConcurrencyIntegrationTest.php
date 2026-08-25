@@ -12,7 +12,7 @@ use Organization\Application\Service\{OrganizationAuthorizationService, Organiza
 use Organization\Domain\Exception\OrganizationLastAdminException;
 use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationQuotaResource};
 use Organization\Infrastructure\Persistence\Doctrine\Lock\PostgresOrganizationQuotaLockAdapter;
-use Organization\Infrastructure\Persistence\Doctrine\Repository\{OrganizationMemberRepository, OrganizationRoleRepository};
+use Organization\Infrastructure\Persistence\Doctrine\Repository\{OrganizationMemberRepository, OrganizationRepository, OrganizationRoleRepository};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -271,7 +271,7 @@ final class OrganizationLastAdminGuardConcurrencyIntegrationTest extends KernelT
     return new OrganizationLastAdminGuardService(
       $memberRepository,
       new OrganizationRoleRepository($entityManager),
-      new OrganizationAuthorizationService($memberRepository),
+      new OrganizationAuthorizationService($memberRepository, new OrganizationRepository($entityManager)),
       $this->nullEventDispatcher(),
       new PostgresOrganizationQuotaLockAdapter($entityManager),
     );

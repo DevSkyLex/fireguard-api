@@ -6,14 +6,16 @@ namespace Organization\Application\Service;
 
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Contracts\Service\ResetInterface;
 use Throwable;
 
 use function array_filter;
+use function array_key_exists;
 use function array_values;
 use function count;
 use function explode;
@@ -48,6 +50,14 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private array $membershipCache = [];
 
+  /**
+   * Per-request memo of organization statuses, keyed by organization id.
+   * Request-local for the same reason as {@see self::$membershipCache}.
+   *
+   * @var array<string, OrganizationStatus|null>
+   */
+  private array $statusCache = [];
+
   // #region Constructor
   /**
    * Constructor.
@@ -61,6 +71,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   public function __construct(
     private readonly OrganizationMemberRepositoryPort $memberRepository,
+    private readonly OrganizationRepositoryPort $organizationRepository,
     private readonly ?CachePort $cache = null,
     private readonly int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
   ) {
@@ -83,6 +94,10 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   public function hasPermission(string $userId, string $organizationId, string $permission): bool
   {
+    if (!$this->isPermissionExercisable($organizationId, $permission)) {
+      return false;
+    }
+
     $grantedPermissions = $this->getUserPermissions($userId, $organizationId);
 
     foreach ($grantedPermissions as $granted) {
@@ -196,6 +211,10 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   {
     $grantedPermissions = $this->getUserPermissions($userId, $organizationId);
     foreach ($permissions as $permission) {
+      if (!$this->isPermissionExercisable($organizationId, $permission)) {
+        throw OrganizationAccessDeniedException::organizationSuspended($permission);
+      }
+
       $matched = false;
       foreach ($grantedPermissions as $granted) {
         if ($this->permissionMatches($granted, $permission)) {
@@ -214,6 +233,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   {
     $this->permissionCache = [];
     $this->membershipCache = [];
+    $this->statusCache = [];
   }
 
   /**
@@ -240,6 +260,69 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
       organizationId: OrganizationId::fromString($organizationId),
       userId: $userId,
     );
+  }
+
+  /**
+   * Method isPermissionExercisable.
+   *
+   * Tells whether a permission may be exercised at all right now, before any
+   * grant is consulted. A suspended organization is read-only: every write is
+   * refused regardless of what the caller holds, except the one that restores
+   * it.
+   *
+   * The check reads the *requested* permission, never the granted set: a
+   * member may hold a wildcard such as `organization.*`, and filtering the
+   * grants would strip their reads along with their writes.
+   *
+   * @since 1.2.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $permission the permission being requested
+   *
+   * @return bool false when the organization's state forbids this permission
+   */
+  private function isPermissionExercisable(string $organizationId, string $permission): bool
+  {
+    // Ordered so a read never pays for the status lookup.
+    if (OrganizationPermissionCatalog::isReadOnlySafe($permission)) {
+      return true;
+    }
+
+    return OrganizationStatus::SUSPENDED !== $this->organizationStatus($organizationId);
+  }
+
+  /**
+   * Method organizationStatus.
+   *
+   * Resolves, and memoizes for the request, an organization's status.
+   *
+   * Request-local only, like {@see self::$membershipCache}: writing it to the
+   * shared cache would add a second invalidation surface to keep in step with
+   * suspend and restore, and the answer is already amortized across every
+   * permission check in the request.
+   *
+   * @since 1.2.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return OrganizationStatus|null the status, or null when unknown
+   */
+  private function organizationStatus(string $organizationId): ?OrganizationStatus
+  {
+    if (array_key_exists($organizationId, $this->statusCache)) {
+      return $this->statusCache[$organizationId];
+    }
+
+    try {
+      $status = $this->organizationRepository->statusOf(OrganizationId::fromString($organizationId));
+    } catch (Throwable) {
+      // An unreadable status must not turn into a denial: authorization would
+      // start failing closed on an infrastructure blip, locking every member
+      // out of an organization that was never suspended.
+      $status = null;
+    }
+
+    return $this->statusCache[$organizationId] = $status;
   }
 
   /**
