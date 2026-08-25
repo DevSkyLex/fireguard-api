@@ -212,7 +212,10 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     $grantedPermissions = $this->getUserPermissions($userId, $organizationId);
     foreach ($permissions as $permission) {
       if (!$this->isPermissionExercisable($organizationId, $permission)) {
-        throw OrganizationAccessDeniedException::organizationSuspended($permission);
+        throw OrganizationAccessDeniedException::organizationSuspended(
+          $permission,
+          OrganizationStatus::ARCHIVED === $this->organizationStatus($organizationId),
+        );
       }
 
       $matched = false;
@@ -283,12 +286,23 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private function isPermissionExercisable(string $organizationId, string $permission): bool
   {
-    // Ordered so a read never pays for the status lookup.
-    if (OrganizationPermissionCatalog::isReadOnlySafe($permission)) {
+    // Ordered so a plain read never pays for the status lookup.
+    if (OrganizationPermissionCatalog::isRead($permission)) {
       return true;
     }
 
-    return OrganizationStatus::SUSPENDED !== $this->organizationStatus($organizationId);
+    // Both non-active statuses are read-only, and both let a narrow set of
+    // permissions through — but not the same set, and for different reasons.
+    return match ($this->organizationStatus($organizationId)) {
+      // The organization must stay restorable from inside.
+      OrganizationStatus::SUSPENDED => OrganizationPermissionCatalog::isSuspensionEscapeHatch($permission),
+      // Archiving is terminal, so there is no escape hatch to preserve — the
+      // platform-only rule for reopening lives in RestoreOrganizationProcessor.
+      // What passes here passes because a handler downstream already answers
+      // the archived state more precisely than a 403 would.
+      OrganizationStatus::ARCHIVED => OrganizationPermissionCatalog::isArchivalGuardedDownstream($permission),
+      default => true,
+    };
   }
 
   /**

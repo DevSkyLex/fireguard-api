@@ -313,10 +313,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Restore Organization',
-        description: 'Restores the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy isActive: true toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires. Idempotent when already active.',
+        description: 'Restores the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy isActive: true toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires — OR platform administrator privileges, which bypass it. The bypass is not a convenience: an ARCHIVED organization refuses organization.settings.write like every other write, so a platform administrator is the only caller who can reopen one. A SUSPENDED organization keeps its self-service path. Idempotent when already active.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Organization restored — refreshed organization output returned'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions — and, for an archived organization, held by every caller who is not a platform administrator'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
         ],
       ),

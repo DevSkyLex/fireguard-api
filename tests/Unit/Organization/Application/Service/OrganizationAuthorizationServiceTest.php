@@ -787,11 +787,32 @@ final class OrganizationAuthorizationServiceTest extends TestCase
   }
 
   #[Test]
-  public function testArchivedOrganizationIsNotRestrictedByThisChange(): void
+  public function testArchivedOrganizationRefusesWritesLikeASuspendedOne(): void
   {
-    // ARCHIVED is deliberately left alone: tightening it would strand archived
-    // organizations, since restore is gated on an organization-scoped
-    // permission and no platform bypass exists yet.
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::ARCHIVED),
+    );
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.facilities.write',
+    ));
+  }
+
+  #[Test]
+  public function testArchivedOrganizationKeepsTheEscapeHatchPermission(): void
+  {
+    // Not because archiving is reversible from inside — it is not — but because
+    // `organization.settings.write` also gates suspend, update-settings,
+    // remove-logo, transfer-ownership and reactivate-member, five operations
+    // that already answer 409 naming the archived state. Withholding it here
+    // would flatten all five into a 403. The platform-only rule for reopening
+    // lives in RestoreOrganizationProcessor.
     $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
 
@@ -803,8 +824,47 @@ final class OrganizationAuthorizationServiceTest extends TestCase
     self::assertTrue($service->hasPermission(
       userId: '550e8400-e29b-41d4-a716-446655440001',
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
-      permission: 'organization.facilities.write',
+      permission: 'organization.settings.write',
     ));
+  }
+
+  #[Test]
+  public function testArchivedOrganizationStillAllowsReads(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::ARCHIVED),
+    );
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.facilities.read',
+    ));
+  }
+
+  #[Test]
+  public function testArchivedRefusalDoesNotAdviseARestoreTheCallerCannotPerform(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+
+    $service = new OrganizationAuthorizationService(
+      $memberRepository,
+      $this->organizationRepositoryWithStatus(OrganizationStatus::ARCHIVED),
+    );
+
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectExceptionMessage('platform administrator');
+
+    $service->assertGrantedPermissions(
+      '550e8400-e29b-41d4-a716-446655440001',
+      '550e8400-e29b-41d4-a716-446655440010',
+      ['organization.facilities.write'],
+    );
   }
 
   #[Test]

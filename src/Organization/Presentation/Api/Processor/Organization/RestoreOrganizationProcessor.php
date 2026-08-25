@@ -11,6 +11,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RestoreOrganization\RestoreOrganizationCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\ValueObject\OrganizationStatus;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
@@ -111,8 +112,28 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Organization identifier is required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.settings.write')) {
+    $isPlatformAdmin = $this->security->isGranted('ROLE_ADMIN');
+
+    if (
+      !$isPlatformAdmin
+      && !$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.settings.write')
+    ) {
       throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
+    }
+
+    // Archiving is the terminal state: reopening it is a platform action, not
+    // a self-service one, however entitled the caller is inside the
+    // organization. Suspension keeps its self-service path.
+    //
+    // Enforced here rather than by withholding `organization.settings.write`
+    // from archived organizations, because that permission also gates suspend,
+    // update-settings, remove-logo, transfer-ownership and reactivate-member —
+    // five operations that already answer 409 naming the archived state, and
+    // that a blanket denial would flatten into a 403.
+    if (!$isPlatformAdmin && $this->isArchived($organizationId, $user->getId())) {
+      throw new AccessDeniedHttpException(
+        'This organization is archived; only a platform administrator can reopen it.',
+      );
     }
 
     try {
@@ -132,6 +153,31 @@ final readonly class RestoreOrganizationProcessor implements ProcessorInterface
     }
 
     return $this->buildOutput($organizationId, $user->getId());
+  }
+
+  /**
+   * Method isArchived.
+   *
+   * Reads the organization's current status to decide whether reopening it is
+   * reserved to a platform administrator.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param string $callerUserId the acting user identifier
+   *
+   * @return bool true when the organization is archived
+   */
+  private function isArchived(string $organizationId, string $callerUserId): bool
+  {
+    try {
+      /** @var GetOrganizationResult $result */
+      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
+    } catch (OrganizationNotFoundException $exception) {
+      throw new NotFoundHttpException($exception->getMessage(), $exception);
+    }
+
+    return OrganizationStatus::ARCHIVED->value === $result->status;
   }
 
   /**

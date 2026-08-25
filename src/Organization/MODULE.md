@@ -176,15 +176,35 @@ demonstrating that one person can belong to more than one tenant.
   even though neither mutates: both spend resources for an organization whose
   access has been withdrawn.
 
-  The classifier is `OrganizationPermissionCatalog::isReadOnlySafe()`, keyed on
-  the `.read` suffix so a permission added later is classified without touching
-  it.
+  The classifier is `OrganizationPermissionCatalog::isRead()`, keyed on the
+  `.read` suffix so a permission added later is classified without touching it.
 
-  **`ARCHIVED` is deliberately unaffected.** Applying the same rule would strand
-  archived organizations for the reason above — restore is organization-scoped
-  and there is no platform route to it. Tightening `ARCHIVED` requires adding
-  that route first; until then the status is a marker, not an access control,
-  and this note is the record of that.
+- **`ARCHIVED` is read-only too, and reopening it is a platform action.**
+  Before this rule, the archived guard existed on exactly **five** operations —
+  suspend, update settings, remove logo, transfer ownership, reactivate member —
+  all organization administration. The business surface (facilities, equipment,
+  inspections, interventions, messaging, documents) was fully writable while
+  archived. The central rule closes that.
+
+  Reopening is enforced in `RestoreOrganizationProcessor`, not by withholding a
+  permission: `ROLE_ADMIN` restores without an organization-scoped permission,
+  and a caller who is not a platform administrator is refused once the
+  organization is read as `ARCHIVED`. Suspension keeps its self-service path.
+
+  **The archived rule lets two permissions through on purpose.**
+  `organization.settings.write` and `organization.members.manage` gate exactly
+  those five operations, which already answer **409 naming the archived state**.
+  Denying them centrally would flatten five specific, documented answers into a
+  bare 403. The authorization layer defers where a more precise answer already
+  exists — that is what `OrganizationPermissionCatalog::isArchivalGuardedDownstream()`
+  encodes, and it applies to `ARCHIVED` only, since suspension has no such
+  handler guards and so shadows nothing.
+
+  | Status | Reads | Business writes | Administration writes | Reopen |
+  |---|---|---|---|---|
+  | `ACTIVE` | yes | yes | yes | n/a |
+  | `SUSPENDED` | yes | no | no, except `settings.write` | self-service |
+  | `ARCHIVED` | yes | no | reach their handlers, which answer 409 | platform administrator only |
 - **Bus failures are unwrapped, never caught bare (enforced).** Symfony
   Messenger's `HandleMessageMiddleware` wraps whatever a handler throws in
   `HandlerFailedException`, and `MessengerCommandBusAdapter::dispatch()` /
