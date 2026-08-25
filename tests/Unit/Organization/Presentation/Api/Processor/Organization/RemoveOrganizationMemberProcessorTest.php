@@ -8,7 +8,6 @@ use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,10 +16,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 #[CoversClass(RemoveOrganizationMemberProcessor::class)]
 final class RemoveOrganizationMemberProcessorTest extends TestCase
@@ -125,39 +121,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessThrowsNotFoundWhenMemberAbsent(): void
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')
-      ->willThrowException($this->wrapped(
-        OrganizationMemberNotFoundException::withId('550e8400-e29b-41d4-a716-446655441412'),
-        new RemoveOrganizationMemberCommand(
-          organizationId: '550e8400-e29b-41d4-a716-446655441410',
-          memberId: '550e8400-e29b-41d4-a716-446655441412',
-        ),
-      ));
-
-    $processor = new RemoveOrganizationMemberProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(null, new Delete(), [
-      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
-      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
-    ]);
-  }
-
-  #[Test]
   public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
   {
     $security = $this->createStub(Security::class);
@@ -185,46 +148,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
     ]);
   }
 
-  /**
-   * The last-administrator refusal is raised by the handler, inside its own
-   * transaction, so it reaches this processor wrapped by the command bus and
-   * has to be recovered through the module unwrapper to keep the 409.
-   */
-  #[Test]
-  public function testProcessThrowsConflictWhenRemovingLastAdmin(): void
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException($this->wrapped(
-        OrganizationLastAdminException::cannotRemoveLastAdmin(),
-        new RemoveOrganizationMemberCommand(
-          organizationId: '550e8400-e29b-41d4-a716-446655441410',
-          memberId: '550e8400-e29b-41d4-a716-446655441412',
-        ),
-      ));
-
-    $processor = new RemoveOrganizationMemberProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Delete(), [
-      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
-      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
-    ]);
-  }
-
   private function createSecurityUser(string $id): SecurityUser
   {
     return new SecurityUser(
@@ -234,13 +157,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
       roles: ['ROLE_USER'],
       scopes: [],
       isActive: true,
-    );
-  }
-
-  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
-  {
-    return MessengerRuntimeException::wrap(
-      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
 }

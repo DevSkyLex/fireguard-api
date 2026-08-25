@@ -9,12 +9,11 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -100,27 +99,11 @@ final readonly class RemoveOrganizationRoleFromMemberProcessor implements Proces
       throw new AccessDeniedHttpException('Missing organization.roles.manage permission.');
     }
 
-    try {
-      $this->commandBus->dispatch(new RemoveOrganizationRoleFromMemberCommand(
-        organizationId: $organizationId,
-        memberId: $memberId,
-        roleId: $roleId,
-      ));
-    } catch (MessengerRuntimeException $exception) {
-      $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
-      if (null !== $lastAdmin) {
-        throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
-      }
-
-      $notFound = $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new RemoveOrganizationRoleFromMemberCommand(
+      organizationId: $organizationId,
+      memberId: $memberId,
+      roleId: $roleId,
+    ));
 
     return null;
   }
