@@ -11,7 +11,7 @@ use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\UpdateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
@@ -131,7 +131,7 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
       ));
     } catch (OrganizationAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationNotFoundException $exception) {
+    } catch (OrganizationNotFoundException|OrganizationRoleNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -146,7 +146,8 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
         throw new ConflictHttpException($conflict->getMessage(), $exception);
       }
 
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
       if (null !== $notFound) {
         throw new NotFoundHttpException($notFound->getMessage(), $exception);
       }

@@ -391,15 +391,14 @@ demonstrating that one person can belong to more than one tenant.
   HTTP 400 via `UpdateOrganizationRoleProcessor`'s existing generic
   `InvalidArgumentException` catch, unchanged by this slice, mirroring how
   `CreateOrganizationRoleProcessor` maps its own duplicate-name refusal.
-  **Known asymmetry**: a role id belonging to another organization than the
-  URL's is reported by the SAME `InvalidArgumentException('Role not found in
-  this organization.')` → 400 on `PATCH`, whereas the new `GET
-  .../roles/{roleId}` correctly reports `OrganizationRoleNotFoundException` →
-  404 for the identical case — predates this slice (the command/handler were
-  already landed), not changed here, and documented instead of silently
-  reproduced as if it were a 404
+  **Asymmetry closed**: `PATCH .../roles/{roleId}` used to report a role from
+  another organization as `InvalidArgumentException('Role not found in this
+  organization.')` → 400, while `GET`, `DELETE` and both member-role
+  operations answered 404 for the identical case. It now throws
+  `OrganizationRoleNotFoundException` → 404 like its siblings — the message
+  had said "not found" all along, only the exception type disagreed
   (`testUpdateRoleRejectsRoleInAnotherOrganization` in
-  `OrganizationRoleApiTest`). `GetOrganizationRoleProvider` mirrors
+  `OrganizationRoleApiTest` pins it). `GetOrganizationRoleProvider` mirrors
   `GetOrganizationMemberProvider`'s `UnwrapsOrganizationBusFailures`
   pattern for both `OrganizationNotFoundException` and
   `OrganizationRoleNotFoundException`. **`ListOrganizationRolesProvider`

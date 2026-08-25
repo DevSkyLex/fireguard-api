@@ -293,7 +293,10 @@ final class OrganizationRoleApiTest extends WebTestCase
       ]),
     );
 
-    self::assertSame(400, $client->getResponse()->getStatusCode());
+    // 404, not 400: a role outside the caller's organization is out of scope,
+    // and every sibling operation on this resource — GET, DELETE, the two
+    // member-role operations — already answers 404 for it.
+    self::assertSame(404, $client->getResponse()->getStatusCode());
   }
 
   // -------------------------------------------------------------------------

@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;
@@ -101,7 +101,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
         $role = $this->roleRepository->findById($roleId);
 
         if (null === $role || (string) $role->organizationId() !== $command->organizationId) {
-          throw new InvalidArgumentException('Role not found in this organization.');
+          throw OrganizationRoleNotFoundException::withId($command->roleId);
         }
 
         if ($role->isSystem()) {

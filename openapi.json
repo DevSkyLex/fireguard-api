@@ -30856,7 +30856,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OrganizationRole resource updated",
+                        "description": "Role updated",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -30867,7 +30867,7 @@
                         "links": {}
                     },
                     "400": {
-                        "description": "Invalid input",
+                        "description": "Invalid payload, or the role is a system role",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -30886,6 +30886,15 @@
                             }
                         },
                         "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions, or granting a permission the caller does not hold"
+                    },
+                    "404": {
+                        "description": "Organization or role not found, or the role belongs to another organization"
+                    },
+                    "409": {
+                        "description": "The change would leave the organization without an administrator"
                     },
                     "422": {
                         "description": "An error occurred",
@@ -30903,48 +30912,6 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ConstraintViolation"
-                                }
-                            }
-                        },
-                        "links": {}
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        },
-                        "links": {}
-                    },
-                    "404": {
-                        "description": "Not found",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error.jsonld"
-                                }
-                            },
-                            "application/problem+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            },
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
                                 }
                             }
                         },

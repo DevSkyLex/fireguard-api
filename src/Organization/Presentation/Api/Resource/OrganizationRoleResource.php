@@ -104,6 +104,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Organization Roles'],
         summary: 'Update Organization role permissions',
         description: 'Updates the permissions assigned to a custom organization role, and optionally renames it.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Role updated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid payload, or the role is a system role'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions, or granting a permission the caller does not hold'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or role not found, or the role belongs to another organization'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'The change would leave the organization without an administrator'),
+        ],
       ),
     ),
     new Delete(
