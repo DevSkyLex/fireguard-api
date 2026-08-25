@@ -124,6 +124,10 @@ api_platform:
     Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422
     Organization\Domain\Exception\OrganizationInvitationNotFoundException: 404
     Organization\Domain\Exception\OrganizationLastAdminException: 409
+    # Missed by every extractor: ReactivateOrganizationMemberProcessor mapped it
+    # inside a multi-exception catch, and retiring that catch without this entry
+    # would have turned its 409 into a 500. Its own unit test is what caught it.
+    Organization\Domain\Exception\OrganizationMemberNotInactiveException: 409
     Organization\Domain\Exception\OrganizationMemberNotFoundException: 404
     Organization\Domain\Exception\OrganizationNotFoundException: 404
     Organization\Domain\Exception\OrganizationOwnerCannotLeaveException: 409
