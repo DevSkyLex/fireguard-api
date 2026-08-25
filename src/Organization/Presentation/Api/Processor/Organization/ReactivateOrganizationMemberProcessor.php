@@ -7,13 +7,9 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\{ReactivateOrganizationMemberCommand, ReactivateOrganizationMemberResult};
 use Organization\Domain\Exception\{
-  OrganizationArchivedException,
-  OrganizationMemberNotFoundException,
-  OrganizationMemberNotInactiveException,
   OrganizationNotFoundException
 };
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -21,7 +17,7 @@ use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -109,34 +105,15 @@ final readonly class ReactivateOrganizationMemberProcessor implements ProcessorI
       throw new AccessDeniedHttpException('Missing organization.members.manage permission.');
     }
 
-    try {
-      /** @var ReactivateOrganizationMemberResult $result */
-      $result = $this->commandBus->dispatch(new ReactivateOrganizationMemberCommand(
-        organizationId: $organizationId,
-        memberId: $memberId,
-      ));
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      // Both the archived-organization guard and the "member is already
-      // active" guard are conflicts with the current state, not client
-      // input errors — 409. The member cap is enforced in the same handler
-      // transaction as AddOrganizationMemberHandler's re-add path (see
-      // ReactivateOrganizationMemberHandler), so its 409 arrives wrapped by
-      // the bus exactly like theirs and must be unwrapped here too.
-      $conflict = $this->findWrappedException($exception, OrganizationArchivedException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotInactiveException::class)
-        ?? $this->findWrappedException($exception, OrganizationQuotaExceededException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    // The archived-organization guard, the "member is already active" guard and
+    // the member cap are all conflicts with the current state rather than input
+    // errors, and all three are declared as 409 in `exception_to_status` — the
+    // distinction this block used to draw by hand is now drawn by class.
+    /** @var ReactivateOrganizationMemberResult $result */
+    $result = $this->commandBus->dispatch(new ReactivateOrganizationMemberCommand(
+      organizationId: $organizationId,
+      memberId: $memberId,
+    ));
 
     $output = new OrganizationMemberOutput();
     $output->id = $result->memberId;

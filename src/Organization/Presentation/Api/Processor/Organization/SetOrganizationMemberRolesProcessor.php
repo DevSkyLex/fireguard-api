@@ -10,11 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles\{SetOrganizationMemberRolesCommand, SetOrganizationMemberRolesResult};
 use Organization\Domain\Exception\{
-  OrganizationAccessDeniedException,
-  OrganizationLastAdminException,
-  OrganizationMemberNotFoundException,
-  OrganizationNotFoundException,
-  OrganizationRoleNotFoundException
+  OrganizationNotFoundException
 };
 use Organization\Presentation\Api\Dto\Input\Organization\SetOrganizationMemberRolesInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -22,7 +18,7 @@ use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -117,35 +113,17 @@ final readonly class SetOrganizationMemberRolesProcessor implements ProcessorInt
       throw new AccessDeniedHttpException('Missing organization.roles.manage permission.');
     }
 
-    try {
-      /** @var SetOrganizationMemberRolesResult $result */
-      $result = $this->commandBus->dispatch(new SetOrganizationMemberRolesCommand(
-        organizationId: $organizationId,
-        actingUserId: $user->getId(),
-        memberId: $memberId,
-        roleIds: $data->roleIds,
-      ));
-    } catch (MessengerRuntimeException $exception) {
-      // Unknown role id maps to 404, exactly like AssignOrganizationRoleToMemberProcessor.
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
-      if (null !== $accessDenied) {
-        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
-      }
-
-      $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
-      if (null !== $lastAdmin) {
-        throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    // Five exceptions, three statuses — 404 for anything unknown (including an
+    // unknown role id, as AssignOrganizationRoleToMemberProcessor does), 403
+    // for the privilege-escalation guard, 409 for the last-administrator
+    // lockout. All five are declared, so the mapping is by class now.
+    /** @var SetOrganizationMemberRolesResult $result */
+    $result = $this->commandBus->dispatch(new SetOrganizationMemberRolesCommand(
+      organizationId: $organizationId,
+      actingUserId: $user->getId(),
+      memberId: $memberId,
+      roleIds: $data->roleIds,
+    ));
 
     $output = new OrganizationMemberOutput();
     $output->id = $result->memberId;
