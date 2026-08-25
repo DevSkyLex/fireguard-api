@@ -148,7 +148,7 @@ final class GetChannelHandlerTest extends TestCase
       $this->accessPolicy($members, $this->createStub(MessagingParticipantRepositoryPort::class)),
     );
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new GetChannelQuery(self::USER_ID, self::CHANNEL_ID));
   }

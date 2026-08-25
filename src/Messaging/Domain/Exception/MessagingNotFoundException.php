@@ -50,4 +50,23 @@ final class MessagingNotFoundException extends RuntimeException
   {
     return new self(sprintf('Message with ID "%s" not found.', $id));
   }
+
+  /**
+   * Method outsideScope.
+   *
+   * The answer for a record owned by an organization the caller is not an
+   * active member of. It has to be indistinguishable from a genuinely unknown
+   * id: a 403 here would confirm the record exists, which is all an attacker
+   * needs to enumerate another tenant's conversations by id.
+   *
+   * @static
+   *
+   * @since 1.1.0
+   *
+   * @return self the not found result
+   */
+  public static function outsideScope(): self
+  {
+    return new self('Not found.');
+  }
 }

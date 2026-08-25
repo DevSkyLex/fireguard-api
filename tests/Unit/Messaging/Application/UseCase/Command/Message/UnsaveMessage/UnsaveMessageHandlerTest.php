@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\UnsaveMessage\{UnsaveMessageCommand, UnsaveMessageHandler};
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
+use Messaging\Domain\Exception\{MessagingNotFoundException};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -140,7 +140,7 @@ final class UnsaveMessageHandlerTest extends TestCase
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
     );
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new UnsaveMessageCommand('user-1', self::MESSAGE_ID));
   }

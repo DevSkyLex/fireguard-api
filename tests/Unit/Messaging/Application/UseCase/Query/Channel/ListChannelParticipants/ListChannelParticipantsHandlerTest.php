@@ -115,7 +115,7 @@ final class ListChannelParticipantsHandlerTest extends TestCase
 
     $handler = new ListChannelParticipantsHandler($conversations, $this->createStub(MessagingParticipantRepositoryPort::class), $accessPolicy);
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new ListChannelParticipantsQuery(self::USER_ID, self::CONVERSATION_ID));
   }

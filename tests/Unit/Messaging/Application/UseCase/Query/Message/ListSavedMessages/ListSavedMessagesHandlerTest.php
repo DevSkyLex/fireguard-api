@@ -9,7 +9,7 @@ use Messaging\Application\Contract\Message\{MessagePage, MessageView};
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Message\ListSavedMessages\{ListSavedMessagesHandler, ListSavedMessagesQuery};
-use Messaging\Domain\Exception\MessagingAccessDeniedException;
+use Messaging\Domain\Exception\MessagingNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -67,7 +67,7 @@ final class ListSavedMessagesHandlerTest extends TestCase
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
     );
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new ListSavedMessagesQuery('user-1', self::ORG_ID));
   }

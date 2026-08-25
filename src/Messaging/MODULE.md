@@ -777,6 +777,24 @@ precedent — there is no edit use case, so it never advances past `1`.
 
 ## Permissions
 
+### Not a member of the record's organization answers 404, never 403
+
+Every handler in this module loads its record by **global id** — the routes are
+`/conversations/{id}`, `/messages/{id}`, `/channels/{id}`, with no organization
+segment — and only then resolves the caller's membership in the organization
+that record turned out to belong to
+(`MessagingAccessPolicy::resolveActiveMemberId()`).
+
+That resolution therefore decides scope, not permission: it throws
+`MessagingNotFoundException` (404), byte-identical to the answer for an id that
+does not exist. A 403 there would confirm the record exists, which is all an
+attacker needs to enumerate another tenant's conversations by id.
+
+A caller who **is** an active member but lacks the permission still gets 403,
+from `assertCanReadThread()` / `assertCanWrite()` / `assertCanReadChannel()`.
+Scope is 404, permission is 403 — the same split the Organization module's
+`resolveAccess()` makes.
+
 `organization.messaging.read` / `.write` / `.manage`
 (`Organization\Domain\Catalog\OrganizationPermissionCatalog`).
 `organization.messaging.read` is included in the `member` system role's

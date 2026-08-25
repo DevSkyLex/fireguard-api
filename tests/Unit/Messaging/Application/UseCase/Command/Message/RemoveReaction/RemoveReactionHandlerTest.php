@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReactionRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\RemoveReaction\{RemoveReactionCommand, RemoveReactionHandler};
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};
+use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -153,7 +153,7 @@ final class RemoveReactionHandlerTest extends TestCase
       $this->createStub(LoggerPort::class),
     );
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new RemoveReactionCommand('user-1', self::MESSAGE_ID, "\u{1F44D}"));
   }
