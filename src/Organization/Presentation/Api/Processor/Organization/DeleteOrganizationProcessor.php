@@ -9,7 +9,6 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -17,9 +16,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
-  BadRequestHttpException,
-  NotFoundHttpException,
-  UnprocessableEntityHttpException
+  BadRequestHttpException
 };
 
 use function is_string;
@@ -112,28 +109,10 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
     $slugQueryParam = $this->requestStack->getCurrentRequest()?->query->get('slug');
     $slugConfirmation = is_string($slugQueryParam) ? $slugQueryParam : null;
 
-    try {
-      $this->commandBus->dispatch(new DeleteOrganizationCommand(
-        organizationId: $organizationId,
-        slugConfirmation: $slugConfirmation,
-      ));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationDeletionConfirmationMismatchException $exception) {
-      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $unprocessable = $this->findWrappedException($exception, OrganizationDeletionConfirmationMismatchException::class);
-      if (null !== $unprocessable) {
-        throw new UnprocessableEntityHttpException($unprocessable->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new DeleteOrganizationCommand(
+      organizationId: $organizationId,
+      slugConfirmation: $slugConfirmation,
+    ));
 
     return null;
   }

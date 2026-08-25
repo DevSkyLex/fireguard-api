@@ -9,12 +9,11 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo\RemoveOrganizationLogoCommand;
-use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -100,28 +99,10 @@ final readonly class RemoveOrganizationLogoProcessor implements ProcessorInterfa
       throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
     }
 
-    try {
-      $this->commandBus->dispatch(new RemoveOrganizationLogoCommand(
-        organizationId: $organizationId,
-        actingUserId: $user->getId(),
-      ));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationArchivedException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $conflict = $this->findWrappedException($exception, OrganizationArchivedException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new RemoveOrganizationLogoCommand(
+      organizationId: $organizationId,
+      actingUserId: $user->getId(),
+    ));
 
     return null;
   }

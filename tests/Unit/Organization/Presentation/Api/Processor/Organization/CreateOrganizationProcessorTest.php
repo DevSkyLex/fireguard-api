@@ -19,7 +19,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
@@ -104,43 +104,7 @@ final class CreateOrganizationProcessorTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process($input, new Post());
-  }
-
-  #[Test]
-  public function testProcessThrowsConflictWhenSlugAlreadyExistsIsWrappedInMessengerRuntimeException(): void
-  {
-    $input = new CreateOrganizationInput();
-    $input->name = 'Fireguard Nantes';
-    $input->slug = 'fireguard-nantes';
-
-    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441110');
-
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($user);
-
-    $slugConflict = OrganizationSlugAlreadyExistsException::withSlug('fireguard-nantes');
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new CreateOrganizationCommand('Fireguard Nantes', $user->getId(), 'fireguard-nantes')),
-      [$slugConflict],
-    );
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $processor = new CreateOrganizationProcessor(
-      commandBus: $commandBus,
-      security: $security,
-    );
-
-    $this->expectException(ConflictHttpException::class);
+    $this->expectException(OrganizationSlugAlreadyExistsException::class);
 
     $processor->process($input, new Post());
   }
@@ -161,33 +125,6 @@ final class CreateOrganizationProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
 
     $processor->process(new CreateOrganizationInput(), new Post());
-  }
-
-  #[Test]
-  public function testProcessThrowsConflictWhenSlugAlreadyExistsIsReachedThroughThePreviousChain(): void
-  {
-    $input = new CreateOrganizationInput();
-    $input->name = 'Fireguard Nantes';
-    $input->slug = 'fireguard-nantes';
-
-    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441110');
-
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($user);
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap(
-      OrganizationSlugAlreadyExistsException::withSlug('fireguard-nantes'),
-    ));
-
-    $processor = new CreateOrganizationProcessor(
-      commandBus: $commandBus,
-      security: $security,
-    );
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process($input, new Post());
   }
 
   #[Test]

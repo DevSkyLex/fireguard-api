@@ -8,15 +8,11 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationResult};
-use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Processor CreateOrganizationProcessor.
@@ -72,23 +68,12 @@ final readonly class CreateOrganizationProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    try {
-      /** @var CreateOrganizationResult $result */
-      $result = $this->commandBus->dispatch(new CreateOrganizationCommand(
-        name: $data->name,
-        ownerUserId: $user->getId(),
-        slug: $data->slug,
-      ));
-    } catch (OrganizationSlugAlreadyExistsException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $slugConflict = $this->findSlugAlreadyExistsException($exception);
-      if ($slugConflict instanceof OrganizationSlugAlreadyExistsException) {
-        throw new ConflictHttpException($slugConflict->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var CreateOrganizationResult $result */
+    $result = $this->commandBus->dispatch(new CreateOrganizationCommand(
+      name: $data->name,
+      ownerUserId: $user->getId(),
+      slug: $data->slug,
+    ));
 
     $output = new OrganizationOutput();
     $output->id = $result->organizationId;
@@ -102,40 +87,6 @@ final readonly class CreateOrganizationProcessor implements ProcessorInterface
     $output->updatedAt = $result->updatedAt->format('c');
 
     return $output;
-  }
-
-  /**
-   * Method findSlugAlreadyExistsException.
-   *
-   * Resolves a slug conflict exception from nested runtime wrappers.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the caught runtime exception
-   *
-   * @return ?OrganizationSlugAlreadyExistsException the resolved slug conflict exception
-   */
-  private function findSlugAlreadyExistsException(Throwable $exception): ?OrganizationSlugAlreadyExistsException
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      if ($current instanceof OrganizationSlugAlreadyExistsException) {
-        return $current;
-      }
-
-      if ($current instanceof HandlerFailedException) {
-        foreach ($current->getWrappedExceptions() as $wrappedException) {
-          if ($wrappedException instanceof OrganizationSlugAlreadyExistsException) {
-            return $wrappedException;
-          }
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return null;
   }
   // #endregion
 }

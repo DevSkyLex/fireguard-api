@@ -8,17 +8,11 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Command\Organization\LeaveOrganization\LeaveOrganizationCommand;
-use Organization\Domain\Exception\{
-  OrganizationLastAdminException,
-  OrganizationMemberNotFoundException,
-  OrganizationNotFoundException,
-  OrganizationOwnerCannotLeaveException
-};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -99,30 +93,10 @@ final readonly class LeaveOrganizationProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Organization identifier is required.');
     }
 
-    try {
-      $this->commandBus->dispatch(new LeaveOrganizationCommand(
-        organizationId: $organizationId,
-        actingUserId: $user->getId(),
-      ));
-    } catch (OrganizationOwnerCannotLeaveException|OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationNotFoundException|OrganizationMemberNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $conflict = $this->findWrappedException($exception, OrganizationOwnerCannotLeaveException::class)
-        ?? $this->findWrappedException($exception, OrganizationLastAdminException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new LeaveOrganizationCommand(
+      organizationId: $organizationId,
+      actingUserId: $user->getId(),
+    ));
 
     return null;
   }
