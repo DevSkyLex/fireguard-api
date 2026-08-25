@@ -12,13 +12,11 @@ use Billing\Application\UseCase\Query\GetOrganizationPaymentMethod\{
   GetOrganizationPaymentMethodQuery,
   GetOrganizationPaymentMethodResult
 };
-use Billing\Domain\Exception\BillingGatewayUnavailableException;
 use Billing\Presentation\Api\Dto\Output\PaymentMethodOutput;
 use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ServiceUnavailableHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function is_string;
 
@@ -88,20 +86,8 @@ final readonly class GetPaymentMethodProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.read permission.');
     }
 
-    try {
-      /** @var GetOrganizationPaymentMethodResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationPaymentMethodQuery($organizationId));
-    } catch (MessengerRuntimeException $exception) {
-      if (null !== $this->firstFailureOf($exception, BillingGatewayUnavailableException::class)) {
-        throw new ServiceUnavailableHttpException(
-          null,
-          'The billing gateway is temporarily unavailable. Please try again later.',
-          $exception,
-        );
-      }
-
-      throw $exception;
-    }
+    /** @var GetOrganizationPaymentMethodResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationPaymentMethodQuery($organizationId));
 
     $output = new PaymentMethodOutput();
     $output->organizationId = $organizationId;

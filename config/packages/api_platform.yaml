@@ -42,6 +42,14 @@ api_platform:
     Otp\Application\Exception\OtpNotFoundException: 404
     TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException: 404
 
+    # Billing reached these through `catch (MessengerRuntimeException)` plus a
+    # generic `firstFailureOf($e, X::class)` helper — a fourth mapping shape the
+    # baseline extractor cannot see, since the caught class is the wrapper and
+    # the domain class is a runtime argument.
+    Billing\Domain\Exception\NoActiveSubscriptionException: 409
+    Billing\Domain\Exception\BillingCustomerNotFoundException: 409
+    Billing\Domain\Exception\BillingGatewayUnavailableException: 503
+
     Approval\Domain\Exception\ApprovalAccessDeniedException: 403
     Approval\Domain\Exception\ApprovalRequestNotFoundException: 404
     Approval\Domain\Exception\ApprovalRequestNotPendingException: 409

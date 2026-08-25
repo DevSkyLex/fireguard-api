@@ -9,7 +9,6 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Command\CancelSubscription\CancelSubscriptionCommand;
 use Billing\Application\UseCase\Query\GetOrganizationSubscription\GetOrganizationSubscriptionResult;
-use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Billing\Presentation\Api\Processor\CancelSubscriptionProcessor;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -19,7 +18,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 /**
  * Test CancelSubscriptionProcessorTest.
@@ -127,26 +126,6 @@ final class CancelSubscriptionProcessorTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAMissingSubscriptionToConflict(): void
-  {
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
-      MessengerRuntimeException::wrap(NoActiveSubscriptionException::forOrganization(self::ORGANIZATION_ID)),
-    );
-
-    $processor = new CancelSubscriptionProcessor(
-      $commandBus,
-      $this->createStub(QueryBusPort::class),
-      $this->access(true),
-      $this->authenticatedSecurity(),
-    );
-
-    $this->expectException(ConflictHttpException::class);
 
     $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }

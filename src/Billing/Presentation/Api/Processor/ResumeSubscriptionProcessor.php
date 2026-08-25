@@ -13,13 +13,11 @@ use Billing\Application\UseCase\Query\GetOrganizationSubscription\{
   GetOrganizationSubscriptionQuery,
   GetOrganizationSubscriptionResult
 };
-use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Billing\Presentation\Api\Dto\Output\SubscriptionOutput;
 use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -91,15 +89,7 @@ final readonly class ResumeSubscriptionProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
     }
 
-    try {
-      $this->commandBus->dispatch(new ResumeSubscriptionCommand(organizationId: $organizationId));
-    } catch (MessengerRuntimeException $exception) {
-      if (null !== $this->firstFailureOf($exception, NoActiveSubscriptionException::class)) {
-        throw new ConflictHttpException('No subscription to resume.', $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new ResumeSubscriptionCommand(organizationId: $organizationId));
 
     /** @var GetOrganizationSubscriptionResult $result */
     $result = $this->queryBus->ask(new GetOrganizationSubscriptionQuery($organizationId));

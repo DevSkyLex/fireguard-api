@@ -12,7 +12,6 @@ use Billing\Application\UseCase\Query\GetOrganizationPaymentMethod\{
   GetOrganizationPaymentMethodQuery,
   GetOrganizationPaymentMethodResult
 };
-use Billing\Domain\Exception\BillingGatewayUnavailableException;
 use Billing\Presentation\Api\Dto\Output\PaymentMethodOutput;
 use Billing\Presentation\Api\Provider\GetPaymentMethodProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -22,7 +21,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ServiceUnavailableHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Test GetPaymentMethodProviderTest.
@@ -167,30 +166,6 @@ final class GetPaymentMethodProviderTest extends TestCase
     self::assertNull($output->last4);
     self::assertNull($output->expMonth);
     self::assertNull($output->expYear);
-  }
-
-  #[Test]
-  public function itDegradesToServiceUnavailableWhenStripeCannotBeReached(): void
-  {
-    $security = $this->securityWithUser();
-
-    $access = $this->createStub(OrganizationAccessPort::class);
-    $access->method('hasPermission')->willReturn(true);
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willThrowException(
-      MessengerRuntimeException::wrap(BillingGatewayUnavailableException::create()),
-    );
-
-    $provider = new GetPaymentMethodProvider(
-      queryBus: $queryBus,
-      access: $access,
-      security: $security,
-    );
-
-    $this->expectException(ServiceUnavailableHttpException::class);
-
-    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
   }
 
   #[Test]

@@ -8,7 +8,6 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Command\StartPortal\{StartPortalCommand, StartPortalResult};
-use Billing\Domain\Exception\BillingCustomerNotFoundException;
 use Billing\Presentation\Api\Processor\StartPortalProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -16,7 +15,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 /**
  * Test StartPortalProcessorTest.
@@ -93,21 +92,6 @@ final class StartPortalProcessorTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
-
-    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
-  }
-
-  #[Test]
-  public function testProcessMapsAMissingBillingCustomerToConflict(): void
-  {
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
-      MessengerRuntimeException::wrap(BillingCustomerNotFoundException::forOrganization(self::ORGANIZATION_ID)),
-    );
-
-    $processor = new StartPortalProcessor($commandBus, $this->access(true), $this->authenticatedSecurity());
-
-    $this->expectException(ConflictHttpException::class);
 
     $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }
