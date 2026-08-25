@@ -71,9 +71,32 @@ direction — brand/last 4/expiry only ever flow *from* Stripe. The client's
   the organization to `free`.
 - any other event → no-op.
 
-The organization is resolved from the event `metadata.organization_id`, falling
-back to the locally stored `stripe_customer_id` → organization mapping. The flow
-is idempotent: replaying an event converges to the same state.
+The organization is resolved from the event `metadata.organization_id`,
+**cross-checked against** the locally stored `stripe_customer_id` → organization
+mapping. The metadata is not authoritative: `StripeGatewayAdapter` writes it when
+a checkout session or subscription is created, but it then lives on Stripe's
+side, is editable from the Stripe dashboard, and rides every later event for that
+customer. The mapping is the record we control.
+
+The three cases:
+
+| Metadata | Local mapping | Outcome |
+|---|---|---|
+| absent | present | the mapping wins |
+| present | absent | trusted — first event for this customer, nothing contradicts it |
+| present | present and **different** | **event ignored**, logged as a warning |
+
+Neither side is preferred on a disagreement, because picking the metadata would
+let a mislabelled customer act on an organization that never subscribed — and
+`customer.subscription.deleted` downgrades whatever organization it resolves to
+onto the free plan, which turns the mismatch into a denial of service against a
+paying customer.
+
+The refusal is logged through `LoggerPort` rather than thrown: an exception would
+make Stripe retry the same contradictory event indefinitely, and the mismatch
+needs a human to look at it, not a retry.
+
+The flow is idempotent: replaying an event converges to the same state.
 
 `cancel` / `resume` schedule the change on Stripe (`cancel_at_period_end`) **and**
 mirror the flag on the local aggregate immediately so the UI reflects it without

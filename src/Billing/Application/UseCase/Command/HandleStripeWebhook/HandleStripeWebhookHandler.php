@@ -16,7 +16,7 @@ use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
 use DateTimeImmutable;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 
 /**
  * UseCase HandleStripeWebhookHandler.
@@ -57,6 +57,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
    * @param OrganizationPlanAssignmentPort $planAssignment the organization plan assignment port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param LoggerPort $logger the logger, used to surface contradictory events
    */
   public function __construct(
     private StripeGatewayPort $stripe,
@@ -65,6 +66,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     private OrganizationPlanAssignmentPort $planAssignment,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
+    private LoggerPort $logger,
   ) {
   }
   // #endregion
@@ -177,26 +179,53 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
   /**
    * Method resolveOrganizationId.
    *
-   * Resolves the organization from the event metadata, falling back to the
-   * customer-to-organization mapping stored locally.
+   * Resolves the organization the event applies to, cross-checking the
+   * identifier carried in the Stripe metadata against the local
+   * customer-to-organization mapping.
    *
-   * @since 1.0.0
+   * The metadata is not authoritative. It is written by
+   * `StripeGatewayAdapter` when a checkout session or subscription is created,
+   * but it is stored on Stripe's side from then on, editable from the Stripe
+   * dashboard, and carried by every later event for that customer. The local
+   * mapping is the record we control. When the two disagree, neither is picked:
+   * applying the event to the metadata's organization would let a mislabelled
+   * customer act on an organization that never subscribed — and
+   * `customer.subscription.deleted` downgrades whatever organization it
+   * resolves to onto the free plan.
+   *
+   * @since 1.1.0
    *
    * @param StripeEvent $event the normalized event
    *
-   * @return ?string the organization identifier, or null when unresolved
+   * @return ?string the organization identifier, or null when unresolved or contradictory
    */
   private function resolveOrganizationId(StripeEvent $event): ?string
   {
-    if (null !== $event->organizationId) {
+    $mappedOrganizationId = null !== $event->customerId
+      ? $this->subscriptions->findByStripeCustomerId($event->customerId)?->organizationId()
+      : null;
+
+    if (null === $event->organizationId) {
+      return $mappedOrganizationId;
+    }
+
+    if (null === $mappedOrganizationId) {
+      // First event for this customer: nothing local to contradict it yet.
       return $event->organizationId;
     }
 
-    if (null !== $event->customerId) {
-      return $this->subscriptions->findByStripeCustomerId($event->customerId)?->organizationId();
+    if ($mappedOrganizationId !== $event->organizationId) {
+      $this->logger->warning('Stripe webhook organization mismatch; event ignored.', [
+        'event' => $event->type,
+        'stripe_customer_id' => $event->customerId,
+        'metadata_organization_id' => $event->organizationId,
+        'mapped_organization_id' => $mappedOrganizationId,
+      ]);
+
+      return null;
     }
 
-    return null;
+    return $event->organizationId;
   }
 
   /**

@@ -20,7 +20,7 @@ use Billing\Domain\ValueObject\SubscriptionId;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 
 /**
  * Test HandleStripeWebhookHandlerTest.
@@ -34,6 +34,131 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
 final class HandleStripeWebhookHandlerTest extends TestCase
 {
   private const string SUBSCRIPTION_ID = '33333333-3333-4333-8333-333333333333';
+
+  #[Test]
+  public function anEventWhoseMetadataContradictsTheLocalMappingIsIgnored(): void
+  {
+    // The metadata lives on Stripe's side and rides every later event for the
+    // customer. Trusting it over the mapping we control would let a
+    // mislabelled customer act on an organization that never subscribed.
+    $stripe = $this->createStub(StripeGatewayPort::class);
+    $stripe->method('parseEvent')->willReturn(new StripeEvent(
+      type: 'customer.subscription.updated',
+      organizationId: 'org-victim',
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+      status: 'active',
+      priceId: 'price_pro_m',
+      currentPeriodEnd: 1_800_000_000,
+      cancelAtPeriodEnd: false,
+    ));
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->method('findByStripeCustomerId')
+      ->willReturn(Subscription::start(
+        new SubscriptionId(self::SUBSCRIPTION_ID),
+        'org-attacker',
+        'cus_1',
+      ));
+    $subscriptions->expects(self::never())->method('save');
+
+    $planAssignment = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $planAssignment->expects(self::never())->method('assignPlanByKey');
+
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning');
+
+    $handler = new HandleStripeWebhookHandler(
+      $stripe,
+      $subscriptions,
+      new BillingPriceCatalog($this->prices(), 'eur'),
+      $planAssignment,
+      $this->uuidFactory(),
+      $this->transactionManager(),
+      $logger,
+    );
+
+    $handler(new HandleStripeWebhookCommand('{}', 'sig'));
+  }
+
+  #[Test]
+  public function aCancellationWhoseMetadataContradictsTheLocalMappingDoesNotDowngradeAnyone(): void
+  {
+    // The sharpest edge of the same defect: this branch assigns the free plan
+    // to whatever organization it resolves to.
+    $stripe = $this->createStub(StripeGatewayPort::class);
+    $stripe->method('parseEvent')->willReturn(new StripeEvent(
+      type: 'customer.subscription.deleted',
+      organizationId: 'org-victim',
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+      status: 'canceled',
+      priceId: 'price_pro_m',
+      currentPeriodEnd: 1_800_000_000,
+      cancelAtPeriodEnd: true,
+    ));
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->method('findByStripeCustomerId')
+      ->willReturn(Subscription::start(
+        new SubscriptionId(self::SUBSCRIPTION_ID),
+        'org-attacker',
+        'cus_1',
+      ));
+    $subscriptions->expects(self::never())->method('save');
+
+    $planAssignment = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $planAssignment->expects(self::never())->method('assignPlanByKey');
+
+    $handler = new HandleStripeWebhookHandler(
+      $stripe,
+      $subscriptions,
+      new BillingPriceCatalog($this->prices(), 'eur'),
+      $planAssignment,
+      $this->uuidFactory(),
+      $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $handler(new HandleStripeWebhookCommand('{}', 'sig'));
+  }
+
+  #[Test]
+  public function aFirstEventForAnUnknownCustomerStillTrustsItsMetadata(): void
+  {
+    // Nothing local contradicts it yet: this is how a subscription is born.
+    $stripe = $this->createStub(StripeGatewayPort::class);
+    $stripe->method('parseEvent')->willReturn(new StripeEvent(
+      type: 'customer.subscription.updated',
+      organizationId: 'org-1',
+      customerId: 'cus_new',
+      subscriptionId: 'sub_1',
+      status: 'active',
+      priceId: 'price_pro_m',
+      currentPeriodEnd: 1_800_000_000,
+      cancelAtPeriodEnd: false,
+    ));
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->method('findByStripeCustomerId')->willReturn(null);
+    $subscriptions->method('findByOrganizationId')->willReturn(null);
+    $subscriptions->expects(self::once())->method('save');
+
+    $planAssignment = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $planAssignment->expects(self::once())->method('assignPlanByKey')->with('org-1', 'pro');
+
+    $handler = new HandleStripeWebhookHandler(
+      $stripe,
+      $subscriptions,
+      new BillingPriceCatalog($this->prices(), 'eur'),
+      $planAssignment,
+      $this->uuidFactory(),
+      $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $handler(new HandleStripeWebhookCommand('{}', 'sig'));
+  }
 
   #[Test]
   public function anActiveSubscriptionEventAssignsThePaidPlan(): void
@@ -66,6 +191,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
 
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
@@ -103,6 +229,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
 
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
@@ -127,6 +254,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
 
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
@@ -212,6 +340,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       $planAssignment,
       $this->uuidFactory(),
       $this->transactionManager(),
+      $this->createStub(LoggerPort::class),
     );
   }
 
