@@ -11,7 +11,6 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{GetOrganizationInvitationResult, ListOrganizationInvitationsQuery};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\SortDirection;
@@ -20,7 +19,7 @@ use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
@@ -98,15 +97,11 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
 
     $pagination = PaginationExtractor::fromContext($context);
 
-    try {
-      /** @var PaginatedResult<GetOrganizationInvitationResult> $result */
-      $result = $this->queryBus->ask(new ListOrganizationInvitationsQuery(
-        organizationId: $organizationId,
-        pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
-      ));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var PaginatedResult<GetOrganizationInvitationResult> $result */
+    $result = $this->queryBus->ask(new ListOrganizationInvitationsQuery(
+      organizationId: $organizationId,
+      pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
+    ));
 
     /** @var array<string, ?string> $displayNameCache */
     $displayNameCache = [];

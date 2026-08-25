@@ -14,7 +14,7 @@ use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 
 use function is_string;
 
@@ -86,20 +86,8 @@ final readonly class GetOrganizationNavigationCountersProvider implements Provid
       return null;
     }
 
-    try {
-      /** @var GetNavigationCountersResult $result */
-      $result = $this->queryBus->ask(new GetNavigationCountersQuery($organizationId, $user->getId()));
-    } catch (OrganizationNotFoundException|OrganizationMemberNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var GetNavigationCountersResult $result */
+    $result = $this->queryBus->ask(new GetNavigationCountersQuery($organizationId, $user->getId()));
 
     $output = new OrganizationNavigationCountersOutput();
     $output->openInterventions = $result->openInterventions;
