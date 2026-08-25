@@ -9,7 +9,7 @@ use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Conversation\UnfavoriteConversation\{UnfavoriteConversationCommand, UnfavoriteConversationHandler};
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
+use Messaging\Domain\Exception\{MessagingNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -111,7 +111,7 @@ final class UnfavoriteConversationHandlerTest extends TestCase
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
     );
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new UnfavoriteConversationCommand('user-1', self::CONVERSATION_ID));
   }

@@ -15,7 +15,7 @@ use Messaging\Application\Port\Outbound\{
 };
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Channel\ListChannels\{ListChannelsHandler, ListChannelsQuery};
-use Messaging\Domain\Exception\MessagingAccessDeniedException;
+use Messaging\Domain\Exception\{MessagingNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -153,7 +153,7 @@ final class ListChannelsHandlerTest extends TestCase
   #[Test]
   public function testHandlerRefusesACallerWhoIsNotAnActiveMember(): void
   {
-    $this->expectException(MessagingAccessDeniedException::class);
+    $this->expectException(MessagingNotFoundException::class);
 
     new ListChannelsHandler(
       conversations: $this->createStub(MessagingConversationRepositoryPort::class),
