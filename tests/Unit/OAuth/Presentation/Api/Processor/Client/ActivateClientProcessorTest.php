@@ -18,7 +18,6 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Test ActivateClientProcessorTest.
@@ -83,7 +82,7 @@ final class ActivateClientProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessMapsInvalidClientExceptionToNotFound(): void
+  public function testProcessLetsAnUnknownClientPropagate(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -99,35 +98,7 @@ final class ActivateClientProcessorTest extends TestCase
       queryBus: $queryBus,
     );
 
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(
-      data: null,
-      operation: $this->createStub(Operation::class),
-      uriVariables: ['id' => 'client-123'],
-    );
-  }
-
-  #[Test]
-  public function testProcessUnwrapsInvalidClientExceptionFromMessengerFailure(): void
-  {
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException(MessengerRuntimeException::wrap(
-        InvalidClientException::forId(self::clientId()),
-      ));
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $processor = new ActivateClientProcessor(
-      commandBus: $commandBus,
-      queryBus: $queryBus,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(InvalidClientException::class);
 
     $processor->process(
       data: null,

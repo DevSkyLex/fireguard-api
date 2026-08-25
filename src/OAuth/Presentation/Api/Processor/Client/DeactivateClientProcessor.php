@@ -9,13 +9,8 @@ use ApiPlatform\State\ProcessorInterface;
 use InvalidArgumentException;
 use OAuth\Application\UseCase\Command\Client\DeactivateClient\DeactivateClientCommand;
 use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
-use OAuth\Domain\Exception\Client\InvalidClientException;
 use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
 
 use function is_string;
 
@@ -81,18 +76,7 @@ final readonly class DeactivateClientProcessor implements ProcessorInterface
     // Dispatch command
     $command = new DeactivateClientCommand(clientId: $id);
 
-    try {
-      $this->commandBus->dispatch(command: $command);
-    } catch (InvalidClientException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findInvalidClientException($exception);
-      if ($notFound instanceof InvalidClientException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(command: $command);
 
     // Fetch updated client
     $query = new GetClientQuery(clientId: $id);
@@ -117,27 +101,5 @@ final readonly class DeactivateClientProcessor implements ProcessorInterface
     return $output;
   }
 
-  private function findInvalidClientException(Throwable $exception): ?InvalidClientException
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      if ($current instanceof InvalidClientException) {
-        return $current;
-      }
-
-      if ($current instanceof HandlerFailedException) {
-        foreach ($current->getWrappedExceptions() as $wrappedException) {
-          if ($wrappedException instanceof InvalidClientException) {
-            return $wrappedException;
-          }
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return null;
-  }
   // #endregion
 }
