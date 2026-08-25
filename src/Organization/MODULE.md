@@ -53,7 +53,7 @@ frontend's localized typed registries are the source of these values).
 | POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |
 | GET | `/api/organizations/{organizationId}/invitations` | List Organization invitations |
 | GET | `/api/organizations/invitations/{token}/preview` | Public preview of an invitation by token (organization, inviter, masked invited email, status, expiry, `roleNames`). Unauthenticated and rate-limited per IP. `roleNames` carries the display names of the roles the invitation grants, resolved within the invitation's own organization — names only, never role ids or permissions |
-| POST | `/api/organizations/invitations/accept` | Accept an invitation token |
+| POST | `/api/organizations/invitations/accept` | Accept an invitation token. Rate-limited per user (`limiter.invitation_accept`), the third of the trio alongside `preview` (per IP) and `resend` (per user) |
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/revoke` | Revoke pending invitation |
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/resend` | Regenerate token, reset expiry and re-send the invitation email (returns a fresh accept link) |
 | POST | `/api/organizations/{organizationId}/roles` | Create Organization role |

@@ -17,7 +17,9 @@ use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 /**
  * Processor AcceptOrganizationInvitationProcessor.
@@ -45,10 +47,13 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
    *
    * @param CommandBusPort $commandBus the command bus
    * @param Security $security the security service
+   * @param RateLimiterFactory|null $rateLimiter the per-user accept rate limiter
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private Security $security,
+    #[Autowire(service: 'limiter.invitation_accept')]
+    private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -73,6 +78,8 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
+
+    $this->enforceRateLimit($user->getId());
 
     try {
       /** @var AcceptOrganizationInvitationResult $result */
@@ -119,6 +126,33 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
     $output->roleIds = $result->roleIds;
 
     return $output;
+  }
+
+  /**
+   * Method enforceRateLimit.
+   *
+   * Bounds how fast one account can submit invitation tokens. The token itself
+   * is 256 bits of CSPRNG, so guessing is not the threat this closes — an
+   * unthrottled authenticated endpoint that hits the database on every call
+   * is. Keyed by user id rather than IP because the caller is always
+   * authenticated here, so a shared address costs nobody else their quota.
+   *
+   * A missing limiter (some test contexts) is a no-op, mirroring the preview
+   * and resend endpoints.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the authenticated caller
+   */
+  private function enforceRateLimit(string $userId): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    if (!$this->rateLimiter->create($userId)->consume()->isAccepted()) {
+      throw new TooManyRequestsHttpException(message: 'Too many invitation accept requests.');
+    }
   }
   // #endregion
 }

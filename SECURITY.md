@@ -52,6 +52,9 @@ Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 - `mfa_resend`
 - `otp_challenge_create`
 - `otp_challenge_verify`
+- `invitation_preview` (per IP — the endpoint is public)
+- `invitation_resend` (per user)
+- `invitation_accept` (per user)
 
 Tune limits to match threat models and expected traffic. In test environments, limits may be overridden for determinism.
 
