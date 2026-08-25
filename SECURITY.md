@@ -21,6 +21,14 @@ JWT keys:
 
 ## Token and cookie security
 
+- **Every bearer token is signature-verified before any of its claims is trusted.**
+  `OAuth2Authenticator` validates the RSA signature and the expiry first, then branches on
+  the token's origin. Both issuance paths sign with `config/jwt/private.key` — the login
+  flow through `JwtTokenAdapter`, the OAuth2 flow through League's `AuthorizationServer` —
+  so a single verification key covers both. The database lookup keys on `jti` and never
+  binds it back to `sub`, which is why the signature check must not be conditional: a
+  branch that skipped it would let a forged token carrying a live `jti` and an arbitrary
+  `sub` authenticate as that subject.
 - Refresh tokens are issued in HttpOnly cookies with SameSite=Strict.
 - In production, cookies are marked Secure and use the `__Host-` prefix.
 - Keep short access token lifetimes and use refresh tokens for renewals.

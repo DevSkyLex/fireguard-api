@@ -153,6 +153,33 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         );
       }
 
+      // The signature is verified for EVERY token, before anything reads a
+      // claim as trusted. Both issuance paths sign with config/jwt/private.key
+      // — the login flow through JwtTokenAdapter, the OAuth2 flow through
+      // League's AuthorizationServer (config/modules/oauth.yaml) — so one
+      // verification key covers both. Verifying only on the fall-through
+      // branch let an unsigned token carrying a known `jti` and an arbitrary
+      // `sub` authenticate as any user, because the database lookup keys on
+      // `jti` alone and never binds it back to the subject.
+      $validator = new Validator();
+
+      if (
+        !$validator->validate($parsedToken, new SignedWith(
+          $this->jwtConfig->signer(),
+          $this->jwtConfig->verificationKey(),
+        ))
+      ) {
+        throw new CustomUserMessageAuthenticationException(
+          message: 'Invalid token signature',
+        );
+      }
+
+      if ($parsedToken->isExpired(new DateTimeImmutable())) {
+        throw new CustomUserMessageAuthenticationException(
+          message: 'Token has expired',
+        );
+      }
+
       $accessToken = null;
       if (self::ACCESS_TOKEN_USE_AUTH_SESSION !== $claims->get('_fireguard_token_use', null)) {
         // OAuth2 tokens must keep database-backed revocation and expiry checks.
@@ -160,7 +187,8 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       }
 
       if ($accessToken instanceof AccessTokenStatus) {
-        // OAuth2 flow: validate from database
+        // OAuth2 flow: the database is authoritative on revocation and on an
+        // expiry that may precede the one stamped in the token.
         if ($accessToken->revoked) {
           throw new CustomUserMessageAuthenticationException(
             message: 'Token has been revoked',
@@ -175,28 +203,8 @@ final class OAuth2Authenticator extends AbstractAuthenticator
 
         $scopes = $accessToken->scopes;
       } else {
-        // Login flow: validate JWT signature directly
-        $validator = new Validator();
-
-        if (
-          !$validator->validate($parsedToken, new SignedWith(
-            $this->jwtConfig->signer(),
-            $this->jwtConfig->verificationKey(),
-          ))
-        ) {
-          throw new CustomUserMessageAuthenticationException(
-            message: 'Invalid token signature',
-          );
-        }
-
-        // Check expiry
-        if ($parsedToken->isExpired(new DateTimeImmutable())) {
-          throw new CustomUserMessageAuthenticationException(
-            message: 'Token has expired',
-          );
-        }
-
-        // Get scopes from JWT claims
+        // Login flow, and any signed token with no database row: scopes come
+        // from the claims, which the signature check above has now vouched for.
         $scopesClaim = $claims->get('scopes', []);
         $scopes = is_array($scopesClaim) ? array_values(array_filter($scopesClaim, 'is_string')) : [];
       }
