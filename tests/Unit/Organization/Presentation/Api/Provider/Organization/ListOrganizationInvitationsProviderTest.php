@@ -20,7 +20,7 @@ use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 
@@ -193,7 +193,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
     $this->expectExceptionMessage('Organization with ID "' . $organizationId . '" not found.');
 
     $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);

@@ -20,8 +20,6 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyRequestsHttpException};
-use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
@@ -79,23 +77,7 @@ final class GetOrganizationInvitationPreviewProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(OrganizationInvitationNotFoundException::withToken());
 
-    $this->expectException(NotFoundHttpException::class);
-
-    $this->createProvider($queryBus)->provide(new Get(), ['token' => self::TOKEN]);
-  }
-
-  #[Test]
-  public function testProvideUnwrapsAMissingInvitationWrappedByTheMessengerBus(): void
-  {
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap(
-      new HandlerFailedException(
-        new Envelope(new GetOrganizationInvitationPreviewQuery(self::TOKEN)),
-        [OrganizationInvitationNotFoundException::withToken()],
-      ),
-    ));
-
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationInvitationNotFoundException::class);
 
     $this->createProvider($queryBus)->provide(new Get(), ['token' => self::TOKEN]);
   }

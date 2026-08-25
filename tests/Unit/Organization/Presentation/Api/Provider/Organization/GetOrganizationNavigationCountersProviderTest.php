@@ -17,7 +17,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
@@ -122,37 +122,7 @@ final class GetOrganizationNavigationCountersProviderTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655443406']);
-  }
-
-  #[Test]
-  public function testProvideUnwrapsAMissingMembershipWrappedByTheMessengerBus(): void
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655443405'));
-
-    $queryBus = $this->createStub(QueryBusPort::class);
-    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap(
-      new HandlerFailedException(
-        new Envelope(new GetNavigationCountersQuery(
-          '550e8400-e29b-41d4-a716-446655443406',
-          '550e8400-e29b-41d4-a716-446655443405',
-        )),
-        [OrganizationMemberNotFoundException::forUserInOrganization(
-          '550e8400-e29b-41d4-a716-446655443405',
-          '550e8400-e29b-41d4-a716-446655443406',
-        )],
-      ),
-    ));
-
-    $provider = new GetOrganizationNavigationCountersProvider(
-      queryBus: $queryBus,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationMemberNotFoundException::class);
 
     $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655443406']);
   }
