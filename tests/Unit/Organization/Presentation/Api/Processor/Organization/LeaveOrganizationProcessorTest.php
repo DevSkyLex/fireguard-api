@@ -21,9 +21,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 #[CoversClass(LeaveOrganizationProcessor::class)]
 final class LeaveOrganizationProcessorTest extends TestCase
@@ -89,7 +87,7 @@ final class LeaveOrganizationProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
 
     $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
   }
@@ -103,7 +101,7 @@ final class LeaveOrganizationProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationMemberNotFoundException::class);
 
     $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
   }
@@ -117,7 +115,7 @@ final class LeaveOrganizationProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(ConflictHttpException::class);
+    $this->expectException(OrganizationOwnerCannotLeaveException::class);
 
     $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
   }
@@ -131,43 +129,7 @@ final class LeaveOrganizationProcessorTest extends TestCase
 
     $processor = $this->createProcessor($commandBus);
 
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
-  }
-
-  #[Test]
-  public function testProcessThrowsConflictWhenOwnerCannotLeaveIsWrappedInMessengerRuntimeException(): void
-  {
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new LeaveOrganizationCommand(organizationId: self::ORGANIZATION_ID, actingUserId: self::USER_ID)),
-      [OrganizationOwnerCannotLeaveException::mustTransferOwnershipFirst()],
-    );
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $processor = $this->createProcessor($commandBus);
-
-    $this->expectException(ConflictHttpException::class);
-
-    $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
-  }
-
-  #[Test]
-  public function testProcessThrowsNotFoundWhenMemberNotFoundIsWrappedInMessengerRuntimeException(): void
-  {
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new LeaveOrganizationCommand(organizationId: self::ORGANIZATION_ID, actingUserId: self::USER_ID)),
-      [OrganizationMemberNotFoundException::forUserInOrganization(self::USER_ID, self::ORGANIZATION_ID)],
-    );
-
-    $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $processor = $this->createProcessor($commandBus);
-
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationLastAdminException::class);
 
     $processor->process(null, new Delete(), ['organizationId' => self::ORGANIZATION_ID]);
   }

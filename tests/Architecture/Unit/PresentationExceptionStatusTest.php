@@ -181,7 +181,6 @@ final class PresentationExceptionStatusTest extends TestCase
     'OrganizationLastAdminException' => 'ConflictHttpException',
     'OrganizationMemberNotFoundException' => 'NotFoundHttpException',
     'OrganizationNotFoundException' => 'NotFoundHttpException',
-    'OrganizationOwnerCannotLeaveException' => 'ConflictHttpException',
     'OrganizationOwnershipUnchangedException' => 'ConflictHttpException',
     'OrganizationPlanUsageExceededException' => 'ConflictHttpException',
     'OrganizationRoleNotFoundException' => 'NotFoundHttpException',

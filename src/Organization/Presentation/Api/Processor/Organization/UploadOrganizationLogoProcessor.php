@@ -10,7 +10,6 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
@@ -22,7 +21,6 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
-  NotFoundHttpException,
   UnprocessableEntityHttpException
 };
 
@@ -198,19 +196,10 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
       time(),
     );
 
-    try {
-      $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
-        organizationId: $organizationId,
-        logoUrl: $logoUrl,
-      ));
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
+      organizationId: $organizationId,
+      logoUrl: $logoUrl,
+    ));
 
     return $this->buildOutput($organizationId);
   }
@@ -228,19 +217,8 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
    */
   private function buildOutput(string $organizationId): OrganizationOutput
   {
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
 
     $output = new OrganizationOutput();
     $output->id = $result->id;

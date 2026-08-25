@@ -29,7 +29,6 @@ use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
-  NotFoundHttpException,
   UnprocessableEntityHttpException
 };
 
@@ -217,7 +216,7 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessMapsAMissingOrganizationOnTheReadBackToHttp404(): void
+  public function testProcessLetsAMissingOrganizationOnTheReadBackPropagate(): void
   {
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(
@@ -226,7 +225,7 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
 
     $processor = $this->createProcessor(request: $this->requestWithLogo(), queryBus: $queryBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
 
     $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }
