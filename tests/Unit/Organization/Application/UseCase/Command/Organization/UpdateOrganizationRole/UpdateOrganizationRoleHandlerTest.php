@@ -10,7 +10,7 @@ use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleHandler, UpdateOrganizationRoleResult};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -213,8 +213,10 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       transactionManager: $this->passthroughTransactionManager(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Role not found in this organization.');
+    // Not InvalidArgument: a role that does not exist, or belongs to another
+    // organization, is a not-found — 404, like every sibling operation on this
+    // resource answers.
+    $this->expectException(OrganizationRoleNotFoundException::class);
 
     $handler->__invoke(new UpdateOrganizationRoleCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -259,8 +261,10 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       transactionManager: $this->passthroughTransactionManager(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Role not found in this organization.');
+    // Not InvalidArgument: a role that does not exist, or belongs to another
+    // organization, is a not-found — 404, like every sibling operation on this
+    // resource answers.
+    $this->expectException(OrganizationRoleNotFoundException::class);
 
     $handler->__invoke(new UpdateOrganizationRoleCommand(
       organizationId: self::ORGANIZATION_ID,
