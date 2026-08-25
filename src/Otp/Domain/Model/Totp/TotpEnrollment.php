@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Otp\Domain\Model\Totp;
 
+use DateInterval;
 use DateTimeImmutable;
 use Otp\Domain\Exception\{
+  TotpDisableTemporarilyLockedException,
   TotpEnrollmentMaxAttemptsException,
   TotpEnrollmentNoPendingSecretException,
   TotpEnrollmentNotActiveException,
@@ -31,6 +33,29 @@ use function max;
  */
 final class TotpEnrollment
 {
+  // #region Constants
+  /**
+   * Wrong codes tolerated on the disable endpoint before the cooldown starts.
+   *
+   * @since 1.1.0
+   */
+  public const int MAX_DISABLE_ATTEMPTS = 5;
+
+  /**
+   * How long the disable endpoint stays frozen once the attempts run out.
+   *
+   * Temporary on purpose. `confirmPending()` locks permanently because the
+   * user recovers by restarting enrollment; disabling guards the ACTIVE
+   * secret, so a permanent lock would leave them unable to turn TOTP off and
+   * unable to re-enroll around it. The freeze converts an unbounded guessing
+   * budget into roughly 480 attempts a day instead of 7 200, without ever
+   * producing a state only support can undo.
+   *
+   * @since 1.1.0
+   */
+  public const string DISABLE_LOCK_DURATION = 'PT15M';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -57,6 +82,8 @@ final class TotpEnrollment
     private int $maxAttempts,
     private readonly DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
+    private int $disableAttempts = 0,
+    private ?DateTimeImmutable $disableLockedUntil = null,
   ) {
   }
   // #endregion
@@ -125,6 +152,8 @@ final class TotpEnrollment
     int $maxAttempts,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
+    int $disableAttempts = 0,
+    ?DateTimeImmutable $disableLockedUntil = null,
   ): self {
     return new self(
       userId: $userId,
@@ -136,6 +165,8 @@ final class TotpEnrollment
       maxAttempts: $maxAttempts,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
+      disableAttempts: $disableAttempts,
+      disableLockedUntil: $disableLockedUntil,
     );
   }
   // #endregion
@@ -164,6 +195,16 @@ final class TotpEnrollment
   public function pendingCreatedAt(): ?DateTimeImmutable
   {
     return $this->pendingCreatedAt;
+  }
+
+  public function disableAttempts(): int
+  {
+    return $this->disableAttempts;
+  }
+
+  public function disableLockedUntil(): ?DateTimeImmutable
+  {
+    return $this->disableLockedUntil;
   }
 
   public function attempts(): int
@@ -303,19 +344,50 @@ final class TotpEnrollment
    *
    * @since 1.0.0
    *
+   * Wrong codes are counted, and once {@see self::MAX_DISABLE_ATTEMPTS} of
+   * them land the endpoint freezes for {@see self::DISABLE_LOCK_DURATION}. The
+   * freeze refuses the correct code too — otherwise it would not slow down the
+   * one caller it exists for, the one who eventually guesses right — and it
+   * lifts on its own, because a permanent lock on the ACTIVE secret would leave
+   * the user unable to disable TOTP and unable to re-enroll around it.
+   * @since 1.1.0
+   *
    * @param bool $codeValid whether the submitted code matched the active secret
+   * @param DateTimeImmutable|null $now the current instant, injectable for tests
    *
    * @throws TotpEnrollmentNotActiveException if there is no active secret
+   * @throws TotpDisableTemporarilyLockedException if the cooldown has not elapsed
    *
    * @return bool true if disabling succeeded
    */
-  public function disable(bool $codeValid): bool
+  public function disable(bool $codeValid, ?DateTimeImmutable $now = null): bool
   {
     if (null === $this->activeSecret) {
       throw TotpEnrollmentNotActiveException::forUser($this->userId);
     }
 
+    $now ??= new DateTimeImmutable();
+
+    if (null !== $this->disableLockedUntil) {
+      if ($this->disableLockedUntil > $now) {
+        throw TotpDisableTemporarilyLockedException::until($this->disableLockedUntil, $now);
+      }
+
+      // Cooldown elapsed: the slate is wiped so the next window starts whole.
+      $this->disableLockedUntil = null;
+      $this->disableAttempts = 0;
+    }
+
+    $this->updatedAt = $now;
+
     if (!$codeValid) {
+      ++$this->disableAttempts;
+
+      if ($this->disableAttempts >= self::MAX_DISABLE_ATTEMPTS) {
+        $this->disableLockedUntil = $now->add(new DateInterval(self::DISABLE_LOCK_DURATION));
+        $this->disableAttempts = 0;
+      }
+
       return false;
     }
 
@@ -324,7 +396,8 @@ final class TotpEnrollment
     $this->pendingSecret = null;
     $this->pendingCreatedAt = null;
     $this->attempts = 0;
-    $this->updatedAt = new DateTimeImmutable();
+    $this->disableAttempts = 0;
+    $this->disableLockedUntil = null;
 
     return true;
   }

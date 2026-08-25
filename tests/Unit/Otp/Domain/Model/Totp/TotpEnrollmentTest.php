@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Otp\Domain\Model\Totp;
 
+use DateInterval;
 use DateTimeImmutable;
-use Otp\Domain\Exception\{TotpEnrollmentMaxAttemptsException, TotpEnrollmentNoPendingSecretException, TotpEnrollmentNotActiveException};
+use Otp\Domain\Exception\{TotpDisableTemporarilyLockedException, TotpEnrollmentMaxAttemptsException, TotpEnrollmentNoPendingSecretException, TotpEnrollmentNotActiveException};
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Domain\ValueObject\TotpSecret;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -209,5 +210,141 @@ final class TotpEnrollmentTest extends TestCase
     self::assertSame(3, $enrollment->attemptsRemaining());
     self::assertSame($now, $enrollment->createdAt());
     self::assertSame($now, $enrollment->updatedAt());
+  }
+
+  #[Test]
+  public function testWrongDisableCodesCountUpWithoutLockingBeforeTheLimit(): void
+  {
+    $enrollment = $this->activeEnrollment();
+    $now = new DateTimeImmutable('2026-08-25 10:00:00');
+
+    for ($attempt = 1; $attempt < TotpEnrollment::MAX_DISABLE_ATTEMPTS; ++$attempt) {
+      self::assertFalse($enrollment->disable(codeValid: false, now: $now));
+      self::assertSame($attempt, $enrollment->disableAttempts());
+      self::assertNull($enrollment->disableLockedUntil());
+    }
+  }
+
+  #[Test]
+  public function testTheLastWrongCodeStartsTheCooldownAndClearsTheCounter(): void
+  {
+    $enrollment = $this->activeEnrollment();
+    $now = new DateTimeImmutable('2026-08-25 10:00:00');
+
+    for ($attempt = 0; $attempt < TotpEnrollment::MAX_DISABLE_ATTEMPTS; ++$attempt) {
+      $enrollment->disable(codeValid: false, now: $now);
+    }
+
+    self::assertSame(0, $enrollment->disableAttempts());
+    self::assertEquals(
+      $now->add(new DateInterval(TotpEnrollment::DISABLE_LOCK_DURATION)),
+      $enrollment->disableLockedUntil(),
+    );
+  }
+
+  #[Test]
+  public function testAFrozenEnrollmentRefusesEvenTheCorrectCode(): void
+  {
+    // Otherwise the freeze would be no obstacle at all to the one caller it
+    // exists to slow down: the one who eventually guesses right.
+    $enrollment = $this->lockedEnrollment($now = new DateTimeImmutable('2026-08-25 10:00:00'));
+
+    $this->expectException(TotpDisableTemporarilyLockedException::class);
+
+    $enrollment->disable(codeValid: true, now: $now->modify('+1 minute'));
+  }
+
+  #[Test]
+  public function testTheFreezeReportsHowLongIsLeft(): void
+  {
+    $enrollment = $this->lockedEnrollment($now = new DateTimeImmutable('2026-08-25 10:00:00'));
+
+    try {
+      $enrollment->disable(codeValid: false, now: $now->modify('+5 minutes'));
+      self::fail('Expected the enrollment to be frozen.');
+    } catch (TotpDisableTemporarilyLockedException $exception) {
+      self::assertSame(600, $exception->retryAfterSeconds);
+    }
+  }
+
+  #[Test]
+  public function testTheEnrollmentThawsOnItsOwnAndTheUserIsNeverStranded(): void
+  {
+    // The whole reason the lock is temporary: disabling guards the ACTIVE
+    // secret, so a permanent lock would leave the user unable to turn TOTP off
+    // and unable to re-enroll around it.
+    $enrollment = $this->lockedEnrollment($now = new DateTimeImmutable('2026-08-25 10:00:00'));
+
+    $afterCooldown = $now->add(new DateInterval(TotpEnrollment::DISABLE_LOCK_DURATION))->modify('+1 second');
+
+    self::assertTrue($enrollment->disable(codeValid: true, now: $afterCooldown));
+    self::assertFalse($enrollment->isActive());
+    self::assertNull($enrollment->disableLockedUntil());
+    self::assertSame(0, $enrollment->disableAttempts());
+  }
+
+  #[Test]
+  public function testThawingRestoresAFullAttemptBudget(): void
+  {
+    $enrollment = $this->lockedEnrollment($now = new DateTimeImmutable('2026-08-25 10:00:00'));
+
+    $afterCooldown = $now->add(new DateInterval(TotpEnrollment::DISABLE_LOCK_DURATION))->modify('+1 second');
+
+    self::assertFalse($enrollment->disable(codeValid: false, now: $afterCooldown));
+    self::assertSame(1, $enrollment->disableAttempts());
+    self::assertNull($enrollment->disableLockedUntil());
+  }
+
+  #[Test]
+  public function testASuccessfulDisableClearsTheCounter(): void
+  {
+    $enrollment = $this->activeEnrollment();
+    $now = new DateTimeImmutable('2026-08-25 10:00:00');
+
+    $enrollment->disable(codeValid: false, now: $now);
+    self::assertTrue($enrollment->disable(codeValid: true, now: $now));
+
+    self::assertSame(0, $enrollment->disableAttempts());
+  }
+
+  #[Test]
+  public function testDisableCountingDoesNotConsumeTheConfirmationAttempts(): void
+  {
+    // The two counters guard different secrets and reset on different events;
+    // sharing one would let a failed disable eat the enrollment's budget.
+    $enrollment = $this->activeEnrollment();
+    $now = new DateTimeImmutable('2026-08-25 10:00:00');
+
+    $enrollment->disable(codeValid: false, now: $now);
+
+    self::assertSame(0, $enrollment->attempts());
+  }
+
+  private function activeEnrollment(): TotpEnrollment
+  {
+    $now = new DateTimeImmutable('2026-08-25 09:00:00');
+
+    return TotpEnrollment::reconstitute(
+      userId: 'user-1',
+      activeSecret: new TotpSecret('JBSWY3DPEHPK3PXP'),
+      activeConfirmedAt: $now,
+      pendingSecret: null,
+      pendingCreatedAt: null,
+      attempts: 0,
+      maxAttempts: 5,
+      createdAt: $now,
+      updatedAt: $now,
+    );
+  }
+
+  private function lockedEnrollment(DateTimeImmutable $now): TotpEnrollment
+  {
+    $enrollment = $this->activeEnrollment();
+
+    for ($attempt = 0; $attempt < TotpEnrollment::MAX_DISABLE_ATTEMPTS; ++$attempt) {
+      $enrollment->disable(codeValid: false, now: $now);
+    }
+
+    return $enrollment;
   }
 }

@@ -43,7 +43,9 @@ final readonly class TotpEnrollmentMapper
       ->setAttempts($enrollment->attempts())
       ->setMaxAttempts($enrollment->maxAttempts())
       ->setCreatedAt($enrollment->createdAt())
-      ->setUpdatedAt($enrollment->updatedAt());
+      ->setUpdatedAt($enrollment->updatedAt())
+      ->setDisableAttempts($enrollment->disableAttempts())
+      ->setDisableLockedUntil($enrollment->disableLockedUntil());
   }
 
   /**
@@ -70,6 +72,8 @@ final readonly class TotpEnrollmentMapper
       maxAttempts: $record->getMaxAttempts(),
       createdAt: $record->getCreatedAt(),
       updatedAt: $record->getUpdatedAt(),
+      disableAttempts: $record->getDisableAttempts(),
+      disableLockedUntil: $record->getDisableLockedUntil(),
     );
   }
   // #endregion

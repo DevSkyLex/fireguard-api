@@ -50,6 +50,12 @@ class TotpEnrollmentRecord
 
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   private DateTimeImmutable $updatedAt;
+
+  #[ORM\Column(name: 'disable_attempts', type: 'integer', options: ['default' => 0])]
+  private int $disableAttempts = 0;
+
+  #[ORM\Column(name: 'disable_locked_until', type: 'datetime_immutable', nullable: true)]
+  private ?DateTimeImmutable $disableLockedUntil = null;
   // #endregion
 
   // #region Getters
@@ -96,6 +102,16 @@ class TotpEnrollmentRecord
   public function getUpdatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  public function getDisableAttempts(): int
+  {
+    return $this->disableAttempts;
+  }
+
+  public function getDisableLockedUntil(): ?DateTimeImmutable
+  {
+    return $this->disableLockedUntil;
   }
   // #endregion
 
@@ -159,6 +175,20 @@ class TotpEnrollmentRecord
   public function setUpdatedAt(DateTimeImmutable $updatedAt): self
   {
     $this->updatedAt = $updatedAt;
+
+    return $this;
+  }
+
+  public function setDisableAttempts(int $disableAttempts): self
+  {
+    $this->disableAttempts = $disableAttempts;
+
+    return $this;
+  }
+
+  public function setDisableLockedUntil(?DateTimeImmutable $disableLockedUntil): self
+  {
+    $this->disableLockedUntil = $disableLockedUntil;
 
     return $this;
   }
