@@ -224,6 +224,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     new Post(
       name: UserOperations::ACTIVATE,
       uriTemplate: '/users/{id}/activate',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: UserOutput::class,
       processor: ActivateUserProcessor::class,
@@ -253,6 +254,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     new Post(
       name: UserOperations::DEACTIVATE,
       uriTemplate: '/users/{id}/deactivate',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: UserOutput::class,
       processor: DeactivateUserProcessor::class,
@@ -282,6 +284,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     new Post(
       name: UserOperations::VERIFY_EMAIL,
       uriTemplate: '/users/{id}/verify-email',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: UserOutput::class,
       processor: VerifyUserEmailProcessor::class,
@@ -311,6 +314,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
     new Post(
       name: UserOperations::UPLOAD_AVATAR,
       uriTemplate: '/users/{id}/avatar',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: UserOutput::class,
       processor: UploadUserAvatarProcessor::class,

@@ -315,6 +315,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::PUT_UNDER_MAINTENANCE,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/maintenance',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: PutUnderMaintenanceProcessor::class,
@@ -359,6 +360,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::DECOMMISSION_EQUIPMENT,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/decommission',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: DecommissionEquipmentProcessor::class,

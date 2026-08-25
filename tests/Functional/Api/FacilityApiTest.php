@@ -13,6 +13,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberR
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Response;
 
 use function array_values;
 use function json_decode;
@@ -642,7 +643,7 @@ final class FacilityApiTest extends WebTestCase
     $client->request('POST', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::ARCHIVE_INTERVENTION_FACILITY_ID . '/archive');
 
     self::assertSame(
-      expected: 201,
+      expected: Response::HTTP_OK,
       actual: $client->getResponse()->getStatusCode(),
       message: 'A published (closed) intervention must not block archiving. Response: ' . $client->getResponse()->getContent(),
     );
@@ -659,7 +660,7 @@ final class FacilityApiTest extends WebTestCase
     $client->request('POST', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . self::ARCHIVE_INTERVENTION_FACILITY_ID . '/archive');
 
     self::assertSame(
-      expected: 201,
+      expected: Response::HTTP_OK,
       actual: $client->getResponse()->getStatusCode(),
       message: 'An abandoned (closed) intervention must not block archiving. Response: ' . $client->getResponse()->getContent(),
     );

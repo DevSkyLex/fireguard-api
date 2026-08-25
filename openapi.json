@@ -1565,7 +1565,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "MFA code resent successfully"
+                        "description": "MFA code resent successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "401": {
                         "description": "Invalid or expired pre-auth token"
@@ -1575,17 +1583,6 @@
                     },
                     "429": {
                         "description": "Resend cooldown not yet elapsed"
-                    },
-                    "201": {
-                        "description": "Auth resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -1655,6 +1652,13 @@
                 "responses": {
                     "200": {
                         "description": "Verification successful - access token returned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "RefreshToken": {
                                 "operationId": "refresh",
@@ -1705,17 +1709,6 @@
                     "429": {
                         "description": "Too many MFA verification attempts"
                     },
-                    "201": {
-                        "description": "Auth resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
-                    },
                     "422": {
                         "description": "An error occurred",
                         "content": {
@@ -1763,6 +1756,13 @@
                 "responses": {
                     "200": {
                         "description": "Token refreshed successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "Logout": {
                                 "operationId": "logout",
@@ -1787,17 +1787,6 @@
                     },
                     "429": {
                         "description": "Too many refresh requests"
-                    },
-                    "201": {
-                        "description": "Auth resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Auth.LoginOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -5218,7 +5207,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Checklist archived"
+                        "description": "Checklist archived",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Checklist.ChecklistOutput.jsonld-inspection.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "Checklist not found"
@@ -5228,17 +5225,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "Checklist resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Checklist.ChecklistOutput.jsonld-inspection.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -9045,7 +9031,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Equipment decommissioned"
+                        "description": "Equipment decommissioned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid identifier",
@@ -9076,17 +9070,6 @@
                     },
                     "404": {
                         "description": "Equipment not found"
-                    },
-                    "201": {
-                        "description": "LegacyEquipment resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -9148,7 +9131,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Equipment put under maintenance"
+                        "description": "Equipment put under maintenance",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid identifier or equipment not assigned to a facility",
@@ -9179,17 +9170,6 @@
                     },
                     "404": {
                         "description": "Equipment not found"
-                    },
-                    "201": {
-                        "description": "LegacyEquipment resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyEquipment.EquipmentOutput.jsonld-equipment.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -11351,7 +11331,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Facility archived"
+                        "description": "Facility archived",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.FacilityOutput.jsonld-facility.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid identifier",
@@ -11379,17 +11367,6 @@
                     },
                     "404": {
                         "description": "Facility not found"
-                    },
-                    "201": {
-                        "description": "LegacyFacility resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyFacility.FacilityOutput.jsonld-facility.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -14819,7 +14796,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Inspection closed"
+                        "description": "Inspection closed",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyInspection.InspectionOutput.jsonld-inspection.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "Inspection not found"
@@ -14829,17 +14814,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "LegacyInspection resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyInspection.InspectionOutput.jsonld-inspection.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -15343,7 +15317,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Inspection submitted"
+                        "description": "Inspection submitted",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyInspection.InspectionOutput.jsonld-inspection.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "Inspection not found"
@@ -15353,17 +15335,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "LegacyInspection resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/LegacyInspection.InspectionOutput.jsonld-inspection.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -24505,6 +24476,13 @@
                 "responses": {
                     "200": {
                         "description": "Token introspection result",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OAuth2.TokenIntrospectionOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "RevokeToken": {
                                 "operationId": "revoke_token",
@@ -24521,17 +24499,6 @@
                     },
                     "429": {
                         "description": "Too many introspection requests"
-                    },
-                    "201": {
-                        "description": "OAuth2 resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/OAuth2.TokenIntrospectionOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -24649,10 +24616,6 @@
                     },
                     "429": {
                         "description": "Too many revocation requests"
-                    },
-                    "204": {
-                        "description": "OAuth2 resource created",
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -24962,16 +24925,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OTP resent successfully"
-                    },
-                    "404": {
-                        "description": "Challenge not found"
-                    },
-                    "429": {
-                        "description": "Resend cooldown not yet elapsed"
-                    },
-                    "201": {
-                        "description": "Challenge resource created",
+                        "description": "OTP resent successfully",
                         "content": {
                             "application/ld+json": {
                                 "schema": {
@@ -24980,6 +24934,12 @@
                             }
                         },
                         "links": {}
+                    },
+                    "404": {
+                        "description": "Challenge not found"
+                    },
+                    "429": {
+                        "description": "Resend cooldown not yet elapsed"
                     },
                     "400": {
                         "description": "Invalid input",
@@ -25076,7 +25036,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OTP verified successfully"
+                        "description": "OTP verified successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Challenge.VerifyOtpOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid OTP code",
@@ -25107,17 +25075,6 @@
                     },
                     "429": {
                         "description": "Too many OTP verification attempts"
-                    },
-                    "201": {
-                        "description": "Challenge resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Challenge.VerifyOtpOutput.jsonld"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -25356,7 +25313,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "TOTP activated successfully"
+                        "description": "TOTP activated successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Totp.ConfirmTotpOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "422": {
                         "description": "Invalid or expired verification code",
@@ -25384,17 +25349,6 @@
                     },
                     "429": {
                         "description": "Too many confirmation attempts"
-                    },
-                    "201": {
-                        "description": "Totp resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Totp.ConfirmTotpOutput.jsonld"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -28651,7 +28605,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Logo uploaded \u2014 organization output with updated logoUrl returned"
+                        "description": "Logo uploaded \u2014 organization output with updated logoUrl returned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Organization.OrganizationOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "422": {
                         "description": "Invalid file \u2014 missing, too large, or unsupported MIME type",
@@ -28679,17 +28641,6 @@
                     },
                     "404": {
                         "description": "Organization not found"
-                    },
-                    "201": {
-                        "description": "Organization resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Organization.OrganizationOutput.jsonld-Organization.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -29348,7 +29299,7 @@
                     "Organization Invitations"
                 ],
                 "responses": {
-                    "201": {
+                    "200": {
                         "description": "OrganizationInvitation resource created",
                         "content": {
                             "application/ld+json": {
@@ -29460,7 +29411,7 @@
                     "Organization Invitations"
                 ],
                 "responses": {
-                    "201": {
+                    "200": {
                         "description": "OrganizationInvitation resource created",
                         "content": {
                             "application/ld+json": {
@@ -29854,7 +29805,7 @@
                     "Organization Members"
                 ],
                 "responses": {
-                    "201": {
+                    "200": {
                         "description": "OrganizationMember resource created",
                         "content": {
                             "application/ld+json": {
@@ -31050,6 +31001,13 @@
                 "responses": {
                     "200": {
                         "description": "Password reset confirmed successfully. All sessions have been revoked.",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordReset.ConfirmPasswordResetOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "Login": {
                                 "operationId": "login",
@@ -31083,17 +31041,6 @@
                     },
                     "429": {
                         "description": "Too many password reset confirmation attempts or maximum verification attempts exceeded"
-                    },
-                    "201": {
-                        "description": "PasswordReset resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PasswordReset.ConfirmPasswordResetOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -31142,6 +31089,13 @@
                 "responses": {
                     "200": {
                         "description": "Password reset request processed successfully. If the email exists, a code has been sent.",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordReset.RequestPasswordResetOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "ConfirmReset": {
                                 "operationId": "confirm_password_reset",
@@ -31172,17 +31126,6 @@
                     },
                     "429": {
                         "description": "Too many password reset requests"
-                    },
-                    "201": {
-                        "description": "PasswordReset resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PasswordReset.RequestPasswordResetOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -31231,6 +31174,13 @@
                 "responses": {
                     "200": {
                         "description": "Password reset code resent successfully.",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordReset.RequestPasswordResetOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "ConfirmReset": {
                                 "operationId": "confirm_password_reset",
@@ -31264,17 +31214,6 @@
                     },
                     "429": {
                         "description": "Resend cooldown not yet elapsed"
-                    },
-                    "201": {
-                        "description": "PasswordReset resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PasswordReset.RequestPasswordResetOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -32115,7 +32054,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "A new verification code has been sent."
+                        "description": "A new verification code has been sent.",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Registration.RegisterOutput.jsonld-token.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid request - missing or invalid token",
@@ -32143,17 +32090,6 @@
                     },
                     "429": {
                         "description": "Resend cooldown not yet elapsed"
-                    },
-                    "201": {
-                        "description": "Registration resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Registration.RegisterOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -32202,6 +32138,13 @@
                 "responses": {
                     "200": {
                         "description": "Email verified. Access token returned and refresh token cookie set.",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Registration.LoginOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "RefreshToken": {
                                 "operationId": "refresh",
@@ -32235,17 +32178,6 @@
                     },
                     "429": {
                         "description": "Maximum verification attempts exceeded"
-                    },
-                    "201": {
-                        "description": "Registration resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Registration.LoginOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -33843,7 +33775,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Tenant activated successfully"
+                        "description": "Tenant activated successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Tenant.TenantOutput.jsonld-tenant.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "Tenant not found"
@@ -33853,17 +33793,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "Tenant resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Tenant.TenantOutput.jsonld-tenant.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -33939,7 +33868,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Tenant deactivated successfully"
+                        "description": "Tenant deactivated successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Tenant.TenantOutput.jsonld-tenant.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "Tenant not found"
@@ -33949,17 +33886,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "Tenant resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Tenant.TenantOutput.jsonld-tenant.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -34597,7 +34523,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Password changed successfully \u2014 all sessions have been revoked"
+                        "description": "Password changed successfully \u2014 all sessions have been revoked",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordChange.ConfirmPasswordChangeOutput.jsonld-token.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "400": {
                         "description": "Invalid request - missing or invalid parameters",
@@ -34625,17 +34559,6 @@
                     },
                     "429": {
                         "description": "Too many confirmation attempts or maximum verification attempts exceeded"
-                    },
-                    "201": {
-                        "description": "PasswordChange resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PasswordChange.ConfirmPasswordChangeOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "422": {
                         "description": "An error occurred",
@@ -34710,6 +34633,13 @@
                 "responses": {
                     "200": {
                         "description": "Verification code sent \u2014 use the challenge token in the confirm step",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordChange.RequestPasswordChangeOutput.jsonld-token.read"
+                                }
+                            }
+                        },
                         "links": {
                             "ConfirmChange": {
                                 "operationId": "confirm_password_change",
@@ -34764,17 +34694,6 @@
                     },
                     "429": {
                         "description": "Too many password change requests"
-                    },
-                    "201": {
-                        "description": "PasswordChange resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/PasswordChange.RequestPasswordChangeOutput.jsonld-token.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "403": {
                         "description": "Forbidden",
@@ -35294,7 +35213,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "User activated successfully"
+                        "description": "User activated successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "User not found"
@@ -35304,17 +35231,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "User resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -35423,7 +35339,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Avatar uploaded \u2014 user output with updated avatarUrl returned"
+                        "description": "Avatar uploaded \u2014 user output with updated avatarUrl returned",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "422": {
                         "description": "Invalid file \u2014 missing, too large, or unsupported MIME type",
@@ -35454,17 +35378,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "User resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -35587,7 +35500,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "User deactivated successfully"
+                        "description": "User deactivated successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "User not found"
@@ -35597,17 +35518,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "User resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -35683,7 +35593,15 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "User email verified successfully"
+                        "description": "User email verified successfully",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
+                                }
+                            }
+                        },
+                        "links": {}
                     },
                     "404": {
                         "description": "User not found"
@@ -35693,17 +35611,6 @@
                     },
                     "403": {
                         "description": "Insufficient permissions"
-                    },
-                    "201": {
-                        "description": "User resource created",
-                        "content": {
-                            "application/ld+json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/User.UserOutput.jsonld-user.read"
-                                }
-                            }
-                        },
-                        "links": {}
                     },
                     "400": {
                         "description": "Invalid input",
@@ -36601,7 +36508,7 @@
                     "Webhooks"
                 ],
                 "responses": {
-                    "201": {
+                    "200": {
                         "description": "WebhookSubscription resource created",
                         "content": {
                             "application/ld+json": {

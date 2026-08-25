@@ -154,6 +154,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: InspectionOperations::SUBMIT_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}/submit',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: InspectionOutput::class,
       processor: SubmitInspectionProcessor::class,
@@ -175,6 +176,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: InspectionOperations::CLOSE_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}/close',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: InspectionOutput::class,
       processor: CloseInspectionProcessor::class,

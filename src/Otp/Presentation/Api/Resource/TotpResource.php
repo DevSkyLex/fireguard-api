@@ -62,6 +62,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OtpOperations::CONFIRM_TOTP,
       uriTemplate: '/confirm',
+      status: HttpResponse::HTTP_OK,
       input: ConfirmTotpInput::class,
       output: ConfirmTotpOutput::class,
       processor: ConfirmTotpProcessor::class,

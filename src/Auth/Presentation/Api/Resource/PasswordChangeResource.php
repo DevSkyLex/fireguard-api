@@ -44,6 +44,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: PasswordChangeOperations::REQUEST,
       uriTemplate: '/request',
+      status: HttpResponse::HTTP_OK,
       input: RequestPasswordChangeInput::class,
       output: RequestPasswordChangeOutput::class,
       processor: RequestPasswordChangeProcessor::class,
@@ -83,6 +84,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: PasswordChangeOperations::CONFIRM,
       uriTemplate: '/confirm',
+      status: HttpResponse::HTTP_OK,
       input: ConfirmPasswordChangeInput::class,
       output: ConfirmPasswordChangeOutput::class,
       processor: ConfirmPasswordChangeProcessor::class,

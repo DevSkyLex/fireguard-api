@@ -89,6 +89,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OrganizationOperations::BATCH_REMOVE_ORGANIZATION_MEMBERS,
       uriTemplate: '/{organizationId}/members/batch-remove',
+      status: HttpResponse::HTTP_OK,
       input: RemoveOrganizationMembersInput::class,
       output: RemoveOrganizationMembersOutput::class,
       processor: RemoveOrganizationMembersProcessor::class,
