@@ -10,12 +10,11 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeInterface;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 use User\Application\UseCase\Query\User\GetCurrentUserProfile\{
   GetCurrentUserProfileQuery,
   GetCurrentUserProfileResult
 };
-use User\Domain\Exception\UserNotFoundException;
 use User\Presentation\Api\Dto\Output\User\CurrentUserProfileOutput;
 
 /**
@@ -81,12 +80,8 @@ final readonly class UploadCurrentUserAvatarProcessor implements ProcessorInterf
       return null;
     }
 
-    try {
-      /** @var GetCurrentUserProfileResult $result */
-      $result = $this->queryBus->ask(new GetCurrentUserProfileQuery($user->getId()));
-    } catch (UserNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetCurrentUserProfileResult $result */
+    $result = $this->queryBus->ask(new GetCurrentUserProfileQuery($user->getId()));
 
     $output = new CurrentUserProfileOutput();
     $output->id = $result->user->id;

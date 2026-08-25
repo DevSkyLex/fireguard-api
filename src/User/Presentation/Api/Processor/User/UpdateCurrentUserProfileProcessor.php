@@ -10,13 +10,12 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeInterface;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
 use User\Application\UseCase\Command\User\UpdateUser\UpdateUserCommand;
 use User\Application\UseCase\Query\User\GetCurrentUserProfile\{
   GetCurrentUserProfileQuery,
   GetCurrentUserProfileResult
 };
-use User\Domain\Exception\UserNotFoundException;
 use User\Presentation\Api\Dto\Input\User\CurrentUserProfileInput;
 use User\Presentation\Api\Dto\Output\User\CurrentUserProfileOutput;
 
@@ -71,19 +70,15 @@ final readonly class UpdateCurrentUserProfileProcessor implements ProcessorInter
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    try {
-      $this->commandBus->dispatch(new UpdateUserCommand(
-        id: $user->getId(),
-        firstName: $data->firstName,
-        lastName: $data->lastName,
-        locale: $data->locale,
-      ));
+    $this->commandBus->dispatch(new UpdateUserCommand(
+      id: $user->getId(),
+      firstName: $data->firstName,
+      lastName: $data->lastName,
+      locale: $data->locale,
+    ));
 
-      /** @var GetCurrentUserProfileResult $result */
-      $result = $this->queryBus->ask(new GetCurrentUserProfileQuery($user->getId()));
-    } catch (UserNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetCurrentUserProfileResult $result */
+    $result = $this->queryBus->ask(new GetCurrentUserProfileQuery($user->getId()));
 
     $output = new CurrentUserProfileOutput();
     $output->id = $result->user->id;
