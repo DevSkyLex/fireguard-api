@@ -653,9 +653,87 @@ disappeared.
 All other domain exceptions raised by this module map the same way as the
 other Facility endpoints (see the create/archive/move handlers).
 
+### The canonical facility mutations run on use cases (2026-08-26)
+
+`CanonicalFacilityMutationProcessor` was 444 lines — the largest of the four
+canonical processors — holding three `persist`/`flush`/`remove` sites, the
+whole hierarchy guard set (cycle walk, depth cap, archived parent), the
+restore rule, the archival dependency guard, the changed-field bookkeeping and
+the four audit events with their post-commit dispatch. It is now HTTP
+translation only, and **holds no entity manager**.
+
+| Concern | Where it lives now |
+| --- | --- |
+| `PATCH /api/facilities/{id}` | `Application/UseCase/Command/Facility/PatchCanonicalFacility/` |
+| `DELETE /api/facilities/{id}` | `Application/UseCase/Command/Facility/DeleteCanonicalFacility/` |
+| Read one, for the gate | `Application/UseCase/Query/Facility/GetCanonicalFacility/` |
+| Field assignment, trimming, restore rule, revision bump, changed-field set, idempotent archive | `Domain/Model/Facility/CanonicalFacility` |
+| Persistence, child count, ancestry walk | `Infrastructure/…/Repository/CanonicalFacilityRepository` (port: `CanonicalFacilityRepositoryPort`) |
+| Intervention revision touch | `Facility\Application\Port\Outbound\InterventionScopePort` |
+
+**Two Domain models over one table**, the same split the Inspection and
+Equipment modules made on the same day and for the same reason: the
+`Facility` aggregate does not carry `record_status`, `intervention_id` or
+`revision`, so saving it can never bump the revision the canonical `If-Match`
+contract is built on. `src/Inspection/MODULE.md` carries the long-form
+account.
+
+**The validation order is load-bearing and alternates between pure checks and
+external ones**, which is why the handler spells it out step by step instead
+of hiding it in the model: descriptive fields (`type`, `name`, the coordinate
+pair) → the organization's metadata schema → `status` → everything about the
+parent (existence and ownership, cycle, archived parent, depth cap). That is
+the order the processor ran, and therefore the message a client sending
+several invalid fields at once observes.
+
+**Three rules that are easy to get subtly wrong, and are each pinned by a
+test:**
+
+- **The restore guard reads the EFFECTIVE parent.** A patch that only flips
+  `status` back to `active` still has to be judged against the parent the
+  facility already hangs from — otherwise a facility comes back to life inside
+  an archived subtree. `CanonicalFacility::wouldRestore()` is what lets the
+  handler pay for that extra parent read only when it matters.
+- **The changed-field list reports what DIFFERS, not what the body carried.**
+  Resending the current value is a no-op; a same-parent move emits nothing.
+  An audit event saying "name changed" when it did not is worse than no event.
+- **The repeat DELETE skips the archival guard.** An idempotent no-op must
+  stay a no-op, not start failing because a dependent appeared after the
+  facility was retired.
+
+**The canonical DELETE contract**, unchanged: a draft scratchpad row is
+hard-deleted — refused while it still has children (`ON DELETE SET NULL` would
+silently promote the sub-tree to root) or live dependents; a published one
+retires to `archived`, the **only reversible** retirement state of the three
+canonical surfaces; a repeat DELETE is an idempotent no-op.
+
+**Audit events are still dispatched after the commit**, now by the handlers.
+One patch can produce three of them — a move, a status transition and a
+descriptive update are independent facts — and a rollback must produce none.
+
+**What deliberately stayed in the processor**: the authorization gate (the
+permission depends on the request, and a row loaded by GLOBAL id must answer
+404 rather than 403 outside the caller's organization), `MergePatchFields`
+plus the parent IRI parse, and the output (`CanonicalFacilityProvider` joins
+counts and ancestry the write path has no reason to carry).
+
 ## Configuration
 
 - Service wiring: `config/modules/facility.yaml`
+  - `CanonicalFacilityRepositoryPort` is aliased to
+    `CanonicalFacilityRepository`, wired to `main` explicitly. It is a
+    **second** port over the `facilities` table, next to
+    `FacilityRepositoryPort` — see the architecture section for why one cannot
+    serve both.
+  - `Facility\Application\Port\Outbound\InterventionScopePort` is aliased to
+    `Intervention\Infrastructure\Adapter\Facility\InterventionScopeAdapter`.
+    It is the **third** declaration of that capability: Inspection and
+    Equipment own theirs too, exactly as the `FacilityValidationPort`-shaped
+    interfaces coexist.
+  - `PatchCanonicalFacilityHandler` and `DeleteCanonicalFacilityHandler` name
+    `@facility.main_transaction_manager` explicitly.
+  - `CanonicalFacilityMutationProcessor` names **no** `$entityManager`, and
+    must not: it holds none.
   - `DuplicateFacilitySubtreeHandler` is wired with the same
     `$transactionManager: '@facility.main_transaction_manager'` argument as
     `CreateFacilityHandler`, so the quota check and every clone insert run in
@@ -683,11 +761,49 @@ other Facility endpoints (see the create/archive/move handlers).
 ## Testing
 
 - Unit: `tests/Unit/Facility`
+  - `Domain/Model/Facility/CanonicalFacilityTest` — the canonical rules with
+    no container and no mocks: the changed-field list reporting what DIFFERS
+    rather than what the body carried, trimming, explicit-null erasure versus
+    absent key, `type`-before-`name` validation order, both coordinate-pairing
+    rules, the restore-under-an-archived-parent refusal, the same-parent move
+    that reports nothing, the scratchpad that reports nothing at all, and the
+    idempotent archive that must not bump the revision.
+  - `Application/UseCase/Command/Facility/{Patch,Delete}CanonicalFacility` and
+    `Application/UseCase/Query/Facility/GetCanonicalFacility` — the
+    orchestration: the hierarchy guards in order (invalid/foreign parent,
+    cycle by identity and by ancestry, archived parent, depth cap), the
+    restore path resolving a parent the patch never mentioned, the archival
+    guard on both the PATCH and DELETE routes, the child-count guard standing
+    in FRONT of it on the hard delete, the repeat DELETE that skips the guard
+    entirely, the post-commit guarantee, and the revision re-check inside the
+    handler's own transaction.
+  - `Presentation/Api/Processor/Facility/CanonicalFacilityMutationProcessorTest`
+    — what the processor still owns: the gate order (404 before 428), which
+    permission a scratchpad row asks the intervention for, 404 rather than 403
+    outside the organization, the merge-patch `has*` flags, the parent IRI
+    parse, and the single coordinate that must still travel so the handler can
+    reject it.
   - `Application/UseCase/Command/Attachment/{Add,Delete,SetPrimary}FacilityAttachment`,
     `Application/UseCase/Query/Attachment/ListFacilityAttachments` — handler
     behavior including storage-write-then-persist rollback on DB failure,
     path-traversal-safe file naming, the atomic primary swap, and the
     document-cannot-be-primary refusal.
+- Functional: `tests/Functional/Api/CanonicalFacilityApiTest` — the whole
+  `PATCH`/`DELETE /api/facilities/{id}` contract, one HTTP request per test:
+  200 + trimmed name + bumped revision, 422 on a null name, a single
+  coordinate, a cycle, a foreign parent, an archived parent and a restore
+  under one, 409 on archiving with a live child and on hard-deleting a
+  scratchpad with children, 204 for the archive / the scratchpad hard-delete /
+  the idempotent repeat, 412 on a stale revision, 404 before 428 on an unknown
+  id, 404 on a malformed one, 404 for a foreign organization (never 403), and
+  403 for a member without write.
+- Integration (real database):
+  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/CanonicalFacilityRepositoryTest`
+  — that `findById()` carries the columns the aggregate does not, that
+  `save()` writes the mutable ones and **leaves `record_status`,
+  `intervention_id` and `client_id` alone**, that it moves the
+  `parentFacility` ASSOCIATION (resolved in the repository, not the mapper),
+  and that `countChildren()` and `ancestorIdsOf()` answer over the real tree.
   - `Domain/ValueObject/AttachmentKindTest`, `Domain/ValueObject/ImageDimensionsTest`,
     `Domain/Model/Attachment/FacilityAttachmentTest` — the kind↔MIME and
     kind↔primary invariants, and the raster/SVG/no-dimensions probing paths.
@@ -800,6 +916,9 @@ other Facility endpoints (see the create/archive/move handlers).
 | `FacilityMetadataFieldKeyAlreadyExistsException` | 409 | Duplicate `(organizationId, key)` |
 | `FacilityMetadataFieldLimitExceededException` | 422 | Organization already has 50 field definitions |
 | `FacilityMetadataValidationException` | 422 | One or more `metadata` entries fail the organization's typed schema; mapped centrally by `FacilityMetadataValidationExceptionSubscriber` regardless of which write path raised it |
+| `CanonicalFacilityValidationException` | 422 | The canonical surface's refusals: a non-nullable field sent as null, an unsupported enum value, a half-supplied coordinate pair, an invalid/foreign/archived parent, a cycle, a depth-cap breach, and a restore under an archived parent. **Note the depth case: `FacilityHierarchyException` is 400, but the canonical surface wrapped its MESSAGE in a 422 rather than letting the exception surface — so this class answers 422 for it too.** |
+| `CanonicalFacilityConflictException` | 409 | Hard-deleting a draft scratchpad row that still has child facilities |
+| `FacilityRevisionMismatchException` | 412 | `If-Match` lost the race between the scope read on the query bus and the mutation's own transaction |
 
 Every other domain exception in this module (facility hierarchy, archival
 dependents, code conflicts, …) is mapped locally by its processor/provider,

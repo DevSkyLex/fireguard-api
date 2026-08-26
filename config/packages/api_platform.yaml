@@ -129,6 +129,14 @@ api_platform:
     Equipment\Domain\Exception\EquipmentNotFoundException: 404
     Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException: 409
     Equipment\Domain\Exception\TagNotFoundException: 404
+    # The canonical (flat, offline-syncable) facility surface, whose
+    # mutations moved out of CanonicalFacilityMutationProcessor. Note the
+    # depth message: `FacilityHierarchyException` is 400 below, but the
+    # canonical surface wrapped its MESSAGE in a 422 rather than letting the
+    # exception surface — so the canonical class answers 422 for it too.
+    Facility\Domain\Exception\CanonicalFacilityConflictException: 409
+    Facility\Domain\Exception\CanonicalFacilityValidationException: 422
+    Facility\Domain\Exception\FacilityRevisionMismatchException: 412
     Facility\Domain\Exception\FacilityArchivedException: 400
     Facility\Domain\Exception\FacilityAttachmentNotAncestorException: 409
     Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException: 409
