@@ -10,12 +10,12 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
+use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Input\Equipment\PatchCanonicalEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use LogicException;
@@ -93,6 +93,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     private MergePatchFields $mergePatchFields,
     private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
     private EventDispatcherPort $eventDispatcher,
+    private FacilityValidationPort $facilityValidation,
   ) {
   }
 
@@ -224,11 +225,12 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
       if (null === $input->facility) {
         $record->facilityId = null;
       } else {
-        $facility = $this->entityManager->find(FacilityRecord::class, ResourceIriParser::id($input->facility, 'facilities'));
-        if (!$facility instanceof FacilityRecord || $facility->organization?->id !== $record->organization?->id) {
+        $facilityId = ResourceIriParser::id($input->facility, 'facilities');
+        $organizationId = $record->organization?->id;
+        if (null === $organizationId || !$this->facilityValidation->belongsToOrganization($facilityId, $organizationId)) {
           throw new UnprocessableEntityHttpException('Facility must belong to the same organization.');
         }
-        $record->facilityId = $facility->id;
+        $record->facilityId = $facilityId;
       }
     }
     // In-service equipment (operational or under maintenance) requires a facility,

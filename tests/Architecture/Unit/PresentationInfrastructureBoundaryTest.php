@@ -116,7 +116,6 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
    * A pair may only shrink or disappear.
    */
   private const array BASELINE = [
-    'Equipment => Facility' => 1,
     'Inspection => Intervention' => 1,
     'Inspection => Organization' => 1,
   ];
