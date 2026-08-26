@@ -271,8 +271,15 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
   {
     $this->expectException(NotFoundHttpException::class);
 
-    $this->provider(query: ['organization' => '/api/organizations/991e8400-e29b-41d4-a716-4466554910ff'])
-      ->provide(new GetCollection(), []);
+    // `inScope: false` is what the real port answers for an organization with
+    // no membership row — which an unknown id necessarily has none of. The
+    // provider used to prove this with its own `entityManager->find()`; that
+    // query was removed because `resolveAccess()` already produces the same
+    // 404, and this is the assertion that it still does.
+    $this->provider(
+      query: ['organization' => '/api/organizations/991e8400-e29b-41d4-a716-4466554910ff'],
+      inScope: false,
+    )->provide(new GetCollection(), []);
   }
 
   /**
@@ -295,18 +302,24 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
     array $query = [],
     bool $permitted = true,
     bool $authenticated = true,
+    bool $inScope = true,
   ): CanonicalInspectionProvider {
     $requestStack = new RequestStack();
     $requestStack->push(Request::create('/api/inspections', 'GET', $query));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn($permitted);
-    // MISSING_PERMISSION, not OUTSIDE_SCOPE: these cases are an active member
-    // lacking the permission, which must stay 403. OUTSIDE_SCOPE is the 404 the
-    // foreign-organization test in InspectionApiTest covers.
-    $authorization->method('resolveAccess')->willReturn(
-      $permitted ? OrganizationAccessDecision::GRANTED : OrganizationAccessDecision::MISSING_PERMISSION,
-    );
+    // Three distinct answers, because the provider now depends on all three.
+    // OUTSIDE_SCOPE is what an organization that does not exist produces —
+    // there is no membership row for it — and it is also what a real
+    // organization the caller is not in produces. That identity is the point:
+    // the provider no longer looks the record up itself, so the port is the
+    // only thing that can tell it either case happened.
+    $authorization->method('resolveAccess')->willReturn(match (true) {
+      !$inScope => OrganizationAccessDecision::OUTSIDE_SCOPE,
+      $permitted => OrganizationAccessDecision::GRANTED,
+      default => OrganizationAccessDecision::MISSING_PERMISSION,
+    });
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(

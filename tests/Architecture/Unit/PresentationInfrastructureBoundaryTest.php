@@ -120,7 +120,7 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
     'Equipment => Organization' => 1,
     'Facility => Organization' => 1,
     'Inspection => Intervention' => 1,
-    'Inspection => Organization' => 3,
+    'Inspection => Organization' => 1,
   ];
   // #endregion
 
