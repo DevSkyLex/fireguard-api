@@ -7,9 +7,7 @@ namespace Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, TagNotFoundException};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, TagId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase RemoveTagFromEquipmentHandler.
@@ -38,13 +36,9 @@ final readonly class RemoveTagFromEquipmentHandler implements CommandHandler
    */
   public function __invoke(RemoveTagFromEquipmentCommand $command): RemoveTagFromEquipmentResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-      $tagId = TagId::fromString($command->tagId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
+    $tagId = TagId::fromString($command->tagId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 

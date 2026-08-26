@@ -6,9 +6,7 @@ namespace Equipment\Application\UseCase\Query\Tag\ListTags;
 
 use Equipment\Application\Port\Outbound\TagRepositoryPort;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 use function array_slice;
@@ -39,11 +37,7 @@ final readonly class ListTagsHandler implements QueryHandler
    */
   public function __invoke(ListTagsQuery $query): ListTagsResult
   {
-    try {
-      $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
 
     $total = $this->tagRepository->countByOrganizationId($organizationId, $query->search);
 

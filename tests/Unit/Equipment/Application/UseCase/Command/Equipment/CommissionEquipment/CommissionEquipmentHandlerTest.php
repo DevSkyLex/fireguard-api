@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CommissionEquipmentHandler::class)]
 final class CommissionEquipmentHandlerTest extends TestCase
@@ -437,7 +438,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CommissionEquipmentCommand(
       organizationId: 'not-a-uuid',

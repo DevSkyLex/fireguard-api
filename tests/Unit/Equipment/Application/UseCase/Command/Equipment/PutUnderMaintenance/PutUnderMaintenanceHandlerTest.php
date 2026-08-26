@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function is_string;
 
@@ -495,7 +496,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new PutUnderMaintenanceCommand(
       organizationId: 'not-a-uuid',

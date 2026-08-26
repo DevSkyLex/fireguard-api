@@ -9,10 +9,10 @@ use Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\{UpdateEquip
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentSerialNumberAlreadyExistsException};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(UpdateEquipmentHandler::class)]
 final class UpdateEquipmentHandlerTest extends TestCase
@@ -146,7 +146,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
 
     $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new UpdateEquipmentCommand(
       organizationId: $organizationId,
@@ -167,7 +167,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new UpdateEquipmentCommand(
       organizationId: 'not-a-uuid',

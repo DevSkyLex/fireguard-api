@@ -13,6 +13,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(AssignToFacilityHandler::class)]
 final class AssignToFacilityHandlerTest extends TestCase
@@ -221,7 +222,7 @@ final class AssignToFacilityHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AssignToFacilityCommand(
       organizationId: self::ORG_ID,
@@ -268,7 +269,7 @@ final class AssignToFacilityHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invalid date format for installedAt: "yesterday-ish".');
 
     $handler->__invoke(new AssignToFacilityCommand(

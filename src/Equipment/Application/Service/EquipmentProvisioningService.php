@@ -12,6 +12,7 @@ use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Service EquipmentProvisioningService.
@@ -78,7 +79,7 @@ final readonly class EquipmentProvisioningService implements EquipmentProvisioni
       ));
     } catch (OrganizationQuotaExceededException $exception) {
       return new ProvisionEquipmentResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
-    } catch (EquipmentSerialNumberAlreadyExistsException|InvalidArgumentException $exception) {
+    } catch (EquipmentSerialNumberAlreadyExistsException|InvalidArgumentException|InvalidValueException $exception) {
       return new ProvisionEquipmentResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
     } catch (MessengerRuntimeException $exception) {
       return $this->fromWrappedException($exception);
@@ -110,8 +111,13 @@ final readonly class EquipmentProvisioningService implements EquipmentProvisioni
       return new ProvisionEquipmentResult(ProvisionOutcome::INVALID, message: $serial->getMessage());
     }
 
-    $invalid = $this->findException($exception, InvalidArgumentException::class);
-    if ($invalid instanceof InvalidArgumentException) {
+    // Both classes, because the handlers now throw `InvalidValueException`
+    // while the validation ports still declare `InvalidArgumentException`.
+    // Dropping either turns a graceful INVALID outcome — which Import's dry run
+    // reports as a row-level error — into an exception escaping the service.
+    $invalid = $this->findException($exception, InvalidValueException::class)
+      ?? $this->findException($exception, InvalidArgumentException::class);
+    if ($invalid instanceof InvalidValueException || $invalid instanceof InvalidArgumentException) {
       return new ProvisionEquipmentResult(ProvisionOutcome::INVALID, message: $invalid->getMessage());
     }
 

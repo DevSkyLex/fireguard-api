@@ -8,7 +8,6 @@ use Equipment\Application\Port\Outbound\{EquipmentFloorPlanValidationPort, Equip
 use Equipment\Domain\Exception\{EquipmentNotAssignedToFacilityException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, PlanPosition};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -56,12 +55,8 @@ final readonly class SetEquipmentPlanPositionHandler implements CommandHandler
    */
   public function __invoke(SetEquipmentPlanPositionCommand $command): SetEquipmentPlanPositionResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 
@@ -77,7 +72,7 @@ final readonly class SetEquipmentPlanPositionHandler implements CommandHandler
     }
 
     if (null === $command->attachmentId || null === $command->x || null === $command->y) {
-      throw new InvalidArgumentException('Fields "attachmentId", "x" and "y" must be provided together, or all omitted to clear the plan position.');
+      throw InvalidValueException::because('Fields "attachmentId", "x" and "y" must be provided together, or all omitted to clear the plan position.');
     }
 
     $facilityId = $equipment->facilityId();
@@ -87,11 +82,7 @@ final readonly class SetEquipmentPlanPositionHandler implements CommandHandler
 
     $this->floorPlanValidation->assertAttachmentUsableForFacility($command->attachmentId, (string) $facilityId);
 
-    try {
-      $planPosition = new PlanPosition($command->attachmentId, $command->x, $command->y);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $planPosition = new PlanPosition($command->attachmentId, $command->x, $command->y);
 
     $equipment->placeOnPlan($planPosition);
     $this->equipmentRepository->save($equipment);

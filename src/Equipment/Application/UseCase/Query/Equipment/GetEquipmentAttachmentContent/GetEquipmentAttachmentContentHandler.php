@@ -7,10 +7,8 @@ namespace Equipment\Application\UseCase\Query\Equipment\GetEquipmentAttachmentCo
 use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
 use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundException};
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase GetEquipmentAttachmentContentHandler.
@@ -54,13 +52,9 @@ final readonly class GetEquipmentAttachmentContentHandler implements QueryHandle
    */
   public function __invoke(GetEquipmentAttachmentContentQuery $query): GetEquipmentAttachmentContentResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($query->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-      $attachmentId = AttachmentId::fromString($query->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($query->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
+    $attachmentId = AttachmentId::fromString($query->attachmentId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 

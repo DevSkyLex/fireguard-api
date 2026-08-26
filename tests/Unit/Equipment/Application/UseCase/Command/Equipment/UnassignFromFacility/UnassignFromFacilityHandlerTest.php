@@ -11,10 +11,10 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(UnassignFromFacilityHandler::class)]
 final class UnassignFromFacilityHandlerTest extends TestCase
@@ -185,7 +185,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new UnassignFromFacilityCommand(
       organizationId: 'not-a-uuid',
