@@ -77,7 +77,25 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
    * Known `Presentation → sibling Infrastructure` imports, keyed
    * `Consumer => Provider`.
    *
-   * Captured 2026-08-25. All ten name a Doctrine `Record`:
+   * Captured 2026-08-25 at ten; lowered to seven on 2026-08-26.
+   *
+   * The three that went were never lookups at all. They were
+   * `$record->organization instanceof OrganizationRecord` — a check on a
+   * property the ORM already types `?OrganizationRecord`, so it could only ever
+   * be false when null. Replacing it with `null === $record->organization` is
+   * exactly equivalent and needs no import. Nothing was moved, nothing was
+   * abstracted; a redundant `instanceof` was the only thing holding those three
+   * imports in place.
+   *
+   * The seven that remain are real: `$entityManager->find(<Sibling>Record::class, …)`.
+   * Those need the class name, so closing them needs the owning module to
+   * publish a lookup port — Organization has none today. Note that removing
+   * them would NOT remove the coupling underneath: `EquipmentRecord`,
+   * `FacilityRecord` and `InspectionRecord` each declare
+   * `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
+   * schema-level and outlives any Presentation cleanup.
+   *
+   * The original ten, all naming a Doctrine `Record`:
    *
    *  - `Equipment => Facility` — `CanonicalEquipmentMutationProcessor` reads
    *    `FacilityRecord` to validate the assignment target.
@@ -99,10 +117,10 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
    */
   private const array BASELINE = [
     'Equipment => Facility' => 1,
-    'Equipment => Organization' => 2,
-    'Facility => Organization' => 2,
+    'Equipment => Organization' => 1,
+    'Facility => Organization' => 1,
     'Inspection => Intervention' => 1,
-    'Inspection => Organization' => 4,
+    'Inspection => Organization' => 3,
   ];
   // #endregion
 
