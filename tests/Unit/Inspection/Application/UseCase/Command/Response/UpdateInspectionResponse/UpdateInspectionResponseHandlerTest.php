@@ -7,7 +7,7 @@ namespace Tests\Unit\Inspection\Application\UseCase\Command\Response\UpdateInspe
 use DateTimeImmutable;
 use Inspection\Application\Port\Outbound\{InspectionResponseRepositoryPort, InterventionScopePort};
 use Inspection\Application\UseCase\Command\Response\UpdateInspectionResponse\{UpdateInspectionResponseCommand, UpdateInspectionResponseHandler};
-use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseNotFoundException, InspectionResponseRevisionMismatchException};
+use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseNotFoundException, InspectionRevisionMismatchException};
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -111,7 +111,7 @@ final class UpdateInspectionResponseHandlerTest extends TestCase
     $responses->method('findById')->willReturn($this->stored());
     $responses->expects(self::never())->method('save');
 
-    $this->expectException(InspectionResponseRevisionMismatchException::class);
+    $this->expectException(InspectionRevisionMismatchException::class);
     $this->expectExceptionMessage('The resource revision is stale.');
 
     $this->handler($responses)(new UpdateInspectionResponseCommand(self::RESPONSE_ID, 1));

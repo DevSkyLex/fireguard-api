@@ -7,7 +7,7 @@ namespace Tests\Unit\Inspection\Application\UseCase\Command\Response\DeleteInspe
 use DateTimeImmutable;
 use Inspection\Application\Port\Outbound\{InspectionResponseRepositoryPort, InterventionScopePort};
 use Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\{DeleteInspectionResponseCommand, DeleteInspectionResponseHandler};
-use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseNotFoundException, InspectionResponseRevisionMismatchException};
+use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseNotFoundException, InspectionRevisionMismatchException};
 use Inspection\Domain\Model\Response\InspectionResponse;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -88,7 +88,7 @@ final class DeleteInspectionResponseHandlerTest extends TestCase
     $responses->method('findById')->willReturn($this->stored(InspectionResponseStatus::PUBLISHED));
     $responses->expects(self::never())->method('delete');
 
-    $this->expectException(InspectionResponseRevisionMismatchException::class);
+    $this->expectException(InspectionRevisionMismatchException::class);
 
     $this->handler($responses)(new DeleteInspectionResponseCommand(self::RESPONSE_ID, 1));
   }
