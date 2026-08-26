@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\UnsaveMessage\{UnsaveMessageCommand, UnsaveMessageHandler};
-use Messaging\Domain\Exception\{MessagingNotFoundException};
+use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;

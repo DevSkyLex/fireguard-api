@@ -19,7 +19,7 @@ use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 

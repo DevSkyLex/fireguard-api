@@ -10,7 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeInterface;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use User\Application\UseCase\Command\User\DeactivateUser\DeactivateUserCommand;
 use User\Application\UseCase\Query\User\GetCurrentUserProfile\{
   GetCurrentUserProfileQuery,

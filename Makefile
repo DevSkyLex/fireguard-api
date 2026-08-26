@@ -68,8 +68,12 @@ lint:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) lint:container
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) lint:yaml config --parse-tags
 
+# --using-cache=no on both gate targets: the cache is gitignored, so CI always
+# runs cold while a developer runs warm. Measured 2026-08-26 on the same tree,
+# seconds apart: cached said "0 of 5187", uncached said "33 of 5187", and CI
+# failed on those 33. A gate that disagrees with CI is not a gate. Cost: 3s -> 14s.
 cs-lint:
-	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff --using-cache=no
 
 # Fail when the committed openapi.json no longer matches the code. The spec is
 # the contract-of-record the frontend and /fg-contract-check read; it silently
@@ -86,7 +90,7 @@ openapi-check:
 		|| (echo "openapi.json is stale - run: php -d memory_limit=1G bin/console api:openapi:export --output=openapi.json" && exit 1)
 
 cs-fix:
-	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --using-cache=no
 
 # Clear and warmup cache to detect configuration errors
 cache-clear:

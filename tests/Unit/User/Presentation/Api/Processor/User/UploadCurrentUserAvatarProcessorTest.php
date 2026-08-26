@@ -14,7 +14,7 @@ use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetCurrentUserProfile\GetCurrentUserProfileResult;
 use User\Application\UseCase\Query\User\GetUser\GetUserResult;

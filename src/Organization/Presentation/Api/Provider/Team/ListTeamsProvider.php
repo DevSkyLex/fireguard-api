@@ -14,7 +14,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 

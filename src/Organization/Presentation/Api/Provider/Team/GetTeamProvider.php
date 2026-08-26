@@ -12,7 +12,7 @@ use Organization\Application\UseCase\Query\Team\GetTeam\{GetTeamQuery, GetTeamRe
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 
