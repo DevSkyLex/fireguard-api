@@ -9,6 +9,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
+use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Input\Equipment\PatchCanonicalEquipmentInput;
@@ -613,6 +614,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       $record,
       $this->request('PATCH', '{"facility":"/api/facilities/' . self::FACILITY_ID . '"}'),
       $this->entityManagerFor($record, $foreignFacility),
+      facilityBelongs: false,
     )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
   }
 
@@ -753,7 +755,24 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       new MergePatchFields($requestStack),
       $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class),
       $this->createStub(EventDispatcherPort::class),
+      $this->facilityValidation(),
     );
+  }
+
+  /**
+   * A facility that exists and belongs to the equipment's organization.
+   *
+   * The processor used to answer that question itself with
+   * `entityManager->find(FacilityRecord::class, …)`, which the entity-manager
+   * stub happened to satisfy. It now asks Facility through the port, so the
+   * answer has to be stated rather than fall out of the fixture.
+   */
+  private function facilityValidation(bool $belongs = true): FacilityValidationPort
+  {
+    $port = $this->createStub(FacilityValidationPort::class);
+    $port->method('belongsToOrganization')->willReturn($belongs);
+
+    return $port;
   }
 
   private function processor(
@@ -763,6 +782,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     ?InterventionResourceGatewayPort $resources = null,
     ?EquipmentMaintenanceLogSynchronizerPort $synchronizer = null,
     ?EventDispatcherPort $eventDispatcher = null,
+    bool $facilityBelongs = true,
   ): CanonicalEquipmentMutationProcessor {
     $entityManager ??= $this->entityManager($record);
     $resources ??= $this->createStub(InterventionResourceGatewayPort::class);
@@ -792,6 +812,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       new MergePatchFields($requestStack),
       $synchronizer,
       $eventDispatcher,
+      $this->facilityValidation($facilityBelongs),
     );
   }
 

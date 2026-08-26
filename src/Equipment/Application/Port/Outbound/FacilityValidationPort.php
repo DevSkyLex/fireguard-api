@@ -36,5 +36,28 @@ interface FacilityValidationPort
    * @throws InvalidArgumentException when the facility is not found, belongs to another organization, or is archived
    */
   public function assertFacilityIsAssignable(string $facilityId, string $organizationId): void;
+
+  /**
+   * Method belongsToOrganization.
+   *
+   * Answers whether the facility exists and belongs to the organization, and
+   * nothing more.
+   *
+   * Deliberately NOT `assertFacilityIsAssignable()`: that method additionally
+   * rejects an archived facility and reports failure as an
+   * `InvalidArgumentException` naming the id. The canonical equipment surface
+   * has neither rule — it answers 422 "Facility must belong to the same
+   * organization." and says nothing about archival — so calling the stricter
+   * method there would change three things at once: the status, the message,
+   * and which facilities are accepted.
+   *
+   * @since 1.1.0
+   *
+   * @param string $facilityId the facility identifier
+   * @param string $organizationId the expected organization identifier
+   *
+   * @return bool true when the facility exists and belongs to that organization
+   */
+  public function belongsToOrganization(string $facilityId, string $organizationId): bool;
   // #endregion
 }
