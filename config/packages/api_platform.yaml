@@ -134,6 +134,14 @@ api_platform:
     Messaging\Domain\Exception\MessagingNotFoundException: 404
     Messaging\Domain\Exception\MessagingSubjectNotFoundException: 404
     Messaging\Domain\Exception\MessagingValidationException: 422
+    # Onboarding's first domain exceptions. They replace `InvalidArgumentException`
+    # throws in `OrganizationOnboardingFlowService`, at the SAME status the two
+    # processors' catch clauses already served — the class changes, the contract
+    # does not. A case exists for 409 on "the required action has not been
+    # completed yet"; changing it is a contract decision, not a side effect of
+    # this refactor.
+    Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
+    Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400
     Organization\Domain\Exception\OrganizationAccessDeniedException: 403
     Organization\Domain\Exception\OrganizationArchivedException: 409
     Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422

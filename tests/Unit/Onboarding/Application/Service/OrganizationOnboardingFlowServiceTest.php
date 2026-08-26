@@ -7,13 +7,13 @@ namespace Tests\Unit\Onboarding\Application\Service;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
-use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\{
   ExecuteOnboardingStepPayload,
   OrganizationOnboardingFlowService
 };
+use Onboarding\Domain\Exception\{OnboardingStepNotExecutableException, UnsupportedOnboardingStepException};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
@@ -153,7 +153,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   #[Test]
   public function testExecuteStepThrowsInvalidArgumentForUnknownStep(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(UnsupportedOnboardingStepException::class);
     $this->expectExceptionMessage('Unsupported onboarding step "unknown_step".');
 
     $service = $this->buildService();
@@ -265,7 +265,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OnboardingStepNotExecutableException::class);
     $this->expectExceptionMessage('No organization found.');
 
     $service = $this->buildService(
@@ -511,7 +511,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   #[Test]
   public function testSkipStepThrowsInvalidArgumentForUnknownStep(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(UnsupportedOnboardingStepException::class);
     $this->expectExceptionMessage('Unsupported onboarding step "teleport_to_mars".');
 
     $service = $this->buildService();
@@ -801,7 +801,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     // Facility does NOT exist yet
     $this->configureQueryBus($queryBus, $orgResult, hasFacility: false);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OnboardingStepNotExecutableException::class);
     $this->expectExceptionMessage('Cannot confirm step "create_first_facility"');
 
     $service = $this->buildService(

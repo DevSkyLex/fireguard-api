@@ -12,6 +12,7 @@ use LogicException;
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
+use Onboarding\Domain\Exception\OnboardingStepNotExecutableException;
 use Onboarding\Domain\ValueObject\OrganizationOnboardingStep;
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\ExecuteOrganizationOnboardingStepInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
@@ -213,7 +214,11 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
 
     $input = new ExecuteOrganizationOnboardingStepInput();
 
-    $this->expectException(BadRequestHttpException::class);
+    // The processor no longer maps this one: the flow service throws a domain
+    // exception, `api_platform.exception_to_status` carries its 400, and
+    // `BusFailureUnwrappingSubscriber` unwraps the envelope. The unit's job is
+    // to let it through untouched.
+    $this->expectException(OnboardingStepNotExecutableException::class);
     $this->expectExceptionMessage('No organization found.');
 
     $processor = new ExecuteOrganizationOnboardingStepProcessor(
