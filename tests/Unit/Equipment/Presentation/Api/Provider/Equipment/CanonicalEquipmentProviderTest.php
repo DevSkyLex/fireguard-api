@@ -89,7 +89,12 @@ final class CanonicalEquipmentProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Organization not found.');
 
-    $this->provider($entityManager, $requestStack, $this->context())
+    // OUTSIDE_SCOPE is what the real port answers for an organization with no
+    // membership row, which an unknown id necessarily has none of. The provider
+    // used to prove this with its own `entityManager->find()`; that query was
+    // removed because `resolveAccess()` already produces the same 404, and this
+    // is the assertion that it still does.
+    $this->provider($entityManager, $requestStack, $this->context(), OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->provide(new GetCollection(), []);
   }
 

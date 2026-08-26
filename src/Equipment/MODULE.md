@@ -507,23 +507,21 @@ Cross-module contracts and lifecycle invariants:
   See `src/Import/MODULE.md`'s dry-run section and `src/Facility/MODULE.md`
   for the sibling implementation.
 
-**Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (2).**
-Down from 3 on 2026-08-26: `CanonicalEquipmentMutationProcessor`'s
-`OrganizationRecord` uses were `instanceof` checks on a property the ORM
-already types `?OrganizationRecord` — redundant, replaced by a null check.
+**Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (1).**
+Down from 3 on 2026-08-26. `CanonicalEquipmentMutationProcessor`'s
+`OrganizationRecord` uses were `instanceof` checks on a property the ORM already
+types `?OrganizationRecord`; `CanonicalEquipmentProvider`'s was an existence
+lookup that `resolveAccess()` had made redundant — OUTSIDE_SCOPE answers the
+same 404 for an organization with no membership row, and an unknown id
+necessarily has none. The `=> Organization` pair is gone from the baseline.
 
-Two real reads remain. `CanonicalEquipmentProvider` resolves the owning
-organization with `$entityManager->find(OrganizationRecord::class, …)` and
-permission-checks against `$organization->id`; the mutation processor reads
-`Facility\…\Record\FacilityRecord` to validate the assignment target. Both are
-raw reads of another module's table from the layer that should only translate
-HTTP — CLAUDE.md rule 5, invisible to deptrac because its collectors are
-layer-shaped rather than module-shaped. Pinned by
-`PresentationInfrastructureBoundaryTest`; closing them needs the owning modules
-to publish `Application\Port\Inbound` lookup ports (Organization has none
-today). Do not add a third.
+**One real read remains**: `CanonicalEquipmentMutationProcessor` reads
+`Facility\…\Record\FacilityRecord` to validate the assignment target. Unlike the
+organization case, no permission gate covers it — the target facility's
+existence is the actual question — so closing it needs Facility to publish an
+`Application\Port\Inbound` lookup port. Do not add a second.
 
-Closing them would **not** remove the coupling underneath: `EquipmentRecord`
+That one aside, the coupling underneath is untouched: `EquipmentRecord` still
 declares `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
 schema-level.
 

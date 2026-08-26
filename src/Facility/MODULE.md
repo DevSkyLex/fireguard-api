@@ -620,23 +620,25 @@ and `CreateFacilityConsoleCommand` — are unrelated to quotas; the eventual
 fix is Organization publishing a contract identifier type. Do not add a
 third import; extend the contract surface instead.
 
-**Architecture debt — `Presentation` reaching into `Organization\Infrastructure` (1).**
-Down from 2 on 2026-08-26. `CanonicalFacilityMutationProcessor`'s two uses were
-`instanceof OrganizationRecord` on a property the ORM already types
-`?OrganizationRecord` — redundant, replaced by a null check, import gone.
+**`Presentation` no longer reads `Organization\Infrastructure` — closed 2026-08-26.**
+It was 2. `CanonicalFacilityMutationProcessor`'s uses were `instanceof
+OrganizationRecord` on a property the ORM already types `?OrganizationRecord`,
+so a null check replaced them. `CanonicalFacilityProvider`'s was an existence
+lookup that `resolveAccess()` had made redundant: OUTSIDE_SCOPE answers the same
+404 for an organization with no membership row, and an unknown id necessarily
+has none. Both entries are gone from
+`PresentationInfrastructureBoundaryTest`'s baseline.
 
-What remains is real: `CanonicalFacilityProvider` resolves the owning
-organization with `$entityManager->find(OrganizationRecord::class, …)`, then
-permission-checks against `$organization->id`. That is a raw read of another
-module's table from the layer that should only translate HTTP — CLAUDE.md
-rule 5, invisible to deptrac because its collectors are layer-shaped rather
-than module-shaped. Pinned by `PresentationInfrastructureBoundaryTest`; closing
-it needs Organization to publish an `Application\Port\Inbound` lookup port (it
-has none today). Do not add a second.
+One message changed with it. The collection route answered `'Organization not
+found.'` for an unknown organization and `'Facility not found.'` for one the
+caller was not in; both now answer `'Facility not found.'`. Same status, and an
+identical body for the two cases instead of a distinguishable one.
 
-Note that closing it would **not** remove the coupling underneath:
-`FacilityRecord` declares `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`,
-which is schema-level and outlives any Presentation cleanup.
+**The coupling underneath did not go away.** `FacilityRecord` still declares
+`#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`. That is
+schema-level; what closed here is Presentation reading another module's table,
+not the association itself. Do not plan a refactor expecting the latter to have
+disappeared.
 
 ## Error Codes
 

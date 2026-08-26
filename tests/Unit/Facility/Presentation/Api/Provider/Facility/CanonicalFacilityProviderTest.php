@@ -91,9 +91,14 @@ final class CanonicalFacilityProviderTest extends TestCase
     $entityManager->method('find')->willReturn(null);
 
     $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('Organization not found.');
+    // 'Facility not found.', not 'Organization not found.': the message now
+    // comes from `assertRead()`'s OUTSIDE_SCOPE branch rather than from the
+    // removed existence lookup. Same status, and a better one to send — an
+    // unknown organization and one the caller is not in now produce an
+    // identical body, where before the two differed.
+    $this->expectExceptionMessage('Facility not found.');
 
-    $this->provider($entityManager, $requestStack, $this->context())
+    $this->provider($entityManager, $requestStack, $this->context(), OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->provide(new GetCollection(), []);
   }
 
