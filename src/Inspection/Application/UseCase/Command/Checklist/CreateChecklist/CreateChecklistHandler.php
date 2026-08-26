@@ -9,10 +9,8 @@ use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function array_map;
@@ -46,34 +44,30 @@ final readonly class CreateChecklistHandler implements CommandHandler
    */
   public function __invoke(CreateChecklistCommand $command): CreateChecklistResult
   {
-    try {
-      $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
+    $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
 
-      /** @var ChecklistId $checklistId */
-      $checklistId = $this->uuidFactory->create(ChecklistId::class);
+    /** @var ChecklistId $checklistId */
+    $checklistId = $this->uuidFactory->create(ChecklistId::class);
 
-      $items = [];
-      foreach ($command->items as $index => $itemData) {
-        $items[] = ChecklistItem::create(
-          id: $this->uuidFactory->generateRaw(),
-          label: $itemData['label'],
-          position: $itemData['position'] ?? $index,
-          required: $itemData['required'] ?? true,
-          description: $itemData['description'] ?? null,
-        );
-      }
-
-      $checklist = Checklist::create(
-        id: $checklistId,
-        organizationId: $organizationId,
-        name: $command->name,
-        version: $command->version,
-        items: $items,
-        referenceCode: $command->referenceCode,
+    $items = [];
+    foreach ($command->items as $index => $itemData) {
+      $items[] = ChecklistItem::create(
+        id: $this->uuidFactory->generateRaw(),
+        label: $itemData['label'],
+        position: $itemData['position'] ?? $index,
+        required: $itemData['required'] ?? true,
+        description: $itemData['description'] ?? null,
       );
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
+
+    $checklist = Checklist::create(
+      id: $checklistId,
+      organizationId: $organizationId,
+      name: $command->name,
+      version: $command->version,
+      items: $items,
+      referenceCode: $command->referenceCode,
+    );
 
     try {
       $this->checklistRepository->save($checklist);

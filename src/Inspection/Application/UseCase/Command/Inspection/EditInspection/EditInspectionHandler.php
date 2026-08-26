@@ -32,7 +32,7 @@ final readonly class EditInspectionHandler implements CommandHandler
 
       if ($command->hasEquipmentId) {
         if (null === $command->equipmentId) {
-          throw new InvalidArgumentException('Field "equipmentId" cannot be null when provided.');
+          throw InvalidValueException::because('Field "equipmentId" cannot be null when provided.');
         }
 
         $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
@@ -58,10 +58,10 @@ final readonly class EditInspectionHandler implements CommandHandler
         ? new DateTimeImmutable($command->performedAt)
         : null;
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     } catch (Exception $exception) {
       if (!$exception instanceof InvalidArgumentException) {
-        throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+        throw InvalidValueException::because($exception->getMessage(), $exception);
       }
 
       throw $exception;

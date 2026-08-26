@@ -6,7 +6,6 @@ namespace Inspection\Application\UseCase\Query\Checklist\ListChecklists;
 
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Domain\ValueObject\{ChecklistOrganizationId, ChecklistStatus};
-use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -51,7 +50,7 @@ final readonly class ListChecklistsHandler implements QueryHandler
       $organizationId = ChecklistOrganizationId::fromString($query->organizationId);
       $status = null !== $query->status ? ChecklistStatus::from($query->status)->value : null;
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $checklists = $this->checklistRepository->findByOrganizationId(

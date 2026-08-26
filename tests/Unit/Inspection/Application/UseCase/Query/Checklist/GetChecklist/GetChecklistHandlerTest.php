@@ -14,9 +14,9 @@ use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{
 use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test GetChecklistHandler.
@@ -96,7 +96,7 @@ final class GetChecklistHandlerTest extends TestCase
 
     $handler = new GetChecklistHandler(checklistRepository: $repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetChecklistQuery(
       organizationId: self::ORG_ID,

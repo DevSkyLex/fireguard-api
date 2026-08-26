@@ -20,12 +20,12 @@ use Inspection\Domain\ValueObject\{
   NonConformityInspectionId,
   NonConformitySeverity
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListNonConformitiesHandler::class)]
 final class ListNonConformitiesHandlerTest extends TestCase
@@ -202,7 +202,7 @@ final class ListNonConformitiesHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListNonConformitiesQuery(
       organizationId: self::ORG_ID,
@@ -219,7 +219,7 @@ final class ListNonConformitiesHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListNonConformitiesQuery(
       organizationId: self::ORG_ID,
@@ -236,7 +236,7 @@ final class ListNonConformitiesHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListNonConformitiesQuery(
       organizationId: 'not-a-uuid',

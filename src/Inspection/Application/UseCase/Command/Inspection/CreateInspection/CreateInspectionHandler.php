@@ -101,7 +101,7 @@ final readonly class CreateInspectionHandler implements CommandHandler
 
       $inspector = match ($inspectorType) {
         InspectorType::USER => Inspector::forUser(
-          userId: $command->inspectorUserId ?? throw new InvalidArgumentException('User ID is required for USER inspector type.'),
+          userId: $command->inspectorUserId ?? throw InvalidValueException::because('User ID is required for USER inspector type.'),
           name: $command->inspectorName,
         ),
         InspectorType::EXTERNAL => Inspector::forExternal(
@@ -130,10 +130,10 @@ final readonly class CreateInspectionHandler implements CommandHandler
         signature: $command->signature,
       );
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     } catch (Exception $exception) {
       if (!$exception instanceof InvalidArgumentException) {
-        throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+        throw InvalidValueException::because($exception->getMessage(), $exception);
       }
 
       throw $exception;

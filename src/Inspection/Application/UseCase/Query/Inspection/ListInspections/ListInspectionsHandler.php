@@ -17,7 +17,6 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   InspectionStatus
 };
-use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -69,11 +68,11 @@ final readonly class ListInspectionsHandler implements QueryHandler
       $inspectorUserId = null !== $query->inspectorUserId ? (string) new Uuid($query->inspectorUserId) : null;
       $checklistId = null !== $query->checklistId ? (string) InspectionChecklistId::fromString($query->checklistId) : null;
     } catch (InvalidValueException|ValueError|Exception $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if (null !== $performedAtFrom && null !== $performedAtTo && $performedAtFrom > $performedAtTo) {
-      throw new InvalidArgumentException('performedAtFrom cannot be after performedAtTo.');
+      throw InvalidValueException::because('performedAtFrom cannot be after performedAtTo.');
     }
 
     $inspections = $this->inspectionRepository->findByOrganizationId(

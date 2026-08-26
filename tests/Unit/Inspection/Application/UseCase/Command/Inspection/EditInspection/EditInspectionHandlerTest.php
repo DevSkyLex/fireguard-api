@@ -20,10 +20,10 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(EditInspectionHandler::class)]
 final class EditInspectionHandlerTest extends TestCase
@@ -123,7 +123,7 @@ final class EditInspectionHandlerTest extends TestCase
       checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Field "equipmentId" cannot be null when provided.');
 
     $handler->__invoke(new EditInspectionCommand(
@@ -260,7 +260,7 @@ final class EditInspectionHandlerTest extends TestCase
 
     $handler = $this->makeHandler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new EditInspectionCommand(
       organizationId: self::ORG_ID,
@@ -278,7 +278,7 @@ final class EditInspectionHandlerTest extends TestCase
 
     $handler = $this->makeHandler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new EditInspectionCommand(
       organizationId: self::ORG_ID,

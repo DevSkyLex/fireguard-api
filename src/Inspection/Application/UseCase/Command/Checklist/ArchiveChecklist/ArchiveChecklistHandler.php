@@ -7,9 +7,7 @@ namespace Inspection\Application\UseCase\Command\Checklist\ArchiveChecklist;
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase ArchiveChecklistHandler.
@@ -37,12 +35,8 @@ final readonly class ArchiveChecklistHandler implements CommandHandler
    */
   public function __invoke(ArchiveChecklistCommand $command): ArchiveChecklistResult
   {
-    try {
-      $checklistId = ChecklistId::fromString($command->checklistId);
-      $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $checklistId = ChecklistId::fromString($command->checklistId);
+    $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
 
     $checklist = $this->checklistRepository->findById($checklistId);
 

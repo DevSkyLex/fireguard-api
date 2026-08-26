@@ -7,10 +7,8 @@ namespace Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAtta
 use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort};
 use Inspection\Domain\Exception\{InspectionAttachmentNotFoundException, InspectionNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, InspectionOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase DeleteInspectionAttachmentHandler.
@@ -40,13 +38,9 @@ final readonly class DeleteInspectionAttachmentHandler implements CommandHandler
    */
   public function __invoke(DeleteInspectionAttachmentCommand $command): DeleteInspectionAttachmentResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($command->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-      $attachmentId = InspectionAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($command->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
+    $attachmentId = InspectionAttachmentId::fromString($command->attachmentId);
 
     $inspection = $this->inspectionRepository->findById($inspectionId);
 

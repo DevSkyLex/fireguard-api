@@ -8,10 +8,8 @@ use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Event\Inspection\InspectionSubmittedEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase SubmitInspectionHandler.
@@ -40,12 +38,8 @@ final readonly class SubmitInspectionHandler implements CommandHandler
    */
   public function __invoke(SubmitInspectionCommand $command): SubmitInspectionResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($command->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($command->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
 
     $inspection = $this->inspectionRepository->findPublishedById($inspectionId);
 
