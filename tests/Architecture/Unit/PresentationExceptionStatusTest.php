@@ -65,6 +65,17 @@ final class PresentationExceptionStatusTest extends TestCase
 {
   // #region Constants
   /**
+   * How many lines after a `firstFailureOf()` call may carry its `throw`.
+   *
+   * Four covers both sites in the codebase (the assignment, the `null !==`
+   * guard, the throw). Widening it would start pairing an exception with an
+   * unrelated throw further down the same catch block.
+   *
+   * @var int
+   */
+  private const int GENERIC_FINDER_LOOKAHEAD = 4;
+
+  /**
    * Wrappers, not domain exceptions.
    *
    * `MessengerRuntimeException` is what `MessengerCommandBusAdapter` throws
@@ -89,7 +100,7 @@ final class PresentationExceptionStatusTest extends TestCase
    * @var array<string, string>
    */
   private const array ANOMALIES = [
-    'InvalidArgumentException' => 'DeletePlanProcessor maps it to 409 where 77 other sites map it to 400. Either the handler should throw a dedicated conflict exception, or it is a 400.',
+    'InvalidArgumentException' => 'DeletePlanProcessor maps it to 409 where 86 other sites map it to 400 (77 catch clauses, 9 mapper-trait match arms, 1 firstFailureOf). Either the handler should throw a dedicated conflict exception, or it is a 400.',
     'FacilityArchivedException' => 'RestoreFacilityProcessor catches it grouped with InvalidArgumentException, so it inherits 400. Its two siblings — OrganizationArchivedException, ChecklistArchivedException — are 409, and its own message says the facility "cannot be used", which is a state conflict.',
   ];
 
@@ -360,6 +371,7 @@ final class PresentationExceptionStatusTest extends TestCase
       self::collectFromLines($lines, $mappings);
       self::collectFromMatchArms($lines, $mappings);
       self::collectFromFinderMethods($lines, $mappings);
+      self::collectFromGenericFinders($lines, $mappings);
     }
 
     ksort($mappings);
@@ -395,6 +407,61 @@ final class PresentationExceptionStatusTest extends TestCase
         }
 
         $mappings[$short][$status] = ($mappings[$short][$status] ?? 0) + 1;
+      }
+    }
+  }
+
+  /**
+   * Method collectFromGenericFinders.
+   *
+   * Reads the `firstFailureOf($e, A::class)` shape — the fourth and last way a
+   * mapping is expressed in this codebase:
+   *
+   * ```php
+   * $invalid = $this->firstFailureOf($exception, InvalidArgumentException::class);
+   * if (null !== $invalid) {
+   *   throw new BadRequestHttpException($invalid->getMessage(), $exception);
+   * }
+   * ```
+   *
+   * Unlike `collectFromFinderMethods()`, the exception is named as an argument
+   * rather than by the finder's return type, so neither of the other three
+   * collectors sees it. That blind spot is not hypothetical: an audit of
+   * `InvalidArgumentException` coverage read `Billing` as mapping it nowhere and
+   * concluded two endpoints answered 500, when `StartCheckoutProcessor` maps it
+   * to 400 through exactly this shape. Only two sites use it today, which is
+   * precisely why it is easy to forget.
+   *
+   * The `throw` follows within a few lines, so a small lookahead window is
+   * enough; a wider one would start pairing an exception with an unrelated
+   * throw further down the method.
+   *
+   * @param list<string> $lines the file's lines
+   * @param array<string, array<string, int>> $mappings the accumulator, by reference
+   */
+  private static function collectFromGenericFinders(array $lines, array &$mappings): void
+  {
+    $lineCount = count($lines);
+
+    foreach ($lines as $index => $line) {
+      if (1 !== preg_match('/firstFailureOf\([^,]+,\s*([A-Za-z0-9_\\\\]+)::class\)/', $line, $matched)) {
+        continue;
+      }
+
+      $short = substr((string) strrchr('\\' . $matched[1], '\\'), 1);
+      if (self::isWrapper($short)) {
+        continue;
+      }
+
+      $limit = min($index + self::GENERIC_FINDER_LOOKAHEAD, $lineCount - 1);
+      for ($cursor = $index; $cursor <= $limit; ++$cursor) {
+        if (1 !== preg_match('/throw new (\w*HttpException)\(/', $lines[$cursor], $thrown)) {
+          continue;
+        }
+
+        $mappings[$short][$thrown[1]] = ($mappings[$short][$thrown[1]] ?? 0) + 1;
+
+        break;
       }
     }
   }
