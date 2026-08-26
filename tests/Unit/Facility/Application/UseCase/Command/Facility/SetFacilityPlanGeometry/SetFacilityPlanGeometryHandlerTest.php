@@ -20,10 +20,10 @@ use Facility\Domain\Exception\{
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanGeometry};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test SetFacilityPlanGeometryHandlerTest.
@@ -97,7 +97,7 @@ final class SetFacilityPlanGeometryHandlerTest extends TestCase
 
     $handler = $this->handler($facilityRepository, $this->createStub(FacilityAttachmentRepositoryPort::class));
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new SetFacilityPlanGeometryCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -119,7 +119,7 @@ final class SetFacilityPlanGeometryHandlerTest extends TestCase
 
     $handler = $this->handler($facilityRepository, $this->createStub(FacilityAttachmentRepositoryPort::class));
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new SetFacilityPlanGeometryCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -227,7 +227,7 @@ final class SetFacilityPlanGeometryHandlerTest extends TestCase
 
     $handler = $this->handler($facilityRepository, $attachmentRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new SetFacilityPlanGeometryCommand(
       organizationId: self::ORGANIZATION_ID,

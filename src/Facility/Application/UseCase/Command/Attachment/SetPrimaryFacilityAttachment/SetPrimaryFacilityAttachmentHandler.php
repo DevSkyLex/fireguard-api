@@ -7,10 +7,8 @@ namespace Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAtta
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase SetPrimaryFacilityAttachmentHandler.
@@ -49,13 +47,9 @@ final readonly class SetPrimaryFacilityAttachmentHandler implements CommandHandl
    */
   public function __invoke(SetPrimaryFacilityAttachmentCommand $command): SetPrimaryFacilityAttachmentResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-      $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
+    $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
 
     $facility = $this->facilityRepository->findById($facilityId);
 

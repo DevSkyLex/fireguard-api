@@ -17,9 +17,7 @@ use Facility\Domain\Exception\{
 };
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase GetFacilityPlanOverlayHandler.
@@ -64,12 +62,8 @@ final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
    */
   public function __invoke(GetFacilityPlanOverlayQuery $query): GetFacilityPlanOverlayResult
   {
-    try {
-      $facilityId = FacilityId::fromString($query->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($query->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($query->organizationId);
 
     $facility = $this->facilityRepository->findById($facilityId);
 
@@ -129,11 +123,7 @@ final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
       return $primary;
     }
 
-    try {
-      $id = FacilityAttachmentId::fromString($attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $id = FacilityAttachmentId::fromString($attachmentId);
 
     $attachment = $this->attachmentRepository->findById($id);
     if (null === $attachment) {

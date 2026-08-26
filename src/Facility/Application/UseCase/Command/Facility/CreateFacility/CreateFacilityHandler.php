@@ -15,7 +15,8 @@ use Facility\Domain\Exception\{
   FacilityArchivedException,
   FacilityCodeAlreadyExistsException,
   FacilityHierarchyException,
-  FacilityNotFoundException
+  FacilityNotFoundException,
+  FacilityOrganizationNotFoundException
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
@@ -25,7 +26,6 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
-use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Shared\Application\Factory\UuidFactory;
@@ -134,7 +134,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
         coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
       );
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $this->metadataSchemaGuard->assertValid(
@@ -172,7 +172,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
         }
 
         if ($this->isOrganizationConstraintViolation($exception)) {
-          throw new InvalidArgumentException('Organization not found.');
+          throw FacilityOrganizationNotFoundException::create();
         }
 
         if ($this->isParentConstraintViolation($exception)) {

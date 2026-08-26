@@ -10,8 +10,6 @@ use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\FacilityMetadataValidationException;
 use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\{FacilityMetadataFieldType, FacilityOrganizationId};
-use InvalidArgumentException;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_key_exists;
 use function array_unique;
@@ -74,11 +72,7 @@ final readonly class FacilityMetadataSchemaGuard
    */
   public function assertValid(string $organizationId, array $metadata, ?string $facilityType, bool $isCreate): void
   {
-    try {
-      $organizationIdValue = FacilityOrganizationId::fromString($organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationIdValue = FacilityOrganizationId::fromString($organizationId);
 
     $definitions = $this->repository->findByOrganizationId($organizationIdValue);
     if ([] === $definitions) {

@@ -13,7 +13,6 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
@@ -52,7 +51,7 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
       $fieldId = FacilityMetadataFieldId::fromString($command->fieldId);
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $field = $this->repository->findById($fieldId);
@@ -63,7 +62,7 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
     try {
       if ($command->hasLabel) {
         if (null === $command->label) {
-          throw new InvalidArgumentException('Field "label" cannot be null when provided.');
+          throw InvalidValueException::because('Field "label" cannot be null when provided.');
         }
 
         $field->rename(new FacilityMetadataFieldLabel($command->label));
@@ -71,7 +70,7 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
 
       if ($command->hasFieldType) {
         if (null === $command->fieldType) {
-          throw new InvalidArgumentException('Field "fieldType" cannot be null when provided.');
+          throw InvalidValueException::because('Field "fieldType" cannot be null when provided.');
         }
 
         $field->changeType(
@@ -94,7 +93,7 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
         $field->changeUnit($command->unit);
       }
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $this->repository->save($field);

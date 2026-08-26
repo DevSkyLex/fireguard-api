@@ -17,7 +17,6 @@ use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
-use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
@@ -59,12 +58,8 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
    */
   public function __invoke(ArchiveFacilityCommand $command): ArchiveFacilityResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
 
     $facility = $this->facilityRepository->findPublishedById($facilityId);
 

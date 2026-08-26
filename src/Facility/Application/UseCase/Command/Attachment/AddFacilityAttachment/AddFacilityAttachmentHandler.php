@@ -8,7 +8,6 @@ use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, Facili
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId, ImageDimensions};
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -51,7 +50,7 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
       $kind = AttachmentKind::from($command->kind);
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $facility = $this->facilityRepository->findById($facilityId);
@@ -60,14 +59,10 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       throw FacilityNotFoundException::withId($command->facilityId);
     }
 
-    try {
-      /** @var FacilityAttachmentId $attachmentId */
-      $attachmentId = null === $command->attachmentId
-        ? $this->uuidFactory->create(FacilityAttachmentId::class)
-        : FacilityAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    /** @var FacilityAttachmentId $attachmentId */
+    $attachmentId = null === $command->attachmentId
+      ? $this->uuidFactory->create(FacilityAttachmentId::class)
+      : FacilityAttachmentId::fromString($command->attachmentId);
 
     // A client-supplied id that already exists is a retry overwriting its own
     // row, not a new attachment — it must not be rejected at the cap.

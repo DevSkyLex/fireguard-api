@@ -7,7 +7,6 @@ namespace Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments;
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
@@ -44,7 +43,7 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
       $organizationId = FacilityOrganizationId::fromString($query->organizationId);
       $kind = null === $query->kind ? null : AttachmentKind::from($query->kind);
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $facility = $this->facilityRepository->findById($facilityId);

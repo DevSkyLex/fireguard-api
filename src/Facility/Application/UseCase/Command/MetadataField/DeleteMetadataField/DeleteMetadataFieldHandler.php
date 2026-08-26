@@ -7,7 +7,6 @@ namespace Facility\Application\UseCase\Command\MetadataField\DeleteMetadataField
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\FacilityMetadataFieldNotFoundException;
 use Facility\Domain\ValueObject\{FacilityMetadataFieldId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
@@ -51,7 +50,7 @@ final readonly class DeleteMetadataFieldHandler implements CommandHandler
       $fieldId = FacilityMetadataFieldId::fromString($command->fieldId);
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $field = $this->repository->findById($fieldId);

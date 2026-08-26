@@ -8,12 +8,12 @@ use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, Facilit
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListFacilitiesHandler::class)]
 final class ListFacilitiesHandlerTest extends TestCase
@@ -198,7 +198,7 @@ final class ListFacilitiesHandlerTest extends TestCase
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListFacilitiesQuery(
       organizationId: '550e8400-e29b-41d4-a716-446655441820',
@@ -218,7 +218,7 @@ final class ListFacilitiesHandlerTest extends TestCase
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListFacilitiesQuery(
       organizationId: '550e8400-e29b-41d4-a716-446655441830',
@@ -234,7 +234,7 @@ final class ListFacilitiesHandlerTest extends TestCase
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('rootsOnly cannot be combined with parentFacilityId.');
 
     $handler->__invoke(new ListFacilitiesQuery(

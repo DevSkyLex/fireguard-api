@@ -9,9 +9,7 @@ use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 
@@ -25,12 +23,8 @@ final readonly class GetFacilityDescendantsHandler implements QueryHandler
 
   public function __invoke(GetFacilityDescendantsQuery $query): GetFacilityDescendantsResult
   {
-    try {
-      $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-      $facilityId = FacilityId::fromString($query->facilityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = FacilityOrganizationId::fromString($query->organizationId);
+    $facilityId = FacilityId::fromString($query->facilityId);
 
     $facility = $this->facilityRepository->findById($facilityId);
 

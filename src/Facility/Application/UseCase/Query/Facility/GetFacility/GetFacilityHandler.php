@@ -7,9 +7,7 @@ namespace Facility\Application\UseCase\Query\Facility\GetFacility;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase GetFacilityHandler.
@@ -44,12 +42,8 @@ final readonly class GetFacilityHandler implements QueryHandler
    */
   public function __invoke(GetFacilityQuery $query): GetFacilityResult
   {
-    try {
-      $facilityId = FacilityId::fromString($query->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($query->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($query->organizationId);
 
     $facility = $this->facilityRepository->findById($facilityId);
 

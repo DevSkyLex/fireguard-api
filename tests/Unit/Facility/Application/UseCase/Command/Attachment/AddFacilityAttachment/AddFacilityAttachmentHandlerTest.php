@@ -9,7 +9,6 @@ use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\{AddFa
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -17,6 +16,7 @@ use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function base64_decode;
 
@@ -258,7 +258,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddFacilityAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -314,7 +314,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddFacilityAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -492,7 +492,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddFacilityAttachmentCommand(
       organizationId: self::ORG_ID,

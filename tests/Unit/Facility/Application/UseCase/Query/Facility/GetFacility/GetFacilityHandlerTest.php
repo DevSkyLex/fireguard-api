@@ -9,10 +9,10 @@ use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityHandler,
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(GetFacilityHandler::class)]
 final class GetFacilityHandlerTest extends TestCase
@@ -216,7 +216,7 @@ final class GetFacilityHandlerTest extends TestCase
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetFacilityQuery(
       organizationId: 'not-a-uuid',
