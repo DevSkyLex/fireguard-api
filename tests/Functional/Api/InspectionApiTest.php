@@ -114,6 +114,31 @@ final class InspectionApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testCanonicalInspectionMutationDoesNotRevealForeignInspections(): void
+  {
+    $client = static::createClient();
+    $this->seedInspectionFixtures();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'admin@example.com');
+
+    // Same oracle as the collection above, one level down and worse: here the
+    // enumerable value is the INSPECTION id. The processor loads it by global
+    // id, then permission-checks against the record's OWN organization — so a
+    // foreign inspection answers 403 while an absent one answers 404, and the
+    // difference confirms the id exists.
+    $client->request(
+      method: 'DELETE',
+      uri: '/api/inspections/' . self::OUTSIDER_INSPECTION_ID,
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
+    );
+
+    self::assertSame(
+      404,
+      $client->getResponse()->getStatusCode(),
+      'An inspection in another organization must answer 404, exactly like an absent one.',
+    );
+  }
+
+  #[Test]
   public function testCreateInspectionRequiresAuthentication(): void
   {
     $client = static::createClient();

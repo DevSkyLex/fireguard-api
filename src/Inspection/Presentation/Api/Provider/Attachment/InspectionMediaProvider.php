@@ -123,7 +123,11 @@ final readonly class InspectionMediaProvider implements ProviderInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $inspection->organization->id, 'organization.inspection.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $inspection->organization->id, 'organization.inspection.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Inspection not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
@@ -158,7 +162,11 @@ final readonly class InspectionMediaProvider implements ProviderInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.inspection.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Non-conformity not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
@@ -237,7 +245,11 @@ final readonly class InspectionMediaProvider implements ProviderInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $record->inspection->organization->id, 'organization.inspection.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $record->inspection->organization->id, 'organization.inspection.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
