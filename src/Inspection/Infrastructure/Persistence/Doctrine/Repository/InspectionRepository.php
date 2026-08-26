@@ -9,6 +9,7 @@ use DateTimeZone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
+use Inspection\Application\Contract\Inspection\InspectionScope;
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
@@ -137,6 +138,38 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     }
 
     return InspectionMapper::toDomain($this->reinterpretRecordDateTimesFromStorage($record));
+  }
+
+  /**
+   * Method findScope.
+   *
+   * Reads the two ownership columns straight off the record. The canonical
+   * `intervention_id` is not part of the `Inspection` aggregate, so
+   * hydrating one could not answer this; a scalar projection also keeps the
+   * call cheap on the mutation path, where it runs before every write.
+   *
+   * @since 1.0.0
+   */
+  public function findScope(InspectionId $id): ?InspectionScope
+  {
+    /** @var array{organizationId: string, interventionId: string|null}|null $row */
+    $row = $this->entityManager->createQueryBuilder()
+      ->select('IDENTITY(i.organization) AS organizationId', 'i.interventionId AS interventionId')
+      ->from(InspectionRecord::class, 'i')
+      ->where('i.id = :id')
+      ->setParameter('id', (string) $id)
+      ->getQuery()
+      ->getOneOrNullResult();
+
+    if (null === $row) {
+      return null;
+    }
+
+    return new InspectionScope(
+      inspectionId: (string) $id,
+      organizationId: $row['organizationId'],
+      interventionId: $row['interventionId'],
+    );
   }
 
   public function findPublishedById(InspectionId $id): ?Inspection

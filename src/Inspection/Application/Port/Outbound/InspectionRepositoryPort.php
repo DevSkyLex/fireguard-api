@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
+use Inspection\Application\Contract\Inspection\InspectionScope;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -226,5 +227,22 @@ interface InspectionRepositoryPort
     ?string $result = null,
     ?string $inspectorType = null,
   ): array;
+
+  /**
+   * Method findScope.
+   *
+   * Resolves the ownership facts of one inspection without hydrating the
+   * aggregate: its organization, and the intervention that prepared it.
+   *
+   * `interventionId` is a canonical offline-sync column on the record and is
+   * NOT part of the `Inspection` aggregate, so `findById()` cannot answer it.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionId $id the inspection identifier
+   *
+   * @return ?InspectionScope the scope when the inspection exists
+   */
+  public function findScope(InspectionId $id): ?InspectionScope;
   // #endregion
 }

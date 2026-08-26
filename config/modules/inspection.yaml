@@ -18,10 +18,8 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # InspectionResponseProcessor names no entity manager on purpose: it holds
+  # none since the mutations moved to Application\UseCase\Command\Response.
   Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -40,6 +38,10 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -117,6 +119,18 @@ services:
 
   Inspection\Application\Port\Outbound\InspectionAttachmentRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository
+
+  Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository
+
+  # Cross-module: the owning module implements the port, this module declares
+  # it. Same direction as FacilityValidationPort / EquipmentValidationPort
+  # above, and what removed the InterventionRecord read from
+  # InspectionResponseProcessor.
+  Inspection\Application\Port\Outbound\InterventionScopePort:
+    alias: Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter
+
+  Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter: ~
 
   Inspection\Application\Port\Outbound\ChecklistRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository
@@ -199,6 +213,25 @@ services:
   Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment\DeleteInspectionAttachmentHandler:
     tags: ['messenger.message_handler']
 
+  # Canonical inspection responses. All three name the `main` transaction
+  # manager explicitly: autowiring would hand over the default one, which
+  # opens a transaction on the `auth` connection while the writes go to
+  # `main` — a rollback that rolls nothing back.
+  Inspection\Application\UseCase\Command\Response\CreateInspectionResponse\CreateInspectionResponseHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Response\UpdateInspectionResponse\UpdateInspectionResponseHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\DeleteInspectionResponseHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   # Query Handlers
   Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionHandler:
     tags: ['messenger.message_handler']
@@ -222,5 +255,8 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachments\ListInspectionAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseHandler:
     tags: ['messenger.message_handler']
 

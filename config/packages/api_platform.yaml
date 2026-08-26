@@ -150,6 +150,17 @@ api_platform:
     Inspection\Domain\Exception\InspectionAlreadySubmittedException: 409
     Inspection\Domain\Exception\InspectionNotFoundException: 404
     Inspection\Domain\Exception\InspectionNotSubmittedException: 409
+    # Canonical inspection responses, whose mutations moved out of
+    # InspectionResponseProcessor. Every wording is the one the processor
+    # used to emit — the status AND the hydra:description are the contract.
+    #
+    # `InspectionResponseClientIdAlreadyExistsException` is deliberately NOT
+    # here: it answers 412 from PUT /inspection-responses/{id} and 409 from
+    # POST, which is request shape rather than domain state, so the processor
+    # keeps one catch for it. See its docblock.
+    Inspection\Domain\Exception\InspectionResponseConflictException: 409
+    Inspection\Domain\Exception\InspectionResponseNotFoundException: 404
+    Inspection\Domain\Exception\InspectionResponseRevisionMismatchException: 412
     Inspection\Domain\Exception\NonConformityAlreadyResolvedException: 409
     Inspection\Domain\Exception\NonConformityNotFoundException: 404
     Intervention\Domain\Exception\InterventionAccessDeniedException: 403

@@ -223,6 +223,32 @@ scopes the inspection-level-only listing.
   **422**, the same status as a MIME/size rejection, mapped centrally by the
   shared `AttachmentConstraintExceptionSubscriber` — not by the processor.
 
+### Canonical Inspection Responses
+
+The flat, offline-syncable surface: one row per answered checklist item. Routes
+carry **no organization segment** — the owning organization is read off the row
+(or off the `organization` IRI on create) and permission-checked from there,
+which is why every one of them answers 404 rather than 403 outside the caller's
+scope.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/api/inspection-responses` | Create a response. `201`. Server-assigned id; optional `clientId` is the replay key |
+| PUT | `/api/inspection-responses/{id}` | Offline create with a client-chosen id. `201`. Requires `If-None-Match: *` (`428`/`412` otherwise); `{id}` must be a UUID (`400`); a known `clientId` answers `412` |
+| GET | `/api/inspection-responses` | List (filters: `organization`, `intervention`, `inspection`, `recordStatus`; `recordStatus` defaults to `draft` when `intervention` is given, `published` otherwise) |
+| GET | `/api/inspection-responses/{id}` | Get one |
+| PATCH | `/api/inspection-responses/{id}` | Replace `value` on a **draft**. Requires `If-Match: "revision-N"`. Bumps `revision`. `409` on a published row |
+| DELETE | `/api/inspection-responses/{id}` | Delete a **draft**. `204`. Requires `If-Match`. `409` on a published row |
+
+`recordStatus` is `draft` while the response belongs to an intervention still
+being prepared, and `published` once that intervention publishes — or
+immediately, for a response created outside any intervention. A published
+response is a compliance trace: immutable and undeletable.
+
+Every mutation that touches an intervention-scoped row bumps that intervention's
+own revision through `InterventionScopePort::touchDraft()`, so a field client
+polling `If-Match` sees the preparation move.
+
 ## Flows
 
 ### Create & Submit Inspection (Command)
@@ -533,25 +559,100 @@ is fine only where the organization id comes from the URI and no separate
 existence lookup precedes it, so both cases already collapse to one answer.
 
 **Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (4).**
-Down from 5 on 2026-08-26: `CanonicalInspectionMutationProcessor`'s
-`OrganizationRecord` uses were `instanceof` checks on a property the ORM
-already types `?OrganizationRecord` — redundant, replaced by a null check.
+Down from 5 on 2026-08-26, then to **0** later the same day. The module's
+`Presentation` no longer imports any sibling's `Infrastructure`, and
+`PresentationInfrastructureBoundaryTest` now has an **empty baseline** —
+repo-wide, not just here.
 
-Four real reads remain. `CanonicalInspectionProvider`,
-`InspectionResponseProcessor` and `InspectionResponseProvider` resolve the
-owning organization with `$entityManager->find(OrganizationRecord::class, …)`
-and permission-check against `$organization->id`; `InspectionResponseProcessor`
-additionally reads `Intervention\…\Record\InterventionRecord` to attach the
-response to its intervention. These are raw reads of another module's tables
-from the layer that should only translate HTTP — CLAUDE.md rule 5, invisible to
-deptrac because its collectors are layer-shaped rather than module-shaped.
-Pinned by `PresentationInfrastructureBoundaryTest`; closing them needs the
-owning modules to publish `Application\Port\Inbound` lookup ports (Organization
-has none today). Do not add a fifth.
+Two shapes closed it, and neither was the "publish an `Application\Port\Inbound`
+lookup port on Organization" fix this section used to predict:
 
-Closing them would **not** remove the coupling underneath: `InspectionRecord`
-declares `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
-schema-level.
+- **The `OrganizationRecord` reads were redundant, not abstractable.** They
+  answered 404 for an organization that does not exist, which is the same 404,
+  with the same message, that `resolveAccess()` already answers for one the
+  caller is not a member of. Deleting the lookup removes a query and changes
+  no status. `CanonicalInspectionMutationProcessor` lost its three first (they
+  were `instanceof` checks on a property the ORM already types
+  `?OrganizationRecord`), then `CanonicalInspectionProvider`,
+  `InspectionResponseProvider` and finally `InspectionResponseProcessor`.
+- **The `InterventionRecord` read moved behind a port.**
+  `Inspection\Application\Port\Outbound\InterventionScopePort` is declared here
+  and implemented by `Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter`
+  — the same direction as `FacilityValidationPort` and `EquipmentValidationPort`.
+  The decision that surrounded the read moved with it, into
+  `Application\UseCase\Command\Response\`.
+
+Closing them did **not** remove the coupling underneath: `InspectionRecord` and
+`InspectionResponseRecord` both declare
+`#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
+schema-level and outlives any Presentation cleanup.
+
+### Canonical inspection responses run on use cases (2026-08-26)
+
+`InspectionResponseProcessor` was 261 lines holding five `persist`/`flush`/`remove`
+calls, the draft/published lifecycle rules, the offline replay guard, and a
+direct `++$intervention->revision`. It is now HTTP translation only: it parses
+IRIs and headers, runs the authorization gate, dispatches, and maps a Result to
+an Output. **It holds no entity manager and opens no transaction** — and
+`config/modules/inspection.yaml` deliberately names none for it.
+
+| Concern | Where it lives now |
+| --- | --- |
+| Create (POST + offline PUT) | `Application/UseCase/Command/Response/CreateInspectionResponse/` |
+| Edit a draft's value | `Application/UseCase/Command/Response/UpdateInspectionResponse/` |
+| Delete a draft | `Application/UseCase/Command/Response/DeleteInspectionResponse/` |
+| Read one, for the gate | `Application/UseCase/Query/Response/GetInspectionResponse/` |
+| Draft/published invariants, revision bump | `Domain/Model/Response/InspectionResponse` |
+| Persistence | `Infrastructure/…/Repository/InspectionResponseRepository` (port: `InspectionResponseRepositoryPort`) |
+| Intervention ownership + revision touch | `InterventionScopePort` |
+
+**Two things deliberately stayed in the processor.**
+
+The **authorization gate**, because the permission it needs is a function of the
+request — `organization.inspection.write`, or whatever
+`InterventionResourceManager::mutationPermission()` resolves for an
+intervention-scoped row — and because `OUTSIDE_SCOPE` must answer 404 while
+`MISSING_PERMISSION` answers 403. Every sibling processor in this module gates
+the same way. It is the reason the processor still imports
+`Intervention\Domain\Exception\*`, which `CrossModuleDomainBoundaryTest` counts
+and has not changed.
+
+The **one remaining catch**, because a duplicate `clientId` answers **412** from
+`PUT /inspection-responses/{id}` and **409** from `POST`, and the request shape
+is the only thing that knows which. `InspectionResponseClientIdAlreadyExistsException`
+is therefore deliberately absent from `api_platform.exception_to_status`; every
+other failure is mapped there.
+
+**The gate order is a contract**, frozen by
+`InspectionResponseApiTest::testPatchOnAnUnknownResponseAnswersNotFoundEvenWithoutIfMatch`:
+the response is read first (404), then the permission gate speaks (403/404),
+then `If-Match` is parsed (428/412). Reading `If-Match` earlier — the natural
+shape, and what `InterventionWorkItemProcessor` does — turns a 404 on an unknown
+id into a 428 for a caller that omitted the header.
+
+**Optimistic concurrency is checked twice, on purpose.** `RevisionGuard` compares
+`If-Match` against a scope read that runs on the query bus, i.e. in a different
+transaction from the mutation. The aggregate re-compares it inside the handler's
+transaction and raises `InspectionResponseRevisionMismatchException` (412, same
+wording), which closes the window between the two.
+
+**One status changed, and it was decided rather than inherited.**
+`PUT /api/inspection-responses/{id}` with a malformed identifier answered **201**
+and persisted the garbage id verbatim; it now answers **400**. The identifier is
+an `InspectionResponseId` value object, and `clientId` — the same field, filled
+from the same URI — already carried `#[Assert\Uuid]` in the POST body. The PUT
+route bypassed that constraint only because the processor overwrote `clientId`
+*after* validation ran. **Reads did not narrow**: `GET`, `PATCH` and `DELETE`
+still answer 404 for an unparseable id, because the query and both mutation
+handlers turn `InvalidValueException` into "not found". Both halves are asserted
+in `InspectionResponseApiTest`.
+
+**One known ordering change, not worth contorting for.** A create carrying *both*
+a malformed `inspection` IRI *and* a duplicate `clientId` used to answer 409 and
+now answers 500 — `ResourceIriParser::id()` throws a bare
+`InvalidArgumentException`, which nothing maps, and it is now evaluated before
+the replay guard rather than after. The 500 on a malformed IRI is pre-existing
+and reachable on its own; only which of the two failures wins moved.
 
 ## Configuration
 
@@ -559,6 +660,16 @@ schema-level.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
 - `Equipment\Application\Port\Outbound\NonConformityStatisticsPort`'s adapter
   (`EquipmentNonConformityStatisticsAdapter`) is aliased here — see L2.11 above.
+- `Inspection\Application\Port\Outbound\InterventionScopePort` is aliased to
+  `Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter`,
+  registered in **this** module's file: the port is declared by the consumer,
+  the adapter belongs to the owner.
+- The three `Response` command handlers each name
+  `@inspection.main_transaction_manager` explicitly. Autowiring would hand over
+  the default transaction manager, which opens a transaction on the `auth`
+  connection while the writes go to `main` — a rollback that rolls nothing back.
+- `InspectionResponseProcessor` names **no** `$entityManager`, and must not: it
+  holds none.
 
 ## Testing
 
@@ -598,7 +709,31 @@ schema-level.
     (L2.2) — `supports()` on/off the permission gate, and `provide()`
     degrading to an empty fragment when the repository throws. Deliberately
     does NOT mock the QueryBuilder/DQL — see the integration test below.
+  - `Application/UseCase/Command/Response/{Create,Update,Delete}InspectionResponse`
+    and `Application/UseCase/Query/Response/GetInspectionResponse` — the
+    lifecycle rules that used to sit in the processor: draft-only edit and
+    delete, the revision re-check, the replay guard firing **before** any scope
+    is read, the three scope conflicts, `touchDraft()` called with the right
+    intervention (and never on a rejected path), and a malformed identifier
+    resolving to "not found" rather than "invalid".
+  - `Presentation/Api/Processor/InspectionResponse/InspectionResponseProcessorTest`
+    — what the processor still owns: 412 vs 409 for a duplicate `clientId`
+    (with the failure delivered double-wrapped, as the real bus delivers it),
+    404 before the revision guard, and the stored revision travelling into the
+    command rather than the header's value.
+- Functional: `tests/Functional/Api/InspectionResponseApiTest` — the whole
+  `/inspection-responses` contract, one HTTP request per test: 201 on create,
+  409/412 on a known `clientId`, 200 + bumped revision on PATCH, 204 on DELETE,
+  409 on both published paths, 412 on a stale revision, 404 before 428 on an
+  unknown id, 404 for a foreign organization (never 403), 403 for a member
+  without write, and **400 for a malformed PUT identifier** — the one status
+  this refactor moved, asserted rather than assumed.
 - Integration (real database):
+  `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/InspectionResponseRepositoryTest`
+  — save/find/delete round trip, `save()` updating in place on a replayed id,
+  `existsByClientId()`, and `InspectionRepository::findScope()`, whose scalar
+  projection over `IDENTITY(i.organization)` plus the canonical
+  `intervention_id` column nothing but a real query can prove.
   `tests/Integration/Inspection/Infrastructure/Adapter/Assistant/InspectionAssistantContextProviderAdapterTest`
   (L2.2) — executes the adapter's DQL for real: severity ordering
   (critical → high → low), resolved (`done`)/foreign-organization rows
@@ -656,5 +791,16 @@ schema-level.
 - `ChecklistReferenceCodeAlreadyExistsException` → 409 (duplicate reference code within the organization)
 - `NonConformityNotFoundException` → 404
 - `NonConformityAlreadyResolvedException` → 409 (reopening a `done`/`waived` row)
+- `InspectionResponseNotFoundException` → 404 (also the answer for a malformed
+  identifier on a read or a mutation — see the architecture section)
+- `InspectionResponseConflictException` → 409 (published response edited or
+  deleted; inspection or intervention outside the organization; inspection
+  prepared by a different intervention)
+- `InspectionResponseRevisionMismatchException` → 412 (`If-Match` lost the race
+  between the scope read and the mutation's transaction)
+- `InspectionResponseClientIdAlreadyExistsException` → **deliberately unmapped**.
+  `InspectionResponseProcessor` catches this one and answers 412 from
+  `PUT /inspection-responses/{id}`, 409 from `POST` — the status is a function
+  of the request shape, not of domain state
 - `OrganizationAccessDeniedException` (raised by `ApprovalGate` on the gated
   waiver path) → 403
