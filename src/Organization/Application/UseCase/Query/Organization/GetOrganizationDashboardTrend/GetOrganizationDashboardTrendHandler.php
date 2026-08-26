@@ -6,7 +6,6 @@ namespace Organization\Application\UseCase\Query\Organization\GetOrganizationDas
 
 use DateTimeImmutable;
 use DateTimeZone;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
 use Organization\Application\Support\{DashboardDateTimeParser, DashboardSeriesBuilder};
@@ -291,7 +290,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
       self::METRIC_FACILITIES_CREATED => $this->countFacilitiesCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->facilityType),
       self::METRIC_NON_CONFORMITIES_OPENED => $this->countNonConformitiesCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->nonConformitySeverity, $query->nonConformityStatus),
       self::METRIC_NON_CONFORMITIES_RESOLVED => $this->countNonConformitiesResolvedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->nonConformitySeverity, $query->nonConformityStatus),
-      default => throw new InvalidArgumentException('Unsupported dashboard trend metric.'),
+      default => throw InvalidValueException::because('Unsupported dashboard trend metric.'),
     };
   }
 

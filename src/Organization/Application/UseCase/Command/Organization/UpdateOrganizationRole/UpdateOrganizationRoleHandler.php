@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole;
 
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationRoleNameAlreadyExistsException, OrganizationSystemRoleImmutableException};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;
@@ -106,7 +106,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
         }
 
         if ($role->isSystem()) {
-          throw new InvalidArgumentException('System roles cannot be modified.');
+          throw OrganizationSystemRoleImmutableException::cannotBeModified();
         }
 
         if (null !== $command->name) {
@@ -116,7 +116,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
             $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $newName);
 
             if (null !== $existing) {
-              throw new InvalidArgumentException('Role name already exists for this organization.');
+              throw OrganizationRoleNameAlreadyExistsException::create();
             }
 
             $role->rename($newName);

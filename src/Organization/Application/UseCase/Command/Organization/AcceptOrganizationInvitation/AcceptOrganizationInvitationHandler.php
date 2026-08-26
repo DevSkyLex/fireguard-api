@@ -15,7 +15,7 @@ use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
@@ -99,11 +99,11 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       $invitation->expire($now);
       $this->invitationRepository->save($invitation);
 
-      throw new InvalidArgumentException('Invitation has expired.');
+      throw OrganizationInvitationNotPendingException::expired();
     }
 
     if (!$invitation->status()->isPending()) {
-      throw new InvalidArgumentException('Invitation is no longer pending.');
+      throw OrganizationInvitationNotPendingException::noLongerPending();
     }
 
     $invitedEmail = strtolower(trim((string) $invitation->email()));

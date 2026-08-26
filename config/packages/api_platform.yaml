@@ -167,6 +167,17 @@ api_platform:
     # this refactor.
     Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
     Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400
+    # Organization's domain conditions, at the statuses their `catch` clauses
+    # already served. Several read better as 409 — an invitation that is no
+    # longer pending, a role name already taken, a member already on a team —
+    # and the classes' own docblocks say so. Changing one is a contract
+    # decision, not a refactor's side effect.
+    Organization\Domain\Exception\DefaultPlanCannotBeDeletedException: 409
+    Organization\Domain\Exception\OrganizationInvitationNotPendingException: 400
+    Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException: 400
+    Organization\Domain\Exception\OrganizationSystemRoleImmutableException: 400
+    Organization\Domain\Exception\PlanNotAvailableException: 400
+    Organization\Domain\Exception\TeamMembershipException: 400
     Organization\Domain\Exception\OrganizationAccessDeniedException: 403
     Organization\Domain\Exception\OrganizationArchivedException: 409
     Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422

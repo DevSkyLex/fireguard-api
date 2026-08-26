@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
@@ -81,11 +80,11 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       $invitation->expire($now);
       $this->invitationRepository->save($invitation);
 
-      throw new InvalidArgumentException('Invitation has already expired.');
+      throw OrganizationInvitationNotPendingException::alreadyExpired();
     }
 
     if (!$invitation->status()->isPending()) {
-      throw new InvalidArgumentException('Only pending invitations can be revoked.');
+      throw OrganizationInvitationNotPendingException::onlyPendingCanBeRevoked();
     }
 
     /** @var RevokeOrganizationInvitationResult $result */

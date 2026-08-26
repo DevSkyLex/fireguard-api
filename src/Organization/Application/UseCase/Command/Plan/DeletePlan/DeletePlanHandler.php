@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Plan\DeletePlan;
 
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\PlanRepositoryPort;
-use Organization\Domain\Exception\PlanNotFoundException;
+use Organization\Domain\Exception\{DefaultPlanCannotBeDeletedException, PlanNotFoundException};
 use Organization\Domain\ValueObject\PlanId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
@@ -62,7 +61,7 @@ final readonly class DeletePlanHandler implements CommandHandler
     }
 
     if ($plan->isDefault()) {
-      throw new InvalidArgumentException('The default plan cannot be deleted.');
+      throw DefaultPlanCannotBeDeletedException::create();
     }
 
     $this->transactionManager->transactional(function () use ($planId): void {

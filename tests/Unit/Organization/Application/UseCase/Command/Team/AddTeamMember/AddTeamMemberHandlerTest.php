@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Team\AddTeamMember;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Application\UseCase\Command\Team\AddTeamMember\{AddTeamMemberCommand, AddTeamMemberHandler, AddTeamMemberResult};
 use Organization\Domain\Event\Team\TeamMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, TeamNotFoundException};
+use Organization\Domain\Exception\TeamMembershipException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\Team\Team;
@@ -182,7 +182,7 @@ final class AddTeamMemberHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(TeamMembershipException::class);
     $this->expectExceptionMessage('Member is not active in this organization.');
 
     $handler->__invoke(new AddTeamMemberCommand(
@@ -215,7 +215,7 @@ final class AddTeamMemberHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(TeamMembershipException::class);
     $this->expectExceptionMessage('Member is already part of this team.');
 
     $handler->__invoke(new AddTeamMemberCommand(

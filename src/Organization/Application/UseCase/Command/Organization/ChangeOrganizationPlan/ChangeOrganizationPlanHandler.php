@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan;
 
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -13,6 +12,7 @@ use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationPlanUsageExceededException, PlanNotFoundException};
+use Organization\Domain\Exception\PlanNotAvailableException;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationQuotaResource, PlanId};
 use Shared\Application\Message\CommandHandler;
@@ -104,7 +104,7 @@ final readonly class ChangeOrganizationPlanHandler implements CommandHandler
     }
 
     if (!$plan->isActive()) {
-      throw new InvalidArgumentException('The selected plan is not available.');
+      throw PlanNotAvailableException::create();
     }
 
     $previousPlanId = $organization->planId();
