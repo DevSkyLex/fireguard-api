@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -109,7 +108,12 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     $invitedEmail = strtolower(trim((string) $invitation->email()));
     $authenticatedEmail = strtolower(trim($command->userEmail));
     if ($invitedEmail !== $authenticatedEmail) {
-      throw new InvalidArgumentException('Invitation email does not match the authenticated user.');
+      // The SAME exception, and therefore the same 404 and the same body, as a
+      // token that does not exist. Answering 400 with "the email does not
+      // match" told the caller their stolen or guessed token was real and
+      // addressed to someone else — an enumeration oracle on a public endpoint.
+      // `withToken()`'s message is deliberately generic for exactly this.
+      throw OrganizationInvitationNotFoundException::withToken();
     }
 
     $memberWasAdded = false;

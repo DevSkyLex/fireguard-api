@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\AddOrganizationMember;
 
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -14,6 +13,7 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\OrganizationUserNotFoundException;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
@@ -99,7 +99,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
 
     $user = $this->userRepository->findById(new UserId($command->userId));
     if (null === $user) {
-      throw new InvalidArgumentException('User not found.');
+      throw OrganizationUserNotFoundException::create();
     }
 
     /** @var list<string> $roleIds */

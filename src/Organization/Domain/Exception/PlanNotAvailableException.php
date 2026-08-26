@@ -13,8 +13,10 @@ use RuntimeException;
  * subscribed to. Distinct from `PlanNotFoundException`, which means no such
  * plan at all.
  *
- * Mapped to 400 — what the `InvalidArgumentException` it replaces already
- * answered.
+ * Mapped to 400, and deliberately NOT moved to 409 with the conflict family
+ * arbitrated on 2026-08-26: nothing about the organization's state forbids
+ * subscribing, the caller simply named a value that is not one of the
+ * available plans.
  *
  * @category Exception
  *

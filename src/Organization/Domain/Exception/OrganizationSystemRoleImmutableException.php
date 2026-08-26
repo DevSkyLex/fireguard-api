@@ -14,9 +14,8 @@ use RuntimeException;
  * (`OrganizationSystemRoleCatalog`), so editing one would silently diverge from
  * the catalog rather than change anything durable.
  *
- * Mapped to 400 — what the `InvalidArgumentException` it replaces already
- * answered. 409 would arguably fit better; see
- * {@see OrganizationInvitationNotPendingException} for the same reservation.
+ * Mapped to **409**, arbitrated 2026-08-26: the role exists and the caller is
+ * entitled, its system nature is what forbids the change.
  *
  * @category Exception
  *

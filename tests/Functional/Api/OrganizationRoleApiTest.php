@@ -166,9 +166,12 @@ final class OrganizationRoleApiTest extends WebTestCase
       ]),
     );
 
-    // Mirrors CreateOrganizationRoleProcessor's mapping of the same
-    // "Role name already exists for this organization." InvalidArgumentException.
-    self::assertSame(400, $client->getResponse()->getStatusCode());
+    // 409 since 2026-08-26: a duplicate role name is a state conflict, and the
+    // module's two sibling uniqueness exceptions — PlanKeyAlreadyExists and
+    // TeamNameAlreadyExists — already answered 409. It was 400 only because the
+    // handler threw a bare InvalidArgumentException that one generic catch
+    // mapped for it. This assertion is what proves the change reaches the wire.
+    self::assertSame(409, $client->getResponse()->getStatusCode());
   }
 
   #[Test]
@@ -212,9 +215,10 @@ final class OrganizationRoleApiTest extends WebTestCase
       ]),
     );
 
-    // InvalidArgumentException('System roles cannot be modified.') mapped by
-    // UpdateOrganizationRoleProcessor the same way as the duplicate-name case.
-    self::assertSame(400, $client->getResponse()->getStatusCode());
+    // 409 since 2026-08-26, same arbitration as the duplicate-name case above:
+    // the role exists and the caller is entitled, its system nature is what
+    // forbids the change — which is what 409 means.
+    self::assertSame(409, $client->getResponse()->getStatusCode());
   }
 
   #[Test]
