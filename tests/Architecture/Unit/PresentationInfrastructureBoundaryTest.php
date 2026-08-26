@@ -10,9 +10,13 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 
+use function array_diff_key;
+use function array_keys;
+use function array_map;
 use function dirname;
 use function explode;
 use function file_get_contents;
+use function implode;
 use function is_dir;
 use function ksort;
 use function preg_match_all;
@@ -77,7 +81,33 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
    * Known `Presentation → sibling Infrastructure` imports, keyed
    * `Consumer => Provider`.
    *
-   * Captured 2026-08-25 at ten; lowered to seven on 2026-08-26.
+   * **Empty since 2026-08-26. There is no debt left to pin.** Captured at ten,
+   * lowered to seven, then to two, then to zero. What follows is the account
+   * of how each group went, kept because the shapes recur.
+   *
+   * The last two were `Inspection => Organization` and
+   * `Inspection => Intervention`, both in `InspectionResponseProcessor`, and
+   * neither needed the "publish a lookup port on the owning module" fix this
+   * docblock predicted for them:
+   *
+   *  - The `OrganizationRecord` read was **redundant**, not abstractable. It
+   *    answered 404 for an organization that does not exist — which is the
+   *    same 404, with the same message, that `resolveAccess()` already
+   *    answers for one the caller is not a member of. Deleting it removes a
+   *    query and changes no status. `InspectionResponseProvider` and
+   *    `CanonicalInspectionProvider` had already dropped the identical read.
+   *  - The `InterventionRecord` read moved behind
+   *    `Inspection\Application\Port\Outbound\InterventionScopePort`, declared
+   *    by the consuming module and implemented by the owning one — the same
+   *    direction as `FacilityValidationPort`. The surrounding decision (does
+   *    this intervention own the row, bump its revision) moved with it, into
+   *    `Application\UseCase\Command\Response\`.
+   *
+   * A new entry here is therefore a regression, never a starting point: the
+   * assertion below allows nothing, and adding an entry to make it pass means
+   * writing down why the import is unavoidable in the module's MODULE.md.
+   *
+   * The earlier history, for the shapes:
    *
    * The three that went were never lookups at all. They were
    * `$record->organization instanceof OrganizationRecord` — a check on a
@@ -115,10 +145,7 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
    *
    * A pair may only shrink or disappear.
    */
-  private const array BASELINE = [
-    'Inspection => Intervention' => 1,
-    'Inspection => Organization' => 1,
-  ];
+  private const array BASELINE = [];
   // #endregion
 
   // #region Methods
@@ -135,22 +162,36 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
   public function testPresentationInfrastructureImportsDoNotGrow(): void
   {
     $actual = self::countPresentationInfrastructureImports();
+    /** @var array<string, int> $baseline an empty constant narrows to array{}, which cannot be indexed */
+    $baseline = self::BASELINE;
+    $regressions = [];
 
     foreach ($actual as $pair => $count) {
-      $allowed = self::BASELINE[$pair] ?? 0;
+      $allowed = $baseline[$pair] ?? 0;
 
-      self::assertLessThanOrEqual($allowed, $count, sprintf(
-        'Presentation → sibling Infrastructure regression: "%s" now has %d import(s), baseline allows %d. '
-        . 'A processor or provider must not reach into another module\'s Infrastructure — that is CLAUDE.md '
-        . 'rule 5, and deptrac cannot see it (its collectors are layer-shaped, not module-shaped, and it '
-        . 'permits Presentation → Infrastructure outright). Publish the lookup as an Application\Port\Inbound '
-        . 'port on the owning module and put the decision in a handler. If the import is genuinely '
-        . 'unavoidable, raise the baseline DELIBERATELY and say why in the module\'s MODULE.md.',
-        $pair,
-        $count,
-        $allowed,
-      ));
+      if ($count > $allowed) {
+        $regressions[$pair] = sprintf('%d import(s), baseline allows %d', $count, $allowed);
+      }
     }
+
+    // One assertion, always executed: with an empty baseline the per-pair
+    // loop would run zero times and the test would report "no assertions"
+    // rather than a green ratchet.
+    self::assertSame([], $regressions, sprintf(
+      "Presentation → sibling Infrastructure regression:\n%s\n"
+      . 'A processor or provider must not reach into another module\'s Infrastructure — that is CLAUDE.md '
+      . 'rule 5, and deptrac cannot see it (its collectors are layer-shaped, not module-shaped, and it '
+      . 'permits Presentation → Infrastructure outright). Either the read is redundant — a permission gate '
+      . 'answering OUTSIDE_SCOPE already returns the same 404 an existence check would — or it belongs '
+      . 'behind an Application port declared by the consumer and implemented by the owner, with the '
+      . 'surrounding decision moved into a handler. If the import is genuinely unavoidable, add the pair '
+      . 'to BASELINE DELIBERATELY and say why in the module\'s MODULE.md.',
+      implode("\n", array_map(
+        static fn (string $pair, string $detail): string => sprintf('  - %s: %s', $pair, $detail),
+        array_keys($regressions),
+        $regressions,
+      )),
+    ));
   }
 
   /**
@@ -164,15 +205,13 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
   #[Test]
   public function testBaselineHasNoStaleEntries(): void
   {
-    $actual = self::countPresentationInfrastructureImports();
+    $stale = array_keys(array_diff_key(self::BASELINE, self::countPresentationInfrastructureImports()));
 
-    foreach (self::BASELINE as $pair => $allowed) {
-      self::assertArrayHasKey($pair, $actual, sprintf(
-        'Baseline entry "%s" no longer matches any import — the pair was cleaned up. '
-        . 'Remove the entry so the baseline keeps reflecting real debt.',
-        $pair,
-      ));
-    }
+    self::assertSame([], $stale, sprintf(
+      'Baseline entries no longer match any import — those pairs were cleaned up: %s. '
+      . 'Remove them so the baseline keeps reflecting real debt.',
+      implode(', ', $stale),
+    ));
   }
 
   /**
