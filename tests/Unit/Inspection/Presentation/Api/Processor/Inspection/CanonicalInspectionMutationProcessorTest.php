@@ -17,6 +17,7 @@ use Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -497,6 +498,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));
 
     $processor = new CanonicalInspectionMutationProcessor(
@@ -528,6 +530,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
     $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));
 
     $processor = new CanonicalInspectionMutationProcessor(
@@ -593,6 +596,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->user());
     $manager = new InterventionResourceManager($resources);

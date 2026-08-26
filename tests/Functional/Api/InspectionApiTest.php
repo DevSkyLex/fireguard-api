@@ -90,6 +90,30 @@ final class InspectionApiTest extends WebTestCase
   // -------------------------------------------------------------------------
 
   #[Test]
+  public function testCanonicalInspectionCollectionDoesNotRevealForeignOrganizations(): void
+  {
+    $client = static::createClient();
+    $this->seedInspectionFixtures();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'admin@example.com');
+
+    // OUTSIDER_ORGANIZATION_ID is seeded and real; the caller is a member of
+    // ORGANIZATION_ID and not of it. An absent id answers 404, so this one must
+    // too — answering 403 tells an outsider the organization exists, which is
+    // the enumeration oracle `Messaging/MODULE.md` forbids and that
+    // twenty-five sibling surfaces already avoid with `resolveAccess()`.
+    //
+    // One request only: the token `loginUser()` sets does not reliably survive
+    // a second one in this suite, and a stray 401 would hide the difference.
+    $client->request('GET', '/api/inspections?organization=/api/organizations/' . self::OUTSIDER_ORGANIZATION_ID);
+
+    self::assertSame(
+      404,
+      $client->getResponse()->getStatusCode(),
+      'A real organization the caller does not belong to must answer 404, exactly like an absent one.',
+    );
+  }
+
+  #[Test]
   public function testCreateInspectionRequiresAuthentication(): void
   {
     $client = static::createClient();

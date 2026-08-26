@@ -13,6 +13,7 @@ use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponse
 use Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -116,6 +117,9 @@ final class InspectionResponseProviderTest extends TestCase
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn($granted);
+    $authorization->method('resolveAccess')->willReturn(
+      $granted ? OrganizationAccessDecision::GRANTED : OrganizationAccessDecision::MISSING_PERMISSION,
+    );
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(

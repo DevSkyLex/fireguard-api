@@ -16,6 +16,7 @@ use Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponsePr
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -222,6 +223,9 @@ final class InspectionResponseProviderTest extends KernelTestCase
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn($permitted);
+    $authorization->method('resolveAccess')->willReturn(
+      $permitted ? OrganizationAccessDecision::GRANTED : OrganizationAccessDecision::MISSING_PERMISSION,
+    );
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
