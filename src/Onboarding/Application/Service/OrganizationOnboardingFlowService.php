@@ -11,6 +11,7 @@ use LogicException;
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
+use Onboarding\Domain\Exception\{OnboardingStepNotExecutableException, UnsupportedOnboardingStepException};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{ComputedOnboardingState, OrganizationOnboardingSession};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{
@@ -133,7 +134,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   public function executeStep(string $userId, string $stepKey, ExecuteOnboardingStepPayload $input): OrganizationOnboardingSessionState
   {
     if (!OrganizationOnboardingStep::isValid($stepKey)) {
-      throw new InvalidArgumentException(sprintf('Unsupported onboarding step "%s".', $stepKey));
+      throw UnsupportedOnboardingStepException::withStepKey($stepKey);
     }
 
     $completionEvent = null;
@@ -237,7 +238,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   public function skipStep(string $userId, string $stepKey): OrganizationOnboardingSessionState
   {
     if (!OrganizationOnboardingStep::isValid($stepKey)) {
-      throw new InvalidArgumentException(sprintf('Unsupported onboarding step "%s".', $stepKey));
+      throw UnsupportedOnboardingStepException::withStepKey($stepKey);
     }
 
     if (OrganizationOnboardingStep::isRequired($stepKey)) {
@@ -490,9 +491,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $stepKey) {
       $organizationId = $session->targetOrganizationId();
       if (!is_string($organizationId) || '' === $organizationId) {
-        throw new InvalidArgumentException(
-          'No organization found. Create an organization first via POST /api/organizations.',
-        );
+        throw OnboardingStepNotExecutableException::noTargetOrganization();
       }
 
       $session->markStepCompleted(OrganizationOnboardingStep::CREATE_ORGANIZATION);
@@ -528,9 +527,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     // module data does not exist yet.
     $orgId = $session->targetOrganizationId();
     if (!is_string($orgId) || '' === $orgId) {
-      throw new InvalidArgumentException(
-        sprintf('No organization found. Cannot execute step "%s".', $stepKey),
-      );
+      throw OnboardingStepNotExecutableException::noTargetOrganizationForStep($stepKey);
     }
 
     $stateExists = match ($stepKey) {
@@ -540,9 +537,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     };
 
     if (!$stateExists) {
-      throw new InvalidArgumentException(
-        sprintf('Cannot confirm step "%s": the required action has not been completed yet.', $stepKey),
-      );
+      throw OnboardingStepNotExecutableException::requiredActionNotCompleted($stepKey);
     }
 
     $session->markStepCompleted($stepKey);
