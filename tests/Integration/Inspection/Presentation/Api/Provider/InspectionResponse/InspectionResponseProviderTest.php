@@ -187,8 +187,14 @@ final class InspectionResponseProviderTest extends KernelTestCase
   {
     $this->expectException(NotFoundHttpException::class);
 
-    $this->provider(['organization' => '/api/organizations/992e8400-e29b-41d4-a716-4466554920ff'])
-      ->provide(new GetCollection(), []);
+    // `inScope: false` is what the real port answers for an organization with
+    // no membership row. The provider used to prove this with its own
+    // `entityManager->find()`; that query was removed because `resolveAccess()`
+    // already produces the same 404, and this asserts that it still does.
+    $this->provider(
+      ['organization' => '/api/organizations/992e8400-e29b-41d4-a716-4466554920ff'],
+      inScope: false,
+    )->provide(new GetCollection(), []);
   }
 
   #[Test]
@@ -216,16 +222,23 @@ final class InspectionResponseProviderTest extends KernelTestCase
   /**
    * @param array<string, string> $query
    */
-  private function provider(array $query, bool $permitted = true): InspectionResponseProvider
+  private function provider(array $query, bool $permitted = true, bool $inScope = true): InspectionResponseProvider
   {
     $requestStack = new RequestStack();
     $requestStack->push(Request::create('/api/inspection_responses', 'GET', $query));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn($permitted);
-    $authorization->method('resolveAccess')->willReturn(
-      $permitted ? OrganizationAccessDecision::GRANTED : OrganizationAccessDecision::MISSING_PERMISSION,
-    );
+    // Three distinct answers, because the provider now depends on all three.
+    // OUTSIDE_SCOPE is what an organization with no membership row produces —
+    // an unknown id necessarily has none — and it is also what a real
+    // organization the caller is not in produces. That identity is the point:
+    // the provider no longer looks the record up itself.
+    $authorization->method('resolveAccess')->willReturn(match (true) {
+      !$inScope => OrganizationAccessDecision::OUTSIDE_SCOPE,
+      $permitted => OrganizationAccessDecision::GRANTED,
+      default => OrganizationAccessDecision::MISSING_PERMISSION,
+    });
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(

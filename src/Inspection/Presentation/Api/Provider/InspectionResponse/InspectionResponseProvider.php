@@ -14,7 +14,6 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, Ins
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -81,7 +80,10 @@ final readonly class InspectionResponseProvider implements ProviderInterface
       if (!$record instanceof InspectionResponseRecord) {
         throw new NotFoundHttpException('Inspection response not found.');
       }
-      $this->assertRead($record->organization);
+      if (null === $record->organization) {
+        throw new NotFoundHttpException('Inspection response not found.');
+      }
+      $this->assertRead($record->organization->id);
 
       return self::output($record);
     }
@@ -147,7 +149,7 @@ final readonly class InspectionResponseProvider implements ProviderInterface
    */
   public static function output(InspectionResponseRecord $record): InspectionResponseOutput
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (null === $record->organization) {
       throw new NotFoundHttpException('Inspection response organization not found.');
     }
     $output = new InspectionResponseOutput();
@@ -176,9 +178,9 @@ final readonly class InspectionResponseProvider implements ProviderInterface
    * @param mixed $interventionValue the intervention value value
    * @param mixed $inspectionValue the inspection value value
    *
-   * @return OrganizationRecord the organization result
+   * @return string the organization identifier
    */
-  private function organization(mixed $organizationValue, mixed $interventionValue, mixed $inspectionValue): OrganizationRecord
+  private function organization(mixed $organizationValue, mixed $interventionValue, mixed $inspectionValue): string
   {
     $organizationId = is_string($organizationValue) && '' !== $organizationValue
       ? ResourceIriParser::id($organizationValue, 'organizations')
@@ -192,12 +194,13 @@ final readonly class InspectionResponseProvider implements ProviderInterface
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization, intervention or inspection filter is required.');
     }
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
-    if (!$organization instanceof OrganizationRecord) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
 
-    return $organization;
+    // No existence check here. `assertRead()` calls `resolveAccess()`, which
+    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
+    // message — for an organization that does not exist as for one the
+    // caller is not in. Looking the record up first would issue a second
+    // query to reach an answer the permission gate already gives.
+    return $organizationId;
   }
 
   /**
@@ -207,16 +210,16 @@ final readonly class InspectionResponseProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param ?OrganizationRecord $organization the organization value
+   * @param string $organizationId the organization identifier
    */
-  private function assertRead(?OrganizationRecord $organization): void
+  private function assertRead(string $organizationId): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+    if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.read');
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.inspection.read');
     if ($decision->isOutsideScope()) {
       throw new NotFoundHttpException('Organization not found.');
     }
