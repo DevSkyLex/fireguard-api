@@ -1,7 +1,7 @@
 ---
 name: fg-architecture-reviewer
 description: Use to review fireguard-sso-api PHP changes against the hexagonal Module Architecture Standard — layer direction, business logic in handlers not processors, ports vs concrete infrastructure, cross-module boundaries, naming, the dual-database wiring, and MODULE.md currency. Invoke after writing or modifying module code. Read-only — reports findings, does not edit.
-tools: Skill, Read, Grep, Glob, LSP, Bash
+tools: Skill, Read, Grep, Glob, Bash, mcp__serena-api__find_symbol, mcp__serena-api__get_symbols_overview, mcp__serena-api__find_declaration, mcp__serena-api__find_referencing_symbols, mcp__serena-api__get_diagnostics_for_file
 model: sonnet
 ---
 
@@ -34,6 +34,32 @@ and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
 
 `Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
 cross-module boundary check, a naming convention swept over a tree.
+
+**Subagents do not receive the `LSP` tool.** Re-measured on Claude Code 2.1.246: it is absent
+whatever this agent's `tools:` line declares — the full protocol is in
+`.claude/rules/lsp-availability.md`. **Use Serena instead**, which does reach subagents over MCP
+and answers the same questions on this repository, through Intelephense:
+
+| Question | Tool |
+| --- | --- |
+| where is this symbol defined | `mcp__serena-api__find_declaration` |
+| who uses it | `mcp__serena-api__find_referencing_symbols` |
+| find a symbol by name anywhere | `mcp__serena-api__find_symbol` |
+| what does this file declare | `mcp__serena-api__get_symbols_overview` |
+| what is broken in this file | `mcp__serena-api__get_diagnostics_for_file` |
+
+The server is pinned to `fireguard-sso-api`; there is no project to activate. `find_implementations`
+is deliberately not in your tool list: Intelephense's free edition does not answer it, so *what
+implements this `…Port`?* still has no direct answer — use `find_referencing_symbols` on the
+interface and confirm against `config/modules/<module>.yaml`, which is the binding authority anyway.
+
+**A cold answer is not an answer.** Intelephense indexes in the background; repeated identical
+calls have returned 0, 0, 0, 0, 3, 4, 7, then 8 files on the same query. A thin or empty first
+result means *not indexed yet* — repeat the call until the count stops growing, and never record
+"no consumers" from a first call.
+
+If Serena is unavailable too, fall back to `Grep` and **say so in your report**, so the reader
+knows a symbol question was answered by text matching.
 
 ## What to read first
 
