@@ -16,7 +16,7 @@ use Billing\Presentation\Api\Dto\Output\PaymentMethodOutput;
 use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 

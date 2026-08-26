@@ -13,7 +13,7 @@ use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 

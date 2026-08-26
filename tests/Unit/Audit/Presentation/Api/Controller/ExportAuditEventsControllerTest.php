@@ -18,7 +18,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, StreamedResponse};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function json_encode;
 use function ob_get_clean;

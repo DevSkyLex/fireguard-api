@@ -18,7 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 #[CoversClass(ListTeamsProvider::class)]
 final class ListTeamsProviderTest extends TestCase

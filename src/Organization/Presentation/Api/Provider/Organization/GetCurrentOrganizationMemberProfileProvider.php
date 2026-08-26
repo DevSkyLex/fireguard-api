@@ -19,7 +19,7 @@ use Organization\Presentation\Api\Dto\Output\Organization\{
 };
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function array_map;
 use function is_string;
