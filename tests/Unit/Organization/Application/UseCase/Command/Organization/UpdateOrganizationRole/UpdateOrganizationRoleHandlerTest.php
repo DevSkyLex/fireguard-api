@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(UpdateOrganizationRoleHandler::class)]
 final class UpdateOrganizationRoleHandlerTest extends TestCase
@@ -302,7 +303,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       transactionManager: $transactionManager,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('At least one permission is required.');
 
     $handler->__invoke(new UpdateOrganizationRoleCommand(

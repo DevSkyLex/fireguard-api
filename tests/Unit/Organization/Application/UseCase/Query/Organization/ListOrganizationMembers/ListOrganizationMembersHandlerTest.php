@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListOrganizationMembers;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{ListOrganizationMembersHandler, ListOrganizationMembersQuery};
 use Organization\Domain\Exception\OrganizationNotFoundException;
@@ -17,6 +16,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_filter;
 use function count;
@@ -255,7 +255,7 @@ final class ListOrganizationMembersHandlerTest extends TestCase
       memberRepository: $memberRepository,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListOrganizationMembersQuery(self::ORG_ID, status: 'bogus'));
   }

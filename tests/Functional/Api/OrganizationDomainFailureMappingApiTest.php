@@ -58,6 +58,20 @@ final class OrganizationDomainFailureMappingApiTest extends WebTestCase
   private const string OTHER_TEAM_NAME = 'Domain failure mapping crew bis';
 
   #[Test]
+  public function testUnparsableDashboardDateFilterReturnsBadRequest(): void
+  {
+    $client = $this->createAuthenticatedClient();
+
+    // `DashboardDateTimeParser` now throws `InvalidValueException`, which the
+    // provider's `catch (InvalidArgumentException)` no longer sees — so the 400
+    // comes from `exception_to_status` rather than from the provider. Same
+    // status, different path, and this is what proves it rather than assuming.
+    $client->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/dashboard?from=nonsense');
+
+    $this->assertStatus($client, 400, 'an unparsable "from" datetime filter on the dashboard');
+  }
+
+  #[Test]
   public function testUnknownStatusFilterOnListUserOrganizationsReturnsBadRequest(): void
   {
     $client = $this->createAuthenticatedClient();

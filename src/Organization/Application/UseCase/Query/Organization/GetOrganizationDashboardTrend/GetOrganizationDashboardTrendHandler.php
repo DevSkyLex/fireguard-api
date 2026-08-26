@@ -15,6 +15,7 @@ use Organization\Domain\Exception\{OrganizationAccessDeniedException, Organizati
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function count;
@@ -130,7 +131,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
   private function assertSupportedMetric(string $metric): string
   {
     if (!in_array($metric, [self::METRIC_INSPECTIONS_PERFORMED, self::METRIC_EQUIPMENT_CREATED, self::METRIC_FACILITIES_CREATED, self::METRIC_NON_CONFORMITIES_OPENED, self::METRIC_NON_CONFORMITIES_RESOLVED], true)) {
-      throw new InvalidArgumentException('Unsupported dashboard trend metric.');
+      throw InvalidValueException::because('Unsupported dashboard trend metric.');
     }
 
     return $metric;
@@ -156,7 +157,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     }
 
     if (count($metrics) > self::MAX_REQUESTED_METRICS) {
-      throw new InvalidArgumentException(sprintf('At most %d dashboard trend metrics may be requested at once.', self::MAX_REQUESTED_METRICS));
+      throw InvalidValueException::because(sprintf('At most %d dashboard trend metrics may be requested at once.', self::MAX_REQUESTED_METRICS));
     }
 
     return $metrics;

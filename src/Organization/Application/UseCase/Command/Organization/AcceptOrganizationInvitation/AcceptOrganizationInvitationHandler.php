@@ -19,6 +19,7 @@ use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
@@ -81,7 +82,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
   {
     $token = trim($command->token);
     if ('' === $token) {
-      throw new InvalidArgumentException('Invitation token is required.');
+      throw InvalidValueException::because('Invitation token is required.');
     }
 
     $invitation = $this->invitationRepository->findByTokenHash(

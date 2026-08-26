@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationMembers;
 
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function sprintf;
 
@@ -128,7 +128,7 @@ final readonly class ListOrganizationMembersHandler implements QueryHandler
       null, 'all' => null,
       'active' => true,
       'inactive' => false,
-      default => throw new InvalidArgumentException(sprintf('Invalid member status filter "%s".', $status)),
+      default => throw InvalidValueException::because(sprintf('Invalid member status filter "%s".', $status)),
     };
   }
   // #endregion

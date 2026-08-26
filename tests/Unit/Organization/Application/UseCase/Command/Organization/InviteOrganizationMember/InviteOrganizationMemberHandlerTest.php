@@ -36,6 +36,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
@@ -686,7 +687,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
   {
     $handler = $this->makeHandler(organizationRepository: $this->organizationRepositoryStub());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invalid email address.');
 
     $handler->__invoke(new InviteOrganizationMemberCommand(

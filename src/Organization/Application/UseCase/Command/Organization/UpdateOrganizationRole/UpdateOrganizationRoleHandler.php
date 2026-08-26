@@ -13,6 +13,7 @@ use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_unique;
 use function array_values;
@@ -80,7 +81,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     $permissions = array_values(array_unique($command->permissions));
 
     if (0 === count($permissions)) {
-      throw new InvalidArgumentException('At least one permission is required.');
+      throw InvalidValueException::because('At least one permission is required.');
     }
 
     // Two check-then-writes share this transaction. Stripping

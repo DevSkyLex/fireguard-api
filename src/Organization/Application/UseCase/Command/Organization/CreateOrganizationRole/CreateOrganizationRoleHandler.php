@@ -13,6 +13,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, Organiz
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_unique;
 use function array_values;
@@ -82,7 +83,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
     $permissions = array_values(array_unique($command->permissions));
 
     if (0 === count($permissions)) {
-      throw new InvalidArgumentException('At least one permission is required.');
+      throw InvalidValueException::because('At least one permission is required.');
     }
 
     /** @var OrganizationRoleId $roleId */
