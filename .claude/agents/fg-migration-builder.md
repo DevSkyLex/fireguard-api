@@ -18,25 +18,24 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 
 ## Navigating by symbol
 
-When you know a **symbol** — a class, an interface, a method, a constant — reach for the
-`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
-which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
-and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+When you know a **symbol** — a class, an interface, a method, a constant — reach for **Serena** before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `find_declaration`, `find_referencing_symbols`, `find_symbol`
+and `get_symbols_overview`.
 
-**Four operations are dead on PHP here.** Intelephense's free edition answers neither
-`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
-`outgoingCalls`). So the one question you most want to ask — *what implements this
-`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
-`workspaceSymbol` on the adapter name, and confirm against
+**Implementations are dead on PHP here.** Intelephense's free edition does not answer them,
+so `find_implementations` is not even declared on this agent — and the server returns `[]`
+rather than an error, which reads like "nothing implements this". So the one question you most
+want to ask — *what implements this `…Port`?* — has no direct answer. Use
+`find_referencing_symbols` on the interface, or `find_symbol` on the adapter name, and confirm against
 `config/modules/<module>.yaml`, which is the binding authority anyway.
 
 `Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
 cross-module boundary check, a naming convention swept over a tree.
 
-**Subagents do not receive the `LSP` tool.** Re-measured on Claude Code 2.1.246: it is absent
-whatever this agent's `tools:` line declares — the full protocol is in
-`.claude/rules/lsp-availability.md`. **Use Serena instead**, which does reach subagents over MCP
-and answers the same questions on this repository, through Intelephense:
+**There is no native `LSP` tool.** The language-server plugins were removed on 2026-08-26 —
+they never reached subagents, and Serena covers the same ground from both. See
+`.claude/rules/lsp-availability.md`. **Serena is the code intelligence here**, over MCP,
+answering these questions on this repository through Intelephense:
 
 | Question | Tool |
 | --- | --- |
