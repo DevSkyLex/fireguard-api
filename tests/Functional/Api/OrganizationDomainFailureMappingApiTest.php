@@ -58,6 +58,22 @@ final class OrganizationDomainFailureMappingApiTest extends WebTestCase
   private const string OTHER_TEAM_NAME = 'Domain failure mapping crew bis';
 
   #[Test]
+  public function testUnknownStatusFilterOnListUserOrganizationsReturnsBadRequest(): void
+  {
+    $client = $this->createAuthenticatedClient();
+
+    // `ListUserOrganizationsHandler` parses `status` with `OrganizationStatus::from()`
+    // and rewraps the `ValueError` — and `ListUserOrganizationsProvider` has no
+    // catch at all, unlike its sibling `ListOrganizationMembersProvider`, which
+    // validates the same concept against an allow-list before dispatch. Nothing
+    // mapped the result, so this answered 500: a malformed query filter
+    // reported as a server fault.
+    $client->request('GET', '/api/organizations?status=nonsense');
+
+    $this->assertStatus($client, 400, 'an unrecognized status filter on GET /organizations');
+  }
+
+  #[Test]
   public function testRemoveUnknownOrganizationMemberReturnsNotFound(): void
   {
     $client = $this->createAuthenticatedClient();

@@ -22,12 +22,31 @@ api_platform:
   # 1 firstFailureOf. A 87th maps it to 409 (DeletePlanProcessor) and is recorded
   # as an anomaly in PresentationExceptionStatusTest.
   #
-  # Measured, not assumed: an audit that missed the match-arm and firstFailureOf
-  # shapes concluded three modules mapped it nowhere and that eleven endpoints
-  # answered 500. Both were wrong — every reachable throw is mapped. The only
-  # unmapped ones are NotificationService's, which no HTTP path reaches, and one
-  # in VerifyOtpHandler that its processor guards upstream. Those two are genuine
-  # programming errors and 500 is the right answer for them.
+  # Measured, not assumed — and corrected twice, so read the history before
+  # trusting a count here:
+  #
+  #   1. An audit that missed the match-arm and firstFailureOf shapes concluded
+  #      three modules mapped it nowhere and that eleven endpoints answered 500.
+  #      Both figures were wrong.
+  #   2. The correction over-corrected: it claimed NOTHING answered 500. One
+  #      thing did. `GET /organizations?status=nonsense` answered 500 until
+  #      2026-08-26 — `ListUserOrganizationsHandler` rewrapped a `ValueError`
+  #      into `InvalidArgumentException` and `ListUserOrganizationsProvider`
+  #      catches nothing, unlike its sibling `ListOrganizationMembersProvider`,
+  #      which validates the same concept against an allow-list before dispatch.
+  #      Proven by a functional test that failed with 500 before the fix, and
+  #      frozen by it since.
+  #
+  # Two throws remain unmapped and correctly so: NotificationService's, which no
+  # HTTP path reaches (`SendNotificationCommand` is dispatched only from an
+  # Application service), and one in `VerifyOtpHandler` that `VerifyOtpProcessor`
+  # guards upstream. Both are genuine programming errors.
+  #
+  # `FacilityMediaProcessor` and `InspectionMediaProcessor` were reported as two
+  # more 500s and are NOT: neither carries a `catch (InvalidArgumentException)`,
+  # but neither needs one — every value they pass to a command is either
+  # validated first (`AttachmentKind::tryFrom`) or read off an already-persisted
+  # record. The handler-side parsing behind them is defensive, and unreachable.
   #
   # The prescribed fix for a handler that wants a status is a DOMAIN exception,
   # not an entry here. That work is cleanup, not a defect: nothing is broken.
