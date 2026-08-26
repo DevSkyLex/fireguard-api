@@ -8,9 +8,9 @@ use Import\Application\Port\Outbound\ImportJobRepositoryPort;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\ValueObject\ImportKind;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
+use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_map;
@@ -96,7 +96,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
     try {
       return ImportKind::from($kind);
     } catch (ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
   }
 

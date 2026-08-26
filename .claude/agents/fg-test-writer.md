@@ -1,7 +1,7 @@
 ---
 name: fg-test-writer
 description: Use to author or repair PHPUnit tests in fireguard-sso-api — unit tests for handlers, adapters, and domain models; integration tests for Doctrine repositories; functional tests for API endpoint contracts including denial paths; E2E for full flows. Invoke when a change needs coverage. Writes tests; never changes production code to make one pass.
-tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash
+tools: Skill, Read, Grep, Glob, Edit, Write, Bash, mcp__serena-api__find_symbol, mcp__serena-api__get_symbols_overview, mcp__serena-api__find_declaration, mcp__serena-api__find_referencing_symbols, mcp__serena-api__get_diagnostics_for_file
 model: sonnet
 ---
 
@@ -19,20 +19,45 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 
 ## Navigating by symbol
 
-When you know a **symbol** — a class, an interface, a method, a constant — reach for the
-`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
-which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
-and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+When you know a **symbol** — a class, an interface, a method, a constant — reach for **Serena** before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `find_declaration`, `find_referencing_symbols`, `find_symbol`
+and `get_symbols_overview`.
 
-**Four operations are dead on PHP here.** Intelephense's free edition answers neither
-`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
-`outgoingCalls`). So the one question you most want to ask — *what implements this
-`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
-`workspaceSymbol` on the adapter name, and confirm against
+**Implementations are dead on PHP here.** Intelephense's free edition does not answer them,
+so `find_implementations` is not even declared on this agent — and the server returns `[]`
+rather than an error, which reads like "nothing implements this". So the one question you most
+want to ask — *what implements this `…Port`?* — has no direct answer. Use
+`find_referencing_symbols` on the interface, or `find_symbol` on the adapter name, and confirm against
 `config/modules/<module>.yaml`, which is the binding authority anyway.
 
 `Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
 cross-module boundary check, a naming convention swept over a tree.
+
+**There is no native `LSP` tool.** The language-server plugins were removed on 2026-08-26 —
+they never reached subagents, and Serena covers the same ground from both. See
+`.claude/rules/lsp-availability.md`. **Serena is the code intelligence here**, over MCP,
+answering these questions on this repository through Intelephense:
+
+| Question | Tool |
+| --- | --- |
+| where is this symbol defined | `mcp__serena-api__find_declaration` |
+| who uses it | `mcp__serena-api__find_referencing_symbols` |
+| find a symbol by name anywhere | `mcp__serena-api__find_symbol` |
+| what does this file declare | `mcp__serena-api__get_symbols_overview` |
+| what is broken in this file | `mcp__serena-api__get_diagnostics_for_file` |
+
+The server is pinned to `fireguard-sso-api`; there is no project to activate. `find_implementations`
+is deliberately not in your tool list: Intelephense's free edition does not answer it, so *what
+implements this `…Port`?* still has no direct answer — use `find_referencing_symbols` on the
+interface and confirm against `config/modules/<module>.yaml`, which is the binding authority anyway.
+
+**A cold answer is not an answer.** Intelephense indexes in the background; repeated identical
+calls have returned 0, 0, 0, 0, 3, 4, 7, then 8 files on the same query. A thin or empty first
+result means *not indexed yet* — repeat the call until the count stops growing, and never record
+"no consumers" from a first call.
+
+If Serena is unavailable too, fall back to `Grep` and **say so in your report**, so the reader
+knows a symbol question was answered by text matching.
 
 ## Pick the level
 

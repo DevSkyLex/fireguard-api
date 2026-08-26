@@ -11,7 +11,6 @@ use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachmen
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -20,6 +19,7 @@ use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test AddInterventionAttachmentHandlerTest.
@@ -375,7 +375,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke($this->command('not-a-uuid'));
   }

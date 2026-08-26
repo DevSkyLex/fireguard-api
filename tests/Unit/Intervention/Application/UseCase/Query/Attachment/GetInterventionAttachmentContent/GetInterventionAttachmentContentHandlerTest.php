@@ -11,13 +11,13 @@ use Intervention\Application\UseCase\Query\Attachment\GetInterventionAttachmentC
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test GetInterventionAttachmentContentHandlerTest.
@@ -237,7 +237,7 @@ final class GetInterventionAttachmentContentHandlerTest extends TestCase
       fileStorage: $this->createStub(FileStoragePort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetInterventionAttachmentContentQuery(
       userId: self::USER_ID,

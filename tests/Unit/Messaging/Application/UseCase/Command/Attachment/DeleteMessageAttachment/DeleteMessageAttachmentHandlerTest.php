@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment\{DeleteMessageAttachmentCommand, DeleteMessageAttachmentHandler, DeleteMessageAttachmentResult};
@@ -17,6 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test DeleteMessageAttachmentHandlerTest.
@@ -152,7 +152,7 @@ final class DeleteMessageAttachmentHandlerTest extends TestCase
       $this->createStub(FileStoragePort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new DeleteMessageAttachmentCommand('user-1', 'not-a-uuid'));
   }

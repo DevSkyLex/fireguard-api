@@ -7,7 +7,6 @@ namespace Intervention\Application\UseCase\Query\Attachment\GetInterventionAttac
 use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -58,7 +57,7 @@ final readonly class GetInterventionAttachmentContentHandler implements QueryHan
     try {
       $attachmentId = InterventionAttachmentId::fromString($query->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $attachment = $this->attachmentRepository->findById($attachmentId);

@@ -12,6 +12,7 @@ use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function rtrim;
 use function sprintf;
@@ -77,13 +78,13 @@ final readonly class StartCheckoutHandler implements CommandHandler
     $interval = BillingInterval::fromString($command->interval);
 
     if (null === $interval) {
-      throw new InvalidArgumentException('Unsupported billing interval.');
+      throw InvalidValueException::because('Unsupported billing interval.');
     }
 
     $priceId = $this->priceCatalog->priceIdFor($command->planKey, $interval);
 
     if (null === $priceId) {
-      throw new InvalidArgumentException('The selected plan is not available for purchase.');
+      throw InvalidValueException::because('The selected plan is not available for purchase.');
     }
 
     $subscription = $this->subscriptions->findByOrganizationId($command->organizationId);

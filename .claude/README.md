@@ -1,7 +1,8 @@
 # FireGuard API — Claude Code tooling
 
 This app ships its own `.claude/`. Open **`fireguard-sso-api/`** as the workspace root to
-activate it: 12 agents, 13 commands, 7 skills, 8 rules, 1 MCP server, 1 LSP server, and 2 hooks.
+activate it: 12 agents, 13 commands, 7 skills, 8 rules, 1 MCP server, and 2 hooks. Code
+intelligence comes from the user-scope `serena-api` MCP server, not from a plugin.
 
 > **This directory is also a plugin.** The monorepo root installs it as
 > `fireguard-api@fireguard` (project scope, via the root `.claude-plugin/marketplace.json`),
@@ -116,7 +117,7 @@ that kind of file, not the how-to.
 | `migrations.md`     | `migrations/**`                         | name the database on every command, `-d memory_limit=1G`, never edit an applied migration |
 | `tests.md`          | `tests/**`                              | which level covers what, the denial paths, PostgreSQL not SQLite                          |
 | `module-config.md`  | `config/modules/*` `config/packages/**` | the explicit `$entityManager`, the port `alias:`, first-match-wins access control         |
-| `lsp-usage.md`      | `src/**/*.php` `tests/**/*.php`         | LSP for symbols / grep for text, 1-based positions, the four premium operations that do not answer |
+| `lsp-usage.md`      | `src/**/*.php` `tests/**/*.php`         | Serena for symbols / grep for text, the cold index that answers short, the operations Intelephense withholds |
 
 Three of them repeat the **dual-database** warning from a different angle, on purpose: it is the
 one defect that passes every static check and still corrupts data.
@@ -133,56 +134,27 @@ not to document Symfony, and the PHPStan MCP servers are unofficial and redundan
 `make phpstan`. Context7 covers Symfony 7.4, Doctrine, API Platform, and PHPUnit
 generically, which is honestly the whole of what is available and reliable.
 
-## LSP server (`lsp/`, plugin `fireguard-api-lsp`)
+## Code intelligence (Serena, user scope)
 
-[Intelephense](https://intelephense.com) on `.php`, giving Claude `goToDefinition` /
-`findReferences` / `hover` / `documentSymbol` / `workspaceSymbol` and pushing diagnostics into
-the session after every edit. Navigation is the bigger half of the value here: from an
+[Intelephense](https://intelephense.com) on `.php`, reached through the **`serena-api`** MCP
+server rather than a language-server plugin, giving `find_declaration` /
+`find_referencing_symbols` / `find_symbol` / `get_symbols_overview` /
+`get_diagnostics_for_file`. Navigation is the bigger half of the value here: from an
 `Application/Port/Outbound` interface to the adapter that fulfils it, the link runs through a
-`config/modules/<module>.yaml` alias, so grep lands in YAML while the LSP lands in the adapter.
+`config/modules/<module>.yaml` alias, so grep lands in YAML while Serena lands in the adapter.
 
-**Four of the nine operations do not answer.** `goToImplementation`, `prepareCallHierarchy`,
-`incomingCalls`, and `outgoingCalls` are Intelephense **premium** features: the first returns
-"No definition found" even on a genuine port interface, the other three answer
-`Unhandled method`. Neither result means "nothing implements this" — read them as "not
-available". **`findReferences` is the substitute, and it is a complete one for the port→adapter
-hop**: on `Equipment\…\TagRepositoryPort` it returns 123 references across 24 files, with
-`Infrastructure/Persistence/Doctrine/Repository/TagRepository.php` — the `implements` clause —
-as the first hit after the declaration, ahead of the handlers that inject it. `workspaceSymbol`
-covers the rest of what navigation would otherwise need. When to reach for any of this, rather
-than for grep, is in `rules/lsp-usage.md`.
+**`find_implementations` answers `[]`, not an error** — an Intelephense premium feature. It is
+deliberately not declared on this app's agents. `find_referencing_symbols` on the port is the
+substitute; the adapter surfaces as its `implements` clause. There is no call hierarchy either.
 
-**Measured before it was trusted.** On 15 committed files spread across all four layers,
-Intelephense published **zero** diagnostics — the noise I expected from Symfony attributes
-and API Platform generics did not materialise, which is why `diagnostics` is left on. With a
-deliberate `new NopePasDeClasse()` / `fonctionInexistante()` / `$this->methodeInexistante()`
-injected, all three come back as errors. Indexing the whole project including `vendor/`
-takes ~37 s cold and ~1 s warm, cached under the OS temp dir.
+**The `fireguard-api-lsp` plugin was removed from `enabledPlugins` on 2026-08-26**, in the
+monorepo root and here. It served the main session only — subagents never received the `LSP`
+tool — while Serena serves both. Its `lsp/` directory is still on disk, inert; re-enabling is
+one line in each `settings.json`. What went with it: diagnostics pushed automatically after
+every edit. `mcp__serena-api__get_diagnostics_for_file` is on demand, per file.
 
-**Install the binary yourself** — a plugin configures the connection, it does not ship the
-server: `npm install -g intelephense`. Nothing in `.lsp.json` is machine-specific:
-`lsp/start.mjs` finds this app by walking up from `${CLAUDE_PROJECT_DIR}` and the cwd until it
-sees `bin/console`, finds the global Intelephense next to the node binary (falling back to
-`npm root -g`), and rewrites `rootUri` / `rootPath` / `workspaceFolders` in the single
-`initialize` request so the server roots here and not on the monorepo. Neither placeholder
-could do that alone — `${CLAUDE_PLUGIN_ROOT}` is the plugin cache copy and
-`${CLAUDE_PROJECT_DIR}` differs between the two session roots. If the binary is missing, the
-launcher exits with `run: npm install -g intelephense` on stderr instead of hanging.
-`settings.intelephense.files.exclude` drops `var/` — Symfony's generated cache would
-otherwise be indexed as source.
-
-**Why a second plugin rather than a `.lsp.json` next to this file:** LSP configuration is the
-one component Claude Code loads *only from an enabled plugin*, and `fireguard-api@fireguard`
-is deliberately disabled when this app is the workspace root. `lsp/` is therefore its own
-minimal plugin, enabled at **both** scopes — `enabledPlugins` here and in the root
-`.claude/settings.json`. Marketplace entry: `fireguard-api-lsp`, source
-`./fireguard-sso-api/.claude/lsp`. Each scope pins its own version, so a change here means
-bumping `lsp/.claude-plugin/plugin.json` and running
-`claude plugin update fireguard-api-lsp@fireguard --scope project` **twice**, once from the
-monorepo root and once from here.
-
-Verify with `claude --debug-file dbg.log -p ok`: a healthy session logs
-`Loaded 1 LSP server(s) from plugin: fireguard-api-lsp`.
+Full account, including the measurements that justified the removal:
+`.claude/rules/lsp-availability.md`. How to use it day to day: `.claude/rules/lsp-usage.md`.
 
 ## Hooks
 

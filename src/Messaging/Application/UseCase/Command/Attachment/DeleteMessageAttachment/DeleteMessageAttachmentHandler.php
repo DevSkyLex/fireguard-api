@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment;
 
-use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\MessagingAttachmentRepositoryPort;
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException};
@@ -50,7 +49,7 @@ final readonly class DeleteMessageAttachmentHandler implements CommandHandler
     try {
       $attachmentId = MessagingAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $attachment = $this->attachments->findById($attachmentId);

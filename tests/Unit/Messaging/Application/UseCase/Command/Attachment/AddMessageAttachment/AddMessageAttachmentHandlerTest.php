@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
@@ -22,6 +21,7 @@ use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test AddMessageAttachmentHandlerTest.
@@ -349,7 +349,7 @@ final class AddMessageAttachmentHandlerTest extends TestCase
   {
     $handler = $this->authorizedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke($this->command(attachmentId: 'not-a-uuid'));
   }

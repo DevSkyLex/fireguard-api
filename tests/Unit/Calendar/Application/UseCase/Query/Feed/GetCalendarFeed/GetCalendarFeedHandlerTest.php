@@ -8,12 +8,12 @@ use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
 use Calendar\Application\Service\CalendarFeedAggregator;
 use Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\{GetCalendarFeedHandler, GetCalendarFeedQuery, GetCalendarFeedResult};
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test GetCalendarFeedHandlerTest.
@@ -79,7 +79,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
   {
     $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetCalendarFeedQuery(
       userId: self::USER_ID,
@@ -94,7 +94,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
   {
     $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetCalendarFeedQuery(
       userId: self::USER_ID,
@@ -109,7 +109,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
   {
     $handler = new GetCalendarFeedHandler($this->createStub(OrganizationAuthorizationPort::class), $this->emptyAggregator());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetCalendarFeedQuery(
       userId: self::USER_ID,
@@ -146,7 +146,7 @@ final class GetCalendarFeedHandlerTest extends TestCase
       $this->emptyAggregator(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invalid "from" datetime filter.');
 
     // Matches the shape regex, but 30 February is not a date: the handler

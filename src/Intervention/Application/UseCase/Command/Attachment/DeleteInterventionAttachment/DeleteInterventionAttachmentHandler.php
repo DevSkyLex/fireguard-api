@@ -8,7 +8,6 @@ use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -69,7 +68,7 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
     try {
       $attachmentId = InterventionAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $attachment = $this->attachmentRepository->findById($attachmentId);
