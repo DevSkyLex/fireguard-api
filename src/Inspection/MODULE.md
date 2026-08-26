@@ -587,6 +587,75 @@ Closing them did **not** remove the coupling underneath: `InspectionRecord` and
 `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
 schema-level and outlives any Presentation cleanup.
 
+### The canonical inspection mutations run on use cases (2026-08-26)
+
+`CanonicalInspectionMutationProcessor` was 343 lines holding three
+`persist`/`flush`/`remove` sites, the published status machine, the
+draft/published split, the three audit events and their post-commit
+dispatch. It is now HTTP translation only, and **holds no entity manager**.
+
+| Concern | Where it lives now |
+| --- | --- |
+| `PATCH /api/inspections/{id}` | `Application/UseCase/Command/Inspection/PatchCanonicalInspection/` |
+| `DELETE /api/inspections/{id}` | `Application/UseCase/Command/Inspection/DeleteCanonicalInspection/` |
+| Read one, for the gate | `Application/UseCase/Query/Inspection/GetCanonicalInspection/` |
+| Status machine, draft/published split, revision bump, idempotent cancel | `Domain/Model/Inspection/CanonicalInspection` |
+| Persistence | `Infrastructure/…/Repository/CanonicalInspectionRepository` (port: `CanonicalInspectionRepositoryPort`) |
+| Intervention revision touch | `InterventionScopePort` (shared with the responses surface) |
+
+**Two Domain models over one table, on purpose.** `Inspection` is the
+aggregate the organization-scoped commands drive; it is loaded through
+`findPublishedById()` so it never sees an intervention scratchpad, and
+`InspectionRepository::save()` deliberately leaves `record_status`,
+`intervention_id` and `revision` untouched — which is exactly why it cannot
+serve the canonical surface: it can never bump the revision the `If-Match`
+contract is built on. `CanonicalInspection` carries those three columns and
+the canonical rules.
+
+**Those rules differ from the aggregate's, and the divergence is inherited
+rather than introduced.** Three differences, all pre-dating this refactor:
+
+| Situation | Canonical surface | `Inspection` aggregate |
+| --- | --- | --- |
+| Patching `result`/`notes`/`signature` on a **submitted** record | allowed | `Inspection::edit()` refuses anything past draft |
+| Illegal status jump (`draft → closed`) | **422** | **409** (`InspectionNotSubmittedException` via `POST …/close`) |
+| A draft scratchpad record | skips the lifecycle entirely, never audited | invisible — `findPublishedById()` filters it out |
+
+Reconciling them changes published statuses; that is a product decision, not
+a refactor's side effect. `CanonicalInspection`'s docblock and
+`CanonicalInspectionValidationException`'s carry the same warning.
+
+**The canonical DELETE contract**, unchanged and now stated by
+`DeleteCanonicalInspectionHandler`: a draft scratchpad row is hard-deleted; a
+published one is logically annulled to `cancelled`, preserving its
+non-conformities; `closed` is terminal and answers 409; a repeat DELETE is an
+idempotent no-op that does **not** bump the revision. Only the middle case
+reaches the audit ledger.
+
+**Audit events are still dispatched after the commit**, now by the handlers
+rather than the processor. The ledger is on the `auth` database and commits
+independently, so an event dispatched inside the transaction could describe a
+mutation `main` then rolled back — a phantom row in an append-only,
+hash-chained ledger. `PatchCanonicalInspectionHandlerTest::testARolledBackMutationAuditsNothing`
+freezes it.
+
+**A pre-existing inconsistency, recorded rather than fixed.**
+`InspectionRepository` pushes `performedAt`/`createdAt`/`updatedAt` through
+`DATABASE_STORAGE_TIMEZONE` on the way in and out; the canonical write path
+never did — the processor assigned a bare `new DateTimeImmutable()`.
+`CanonicalInspectionRepository` reproduces that deliberately, because adding
+the normalisation would silently shift every canonically-written `updated_at`
+wherever the storage timezone differs from PHP's. Its docblock says so.
+
+**What deliberately stayed in the processor**: the authorization gate (the
+permission depends on the request — a scratchpad inside an intervention is
+gated on `mutationPermission()`, and a row loaded by GLOBAL id must answer
+404 rather than 403 outside the caller's organization), `MergePatchFields`
+(absent-key versus explicit-null is a fact about the HTTP body that a
+deserialized DTO has already lost — it travels into the command as `has*`
+flags), and the output (`CanonicalInspectionProvider` joins names the write
+path has no reason to carry).
+
 ### Canonical inspection responses run on use cases (2026-08-26)
 
 `InspectionResponseProcessor` was 261 lines holding five `persist`/`flush`/`remove`
@@ -633,7 +702,7 @@ id into a 428 for a caller that omitted the header.
 **Optimistic concurrency is checked twice, on purpose.** `RevisionGuard` compares
 `If-Match` against a scope read that runs on the query bus, i.e. in a different
 transaction from the mutation. The aggregate re-compares it inside the handler's
-transaction and raises `InspectionResponseRevisionMismatchException` (412, same
+transaction and raises `InspectionRevisionMismatchException` (412, same
 wording), which closes the window between the two.
 
 **One status changed, and it was decided rather than inherited.**
@@ -668,8 +737,15 @@ and reachable on its own; only which of the two failures wins moved.
   `@inspection.main_transaction_manager` explicitly. Autowiring would hand over
   the default transaction manager, which opens a transaction on the `auth`
   connection while the writes go to `main` — a rollback that rolls nothing back.
-- `InspectionResponseProcessor` names **no** `$entityManager`, and must not: it
-  holds none.
+- `InspectionResponseProcessor` and `CanonicalInspectionMutationProcessor` name
+  **no** `$entityManager`, and must not: neither holds one.
+- `Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort` is
+  aliased to `CanonicalInspectionRepository`, wired to `main` explicitly. It is
+  a **second** port over the `inspections` table, next to
+  `InspectionRepositoryPort` — see the architecture section for why one cannot
+  serve both.
+- `PatchCanonicalInspectionHandler` and `DeleteCanonicalInspectionHandler` name
+  `@inspection.main_transaction_manager`, same reason as the response handlers.
 
 ## Testing
 
@@ -709,6 +785,22 @@ and reachable on its own; only which of the two failures wins moved.
     (L2.2) — `supports()` on/off the permission gate, and `provide()`
     degrading to an empty fragment when the repository throws. Deliberately
     does NOT mock the QueryBuilder/DQL — see the integration test below.
+  - `Domain/Model/Inspection/CanonicalInspectionTest` — the canonical rules
+    with no container and no mocks: the transition table, terminal-state
+    immutability, the scratchpad bypass, `result`-before-`status` validation
+    order, explicit-null erasure versus absent key, and the idempotent cancel
+    that must not bump the revision.
+  - `Application/UseCase/Command/Inspection/{Patch,Delete}CanonicalInspection`
+    and `Application/UseCase/Query/Inspection/GetCanonicalInspection` — the
+    orchestration: which event is dispatched for which transition, the three
+    paths that must dispatch **nothing** (scratchpad, no-status-change,
+    idempotent repeat DELETE), the post-commit guarantee (a rolled-back
+    transaction audits nothing), and the revision re-check inside the
+    handler's own transaction.
+  - `Presentation/Api/Processor/Inspection/CanonicalInspectionMutationProcessorTest`
+    — what the processor still owns: the gate order (404 before 428), which
+    permission a scratchpad row asks the intervention for, 404 rather than 403
+    outside the organization, and the merge-patch `has*` flags.
   - `Application/UseCase/Command/Response/{Create,Update,Delete}InspectionResponse`
     and `Application/UseCase/Query/Response/GetInspectionResponse` — the
     lifecycle rules that used to sit in the processor: draft-only edit and
@@ -721,6 +813,13 @@ and reachable on its own; only which of the two failures wins moved.
     (with the failure delivered double-wrapped, as the real bus delivers it),
     404 before the revision guard, and the stored revision travelling into the
     command rather than the header's value.
+- Functional: `tests/Functional/Api/CanonicalInspectionApiTest` — the whole
+  `PATCH`/`DELETE /api/inspections/{id}` contract, one HTTP request per test:
+  200 + bumped revision on a legal transition, 422 on an illegal one and on a
+  null non-nullable field, 409 on both terminal-state paths, 204 for the
+  cancel / the scratchpad hard-delete / the idempotent repeat, 412 on a stale
+  revision, 404 before 428 on an unknown id, 404 on a malformed one, 404 for a
+  foreign organization (never 403), and 403 for a member without write.
 - Functional: `tests/Functional/Api/InspectionResponseApiTest` — the whole
   `/inspection-responses` contract, one HTTP request per test: 201 on create,
   409/412 on a known `clientId`, 200 + bumped revision on PATCH, 204 on DELETE,
@@ -729,6 +828,12 @@ and reachable on its own; only which of the two failures wins moved.
   without write, and **400 for a malformed PUT identifier** — the one status
   this refactor moved, asserted rather than assumed.
 - Integration (real database):
+  `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/CanonicalInspectionRepositoryTest`
+  — that `findById()` carries the three columns the aggregate does not, that
+  `save()` writes the six mutable ones and **leaves `record_status` and
+  `intervention_id` alone** (a PATCH that silently published a scratchpad row
+  would be invisible in the response and permanent in the table), and that
+  `save()` on an absent row inserts nothing.
   `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/InspectionResponseRepositoryTest`
   — save/find/delete round trip, `save()` updating in place on a replayed id,
   `existsByClientId()`, and `InspectionRepository::findScope()`, whose scalar
@@ -796,7 +901,12 @@ and reachable on its own; only which of the two failures wins moved.
 - `InspectionResponseConflictException` → 409 (published response edited or
   deleted; inspection or intervention outside the organization; inspection
   prepared by a different intervention)
-- `InspectionResponseRevisionMismatchException` → 412 (`If-Match` lost the race
+- `CanonicalInspectionConflictException` → 409 (a PATCH on a closed or
+  cancelled inspection; a DELETE-as-cancel on a closed one)
+- `CanonicalInspectionValidationException` → 422 (a non-nullable merge-patch
+  field sent as null; an illegal published status transition). **422 here,
+  409 for the same jump through the aggregate** — see the architecture section
+- `InspectionRevisionMismatchException` → 412 (`If-Match` lost the race
   between the scope read and the mutation's transaction)
 - `InspectionResponseClientIdAlreadyExistsException` → **deliberately unmapped**.
   `InspectionResponseProcessor` catches this one and answers 412 from

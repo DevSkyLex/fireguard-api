@@ -7,7 +7,7 @@ namespace Inspection\Domain\Exception;
 use RuntimeException;
 
 /**
- * Exception InspectionResponseRevisionMismatchException.
+ * Exception InspectionRevisionMismatchException.
  *
  * The optimistic-concurrency check, re-run INSIDE the handler's transaction.
  *
@@ -24,7 +24,7 @@ use RuntimeException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class InspectionResponseRevisionMismatchException extends RuntimeException
+final class InspectionRevisionMismatchException extends RuntimeException
 {
   // #region Methods
   /**

@@ -141,6 +141,14 @@ api_platform:
     Facility\Domain\Exception\FacilitySubtreeTooLargeException: 422
     Import\Domain\Exception\ImportAccessDeniedException: 403
     Import\Domain\Exception\ImportJobNotFoundException: 404
+    # The canonical (flat, offline-syncable) inspection surface, whose
+    # mutations moved out of CanonicalInspectionMutationProcessor. 422 for an
+    # illegal transition is INHERITED, not chosen: the `Inspection` aggregate
+    # answers 409 for the same situation through POST …/close. The two
+    # surfaces disagreed before the refactor; reconciling them changes a
+    # published status and belongs to its own decision.
+    Inspection\Domain\Exception\CanonicalInspectionConflictException: 409
+    Inspection\Domain\Exception\CanonicalInspectionValidationException: 422
     Inspection\Domain\Exception\ChecklistArchivedException: 409
     Inspection\Domain\Exception\ChecklistInUseException: 409
     Inspection\Domain\Exception\ChecklistNotFoundException: 404
@@ -160,7 +168,7 @@ api_platform:
     # keeps one catch for it. See its docblock.
     Inspection\Domain\Exception\InspectionResponseConflictException: 409
     Inspection\Domain\Exception\InspectionResponseNotFoundException: 404
-    Inspection\Domain\Exception\InspectionResponseRevisionMismatchException: 412
+    Inspection\Domain\Exception\InspectionRevisionMismatchException: 412
     Inspection\Domain\Exception\NonConformityAlreadyResolvedException: 409
     Inspection\Domain\Exception\NonConformityNotFoundException: 404
     Intervention\Domain\Exception\InterventionAccessDeniedException: 403

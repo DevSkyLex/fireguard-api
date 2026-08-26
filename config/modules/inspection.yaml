@@ -10,10 +10,9 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # CanonicalInspectionMutationProcessor names no entity manager on purpose:
+  # it holds none since the mutations moved to
+  # Application\UseCase\{Command,Query}\Inspection\*CanonicalInspection*.
   Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -42,6 +41,10 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\CanonicalInspectionRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -122,6 +125,13 @@ services:
 
   Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository
+
+  # The offline-sync half of `inspections`: the three columns
+  # InspectionRepositoryPort deliberately does not carry. Separate port because
+  # `save(Inspection)` leaves record_status/intervention_id/revision untouched
+  # and therefore cannot bump the canonical If-Match revision.
+  Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\CanonicalInspectionRepository
 
   # Cross-module: the owning module implements the port, this module declares
   # it. Same direction as FacilityValidationPort / EquipmentValidationPort
@@ -232,6 +242,18 @@ services:
       $transactionManager: '@inspection.main_transaction_manager'
     tags: ['messenger.message_handler']
 
+  # Canonical (flat, offline-syncable) inspection mutations. Same `main`
+  # transaction manager, same reason as above.
+  Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection\PatchCanonicalInspectionHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\DeleteCanonicalInspection\DeleteCanonicalInspectionHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   # Query Handlers
   Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionHandler:
     tags: ['messenger.message_handler']
@@ -258,5 +280,8 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionHandler:
     tags: ['messenger.message_handler']
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Domain\Model\Response;
 
 use DateTimeImmutable;
-use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseRevisionMismatchException};
+use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionRevisionMismatchException};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 
 /**
@@ -212,12 +212,12 @@ final class InspectionResponse
    *
    * @param int $expectedRevision the revision the caller declared through `If-Match`
    *
-   * @throws InspectionResponseRevisionMismatchException when the stored revision moved on
+   * @throws InspectionRevisionMismatchException when the stored revision moved on
    */
   public function assertRevisionMatches(int $expectedRevision): void
   {
     if ($this->revision !== $expectedRevision) {
-      throw InspectionResponseRevisionMismatchException::stale();
+      throw InspectionRevisionMismatchException::stale();
     }
   }
 
