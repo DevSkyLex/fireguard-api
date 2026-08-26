@@ -116,6 +116,14 @@ api_platform:
     Compliance\Domain\Exception\ComplianceExportNotEntitledException: 403
     Compliance\Domain\Exception\ComplianceNotFoundException: 404
     Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotFoundException: 404
+    # The canonical (flat, offline-syncable) equipment surface, whose
+    # mutations moved out of CanonicalEquipmentMutationProcessor. 422 covers
+    # all five of its refusals — a non-nullable field sent as null, an
+    # unsupported enum value, an illegal transition, a foreign facility, and
+    # an in-service asset left without one — which is the status the
+    # processor emitted for each.
+    Equipment\Domain\Exception\CanonicalEquipmentValidationException: 422
+    Equipment\Domain\Exception\EquipmentRevisionMismatchException: 412
     Equipment\Domain\Exception\AttachmentNotFoundException: 404
     Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException: 409
     Equipment\Domain\Exception\EquipmentNotFoundException: 404

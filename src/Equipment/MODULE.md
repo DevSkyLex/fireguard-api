@@ -525,9 +525,85 @@ That one aside, the coupling underneath is untouched: `EquipmentRecord` still
 declares `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
 schema-level.
 
+### The canonical equipment mutations run on use cases (2026-08-26)
+
+`CanonicalEquipmentMutationProcessor` was 385 lines holding three
+`persist`/`flush`/`remove` sites, the published status machine, the
+draft/published split, the `commissionedAt` stamp, the maintenance-log sync,
+the four audit events and their post-commit dispatch. It is now HTTP
+translation only, and **holds no entity manager**.
+
+| Concern | Where it lives now |
+| --- | --- |
+| `PATCH /api/equipment/{id}` | `Application/UseCase/Command/Equipment/PatchCanonicalEquipment/` |
+| `DELETE /api/equipment/{id}` | `Application/UseCase/Command/Equipment/DeleteCanonicalEquipment/` |
+| Read one, for the gate | `Application/UseCase/Query/Equipment/GetCanonicalEquipment/` |
+| Status machine, draft/published split, `commissionedAt`, in-service rule, revision bump, idempotent retire | `Domain/Model/Equipment/CanonicalEquipment` |
+| Persistence | `Infrastructure/…/Repository/CanonicalEquipmentRepository` (port: `CanonicalEquipmentRepositoryPort`) |
+| Intervention revision touch | `Equipment\Application\Port\Outbound\InterventionScopePort` |
+
+**Two Domain models over one table, on purpose** — the same split the
+Inspection module made on the same day, for the same reason: the `Equipment`
+aggregate does not carry `record_status`, `intervention_id` or `revision`, so
+saving it can never bump the revision the canonical `If-Match` contract is
+built on. `src/Inspection/MODULE.md` carries the long-form account.
+
+**`type` is deliberately NOT narrowed to `EquipmentType`.**
+`PatchCanonicalEquipmentInput::$type` carries `#[Assert\Length(max: 32)]`, not
+`#[Assert\Choice]`, so this surface has always accepted a type outside the
+enum and written it through. Modelling it as the enum would turn today's 200
+into a 422 — a contract change, not a refactor's side effect. `status` IS an
+enum, because its DTO field always had `#[Assert\Choice]`.
+
+**The validation order is load-bearing** and is now split across two objects
+so it can stay what it was: `CanonicalEquipmentPatch::assertNonNullableFieldsArePresent()`
+rejects a null `type` then a null `status`, the handler then checks the
+facility's organization, and only then does the model apply the patch and run
+the in-service and transition rules. A request carrying several mistakes at
+once gets the same message it got before.
+
+**The in-service rule fires on every patch**, not only on a status change: a
+request that merely clears the facility of an operational asset is exactly
+the one it rejects (`In-service equipment must be assigned to a facility.`).
+
+**The canonical DELETE contract**, unchanged and now stated by
+`DeleteCanonicalEquipmentHandler`: a draft scratchpad row is hard-deleted; a
+published one retires to `decommissioned` — TERMINAL and never reversible,
+unlike the inspection surface's `cancelled` — closing any still-open
+maintenance log; a repeat DELETE is an idempotent no-op that does **not** bump
+the revision, sync the log or reach the ledger.
+
+**Audit events are still dispatched after the commit**, now by the handlers.
+The ledger is on the `auth` database and commits independently, so an event
+dispatched inside the transaction could describe a mutation `main` then rolled
+back — a phantom row in an append-only, hash-chained ledger.
+`PatchCanonicalEquipmentHandlerTest::testARolledBackMutationAuditsNothing`
+freezes it.
+
+**What deliberately stayed in the processor**: the authorization gate (the
+permission depends on the request, and a row loaded by GLOBAL id must answer
+404 rather than 403 outside the caller's organization), `MergePatchFields`
+plus the facility IRI parse (absent-key versus explicit-null is a fact about
+the HTTP body a deserialized DTO has lost; an IRI is transport, an identifier
+is not), and the output (`CanonicalEquipmentProvider` joins tags and facility
+names the write path has no reason to carry).
+
 ## Configuration
 
 - Service wiring: `config/modules/equipment.yaml`
+- `CanonicalEquipmentRepositoryPort` is aliased to `CanonicalEquipmentRepository`,
+  wired to `main` explicitly. It is a **second** port over the `equipment`
+  table, next to `EquipmentRepositoryPort` — see the architecture section for
+  why one cannot serve both.
+- `Equipment\Application\Port\Outbound\InterventionScopePort` is aliased to
+  `Intervention\Infrastructure\Adapter\Equipment\InterventionScopeAdapter`.
+  It is a **twin** of the Inspection module's port of the same name: each
+  consumer owns its own, exactly as the two `FacilityValidationPort`s coexist.
+- `PatchCanonicalEquipmentHandler` and `DeleteCanonicalEquipmentHandler` name
+  `@equipment.main_transaction_manager` explicitly; autowiring would open a
+  transaction on the `auth` connection while the writes go to `main`.
+- `CanonicalEquipmentMutationProcessor` names **no** `$entityManager`, and
+  must not: it holds none.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
 - `MaintenanceDueStatusPort`'s adapter is aliased in `config/modules/maintenance.yaml`
   (adapter hosted in the Maintenance module), not here — see L2.10 above.
@@ -546,6 +622,25 @@ schema-level.
 ## Testing
 
 - Unit: `tests/Unit/Equipment/`
+  - `Domain/Model/Equipment/CanonicalEquipmentTest` — the canonical rules with
+    no container and no mocks: the transition table, the `commissionedAt`
+    stamp and its survival across a re-commission, the in-service rule firing
+    on every patch, the scratchpad bypass, `type`-before-`status` validation
+    order, explicit-null erasure versus absent key, the idempotent retire that
+    must not bump the revision, and the unknown `type` that must still be
+    accepted.
+  - `Application/UseCase/Command/Equipment/{Patch,Delete}CanonicalEquipment`
+    and `Application/UseCase/Query/Equipment/GetCanonicalEquipment` — the
+    orchestration: which event fires for which transition, the maintenance-log
+    sync and the three paths that must sync and audit **nothing** (scratchpad,
+    no-status-change, idempotent repeat DELETE), the post-commit guarantee,
+    the null-field-before-facility ordering, and the revision re-check inside
+    the handler's own transaction.
+  - `Presentation/Api/Processor/Equipment/CanonicalEquipmentMutationProcessorTest`
+    — what the processor still owns: the gate order (404 before 428), which
+    permission a scratchpad row asks the intervention for, 404 rather than 403
+    outside the organization, the merge-patch `has*` flags, and the facility
+    IRI parse.
   - `Application/UseCase/Query/Equipment/GetEquipmentKpis/GetEquipmentKpisHandlerTest`
     (L2.11) — invalid organization id, compliant/dueSoon tally from a mocked
     batch due-status map, zero-equipment case.
@@ -555,6 +650,20 @@ schema-level.
 - Cross-module adapter unit test hosted in Inspection (composes existing,
   already-tested repository calls — no new DQL, so no new integration test):
   `tests/Unit/Inspection/Infrastructure/Adapter/Equipment/EquipmentNonConformityStatisticsAdapterTest`.
+- Functional: `tests/Functional/Api/CanonicalEquipmentApiTest` — the whole
+  `PATCH`/`DELETE /api/equipment/{id}` contract, one HTTP request per test:
+  200 + bumped revision on a legal transition, 422 on an illegal one, on a
+  null non-nullable field, on a foreign facility and on an in-service asset
+  left without one, 204 for the retire / the scratchpad hard-delete / the
+  idempotent repeat, 412 on a stale revision, 404 before 428 on an unknown id,
+  404 on a malformed one, 404 for a foreign organization (never 403), and 403
+  for a member without write.
+- Integration (real database):
+  `tests/Integration/Equipment/Infrastructure/Persistence/Doctrine/Repository/CanonicalEquipmentRepositoryTest`
+  — that `findById()` carries the columns the aggregate does not, that
+  `save()` writes the mutable ones and **leaves `record_status`,
+  `intervention_id` and `client_id` alone**, and that `save()` on an absent
+  row inserts nothing.
 - Functional: `tests/Functional/Api/EquipmentApiTest::testGetEquipmentKpisRequiresAuthentication`.
 - Attachment MIME/size validation (closed 2026-08-19):
   - `tests/Unit/Equipment/Presentation/Api/Processor/Media/MediaProcessorTest`
@@ -612,6 +721,12 @@ schema-level.
 - `EquipmentSerialNumberAlreadyExistsException` → 409
 - `EquipmentAlreadyDecommissionedException` → 409 (processors map it via `ConflictHttpException`;
   note this module's own text elsewhere says 422 — treat 409 as authoritative, matching the code)
+- `CanonicalEquipmentValidationException` → 422 — the canonical surface's five
+  refusals: a non-nullable field sent as null, an unsupported enum value, an
+  illegal status transition, a facility from another organization, and an
+  in-service asset left without one
+- `EquipmentRevisionMismatchException` → 412 (`If-Match` lost the race between
+  the scope read on the query bus and the mutation's own transaction)
 - `AttachmentNotFoundException` → 404
 - `Shared\Domain\Attachment\InvalidAttachmentException` → 422 (MIME type,
   size, or the 25-attachment-per-equipment cap; `AttachmentConstraintExceptionSubscriber`
