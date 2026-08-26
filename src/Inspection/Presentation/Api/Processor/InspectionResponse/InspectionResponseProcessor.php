@@ -250,7 +250,11 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, $permission)) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
   }

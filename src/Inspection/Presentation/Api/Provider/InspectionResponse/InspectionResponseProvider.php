@@ -212,7 +212,15 @@ final readonly class InspectionResponseProvider implements ProviderInterface
   private function assertRead(?OrganizationRecord $organization): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser || !$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.inspection.read')) {
+    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
+    }
+
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
   }

@@ -500,6 +500,27 @@ of a foreign domain exception — then this baseline shrinks back. The other
 two imports are `OrganizationQuotaResource` / `OrganizationQuotaExceededException`
 on the inspection-creation quota path.
 
+### A foreign organization answers 404, never 403
+
+`CanonicalInspectionProvider`, `InspectionResponseProvider` and
+`InspectionResponseProcessor` gated on `hasPermission()` alone until
+2026-08-26. That answered **404** for an organization id that does not exist and
+**403** for a real one the caller does not belong to — letting an outsider
+enumerate organization ids by diffing the status.
+
+They now use `resolveAccess()`, which separates the two: `OUTSIDE_SCOPE` (not an
+active member, whether or not the organization exists) answers 404,
+`MISSING_PERMISSION` answers 403. Twenty-five sibling surfaces already did this,
+including `CanonicalFacilityProvider` and `CanonicalEquipmentProvider` — these
+three were the stragglers.
+
+`InspectionApiTest::testCanonicalInspectionCollectionDoesNotRevealForeignOrganizations`
+freezes it against a seeded organization the caller is not a member of. It
+failed with `403 is not identical to 404` before the fix.
+
+**Never gate one of these surfaces on `hasPermission()` alone.** It cannot tell
+"absent" from "not yours", and that difference is the oracle.
+
 **Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (4).**
 Down from 5 on 2026-08-26: `CanonicalInspectionMutationProcessor`'s
 `OrganizationRecord` uses were `instanceof` checks on a property the ORM

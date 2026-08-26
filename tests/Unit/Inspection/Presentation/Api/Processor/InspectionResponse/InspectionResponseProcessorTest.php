@@ -12,6 +12,7 @@ use Inspection\Presentation\Api\Dto\Input\InspectionResponse\CreateInspectionRes
 use Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -52,6 +53,7 @@ final class InspectionResponseProcessorTest extends TestCase
     $requestStack->push($request);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
       new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
