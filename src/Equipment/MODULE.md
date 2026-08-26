@@ -507,18 +507,25 @@ Cross-module contracts and lifecycle invariants:
   See `src/Import/MODULE.md`'s dry-run section and `src/Facility/MODULE.md`
   for the sibling implementation.
 
-**Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (3).**
-`CanonicalEquipmentMutationProcessor` and `CanonicalEquipmentProvider` resolve
-the owning organization with
-`$entityManager->find(OrganizationRecord::class, …)` and permission-check
-against `$organization->id`; the processor additionally reads
-`Facility\…\Record\FacilityRecord` to validate the assignment target. These are
-raw reads of another module's tables from the layer that should only translate
+**Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (2).**
+Down from 3 on 2026-08-26: `CanonicalEquipmentMutationProcessor`'s
+`OrganizationRecord` uses were `instanceof` checks on a property the ORM
+already types `?OrganizationRecord` — redundant, replaced by a null check.
+
+Two real reads remain. `CanonicalEquipmentProvider` resolves the owning
+organization with `$entityManager->find(OrganizationRecord::class, …)` and
+permission-checks against `$organization->id`; the mutation processor reads
+`Facility\…\Record\FacilityRecord` to validate the assignment target. Both are
+raw reads of another module's table from the layer that should only translate
 HTTP — CLAUDE.md rule 5, invisible to deptrac because its collectors are
 layer-shaped rather than module-shaped. Pinned by
-`PresentationInfrastructureBoundaryTest`; the fix is the owning modules
-publishing `Application\Port\Inbound` lookup ports (Organization has none
-today) and the surrounding decisions moving into handlers. Do not add a fourth.
+`PresentationInfrastructureBoundaryTest`; closing them needs the owning modules
+to publish `Application\Port\Inbound` lookup ports (Organization has none
+today). Do not add a third.
+
+Closing them would **not** remove the coupling underneath: `EquipmentRecord`
+declares `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`, which is
+schema-level.
 
 ## Configuration
 

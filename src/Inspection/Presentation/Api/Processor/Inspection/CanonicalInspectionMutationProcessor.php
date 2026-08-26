@@ -18,7 +18,6 @@ use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -158,7 +157,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     // assertPermission has already established a non-null organization; re-narrow
     // it for the type system so the organization id can feed the audit events.
     $organization = $record->organization;
-    if (!$organization instanceof OrganizationRecord) {
+    if (null === $organization) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $organizationId = $organization->id;
@@ -255,7 +254,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
   private function assertPermission(InspectionRecord $record): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser || !$record->organization instanceof OrganizationRecord) {
+    if (!$user instanceof SecurityUser || null === $record->organization) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 

@@ -620,16 +620,23 @@ and `CreateFacilityConsoleCommand` — are unrelated to quotas; the eventual
 fix is Organization publishing a contract identifier type. Do not add a
 third import; extend the contract surface instead.
 
-**Architecture debt — `Presentation` reaching into `Organization\Infrastructure` (2).**
-`CanonicalFacilityMutationProcessor` and `CanonicalFacilityProvider` each
-resolve the owning organization with
-`$entityManager->find(OrganizationRecord::class, …)`, then permission-check
-against `$organization->id`. That is a raw read of another module's table from
-the layer that should only translate HTTP — CLAUDE.md rule 5, invisible to
-deptrac because its collectors are layer-shaped rather than module-shaped.
-Pinned by `PresentationInfrastructureBoundaryTest`; the fix is Organization
-publishing an `Application\Port\Inbound` lookup port (it has none today) and
-the surrounding decision moving into a handler. Do not add a third.
+**Architecture debt — `Presentation` reaching into `Organization\Infrastructure` (1).**
+Down from 2 on 2026-08-26. `CanonicalFacilityMutationProcessor`'s two uses were
+`instanceof OrganizationRecord` on a property the ORM already types
+`?OrganizationRecord` — redundant, replaced by a null check, import gone.
+
+What remains is real: `CanonicalFacilityProvider` resolves the owning
+organization with `$entityManager->find(OrganizationRecord::class, …)`, then
+permission-checks against `$organization->id`. That is a raw read of another
+module's table from the layer that should only translate HTTP — CLAUDE.md
+rule 5, invisible to deptrac because its collectors are layer-shaped rather
+than module-shaped. Pinned by `PresentationInfrastructureBoundaryTest`; closing
+it needs Organization to publish an `Application\Port\Inbound` lookup port (it
+has none today). Do not add a second.
+
+Note that closing it would **not** remove the coupling underneath:
+`FacilityRecord` declares `#[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]`,
+which is schema-level and outlives any Presentation cleanup.
 
 ## Error Codes
 

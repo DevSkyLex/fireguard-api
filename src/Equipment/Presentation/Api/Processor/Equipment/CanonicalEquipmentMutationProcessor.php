@@ -20,7 +20,6 @@ use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Shared\Presentation\Api\Http\ResourceIriParser;
@@ -162,7 +161,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     // assertPermission has already established a non-null organization; re-narrow it
     // for the type system so the organization id can feed the maintenance-log sync.
     $organization = $record->organization;
-    if (!$organization instanceof OrganizationRecord) {
+    if (null === $organization) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $organizationId = $organization->id;
@@ -293,7 +292,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
   private function assertPermission(EquipmentRecord $record): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser || !$record->organization instanceof OrganizationRecord) {
+    if (!$user instanceof SecurityUser || null === $record->organization) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
