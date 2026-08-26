@@ -90,16 +90,16 @@ cs-fix:
 
 # Clear and warmup cache to detect configuration errors
 cache-clear:
-	$(PHP) $(CONSOLE_BIN) cache:clear
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) cache:clear
 
 
 # Apply auth database migrations
 migrate-auth:
-	$(PHP) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
 
 # Apply main database migrations
 migrate-main:
-	$(PHP) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
 
 # Apply all database migrations
 migrate-all: migrate-auth migrate-main
