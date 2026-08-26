@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
+use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
 use Inspection\Domain\Model\Inspection\CanonicalInspection;
-use Inspection\Domain\ValueObject\InspectionId;
+use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 
 /**
  * Port CanonicalInspectionRepositoryPort.
@@ -66,5 +67,73 @@ interface CanonicalInspectionRepositoryPort
    * @param InspectionId $id the inspection identifier
    */
   public function delete(InspectionId $id): void;
+
+  /**
+   * Method findReadById.
+   *
+   * Projects one row onto the read view the canonical GET answers with.
+   *
+   * Distinct from `findById()`: that one hydrates the mutation model, which
+   * carries neither `performed_at` nor the inspector quartet and carries
+   * invariants a read has no use for.
+   *
+   * The returned view's `nonConformitiesCount` is always 0 — the caller fills
+   * it from one grouped query, never from a lazy association.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionId $id the inspection identifier
+   *
+   * @return ?CanonicalInspectionReadView the read view when the row exists
+   */
+  public function findReadById(InspectionId $id): ?CanonicalInspectionReadView;
+
+  /**
+   * Method findReadByFilters.
+   *
+   * Lists an organization's inspections, oldest first, optionally narrowed to
+   * one intervention and/or one equipment item.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the owning organization
+   * @param ?string $interventionId narrow to one intervention, or null
+   * @param ?string $equipmentId narrow to one equipment item, or null
+   * @param string $recordStatus the representation lifecycle status
+   * @param int $limit the page size
+   * @param int $offset the page offset
+   *
+   * @return list<CanonicalInspectionReadView> the page of read views
+   */
+  public function findReadByFilters(
+    InspectionOrganizationId $organizationId,
+    ?string $interventionId,
+    ?string $equipmentId,
+    string $recordStatus,
+    int $limit,
+    int $offset,
+  ): array;
+
+  /**
+   * Method countReadByFilters.
+   *
+   * Counts the rows `findReadByFilters()` would page over, with the same
+   * filters and without projecting them.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the owning organization
+   * @param ?string $interventionId narrow to one intervention, or null
+   * @param ?string $equipmentId narrow to one equipment item, or null
+   * @param string $recordStatus the representation lifecycle status
+   *
+   * @return int the total row count
+   */
+  public function countReadByFilters(
+    InspectionOrganizationId $organizationId,
+    ?string $interventionId,
+    ?string $equipmentId,
+    string $recordStatus,
+  ): int;
   // #endregion
 }

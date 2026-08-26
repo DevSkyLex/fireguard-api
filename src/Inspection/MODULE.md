@@ -656,6 +656,43 @@ deserialized DTO has already lost — it travels into the command as `has*`
 flags), and the output (`CanonicalInspectionProvider` joins names the write
 path has no reason to carry).
 
+### The canonical inspection READS run on use cases too (2026-08-26)
+
+`CanonicalInspectionProvider` hand-assembled its collection DQL and reached
+`$record->nonConformities->count()` once per row. It is now query translation
+only, and **holds no entity manager**.
+
+| Concern | Where it lives now |
+| --- | --- |
+| `GET /api/inspections/{id}` | `Application/UseCase/Query/Inspection/ReadCanonicalInspection/` |
+| `GET /api/inspections` | `Application/UseCase/Query/Inspection/ListCanonicalInspections/` |
+| Which organization the two filters name | `Application/UseCase/Query/Inspection/ResolveCanonicalInspectionScope/` |
+| The filter clause itself | `CanonicalInspectionRepository::filtered()`, behind `findReadByFilters()` / `countReadByFilters()` |
+
+**A read projection, not the mutation model.** `CanonicalInspectionReadView`
+carries what the wire contract shows — `performed_at`, the inspector quartet,
+`facility_id`, `checklist_id`; `CanonicalInspection` carries what the canonical
+PATCH may change, plus the invariants guarding it. Hydrating the second to
+answer the first is how a list endpoint ends up paying for a write path, so
+`findReadById()` and `findReadByFilters()` sit next to `findById()` rather than
+replacing it.
+
+**One N+1 removed on the way.** `$record->nonConformities->count()` fired once
+per row; the handler now calls
+`NonConformityRepositoryPort::countsByInspectionIds()` **once for the whole
+page** — the port already existed. The item read uses the same call, so the
+detail and the listing can never report a different number for the same row.
+This is the defect L1.10b fixed on the checklist listing, in the same shape.
+
+The response is unchanged: the counts are identical, and the eleven assertions
+of `tests/Integration/…/CanonicalInspectionProviderTest` — written against the
+hand-written DQL and the lazy count — pass unmodified. Only the provider's
+construction in the test helper changed, and it now builds the real handlers
+over the real repositories.
+
+**Same two-query shape as the responses surface**: resolve the organization,
+gate on it, then list. The gate must run before any row is read.
+
 ### The inspection-response READS run on use cases too (2026-08-26)
 
 `InspectionResponseProvider` hand-assembled its collection DQL — organization
@@ -780,9 +817,9 @@ and reachable on its own; only which of the two failures wins moved.
   `@inspection.main_transaction_manager` explicitly. Autowiring would hand over
   the default transaction manager, which opens a transaction on the `auth`
   connection while the writes go to `main` — a rollback that rolls nothing back.
-- `InspectionResponseProcessor`, `CanonicalInspectionMutationProcessor` and
-  `InspectionResponseProvider` name **no** `$entityManager`, and must not:
-  none of them holds one.
+- `InspectionResponseProcessor`, `CanonicalInspectionMutationProcessor`,
+  `InspectionResponseProvider` and `CanonicalInspectionProvider` name **no**
+  `$entityManager`, and must not: none of them holds one.
 - `Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort` is
   aliased to `CanonicalInspectionRepository`, wired to `main` explicitly. It is
   a **second** port over the `inspections` table, next to
@@ -845,6 +882,11 @@ and reachable on its own; only which of the two failures wins moved.
     — what the processor still owns: the gate order (404 before 428), which
     permission a scratchpad row asks the intervention for, 404 rather than 403
     outside the organization, and the merge-patch `has*` flags.
+  - `Application/UseCase/Query/Inspection/{ReadCanonicalInspection,ListCanonicalInspections,ResolveCanonicalInspectionScope}`
+    — the `recordStatus` default, the equipment filter, the one-based page
+    turned into an offset, the empty page that asks for no counts at all, and
+    the non-conformity counts coming from ONE grouped call with a row absent
+    from the map meaning zero rather than a missing key.
   - `Application/UseCase/Query/Response/{ListInspectionResponses,ResolveInspectionResponseScope}`
     — the `recordStatus` default (published by default, drafts when scoped to
     an intervention, explicit always wins), the one-based page turned into an
