@@ -8,11 +8,9 @@ use Inspection\Application\Port\Outbound\{InspectionMaintenanceSynchronizerPort,
 use Inspection\Domain\Event\Inspection\InspectionClosedEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
-use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 /**
@@ -44,12 +42,8 @@ final readonly class CloseInspectionHandler implements CommandHandler
    */
   public function __invoke(CloseInspectionCommand $command): CloseInspectionResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($command->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($command->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
 
     $inspection = $this->inspectionRepository->findPublishedById($inspectionId);
 

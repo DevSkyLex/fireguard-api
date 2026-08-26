@@ -8,12 +8,10 @@ use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, In
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
 use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, InspectionOrganizationId, NonConformityId};
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
-use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 /**
@@ -50,13 +48,9 @@ final readonly class AddInspectionAttachmentHandler implements CommandHandler
    */
   public function __invoke(AddInspectionAttachmentCommand $command): AddInspectionAttachmentResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($command->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-      $nonConformityId = null === $command->nonConformityId ? null : NonConformityId::fromString($command->nonConformityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($command->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
+    $nonConformityId = null === $command->nonConformityId ? null : NonConformityId::fromString($command->nonConformityId);
 
     $inspection = $this->inspectionRepository->findById($inspectionId);
 
@@ -71,14 +65,10 @@ final readonly class AddInspectionAttachmentHandler implements CommandHandler
       }
     }
 
-    try {
-      /** @var InspectionAttachmentId $attachmentId */
-      $attachmentId = null === $command->attachmentId
-        ? $this->uuidFactory->create(InspectionAttachmentId::class)
-        : InspectionAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    /** @var InspectionAttachmentId $attachmentId */
+    $attachmentId = null === $command->attachmentId
+      ? $this->uuidFactory->create(InspectionAttachmentId::class)
+      : InspectionAttachmentId::fromString($command->attachmentId);
 
     // A client-supplied id that already exists is a retry overwriting its own
     // row, not a new attachment — it must not be rejected at the cap. Each

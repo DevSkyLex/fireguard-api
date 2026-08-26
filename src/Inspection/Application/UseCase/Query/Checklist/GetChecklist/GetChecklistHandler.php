@@ -7,9 +7,7 @@ namespace Inspection\Application\UseCase\Query\Checklist\GetChecklist;
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase GetChecklistHandler.
@@ -37,12 +35,8 @@ final readonly class GetChecklistHandler implements QueryHandler
    */
   public function __invoke(GetChecklistQuery $query): GetChecklistResult
   {
-    try {
-      $checklistId = ChecklistId::fromString($query->checklistId);
-      $organizationId = ChecklistOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $checklistId = ChecklistId::fromString($query->checklistId);
+    $organizationId = ChecklistOrganizationId::fromString($query->organizationId);
 
     $checklist = $this->checklistRepository->findById($checklistId);
 

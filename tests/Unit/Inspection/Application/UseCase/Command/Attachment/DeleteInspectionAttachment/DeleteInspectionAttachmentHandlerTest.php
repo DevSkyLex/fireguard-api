@@ -18,11 +18,11 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DeleteInspectionAttachmentHandler::class)]
 final class DeleteInspectionAttachmentHandlerTest extends TestCase
@@ -136,7 +136,7 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
       fileStorage: $this->createStub(FileStoragePort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new DeleteInspectionAttachmentCommand(
       organizationId: self::ORG_ID,

@@ -17,12 +17,12 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListInspectionsHandler::class)]
 final class ListInspectionsHandlerTest extends TestCase
@@ -165,7 +165,7 @@ final class ListInspectionsHandlerTest extends TestCase
       checklistRepository: $this->createStub(ChecklistRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListInspectionsQuery(
       organizationId: self::ORG_ID,
@@ -185,7 +185,7 @@ final class ListInspectionsHandlerTest extends TestCase
       checklistRepository: $this->createStub(ChecklistRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListInspectionsQuery(
       organizationId: self::ORG_ID,

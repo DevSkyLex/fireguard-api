@@ -7,7 +7,6 @@ namespace Inspection\Application\UseCase\Query\NonConformity\ListNonConformities
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
-use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -48,7 +47,7 @@ final readonly class ListNonConformitiesHandler implements QueryHandler
       $severity = null !== $query->severity ? NonConformitySeverity::from($query->severity)->value : null;
       $status = null !== $query->status ? NonConformityStatus::from($query->status)->value : null;
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $inspection = $this->inspectionRepository->findById($inspectionId);

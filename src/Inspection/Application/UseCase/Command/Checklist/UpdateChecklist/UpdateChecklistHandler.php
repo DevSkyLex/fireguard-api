@@ -9,7 +9,6 @@ use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, InspectionRep
 use Inspection\Domain\Exception\{ChecklistInUseException, ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Domain\Model\Checklist\ChecklistItem;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, InspectionOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -57,15 +56,11 @@ final readonly class UpdateChecklistHandler implements CommandHandler
    */
   public function __invoke(UpdateChecklistCommand $command): UpdateChecklistResult
   {
-    try {
-      $checklistId = ChecklistId::fromString($command->checklistId);
-      $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
+    $checklistId = ChecklistId::fromString($command->checklistId);
+    $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
 
-      if ($command->hasName && null === $command->name) {
-        throw new InvalidArgumentException('Field "name" cannot be null when provided.');
-      }
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    if ($command->hasName && null === $command->name) {
+      throw InvalidValueException::because('Field "name" cannot be null when provided.');
     }
 
     $checklist = $this->checklistRepository->findById($checklistId);

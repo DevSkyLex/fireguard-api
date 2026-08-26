@@ -7,9 +7,7 @@ namespace Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachme
 use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase ListInspectionAttachmentsHandler.
@@ -39,13 +37,9 @@ final readonly class ListInspectionAttachmentsHandler implements QueryHandler
    */
   public function __invoke(ListInspectionAttachmentsQuery $query): ListInspectionAttachmentsResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($query->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($query->organizationId);
-      $nonConformityId = null === $query->nonConformityId ? null : NonConformityId::fromString($query->nonConformityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($query->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($query->organizationId);
+    $nonConformityId = null === $query->nonConformityId ? null : NonConformityId::fromString($query->nonConformityId);
 
     $inspection = $this->inspectionRepository->findById($inspectionId);
 

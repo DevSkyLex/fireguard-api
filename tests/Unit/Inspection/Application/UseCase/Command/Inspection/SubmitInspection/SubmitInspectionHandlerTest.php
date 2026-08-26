@@ -22,11 +22,11 @@ use Inspection\Domain\ValueObject\{
   InspectionStatus,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test SubmitInspectionHandlerTest.
@@ -144,7 +144,7 @@ final class SubmitInspectionHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new SubmitInspectionCommand(
       organizationId: self::ORG_ID,

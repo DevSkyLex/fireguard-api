@@ -8,10 +8,8 @@ use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Event\Inspection\InspectionCancelledEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\Exception\InvalidValueException;
 
 final readonly class CancelInspectionHandler implements CommandHandler
 {
@@ -23,12 +21,8 @@ final readonly class CancelInspectionHandler implements CommandHandler
 
   public function __invoke(CancelInspectionCommand $command): CancelInspectionResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($command->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($command->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
 
     $inspection = $this->inspectionRepository->findPublishedById($inspectionId);
 

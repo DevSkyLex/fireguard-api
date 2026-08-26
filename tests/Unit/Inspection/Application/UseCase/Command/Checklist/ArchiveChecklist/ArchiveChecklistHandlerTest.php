@@ -13,10 +13,10 @@ use Inspection\Application\UseCase\Command\Checklist\ArchiveChecklist\{
 use Inspection\Domain\Exception\{ChecklistArchivedException, ChecklistNotFoundException};
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test ArchiveChecklistHandler.
@@ -94,7 +94,7 @@ final class ArchiveChecklistHandlerTest extends TestCase
 
     $handler = new ArchiveChecklistHandler(checklistRepository: $repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ArchiveChecklistCommand(
       organizationId: self::ORG_ID,

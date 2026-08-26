@@ -22,9 +22,9 @@ use Inspection\Domain\ValueObject\{
   NonConformityInspectionId,
   NonConformitySeverity
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListInspectionAttachmentsHandler::class)]
 final class ListInspectionAttachmentsHandlerTest extends TestCase
@@ -184,7 +184,7 @@ final class ListInspectionAttachmentsHandlerTest extends TestCase
       attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListInspectionAttachmentsQuery(
       organizationId: self::ORG_ID,

@@ -25,9 +25,9 @@ use Inspection\Domain\ValueObject\{
   NonConformitySeverity,
   NonConformityStatus
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test GetNonConformityHandlerTest.
@@ -140,7 +140,7 @@ final class GetNonConformityHandlerTest extends TestCase
       $this->createStub(NonConformityRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetNonConformityQuery(
       organizationId: 'not-a-uuid',

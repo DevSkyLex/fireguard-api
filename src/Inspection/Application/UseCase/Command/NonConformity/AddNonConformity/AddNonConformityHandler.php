@@ -53,12 +53,8 @@ final readonly class AddNonConformityHandler implements CommandHandler
    */
   public function __invoke(AddNonConformityCommand $command): AddNonConformityResult
   {
-    try {
-      $organizationId = InspectionOrganizationId::fromString($command->organizationId);
-      $inspectionId = InspectionId::fromString($command->inspectionId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = InspectionOrganizationId::fromString($command->organizationId);
+    $inspectionId = InspectionId::fromString($command->inspectionId);
 
     $inspection = $this->inspectionRepository->findById($inspectionId);
 
@@ -86,10 +82,10 @@ final readonly class AddNonConformityHandler implements CommandHandler
         notes: $command->notes,
       );
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     } catch (Exception $exception) {
       if (!$exception instanceof InvalidArgumentException) {
-        throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+        throw InvalidValueException::because($exception->getMessage(), $exception);
       }
 
       throw $exception;

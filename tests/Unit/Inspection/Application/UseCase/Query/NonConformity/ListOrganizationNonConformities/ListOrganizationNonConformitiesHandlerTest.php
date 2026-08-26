@@ -8,12 +8,12 @@ use Inspection\Application\Port\Outbound\{EquipmentNamingPort, InspectionReposit
 use Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNonConformities\{ListOrganizationNonConformitiesHandler, ListOrganizationNonConformitiesQuery, OrganizationNonConformityResult};
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformitySeverity};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListOrganizationNonConformitiesHandler::class)]
 final class ListOrganizationNonConformitiesHandlerTest extends TestCase
@@ -186,7 +186,7 @@ final class ListOrganizationNonConformitiesHandlerTest extends TestCase
       equipmentNaming: $this->createStub(EquipmentNamingPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListOrganizationNonConformitiesQuery(
       organizationId: self::ORG_ID,
@@ -203,7 +203,7 @@ final class ListOrganizationNonConformitiesHandlerTest extends TestCase
       equipmentNaming: $this->createStub(EquipmentNamingPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListOrganizationNonConformitiesQuery(
       organizationId: self::ORG_ID,
