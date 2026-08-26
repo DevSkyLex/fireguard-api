@@ -13,9 +13,9 @@ use RuntimeException;
  * organization, or they are already on the team. Distinct from
  * `TeamMemberNotFoundException`, which means no such membership row exists.
  *
- * Mapped to 400 — what the `InvalidArgumentException` it replaces already
- * answered. "Already part of this team" is a conflict and would read better as
- * 409; that is a contract decision, deliberately not taken here.
+ * Mapped to **409**, arbitrated 2026-08-26. Both arms are state conflicts: the
+ * member exists and the caller is entitled, the team's or the membership's
+ * current state is what forbids the addition.
  *
  * @category Exception
  *

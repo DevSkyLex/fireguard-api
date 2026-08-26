@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\AddOrganizationMember;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -16,6 +15,7 @@ use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\OrganizationUserNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -525,7 +525,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationUserNotFoundException::class);
     $this->expectExceptionMessage('User not found.');
 
     $handler->__invoke(new AddOrganizationMemberCommand(

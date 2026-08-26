@@ -14,9 +14,10 @@ use RuntimeException;
  * `PlanKeyAlreadyExistsException` and `TeamNameAlreadyExistsException`, which
  * model the same uniqueness family.
  *
- * Mapped to 400 — what the `InvalidArgumentException` it replaces already
- * answered. Its two siblings answer 409, which is the inconsistency this class
- * makes visible rather than resolves: changing it is a contract decision.
+ * Mapped to **409**, arbitrated 2026-08-26 — the same status its two siblings
+ * already answered. It answered 400 only because it was a bare
+ * `InvalidArgumentException`; the split with `PlanKeyAlreadyExistsException`
+ * and `TeamNameAlreadyExistsException` is now closed.
  *
  * @category Exception
  *

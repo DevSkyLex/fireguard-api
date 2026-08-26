@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\InviteOrganizationMember;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
@@ -18,6 +17,7 @@ use Organization\Domain\Exception\{
   OrganizationNotFoundException,
   OrganizationRoleNotFoundException
 };
+use Organization\Domain\Exception\OrganizationMembershipConflictException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -713,7 +713,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationMembershipConflictException::class);
     $this->expectExceptionMessage('A pending invitation already exists for this email.');
 
     $handler->__invoke(new InviteOrganizationMemberCommand(
@@ -786,7 +786,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       userRepository: $userRepository,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationMembershipConflictException::class);
     $this->expectExceptionMessage('User is already an active member of this organization.');
 
     $handler->__invoke(new InviteOrganizationMemberCommand(

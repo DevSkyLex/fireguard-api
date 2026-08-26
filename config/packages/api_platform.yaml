@@ -167,17 +167,26 @@ api_platform:
     # this refactor.
     Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
     Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400
-    # Organization's domain conditions, at the statuses their `catch` clauses
-    # already served. Several read better as 409 — an invitation that is no
-    # longer pending, a role name already taken, a member already on a team —
-    # and the classes' own docblocks say so. Changing one is a contract
-    # decision, not a refactor's side effect.
+    # Organization's domain conditions. The conflict family answers 409 as of
+    # 2026-08-26, arbitrated rather than inherited: each of these is a
+    # well-formed request from an entitled caller that the organization's
+    # current state forbids, which is what 409 means. They answered 400 only
+    # because they were all bare `InvalidArgumentException` and one generic
+    # catch decided for them. `PlanKeyAlreadyExistsException` and
+    # `TeamNameAlreadyExistsException` were already 409 for the same family —
+    # this closes that split rather than widening it.
     Organization\Domain\Exception\DefaultPlanCannotBeDeletedException: 409
-    Organization\Domain\Exception\OrganizationInvitationNotPendingException: 400
-    Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException: 400
-    Organization\Domain\Exception\OrganizationSystemRoleImmutableException: 400
+    Organization\Domain\Exception\OrganizationInvitationNotPendingException: 409
+    Organization\Domain\Exception\OrganizationMembershipConflictException: 409
+    Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException: 409
+    Organization\Domain\Exception\OrganizationSystemRoleImmutableException: 409
+    Organization\Domain\Exception\TeamMembershipException: 409
+    # Not a conflict: the plan exists and the caller may subscribe, the value
+    # they chose is simply not one of the available ones.
     Organization\Domain\Exception\PlanNotAvailableException: 400
-    Organization\Domain\Exception\TeamMembershipException: 400
+    # The referenced user does not exist. 400 said "your request is malformed"
+    # about a well-formed request naming an absent resource.
+    Organization\Domain\Exception\OrganizationUserNotFoundException: 404
     Organization\Domain\Exception\OrganizationAccessDeniedException: 403
     Organization\Domain\Exception\OrganizationArchivedException: 409
     Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422

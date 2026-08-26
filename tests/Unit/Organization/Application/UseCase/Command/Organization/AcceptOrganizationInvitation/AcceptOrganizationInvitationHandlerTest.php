@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -829,8 +828,13 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->createHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Invitation email does not match the authenticated user.');
+    // The message is asserted BYTE FOR BYTE against the one a nonexistent token
+    // produces. That identity is the whole point: a caller holding a stolen or
+    // guessed token must not be able to tell "real, but addressed to someone
+    // else" from "no such token". Asserting only the class would let a future
+    // edit reintroduce a distinguishing message and keep this test green.
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+    $this->expectExceptionMessage('Organization invitation token is invalid or no longer available.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(
       token: $token,

@@ -86,6 +86,18 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     $ownerUser = $this->userRepository->findById($ownerUserId);
 
     if (null === $ownerUser) {
+      // Left as InvalidArgumentException — and therefore a 500 — on purpose.
+      //
+      // `$command->ownerUserId` is the caller's own authenticated identity, so
+      // this looks unreachable. It is not: `SecurityUserProvider::loadUserById()`
+      // reads a cache before the database, with a 15-second TTL, so a user
+      // deleted mid-session keeps authenticating until that entry expires and
+      // arrives here with no row behind them. The window is small but real.
+      //
+      // A 500 is the honest answer for it: the caller's own account vanished
+      // between authentication and this line, which is an inconsistent state
+      // rather than a bad request. Converting it to a 4xx would report the
+      // server's own stale cache as the client's fault.
       throw new InvalidArgumentException('Owner user not found.');
     }
 

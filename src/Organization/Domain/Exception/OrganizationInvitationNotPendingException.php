@@ -12,10 +12,10 @@ use RuntimeException;
  * Raised when an invitation cannot be acted on because it is no longer
  * pending — already accepted, already revoked, or expired.
  *
- * Mapped to 400, which is what the `InvalidArgumentException` it replaces
- * already answered. **409 is the more honest reading** — the invitation exists
- * and the request is well formed, the state simply forbids the action — but
- * changing it is a contract decision, not a refactor's side effect.
+ * Mapped to **409**, arbitrated 2026-08-26. The invitation exists and the
+ * request is well formed; its state is what forbids the action. It answered
+ * 400 only because it was a bare `InvalidArgumentException` and one generic
+ * catch decided for it.
  *
  * @category Exception
  *
