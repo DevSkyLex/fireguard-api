@@ -7,7 +7,6 @@ namespace Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
@@ -41,12 +40,8 @@ final readonly class UpdateEquipmentHandler implements CommandHandler
    */
   public function __invoke(UpdateEquipmentCommand $command): UpdateEquipmentResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 
@@ -64,7 +59,7 @@ final readonly class UpdateEquipmentHandler implements CommandHandler
         locationLabel: $command->locationLabel,
       );
     } catch (ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $this->equipmentRepository->save($equipment);

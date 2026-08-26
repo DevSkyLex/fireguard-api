@@ -7,9 +7,7 @@ namespace Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 
@@ -40,12 +38,8 @@ final readonly class ListMaintenanceLogsHandler implements QueryHandler
    */
   public function __invoke(ListMaintenanceLogsQuery $query): ListMaintenanceLogsResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($query->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($query->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 

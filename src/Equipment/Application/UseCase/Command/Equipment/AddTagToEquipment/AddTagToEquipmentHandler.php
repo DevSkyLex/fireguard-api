@@ -8,10 +8,8 @@ use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryP
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, TagId};
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function mb_strtolower;
 use function trim;
@@ -44,12 +42,8 @@ final readonly class AddTagToEquipmentHandler implements CommandHandler
    */
   public function __invoke(AddTagToEquipmentCommand $command): AddTagToEquipmentResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 

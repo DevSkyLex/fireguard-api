@@ -9,10 +9,10 @@ use Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment\{Remo
 use Equipment\Domain\Exception\{EquipmentNotFoundException, TagNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(RemoveTagFromEquipmentHandler::class)]
 final class RemoveTagFromEquipmentHandlerTest extends TestCase
@@ -128,7 +128,7 @@ final class RemoveTagFromEquipmentHandlerTest extends TestCase
       tagRepository: $tagRepository,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new RemoveTagFromEquipmentCommand(
       organizationId: 'not-a-uuid',

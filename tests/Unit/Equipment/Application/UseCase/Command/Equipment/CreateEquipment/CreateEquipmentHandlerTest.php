@@ -8,7 +8,6 @@ use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\ValueObject\EquipmentId;
-use InvalidArgumentException;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -16,6 +15,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CreateEquipmentHandler::class)]
 final class CreateEquipmentHandlerTest extends TestCase
@@ -36,7 +36,7 @@ final class CreateEquipmentHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateEquipmentCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440981',

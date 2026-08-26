@@ -10,10 +10,10 @@ use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentHand
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(GetEquipmentHandler::class)]
 final class GetEquipmentHandlerTest extends TestCase
@@ -36,7 +36,7 @@ final class GetEquipmentHandlerTest extends TestCase
       facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetEquipmentQuery(
       organizationId: self::ORG_ID,

@@ -22,10 +22,10 @@ use Equipment\Domain\Exception\{
 };
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test SetEquipmentPlanPositionHandlerTest.
@@ -151,7 +151,7 @@ final class SetEquipmentPlanPositionHandlerTest extends TestCase
 
     $handler = $this->handler($equipmentRepository, $floorPlanValidation);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new SetEquipmentPlanPositionCommand(
       organizationId: self::ORG_ID,

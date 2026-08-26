@@ -10,11 +10,11 @@ use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundEx
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DeleteAttachmentHandler::class)]
 final class DeleteAttachmentHandlerTest extends TestCase
@@ -193,7 +193,7 @@ final class DeleteAttachmentHandlerTest extends TestCase
       fileStorage: $fileStorage,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new DeleteAttachmentCommand(
       organizationId: 'not-a-uuid',

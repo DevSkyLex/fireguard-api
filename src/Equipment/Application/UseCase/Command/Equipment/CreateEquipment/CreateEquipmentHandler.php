@@ -7,7 +7,6 @@ namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Shared\Application\Factory\UuidFactory;
@@ -82,7 +81,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
         locationLabel: $command->locationLabel,
       );
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if ($command->dryRun) {

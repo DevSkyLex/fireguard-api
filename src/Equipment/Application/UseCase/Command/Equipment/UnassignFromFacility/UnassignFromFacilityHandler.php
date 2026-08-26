@@ -7,9 +7,7 @@ namespace Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 
@@ -41,12 +39,8 @@ final readonly class UnassignFromFacilityHandler implements CommandHandler
    */
   public function __invoke(UnassignFromFacilityCommand $command): UnassignFromFacilityResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 

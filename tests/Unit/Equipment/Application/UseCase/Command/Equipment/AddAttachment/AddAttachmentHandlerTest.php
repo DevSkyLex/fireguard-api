@@ -9,7 +9,6 @@ use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachment
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -17,6 +16,7 @@ use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(AddAttachmentHandler::class)]
 final class AddAttachmentHandlerTest extends TestCase
@@ -253,7 +253,7 @@ final class AddAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -320,7 +320,7 @@ final class AddAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddAttachmentCommand(
       organizationId: self::ORG_ID,
