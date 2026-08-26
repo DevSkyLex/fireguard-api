@@ -19,6 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function count;
 
@@ -372,7 +373,10 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       callerMembership: $this->createStub(OrganizationCallerMembershipPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    // `InvalidValueException`, not `InvalidArgumentException`: the latter is not
+    // in `exception_to_status` and this provider catches nothing, so the old
+    // class made the endpoint answer 500.
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListUserOrganizationsQuery(
       '550e8400-e29b-41d4-a716-446655440800',

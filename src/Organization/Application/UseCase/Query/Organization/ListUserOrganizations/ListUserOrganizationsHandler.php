@@ -12,6 +12,7 @@ use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
+use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_map;
@@ -69,7 +70,12 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
     try {
       $status = null !== $query->status ? OrganizationStatus::from($query->status)->value : null;
     } catch (ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      // `InvalidValueException`, not `InvalidArgumentException`: the latter is
+      // deliberately absent from `api_platform.exception_to_status`, and
+      // `ListUserOrganizationsProvider` catches nothing — so the rewrap left
+      // `?status=nonsense` answering 500. This class is a domain exception and
+      // is already mapped to 400.
+      throw InvalidValueException::because($exception->getMessage());
     }
 
     $memberships = $this->memberRepository->findByUserId($query->userId);
