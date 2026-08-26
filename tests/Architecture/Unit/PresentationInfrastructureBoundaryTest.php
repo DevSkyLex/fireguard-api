@@ -117,8 +117,6 @@ final class PresentationInfrastructureBoundaryTest extends TestCase
    */
   private const array BASELINE = [
     'Equipment => Facility' => 1,
-    'Equipment => Organization' => 1,
-    'Facility => Organization' => 1,
     'Inspection => Intervention' => 1,
     'Inspection => Organization' => 1,
   ];

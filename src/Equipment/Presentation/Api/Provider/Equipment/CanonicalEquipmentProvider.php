@@ -14,7 +14,6 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -80,7 +79,10 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
       if (!$record instanceof EquipmentRecord) {
         throw new NotFoundHttpException('Equipment not found.');
       }
-      $this->assertRead($record->organization, 'Equipment not found.');
+      if (null === $record->organization) {
+        throw new NotFoundHttpException('Equipment not found.');
+      }
+      $this->assertRead($record->organization->id, 'Equipment not found.');
 
       return $this->map($record);
     }
@@ -157,9 +159,9 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    * @param mixed $organizationValue the organization value value
    * @param mixed $interventionValue the intervention value value
    *
-   * @return OrganizationRecord the organization result
+   * @return string the organization identifier
    */
-  private function organization(mixed $organizationValue, mixed $interventionValue): OrganizationRecord
+  private function organization(mixed $organizationValue, mixed $interventionValue): string
   {
     $organizationId = is_string($organizationValue) && '' !== $organizationValue
       ? ResourceIriParser::id($organizationValue, 'organizations')
@@ -169,12 +171,13 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
-    if (!$organization instanceof OrganizationRecord) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
 
-    return $organization;
+    // No existence check here. `assertRead()` calls `resolveAccess()`, which
+    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
+    // message — for an organization that does not exist as for one the caller
+    // is not in. Looking the record up first would issue a second query to
+    // reach an answer the permission gate already gives.
+    return $organizationId;
   }
 
   /**
@@ -184,18 +187,17 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param ?OrganizationRecord $organization the organization value
    * @param string $notFoundMessage the not-found message for this route when the caller
    *                                has no active membership in the organization
    */
-  private function assertRead(?OrganizationRecord $organization, string $notFoundMessage): void
+  private function assertRead(string $organizationId, string $notFoundMessage): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+    if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
     }
 
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.equipment.read');
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.equipment.read');
     if ($decision->isOutsideScope()) {
       throw new NotFoundHttpException($notFoundMessage);
     }
@@ -217,7 +219,7 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    */
   private function map(EquipmentRecord $record): EquipmentOutput
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (null === $record->organization) {
       throw new NotFoundHttpException('Equipment organization not found.');
     }
     $output = new EquipmentOutput();

@@ -15,7 +15,6 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -83,7 +82,10 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       if (!$record instanceof FacilityRecord) {
         throw new NotFoundHttpException('Facility not found.');
       }
-      $this->assertRead($record->organization);
+      if (null === $record->organization) {
+        throw new NotFoundHttpException('Facility not found.');
+      }
+      $this->assertRead($record->organization->id);
 
       $output = $this->map($record, includeGeometry: true);
       $output->path = $this->facilityRepository->findAncestors($record->id);
@@ -151,7 +153,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return array{OrganizationRecord, ?string, string}
+   * @return array{string, ?string, string}
    */
   private function filters(): array
   {
@@ -175,9 +177,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @param mixed $organizationValue the organization value value
    * @param mixed $interventionValue the intervention value value
    *
-   * @return OrganizationRecord the organization result
+   * @return string the organization identifier
    */
-  private function organization(mixed $organizationValue, mixed $interventionValue): OrganizationRecord
+  private function organization(mixed $organizationValue, mixed $interventionValue): string
   {
     $organizationId = is_string($organizationValue) && '' !== $organizationValue
       ? ResourceIriParser::id($organizationValue, 'organizations')
@@ -187,12 +189,13 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
-    if (!$organization instanceof OrganizationRecord) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
 
-    return $organization;
+    // No existence check here. `assertRead()` calls `resolveAccess()`, which
+    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
+    // message — for an organization that does not exist as for one the caller
+    // is not in. Looking the record up first would issue a second query to
+    // reach an answer the permission gate already gives.
+    return $organizationId;
   }
 
   /**
@@ -202,16 +205,16 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param ?OrganizationRecord $organization the organization value
+   * @param string $organizationId the organization identifier
    */
-  private function assertRead(?OrganizationRecord $organization): void
+  private function assertRead(string $organizationId): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+    if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 
-    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.read');
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.read');
     if ($decision->isOutsideScope()) {
       throw new NotFoundHttpException('Facility not found.');
     }
@@ -234,7 +237,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    */
   private function map(FacilityRecord $record, bool $includeGeometry): FacilityOutput
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (null === $record->organization) {
       throw new NotFoundHttpException('Facility organization not found.');
     }
     $output = new FacilityOutput();
