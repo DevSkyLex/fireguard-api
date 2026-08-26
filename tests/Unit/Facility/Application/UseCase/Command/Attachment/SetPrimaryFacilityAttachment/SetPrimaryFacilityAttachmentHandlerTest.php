@@ -10,11 +10,11 @@ use Facility\Domain\Exception\{FacilityAttachmentNotFloorPlanException, Facility
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test SetPrimaryFacilityAttachmentHandlerTest.
@@ -181,7 +181,7 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
       transactionManager: $this->createStub(TransactionManagerPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new SetPrimaryFacilityAttachmentCommand(
       organizationId: self::ORG_ID,

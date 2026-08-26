@@ -19,6 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 #[CoversClass(UpdateFacilityHandler::class)]
@@ -89,7 +90,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Field "type" cannot be null when provided.');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -121,7 +122,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('"invalid_type" is not a valid backing value for enum');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -225,7 +226,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -256,7 +257,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -277,7 +278,7 @@ final class UpdateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())->method('findById');
     $repository->expects(self::never())->method('save');
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $this->handler($repository)->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440981',
@@ -317,7 +318,7 @@ final class UpdateFacilityHandlerTest extends TestCase
   {
     $repository = $this->repositoryReturningFacility($this->facility());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Field "name" cannot be null when provided.');
 
     $this->handler($repository)->__invoke($this->command(name: null, hasName: true));

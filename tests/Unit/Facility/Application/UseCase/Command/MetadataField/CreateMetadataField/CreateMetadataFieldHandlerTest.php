@@ -7,11 +7,11 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\MetadataField\CreateMe
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\UseCase\Command\MetadataField\CreateMetadataField\{CreateMetadataFieldCommand, CreateMetadataFieldHandler, CreateMetadataFieldResult};
 use Facility\Domain\Exception\{FacilityMetadataFieldKeyAlreadyExistsException, FacilityMetadataFieldLimitExceededException};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CreateMetadataFieldHandlerTest.
@@ -124,7 +124,7 @@ final class CreateMetadataFieldHandlerTest extends TestCase
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateMetadataFieldCommand(
       organizationId: self::ORGANIZATION_ID,
@@ -146,7 +146,7 @@ final class CreateMetadataFieldHandlerTest extends TestCase
 
     $handler = new CreateMetadataFieldHandler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateMetadataFieldCommand(
       organizationId: self::ORGANIZATION_ID,

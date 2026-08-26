@@ -13,7 +13,8 @@ use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{
   FacilityCodeAlreadyExistsException,
-  FacilityNotFoundException
+  FacilityNotFoundException,
+  FacilityOrganizationNotFoundException
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
@@ -23,7 +24,6 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
@@ -79,7 +79,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       $facilityId = FacilityId::fromString($command->facilityId);
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $facility = $this->facilityRepository->findById($facilityId);
@@ -101,7 +101,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     try {
       if ($command->hasType) {
         if (null === $command->type) {
-          throw new InvalidArgumentException('Field "type" cannot be null when provided.');
+          throw InvalidValueException::because('Field "type" cannot be null when provided.');
         }
 
         $facility->changeType(FacilityType::from($command->type));
@@ -109,7 +109,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
 
       if ($command->hasName) {
         if (null === $command->name) {
-          throw new InvalidArgumentException('Field "name" cannot be null when provided.');
+          throw InvalidValueException::because('Field "name" cannot be null when provided.');
         }
 
         $facility->rename(new FacilityName($command->name));
@@ -131,7 +131,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
         $facility->changeMetadata($command->metadata ?? []);
       }
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if ($command->hasMetadata) {
@@ -153,7 +153,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       }
 
       if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
+        throw FacilityOrganizationNotFoundException::create();
       }
 
       throw $exception;

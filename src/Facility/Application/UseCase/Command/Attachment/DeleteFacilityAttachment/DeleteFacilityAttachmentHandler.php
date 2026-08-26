@@ -7,10 +7,8 @@ namespace Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachme
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase DeleteFacilityAttachmentHandler.
@@ -40,13 +38,9 @@ final readonly class DeleteFacilityAttachmentHandler implements CommandHandler
    */
   public function __invoke(DeleteFacilityAttachmentCommand $command): DeleteFacilityAttachmentResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-      $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
+    $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
 
     $facility = $this->facilityRepository->findById($facilityId);
 

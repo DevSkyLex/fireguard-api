@@ -24,6 +24,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function is_string;
 
@@ -525,7 +526,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ArchiveFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655442041',

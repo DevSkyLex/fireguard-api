@@ -7,9 +7,7 @@ namespace Facility\Application\UseCase\Query\MetadataField\ListMetadataFields;
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\FacilityOrganizationId;
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 
@@ -43,11 +41,7 @@ final readonly class ListMetadataFieldsHandler implements QueryHandler
    */
   public function __invoke(ListMetadataFieldsQuery $query): ListMetadataFieldsResult
   {
-    try {
-      $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = FacilityOrganizationId::fromString($query->organizationId);
 
     $fields = $this->repository->findByOrganizationId($organizationId);
 

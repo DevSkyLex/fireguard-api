@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
@@ -44,7 +45,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440980',
@@ -263,7 +264,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new CreateFacilityCommand(
@@ -289,7 +290,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new CreateFacilityCommand(
@@ -375,7 +376,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude must be between -90 and 90 degrees.');
 
     $handler->__invoke(new CreateFacilityCommand(

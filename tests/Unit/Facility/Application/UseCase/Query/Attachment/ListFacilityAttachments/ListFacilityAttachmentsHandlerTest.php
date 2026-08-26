@@ -11,10 +11,10 @@ use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListFacilityAttachmentsHandler::class)]
 final class ListFacilityAttachmentsHandlerTest extends TestCase
@@ -101,7 +101,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListFacilityAttachmentsQuery(
       organizationId: 'not-a-uuid',
@@ -150,7 +150,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
       attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListFacilityAttachmentsQuery(
       organizationId: self::ORG_ID,

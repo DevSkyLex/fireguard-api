@@ -10,13 +10,12 @@ use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
   FacilityHierarchyException,
-  FacilityNotFoundException
+  FacilityNotFoundException,
+  FacilityOrganizationNotFoundException
 };
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
@@ -59,13 +58,9 @@ final readonly class MoveFacilityHandler implements CommandHandler
    */
   public function __invoke(MoveFacilityCommand $command): MoveFacilityResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-      $parentId = $this->resolveParentId($command->parentFacilityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
+    $parentId = $this->resolveParentId($command->parentFacilityId);
 
     // Published-only lookup: draft intervention scratchpads fall through to
     // the not-found path and can neither be moved nor audited.
@@ -92,7 +87,7 @@ final readonly class MoveFacilityHandler implements CommandHandler
       $this->facilityRepository->save($facility);
     } catch (Throwable $exception) {
       if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
+        throw FacilityOrganizationNotFoundException::create();
       }
 
       if ($this->isParentConstraintViolation($exception)) {

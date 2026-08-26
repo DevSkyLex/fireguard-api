@@ -115,6 +115,12 @@ api_platform:
     Facility\Domain\Exception\FacilityAttachmentNotFoundException: 404
     Facility\Domain\Exception\FacilityCodeAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityHierarchyException: 400
+    # 400 because that is what it already answers: the class extends
+    # `InvalidArgumentException`, so every processor catch already maps it. The
+    # entry is the safety net for a path with no catch, not a change. A case
+    # exists for 404 or 422 — the referenced organization genuinely does not
+    # exist — but that is a contract decision, not a refactor's side effect.
+    Facility\Domain\Exception\FacilityOrganizationNotFoundException: 400
     Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
     Facility\Domain\Exception\FacilityMetadataFieldNotFoundException: 404

@@ -13,7 +13,6 @@ use Facility\Domain\Exception\{
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId, PlanGeometry};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -57,12 +56,8 @@ final readonly class SetFacilityPlanGeometryHandler implements CommandHandler
    */
   public function __invoke(SetFacilityPlanGeometryCommand $command): SetFacilityPlanGeometryResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
 
     $facility = $this->facilityRepository->findById($facilityId);
 
@@ -78,14 +73,10 @@ final readonly class SetFacilityPlanGeometryHandler implements CommandHandler
     }
 
     if (null === $command->attachmentId || null === $command->points) {
-      throw new InvalidArgumentException('Fields "attachmentId" and "points" must be provided together, or both omitted to clear the geometry.');
+      throw InvalidValueException::because('Fields "attachmentId" and "points" must be provided together, or both omitted to clear the geometry.');
     }
 
-    try {
-      $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $attachmentId = FacilityAttachmentId::fromString($command->attachmentId);
 
     $attachment = $this->attachmentRepository->findById($attachmentId);
     if (null === $attachment) {
@@ -98,11 +89,7 @@ final readonly class SetFacilityPlanGeometryHandler implements CommandHandler
 
     $this->ancestryGuard->assertBelongsToFacilityOrAncestor($facility, $attachment, $organizationId);
 
-    try {
-      $planGeometry = new PlanGeometry($command->attachmentId, $command->points);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $planGeometry = new PlanGeometry($command->attachmentId, $command->points);
 
     $facility->assignPlanGeometry($planGeometry);
     $this->facilityRepository->save($facility);

@@ -16,7 +16,6 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -85,7 +84,7 @@ final readonly class CreateMetadataFieldHandler implements CommandHandler
         unit: $command->unit,
       );
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if ($this->repository->countByOrganizationId($organizationId) >= self::MAX_FIELDS_PER_ORGANIZATION) {

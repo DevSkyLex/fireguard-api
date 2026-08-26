@@ -7,12 +7,10 @@ namespace Facility\Application\UseCase\Command\Facility\RestoreFacility;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\FacilityRestoredEvent;
-use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
+use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException, FacilityOrganizationNotFoundException};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function str_contains;
@@ -28,12 +26,8 @@ final readonly class RestoreFacilityHandler implements CommandHandler
 
   public function __invoke(RestoreFacilityCommand $command): RestoreFacilityResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
 
     $facility = $this->facilityRepository->findPublishedById($facilityId);
 
@@ -65,7 +59,7 @@ final readonly class RestoreFacilityHandler implements CommandHandler
       $this->facilityRepository->save($facility);
     } catch (Throwable $exception) {
       if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
+        throw FacilityOrganizationNotFoundException::create();
       }
 
       throw $exception;

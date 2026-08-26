@@ -11,18 +11,17 @@ use Facility\Domain\Exception\{
   FacilityArchivedException,
   FacilityHierarchyException,
   FacilityNotFoundException,
+  FacilityOrganizationNotFoundException,
   FacilitySubtreeSourceArchivedException,
   FacilitySubtreeTooLargeException
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId};
-use InvalidArgumentException;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
-use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function count;
@@ -78,13 +77,9 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
    */
   public function __invoke(DuplicateFacilitySubtreeCommand $command): DuplicateFacilitySubtreeResult
   {
-    try {
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-      $sourceId = FacilityId::fromString($command->facilityId);
-      $requestedParentId = $this->resolveParentId($command->parentFacilityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
+    $sourceId = FacilityId::fromString($command->facilityId);
+    $requestedParentId = $this->resolveParentId($command->parentFacilityId);
 
     // Published-only lookup: draft intervention scratchpads fall through to
     // the not-found path and can neither be duplicated nor audited.
@@ -126,13 +121,9 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
       $childrenByParent[$parentKey][] = $descendant;
     }
 
-    try {
-      $rootName = null !== $command->name
-        ? new FacilityName($command->name)
-        : new FacilityName(((string) $source->name()) . ' (copy)');
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $rootName = null !== $command->name
+      ? new FacilityName($command->name)
+      : new FacilityName(((string) $source->name()) . ' (copy)');
 
     $newRoot = $this->cloneNode($source, $this->uuidFactory->create(FacilityId::class), $targetParentId, $rootName);
 
@@ -154,7 +145,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
           $this->facilityRepository->save($clone);
         } catch (Throwable $exception) {
           if ($this->isOrganizationConstraintViolation($exception)) {
-            throw new InvalidArgumentException('Organization not found.');
+            throw FacilityOrganizationNotFoundException::create();
           }
 
           if ($this->isParentConstraintViolation($exception)) {
