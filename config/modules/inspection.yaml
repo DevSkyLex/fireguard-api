@@ -19,9 +19,8 @@ services:
 
   # InspectionResponseProcessor names no entity manager on purpose: it holds
   # none since the mutations moved to Application\UseCase\Command\Response.
-  Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
+  # InspectionResponseProvider names no entity manager either: both of its
+  # reads went to Application\UseCase\Query\Response\.
 
   # Repositories
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
@@ -280,6 +279,12 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Response\ListInspectionResponses\ListInspectionResponsesHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope\ResolveInspectionResponseScopeHandler:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionHandler:

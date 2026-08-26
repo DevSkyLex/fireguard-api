@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Domain\Model\Response\InspectionResponse;
-use Inspection\Domain\ValueObject\InspectionResponseId;
+use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResponseId};
 
 /**
  * Port InspectionResponseRepositoryPort.
@@ -69,5 +69,57 @@ interface InspectionResponseRepositoryPort
    * @param InspectionResponseId $id the response identifier
    */
   public function delete(InspectionResponseId $id): void;
+
+  /**
+   * Method findByFilters.
+   *
+   * Lists an organization's responses, oldest first, optionally narrowed to
+   * one intervention and/or one inspection.
+   *
+   * `recordStatus` is always applied: the collection endpoint never mixes
+   * drafts with published rows, because they answer different questions —
+   * what a field client is preparing versus what the compliance record says.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the owning organization
+   * @param ?string $interventionId narrow to one intervention, or null
+   * @param ?string $inspectionId narrow to one inspection, or null
+   * @param string $recordStatus the representation lifecycle status
+   * @param int $limit the page size
+   * @param int $offset the page offset
+   *
+   * @return list<InspectionResponse> the page of responses
+   */
+  public function findByFilters(
+    InspectionOrganizationId $organizationId,
+    ?string $interventionId,
+    ?string $inspectionId,
+    string $recordStatus,
+    int $limit,
+    int $offset,
+  ): array;
+
+  /**
+   * Method countByFilters.
+   *
+   * Counts the rows `findByFilters()` would page over, with the same filters
+   * and without hydrating them.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the owning organization
+   * @param ?string $interventionId narrow to one intervention, or null
+   * @param ?string $inspectionId narrow to one inspection, or null
+   * @param string $recordStatus the representation lifecycle status
+   *
+   * @return int the total row count
+   */
+  public function countByFilters(
+    InspectionOrganizationId $organizationId,
+    ?string $interventionId,
+    ?string $inspectionId,
+    string $recordStatus,
+  ): int;
   // #endregion
 }
