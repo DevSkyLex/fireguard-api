@@ -656,6 +656,49 @@ deserialized DTO has already lost — it travels into the command as `has*`
 flags), and the output (`CanonicalInspectionProvider` joins names the write
 path has no reason to carry).
 
+### The inspection-response READS run on use cases too (2026-08-26)
+
+`InspectionResponseProvider` hand-assembled its collection DQL — organization
+scoping, the intervention and inspection filters, the `recordStatus` default
+and the paging — and resolved the owning organization from whichever filter
+the caller supplied. It is now query translation only, and **holds no entity
+manager**.
+
+| Concern | Where it lives now |
+| --- | --- |
+| `GET /api/inspection-responses/{id}` | `Application/UseCase/Query/Response/GetInspectionResponse/` (shared with the processor) |
+| `GET /api/inspection-responses` | `Application/UseCase/Query/Response/ListInspectionResponses/` |
+| Which organization the three filters name | `Application/UseCase/Query/Response/ResolveInspectionResponseScope/` |
+| The filter clause itself | `InspectionResponseRepository::filtered()`, behind `findByFilters()` / `countByFilters()` |
+
+**Two queries, not one, and the order is the point.** The organization has to
+be resolved BEFORE the permission gate can run, and the gate has to run before
+any row is read — reading a page for a caller who may not see it and
+discarding it afterwards is both wasteful and the wrong shape. So the provider
+resolves, gates, then lists.
+
+**The `recordStatus` default moved into the handler** and is documented there
+as contract rather than convenience: a caller scoped to an intervention is
+looking at what a field client is preparing (drafts), anyone else at the
+compliance record (published). An explicit `recordStatus` always wins.
+
+**The count and the page share one WHERE clause** (`InspectionResponseRepository::filtered()`).
+A paginator whose total is computed over different rows than its page is the
+classic way to ship a listing that says 12 and shows 7.
+
+**What deliberately stayed in the provider**: the authorization gate, the IRI
+parsing, and the pagination clamp — whose bounds mirror the
+`paginationMaximumItemsPerPage` / `paginationItemsPerPage` declared on the
+resource, and where a non-numeric value falls back to the default rather than
+failing.
+
+**Non-regression, measured rather than argued.** The eight assertions of
+`tests/Integration/…/InspectionResponseProviderTest` predate this change and
+were written against the hand-written DQL. They pass unmodified; only the
+provider's construction in the test helper changed, and it now builds the real
+handlers over the real repositories, so the DQL under test is still the DQL
+that runs.
+
 ### Canonical inspection responses run on use cases (2026-08-26)
 
 `InspectionResponseProcessor` was 261 lines holding five `persist`/`flush`/`remove`
@@ -737,8 +780,9 @@ and reachable on its own; only which of the two failures wins moved.
   `@inspection.main_transaction_manager` explicitly. Autowiring would hand over
   the default transaction manager, which opens a transaction on the `auth`
   connection while the writes go to `main` — a rollback that rolls nothing back.
-- `InspectionResponseProcessor` and `CanonicalInspectionMutationProcessor` name
-  **no** `$entityManager`, and must not: neither holds one.
+- `InspectionResponseProcessor`, `CanonicalInspectionMutationProcessor` and
+  `InspectionResponseProvider` name **no** `$entityManager`, and must not:
+  none of them holds one.
 - `Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort` is
   aliased to `CanonicalInspectionRepository`, wired to `main` explicitly. It is
   a **second** port over the `inspections` table, next to
@@ -801,6 +845,15 @@ and reachable on its own; only which of the two failures wins moved.
     — what the processor still owns: the gate order (404 before 428), which
     permission a scratchpad row asks the intervention for, 404 rather than 403
     outside the organization, and the merge-patch `has*` flags.
+  - `Application/UseCase/Query/Response/{ListInspectionResponses,ResolveInspectionResponseScope}`
+    — the `recordStatus` default (published by default, drafts when scoped to
+    an intervention, explicit always wins), the one-based page turned into an
+    offset, the empty page that still carries its total, and the precedence
+    between the three scoping filters including the inspection FALLBACK that
+    only runs when the first two produced nothing.
+  - `Presentation/Api/Provider/InspectionResponse/InspectionResponseProviderTest`
+    — what the provider still owns: the view-to-output projection, the gate's
+    404-not-403 split, the IRI filters it parses, and the pagination clamp.
   - `Application/UseCase/Command/Response/{Create,Update,Delete}InspectionResponse`
     and `Application/UseCase/Query/Response/GetInspectionResponse` — the
     lifecycle rules that used to sit in the processor: draft-only edit and
