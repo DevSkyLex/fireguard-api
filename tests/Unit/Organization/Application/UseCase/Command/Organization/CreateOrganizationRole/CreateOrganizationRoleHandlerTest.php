@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\CreateOrganizationRole;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleHandler, CreateOrganizationRoleResult};
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNameAlreadyExistsException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -221,7 +220,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationRoleNameAlreadyExistsException::class);
     $this->expectExceptionMessage('Role name already exists for this organization.');
 
     $handler->__invoke(new CreateOrganizationRoleCommand(

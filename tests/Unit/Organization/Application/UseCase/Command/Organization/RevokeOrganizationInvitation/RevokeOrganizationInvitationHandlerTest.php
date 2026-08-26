@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\{RevokeOrganizationInvitationCommand, RevokeOrganizationInvitationHandler, RevokeOrganizationInvitationResult};
 use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -358,7 +357,7 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->buildGuardHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationInvitationNotPendingException::class);
     $this->expectExceptionMessage('Invitation has already expired.');
 
     $handler->__invoke(new RevokeOrganizationInvitationCommand(
@@ -393,7 +392,7 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->buildGuardHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationInvitationNotPendingException::class);
     $this->expectExceptionMessage('Only pending invitations can be revoked.');
 
     $handler->__invoke(new RevokeOrganizationInvitationCommand(

@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\CreateOrganizationRole;
 
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNameAlreadyExistsException};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
@@ -76,7 +75,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
     $roleName = new OrganizationRoleName($command->name);
     $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $roleName);
     if (null !== $existing) {
-      throw new InvalidArgumentException('Role name already exists for this organization.');
+      throw OrganizationRoleNameAlreadyExistsException::create();
     }
 
     /** @var list<string> $permissions */

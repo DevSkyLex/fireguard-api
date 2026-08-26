@@ -16,7 +16,7 @@ use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvi
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler;
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -721,7 +721,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationInvitationNotPendingException::class);
     $this->expectExceptionMessage('Invitation has expired.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -795,7 +795,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->createHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationInvitationNotPendingException::class);
     $this->expectExceptionMessage('Invitation is no longer pending.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(

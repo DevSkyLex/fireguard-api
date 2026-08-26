@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole;
 
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\OrganizationSystemRoleImmutableException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
@@ -87,7 +87,7 @@ final readonly class DeleteOrganizationRoleHandler implements CommandHandler
         }
 
         if ($role->isSystem()) {
-          throw new InvalidArgumentException('System roles cannot be deleted.');
+          throw OrganizationSystemRoleImmutableException::cannotBeDeleted();
         }
 
         $roleName = (string) $role->name();

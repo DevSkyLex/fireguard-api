@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleHandler, UpdateOrganizationRoleResult};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationRoleNameAlreadyExistsException, OrganizationSystemRoleImmutableException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -140,7 +140,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       transactionManager: $this->passthroughTransactionManager(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationSystemRoleImmutableException::class);
     $this->expectExceptionMessage('System roles cannot be modified.');
 
     $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -459,7 +459,7 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       transactionManager: $this->passthroughTransactionManager(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationRoleNameAlreadyExistsException::class);
     $this->expectExceptionMessage('Role name already exists for this organization.');
 
     $handler->__invoke(new UpdateOrganizationRoleCommand(
