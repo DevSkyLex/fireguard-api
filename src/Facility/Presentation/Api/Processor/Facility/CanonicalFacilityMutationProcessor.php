@@ -7,15 +7,10 @@ namespace Facility\Presentation\Api\Processor\Facility;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Application\Service\FacilityMetadataSchemaGuard;
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
-use Facility\Domain\Exception\FacilityHierarchyException;
-use Facility\Domain\ValueObject\FacilityId;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Application\Contract\Facility\CanonicalFacilityView;
+use Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\DeleteCanonicalFacilityCommand;
+use Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityCommand;
+use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\{GetCanonicalFacilityQuery, GetCanonicalFacilityResult};
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
@@ -23,32 +18,53 @@ use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 use function array_key_exists;
 use function is_string;
-use function trim;
 
 /**
  * Processor CanonicalFacilityMutationProcessor.
  *
- * Canonical DELETE contract (kept uniform across the facility / equipment /
- * inspection flat surfaces): a draft (intervention scratchpad) record is
- * hard-deleted, refused while it still has children or live dependents; a
- * published record moves to the entity's retirement state — here `archived`,
- * the only REVERSIBLE one (restore) — idempotently (a repeat DELETE is a no-op)
- * and guarded so archiving never orphans an active dependent (child facility,
- * equipment, in-progress inspection → HTTP 409).
+ * Translates `PATCH` and `DELETE /api/facilities/{id}` — the flat,
+ * offline-syncable surface — into use cases, and nothing else. It holds no
+ * entity manager, opens no transaction, persists nothing, walks no hierarchy
+ * and dispatches no audit event: those live in
+ * `Application\UseCase\{Command,Query}\Facility\*CanonicalFacility*` and in
+ * `Domain\Model\Facility\CanonicalFacility`.
+ *
+ * The canonical DELETE contract is now stated by
+ * `DeleteCanonicalFacilityHandler`: a draft (intervention scratchpad) row is
+ * hard-deleted — refused while it still has children or live dependents; a
+ * published one retires to `archived`, the only REVERSIBLE retirement state
+ * of the three canonical surfaces; a repeat DELETE is an idempotent no-op.
+ *
+ * **Three things deliberately stay here.**
+ *
+ * The **authorization gate**, because which permission applies is a function
+ * of the request — a published row needs `organization.facilities.write`, a
+ * scratchpad inside an intervention needs whatever
+ * `InterventionResourceManager::mutationPermission()` resolves — and because
+ * a row loaded by GLOBAL id must answer 404, not 403, outside the caller's
+ * organization.
+ *
+ * **`MergePatchFields`**, because "the key was absent" versus "the key was
+ * sent as null" is a fact about the HTTP body that a deserialized DTO has
+ * already lost. It is read here and travels into the command as `has*` flags.
+ * The parent IRI is parsed here too: an IRI is transport, an identifier is
+ * not.
+ *
+ * **The output**, because `CanonicalFacilityProvider` joins counts and
+ * ancestry this module's write path has no reason to carry.
  *
  * @category Processor
  *
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -56,6 +72,19 @@ use function trim;
  */
 final readonly class CanonicalFacilityMutationProcessor implements ProcessorInterface
 {
+  // #region Constants
+  /**
+   * The merge-patch keys this surface accepts, `parent` excluded — it needs
+   * an IRI parse the others do not.
+   *
+   * @since 2.0.0
+   *
+   * @var list<string>
+   */
+  private const array PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'latitude', 'longitude', 'metadata', 'status'];
+  // #endregion
+
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -63,7 +92,8 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    *
    * @since 1.0.0
    *
-   * @param EntityManagerInterface $entityManager the entity manager value
+   * @param CommandBusPort $commandBus the command bus value
+   * @param QueryBusPort $queryBus the query bus value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
@@ -71,14 +101,10 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
-   * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
-   * @param EventDispatcherPort $eventDispatcher the event dispatcher value
-   * @param FacilityRepositoryPort $facilityRepository the facility repository value
-   * @param FacilityMetadataSchemaGuard $metadataSchemaGuard the organization's typed metadata schema guard
-   * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
+    private CommandBusPort $commandBus,
+    private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
@@ -86,19 +112,13 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
-    private FacilityArchivalGuardPort $archivalGuard,
-    private EventDispatcherPort $eventDispatcher,
-    private FacilityRepositoryPort $facilityRepository,
-    private FacilityMetadataSchemaGuard $metadataSchemaGuard,
-    #[Autowire('%facility.hierarchy.max_depth%')]
-    private int $maxDepth = 8,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * Method process.
-   *
-   * Executes the process operation.
    *
    * @since 1.0.0
    *
@@ -111,92 +131,19 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?FacilityOutput
   {
-    // Audit events are collected during the mutation and dispatched only after
-    // wrapInTransaction has COMMITTED: the flushes inside run at transaction
-    // nesting level >= 1 (savepoints), so dispatching there could record a
-    // ledger row (auth database, independent commit) for a mutation the main
-    // database later rolls back — a phantom entry in an append-only ledger.
-    $pendingEvents = [];
-    $output = $this->entityManager->wrapInTransaction(
-      function () use ($data, $operation, $uriVariables, &$pendingEvents): ?FacilityOutput {
-        return $this->processMutation($data, $operation, $uriVariables, $pendingEvents);
-      },
-    );
-
-    foreach ($pendingEvents as $event) {
-      $this->eventDispatcher->dispatch($event);
-    }
-
-    return $output;
-  }
-
-  /**
-   * Method processMutation.
-   *
-   * Executes one canonical facility mutation in the intervention lock transaction.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $data the data value
-   * @param Operation $operation the operation value
-   * @param array<string, mixed> $uriVariables the uri variables value
-   * @param list<object> $pendingEvents collector for audit events to dispatch post-commit
-   *
-   * @return ?FacilityOutput the mutation result
-   */
-  private function processMutation(mixed $data, Operation $operation, array $uriVariables, array &$pendingEvents): ?FacilityOutput
-  {
-    $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-    $record = $this->entityManager->find(FacilityRecord::class, $id);
-    if (!$record instanceof FacilityRecord) {
-      throw new NotFoundHttpException('Facility not found.');
-    }
-    $this->assertPermission($record);
-    $this->revisionGuard->assertMatches($record->revision);
-
-    // assertPermission has already established a non-null organization on the record.
-    $organization = $record->organization;
-    if (null === $organization) {
-      throw new AccessDeniedHttpException('Authentication required.');
-    }
-    $organizationId = $organization->id;
+    // The order below is a contract: absent answers 404 before the gate
+    // speaks, the gate speaks before `If-Match` is read, and only then does
+    // the payload shape matter. Moving `assertMatches()` up would turn a 404
+    // on an unknown id into a 428 for a caller that forgot the header.
+    $view = $this->view($uriVariables);
+    $this->assertPermission($view);
+    $this->revisionGuard->assertMatches($view->revision);
 
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
-      $archivedNow = false;
-      if ('draft' === $record->recordStatus) {
-        // A hard delete would set every child's parent_facility_id to NULL
-        // (FK `ON DELETE SET NULL`), silently promoting the sub-tree to root.
-        // Refuse instead so the caller re-parents or removes the children first.
-        if ($this->entityManager->getRepository(FacilityRecord::class)->count(['parentFacility' => $record]) > 0) {
-          throw new ConflictHttpException('Cannot delete a facility that still has child facilities; move or remove them first.');
-        }
-        // Hard-deleting would also leave equipment/inspection records pointing
-        // at a facility id that no longer exists; refuse while dependents exist.
-        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
-        $this->entityManager->remove($record);
-      } elseif ('archived' !== $record->status) {
-        // Archiving must not orphan a live dependent (mapped to HTTP 409). A
-        // repeat DELETE on an already-archived facility stays an idempotent
-        // no-op, mirroring the archive use case and the PATCH transition guard.
-        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
-        $record->status = 'archived';
-        ++$record->revision;
-        $record->updatedAt = new DateTimeImmutable();
-        $archivedNow = true;
-      }
-      $this->entityManager->flush();
-      $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
-      // Audit ledger: collected here, dispatched after the transaction commits.
-      // Draft hard-deletes and idempotent repeat DELETEs emit nothing.
-      if ($archivedNow) {
-        $pendingEvents[] = new FacilityArchivedEvent(
-          organizationId: $organizationId,
-          facilityId: $record->id,
-        );
-      }
+      $this->commandBus->dispatch(new DeleteCanonicalFacilityCommand(
+        facilityId: $view->id,
+        expectedRevision: $view->revision,
+      ));
 
       return null;
     }
@@ -204,156 +151,40 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     if (!$data instanceof PatchCanonicalFacilityInput) {
       throw new BadRequestHttpException('Canonical facility mutation input expected.');
     }
-    $input = $data;
-    $fields = $this->mergePatchFields->all();
-    $previousStatus = $record->status;
-    $previousParentFacilityId = $record->parentFacility?->id;
-    // Captured before any assignment below so the changed-field list (for
-    // FacilityUpdatedEvent) reflects what actually differs, not merely which
-    // keys the merge-patch body carried — resending the current value must
-    // stay a no-op, exactly like a same-parent move emits nothing.
-    $previousType = $record->type;
-    $previousName = $record->name;
-    $previousCode = $record->code;
-    $previousAddress = $record->address;
-    $previousLatitude = $record->latitude;
-    $previousLongitude = $record->longitude;
-    $previousMetadata = $record->metadata;
-    if (array_key_exists('type', $fields)) {
-      if (null === $input->type) {
-        throw new UnprocessableEntityHttpException('Facility type cannot be null.');
-      }
-      $record->type = $input->type;
-    }
-    if (array_key_exists('name', $fields)) {
-      if (null === $input->name) {
-        throw new UnprocessableEntityHttpException('Facility name cannot be null.');
-      }
-      $record->name = trim($input->name);
-    }
-    if (array_key_exists('code', $fields)) {
-      $record->code = null === $input->code ? null : trim($input->code);
-    }
-    if (array_key_exists('address', $fields)) {
-      $record->address = null === $input->address ? null : trim($input->address);
-    }
-    if (array_key_exists('latitude', $fields) || array_key_exists('longitude', $fields)) {
-      if (array_key_exists('latitude', $fields) !== array_key_exists('longitude', $fields)) {
-        throw new UnprocessableEntityHttpException('Facility latitude and longitude must be provided together.');
-      }
-      if ((null === $input->latitude) !== (null === $input->longitude)) {
-        throw new UnprocessableEntityHttpException('Facility latitude and longitude must be provided together.');
-      }
-      $record->latitude = $input->latitude;
-      $record->longitude = $input->longitude;
-    }
-    if (array_key_exists('metadata', $fields)) {
-      $metadata = $input->metadata ?? [];
-      // required is enforced on CREATE only — a canonical PATCH is never
-      // rejected for a required key it never touched.
-      $this->metadataSchemaGuard->assertValid($organizationId, $metadata, $record->type, false);
-      $record->metadata = $metadata;
-    }
-    if (array_key_exists('status', $fields)) {
-      if (null === $input->status) {
-        throw new UnprocessableEntityHttpException('Facility status cannot be null.');
-      }
-      $record->status = $input->status;
-    }
-    if (array_key_exists('parent', $fields)) {
-      if (null === $input->parent) {
-        $record->parentFacility = null;
-      } else {
-        $parent = $this->entityManager->find(FacilityRecord::class, ResourceIriParser::id($input->parent, 'facilities'));
-        if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $record->organization?->id) {
-          throw new UnprocessableEntityHttpException('Parent facility is invalid.');
-        }
-        // Walk the proposed parent's ancestry; reaching this record means the
-        // new link would create a hierarchy cycle (parent is a descendant).
-        $this->assertNoParentCycle($record, $parent);
-        if ('published' === $record->recordStatus && 'archived' === $parent->status) {
-          throw new UnprocessableEntityHttpException('Parent facility is archived.');
-        }
-        $this->assertDepthWithinCap($record, $parent);
-        $record->parentFacility = $parent;
-      }
-    }
-    // Restoring a published facility (archived -> active) is refused while its
-    // parent is archived, mirroring the RestoreFacility use case; the canonical
-    // surface must not reactivate a facility into an archived subtree.
-    if (
-      'published' === $record->recordStatus
-      && 'archived' === $previousStatus
-      && 'active' === $record->status
-      && $record->parentFacility instanceof FacilityRecord
-      && 'archived' === $record->parentFacility->status
-    ) {
-      throw new UnprocessableEntityHttpException('Cannot restore a facility while its parent is archived.');
-    }
-    // Archiving via a status PATCH is guarded like the DELETE surface: a published
-    // facility cannot be archived while it still has active dependents (409).
-    if ('published' === $record->recordStatus && 'archived' !== $previousStatus && 'archived' === $record->status) {
-      $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
-    }
-    ++$record->revision;
-    $record->updatedAt = new DateTimeImmutable();
-    $this->entityManager->flush();
-    $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
-    // Audit ledger: only published-record lifecycle changes are collected (and
-    // dispatched after the commit). Draft scratchpad PATCHes emit nothing, and
-    // unchanged values (same status, same parent) emit nothing either.
-    if ('published' === $record->recordStatus) {
-      if ('archived' !== $previousStatus && 'archived' === $record->status) {
-        $pendingEvents[] = new FacilityArchivedEvent(
-          organizationId: $organizationId,
-          facilityId: $record->id,
-        );
-      } elseif ('archived' === $previousStatus && 'active' === $record->status) {
-        $pendingEvents[] = new FacilityRestoredEvent(
-          organizationId: $organizationId,
-          facilityId: $record->id,
-        );
-      }
-      $newParentFacilityId = $record->parentFacility?->id;
-      if ($newParentFacilityId !== $previousParentFacilityId) {
-        $pendingEvents[] = new FacilityMovedEvent(
-          organizationId: $organizationId,
-          facilityId: $record->id,
-          previousParentFacilityId: $previousParentFacilityId,
-          newParentFacilityId: $newParentFacilityId,
-        );
-      }
-      // Descriptive-field changes only — status and parent are covered by
-      // the archived/restored/moved events above and never listed here.
-      $changedFields = [];
-      if ($previousType !== $record->type) {
-        $changedFields[] = 'type';
-      }
-      if ($previousName !== $record->name) {
-        $changedFields[] = 'name';
-      }
-      if ($previousCode !== $record->code) {
-        $changedFields[] = 'code';
-      }
-      if ($previousAddress !== $record->address) {
-        $changedFields[] = 'address';
-      }
-      if ($previousLatitude !== $record->latitude || $previousLongitude !== $record->longitude) {
-        $changedFields[] = 'coordinates';
-      }
-      if ($previousMetadata !== $record->metadata) {
-        $changedFields[] = 'metadata';
-      }
-      if ([] !== $changedFields) {
-        $pendingEvents[] = new FacilityUpdatedEvent(
-          organizationId: $organizationId,
-          facilityId: $record->id,
-          changedFields: $changedFields,
-        );
-      }
-    }
 
-    $output = $this->provider->provide($operation, ['id' => $record->id]);
+    $fields = $this->mergePatchFields->all();
+    $present = [];
+    foreach (self::PATCHABLE_FIELDS as $field) {
+      $present[$field] = array_key_exists($field, $fields);
+    }
+    $hasParent = array_key_exists('parent', $fields);
+
+    $this->commandBus->dispatch(new PatchCanonicalFacilityCommand(
+      facilityId: $view->id,
+      expectedRevision: $view->revision,
+      hasType: $present['type'],
+      type: $data->type,
+      hasName: $present['name'],
+      name: $data->name,
+      hasCode: $present['code'],
+      code: $data->code,
+      hasAddress: $present['address'],
+      address: $data->address,
+      hasLatitude: $present['latitude'],
+      latitude: $data->latitude,
+      hasLongitude: $present['longitude'],
+      longitude: $data->longitude,
+      hasMetadata: $present['metadata'],
+      metadata: $data->metadata,
+      hasStatus: $present['status'],
+      status: $data->status,
+      hasParent: $hasParent,
+      parentFacilityId: $hasParent && null !== $data->parent
+        ? ResourceIriParser::id($data->parent, 'facilities')
+        : null,
+    ));
+
+    $output = $this->provider->provide($operation, ['id' => $view->id]);
     if (!$output instanceof FacilityOutput) {
       throw new LogicException('Canonical facility item output expected.');
     }
@@ -362,31 +193,59 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
   }
 
   /**
-   * Method assertPermission.
+   * Method view.
    *
-   * Executes the assert permission operation.
+   * Reads the row the mutation targets, so the authorization gate has an
+   * organization to check against and `RevisionGuard` a revision to compare.
+   * A non-string, an unknown and a malformed identifier all answer alike.
    *
    * @since 1.0.0
    *
-   * @param FacilityRecord $record the record value
+   * @param array<string, mixed> $uriVariables the uri variables value
+   *
+   * @return CanonicalFacilityView the targeted facility
    */
-  private function assertPermission(FacilityRecord $record): void
+  private function view(array $uriVariables): CanonicalFacilityView
+  {
+    $id = $uriVariables['id'] ?? null;
+
+    /** @var GetCanonicalFacilityResult $result */
+    $result = $this->queryBus->ask(new GetCanonicalFacilityQuery(is_string($id) ? $id : ''));
+
+    if (null === $result->view) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+
+    return $result->view;
+  }
+
+  /**
+   * Method assertPermission.
+   *
+   * @since 1.0.0
+   *
+   * @param CanonicalFacilityView $view the targeted facility
+   */
+  private function assertPermission(CanonicalFacilityView $view): void
   {
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser || null === $record->organization) {
+    if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
     try {
-      $permission = 'draft' !== $record->recordStatus || null === $record->interventionId
+      $permission = 'draft' !== $view->recordStatus || null === $view->interventionId
         ? 'organization.facilities.write'
-        : $this->interventionResourceManager->mutationPermission($record->interventionId, $user->getId());
+        : $this->interventionResourceManager->mutationPermission($view->interventionId, $user->getId());
     } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
-    $decision = $this->authorization->resolveAccess($user->getId(), $record->organization->id, $permission);
+    // 404, not 403, for a caller outside the record's organization: the
+    // facility was loaded by GLOBAL id, so a 403 here would confirm that id
+    // exists in another tenant.
+    $decision = $this->authorization->resolveAccess($user->getId(), $view->organizationId, $permission);
     if ($decision->isOutsideScope()) {
       throw new NotFoundHttpException('Facility not found.');
     }
@@ -394,51 +253,5 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
   }
-
-  /**
-   * Method assertNoParentCycle.
-   *
-   * Rejects a parent assignment that would create a hierarchy cycle by walking
-   * the proposed parent's ancestry: reaching the record being moved (including
-   * the record itself as the immediate parent) means the parent is one of its
-   * own descendants.
-   *
-   * @since 1.0.0
-   *
-   * @param FacilityRecord $record the facility being reparented
-   * @param FacilityRecord $parent the proposed parent
-   */
-  private function assertNoParentCycle(FacilityRecord $record, FacilityRecord $parent): void
-  {
-    $ancestor = $parent;
-    while ($ancestor instanceof FacilityRecord) {
-      if ($ancestor->id === $record->id) {
-        throw new UnprocessableEntityHttpException('Parent facility would create a hierarchy cycle.');
-      }
-      $ancestor = $ancestor->parentFacility;
-    }
-  }
-
-  /**
-   * Method assertDepthWithinCap.
-   *
-   * Refuses a re-parenting that would push the record (and whatever PUBLISHED
-   * sub-tree still hangs beneath it) past the configured hierarchy depth cap.
-   * Depth and height are computed over the PUBLISHED tree only.
-   *
-   * @since 1.0.0
-   *
-   * @param FacilityRecord $record the facility being reparented
-   * @param FacilityRecord $parent the proposed parent
-   */
-  private function assertDepthWithinCap(FacilityRecord $record, FacilityRecord $parent): void
-  {
-    $prospectiveDepth = $this->facilityRepository->depthOf(FacilityId::fromString($parent->id))
-      + 1
-      + $this->facilityRepository->subtreeHeight(FacilityId::fromString($record->id));
-
-    if ($prospectiveDepth > $this->maxDepth) {
-      throw new UnprocessableEntityHttpException(FacilityHierarchyException::maxDepthExceeded($this->maxDepth)->getMessage());
-    }
-  }
+  // #endregion
 }

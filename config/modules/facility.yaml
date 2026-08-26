@@ -10,10 +10,9 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # CanonicalFacilityMutationProcessor names no entity manager on purpose:
+  # it holds none since the mutations moved to
+  # Application\UseCase\{Command,Query}\Facility\*CanonicalFacility*.
   Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -26,11 +25,29 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Application\Port\Outbound\FacilityRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository
 
   Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository
+
+  # The offline-sync half of `facilities`: the three columns
+  # FacilityRepositoryPort does not carry, plus the two hierarchy reads the
+  # canonical guards need. Separate port because saving the aggregate cannot
+  # bump the canonical If-Match revision.
+  Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityRepository
+
+  # Third declaration of the same capability, one per consumer — Inspection
+  # and Equipment own theirs too, exactly as the FacilityValidationPorts do.
+  Facility\Application\Port\Outbound\InterventionScopePort:
+    alias: Intervention\Infrastructure\Adapter\Facility\InterventionScopeAdapter
+
+  Intervention\Infrastructure\Adapter\Facility\InterventionScopeAdapter: ~
 
   # Organization-defined typed metadata schema (facility-metadata-fields)
   Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository:
@@ -141,6 +158,22 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  # Canonical (flat, offline-syncable) facility mutations. Both name the
+  # `main` transaction manager explicitly: autowiring would open a transaction
+  # on the `auth` connection while the writes go to `main`.
+  Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\DeleteCanonicalFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityHandler:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\DuplicateFacilitySubtreeHandler:
