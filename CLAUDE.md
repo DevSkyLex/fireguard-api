@@ -119,18 +119,22 @@ them repeat the dual-database warning from different angles, on purpose.
 **Skills:** `dual-database`, `hexagonal-layout`, `usecase-patterns`, `api-platform-contract`,
 `module-testing`, `security-checklist`, `module-md`.
 
-**MCP:** `context7` only — there is no PHP equivalent of the frontend's angular/spartan
-documentation servers.
+**MCP:** this app's `.mcp.json` declares `context7` only — there is no PHP equivalent of the
+frontend's angular/spartan documentation servers. Code intelligence comes from **`serena-api`**,
+registered at user scope rather than here, and declared on every `fg-*` agent.
 
 Cross-app tooling stays at the monorepo root (`G:\Projets\fireguard\.claude\`): `/fg-map`
 and `/fg-contract-check`. This `.claude/` is also packaged as the **`fireguard-api`
 plugin** (manifest `.claude/.claude-plugin/plugin.json`), installed at the monorepo root —
 root sessions load the agents, the commands as `/fireguard-api:fg-…`, the skills, and the
-hooks. The **Intelephense language server** (`.php`) ships as a second, LSP-only plugin —
-`fireguard-api-lsp`, source `.claude/lsp/` — enabled in both scopes, because LSP config
-loads only from an enabled plugin and this one is disabled here; it needs
-`npm install -g intelephense`, since a plugin configures the connection but does not ship
-the binary. Rules, permissions, and `.mcp.json` are not plugin components: they still load
+hooks. **Code intelligence is Serena over MCP, not a language-server plugin.** The
+`fireguard-api-lsp` plugin that carried Intelephense was removed from `enabledPlugins` on
+2026-08-26, here and at the monorepo root — it served the main session only, never a
+subagent, and `serena-api` serves both. Its `.claude/lsp/` directory is still on disk,
+inert; re-enabling is one line in each `settings.json`. What went with it: diagnostics
+pushed after every edit, now on demand through `get_diagnostics_for_file`. Full account and
+the measurements behind it: `.claude/rules/lsp-availability.md`.
+Rules, permissions, and `.mcp.json` are not plugin components: they still load
 only when this app is the workspace root. The install is a cached copy — after changing
 anything under `.claude/`, bump the plugin `version` and run
 `claude plugin update fireguard-api@fireguard --scope project` from the monorepo root.
