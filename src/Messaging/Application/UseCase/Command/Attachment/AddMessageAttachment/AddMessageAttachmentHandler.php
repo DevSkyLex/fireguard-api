@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment;
 
-use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
@@ -93,7 +92,7 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
         ? $this->uuidFactory->create(MessagingAttachmentId::class)
         : MessagingAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     // A client-supplied id that already exists is a retry overwriting its own

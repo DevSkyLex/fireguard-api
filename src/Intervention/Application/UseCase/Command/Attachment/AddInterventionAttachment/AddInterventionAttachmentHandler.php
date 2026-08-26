@@ -9,7 +9,6 @@ use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
@@ -138,7 +137,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
         ? $this->uuidFactory->create(InterventionAttachmentId::class)
         : InterventionAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     // The signature about to be replaced (see class docblock). Resolved

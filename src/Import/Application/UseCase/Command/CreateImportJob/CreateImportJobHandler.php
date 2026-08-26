@@ -8,11 +8,11 @@ use Import\Application\Port\Outbound\{ImportJobQueuePort, ImportJobRepositoryPor
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind};
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
 
@@ -78,13 +78,13 @@ final readonly class CreateImportJobHandler implements CommandHandler
   public function __invoke(CreateImportJobCommand $command): CreateImportJobResult
   {
     if ('' === trim($command->fileName) || '' === $command->contents) {
-      throw new InvalidArgumentException('An uploaded CSV file is required.');
+      throw InvalidValueException::because('An uploaded CSV file is required.');
     }
 
     try {
       $kind = ImportKind::from($command->kind);
     } catch (ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $permission = $this->requiredPermission($kind);

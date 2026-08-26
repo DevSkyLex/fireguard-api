@@ -13,11 +13,11 @@ use Billing\Application\UseCase\Command\StartCheckout\{
 };
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test StartCheckoutHandlerTest.
@@ -147,7 +147,7 @@ final class StartCheckoutHandlerTest extends TestCase
       self::FRONTEND_URL,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Unsupported billing interval.');
 
     $handler(new StartCheckoutCommand('org-42', 'pro', 'weekly'));
@@ -173,7 +173,7 @@ final class StartCheckoutHandlerTest extends TestCase
       self::FRONTEND_URL,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('The selected plan is not available for purchase.');
 
     $handler(new StartCheckoutCommand('org-42', 'free', 'month'));

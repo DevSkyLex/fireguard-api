@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment;
 
-use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingAttachmentNotFoundException, MessagingNotFoundException};
@@ -54,7 +53,7 @@ final readonly class DownloadMessageAttachmentHandler implements QueryHandler
     try {
       $attachmentId = MessagingAttachmentId::fromString($query->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $attachment = $this->attachments->findById($attachmentId);

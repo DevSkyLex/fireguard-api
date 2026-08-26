@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function preg_match;
 use function sprintf;
@@ -116,7 +117,7 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
       $value,
       $matches,
     )) {
-      throw new InvalidArgumentException(sprintf(
+      throw InvalidValueException::because(sprintf(
         'Invalid "%s" datetime filter. Use an ISO 8601 datetime with an explicit timezone offset.',
         $filterName,
       ));
@@ -137,7 +138,7 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
       false === $dateTime
       || (false !== $errors && (0 !== $errors['warning_count'] || 0 !== $errors['error_count']))
     ) {
-      throw new InvalidArgumentException(sprintf(
+      throw InvalidValueException::because(sprintf(
         'Invalid "%s" datetime filter. Use an ISO 8601 datetime with an explicit timezone offset.',
         $filterName,
       ));
@@ -163,10 +164,10 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
   private static function assertSupportedRange(DateTimeImmutable $from, DateTimeImmutable $to): void
   {
     if ($from->getTimestamp() > $to->getTimestamp()) {
-      throw new InvalidArgumentException('The "from" datetime filter must be before or equal to "to".');
+      throw InvalidValueException::because('The "from" datetime filter must be before or equal to "to".');
     }
     if ((int) $from->setTime(0, 0)->diff($to->setTime(0, 0))->days + 1 > self::MAX_FEED_SPAN_DAYS) {
-      throw new InvalidArgumentException('Calendar feed date range cannot exceed 366 days.');
+      throw InvalidValueException::because('Calendar feed date range cannot exceed 366 days.');
     }
   }
   // #endregion

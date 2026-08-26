@@ -37,10 +37,22 @@ api_platform:
   #      Proven by a functional test that failed with 500 before the fix, and
   #      frozen by it since.
   #
-  # Two throws remain unmapped and correctly so: NotificationService's, which no
-  # HTTP path reaches (`SendNotificationCommand` is dispatched only from an
-  # Application service), and one in `VerifyOtpHandler` that `VerifyOtpProcessor`
-  # guards upstream. Both are genuine programming errors.
+  # NINE throws remain `InvalidArgumentException` across the Application layer,
+  # and every one of them is deliberate — they are the reason this class stays
+  # out of the map rather than an oversight the conversion missed:
+  #
+  #   - `SendNotificationHandler` (7). `SendNotificationCommand` is dispatched
+  #     only from `NotificationService`, which no Presentation file reaches.
+  #     Its guards describe an internal contract, so a violation is a
+  #     programming error and 500 is the right answer. Converting them to
+  #     `InvalidValueException` would map them to 400 and report a bug in this
+  #     codebase as the caller's fault.
+  #   - `VerifyOtpHandler` (1). `VerifyOtpProcessor` guards the same condition
+  #     before dispatching, so the branch is unreachable over HTTP.
+  #   - `CreateOrganizationHandler` (1). Reachable only inside
+  #     `SecurityUserProvider`'s 15-second cache window, when the caller's own
+  #     account was deleted mid-session — an inconsistent state, not a bad
+  #     request. The handler carries the reasoning.
   #
   # `FacilityMediaProcessor` and `InspectionMediaProcessor` were reported as two
   # more 500s and are NOT: neither carries a `catch (InvalidArgumentException)`,

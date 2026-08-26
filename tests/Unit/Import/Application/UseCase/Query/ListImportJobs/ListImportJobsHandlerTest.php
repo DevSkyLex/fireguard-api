@@ -9,11 +9,11 @@ use Import\Application\UseCase\Query\ListImportJobs\{ListImportJobsHandler, List
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind};
-use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test ListImportJobsHandler.
@@ -99,7 +99,7 @@ final class ListImportJobsHandlerTest extends TestCase
       $this->createStub(OrganizationAuthorizationPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID, kind: 'unknown'));
   }

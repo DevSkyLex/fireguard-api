@@ -12,12 +12,12 @@ use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttach
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test DeleteInterventionAttachmentHandlerTest.
@@ -233,7 +233,7 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
       fileStorage: $this->createStub(FileStoragePort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new DeleteInterventionAttachmentCommand(
       userId: self::USER_ID,

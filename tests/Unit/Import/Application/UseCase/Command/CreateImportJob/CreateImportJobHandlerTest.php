@@ -7,7 +7,6 @@ namespace Tests\Unit\Import\Application\UseCase\Command\CreateImportJob;
 use Import\Application\Port\Outbound\{ImportJobQueuePort, ImportJobRepositoryPort};
 use Import\Application\UseCase\Command\CreateImportJob\{CreateImportJobCommand, CreateImportJobHandler};
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
-use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -15,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CreateImportJobHandler.
@@ -150,7 +150,7 @@ final class CreateImportJobHandlerTest extends TestCase
   {
     $handler = $this->stubbedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateImportJobCommand(
       userId: self::USER_ID,
@@ -168,7 +168,7 @@ final class CreateImportJobHandlerTest extends TestCase
   {
     $handler = $this->stubbedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateImportJobCommand(
       userId: self::USER_ID,
@@ -186,7 +186,7 @@ final class CreateImportJobHandlerTest extends TestCase
   {
     $handler = $this->stubbedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke($this->command('unknown'));
   }

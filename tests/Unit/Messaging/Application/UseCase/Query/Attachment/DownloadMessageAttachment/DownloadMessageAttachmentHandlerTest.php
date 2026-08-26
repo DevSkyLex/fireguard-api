@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
@@ -19,6 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test DownloadMessageAttachmentHandlerTest.
@@ -182,7 +182,7 @@ final class DownloadMessageAttachmentHandlerTest extends TestCase
       $this->createStub(FileStoragePort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new DownloadMessageAttachmentQuery('user-1', 'not-a-uuid'));
   }
