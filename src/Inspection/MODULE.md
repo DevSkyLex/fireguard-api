@@ -444,8 +444,8 @@ Cross-module contracts and lifecycle invariants:
   `Inspection\Infrastructure\Adapter\Assistant\InspectionAssistantContextProviderAdapter`
   implements the Assistant module's `assistant.context_provider` tagged-
   iterator seam (`Assistant\Application\Port\Outbound\AssistantContextProviderPort`
-  — see `src/Assistant/MODULE.md`), feeding the mockup's "List the open
-  non-conformities" suggestion. `supports()` gates on
+  — see `src/Assistant/MODULE.md`), feeding the assistant's "List the open
+  non-conformities" suggested prompt. `supports()` gates on
   `organization.inspection.read`
   (`OrganizationAuthorizationPort::hasPermission()`, non-throwing). `provide()`
   composes the exact open+in-progress TOTAL from the already-tested

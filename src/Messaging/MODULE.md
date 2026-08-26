@@ -1161,10 +1161,10 @@ for this lot.
 
 **Maximum depth: 2 ancestors (3 levels total), chosen deliberately.** A
 channel may have at most a grandparent (root → parent → child); a
-great-grandchild is rejected. The shipped mockup only ever nests one level
-deep ("Bâtiment Nord" → its three children), so `2` gives one full level of
-headroom (e.g. a site → building → discipline-specific channel) without
-inviting an unbounded tree. The bound also keeps two things cheap: the
+great-grandchild is rejected. Real channel trees observed in the product nest
+one level deep ("Bâtiment Nord" → its three children), so `2` gives one full
+level of headroom (e.g. a site → building → discipline-specific channel)
+without inviting an unbounded tree. The bound also keeps two things cheap: the
 ancestor-chain walk itself (at most `MAX_ANCESTORS + 1` `findAggregateById()`
 round trips per write — this is a single command, not a list endpoint, so
 it is not held to the same no-N+1 bar as `GET /api/channels`, see below),

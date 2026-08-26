@@ -174,8 +174,8 @@ See `src/Calendar/MODULE.md`.
 `MaintenanceAssistantContextProviderAdapter` implements the Assistant
 module's `assistant.context_provider` tagged-iterator seam
 (`Assistant\Application\Port\Outbound\AssistantContextProviderPort` — see
-`src/Assistant/MODULE.md`), feeding the mockup's "What's blocking the
-campaign?" suggestion: overdue + due-soon totals plus up to 5 rows of each
+`src/Assistant/MODULE.md`), feeding the assistant's "What's blocking the
+campaign?" suggested prompt: overdue + due-soon totals plus up to 5 rows of each
 (equipment type, due status, due date), soonest-due first. `supports()`
 gates on `organization.maintenance.read`. Reuses
 `MaintenanceScheduleRepositoryPort::list()` VERBATIM (two calls,

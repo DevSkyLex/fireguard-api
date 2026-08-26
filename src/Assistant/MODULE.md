@@ -290,10 +290,10 @@ first. `buildContextBlocks()` now delegates to `AssistantContextAssembler`
 when the CALLER indicates business context is wanted — it is a private
 method with no external callers of its own, so this stayed additive.
 
-**Why server-side pre-injection, not LLM tool-calling.** The mockup's
-assistant suggestions ("List the open non-conformities", "What's blocking
-the campaign?") require truthful, current organization data the thread
-transcript alone can never contain. Tool-calling would let a small local
+**Why server-side pre-injection, not LLM tool-calling.** The assistant's
+suggested prompts ("List the open non-conformities", "What's blocking the
+campaign?") require truthful, current organization data the thread transcript
+alone can never contain. Tool-calling would let a small local
 model hallucinate a tool invocation or its arguments; pre-injecting a
 deterministic, server-rendered text block is auditable (the exact bytes sent
 to Ollama are reconstructable from `organizationId` + `includeBusinessContext`

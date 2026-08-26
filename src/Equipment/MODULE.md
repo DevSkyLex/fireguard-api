@@ -374,19 +374,16 @@ Cross-module contracts and lifecycle invariants:
   `DUE_STATUS_FILTER_SCAN_LIMIT = 10_000`, a generous safety net given
   organizations are plan-quota bounded on equipment count — not a practical
   limit), resolves due status for that whole candidate set in one batch call,
-  filters in memory, then paginates with `array_slice()`. **Known mismatch
-  with the `/equipment` mockup**: the mockup's Status column shows
-  "Compliant / Due soon / Non-conformity / Not checked" — the first, second,
-  and fourth map onto `up_to_date`, `due_soon`, and `unscheduled`
-  respectively, but **there is no per-equipment `overdue`-adjacent
-  "Non-conformity" state**: non-conformities attach to *inspections* (see
-  `src/Inspection/MODULE.md`), not to equipment. The API exposes the real
-  four `MaintenanceDueStatus` values (`unscheduled`|`up_to_date`|`due_soon`|`overdue`);
-  the frontend must map deliberately rather than assume a 1:1 correspondence
-  with the mockup's four labels.
+  filters in memory, then paginates with `array_slice()`. **Do not assume a
+  per-equipment "Non-conformity" status exists.** It does not: non-conformities
+  attach to *inspections* (see `src/Inspection/MODULE.md`), never to equipment.
+  The API exposes exactly four `MaintenanceDueStatus` values —
+  `unscheduled`|`up_to_date`|`due_soon`|`overdue` — and a UI that wants a
+  four-label status column must map onto those deliberately rather than invent
+  a fifth state.
 - **Equipment KPI endpoint (L2.11)**: `GET .../equipment/kpis`
   (`EquipmentKpiResource` / `GetEquipmentKpisProvider` /
-  `GetEquipmentKpisHandler`) answers the mockup's Equipment page headline
+  `GetEquipmentKpisHandler`) answers the Equipment page headline
   band — `totalAssets`, `compliant`, `dueSoon`, `openNonConformities` — as a
   single org-scoped call instead of the two endpoints the frontend previously
   had to combine.

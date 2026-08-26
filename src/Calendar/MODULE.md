@@ -9,10 +9,12 @@ Two capabilities:
   member). This is what makes the calendar UI's "New event" button work.
 - **B. A unified feed** — a single, bounded, date-ranged read that merges
   standalone events with three read-only cross-module sources: Inspection,
-  Intervention, and Maintenance. **The mockup's fourth category, "Audit", has
-  no business existence in this backend** — there is no generic
-  cross-module audit-log feed wired into the calendar. Only these four
-  sources ever contribute:
+  Intervention, and Maintenance. **There is no "Audit" category** — no generic
+  cross-module audit-log feed is wired into the calendar, and none is planned.
+  (This paragraph used to justify the absence against a design mockup. That
+  mockup was deleted on 2026-08-09 and is no longer a reference for anything,
+  so the gap is stated on its own terms.) Only these four sources ever
+  contribute:
   - `calendar_event` — standalone events (this module's own data)
   - `inspection` — inspections whose `performedAt` falls in range
   - `intervention` — interventions whose `plannedStartAt` or `dueAt` falls in range

@@ -719,8 +719,8 @@ demonstrating that one person can belong to more than one tenant.
   `OrganizationRecord` (not part of the `settings` JSON blob) mapped directly
   on the `Organization` aggregate, mirroring how `description`/`logoUrl` are
   handled. The whole profile is optional — an organization with none of it
-  set is valid — and the mockup's "complete/incomplete" badge is derived by
-  the frontend from field presence, never persisted. Each of the five PATCH
+  set is valid — and the "complete/incomplete" badge is derived by the
+  frontend from field presence, never persisted. Each of the five PATCH
   fields is independently optional: omitting a field (or sending `null`)
   leaves it unchanged, and sending an empty string clears it — the same
   convention already used by `description`. Writes are gated by
