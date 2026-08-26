@@ -40,6 +40,17 @@ and take the larger answer. This is the single most expensive trap in this tooli
 Serena ignores `.git/info/exclude` and would otherwise index every stale worktree as
 duplicate classes. If a symbol shows implausible duplicates, check that file first.
 
+## `Grep` over-reports here, it does not under-report
+
+Measured on `AuditExportTooLargeException`: Serena returns **8 files**, `Grep` returns **12**.
+The four extras are the declaration itself, two `MODULE.md` files, and a `{@see}` docblock in
+an unrelated exception class. Nothing real was missed — `Grep`'s failure mode on this side is
+prose, not blindness.
+
+**This app's `tests/` are indexed normally** — four of those eight files are test files. The
+frontend does *not* have that property: its specs are excluded from the language server's
+project entirely, so a frontend rename needs a `Grep` pass that a backend one does not.
+
 ## Where the server stops
 
 **`find_implementations` is not declared on the `fg-*` agents, and answers `[]` in the main
