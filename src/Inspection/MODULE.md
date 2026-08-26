@@ -518,8 +518,19 @@ three were the stragglers.
 freezes it against a seeded organization the caller is not a member of. It
 failed with `403 is not identical to 404` before the fix.
 
+The same oracle existed one level down, on the **inspection and attachment ids
+themselves**, and was closed in the same pass:
+`CanonicalInspectionMutationProcessor`, `InspectionMediaProcessor` and
+`InspectionMediaProvider` loaded a record by GLOBAL id — the routes carry no
+organization segment — then permission-checked against that record's own
+organization. A foreign inspection answered 403 while an absent one answered
+404. Six gates converted; `testCanonicalInspectionMutationDoesNotRevealForeignInspections`
+freezes the DELETE path and failed with `403 is not identical to 404` before.
+
 **Never gate one of these surfaces on `hasPermission()` alone.** It cannot tell
-"absent" from "not yours", and that difference is the oracle.
+"absent" from "not yours", and that difference is the oracle. `hasPermission()`
+is fine only where the organization id comes from the URI and no separate
+existence lookup precedes it, so both cases already collapse to one answer.
 
 **Architecture debt — `Presentation` reaching into a sibling's `Infrastructure` (4).**
 Down from 5 on 2026-08-26: `CanonicalInspectionMutationProcessor`'s

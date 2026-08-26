@@ -98,7 +98,11 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $inspection->organization->id, 'organization.inspection.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $inspection->organization->id, 'organization.inspection.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Inspection not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.write permission.');
     }
 
@@ -144,7 +148,11 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.inspection.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Non-conformity not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.write permission.');
     }
 
@@ -186,7 +194,11 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
 
     $organization = $record->inspection->organization;
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.inspection.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Non-conformity not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.inspection.write permission.');
     }
 

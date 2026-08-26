@@ -267,7 +267,14 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
-    if (!$this->authorization->hasPermission($user->getId(), $record->organization->id, $permission)) {
+    // 404, not 403, for a caller outside the record's organization: the
+    // inspection was loaded by GLOBAL id, so a 403 here would confirm that id
+    // exists in another tenant.
+    $decision = $this->authorization->resolveAccess($user->getId(), $record->organization->id, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Inspection not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
   }
