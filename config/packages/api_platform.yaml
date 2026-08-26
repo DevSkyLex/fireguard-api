@@ -13,9 +13,24 @@ api_platform:
   # here without changing it there fails that test, on purpose: a status is a
   # published contract, not a configuration detail.
   #
-  # PHP's own exceptions are deliberately absent. Mapping InvalidArgumentException
-  # globally to 400 would turn every genuine programming error into a client error,
-  # and the 77 processors that map it today do so knowing which call raised it.
+  # PHP's own exceptions are deliberately absent, and that was ARBITRATED rather
+  # than inherited (2026-08-26). Mapping InvalidArgumentException globally to 400
+  # would turn every genuine programming error into a client error — the class is
+  # thrown by vendor code (Doctrine, Symfony, Ramsey) as much as by handlers, and
+  # a 400 wakes nobody where a 500 does. The 86 sites that map it today do so
+  # knowing which call raised it: 77 catch clauses, 9 mapper-trait match arms, and
+  # 1 firstFailureOf. A 87th maps it to 409 (DeletePlanProcessor) and is recorded
+  # as an anomaly in PresentationExceptionStatusTest.
+  #
+  # Measured, not assumed: an audit that missed the match-arm and firstFailureOf
+  # shapes concluded three modules mapped it nowhere and that eleven endpoints
+  # answered 500. Both were wrong — every reachable throw is mapped. The only
+  # unmapped ones are NotificationService's, which no HTTP path reaches, and one
+  # in VerifyOtpHandler that its processor guards upstream. Those two are genuine
+  # programming errors and 500 is the right answer for them.
+  #
+  # The prescribed fix for a handler that wants a status is a DOMAIN exception,
+  # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
     # The three that predate FG-035. They already worked because all three are
     # raised BEFORE the command bus wraps anything — which is precisely the
