@@ -18,15 +18,18 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # CanonicalEquipmentMutationProcessor names no entity manager on purpose:
+  # it holds none since the mutations moved to
+  # Application\UseCase\{Command,Query}\Equipment\*CanonicalEquipment*.
   Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\CanonicalEquipmentRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -44,6 +47,19 @@ services:
 
   Equipment\Application\Port\Outbound\EquipmentRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository
+
+  # The offline-sync half of `equipment`: the three columns
+  # EquipmentRepositoryPort does not carry. Separate port because saving the
+  # aggregate cannot bump the canonical If-Match revision.
+  Equipment\Application\Port\Outbound\CanonicalEquipmentRepositoryPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\CanonicalEquipmentRepository
+
+  # Twin of the Inspection module's port of the same name: each consumer owns
+  # its own, exactly as the two FacilityValidationPorts coexist.
+  Equipment\Application\Port\Outbound\InterventionScopePort:
+    alias: Intervention\Infrastructure\Adapter\Equipment\InterventionScopeAdapter
+
+  Intervention\Infrastructure\Adapter\Equipment\InterventionScopeAdapter: ~
 
   equipment.main_transaction_manager:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
@@ -171,6 +187,22 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\DecommissionEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  # Canonical (flat, offline-syncable) equipment mutations. Both name the
+  # `main` transaction manager explicitly: autowiring would open a transaction
+  # on the `auth` connection while the writes go to `main`.
+  Equipment\Application\UseCase\Command\Equipment\PatchCanonicalEquipment\PatchCanonicalEquipmentHandler:
+    arguments:
+      $transactionManager: '@equipment.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\DeleteCanonicalEquipment\DeleteCanonicalEquipmentHandler:
+    arguments:
+      $transactionManager: '@equipment.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentHandler:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment\AddTagToEquipmentHandler:
