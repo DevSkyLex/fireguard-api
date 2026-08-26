@@ -7,13 +7,11 @@ namespace Tests\Unit\Inspection\Presentation\Api\Processor\Inspection;
 use ApiPlatform\Metadata\{Delete, Patch};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Application\Contract\Inspection\CanonicalInspectionView;
+use Inspection\Application\Contract\Inspection\{CanonicalInspectionReadView, CanonicalInspectionView};
 use Inspection\Application\UseCase\Command\Inspection\DeleteCanonicalInspection\DeleteCanonicalInspectionCommand;
 use Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection\PatchCanonicalInspectionCommand;
 use Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionResult;
-use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
+use Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\ReadCanonicalInspectionResult;
 use Inspection\Presentation\Api\Dto\Input\Inspection\PatchCanonicalInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor;
@@ -23,7 +21,6 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\{CommandMessage, ResultMessage};
@@ -376,7 +373,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
       $authorization,
       $security,
       $requestStack,
-      new CanonicalInspectionProvider($this->entityManager(), $authorization, $security, $requestStack, $manager),
+      new CanonicalInspectionProvider($this->readQueryBus(), $authorization, $security, $requestStack),
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
@@ -384,35 +381,43 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
   }
 
   /**
-   * Method entityManager.
+   * Method readQueryBus.
    *
-   * Only `CanonicalInspectionProvider` reaches it — the processor holds none.
+   * Only `CanonicalInspectionProvider` reaches it — the processor holds no
+   * bus of its own for reads. It answers one seeded inspection so the PATCH
+   * path can produce its output.
    *
-   * @return EntityManagerInterface a manager answering with one seeded record
+   * @return QueryBusPort a bus answering the canonical read
    */
-  private function entityManager(): EntityManagerInterface
+  private function readQueryBus(): QueryBusPort
   {
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $record = new InspectionRecord();
-    $record->id = self::INSPECTION_ID;
-    $record->organization = $organization;
-    $record->recordStatus = 'published';
-    $record->revision = 3;
-    $record->status = 'submitted';
-    $record->inspectorType = 'external';
-    $record->inspectorName = 'Inspector';
-    $record->equipmentId = '550e8400-e29b-41d4-a716-446655440025';
-    $record->result = 'pass';
-    $record->performedAt = new DateTimeImmutable();
-    $record->createdAt = new DateTimeImmutable();
-    $record->updatedAt = new DateTimeImmutable();
-    $record->nonConformities = new ArrayCollection();
+    $now = new DateTimeImmutable();
+    $view = new CanonicalInspectionReadView(
+      id: self::INSPECTION_ID,
+      organizationId: self::ORGANIZATION_ID,
+      interventionId: null,
+      recordStatus: 'published',
+      revision: 3,
+      equipmentId: '550e8400-e29b-41d4-a716-446655440025',
+      facilityId: null,
+      result: 'pass',
+      status: 'submitted',
+      performedAt: $now,
+      inspectorType: 'external',
+      inspectorUserId: null,
+      inspectorName: 'Inspector',
+      inspectorOrganizationName: null,
+      checklistId: null,
+      notes: null,
+      signature: null,
+      createdAt: $now,
+      updatedAt: $now,
+    );
 
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('find')->willReturn($record);
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new ReadCanonicalInspectionResult($view));
 
-    return $entityManager;
+    return $queryBus;
   }
 
   /**

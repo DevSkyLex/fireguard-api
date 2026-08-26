@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
+use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
 use Inspection\Domain\Model\Inspection\CanonicalInspection;
 use Inspection\Domain\ValueObject\{
   InspectionEquipmentId,
@@ -60,6 +61,48 @@ final class CanonicalInspectionMapper
       notes: $record->notes,
       signature: $record->signature,
       revision: $record->revision,
+      updatedAt: $record->updatedAt,
+    );
+  }
+
+  /**
+   * Method toReadView.
+   *
+   * Projects the row onto the flat read view, WITHOUT touching the
+   * `nonConformities` association: doing so per row is an N+1, and the
+   * caller fills the count from one grouped query instead.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionRecord $record the persisted record
+   *
+   * @return CanonicalInspectionReadView the read view, with a zero count
+   */
+  public static function toReadView(InspectionRecord $record): CanonicalInspectionReadView
+  {
+    if (!$record->organization instanceof OrganizationRecord) {
+      throw new LogicException('Inspection record must reference an organization.');
+    }
+
+    return new CanonicalInspectionReadView(
+      id: $record->id,
+      organizationId: $record->organization->id,
+      interventionId: $record->interventionId,
+      recordStatus: $record->recordStatus,
+      revision: $record->revision,
+      equipmentId: $record->equipmentId,
+      facilityId: $record->facilityId,
+      result: $record->result,
+      status: $record->status,
+      performedAt: $record->performedAt,
+      inspectorType: $record->inspectorType,
+      inspectorUserId: $record->inspectorUserId,
+      inspectorName: $record->inspectorName,
+      inspectorOrganizationName: $record->inspectorOrganizationName,
+      checklistId: $record->checklistId,
+      notes: $record->notes,
+      signature: $record->signature,
+      createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
     );
   }

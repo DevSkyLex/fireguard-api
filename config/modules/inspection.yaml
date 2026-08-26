@@ -6,10 +6,8 @@ services:
   Inspection\Presentation\:
     resource: '../../src/Inspection/Presentation'
 
-  Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # CanonicalInspectionProvider names no entity manager: both of its reads
+  # went to Application\UseCase\Query\Inspection\.
   # CanonicalInspectionMutationProcessor names no entity manager on purpose:
   # it holds none since the mutations moved to
   # Application\UseCase\{Command,Query}\Inspection\*CanonicalInspection*.
@@ -288,5 +286,14 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\ReadCanonicalInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ListCanonicalInspections\ListCanonicalInspectionsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\ResolveCanonicalInspectionScopeHandler:
     tags: ['messenger.message_handler']
 

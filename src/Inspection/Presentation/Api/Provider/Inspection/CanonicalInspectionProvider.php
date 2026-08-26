@@ -9,16 +9,19 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
+use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
+use Inspection\Application\UseCase\Query\Inspection\ListCanonicalInspections\{ListCanonicalInspectionsQuery, ListCanonicalInspectionsResult};
+use Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\{ReadCanonicalInspectionQuery, ReadCanonicalInspectionResult};
+use Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\{ResolveCanonicalInspectionScopeQuery, ResolveCanonicalInspectionScopeResult};
 use Inspection\Presentation\Api\Dto\Output\Inspection\{InspectionOutput, InspectorOutput};
-use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function array_map;
 use function is_array;
 use function is_numeric;
 use function is_string;
@@ -28,9 +31,20 @@ use function min;
 /**
  * Provider CanonicalInspectionProvider.
  *
+ * Translates the two canonical `/inspections` reads into queries and maps the
+ * views onto `InspectionOutput`. It holds no entity manager and writes no
+ * DQL: the filters, the `recordStatus` default, the paging and the
+ * non-conformity counts live in `Application\UseCase\Query\Inspection\`.
+ *
+ * **Two things deliberately stay here.** The authorization gate, because it
+ * must run between resolving the organization and reading any row —
+ * `OUTSIDE_SCOPE` answers 404 and `MISSING_PERMISSION` answers 403. And the
+ * pagination clamp, whose bounds mirror the resource's own declarations and
+ * where a non-numeric value falls back to the default rather than failing.
+ *
  * @category Provider
  *
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -38,6 +52,18 @@ use function min;
  */
 final readonly class CanonicalInspectionProvider implements ProviderInterface
 {
+  // #region Constants
+  /**
+   * The resource's declared page size and ceiling.
+   *
+   * @since 2.0.0
+   */
+  private const int DEFAULT_ITEMS_PER_PAGE = 50;
+
+  private const int MAX_ITEMS_PER_PAGE = 100;
+  // #endregion
+
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -45,21 +71,21 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param EntityManagerInterface $entityManager the entity manager value
+   * @param QueryBusPort $queryBus the query bus value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
+    private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private InterventionResourceManager $interventionResourceManager,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * Method provide.
    *
@@ -74,116 +100,97 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $id = $uriVariables['id'] ?? null;
-    if (is_string($id) && '' !== $id) {
-      $record = $this->entityManager->find(InspectionRecord::class, $id);
-      if (!$record instanceof InspectionRecord) {
-        throw new NotFoundHttpException('Inspection not found.');
-      }
-      if (null === $record->organization) {
-        throw new NotFoundHttpException('Inspection not found.');
-      }
-      $this->assertRead($record->organization->id);
 
-      return $this->map($record);
+    if (is_string($id) && '' !== $id) {
+      return self::output($this->item($id));
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $intervention = $request?->query->get('intervention');
-    $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
-    $organizationValue = $request?->query->get('organization');
-    $organization = $this->organization($organizationValue, $intervention);
-    $this->assertRead($organization);
-    $recordStatus = $request?->query->get('recordStatus');
-    $query = $this->entityManager->createQueryBuilder()
-      ->select('i')
-      ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
-      ->andWhere('i.recordStatus = :recordStatus')
-      ->setParameter('organization', $organization)
-      ->setParameter('recordStatus', is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (null !== $interventionId ? 'draft' : 'published'))
-      ->orderBy('i.createdAt', 'ASC');
-    if (null !== $interventionId) {
-      $query->andWhere('i.interventionId = :interventionId')->setParameter('interventionId', $interventionId);
-    }
-    $equipment = $request?->query->get('equipment');
-    if (is_string($equipment) && '' !== $equipment) {
-      $query->andWhere('i.equipmentId = :equipmentId')->setParameter('equipmentId', ResourceIriParser::id($equipment, 'equipment'));
-    }
+    $interventionId = $this->filterId($request?->query->get('intervention'), 'interventions');
+    $organizationId = $this->filterId($request?->query->get('organization'), 'organizations');
+    $equipmentId = $this->filterId($request?->query->get('equipment'), 'equipment');
 
-    [$page, $itemsPerPage] = $this->pagination($context);
-    $countQuery = clone $query;
-    $total = (int) $countQuery
-      ->resetDQLPart('orderBy')
-      ->select('COUNT(i.id)')
-      ->getQuery()
-      ->getSingleScalarResult();
-    /** @var list<InspectionRecord> $records */
-    $records = $query
-      ->setFirstResult(($page - 1) * $itemsPerPage)
-      ->setMaxResults($itemsPerPage)
-      ->getQuery()
-      ->getResult();
-    $output = [];
-    foreach ($records as $record) {
-      $output[] = $this->map($record);
-    }
+    /** @var ResolveCanonicalInspectionScopeResult $scope */
+    $scope = $this->queryBus->ask(new ResolveCanonicalInspectionScopeQuery(
+      organizationId: $organizationId,
+      interventionId: $interventionId,
+    ));
 
-    return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
-  }
-
-  /**
-   * Method pagination.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $context
-   *
-   * @return array{0: int, 1: int}
-   */
-  private function pagination(array $context): array
-  {
-    $filters = $context['filters'] ?? [];
-    $page = is_array($filters) && is_numeric($filters['page'] ?? null) ? (int) $filters['page'] : 1;
-    $itemsPerPage = is_array($filters) && is_numeric($filters['itemsPerPage'] ?? null) ? (int) $filters['itemsPerPage'] : 50;
-
-    return [max(1, $page), max(1, min(100, $itemsPerPage))];
-  }
-
-  /**
-   * Method organization.
-   *
-   * Executes the organization operation.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $organizationValue the organization value value
-   * @param mixed $interventionValue the intervention value value
-   *
-   * @return string the organization identifier
-   */
-  private function organization(mixed $organizationValue, mixed $interventionValue): string
-  {
-    $organizationId = is_string($organizationValue) && '' !== $organizationValue
-      ? ResourceIriParser::id($organizationValue, 'organizations')
-      : (is_string($interventionValue) && '' !== $interventionValue
-        ? $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId
-        : null);
-    if (null === $organizationId) {
+    if (null === $scope->organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
 
-    // No existence check here. `assertRead()` calls `resolveAccess()`, which
-    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
-    // message — for an organization that does not exist as for one the caller
-    // is not in. Looking the record up first would issue a second query to
-    // reach an answer the permission gate already gives.
-    return $organizationId;
+    $this->assertRead($scope->organizationId);
+
+    $recordStatus = $request?->query->get('recordStatus');
+    $filters = $context['filters'] ?? [];
+
+    /** @var ListCanonicalInspectionsResult $result */
+    $result = $this->queryBus->ask(new ListCanonicalInspectionsQuery(
+      organizationId: $scope->organizationId,
+      interventionId: $interventionId,
+      equipmentId: $equipmentId,
+      recordStatus: is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : null,
+      page: self::page($filters),
+      itemsPerPage: self::itemsPerPage($filters),
+    ));
+
+    return new TraversablePaginator(
+      new ArrayIterator(array_map(self::output(...), $result->views)),
+      (float) $result->page,
+      (float) $result->itemsPerPage,
+      (float) $result->total,
+    );
+  }
+
+  /**
+   * Method item.
+   *
+   * Reads one inspection and gates on the organization it carries. Unknown
+   * and malformed identifiers answer alike, and so does an inspection in an
+   * organization the caller is not in — a 403 there would confirm the id
+   * exists in another tenant.
+   *
+   * @since 1.0.0
+   *
+   * @param string $id the inspection identifier
+   *
+   * @return CanonicalInspectionReadView the inspection
+   */
+  private function item(string $id): CanonicalInspectionReadView
+  {
+    /** @var ReadCanonicalInspectionResult $result */
+    $result = $this->queryBus->ask(new ReadCanonicalInspectionQuery($id));
+
+    if (null === $result->view) {
+      throw new NotFoundHttpException('Inspection not found.');
+    }
+
+    $this->assertRead($result->view->organizationId);
+
+    return $result->view;
+  }
+
+  /**
+   * Method filterId.
+   *
+   * Parses one optional IRI filter. An absent or empty value is simply not a
+   * filter.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $value the raw query value
+   * @param string $resource the resource segment the IRI must carry
+   *
+   * @return ?string the parsed identifier, or null when the filter is absent
+   */
+  private function filterId(mixed $value, string $resource): ?string
+  {
+    return is_string($value) && '' !== $value ? ResourceIriParser::id($value, $resource) : null;
   }
 
   /**
    * Method assertRead.
-   *
-   * Executes the assert read operation.
    *
    * @since 1.0.0
    *
@@ -206,46 +213,80 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
   }
 
   /**
-   * Method map.
+   * Method page.
    *
-   * Executes the map operation.
+   * @static
    *
    * @since 1.0.0
    *
-   * @param InspectionRecord $record the record value
+   * @param mixed $filters API Platform's filter context
    *
-   * @return InspectionOutput the map result
+   * @return int the 1-based page number
    */
-  private function map(InspectionRecord $record): InspectionOutput
+  private static function page(mixed $filters): int
   {
-    if (null === $record->organization) {
-      throw new NotFoundHttpException('Inspection organization not found.');
+    return is_array($filters) && is_numeric($filters['page'] ?? null) ? max(1, (int) $filters['page']) : 1;
+  }
+
+  /**
+   * Method itemsPerPage.
+   *
+   * @static
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $filters API Platform's filter context
+   *
+   * @return int the clamped page size
+   */
+  private static function itemsPerPage(mixed $filters): int
+  {
+    if (!is_array($filters) || !is_numeric($filters['itemsPerPage'] ?? null)) {
+      return self::DEFAULT_ITEMS_PER_PAGE;
     }
+
+    return max(1, min(self::MAX_ITEMS_PER_PAGE, (int) $filters['itemsPerPage']));
+  }
+
+  /**
+   * Method output.
+   *
+   * @static
+   *
+   * @since 1.0.0
+   *
+   * @param CanonicalInspectionReadView $view the inspection read view
+   *
+   * @return InspectionOutput the output result
+   */
+  private static function output(CanonicalInspectionReadView $view): InspectionOutput
+  {
     $inspector = new InspectorOutput();
-    $inspector->type = $record->inspectorType;
-    $inspector->id = $record->inspectorUserId;
-    $inspector->displayName = $record->inspectorName;
-    $inspector->organizationName = $record->inspectorOrganizationName;
+    $inspector->type = $view->inspectorType;
+    $inspector->id = $view->inspectorUserId;
+    $inspector->displayName = $view->inspectorName;
+    $inspector->organizationName = $view->inspectorOrganizationName;
 
     $output = new InspectionOutput();
-    $output->id = $record->id;
-    $output->organizationId = $record->organization->id;
-    $output->intervention = null !== $record->interventionId ? '/api/interventions/' . $record->interventionId : null;
-    $output->recordStatus = $record->recordStatus;
-    $output->revision = $record->revision;
-    $output->equipmentId = $record->equipmentId;
-    $output->facilityId = $record->facilityId;
-    $output->result = $record->result;
-    $output->status = $record->status;
-    $output->performedAt = $record->performedAt->format('c');
+    $output->id = $view->id;
+    $output->organizationId = $view->organizationId;
+    $output->intervention = null !== $view->interventionId ? '/api/interventions/' . $view->interventionId : null;
+    $output->recordStatus = $view->recordStatus;
+    $output->revision = $view->revision;
+    $output->equipmentId = $view->equipmentId;
+    $output->facilityId = $view->facilityId;
+    $output->result = $view->result;
+    $output->status = $view->status;
+    $output->performedAt = $view->performedAt->format('c');
     $output->inspector = $inspector;
-    $output->checklistId = $record->checklistId;
-    $output->notes = $record->notes;
-    $output->signature = $record->signature;
-    $output->nonConformitiesCount = $record->nonConformities->count();
-    $output->createdAt = $record->createdAt->format('c');
-    $output->updatedAt = $record->updatedAt->format('c');
+    $output->checklistId = $view->checklistId;
+    $output->notes = $view->notes;
+    $output->signature = $view->signature;
+    $output->nonConformitiesCount = $view->nonConformitiesCount;
+    $output->createdAt = $view->createdAt->format('c');
+    $output->updatedAt = $view->updatedAt->format('c');
 
     return $output;
   }
+  // #endregion
 }

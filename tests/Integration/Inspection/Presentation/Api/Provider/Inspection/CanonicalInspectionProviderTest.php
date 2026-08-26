@@ -10,16 +10,21 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
+use Inspection\Application\UseCase\Query\Inspection\ListCanonicalInspections\{ListCanonicalInspectionsHandler, ListCanonicalInspectionsQuery};
+use Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\{ReadCanonicalInspectionHandler, ReadCanonicalInspectionQuery};
+use Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\{ResolveCanonicalInspectionScopeHandler, ResolveCanonicalInspectionScopeQuery};
+use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
+use Inspection\Infrastructure\Persistence\Doctrine\Repository\{CanonicalInspectionRepository, NonConformityRepository};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider;
-use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
-use Intervention\Application\Service\InterventionResourceManager;
+use LogicException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Message\{QueryMessage, ResultMessage};
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -28,6 +33,9 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use function array_map;
 use function array_values;
 use function iterator_to_array;
+use function str_pad;
+
+use const STR_PAD_LEFT;
 
 /**
  * Test CanonicalInspectionProviderTest.
@@ -48,6 +56,12 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
 
   private const string OTHER_ORGANIZATION_ID = '991e8400-e29b-41d4-a716-446655491002';
 
+  /**
+   * A 34-character stem; two digits of counter make a 36-character id, which
+   * is exactly what the column holds.
+   */
+  private const string NON_CONFORMITY_STEM = '993e8400-e29b-41d4-a716-4466554921';
+
   private const string PUBLISHED_A_ID = '991e8400-e29b-41d4-a716-446655491101';
 
   private const string PUBLISHED_B_ID = '991e8400-e29b-41d4-a716-446655491102';
@@ -67,6 +81,8 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
   private const string USER_ID = '991e8400-e29b-41d4-a716-446655499000';
 
   private EntityManagerInterface $entityManager;
+
+  private int $nonConformitySequence = 0;
 
   protected function setUp(): void
   {
@@ -115,6 +131,38 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
     self::assertSame(0, $output->nonConformitiesCount);
     self::assertSame(self::USER_ID, $output->inspector?->id);
     self::assertSame('External Auditors', $output->inspector->organizationName);
+  }
+
+  #[Test]
+  public function testProvideCountsEachInspectionsDeficienciesOnBothReadPaths(): void
+  {
+    // The provider used to reach `$record->nonConformities->count()` once per
+    // row; the count now comes from ONE grouped query for the whole page.
+    // Two inspections with DIFFERENT counts, because a single row with a
+    // non-zero count would still pass if every row got the same number, and a
+    // single row with zero — which is all this file asserted before — passes
+    // even when the count is never wired up at all.
+    $withThree = $this->createInspection(self::PUBLISHED_A_ID);
+    $withOne = $this->createInspection(self::PUBLISHED_B_ID);
+    $this->createNonConformities($withThree, 3);
+    $this->createNonConformities($withOne, 1);
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $page = $this->provider(['organization' => '/api/organizations/' . self::ORGANIZATION_ID])
+      ->provide(new GetCollection(), []);
+
+    self::assertInstanceOf(TraversablePaginator::class, $page);
+    /** @var list<InspectionOutput> $outputs */
+    $outputs = array_values(iterator_to_array($page));
+    self::assertSame([3, 1], array_map(
+      static fn (InspectionOutput $output): int => $output->nonConformitiesCount,
+      $outputs,
+    ));
+
+    $item = $this->provider()->provide(new Get(), ['id' => self::PUBLISHED_A_ID]);
+    self::assertInstanceOf(InspectionOutput::class, $item);
+    self::assertSame(3, $item->nonConformitiesCount, 'The item read must agree with the listing.');
   }
 
   #[Test]
@@ -296,6 +344,39 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
   }
 
   /**
+   * Method queryBus.
+   *
+   * A real bus over the REAL handlers and the REAL repositories, so the DQL
+   * this test exists for is still the DQL under test. Only the intervention
+   * lookup is stubbed: it belongs to another module and another table.
+   *
+   * @return QueryBusPort the bus wired to the three canonical read queries
+   */
+  private function queryBus(): QueryBusPort
+  {
+    $interventions = $this->createStub(InterventionScopePort::class);
+    $interventions->method('organizationIdOf')->willReturn(self::ORGANIZATION_ID);
+
+    $inspections = new CanonicalInspectionRepository($this->entityManager);
+    $nonConformities = new NonConformityRepository($this->entityManager);
+    $read = new ReadCanonicalInspectionHandler($inspections, $nonConformities);
+    $list = new ListCanonicalInspectionsHandler($inspections, $nonConformities);
+    $resolve = new ResolveCanonicalInspectionScopeHandler($interventions);
+
+    $bus = $this->createStub(QueryBusPort::class);
+    $bus->method('ask')->willReturnCallback(
+      static fn (QueryMessage $query): ResultMessage => match (true) {
+        $query instanceof ResolveCanonicalInspectionScopeQuery => $resolve($query),
+        $query instanceof ListCanonicalInspectionsQuery => $list($query),
+        $query instanceof ReadCanonicalInspectionQuery => $read($query),
+        default => throw new LogicException('Unexpected query on the canonical inspection bus.'),
+      },
+    );
+
+    return $bus;
+  }
+
+  /**
    * @param array<string, string> $query
    */
   private function provider(
@@ -326,18 +407,27 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
       $authenticated ? new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true) : null,
     );
 
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionAssignmentContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
-    );
-
     return new CanonicalInspectionProvider(
-      $this->entityManager,
+      $this->queryBus(),
       $authorization,
       $security,
       $requestStack,
-      new InterventionResourceManager($gateway),
     );
+  }
+
+  private function createNonConformities(InspectionRecord $inspection, int $count): void
+  {
+    for ($index = 0; $index < $count; ++$index) {
+      $record = new NonConformityRecord();
+      $record->id = self::NON_CONFORMITY_STEM . str_pad((string) ++$this->nonConformitySequence, 2, '0', STR_PAD_LEFT);
+      $record->inspection = $inspection;
+      $record->description = 'Seeded deficiency ' . $index;
+      $record->severity = 'high';
+      $record->status = 'open';
+      $record->createdAt = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
+      $record->updatedAt = $record->createdAt;
+      $this->entityManager->persist($record);
+    }
   }
 
   private function createInspection(string $id): InspectionRecord
@@ -380,6 +470,12 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
   private function cleanup(): void
   {
     $connection = $this->entityManager->getConnection();
+    // Deficiencies first: the foreign key is not ON DELETE CASCADE.
+    $connection->executeStatement(
+      'DELETE FROM non_conformities WHERE inspection_id IN (:inspectionIds)',
+      ['inspectionIds' => [self::PUBLISHED_A_ID, self::PUBLISHED_B_ID, self::DRAFT_ID, self::FOREIGN_ID, self::SECOND_DRAFT_ID]],
+      ['inspectionIds' => ArrayParameterType::STRING],
+    );
     $connection->executeStatement(
       'DELETE FROM inspections WHERE id IN (:inspectionIds)',
       ['inspectionIds' => [self::PUBLISHED_A_ID, self::PUBLISHED_B_ID, self::DRAFT_ID, self::FOREIGN_ID, self::SECOND_DRAFT_ID]],
