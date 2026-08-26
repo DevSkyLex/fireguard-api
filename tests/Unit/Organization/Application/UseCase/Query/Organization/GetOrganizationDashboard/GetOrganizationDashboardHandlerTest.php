@@ -6,7 +6,6 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrga
 
 use DateInterval;
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
@@ -20,6 +19,7 @@ use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_column;
 use function array_keys;
@@ -407,7 +407,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   {
     $handler = $this->createHandler(organizationRepository: $this->createOrganizationRepository());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetOrganizationDashboardQuery(
       organizationId: self::ORG_ID,

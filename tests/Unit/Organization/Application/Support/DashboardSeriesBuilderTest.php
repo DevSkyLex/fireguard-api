@@ -6,10 +6,10 @@ namespace Tests\Unit\Organization\Application\Support;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use InvalidArgumentException;
 use Organization\Application\Support\DashboardSeriesBuilder;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test DashboardSeriesBuilder.
@@ -37,7 +37,7 @@ final class DashboardSeriesBuilderTest extends TestCase
   #[Test]
   public function testResolveDashboardTimeZoneRejectsAnUnknownIdentifier(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     DashboardSeriesBuilder::resolveDashboardTimeZone(
       'Mars/Olympus',
@@ -50,7 +50,7 @@ final class DashboardSeriesBuilderTest extends TestCase
   #[Test]
   public function testResolveDashboardTimeZoneRejectsMixedBoundaryOffsets(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     DashboardSeriesBuilder::resolveDashboardTimeZone(
       null,
@@ -76,7 +76,7 @@ final class DashboardSeriesBuilderTest extends TestCase
   #[Test]
   public function testResolveDashboardTimeZoneRejectsANonUtcImplicitOffset(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     DashboardSeriesBuilder::resolveDashboardTimeZone(
       null,
@@ -142,7 +142,7 @@ final class DashboardSeriesBuilderTest extends TestCase
   #[Test]
   public function testAssertSupportedPeriodRejectsAnInvertedWindow(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     DashboardSeriesBuilder::assertSupportedPeriod(
       new DateTimeImmutable('2026-03-31T00:00:00+00:00'),
@@ -153,7 +153,7 @@ final class DashboardSeriesBuilderTest extends TestCase
   #[Test]
   public function testAssertSupportedPeriodRejectsAWindowLongerThanTheMaximum(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     DashboardSeriesBuilder::assertSupportedPeriod(
       new DateTimeImmutable('2025-01-01T00:00:00+00:00'),

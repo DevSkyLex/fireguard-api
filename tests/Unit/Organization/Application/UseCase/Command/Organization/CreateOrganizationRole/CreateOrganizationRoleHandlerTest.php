@@ -18,6 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CreateOrganizationRoleHandler::class)]
 final class CreateOrganizationRoleHandlerTest extends TestCase
@@ -162,7 +163,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('At least one permission is required.');
 
     $handler->__invoke(new CreateOrganizationRoleCommand(

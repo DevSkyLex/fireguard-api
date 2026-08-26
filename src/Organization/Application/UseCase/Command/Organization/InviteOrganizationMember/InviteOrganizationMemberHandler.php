@@ -298,7 +298,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     try {
       return new Email($normalized);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException('Invalid email address.', 0, $exception);
+      throw InvalidValueException::because('Invalid email address.', $exception);
     }
   }
 

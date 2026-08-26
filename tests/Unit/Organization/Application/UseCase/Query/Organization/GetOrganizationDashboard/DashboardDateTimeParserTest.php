@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard;
 
-use InvalidArgumentException;
 use Organization\Application\Support\DashboardDateTimeParser;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DashboardDateTimeParser::class)]
 final class DashboardDateTimeParserTest extends TestCase
@@ -24,7 +24,7 @@ final class DashboardDateTimeParserTest extends TestCase
   #[Test]
   public function testParseRejectsDatetimesWithoutExplicitTimezoneOffset(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invalid "from" datetime filter.');
 
     DashboardDateTimeParser::parse('2026-03-30T10:15:30', 'from');
@@ -33,7 +33,7 @@ final class DashboardDateTimeParserTest extends TestCase
   #[Test]
   public function testParseRejectsRelativeDateStrings(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invalid "from" datetime filter.');
 
     DashboardDateTimeParser::parse('tomorrow', 'from');

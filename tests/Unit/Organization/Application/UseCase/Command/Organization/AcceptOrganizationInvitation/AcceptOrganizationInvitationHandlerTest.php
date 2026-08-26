@@ -28,6 +28,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -739,7 +740,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->createHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invitation token is required.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(

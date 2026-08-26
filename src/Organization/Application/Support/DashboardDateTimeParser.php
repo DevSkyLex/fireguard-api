@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Application\Support;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function preg_match;
 use function sprintf;
@@ -30,7 +30,7 @@ final class DashboardDateTimeParser
       $value,
       $matches,
     )) {
-      throw new InvalidArgumentException(sprintf(
+      throw InvalidValueException::because(sprintf(
         'Invalid "%s" datetime filter. Use an ISO 8601 datetime with an explicit timezone offset.',
         $filterName,
       ));
@@ -51,7 +51,7 @@ final class DashboardDateTimeParser
       false === $dateTime
       || (false !== $errors && (0 !== $errors['warning_count'] || 0 !== $errors['error_count']))
     ) {
-      throw new InvalidArgumentException(sprintf(
+      throw InvalidValueException::because(sprintf(
         'Invalid "%s" datetime filter. Use an ISO 8601 datetime with an explicit timezone offset.',
         $filterName,
       ));
