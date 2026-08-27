@@ -34,10 +34,19 @@ parameters:
   env(REFRESH_TOKEN_LIFETIME_SHORT): '86400'
   env(TOKEN_CACHE_TTL): '300'
 
-  # MFA_ENABLED is deliberately NOT given a default. Its documented value is `false`, so a
-  # default would turn a missing key from a loud crash into MFA silently switching off —
-  # fail-open on an authentication control. It stays required, and the deploy preflight
-  # keeps refusing to run without it.
+  # MFA. `true`, not the `false` .env.example used to declare, and the direction is the
+  # whole point: a default of `false` would turn a forgotten key into MFA silently
+  # switching off — fail-open on an authentication control. `true` fails closed, so the
+  # worst a missing key can do is ask for a second factor nobody expected.
+  #
+  # It also ends a divergence nobody had noticed: `.env.test` never set this, so CI ran
+  # the suite with MFA off (from `.env.dist`) while a developer with MFA_ENABLED=true in
+  # their own `.env` ran it on. Both now run it on.
+  #
+  # Turning it OFF is therefore a one-line pull request, not a dashboard toggle. For a
+  # control that decides whether a second factor is demanded at all, that is the right
+  # amount of friction.
+  env(MFA_ENABLED): 'true'
 
   # Auth — trusted devices and OTP
   env(TRUSTED_DEVICE_COOKIE_NAME): 'trusted_device'
