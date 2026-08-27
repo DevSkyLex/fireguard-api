@@ -646,6 +646,55 @@
           retries: "{{ fireguard_healthcheck_retries }}"
           delay: "{{ fireguard_healthcheck_delay }}"
           until: fireguard_internal_health.rc == 0
+
+        # /api/health sits on a `security: false` firewall, so a green health
+        # check proves the container boots and nothing more. These two probes
+        # cover what it cannot, and each maps to a way production has actually
+        # broken while every existing check stayed green.
+
+        # The JWKS provider returns an empty key set on ANY failure to read or
+        # parse config/jwt/public.key -- `{"keys":[]}` is indistinguishable from
+        # "no key configured". Assert a key is actually published.
+        - name: Verify the token-signing key is published
+          ansible.builtin.shell: |
+            set -euo pipefail
+            body=$(docker compose -f {{ fireguard_compose_file }} exec -T app               curl -fsS http://localhost:8000/api/.well-known/jwks.json)
+            echo "$body"
+            if ! printf '%s' "$body" | grep -q '"kty"'; then
+              echo "::error::JWKS is empty. config/jwt/public.key is missing, unreadable or unparsable in the app container." >&2
+              exit 1
+            fi
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+            executable: /bin/bash
+          register: fireguard_jwks_probe
+          changed_when: false
+
+        # `access_control` ends with `{ path: ^/api, roles: ROLE_USER }`, so an
+        # anonymous request to the entrypoint owes a 401. A 500 there means the
+        # firewall itself is failing -- the authenticator reads the signing key
+        # in its constructor, so an unusable key turns every protected route
+        # into a 500 while health, docs and login keep answering normally.
+        - name: Verify a protected route answers 401 rather than failing
+          ansible.builtin.shell: |
+            set -euo pipefail
+            code=$(docker compose -f {{ fireguard_compose_file }} exec -T app               curl -s -o /dev/null -w '%{http_code}'               -H 'Accept: application/ld+json' http://localhost:8000/api)
+            echo "GET /api (anonymous) -> $code"
+            if [ "$code" != "401" ]; then
+              echo "::error::Anonymous GET /api answered $code, expected 401. The firewall is not producing a denial." >&2
+              exit 1
+            fi
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+            executable: /bin/bash
+          register: fireguard_firewall_probe
+          changed_when: false
+
+        - name: Report the application surface probes
+          ansible.builtin.debug:
+            msg:
+              - "{{ fireguard_firewall_probe.stdout | default('') }}"
+              - "JWKS published: {{ 'yes' if '\"kty\"' in (fireguard_jwks_probe.stdout | default('')) else 'no' }}"
       rescue:
         # The app logs JSON to stderr in prod (monolog), so the real exception —
         # e.g. `EnvNotFoundException: Environment variable not found: "..."` — is
@@ -671,9 +720,12 @@
         - name: Fail the deploy after surfacing application logs
           ansible.builtin.fail:
             msg: >-
-              The application did not become healthy. The app container logs were
-              dumped in the previous task. A startup EnvNotFoundException there
-              means a required key is missing from {{ fireguard_env_file }}.
+              The application did not pass its surface checks. The app container
+              logs were dumped in the previous task. A startup EnvNotFoundException
+              there means a required key is missing from {{ fireguard_env_file }}.
+              An empty JWKS, or an anonymous GET /api answering 500 instead of 401,
+              means the app cannot read config/jwt/public.key -- the jwt_init step
+              regenerates that pair, so re-running the deploy is the first fix.
 
     - name: Wait for public application health
       ansible.builtin.uri:
