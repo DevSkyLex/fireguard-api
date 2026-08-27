@@ -335,6 +335,47 @@
       delay: 2
       until: fireguard_main_db_ready.rc == 0
 
+    # `Synchronize <db> database role password` carries a password, so it runs
+    # under no_log -- and a no_log failure is a wall: the run says only "non-zero
+    # return code". It hid the cause twice.
+    #
+    # These two probes do the same connection with no secret anywhere in the
+    # command, so their output is safe to print. Between them they distinguish the
+    # cases the silent task cannot: the env file failed to source, the role does
+    # not exist, the database does not exist, the socket refuses the connection.
+    # Postgres ignores POSTGRES_USER and POSTGRES_DB on a volume that is already
+    # initialised, so a name that does not match what initdb created is not a
+    # warning -- it is every subsequent task failing without saying why.
+    - name: Check the auth role and database exist before touching the password
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        test -n "$POSTGRES_AUTH_USER" || { echo "POSTGRES_AUTH_USER is empty after sourcing the env file"; exit 78; }
+        test -n "$POSTGRES_AUTH_DB" || { echo "POSTGRES_AUTH_DB is empty after sourcing the env file"; exit 78; }
+        test -n "$AUTH_DATABASE_URL" || { echo "AUTH_DATABASE_URL is empty after sourcing the env file"; exit 78; }
+        echo "connecting as ${POSTGRES_AUTH_USER} to ${POSTGRES_AUTH_DB}"
+        docker compose -f {{ fireguard_compose_file }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -tAc 'SELECT current_user, current_database()'
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      changed_when: false
+
+    - name: Check the main role and database exist before touching the password
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        test -n "$POSTGRES_MAIN_USER" || { echo "POSTGRES_MAIN_USER is empty after sourcing the env file"; exit 78; }
+        test -n "$POSTGRES_MAIN_DB" || { echo "POSTGRES_MAIN_DB is empty after sourcing the env file"; exit 78; }
+        test -n "$MAIN_DATABASE_URL" || { echo "MAIN_DATABASE_URL is empty after sourcing the env file"; exit 78; }
+        echo "connecting as ${POSTGRES_MAIN_USER} to ${POSTGRES_MAIN_DB}"
+        docker compose -f {{ fireguard_compose_file }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -tAc 'SELECT current_user, current_database()'
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      changed_when: false
+
     - name: Synchronize auth database role password
       ansible.builtin.shell: |
         set -a
