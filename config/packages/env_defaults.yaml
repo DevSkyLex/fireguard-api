@@ -1,0 +1,70 @@
+# Defaults for environment variables that are constants, not deployment decisions.
+#
+# WHY THIS FILE EXISTS. The production image ships no `.env` at all — `.dockerignore`
+# excludes `.env` and `.env.*`, keeping only `.env.example`, which symfony/dotenv never
+# loads. So every variable read here had to be typed by hand into the VPS env file, and
+# a forgotten one is an EnvNotFoundException on the first request that reads it. That is
+# how 23 keys went missing and production spent three months undeployable. A timeout, a
+# cookie name or a token TTL is not an operational decision; it has one correct value and
+# belongs in the repository, where a change is reviewed in a PR and covered by the gate.
+#
+# WHY CENTRAL, not one block per module. `env(X)` may be declared once. ACCESS_TOKEN_TTL
+# is read by Auth and OAuth, SECURITY_LOG_INCLUDE_PII by Auth and Audit — module-local
+# declarations would collide. The one pre-existing example, `env(TOTP_DIGITS): '6'` in
+# `config/modules/otp.yaml`, is left where it is rather than moved: it is read by one
+# module only, and moving it would be churn for its own sake.
+#
+# WHY `env(X):` AND NOT `%env(default:PARAM:X)%`. The `default:` processor — used above
+# for SECURITY_HEADERS_* and FACILITY_MAX_DEPTH — has to be written at every reference
+# site. These twenty are referenced from fifteen PHP attributes and five YAML files; the
+# parameter form gives the same result while touching none of them.
+#
+# The raw string feeds the processor chain, so `bool:`, `int:` and `csv:` still apply.
+#
+# ADDING ONE. If the value could differ between two deployments of this application, it
+# does NOT belong here — it belongs in the generated production env file
+# (`ansible/templates/production.env.j2`) and in `.env.example` above the OPTIONAL marker.
+parameters:
+  # Auth — token shape and lifetimes
+  env(ACCESS_TOKEN_INCLUDE_EMAIL): 'true'
+  env(ACCESS_TOKEN_INCLUDE_RBAC): 'true'
+  env(ACCESS_TOKEN_TTL): '3600'
+  env(REFRESH_TOKEN_COOKIE_NAME): 'refresh_token'
+  env(REFRESH_TOKEN_LIFETIME_LONG): '2592000'
+  env(REFRESH_TOKEN_LIFETIME_SHORT): '86400'
+  env(TOKEN_CACHE_TTL): '300'
+
+  # MFA_ENABLED is deliberately NOT given a default. Its documented value is `false`, so a
+  # default would turn a missing key from a loud crash into MFA silently switching off —
+  # fail-open on an authentication control. It stays required, and the deploy preflight
+  # keeps refusing to run without it.
+
+  # Auth — trusted devices and OTP
+  env(TRUSTED_DEVICE_COOKIE_NAME): 'trusted_device'
+  env(TRUSTED_DEVICE_LIFETIME): '2592000'
+  env(OTP_CODE_LENGTH): '6'
+
+  # Authorization
+  env(AUTHZ_PERMISSION_CACHE_TTL): '60'
+
+  # Retention and logging. `false` is the fail-closed value on both: an absent key must
+  # never start writing personal data to the logs.
+  env(DATA_RETENTION_DAYS): '90'
+  env(SECURITY_LOG_INCLUDE_PII): 'false'
+
+  # Locking. `flock` is file-based and process-local, which is correct for a single-node
+  # deployment; a multi-node one must set LOCK_DSN explicitly to a shared store.
+  env(LOCK_DSN): 'flock'
+
+  # Assistant (Ollama). The base URL is NOT here — it differs per deployment.
+  env(OLLAMA_DEFAULT_MODEL): 'gemma4:e4b'
+  env(OLLAMA_ALLOWED_MODELS): 'gemma4:e4b,qwen3.6:latest'
+  env(OLLAMA_HTTP_TIMEOUT): '120'
+
+  # Webhooks. `false` is the fail-closed value: an absent key must never start allowing
+  # plaintext callback URLs.
+  env(WEBHOOK_ALLOW_INSECURE_URLS): 'false'
+  env(WEBHOOK_HTTP_TIMEOUT): '10'
+
+  # Billing. The currency is a constant; the price identifiers and amounts are not.
+  env(STRIPE_CURRENCY): 'eur'
