@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use OAuth\Presentation\Api\Provider\Discovery\JwksProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 use function defined;
 use function file_exists;
@@ -152,6 +153,38 @@ final class JwksProviderTest extends TestCase
     self::assertNotEmpty($output->keys);
     self::assertSame('RSA', $output->keys[0]['kty'] ?? null);
     self::assertSame('sig', $output->keys[0]['use'] ?? null);
+  }
+
+  #[Test]
+  public function testProvideLogsWhyTheKeySetIsEmpty(): void
+  {
+    $path = getcwd() . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'missing_jwks_logged.key';
+    if (file_exists($path)) {
+      unlink($path);
+    }
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger
+      ->expects($this->once())
+      ->method('error')
+      ->with(
+        self::stringContains('empty JWKS'),
+        self::callback(
+          static fn (array $context): bool => 'the public key file could not be read' === $context['reason'],
+        ),
+      );
+
+    $provider = new JwksProvider(publicKeyPath: $path, logger: $logger);
+
+    set_error_handler(static fn (): bool => true);
+
+    try {
+      $output = $provider->provide(operation: $this->createStub(Operation::class));
+    } finally {
+      restore_error_handler();
+    }
+
+    self::assertSame([], $output->keys);
   }
   // #endregion
 }
