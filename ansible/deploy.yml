@@ -200,10 +200,46 @@
         - fireguard_managed_env
         - fireguard_blank_env_keys | default([]) | length > 0
 
+    # A value is written to the file verbatim, so a newline inside one does not
+    # produce a broken line -- it produces an EXTRA line, and compose loads it.
+    # Measured: ADMIN_EMAIL carrying a line break followed by "INJECTED_KEY=pwned"
+    # rendered both lines, and DeployEnvContractTest does not catch it -- it asserts
+    # which keys are DECLARED, not which end up in the file. Leading and trailing
+    # whitespace is rejected on the same pass: none of the 34 keys can legitimately
+    # need it, and a pasted trailing space silently breaks a URL or a DSN.
+    - name: Collect the values that would corrupt the generated file
+      ansible.builtin.set_fact:
+        fireguard_unsafe_env_keys: >-
+          {{ fireguard_unsafe_env_keys | default([])
+             + ([item] if (lookup('env', item) is search('[\r\n]')
+                           or lookup('env', item) != (lookup('env', item) | trim))
+                else []) }}
+      loop: "{{ fireguard_declared_env_keys | difference(fireguard_computed_env_keys) | list }}"
+      loop_control:
+        label: "{{ item }}"
+      when: fireguard_managed_env
+
+    - name: Refuse to generate an env file from a value that would corrupt it
+      ansible.builtin.fail:
+        msg: >-
+          These values contain a line break, or leading/trailing whitespace:
+          {{ fireguard_unsafe_env_keys | join(', ') }}.
+          Written verbatim, a line break adds a KEY=VALUE line that compose loads
+          and nothing reviews; stray whitespace silently becomes part of a URL or
+          a DSN. Fix the GitHub variable or secret. Nothing has been changed yet.
+      when:
+        - fireguard_managed_env
+        - fireguard_unsafe_env_keys | default([]) | length > 0
+
+    # ONE previous copy, overwritten, not one per deployment. A timestamped backup
+    # of a file holding every production secret accumulates a new full copy on disk
+    # every deploy, forever, and nothing here prunes them. In managed mode the file
+    # is reproducible from GitHub, so this is a convenience for recovering from a
+    # bad render, not the source of truth -- one is enough.
     - name: Back up the production env file before replacing it
       ansible.builtin.copy:
         src: "{{ fireguard_env_file }}"
-        dest: "{{ fireguard_env_file }}.{{ fireguard_deployment_timestamp }}.bak"
+        dest: "{{ fireguard_env_file }}.previous"
         remote_src: true
         mode: "0600"
       when: fireguard_managed_env
