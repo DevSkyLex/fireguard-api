@@ -294,6 +294,15 @@
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} --profile tools run --rm jwt_init"
       args:
         chdir: "{{ fireguard_app_dir }}"
+      register: fireguard_jwt_init
+
+    # `command` captures output instead of printing it. This step ends with an
+    # `ls -l` of the key directory and says which half it regenerated -- all of
+    # which went to a variable nobody read, so a deploy could repair nothing and
+    # still report `changed`. Print it: it is the only view of the volume.
+    - name: Surface what the JWT key step did
+      ansible.builtin.debug:
+        msg: "{{ (fireguard_jwt_init.stdout_lines | default([])) + (fireguard_jwt_init.stderr_lines | default([])) }}"
 
     - name: Ensure application runtime volume permissions
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} --profile tools run --rm app_var_init"
@@ -651,6 +660,25 @@
         # check proves the container boots and nothing more. These two probes
         # cover what it cannot, and each maps to a way production has actually
         # broken while every existing check stayed green.
+
+        # jwt_init writes into the `jwt_keys` volume; the app mounts the same
+        # volume read-only. Those are two different views and only one of them
+        # is what the application reads, so list it from inside the app itself
+        # before judging. Never fatal: this is the evidence for the probes that
+        # follow, and it must survive to be printed even when they abort.
+        - name: Inspect the key directory the application actually sees
+          ansible.builtin.command: >-
+            docker compose -f {{ fireguard_compose_file }} exec -T app
+            sh -c "ls -la config/jwt 2>&1; echo '--- resolved:'; readlink -f config/jwt"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_key_view
+          changed_when: false
+          failed_when: false
+
+        - name: Surface the key directory the application sees
+          ansible.builtin.debug:
+            msg: "{{ (fireguard_key_view.stdout_lines | default([])) + (fireguard_key_view.stderr_lines | default([])) }}"
 
         # The JWKS provider returns an empty key set on ANY failure to read or
         # parse config/jwt/public.key -- `{"keys":[]}` is indistinguishable from
