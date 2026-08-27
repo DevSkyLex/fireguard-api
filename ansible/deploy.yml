@@ -164,7 +164,8 @@
           key(s) that .env.example declares:
           {{ fireguard_declared_env_keys | difference(fireguard_present_env_keys) | join(', ') }}.
           The image carries no .env, so each of these is an EnvNotFoundException at
-          runtime. Add them on the VPS and redeploy. Nothing has been changed yet.
+          runtime. Add them on the VPS and redeploy. The application is still running
+          and no migration has run.
       when:
         - not fireguard_managed_env
         - fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length > 0
@@ -198,8 +199,8 @@
           missing -- an empty value is not a missing value, it is a working one that
           happens to be wrong, and an empty AUTH_DATABASE_URL password is applied to
           the live database by the role-password task below. Set them as GitHub
-          variables or secrets, or turn FIREGUARD_MANAGED_ENV off. Nothing has been
-          changed yet.
+          variables or secrets, or turn FIREGUARD_MANAGED_ENV off. The application is
+          still running and no migration has run.
       when:
         - fireguard_managed_env
         - fireguard_blank_env_keys | default([]) | length > 0
@@ -230,7 +231,8 @@
           {{ fireguard_unsafe_env_keys | join(', ') }}.
           Written verbatim, a line break adds a KEY=VALUE line that compose loads
           and nothing reviews; stray whitespace silently becomes part of a URL or
-          a DSN. Fix the GitHub variable or secret. Nothing has been changed yet.
+          a DSN. Fix the GitHub variable or secret. The application is still running
+          and no migration has run.
       when:
         - fireguard_managed_env
         - fireguard_unsafe_env_keys | default([]) | length > 0
