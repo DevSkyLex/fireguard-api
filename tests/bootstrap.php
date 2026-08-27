@@ -46,7 +46,20 @@ function fireguard_isolated_database_url(string $dsn, string $token): string
     throw new RuntimeException('Unable to parse the test database DSN for an isolated test run.');
   }
 
-  $template = ltrim((string) $parts['path'], '/');
+  // Strip an isolation suffix the DSN may ALREADY carry, so every process
+  // clones the template rather than another process's clone.
+  //
+  // paratest's parent runs this same bootstrap, rewrites $_SERVER/$_ENV to its
+  // own clone, and then spawns workers that inherit that environment. Measured
+  // on `paratest -c phpunit.e2e.xml`: the workers came up with
+  // AUTH_DATABASE_URL already reading "fireguard_auth_e2e_w427edba0bce3".
+  // Without this, each worker would CREATE ... TEMPLATE off the parent's clone
+  // and DROP a database the parent is holding.
+  //
+  // Anchored on `_test`/`_e2e` so it can only ever strip a suffix this function
+  // wrote, never a database legitimately named "..._w<something>".
+  $name = ltrim((string) $parts['path'], '/');
+  $template = preg_replace('/^(.*_(?:test|e2e))_w[A-Za-z0-9_]+$/', '$1', $name) ?? $name;
   $suffix = preg_replace('/[^A-Za-z0-9_]/', '', $token) ?? '';
   $clone = $template . '_w' . $suffix;
 
@@ -428,7 +441,16 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
     // something other than what it claimed.
     $databaseName = ltrim((string) (parse_url($databaseUrl, PHP_URL_PATH) ?? ''), '/');
 
-    if (!str_ends_with($databaseName, '_test') && !str_ends_with($databaseName, '_e2e')) {
+    // The third shape is a name this bootstrap itself produced: a paratest
+    // worker inherits the parent process's already-rewritten DSN, and rejecting
+    // it would mean the guard refusing its own output. It is still a test
+    // database — `fireguard_isolated_database_url` strips the suffix and clones
+    // the template afresh for this worker.
+    $isTestDatabase = str_ends_with($databaseName, '_test')
+      || str_ends_with($databaseName, '_e2e')
+      || 1 === preg_match('/_(?:test|e2e)_w[A-Za-z0-9_]+$/', $databaseName);
+
+    if (!$isTestDatabase) {
       throw new RuntimeException(sprintf(
         '%s points at "%s", which is not a test database. Expected a name ending in _test or _e2e. '
         . 'Run the suite on the host (`make test`), not inside the app container: compose exports '
