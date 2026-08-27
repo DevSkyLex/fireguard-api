@@ -126,7 +126,6 @@ jobs:
       MAILER_FROM:                     ${{ vars.MAILER_FROM }}
       MERCURE_CORS_ORIGINS:            ${{ vars.MERCURE_CORS_ORIGINS }}
       MESSENGER_TRANSPORT_DSN:         ${{ vars.MESSENGER_TRANSPORT_DSN }}
-      MFA_ENABLED:                     ${{ vars.MFA_ENABLED }}
       OAUTH_ISSUER:                    ${{ vars.OAUTH_ISSUER }}
       OLLAMA_BASE_URL:                 ${{ vars.OLLAMA_BASE_URL }}
       POSTGRES_AUTH_DB:                ${{ vars.POSTGRES_AUTH_DB }}
