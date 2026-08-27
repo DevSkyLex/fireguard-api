@@ -91,6 +91,7 @@ Cross-module dependencies, and the contract each goes through:
 | consumed | `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` | `Audit\…\Contract\OrganizationAuditEntry` | the activity feed — Audit publishes a scoped, reduced read rather than lending its ledger repository; see Notes (P2.6) |
 | published | `Organization\Application\Port\Inbound\TeamDirectoryPort` | `…\Contract\Team\TeamMembershipSnapshot` | lets Intervention (and later Messaging) resolve a team's active membership without touching this module's Domain |
 | published | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` | `…\Contract\Authorization\OrganizationAccessDecision` | the permission check every other module's org-scoped endpoint runs |
+| published | `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` | `…\Contract\Document\OrganizationDocumentBranding` | document (PDF) branding for Compliance and Intervention exports: display name, stored logo inlined as a base64 `data:` URI (implemented by `Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` reading `FileStoragePort`), legal identity (legal name, registration number, VAT), regional settings (timezone, locale, `dateFormat`). Never throws: a missing organization or logo degrades to defaults |
 
 ### `OrganizationAuthorizationPort` — three ways to ask
 

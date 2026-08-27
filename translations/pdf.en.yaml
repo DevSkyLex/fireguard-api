@@ -1,0 +1,97 @@
+layout:
+  generatedAt: "Generated on %date%"
+  registrationNumber: "Registration no. %number%"
+  vatNumber: "VAT %number%"
+
+common:
+  "yes": "Yes"
+  "no": "No"
+
+compliance:
+  title: "Safety register"
+  scope:
+    organization: "Organization report"
+    facility: "Facility report"
+  meta:
+    generatedAt: "Generated on"
+    organization: "Organization"
+    facility: "Facility"
+    plan: "Plan"
+    overallStatus: "Overall status"
+  status:
+    compliant: "Compliant"
+    at_risk: "At risk"
+    non_compliant: "Non-compliant"
+    not_applicable: "Not applicable"
+  totals:
+    heading: "Totals"
+    equipmentTotal: "Equipment total"
+    upToDate: "Up to date"
+    dueSoon: "Due soon"
+    overdue: "Overdue"
+    unscheduled: "Unscheduled"
+    openNonConformities: "Open NC (low/med/high/critical)"
+  facilities:
+    heading: "Facilities"
+    facility: "Facility"
+    type: "Type"
+    status: "Status"
+    equipment: "Equipment (up-to-date / due soon / overdue / unscheduled)"
+    openNonConformities: "Open NC (low/med/high/critical)"
+    lastInspection: "Last inspection"
+  note: "Data as of %date%. Equipment due status is refreshed by the hourly maintenance sweep and may be up to one hour stale. This document is a point-in-time snapshot and is not stored; regenerate it at any time from the live compliance register."
+
+intervention:
+  title: "Intervention report — FG-%number%"
+  meta:
+    name: "Name"
+    type: "Type"
+    status: "Status"
+    priority: "Priority"
+    site: "Site"
+    responsible: "Responsible"
+    participants: "Participants"
+    plannedStart: "Planned start"
+    due: "Due"
+    reviewNote: "Review note"
+    signature: "Completion signature captured"
+    labels: "Labels"
+    generatedAt: "Generated on"
+  workItems:
+    heading: "Work items"
+    empty: "No work items."
+    action: "Action"
+    target: "Target"
+    assignee: "Assignee"
+    status: "Status"
+    required: "Required"
+    skipReason: "Skip reason"
+    evidence: "Evidence"
+  issues:
+    heading: "Issues"
+    empty: "No issues."
+    severity: "Severity"
+    message: "Message"
+  severity:
+    blocker: "Blocker"
+    warning: "Warning"
+    recommendation: "Recommendation"
+  changes:
+    heading: "Changes"
+    proposed: "Proposed"
+    applied: "Applied"
+    rejected: "Rejected"
+  attachments:
+    heading: "Attachments"
+    empty: "No attachments."
+    fileName: "File name"
+    kind: "Kind"
+  activities:
+    heading: "Activity highlights"
+    empty: "No recorded activity."
+    date: "Date"
+    kind: "Kind"
+    event: "Event"
+    actor: "Actor"
+    comment: "Comment"
+  note: "This document is a point-in-time snapshot and is not stored; regenerate it at any time from the live intervention record."

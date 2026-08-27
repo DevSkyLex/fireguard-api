@@ -1,0 +1,97 @@
+layout:
+  generatedAt: "Généré le %date%"
+  registrationNumber: "N° d'enregistrement %number%"
+  vatNumber: "TVA %number%"
+
+common:
+  "yes": "Oui"
+  "no": "Non"
+
+compliance:
+  title: "Registre de sécurité"
+  scope:
+    organization: "Rapport d'organisation"
+    facility: "Rapport d'établissement"
+  meta:
+    generatedAt: "Généré le"
+    organization: "Organisation"
+    facility: "Établissement"
+    plan: "Offre"
+    overallStatus: "Statut global"
+  status:
+    compliant: "Conforme"
+    at_risk: "À risque"
+    non_compliant: "Non conforme"
+    not_applicable: "Non applicable"
+  totals:
+    heading: "Totaux"
+    equipmentTotal: "Équipements (total)"
+    upToDate: "À jour"
+    dueSoon: "Échéance proche"
+    overdue: "En retard"
+    unscheduled: "Non planifiés"
+    openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
+  facilities:
+    heading: "Établissements"
+    facility: "Établissement"
+    type: "Type"
+    status: "Statut"
+    equipment: "Équipements (à jour / échéance proche / en retard / non planifiés)"
+    openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
+    lastInspection: "Dernière inspection"
+  note: "Données au %date%. Le statut d'échéance des équipements est rafraîchi par le balayage de maintenance horaire et peut avoir jusqu'à une heure de retard. Ce document est un instantané à date : il n'est pas conservé et peut être régénéré à tout moment depuis le registre en direct."
+
+intervention:
+  title: "Rapport d'intervention — FG-%number%"
+  meta:
+    name: "Nom"
+    type: "Type"
+    status: "Statut"
+    priority: "Priorité"
+    site: "Site"
+    responsible: "Responsable"
+    participants: "Participants"
+    plannedStart: "Début prévu"
+    due: "Échéance"
+    reviewNote: "Note de revue"
+    signature: "Signature de clôture recueillie"
+    labels: "Étiquettes"
+    generatedAt: "Généré le"
+  workItems:
+    heading: "Tâches"
+    empty: "Aucune tâche."
+    action: "Action"
+    target: "Cible"
+    assignee: "Assigné"
+    status: "Statut"
+    required: "Obligatoire"
+    skipReason: "Motif d'omission"
+    evidence: "Preuves"
+  issues:
+    heading: "Problèmes"
+    empty: "Aucun problème."
+    severity: "Sévérité"
+    message: "Message"
+  severity:
+    blocker: "Bloquant"
+    warning: "Avertissement"
+    recommendation: "Recommandation"
+  changes:
+    heading: "Modifications"
+    proposed: "Proposées"
+    applied: "Appliquées"
+    rejected: "Rejetées"
+  attachments:
+    heading: "Pièces jointes"
+    empty: "Aucune pièce jointe."
+    fileName: "Nom du fichier"
+    kind: "Nature"
+  activities:
+    heading: "Faits marquants"
+    empty: "Aucune activité enregistrée."
+    date: "Date"
+    kind: "Nature"
+    event: "Événement"
+    actor: "Acteur"
+    comment: "Commentaire"
+  note: "Ce document est un instantané à date : il n'est pas conservé et peut être régénéré à tout moment depuis le dossier d'intervention en direct."

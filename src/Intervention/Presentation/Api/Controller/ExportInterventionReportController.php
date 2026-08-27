@@ -16,8 +16,11 @@ use Intervention\Application\UseCase\Query\Workflow\ListInterventionIssues\{List
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Domain\Event\InterventionReportExportedEvent;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Organization\Application\Contract\Document\OrganizationDocumentBranding;
+use Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Presentation\Api\Document\DocumentDateFormatter;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -29,6 +32,7 @@ use function array_filter;
 use function array_map;
 use function array_unique;
 use function array_values;
+use function is_array;
 use function is_int;
 use function is_string;
 use function sprintf;
@@ -77,6 +81,7 @@ final class ExportInterventionReportController extends AbstractController
    *
    * @param QueryBusPort $queryBus the query bus
    * @param InterventionReportPdfRendererPort $renderer the PDF renderer port
+   * @param OrganizationDocumentBrandingPort $branding the organization document branding port
    * @param InterventionMemberNamingPort $memberNaming the organization member naming port
    * @param InterventionSiteNamingPort $siteNaming the facility (site) naming port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
@@ -85,6 +90,7 @@ final class ExportInterventionReportController extends AbstractController
   public function __construct(
     private readonly QueryBusPort $queryBus,
     private readonly InterventionReportPdfRendererPort $renderer,
+    private readonly OrganizationDocumentBrandingPort $branding,
     private readonly InterventionMemberNamingPort $memberNaming,
     private readonly InterventionSiteNamingPort $siteNaming,
     private readonly EventDispatcherPort $eventDispatcher,
@@ -177,6 +183,8 @@ final class ExportInterventionReportController extends AbstractController
       attachments: $attachmentsResult->attachments,
       activities: $activitiesResult->page->items,
     );
+
+    $context = $this->localizeContext($context, $this->branding->getDocumentBranding($organizationId));
 
     $pdf = $this->renderer->render($context);
 
@@ -330,6 +338,61 @@ final class ExportInterventionReportController extends AbstractController
         ];
       }, $activities),
     ];
+  }
+
+  /**
+   * Method localizeContext.
+   *
+   * Enriches the Twig context with the organization document branding (name,
+   * inlined logo, legal identity), the translation language, and dates
+   * reformatted per the organization regional settings (timezone + date
+   * format). Pure presentation shaping — no business decision.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $context the raw Twig context
+   * @param OrganizationDocumentBranding $branding the organization document branding
+   *
+   * @return array<string, mixed> the localized Twig context
+   */
+  private function localizeContext(array $context, OrganizationDocumentBranding $branding): array
+  {
+    $formatter = new DocumentDateFormatter($branding->dateFormat, $branding->timezone);
+
+    $context['org'] = [
+      'name' => $branding->organizationName,
+      'logoDataUri' => $branding->logoDataUri,
+      'legalName' => $branding->legalName,
+      'registrationNumber' => $branding->registrationNumber,
+      'vatNumber' => $branding->vatNumber,
+    ];
+    $context['lang'] = $branding->language();
+
+    $generatedAt = $context['generatedAt'] ?? null;
+    $context['generatedAtFormatted'] = $formatter->formatDateTime(is_string($generatedAt) ? $generatedAt : null);
+
+    foreach (['plannedStartAt', 'dueAt'] as $dateKey) {
+      $value = $context[$dateKey] ?? null;
+      $context[$dateKey] = $formatter->formatDateTime(is_string($value) ? $value : null);
+    }
+
+    if (isset($context['activities']) && is_array($context['activities'])) {
+      $context['activities'] = array_map(
+        static function (mixed $activity) use ($formatter): mixed {
+          if (!is_array($activity)) {
+            return $activity;
+          }
+
+          $createdAt = $activity['createdAt'] ?? null;
+          $activity['createdAt'] = $formatter->formatDateTime(is_string($createdAt) ? $createdAt : null);
+
+          return $activity;
+        },
+        $context['activities'],
+      );
+    }
+
+    return $context;
   }
   // #endregion
 }

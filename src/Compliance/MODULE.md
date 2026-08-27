@@ -101,9 +101,27 @@ Platform's state pipeline steps aside and the controller's `Response` is
 returned as-is): authenticate → assert `organization.compliance.export` →
 `ComplianceExportEntitlementPort::isExportEntitled()` (403
 `ComplianceExportNotEntitledException` when the plan is below `pro`) → ask
-the SAME query as the JSON summary → `SafetyRegisterPdfRendererPort::render()`
+the SAME query as the JSON summary → enrich the context with the
+organization's document branding
+(`Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort`:
+display name, logo inlined as a base64 `data:` URI — dompdf keeps remote
+loading off — legal identity, regional settings) and reformat every date
+through `Shared\Presentation\Api\Document\DocumentDateFormatter` (org
+timezone + `dateFormat` pattern) → `SafetyRegisterPdfRendererPort::render()`
 (Twig → dompdf) → dispatch `SafetyRegisterExportedEvent` → stream
 `application/pdf` with a `Content-Disposition: attachment` header.
+
+The template extends the common `templates/pdf/layout.html.twig` socle:
+fixed header (logo when stored + organization name), fixed footer with the
+legal identity block (legal name, registration number, VAT — only the filled
+fields), the formatted generation date, and `X / Y` page numbering stamped by the
+renderer adapter through dompdf's canvas `page_text()`
+(`{PAGE_NUM}`/`{PAGE_COUNT}` substitution — adapter-side API, no
+`isPhpEnabled`; CSS `counter(pages)` renders 0 in dompdf 3.x). All strings go through the Symfony translator, domain
+`pdf` (`translations/pdf.{en,fr,es}.yaml`); the language is the org regional
+`locale`'s language subtag (`fr-FR` → `fr`), falling back to `en` for the
+locales without a catalogue. The layout carries no normative claim
+(no standard or certification reference) by product decision.
 
 ## Architecture
 
@@ -138,6 +156,7 @@ the SAME query as the JSON summary → `SafetyRegisterPdfRendererPort::render()`
 | `EquipmentComplianceStatisticsPort` (cross-module) | `Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter` |
 | `ComplianceExportEntitlementPort` (cross-module) | `Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter` |
 | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` *(reused, not owned)* | `Organization\Application\Service\OrganizationAuthorizationService` |
+| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` *(reused, not owned)* | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` |
 | `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, hosted here)* | `Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter` |
 
 `GetFacilityTreeHandler` introduces **no new port**: it reuses the same four
@@ -354,7 +373,9 @@ never block a fresh read.
 
 - Service wiring: `config/modules/compliance.yaml`
 - Cross-module wiring (additive): `config/modules/{maintenance,inspection,equipment,facility,organization}.yaml`
-- Template: `templates/compliance/safety_register.html.twig`
+- Template: `templates/compliance/safety_register.html.twig` (extends the
+  common `templates/pdf/layout.html.twig`); translations:
+  `translations/pdf.{en,fr,es}.yaml` (domain `pdf`)
 - No Doctrine mapping (no table); no messenger routing (synchronous reads/export only)
 
 ## Testing

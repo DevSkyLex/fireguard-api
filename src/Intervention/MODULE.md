@@ -622,9 +622,25 @@ issues list (severity, message); applied/proposed/rejected change counts; the
 attachments list (file name + kind only); and activity highlights
 (timestamp, kind, event, actor name where cheap, comment body).
 
-**English only** — like the safety register, this is a backend-rendered PDF
-and is not localized; translate the template only if the module ever grows a
-locale-aware rendering path.
+**Localized and branded** — like the safety register, the report extends the
+common `templates/pdf/layout.html.twig` socle: fixed header (organization
+logo inlined as a base64 `data:` URI when stored — dompdf keeps remote
+loading off — plus display name), fixed footer with the legal identity block
+(legal name, registration number, VAT — only the filled fields), the
+formatted generation date, and `X / Y` page numbering stamped by the
+renderer adapter through dompdf's canvas `page_text()`
+(`{PAGE_NUM}`/`{PAGE_COUNT}` substitution — adapter-side API, no
+`isPhpEnabled`; CSS `counter(pages)` renders 0 in dompdf 3.x). The branding comes from
+`Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort`;
+dates (planned start, due, activity timestamps, generation date) are
+reformatted per the organization regional settings (timezone + `dateFormat`)
+through `Shared\Presentation\Api\Document\DocumentDateFormatter`. All fixed
+strings go through the Symfony translator, domain `pdf`
+(`translations/pdf.{en,fr,es}.yaml`); the language is the org regional
+`locale`'s language subtag (`fr-FR` → `fr`), falling back to `en`. Dynamic
+enum-ish values coming from the workflow data (`type`/`status`/`priority`,
+work-item statuses) stay raw; the fixed issue severities are translated. The
+layout carries no normative claim by product decision.
 
 **Audit** — `InterventionReportExportedEvent` (intervention id, organization
 id, actor user id) is dispatched by the controller after a successful render,
@@ -952,6 +968,7 @@ bug waiting for the backend to change underneath it:
 | `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
 | `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
 | `InterventionReportPdfRendererPort` | `DompdfInterventionReportRenderer` — backs `/interventions/{id}/report`; module-local, mirrors `Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort`. No `$entityManager` — query-bus only, no direct Doctrine access |
+| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` *(reused, not owned)* | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` — document branding (name, inlined logo, legal identity, regional settings) for the report's header/footer and date formatting |
 | `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves; also backs the `/interventions/export` `facility` column |
 | `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` — also backs the `/interventions/export` `assignee` column |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |

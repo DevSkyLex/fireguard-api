@@ -13,7 +13,8 @@ use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use Compliance\Domain\ValueObject\ComplianceStatus;
 use Compliance\Presentation\Api\Controller\ExportSafetyRegisterController;
 use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Contract\Document\OrganizationDocumentBranding;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -93,6 +94,20 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     self::assertNull($context['facilityId']);
     self::assertSame('pro', $context['planKey']);
     self::assertSame('2026-06-01T08:00:00+00:00', $context['generatedAt']);
+    self::assertSame('fr', $context['lang']);
+    self::assertSame('01/06/2026 10:00', $context['generatedAtFormatted']);
+    self::assertSame([
+      'name' => 'Acme Sécurité',
+      'logoDataUri' => null,
+      'legalName' => 'SAS Acme Sécurité',
+      'registrationNumber' => '123 456 789',
+      'vatNumber' => 'FR12345678901',
+    ], $context['org']);
+    $facilities = $context['facilities'];
+    self::assertIsArray($facilities);
+    $firstFacility = $facilities[0];
+    self::assertIsArray($firstFacility);
+    self::assertSame('20/05/2026', $firstFacility['lastInspectionAt']);
   }
 
   #[Test]
@@ -191,6 +206,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     $controller = new ExportSafetyRegisterController(
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      branding: $this->brandingPort(),
       entitlement: $this->createStub(ComplianceExportEntitlementPort::class),
       renderer: $renderer,
       outputFactory: new ComplianceSummaryOutputFactory(),
@@ -319,12 +335,30 @@ final class ExportSafetyRegisterControllerTest extends TestCase
     return new ExportSafetyRegisterController(
       queryBus: $queryBus,
       authorization: $authorization ?? $this->createStub(OrganizationAuthorizationPort::class),
+      branding: $this->brandingPort(),
       entitlement: $entitlement,
       renderer: $renderer,
       outputFactory: new ComplianceSummaryOutputFactory(),
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
       security: $security,
     );
+  }
+
+  private function brandingPort(): OrganizationDocumentBrandingPort
+  {
+    $branding = $this->createStub(OrganizationDocumentBrandingPort::class);
+    $branding->method('getDocumentBranding')->willReturn(new OrganizationDocumentBranding(
+      organizationName: 'Acme Sécurité',
+      logoDataUri: null,
+      legalName: 'SAS Acme Sécurité',
+      registrationNumber: '123 456 789',
+      vatNumber: 'FR12345678901',
+      timezone: 'Europe/Paris',
+      locale: 'fr-FR',
+      dateFormat: 'dd/MM/yyyy',
+    ));
+
+    return $branding;
   }
 
   private function overviewResult(): GetComplianceOverviewResult

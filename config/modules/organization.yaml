@@ -274,7 +274,13 @@ services:
   Organization\Application\Port\Outbound\OrganizationQuotaLockPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Lock\PostgresOrganizationQuotaLockAdapter
 
+  # Document branding (logo inlined as data URI, legal identity, regional settings)
+  Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter: ~
+
   # Inbound ports
+  Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort:
+    alias: Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter
+
   Organization\Application\Port\Inbound\OrganizationAuthorizationPort:
     alias: Organization\Application\Service\OrganizationAuthorizationService
 

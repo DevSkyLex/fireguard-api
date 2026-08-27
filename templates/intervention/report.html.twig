@@ -1,65 +1,96 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Intervention report — FG-{{ number }}</title>
-  <style>
-    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1f2933; }
-    h1 { font-size: 18px; margin-bottom: 4px; }
-    h2 { font-size: 14px; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #cbd2d9; padding-bottom: 4px; }
-    .meta { color: #52606d; margin-bottom: 12px; }
-    .meta div { margin-bottom: 2px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-    th, td { border: 1px solid #cbd2d9; padding: 4px 6px; text-align: left; }
-    th { background-color: #f5f7fa; text-transform: uppercase; font-size: 9px; letter-spacing: 0.04em; }
-    .label-chip { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 3px; border: 1px solid #cbd2d9; font-size: 9px; }
+{% extends 'pdf/layout.html.twig' %}
+
+{% block title %}{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}{% endblock %}
+
+{% block headerTitle %}{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}{% endblock %}
+
+{% block styles %}
+    .label-chip { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 3px; border: 1px solid #cbd2d9; font-size: 8px; }
     .severity-blocker { color: #b3261e; font-weight: bold; }
     .severity-warning { color: #9a6700; font-weight: bold; }
     .severity-recommendation { color: #52606d; font-weight: bold; }
-    .footer { margin-top: 18px; font-size: 9px; color: #7b8794; }
-    .empty { color: #7b8794; font-style: italic; }
-  </style>
-</head>
-<body>
-  <h1>Intervention report — FG-{{ number }}</h1>
-  <div class="meta">
-    <div>Name: {{ name }}</div>
-    <div>Type: {{ type }}</div>
-    <div>Status: {{ status }}</div>
-    <div>Priority: {{ priority }}</div>
-    <div>Site: {{ siteName|default('—') }}</div>
-    <div>Responsible: {{ responsibleName|default('—') }}</div>
-    <div>Participants: {{ participantNames is not empty ? participantNames|join(', ') : '—' }}</div>
-    <div>Planned start: {{ plannedStartAt|default('—') }}</div>
-    <div>Due: {{ dueAt|default('—') }}</div>
-    {% if reviewNote is not empty %}
-      <div>Review note: {{ reviewNote }}</div>
-    {% endif %}
-    <div>Completion signature captured: {{ hasSignature ? 'Yes' : 'No' }}</div>
-    {% if labels is not empty %}
-      <div>
-        Labels:
-        {% for label in labels %}
-          <span class="label-chip">{{ label.name }}</span>
-        {% endfor %}
-      </div>
-    {% endif %}
-    <div>Generated at: {{ generatedAt }}</div>
-  </div>
+{% endblock %}
 
-  <h2>Work items</h2>
-  {% if workItems is empty %}
-    <p class="empty">No work items.</p>
-  {% else %}
+{% block content %}
+  <h1>{{ 'intervention.title'|trans({ '%number%': number }, 'pdf', lang) }}</h1>
+  <div class="meta">
     <table>
       <tr>
-        <th>Action</th>
-        <th>Target</th>
-        <th>Assignee</th>
-        <th>Status</th>
-        <th>Required</th>
-        <th>Skip reason</th>
-        <th>Evidence</th>
+        <td class="meta-label">{{ 'intervention.meta.name'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ name }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.type'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ type }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.status'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ status }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.priority'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ priority }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.site'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ siteName|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.responsible'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ responsibleName|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.participants'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ participantNames is not empty ? participantNames|join(', ') : '—' }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.plannedStart'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ plannedStartAt|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.due'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ dueAt|default('—') }}</td>
+      </tr>
+      {% if reviewNote is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'intervention.meta.reviewNote'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ reviewNote }}</td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.signature'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ (hasSignature ? 'common.yes' : 'common.no')|trans({}, 'pdf', lang) }}</td>
+      </tr>
+      {% if labels is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'intervention.meta.labels'|trans({}, 'pdf', lang) }}</td>
+          <td>
+            {% for label in labels %}
+              <span class="label-chip">{{ label.name }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td class="meta-label">{{ 'intervention.meta.generatedAt'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ generatedAtFormatted }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>{{ 'intervention.workItems.heading'|trans({}, 'pdf', lang) }}</h2>
+  {% if workItems is empty %}
+    <p class="empty">{{ 'intervention.workItems.empty'|trans({}, 'pdf', lang) }}</p>
+  {% else %}
+    <table class="data">
+      <tr>
+        <th>{{ 'intervention.workItems.action'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.workItems.target'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.workItems.assignee'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.workItems.status'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.workItems.required'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.workItems.skipReason'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.workItems.evidence'|trans({}, 'pdf', lang) }}</th>
       </tr>
       {% for workItem in workItems %}
         <tr>
@@ -67,7 +98,7 @@
           <td>{{ workItem.target }}</td>
           <td>{{ workItem.assigneeName|default('—') }}</td>
           <td>{{ workItem.status }}</td>
-          <td>{{ workItem.required ? 'Yes' : 'No' }}</td>
+          <td>{{ (workItem.required ? 'common.yes' : 'common.no')|trans({}, 'pdf', lang) }}</td>
           <td>{{ workItem.skipReason|default('—') }}</td>
           <td>{{ workItem.evidenceCount }}</td>
         </tr>
@@ -75,30 +106,30 @@
     </table>
   {% endif %}
 
-  <h2>Issues</h2>
+  <h2>{{ 'intervention.issues.heading'|trans({}, 'pdf', lang) }}</h2>
   {% if issues is empty %}
-    <p class="empty">No issues.</p>
+    <p class="empty">{{ 'intervention.issues.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
-    <table>
+    <table class="data">
       <tr>
-        <th>Severity</th>
-        <th>Message</th>
+        <th>{{ 'intervention.issues.severity'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.issues.message'|trans({}, 'pdf', lang) }}</th>
       </tr>
       {% for issue in issues %}
         <tr>
-          <td class="severity-{{ issue.severity }}">{{ issue.severity }}</td>
+          <td class="severity-{{ issue.severity }}">{{ ('intervention.severity.' ~ issue.severity)|trans({}, 'pdf', lang) }}</td>
           <td>{{ issue.message }}</td>
         </tr>
       {% endfor %}
     </table>
   {% endif %}
 
-  <h2>Changes</h2>
-  <table>
+  <h2>{{ 'intervention.changes.heading'|trans({}, 'pdf', lang) }}</h2>
+  <table class="data">
     <tr>
-      <th>Proposed</th>
-      <th>Applied</th>
-      <th>Rejected</th>
+      <th>{{ 'intervention.changes.proposed'|trans({}, 'pdf', lang) }}</th>
+      <th>{{ 'intervention.changes.applied'|trans({}, 'pdf', lang) }}</th>
+      <th>{{ 'intervention.changes.rejected'|trans({}, 'pdf', lang) }}</th>
     </tr>
     <tr>
       <td>{{ proposedChangesCount }}</td>
@@ -107,14 +138,14 @@
     </tr>
   </table>
 
-  <h2>Attachments</h2>
+  <h2>{{ 'intervention.attachments.heading'|trans({}, 'pdf', lang) }}</h2>
   {% if attachments is empty %}
-    <p class="empty">No attachments.</p>
+    <p class="empty">{{ 'intervention.attachments.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
-    <table>
+    <table class="data">
       <tr>
-        <th>File name</th>
-        <th>Kind</th>
+        <th>{{ 'intervention.attachments.fileName'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.attachments.kind'|trans({}, 'pdf', lang) }}</th>
       </tr>
       {% for attachment in attachments %}
         <tr>
@@ -125,21 +156,21 @@
     </table>
   {% endif %}
 
-  <h2>Activity highlights</h2>
+  <h2>{{ 'intervention.activities.heading'|trans({}, 'pdf', lang) }}</h2>
   {% if activities is empty %}
-    <p class="empty">No recorded activity.</p>
+    <p class="empty">{{ 'intervention.activities.empty'|trans({}, 'pdf', lang) }}</p>
   {% else %}
-    <table>
+    <table class="data">
       <tr>
-        <th>Date</th>
-        <th>Kind</th>
-        <th>Event</th>
-        <th>Actor</th>
-        <th>Comment</th>
+        <th>{{ 'intervention.activities.date'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.activities.kind'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.activities.event'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.activities.actor'|trans({}, 'pdf', lang) }}</th>
+        <th>{{ 'intervention.activities.comment'|trans({}, 'pdf', lang) }}</th>
       </tr>
       {% for activity in activities %}
         <tr>
-          <td>{{ activity.createdAt }}</td>
+          <td>{{ activity.createdAt|default('—') }}</td>
           <td>{{ activity.kind }}</td>
           <td>{{ activity.event }}</td>
           <td>{{ activity.actorName|default('—') }}</td>
@@ -149,9 +180,7 @@
     </table>
   {% endif %}
 
-  <div class="footer">
-    This document is a point-in-time snapshot and is not stored; regenerate it at any time from the
-    live intervention record.
+  <div class="doc-note">
+    {{ 'intervention.note'|trans({}, 'pdf', lang) }}
   </div>
-</body>
-</html>
+{% endblock %}
