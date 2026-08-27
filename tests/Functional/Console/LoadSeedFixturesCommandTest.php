@@ -9,6 +9,7 @@ use Calendar\Infrastructure\DataFixtures\CalendarFixtures;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
+use Intervention\Infrastructure\DataFixtures\InterventionFixtures;
 use Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures;
 use Messaging\Infrastructure\DataFixtures\MessagingFixtures;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
@@ -71,6 +72,7 @@ final class LoadSeedFixturesCommandTest extends KernelTestCase
       EquipmentFixtures::class,
       FacilityFixtures::class,
       InspectionFixtures::class,
+      InterventionFixtures::class,
       MaintenanceFixtures::class,
       MessagingFixtures::class,
       OnboardingFixtures::class,

@@ -9,13 +9,12 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Team\ListTeams\{ListTeamsQuery, ListTeamsResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 
@@ -82,12 +81,8 @@ final readonly class ListTeamsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.teams.read permission.');
     }
 
-    try {
-      /** @var ListTeamsResult $result */
-      $result = $this->queryBus->ask(new ListTeamsQuery($organizationId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var ListTeamsResult $result */
+    $result = $this->queryBus->ask(new ListTeamsQuery($organizationId));
 
     $outputs = [];
     foreach ($result->teams as $team) {

@@ -127,17 +127,6 @@ final class UserOperations
   public const string LIST = 'user_list';
 
   /**
-   * Constant LIST_STATUSES.
-   *
-   * List user statuses operation name.
-   *
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  public const string LIST_STATUSES = 'user_list_statuses';
-
-  /**
    * Constant UPDATE.
    *
    * Update user operation name.
@@ -220,7 +209,6 @@ final class UserOperations
     self::UPLOAD_CURRENT_AVATAR,
     self::DEACTIVATE_CURRENT,
     self::LIST,
-    self::LIST_STATUSES,
     self::UPDATE,
     self::REPLACE,
     self::DELETE,

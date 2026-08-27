@@ -11,7 +11,8 @@ use Facility\Domain\ValueObject\{
   FacilityName,
   FacilityOrganizationId,
   FacilityStatus,
-  FacilityType
+  FacilityType,
+  PlanGeometry
 };
 use InvalidArgumentException;
 
@@ -51,6 +52,7 @@ final class Facility
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
+   * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
    */
   private function __construct(
     private FacilityId $id,
@@ -65,6 +67,7 @@ final class Facility
     private ?string $address = null,
     private array $metadata = [],
     private ?FacilityCoordinates $coordinates = null,
+    private ?PlanGeometry $planGeometry = null,
   ) {
   }
   // #endregion
@@ -115,6 +118,7 @@ final class Facility
       address: self::normalizeAddress($address),
       metadata: self::normalizeMetadata($metadata),
       coordinates: $coordinates,
+      planGeometry: null,
     );
   }
 
@@ -137,6 +141,7 @@ final class Facility
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
+   * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
    *
    * @return self the reconstituted facility aggregate
    */
@@ -153,6 +158,7 @@ final class Facility
     ?string $address = null,
     array $metadata = [],
     ?FacilityCoordinates $coordinates = null,
+    ?PlanGeometry $planGeometry = null,
   ): self {
     return new self(
       id: $id,
@@ -167,6 +173,7 @@ final class Facility
       address: self::normalizeAddress($address),
       metadata: self::normalizeMetadata($metadata),
       coordinates: $coordinates,
+      planGeometry: $planGeometry,
     );
   }
 
@@ -233,6 +240,35 @@ final class Facility
   public function changeCoordinates(?FacilityCoordinates $coordinates): void
   {
     $this->coordinates = $coordinates;
+    $this->touch();
+  }
+
+  /**
+   * Method assignPlanGeometry.
+   *
+   * Binds this facility (a spatial zone) to a polygon drawn over an
+   * ancestor's floor plan attachment.
+   *
+   * @since 1.0.0
+   */
+  public function assignPlanGeometry(PlanGeometry $planGeometry): void
+  {
+    $this->planGeometry = $planGeometry;
+    $this->touch();
+  }
+
+  /**
+   * Method clearPlanGeometry.
+   *
+   * Removes this facility's spatial geometry, if any. Idempotent: clearing
+   * an already-unset geometry still touches the record, mirroring
+   * `changeCoordinates(null)`.
+   *
+   * @since 1.0.0
+   */
+  public function clearPlanGeometry(): void
+  {
+    $this->planGeometry = null;
     $this->touch();
   }
 
@@ -367,6 +403,16 @@ final class Facility
   public function coordinates(): ?FacilityCoordinates
   {
     return $this->coordinates;
+  }
+
+  /**
+   * Method planGeometry.
+   *
+   * @since 1.0.0
+   */
+  public function planGeometry(): ?PlanGeometry
+  {
+    return $this->planGeometry;
   }
 
   /**

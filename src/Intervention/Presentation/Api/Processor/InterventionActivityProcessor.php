@@ -92,6 +92,7 @@ final readonly class InterventionActivityProcessor implements ProcessorInterface
         userId: $user->getId(),
         interventionId: $interventionId,
         body: $body,
+        clientId: $data->clientId,
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

@@ -15,6 +15,11 @@ use Doctrine\ORM\Mapping as ORM;
  * Messenger retry or an overlapping sweep tick can never materialize the
  * same occurrence twice.
  *
+ * Read the other way round — from a materialized intervention back to the
+ * recurrence that produced it — this table is the only link there is, which
+ * is why `intervention_id` carries its own index: an intervention detail read
+ * resolves its origin through it.
+ *
  * @category Record
  *
  * @version 1.0.0
@@ -24,6 +29,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'intervention_recurrence_runs')]
 #[ORM\UniqueConstraint(name: 'uniq_intervention_recurrence_run_occurrence', columns: ['recurrence_id', 'occurrence_date'])]
+#[ORM\Index(name: 'idx_intervention_recurrence_run_intervention', columns: ['intervention_id'])]
 class InterventionRecurrenceRunRecord
 {
   /**

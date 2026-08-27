@@ -12,7 +12,10 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberR
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use RuntimeException;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function array_map;
 
 #[CoversClass(className: OrganizationMemberRepository::class)]
 final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
@@ -494,6 +497,116 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
       new DateTimeImmutable('2026-04-01T00:00:00+00:00'),
       new DateTimeImmutable('2026-04-30T23:59:59+00:00'),
       'UTC',
+    );
+  }
+
+  #[Test]
+  public function testFindByOrganizationIdFiltersBySearchStatusRoleAndSortsWithPagination(): void
+  {
+    $organization = $this->createOrganization(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0500',
+      name: 'Member Filter Org',
+      slug: 'member-filter-org',
+    );
+    $otherOrganization = $this->createOrganization(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0501',
+      name: 'Member Filter Org B',
+      slug: 'member-filter-org-b',
+    );
+    $this->entityManager->persist($organization);
+    $this->entityManager->persist($otherOrganization);
+
+    $role = $this->createRole('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0510', $organization, 'inspector');
+    $this->entityManager->persist($role);
+
+    // Matches search + active + role.
+    $alice = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0520',
+      organization: $organization,
+      userId: 'alice-jones',
+      joinedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
+    // Matches search but inactive — excluded by the active filter.
+    $bob = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0521',
+      organization: $organization,
+      userId: 'alice-bob-inactive',
+      joinedAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
+      isActive: false,
+    );
+    // Active, matches search, but holds no role — excluded by the role filter.
+    $carol = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0522',
+      organization: $organization,
+      userId: 'alice-carol-norole',
+      joinedAt: new DateTimeImmutable('2026-01-03T00:00:00+00:00'),
+    );
+    // Active and holds the role, but does not match the search term.
+    $dave = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0523',
+      organization: $organization,
+      userId: 'dave-no-match',
+      joinedAt: new DateTimeImmutable('2026-01-04T00:00:00+00:00'),
+    );
+    // Same search/status/role match as Alice, but in another organization.
+    $foreignAlice = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0524',
+      organization: $otherOrganization,
+      userId: 'alice-foreign',
+      joinedAt: new DateTimeImmutable('2026-01-05T00:00:00+00:00'),
+    );
+
+    $this->entityManager->persist($alice);
+    $this->entityManager->persist($bob);
+    $this->entityManager->persist($carol);
+    $this->entityManager->persist($dave);
+    $this->entityManager->persist($foreignAlice);
+    $this->entityManager->persist($this->createMemberRole($alice, $role));
+    $this->entityManager->persist($this->createMemberRole($dave, $role));
+    $this->entityManager->flush();
+
+    $organizationId = OrganizationId::fromString('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0500');
+    $roleId = OrganizationRoleId::fromString('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0510');
+
+    $filtered = $this->repository->findByOrganizationId(
+      $organizationId,
+      'alice',
+      true,
+      $roleId,
+    );
+
+    self::assertSame(
+      ['6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0520'],
+      array_map(static fn (OrganizationMember $member): string => (string) $member->id(), $filtered),
+      'Only the active, role-holding, search-matching member of this organization must be returned.',
+    );
+
+    self::assertSame(
+      1,
+      $this->repository->countByOrganizationId($organizationId, 'alice', true, $roleId),
+    );
+
+    // Unfiltered pagination: joinedAt DESC, one item per page.
+    $firstPage = $this->repository->findByOrganizationId(
+      $organizationId,
+      sorting: new Sorting('joinedAt', SortDirection::DESC),
+      limit: 1,
+      offset: 0,
+    );
+    $secondPage = $this->repository->findByOrganizationId(
+      $organizationId,
+      sorting: new Sorting('joinedAt', SortDirection::DESC),
+      limit: 1,
+      offset: 1,
+    );
+
+    self::assertSame('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0523', (string) $firstPage[0]->id());
+    self::assertSame('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0522', (string) $secondPage[0]->id());
+
+    self::assertSame(
+      4,
+      $this->repository->countByOrganizationId($organizationId),
+      'The unfiltered count must still scope by organization only.',
     );
   }
 

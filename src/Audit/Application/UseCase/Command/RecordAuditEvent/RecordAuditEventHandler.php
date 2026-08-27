@@ -58,6 +58,16 @@ final readonly class RecordAuditEventHandler implements CommandHandler
     $eventId = $this->uuidFactory->create(Uuid::class);
     $occurredAt = $command->occurredAt ?? new DateTimeImmutable();
 
+    // The organizationId column drives organization-scoped reads but sits
+    // outside the event-hash payload; metadata['organization_id'] is the
+    // hash-covered copy. Syncing here makes the column provably derived
+    // from a hash-covered field on every write — a caller can never
+    // persist a column value the ledger's tamper-evidence does not cover.
+    $metadata = $command->metadata;
+    if (null !== $command->organizationId) {
+      $metadata['organization_id'] = $command->organizationId;
+    }
+
     $event = new AuditEvent(
       id: $eventId,
       action: $command->action,
@@ -69,10 +79,11 @@ final readonly class RecordAuditEventHandler implements CommandHandler
       subjectId: $command->subjectId,
       clientId: $command->clientId,
       tenantId: $command->tenantId,
+      organizationId: $command->organizationId,
       ipAddress: $command->ipAddress,
       ipHash: $command->ipHash,
       userAgent: $command->userAgent,
-      metadata: $command->metadata,
+      metadata: $metadata,
       occurredAt: $occurredAt,
     );
 

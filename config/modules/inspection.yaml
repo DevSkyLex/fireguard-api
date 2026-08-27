@@ -6,25 +6,19 @@ services:
   Inspection\Presentation\:
     resource: '../../src/Inspection/Presentation'
 
-  Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
-  Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # CanonicalInspectionProvider names no entity manager: both of its reads
+  # went to Application\UseCase\Query\Inspection\.
+  # CanonicalInspectionMutationProcessor names no entity manager on purpose:
+  # it holds none since the mutations moved to
+  # Application\UseCase\{Command,Query}\Inspection\*CanonicalInspection*.
   Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
-  Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
+  # InspectionResponseProcessor names no entity manager on purpose: it holds
+  # none since the mutations moved to Application\UseCase\Command\Response.
+  # InspectionResponseProvider names no entity manager either: both of its
+  # reads went to Application\UseCase\Query\Response\.
 
   # Repositories
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
@@ -40,6 +34,14 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\CanonicalInspectionRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -117,6 +119,25 @@ services:
 
   Inspection\Application\Port\Outbound\InspectionAttachmentRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository
+
+  Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository
+
+  # The offline-sync half of `inspections`: the three columns
+  # InspectionRepositoryPort deliberately does not carry. Separate port because
+  # `save(Inspection)` leaves record_status/intervention_id/revision untouched
+  # and therefore cannot bump the canonical If-Match revision.
+  Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\CanonicalInspectionRepository
+
+  # Cross-module: the owning module implements the port, this module declares
+  # it. Same direction as FacilityValidationPort / EquipmentValidationPort
+  # above, and what removed the InterventionRecord read from
+  # InspectionResponseProcessor.
+  Inspection\Application\Port\Outbound\InterventionScopePort:
+    alias: Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter
+
+  Intervention\Infrastructure\Adapter\Inspection\InterventionScopeAdapter: ~
 
   Inspection\Application\Port\Outbound\ChecklistRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository
@@ -199,6 +220,37 @@ services:
   Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment\DeleteInspectionAttachmentHandler:
     tags: ['messenger.message_handler']
 
+  # Canonical inspection responses. All three name the `main` transaction
+  # manager explicitly: autowiring would hand over the default one, which
+  # opens a transaction on the `auth` connection while the writes go to
+  # `main` — a rollback that rolls nothing back.
+  Inspection\Application\UseCase\Command\Response\CreateInspectionResponse\CreateInspectionResponseHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Response\UpdateInspectionResponse\UpdateInspectionResponseHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\DeleteInspectionResponseHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  # Canonical (flat, offline-syncable) inspection mutations. Same `main`
+  # transaction manager, same reason as above.
+  Inspection\Application\UseCase\Command\Inspection\PatchCanonicalInspection\PatchCanonicalInspectionHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\DeleteCanonicalInspection\DeleteCanonicalInspectionHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   # Query Handlers
   Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionHandler:
     tags: ['messenger.message_handler']
@@ -222,5 +274,26 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachments\ListInspectionAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Response\GetInspectionResponse\GetInspectionResponseHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Response\ListInspectionResponses\ListInspectionResponsesHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope\ResolveInspectionResponseScopeHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\GetCanonicalInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ReadCanonicalInspection\ReadCanonicalInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ListCanonicalInspections\ListCanonicalInspectionsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\ResolveCanonicalInspectionScopeHandler:
     tags: ['messenger.message_handler']
 

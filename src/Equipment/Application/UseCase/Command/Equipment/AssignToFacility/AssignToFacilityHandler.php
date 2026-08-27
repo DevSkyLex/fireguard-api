@@ -9,7 +9,6 @@ use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityValida
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId};
 use Exception;
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -44,13 +43,9 @@ final readonly class AssignToFacilityHandler implements CommandHandler
    */
   public function __invoke(AssignToFacilityCommand $command): AssignToFacilityResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-      $facilityId = EquipmentFacilityId::fromString($command->facilityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
+    $facilityId = EquipmentFacilityId::fromString($command->facilityId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 
@@ -65,9 +60,8 @@ final readonly class AssignToFacilityHandler implements CommandHandler
         ? new DateTimeImmutable($command->installedAt)
         : new DateTimeImmutable();
     } catch (Exception $dateException) {
-      throw new InvalidArgumentException(
+      throw InvalidValueException::because(
         sprintf('Invalid date format for installedAt: "%s".', $command->installedAt),
-        0,
         $dateException,
       );
     }

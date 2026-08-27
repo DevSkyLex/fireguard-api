@@ -13,6 +13,7 @@ use Equipment\Presentation\Api\Dto\Output\Equipment\MaintenanceLogOutput;
 use Equipment\Presentation\Api\Provider\Equipment\ListMaintenanceLogsProvider;
 use InvalidArgumentException;
 use LogicException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -90,9 +91,9 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), self::ORG_ID, 'organization.equipment.read')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
@@ -112,6 +113,38 @@ final class ListMaintenanceLogsProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsOutsideCallerScope(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655470023');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), self::ORG_ID, 'organization.equipment.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new ListMaintenanceLogsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
   public function testProvideMapsWrappedEquipmentNotFoundToHttp404(): void
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655470012');
@@ -120,7 +153,7 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new ListMaintenanceLogsQuery(
@@ -158,7 +191,7 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -191,7 +224,7 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $logId = '550e8400-e29b-41d4-a716-446655470099';
     $startedAt = '2026-03-25T08:00:00+00:00';
@@ -316,7 +349,7 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655470012'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException($exception);

@@ -29,9 +29,9 @@ use Inspection\Domain\ValueObject\{
   Inspector,
   InspectorType
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test GetInspectionHandlerTest.
@@ -246,7 +246,7 @@ final class GetInspectionHandlerTest extends TestCase
       $this->createStub(ChecklistRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler(new GetInspectionQuery(self::ORGANIZATION_ID, 'not-a-uuid'));
   }

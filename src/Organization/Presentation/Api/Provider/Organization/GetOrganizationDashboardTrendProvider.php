@@ -21,7 +21,7 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardTrendOutput;
 use Organization\Presentation\Api\Operation\OrganizationOperations;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -58,7 +58,7 @@ use const FILTER_VALIDATE_BOOLEAN;
  */
 final readonly class GetOrganizationDashboardTrendProvider implements ProviderInterface
 {
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
 
   /**
    * @var array<string, string>

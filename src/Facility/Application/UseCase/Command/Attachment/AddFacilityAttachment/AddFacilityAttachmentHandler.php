@@ -7,14 +7,14 @@ namespace Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment;
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId, ImageDimensions};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Attachment\StoragePathScheme;
+use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
+use ValueError;
 
 /**
  * UseCase AddFacilityAttachmentHandler.
@@ -48,8 +48,9 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
     try {
       $facilityId = FacilityId::fromString($command->facilityId);
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      $kind = AttachmentKind::from($command->kind);
+    } catch (InvalidValueException|ValueError $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $facility = $this->facilityRepository->findById($facilityId);
@@ -58,13 +59,15 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       throw FacilityNotFoundException::withId($command->facilityId);
     }
 
-    try {
-      /** @var FacilityAttachmentId $attachmentId */
-      $attachmentId = null === $command->attachmentId
-        ? $this->uuidFactory->create(FacilityAttachmentId::class)
-        : FacilityAttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    /** @var FacilityAttachmentId $attachmentId */
+    $attachmentId = null === $command->attachmentId
+      ? $this->uuidFactory->create(FacilityAttachmentId::class)
+      : FacilityAttachmentId::fromString($command->attachmentId);
+
+    // A client-supplied id that already exists is a retry overwriting its own
+    // row, not a new attachment — it must not be rejected at the cap.
+    if (null === $this->attachmentRepository->findById($attachmentId)) {
+      AttachmentConstraints::validateCount($this->attachmentRepository->countByFacilityId($facilityId));
     }
 
     $storagePath = StoragePathScheme::build(
@@ -74,6 +77,13 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       fileName: $command->fileName,
     );
 
+    // The dimensions are metadata extracted from bytes already held in
+    // memory (no I/O) — see ImageDimensions's own docblock — and only ever
+    // computed for a floor plan; a document attachment carries none.
+    $dimensions = AttachmentKind::FLOOR_PLAN === $kind
+      ? ImageDimensions::fromContents($command->contents, $command->mimeType)
+      : null;
+
     $attachment = FacilityAttachment::create(
       id: $attachmentId,
       facilityId: $facilityId,
@@ -82,6 +92,9 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       mimeType: $command->mimeType,
       size: $command->size,
       label: $command->label,
+      kind: $kind,
+      imageWidth: $dimensions?->width(),
+      imageHeight: $dimensions?->height(),
     );
 
     $this->fileStorage->write($storagePath, $command->contents);
@@ -102,6 +115,10 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       size: $attachment->size(),
       label: $attachment->label(),
       uploadedAt: $attachment->uploadedAt(),
+      kind: $attachment->kind()->value,
+      isPrimaryPlan: $attachment->isPrimaryPlan(),
+      imageWidth: $attachment->imageWidth(),
+      imageHeight: $attachment->imageHeight(),
     );
   }
   // #endregion

@@ -8,9 +8,7 @@ use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDue
 use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 
@@ -43,12 +41,8 @@ final readonly class GetEquipmentHandler implements QueryHandler
    */
   public function __invoke(GetEquipmentQuery $query): GetEquipmentResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($query->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($query->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 
@@ -90,6 +84,7 @@ final readonly class GetEquipmentHandler implements QueryHandler
       facilityName: null !== $equipment->facilityId()
         ? ($this->facilityNaming->findNamesByIds([(string) $equipment->facilityId()])[(string) $equipment->facilityId()] ?? null)
         : null,
+      planPosition: $equipment->planPosition()?->toArray(),
     );
   }
   // #endregion

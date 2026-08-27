@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Patch;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort, OrganizationPermissionGrantGuardPort};
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleResult};
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\UpdateOrganizationRoleInput;
@@ -17,9 +17,13 @@ use Organization\Presentation\Api\Processor\Organization\UpdateOrganizationRoleP
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
 #[CoversClass(UpdateOrganizationRoleProcessor::class)]
@@ -35,7 +39,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -57,7 +60,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -76,7 +78,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -102,10 +103,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
     $grantGuard = $this->createMock(OrganizationPermissionGrantGuardPort::class);
     $grantGuard->expects(self::never())->method('assertCanGrantPermissions');
 
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::never())->method('assertCanUpdateRolePermissions');
-
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -114,7 +111,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       grantGuard: $grantGuard,
-      lastAdminGuard: $lastAdminGuard,
       security: $security,
     );
 
@@ -127,7 +123,7 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessCallsBothGuardsOnceThenDispatchesAndMapsRoleOutput(): void
+  public function testProcessCallsTheGrantGuardOnceThenDispatchesAndMapsRoleOutput(): void
   {
     $createdAt = new DateTimeImmutable('2026-01-01T10:00:00+00:00');
     $security = $this->createStub(Security::class);
@@ -146,16 +142,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       ->with(
         '550e8400-e29b-41d4-a716-446655441500',
         '550e8400-e29b-41d4-a716-446655441510',
-        ['organization.read', 'organization.members.read'],
-      );
-
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::once())
-      ->method('assertCanUpdateRolePermissions')
-      ->with(
-        '550e8400-e29b-41d4-a716-446655441510',
-        '550e8400-e29b-41d4-a716-446655441511',
         ['organization.read', 'organization.members.read'],
       );
 
@@ -183,7 +169,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       grantGuard: $grantGuard,
-      lastAdminGuard: $lastAdminGuard,
       security: $security,
     );
 
@@ -220,10 +205,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       ->method('assertCanGrantPermissions')
       ->willThrowException(OrganizationAccessDeniedException::cannotGrantPermission('organization.*'));
 
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::never())->method('assertCanUpdateRolePermissions');
-
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -232,7 +213,6 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       grantGuard: $grantGuard,
-      lastAdminGuard: $lastAdminGuard,
       security: $security,
     );
 
@@ -244,35 +224,16 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
     ]);
   }
 
+  /**
+   * The last-administrator refusal is raised by the handler, inside its own
+   * transaction, so it reaches this processor wrapped by the command bus and
+   * has to be recovered through the module unwrapper to keep the 409.
+   */
   #[Test]
-  public function testProcessThrowsConflictWhenLastAdminGuardRefusesAndNeverDispatches(): void
+  public function testProcessMapsALastAdminLockoutRefusalToHttp409(): void
   {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441500'));
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    /** @var OrganizationPermissionGrantGuardPort&MockObject $grantGuard */
-    $grantGuard = $this->createMock(OrganizationPermissionGrantGuardPort::class);
-    $grantGuard->expects(self::once())->method('assertCanGrantPermissions');
-
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::once())
-      ->method('assertCanUpdateRolePermissions')
-      ->willThrowException(OrganizationLastAdminException::cannotRemoveLastAdmin());
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $processor = new UpdateOrganizationRoleProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      grantGuard: $grantGuard,
-      lastAdminGuard: $lastAdminGuard,
-      security: $security,
+    $processor = $this->processorWithFailingCommandBus(
+      OrganizationLastAdminException::cannotRemoveLastAdmin(),
     );
 
     $this->expectException(ConflictHttpException::class);
@@ -311,7 +272,34 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
     ]);
   }
 
-  private function processorWithFailingCommandBus(Throwable $failure): UpdateOrganizationRoleProcessor
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $processor = $this->processorWithRawFailingCommandBus(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process($this->createInput(), new Patch(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441510',
+      'roleId' => '550e8400-e29b-41d4-a716-446655441511',
+    ]);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $domainFailure): UpdateOrganizationRoleProcessor
+  {
+    return $this->processorWithRawFailingCommandBus($this->wrapped(
+      $domainFailure,
+      new UpdateOrganizationRoleCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441510',
+        roleId: '550e8400-e29b-41d4-a716-446655441511',
+        permissions: ['organization.read', 'organization.members.read'],
+      ),
+    ));
+  }
+
+  private function processorWithRawFailingCommandBus(Throwable $failure): UpdateOrganizationRoleProcessor
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441500'));
@@ -326,8 +314,14 @@ final class UpdateOrganizationRoleProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
+    );
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
 

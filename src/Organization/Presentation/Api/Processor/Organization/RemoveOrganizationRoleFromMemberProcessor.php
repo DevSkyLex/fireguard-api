@@ -7,12 +7,11 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -45,7 +44,6 @@ final readonly class RemoveOrganizationRoleFromMemberProcessor implements Proces
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
-    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -85,18 +83,11 @@ final readonly class RemoveOrganizationRoleFromMemberProcessor implements Proces
       throw new AccessDeniedHttpException('Missing organization.roles.manage permission.');
     }
 
-    try {
-      $this->lastAdminGuard->assertCanUnassignRole($organizationId, $memberId, $roleId);
-      $this->commandBus->dispatch(new RemoveOrganizationRoleFromMemberCommand(
-        organizationId: $organizationId,
-        memberId: $memberId,
-        roleId: $roleId,
-      ));
-    } catch (OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationMemberNotFoundException|OrganizationRoleNotFoundException|OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    $this->commandBus->dispatch(new RemoveOrganizationRoleFromMemberCommand(
+      organizationId: $organizationId,
+      memberId: $memberId,
+      roleId: $roleId,
+    ));
 
     return null;
   }

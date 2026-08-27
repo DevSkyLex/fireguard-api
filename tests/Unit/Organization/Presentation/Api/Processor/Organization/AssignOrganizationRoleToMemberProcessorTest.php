@@ -17,9 +17,13 @@ use Organization\Presentation\Api\Processor\Organization\AssignOrganizationRoleT
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
 #[CoversClass(AssignOrganizationRoleToMemberProcessor::class)]
@@ -219,7 +223,34 @@ final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
     ]);
   }
 
-  private function processorWithFailingCommandBus(Throwable $failure): AssignOrganizationRoleToMemberProcessor
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $processor = $this->processorWithRawFailingCommandBus(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process($this->createInput(), new Post(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+    ]);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $domainFailure): AssignOrganizationRoleToMemberProcessor
+  {
+    return $this->processorWithRawFailingCommandBus($this->wrapped(
+      $domainFailure,
+      new AssignOrganizationRoleToMemberCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441410',
+        memberId: '550e8400-e29b-41d4-a716-446655441412',
+        roleId: '550e8400-e29b-41d4-a716-446655441411',
+      ),
+    ));
+  }
+
+  private function processorWithRawFailingCommandBus(Throwable $failure): AssignOrganizationRoleToMemberProcessor
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
@@ -235,6 +266,13 @@ final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
       authorization: $authorization,
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
+    );
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
 

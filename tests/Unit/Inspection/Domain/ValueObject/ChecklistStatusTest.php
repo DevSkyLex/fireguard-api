@@ -30,11 +30,4 @@ final class ChecklistStatusTest extends TestCase
     self::assertTrue(ChecklistStatus::ARCHIVED->isArchived());
     self::assertFalse(ChecklistStatus::ACTIVE->isArchived());
   }
-
-  #[Test]
-  public function itLabelsEveryCase(): void
-  {
-    self::assertSame('Active', ChecklistStatus::ACTIVE->label());
-    self::assertSame('Archived', ChecklistStatus::ARCHIVED->label());
-  }
 }

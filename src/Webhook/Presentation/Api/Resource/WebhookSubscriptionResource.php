@@ -60,6 +60,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       provider: ListWebhookSubscriptionsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -124,6 +125,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
     new Post(
       name: WebhookOperations::ROTATE_WEBHOOK_SECRET,
       uriTemplate: '/{organizationId}/webhooks/{webhookId}/rotate-secret',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: WebhookSecretOutput::class,
       processor: RotateWebhookSecretProcessor::class,

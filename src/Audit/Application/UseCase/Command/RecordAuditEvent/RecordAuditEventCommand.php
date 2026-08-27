@@ -27,6 +27,9 @@ final readonly class RecordAuditEventCommand implements CommandMessage
    * @since 1.0.0
    *
    * @param array<string, mixed> $metadata
+   * @param string|null $organizationId the organization identifier; when set,
+   *                                    callers should mirror it in metadata['organization_id']
+   *                                    (the metadata copy is the hash-covered source of truth)
    */
   public function __construct(
     public string $action,
@@ -38,6 +41,7 @@ final readonly class RecordAuditEventCommand implements CommandMessage
     public ?string $subjectId = null,
     public ?string $clientId = null,
     public ?string $tenantId = null,
+    public ?string $organizationId = null,
     public ?string $ipAddress = null,
     public ?string $ipHash = null,
     public ?string $userAgent = null,

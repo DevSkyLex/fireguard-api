@@ -15,6 +15,8 @@ use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function count;
+
 #[CoversClass(className: EquipmentFixtures::class)]
 final class EquipmentFixturesIntegrationTest extends KernelTestCase
 {
@@ -55,11 +57,16 @@ final class EquipmentFixturesIntegrationTest extends KernelTestCase
     // below meaningless. DAMA rolls the purge back with the rest of the test.
     $executor->execute($loader->getFixtures(), false);
 
-    self::assertSame(66, $this->entityManager->getRepository(EquipmentRecord::class)->count([]));
-    self::assertSame(2, $this->entityManager->getRepository(TagRecord::class)->count([]));
-    self::assertSame(3, $this->entityManager->getRepository(EquipmentTagRecord::class)->count([]));
-    self::assertSame(1, $this->entityManager->getRepository(EquipmentAttachmentRecord::class)->count([]));
-    self::assertSame(1, $this->entityManager->getRepository(EquipmentMaintenanceLogRecord::class)->count([]));
+    // 10 hand-written assets plus the bulk/regional inventory and the extra
+    // regional pool that pads the facility pagination.
+    self::assertSame(
+      10 + count(EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS) + EquipmentFixtures::EXTRA_REGIONAL_EQUIPMENT_COUNT,
+      $this->entityManager->getRepository(EquipmentRecord::class)->count([]),
+    );
+    self::assertSame(2 + count(EquipmentFixtures::ADDITIONAL_TAG_SEEDS), $this->entityManager->getRepository(TagRecord::class)->count([]));
+    self::assertSame(25, $this->entityManager->getRepository(EquipmentTagRecord::class)->count([]));
+    self::assertSame(10, $this->entityManager->getRepository(EquipmentAttachmentRecord::class)->count([]));
+    self::assertSame(9, $this->entityManager->getRepository(EquipmentMaintenanceLogRecord::class)->count([]));
 
     /** @var EquipmentRecord $extinguisher */
     $extinguisher = $equipmentFixtures->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);

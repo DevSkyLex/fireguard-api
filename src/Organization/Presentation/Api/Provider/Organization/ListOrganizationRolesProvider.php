@@ -5,28 +5,46 @@ declare(strict_types=1);
 namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function array_map;
+use function array_slice;
+use function count;
 use function is_string;
 
 /**
  * Provider ListOrganizationRolesProvider.
  *
+ * `ListOrganizationRolesQuery`/`ListOrganizationRolesHandler` support real
+ * DB-level pagination, but not search or sort — unlike
+ * {@see ListOrganizationMembersProvider}, this provider cannot push `search`/
+ * `order` down to the repository, so it deliberately keeps asking for the
+ * FULL, unpaginated role list (`ListOrganizationRolesQuery::$pagination` left
+ * `null`) and applies `CollectionSearcher`/`CollectionSorter` in-memory, the
+ * same as before. What changes is that pagination is now real: the
+ * filtered+sorted array is sliced against the requested `page`/
+ * `itemsPerPage` and `totalItems` reflects the FILTERED count — never the
+ * organization's raw role count — so a second page actually returns the
+ * next rows instead of repeating (or silently ignoring) the first page. A
+ * role list is small per organization, so this in-memory approach is
+ * deliberate and bounded, not a scalability compromise.
+ *
  * @category Provider
  *
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -62,15 +80,15 @@ final readonly class ListOrganizationRolesProvider implements ProviderInterface
    *
    * Provides resource data for the requested API operation.
    *
-   * @since 1.0.0
+   * @since 2.0.0
    *
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
-   * @return list<OrganizationRoleOutput>
+   * @return TraversablePaginator<OrganizationRoleOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -79,19 +97,16 @@ final readonly class ListOrganizationRolesProvider implements ProviderInterface
 
     $organizationId = $uriVariables['organizationId'] ?? null;
     if (!is_string($organizationId) || '' === $organizationId) {
-      return [];
+      return new TraversablePaginator(new ArrayIterator([]), 1, 30, 0);
     }
 
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.roles.read')) {
       throw new AccessDeniedHttpException('Missing Organization.roles.read permission.');
     }
 
-    try {
-      /** @var ListOrganizationRolesResult $result */
-      $result = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    // Deliberately unpaginated — see the class docblock for why.
+    /** @var ListOrganizationRolesResult $result */
+    $result = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
 
     $outputs = [];
     foreach ($result->roles as $role) {
@@ -120,8 +135,18 @@ final readonly class ListOrganizationRolesProvider implements ProviderInterface
     $outputs = CollectionSearcher::search($outputs, $search, ['name']);
 
     $sorting = SortingExtractor::fromContext($context, ['name', 'isSystem', 'createdAt'], 'name');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $filteredTotal = count($outputs);
+    $pagination = PaginationExtractor::fromContext($context);
+    $page = array_slice($outputs, $pagination->offset, $pagination->itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($page),
+      currentPage: (float) $pagination->page,
+      itemsPerPage: (float) $pagination->itemsPerPage,
+      totalItems: (float) $filteredTotal,
+    );
   }
   // #endregion
 }

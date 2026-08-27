@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice\RevokeDeviceCommand;
 use TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException;
@@ -83,12 +83,18 @@ final class RevokeDeviceProcessorTest extends TestCase
   }
 
   /**
-   * Method testProcessThrowsNotFoundWhenDeviceMissing.
+   * Method testProcessLetsAMissingDevicePropagate.
    *
-   * Test that process throws when device not found.
+   * The processor no longer maps: `exception_to_status` does, once
+   * `BusFailureUnwrappingSubscriber` has opened the envelope.
+   *
+   * The companion test that fed a NESTED exception is gone with the mapping —
+   * unwrapping is one behaviour in one place now, covered by
+   * `BusFailureUnwrappingSubscriberTest`, instead of being re-proven at every
+   * processor that used to re-implement it.
    */
   #[Test]
-  public function testProcessThrowsNotFoundWhenDeviceMissing(): void
+  public function testProcessLetsAMissingDevicePropagate(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -106,46 +112,11 @@ final class RevokeDeviceProcessorTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(TrustedDeviceNotFoundException::class);
     $processor->process(
       data: null,
       operation: new Delete(),
       uriVariables: ['id' => 'device-123'],
-      context: [],
-    );
-  }
-
-  /**
-   * Method testProcessUnwrapsNotFoundFromPreviousException.
-   *
-   * Test that process unwraps not found from previous exception.
-   */
-  #[Test]
-  public function testProcessUnwrapsNotFoundFromPreviousException(): void
-  {
-    $previous = TrustedDeviceNotFoundException::create(id: 'device-456');
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException(new RuntimeException('wrapped', 0, $previous));
-
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createUserMock('user-123'));
-
-    $processor = new RevokeDeviceProcessor(
-      commandBus: $commandBus,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-    $processor->process(
-      data: null,
-      operation: new Delete(),
-      uriVariables: ['id' => 'device-456'],
       context: [],
     );
   }

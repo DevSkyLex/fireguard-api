@@ -78,6 +78,23 @@ final class InterventionMemberPolicyTest extends TestCase
   }
 
   #[Test]
+  public function itNamesTheRequestedActionWhenRejectingAnotherMember(): void
+  {
+    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
+
+    $this->expectException(InterventionConflictException::class);
+    $this->expectExceptionMessage('Only the responsible member can withdraw the intervention.');
+
+    new InterventionMemberPolicy($repository)->assertResponsible(
+      self::ORGANIZATION_ID,
+      self::USER_ID,
+      '018f0b68-6758-7a12-8a1d-3f0d97f63c15',
+      'withdraw',
+    );
+  }
+
+  #[Test]
   public function itAllowsTheAssignedMemberToExecuteAWorkItem(): void
   {
     $repository = $this->createStub(OrganizationMemberRepositoryPort::class);

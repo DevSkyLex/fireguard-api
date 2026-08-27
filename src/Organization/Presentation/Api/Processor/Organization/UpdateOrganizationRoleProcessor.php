@@ -8,15 +8,18 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort, OrganizationPermissionGrantGuardPort};
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\UpdateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 use function array_map;
 use function is_string;
@@ -26,7 +29,7 @@ use function is_string;
  *
  * @category Processor
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -34,6 +37,23 @@ use function is_string;
  */
 final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The bus adapters wrap every handler failure into
+   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
+   * bare in-process throw — here, the no-privilege-escalation grant guard,
+   * which is a pure read of the caller's own permissions and stays
+   * pre-dispatch. The last-administrator refusal is NOT among them any more:
+   * that check moved inside the handler transaction and arrives wrapped, so
+   * the `MessengerRuntimeException` clauses using this trait are what map it.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -51,7 +71,6 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private OrganizationPermissionGrantGuardPort $grantGuard,
-    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -62,9 +81,15 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
   /**
    * Method process.
    *
-   * Processes API input and dispatches the corresponding command.
+   * Processes API input and dispatches the corresponding command. Symfony
+   * Messenger's `HandleMessageMiddleware` always wraps a handler-thrown
+   * exception in `HandlerFailedException` before
+   * `MessengerCommandBusAdapter::dispatch()` wraps THAT in
+   * `MessengerRuntimeException` — so the direct `catch` clauses below cover
+   * only the guard ports, which run in-process before dispatch; the
+   * `MessengerRuntimeException` clause is what maps the real runtime path.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param mixed $data the input data
    * @param Operation $operation the API operation metadata
@@ -95,23 +120,44 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
 
     try {
       $this->grantGuard->assertCanGrantPermissions($user->getId(), $organizationId, $data->permissions);
-      $this->lastAdminGuard->assertCanUpdateRolePermissions($organizationId, $roleId, $data->permissions);
 
       /** @var UpdateOrganizationRoleResult $result */
       $result = $this->commandBus->dispatch(new UpdateOrganizationRoleCommand(
         organizationId: $organizationId,
         roleId: $roleId,
         permissions: $data->permissions,
+        name: $data->name,
         description: $data->description,
       ));
     } catch (OrganizationAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationNotFoundException $exception) {
+    } catch (OrganizationNotFoundException|OrganizationRoleNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
+      if (null !== $accessDenied) {
+        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
+      }
+
+      $conflict = $this->findWrappedException($exception, OrganizationLastAdminException::class);
+      if (null !== $conflict) {
+        throw new ConflictHttpException($conflict->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $output = new OrganizationRoleOutput();
@@ -134,5 +180,6 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
 
     return $output;
   }
+
   // #endregion
 }

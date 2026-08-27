@@ -8,7 +8,6 @@ use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformit
 use Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent;
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityId, NonConformityStatus};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
@@ -48,7 +47,7 @@ final readonly class UpdateNonConformityStatusHandler implements CommandHandler
       $nonConformityId = NonConformityId::fromString($command->nonConformityId);
       $status = NonConformityStatus::from($command->status);
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     // Verify inspection exists and belongs to the organization

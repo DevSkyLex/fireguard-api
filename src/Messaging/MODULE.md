@@ -410,13 +410,26 @@ updates (re-tested when v2 introduces `visibility: participants`).
   input/output DTOs, `MessagingExceptionMapperTrait`.
   Message bodies are sanitized with `@html_sanitizer.sanitizer.messaging.message`
   (identical allowlist to `intervention.comment`) before reaching the
-  command. `MessagingMediaProcessor`/`MessagingMediaProvider` mirror
+  command. **Sanitization rewrites `@` to `&#64;`** — Symfony's
+  `StringSanitizer::REPLACEMENTS` does it in every text node — so by the time a
+  body reaches `MentionExtractor` the marker reads `&#64;{memberUuid}`, never
+  `@{memberUuid}`. The extractor accepts both spellings for that reason; a
+  pattern matching the bare `@` alone silently extracted nothing, and the only
+  mentions that ever resolved were the ones written straight to the database by
+  fixtures. Anything reading mention markers out of a **stored** body must
+  expect the escaped form. `MessagingMediaProcessor`/`MessagingMediaProvider` mirror
   `Inspection\...\InspectionMediaProcessor`/`InspectionMediaProvider`
   (multipart upload via `Shared\Presentation\Api\Attachment\{UploadedAttachment,
   MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
   delete) but keep authorization entirely inside the command handlers via
   `MessagingAccessPolicy` — the processor never re-implements a permission
-  check. Downloading follows the same delegation on the OPPOSITE (read)
+  check. `AddMessageAttachmentHandler` also enforces
+  `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` (**25**) **per message**
+  via `countByMessageId()` — not per conversation, since the conversation
+  Files tab is paginated (`listByConversationId`) while a message's own
+  attachment strip is not; over the cap returns **422**, the same status as a
+  MIME/size rejection, mapped centrally by the shared
+  `AttachmentConstraintExceptionSubscriber` — not by the processor. Downloading follows the same delegation on the OPPOSITE (read)
   side: `DownloadMessagingAttachmentController` (a thin invokable controller,
   the binary-`Response` pattern shared with `Audit`/`Compliance`'s export
   controllers) only authenticates and dispatches
@@ -763,6 +776,38 @@ and is deliberately NOT part of the aggregate, matching the Inspection
 precedent — there is no edit use case, so it never advances past `1`.
 
 ## Permissions
+
+### Not a member of the record's organization answers 404, never 403
+
+Every handler in this module loads its record by **global id** — the routes are
+`/conversations/{id}`, `/messages/{id}`, `/channels/{id}`, with no organization
+segment — and only then resolves the caller's membership in the organization
+that record turned out to belong to
+(`MessagingAccessPolicy::resolveActiveMemberId()`).
+
+That resolution therefore decides scope, not permission: it throws
+`MessagingNotFoundException` (404), byte-identical to the answer for an id that
+does not exist. A 403 there would confirm the record exists, which is all an
+attacker needs to enumerate another tenant's conversations by id.
+
+A caller who **is** an active member but lacks the permission still gets 403,
+from `assertCanReadThread()` / `assertCanWrite()` / `assertCanReadChannel()`.
+Scope is 404, permission is 403 — the same split the Organization module's
+`resolveAccess()` makes.
+
+**Four handlers did not honour this until 2026-08-25**, and the paragraph above
+overstated the code when it said "every handler". They resolved membership
+*inside* the `ConversationVisibility::PARTICIPANTS` branch rather than before
+it, so a **subject-visibility** conversation belonging to another organization
+reached `assertCanReadThread()` first and answered **403** — the very oracle
+this section forbids. The four were
+`DownloadMessageAttachmentHandler`, `ListConversationAttachmentsHandler`,
+`ListConversationLinksHandler` and `GetConversationActivityHandler`; nine
+sibling handlers already hoisted the call. The resolution is now above the
+branch in all thirteen, and each of the four carries a unit test named
+`testInvokeAnswersNotFoundRatherThanForbidden…` that fails against the old
+shape. **Keep the resolution above the branch** — putting it back inside one
+reopens the oracle silently, since the happy path is unaffected.
 
 `organization.messaging.read` / `.write` / `.manage`
 (`Organization\Domain\Catalog\OrganizationPermissionCatalog`).
@@ -1116,10 +1161,10 @@ for this lot.
 
 **Maximum depth: 2 ancestors (3 levels total), chosen deliberately.** A
 channel may have at most a grandparent (root → parent → child); a
-great-grandchild is rejected. The shipped mockup only ever nests one level
-deep ("Bâtiment Nord" → its three children), so `2` gives one full level of
-headroom (e.g. a site → building → discipline-specific channel) without
-inviting an unbounded tree. The bound also keeps two things cheap: the
+great-grandchild is rejected. Real channel trees observed in the product nest
+one level deep ("Bâtiment Nord" → its three children), so `2` gives one full
+level of headroom (e.g. a site → building → discipline-specific channel)
+without inviting an unbounded tree. The bound also keeps two things cheap: the
 ancestor-chain walk itself (at most `MAX_ANCESTORS + 1` `findAggregateById()`
 round trips per write — this is a single command, not a list endpoint, so
 it is not held to the same no-N+1 bar as `GET /api/channels`, see below),

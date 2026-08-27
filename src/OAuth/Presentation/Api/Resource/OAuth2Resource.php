@@ -153,6 +153,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OAuthOperations::TOKEN,
       uriTemplate: '/token',
+      status: HttpResponse::HTTP_OK,
       input: TokenInput::class,
       output: TokenOutput::class,
       inputFormats: [
@@ -216,6 +217,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OAuthOperations::REVOKE_TOKEN,
       uriTemplate: '/token/revoke',
+      status: HttpResponse::HTTP_OK,
       input: TokenRevocationInput::class,
       output: false,
       inputFormats: [
@@ -224,6 +226,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: RevokeTokenProcessor::class,
+      security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['OAuth2'],
         summary: 'Revoke Token',
@@ -254,6 +257,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OAuthOperations::INTROSPECT_TOKEN,
       uriTemplate: '/token/introspect',
+      status: HttpResponse::HTTP_OK,
       input: TokenIntrospectionInput::class,
       output: TokenIntrospectionOutput::class,
       inputFormats: [
@@ -262,6 +266,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: IntrospectTokenProcessor::class,
+      security: "is_granted('ROLE_USER')",
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_WRITE]],
       openapi: new Operation(

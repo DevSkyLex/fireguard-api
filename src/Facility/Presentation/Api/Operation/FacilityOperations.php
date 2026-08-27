@@ -24,20 +24,6 @@ final class FacilityOperations
   public const string CREATE_FACILITY = 'facility_create';
 
   /**
-   * Constant LIST_FACILITY_TYPES.
-   *
-   * @var string
-   */
-  public const string LIST_FACILITY_TYPES = 'facility_type_list';
-
-  /**
-   * Constant LIST_FACILITY_STATUSES.
-   *
-   * @var string
-   */
-  public const string LIST_FACILITY_STATUSES = 'facility_status_list';
-
-  /**
    * Constant LIST_FACILITIES.
    *
    * @var string
@@ -92,5 +78,68 @@ final class FacilityOperations
    * @var string
    */
   public const string MOVE_FACILITY = 'facility_move';
+
+  /**
+   * Constant SET_FACILITY_PLAN_GEOMETRY.
+   *
+   * @var string
+   */
+  public const string SET_FACILITY_PLAN_GEOMETRY = 'facility_plan_geometry_set';
+
+  /**
+   * Constant GET_FACILITY_PLAN_OVERLAY.
+   *
+   * @var string
+   */
+  public const string GET_FACILITY_PLAN_OVERLAY = 'facility_plan_overlay_get';
+
+  /**
+   * Constant SET_PRIMARY_FACILITY_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string SET_PRIMARY_FACILITY_ATTACHMENT = 'facility_attachment_set_primary';
+
+  /**
+   * Constant DOWNLOAD_FACILITY_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string DOWNLOAD_FACILITY_ATTACHMENT = 'download_facility_attachment';
+
+  /**
+   * Constant DUPLICATE_FACILITY_SUBTREE.
+   *
+   * @var string
+   */
+  public const string DUPLICATE_FACILITY_SUBTREE = 'facility_duplicate_subtree';
+
+  /**
+   * Constant CREATE_FACILITY_METADATA_FIELD.
+   *
+   * @var string
+   */
+  public const string CREATE_FACILITY_METADATA_FIELD = 'facility_metadata_field_create';
+
+  /**
+   * Constant LIST_FACILITY_METADATA_FIELDS.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_METADATA_FIELDS = 'facility_metadata_field_list';
+
+  /**
+   * Constant UPDATE_FACILITY_METADATA_FIELD.
+   *
+   * @var string
+   */
+  public const string UPDATE_FACILITY_METADATA_FIELD = 'facility_metadata_field_update';
+
+  /**
+   * Constant DELETE_FACILITY_METADATA_FIELD.
+   *
+   * @var string
+   */
+  public const string DELETE_FACILITY_METADATA_FIELD = 'facility_metadata_field_delete';
   // #endregion
 }

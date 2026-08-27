@@ -45,6 +45,7 @@ final readonly class AuditEventView implements ResultMessage
    * @param int $sequence audit sequence number
    * @param string|null $prevHash previous hash in chain
    * @param string $eventHash event hash
+   * @param string|null $organizationId the organization identifier
    */
   public function __construct(
     public string $id,
@@ -67,6 +68,7 @@ final readonly class AuditEventView implements ResultMessage
     public int $sequence,
     public ?string $prevHash,
     public string $eventHash,
+    public ?string $organizationId = null,
   ) {
   }
 }

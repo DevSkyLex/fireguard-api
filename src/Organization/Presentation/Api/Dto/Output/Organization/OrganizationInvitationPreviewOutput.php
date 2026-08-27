@@ -86,5 +86,20 @@ final class OrganizationInvitationPreviewOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $expiresAt = '';
+
+  /**
+   * Property roleNames.
+   *
+   * Display names of the roles the invitation grants. Names only — this
+   * endpoint is unauthenticated, so no role identifiers or permissions are
+   * exposed.
+   *
+   * @var list<string>
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $roleNames = [];
   // #endregion
 }

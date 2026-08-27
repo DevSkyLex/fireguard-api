@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Infrastructure\Scheduler;
 
 use Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand;
+use Intervention\Application\UseCase\Command\Sweep\SendDueReminders\SendDueRemindersCommand;
 use Intervention\Infrastructure\Scheduler\InterventionScheduleProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -41,11 +42,15 @@ final class InterventionScheduleProviderTest extends TestCase
 
     $messages = $schedule->getRecurringMessages();
 
-    self::assertCount(1, $messages);
+    self::assertCount(2, $messages);
 
-    $provider = $messages[0]->getProvider();
-    self::assertInstanceOf(StaticMessageProvider::class, $provider);
-    self::assertStringContainsString(MaterializeDueRecurrencesCommand::class, (string) $provider);
+    $recurrenceProvider = $messages[0]->getProvider();
+    self::assertInstanceOf(StaticMessageProvider::class, $recurrenceProvider);
+    self::assertStringContainsString(MaterializeDueRecurrencesCommand::class, (string) $recurrenceProvider);
+
+    $reminderProvider = $messages[1]->getProvider();
+    self::assertInstanceOf(StaticMessageProvider::class, $reminderProvider);
+    self::assertStringContainsString(SendDueRemindersCommand::class, (string) $reminderProvider);
   }
 
   #[Test]
@@ -54,6 +59,7 @@ final class InterventionScheduleProviderTest extends TestCase
     $messages = $this->createProvider()->getSchedule()->getRecurringMessages();
 
     self::assertInstanceOf(PeriodicalTrigger::class, $messages[0]->getTrigger());
+    self::assertInstanceOf(PeriodicalTrigger::class, $messages[1]->getTrigger());
   }
 
   #[Test]

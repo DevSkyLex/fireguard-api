@@ -7,9 +7,7 @@ namespace Equipment\Application\UseCase\Query\Equipment\GetEquipmentKpis;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, NonConformityStatisticsPort};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
 
@@ -57,11 +55,7 @@ final readonly class GetEquipmentKpisHandler implements QueryHandler
    */
   public function __invoke(GetEquipmentKpisQuery $query): GetEquipmentKpisResult
   {
-    try {
-      $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
 
     $overview = $this->equipmentRepository->countOverviewByOrganizationId($organizationId);
     $totalAssets = $overview['total'];

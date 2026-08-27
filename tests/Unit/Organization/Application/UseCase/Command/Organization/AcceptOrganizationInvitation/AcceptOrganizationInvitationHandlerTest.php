@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
-use Notification\Application\Contract\Notification\SentNotification;
+use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
@@ -17,7 +15,7 @@ use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvi
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler;
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -29,6 +27,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -721,7 +720,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationInvitationNotPendingException::class);
     $this->expectExceptionMessage('Invitation has expired.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -740,7 +739,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->createHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invitation token is required.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -795,7 +794,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->createHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationInvitationNotPendingException::class);
     $this->expectExceptionMessage('Invitation is no longer pending.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -829,8 +828,13 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     $handler = $this->createHandler($invitationRepository);
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Invitation email does not match the authenticated user.');
+    // The message is asserted BYTE FOR BYTE against the one a nonexistent token
+    // produces. That identity is the whole point: a caller holding a stolen or
+    // guessed token must not be able to tell "real, but addressed to someone
+    // else" from "no such token". Asserting only the class would let a future
+    // edit reintroduce a distinguishing message and keep this test green.
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+    $this->expectExceptionMessage('Organization invitation token is invalid or no longer available.');
 
     $handler->__invoke(new AcceptOrganizationInvitationCommand(
       token: $token,

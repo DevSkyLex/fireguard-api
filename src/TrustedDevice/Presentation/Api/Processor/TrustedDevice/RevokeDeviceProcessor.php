@@ -8,10 +8,8 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice\RevokeDeviceCommand;
-use TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException;
 
 use function is_string;
 
@@ -45,30 +43,7 @@ final readonly class RevokeDeviceProcessor implements ProcessorInterface
       userId: $user->getUserIdentifier(),
     );
 
-    try {
-      $this->commandBus->dispatch($command);
-    } catch (Throwable $exception) {
-      $notFound = $this->findDeviceNotFound($exception);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
-
-    return null;
-  }
-
-  private function findDeviceNotFound(Throwable $exception): ?TrustedDeviceNotFoundException
-  {
-    $current = $exception;
-    while (null !== $current) {
-      if ($current instanceof TrustedDeviceNotFoundException) {
-        return $current;
-      }
-
-      $current = $current->getPrevious();
-    }
+    $this->commandBus->dispatch($command);
 
     return null;
   }

@@ -12,7 +12,6 @@ use Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMe
   GetCurrentOrganizationMemberProfileResult
 };
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\{
   CurrentOrganizationMemberProfileOutput,
   OrganizationPermissionOutput,
@@ -20,7 +19,7 @@ use Organization\Presentation\Api\Dto\Output\Organization\{
 };
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function array_map;
 use function is_string;
@@ -81,12 +80,8 @@ final readonly class GetCurrentOrganizationMemberProfileProvider implements Prov
       return null;
     }
 
-    try {
-      /** @var GetCurrentOrganizationMemberProfileResult $result */
-      $result = $this->queryBus->ask(new GetCurrentOrganizationMemberProfileQuery($organizationId, $user->getId()));
-    } catch (OrganizationNotFoundException|OrganizationMemberNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetCurrentOrganizationMemberProfileResult $result */
+    $result = $this->queryBus->ask(new GetCurrentOrganizationMemberProfileQuery($organizationId, $user->getId()));
 
     $output = new CurrentOrganizationMemberProfileOutput();
     $output->id = $result->id;

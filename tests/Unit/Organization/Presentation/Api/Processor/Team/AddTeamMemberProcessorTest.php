@@ -19,6 +19,8 @@ use Organization\Presentation\Api\Processor\Team\AddTeamMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
@@ -26,6 +28,9 @@ use Symfony\Component\HttpKernel\Exception\{
   BadRequestHttpException,
   NotFoundHttpException
 };
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 /**
  * Test AddTeamMemberProcessorTest.
@@ -135,7 +140,10 @@ final class AddTeamMemberProcessorTest extends TestCase
   public function testProcessMapsAMissingTeamToHttp404(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(TeamNotFoundException::withId(self::TEAM_ID));
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
+      TeamNotFoundException::withId(self::TEAM_ID),
+      $this->addTeamMemberCommand(),
+    ));
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -146,9 +154,10 @@ final class AddTeamMemberProcessorTest extends TestCase
   public function testProcessMapsAMissingOrganizationMemberToHttp404(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
       OrganizationMemberNotFoundException::withId(self::MEMBER_ID),
-    );
+      $this->addTeamMemberCommand(),
+    ));
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -159,9 +168,25 @@ final class AddTeamMemberProcessorTest extends TestCase
   public function testProcessMapsAnInvalidArgumentToHttp400(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(new InvalidArgumentException('Unknown role.'));
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
+      new InvalidArgumentException('Unknown role.'),
+      $this->addTeamMemberCommand(),
+    ));
 
     $this->expectException(BadRequestHttpException::class);
+
+    $this->createProcessor($commandBus)->process(new AddTeamMemberInput(), new Post(), $this->uriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $this->createProcessor($commandBus)->process(new AddTeamMemberInput(), new Post(), $this->uriVariables());
   }
@@ -204,6 +229,23 @@ final class AddTeamMemberProcessorTest extends TestCase
     ));
 
     return $security;
+  }
+
+  private function addTeamMemberCommand(): AddTeamMemberCommand
+  {
+    return new AddTeamMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      teamId: self::TEAM_ID,
+      memberId: self::MEMBER_ID,
+      role: 'lead',
+    );
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
+    );
   }
   // #endregion
 }

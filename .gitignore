@@ -18,6 +18,11 @@
 phpstan.neon
 ###< phpstan/phpstan ###
 
+# phpstan writes its report to stdout; redirecting it to a file is a debugging
+# habit, and one such dump reached the repository once. Kept outside the Flex
+# block above so `composer recipes:update` cannot drop it.
+.phpstan_*.json
+
 ###> jwt keys ###
 /config/jwt/
 ###< jwt keys ###
@@ -54,3 +59,7 @@ phpstan.neon
 ###> stray Windows temp-path dirs (e.g. a tool writing to "C:\..." as a relative path) ###
 /[A-Za-z]:/
 ###< stray Windows temp-path dirs ###
+
+###> Serena MCP (index cache + memories, machine-local) ###
+/.serena/
+###< Serena MCP ###

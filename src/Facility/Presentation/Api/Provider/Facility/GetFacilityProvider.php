@@ -67,7 +67,11 @@ final readonly class GetFacilityProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId and facilityId URI parameters are required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.facilities.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 
@@ -109,8 +113,10 @@ final readonly class GetFacilityProvider implements ProviderInterface
     $output->latitude = $result->latitude;
     $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
+    $output->planGeometry = $result->planGeometry;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
+    $output->path = $result->path;
 
     return $output;
   }

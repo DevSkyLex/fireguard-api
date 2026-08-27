@@ -81,7 +81,7 @@ final class VerifyOtpProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessMapsOtpNotFoundException(): void
+  public function testProcessLetsAMissingOtpPropagate(): void
   {
     $input = new VerifyOtpInput();
     $input->code = '123456';
@@ -94,59 +94,9 @@ final class VerifyOtpProcessorTest extends TestCase
 
     $processor = new VerifyOtpProcessor($commandBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OtpNotFoundException::class);
 
     $processor->process($input, new Post(), ['token' => 'token-2']);
-  }
-
-  #[Test]
-  public function testProcessMapsHandlerFailedException(): void
-  {
-    $input = new VerifyOtpInput();
-    $input->code = '123456';
-
-    $exception = new HandlerFailedException(
-      new Envelope(new stdClass()),
-      [OtpNotFoundException::forIdentifier('otp-1')],
-    );
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException($exception);
-
-    $processor = new VerifyOtpProcessor($commandBus);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process($input, new Post(), ['id' => 'otp-1']);
-  }
-
-  #[Test]
-  public function testProcessMapsMessengerRuntimeException(): void
-  {
-    $input = new VerifyOtpInput();
-    $input->code = '123456';
-
-    $handlerFailed = new HandlerFailedException(
-      new Envelope(new stdClass()),
-      [OtpNotFoundException::forIdentifier('otp-2')],
-    );
-
-    $exception = MessengerRuntimeException::wrap($handlerFailed);
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException($exception);
-
-    $processor = new VerifyOtpProcessor($commandBus);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process($input, new Post(), ['id' => 'otp-2']);
   }
 
   #[Test]
@@ -233,29 +183,6 @@ final class VerifyOtpProcessorTest extends TestCase
     $this->expectException(HandlerFailedException::class);
 
     $processor->process($input, new Post(), ['id' => 'otp-5']);
-  }
-
-  #[Test]
-  public function testProcessWalksTheMessengerPreviousChainForTheOtpNotFound(): void
-  {
-    $input = new VerifyOtpInput();
-    $input->code = '123456';
-
-    // No HandlerFailedException in between: the OtpNotFoundException sits
-    // directly on the messenger exception's `previous` chain.
-    $exception = MessengerRuntimeException::wrap(OtpNotFoundException::forIdentifier('otp-6'));
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::once())
-      ->method('dispatch')
-      ->willThrowException($exception);
-
-    $processor = new VerifyOtpProcessor($commandBus);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process($input, new Post(), ['id' => 'otp-6']);
   }
 
   #[Test]

@@ -35,6 +35,7 @@ final class GetImportJobResultTest extends TestCase
       kind: 'equipment',
       status: 'completed',
       originalFilename: 'equipment.csv',
+      dryRun: false,
       totalRows: 2,
       processedRows: 2,
       successfulRows: 1,
@@ -59,6 +60,7 @@ final class GetImportJobResultTest extends TestCase
     self::assertNull($result->jobError);
     self::assertSame('user-1', $result->createdBy);
     self::assertSame($updatedAt, $result->updatedAt);
+    self::assertFalse($result->dryRun);
   }
 
   #[Test]
@@ -94,5 +96,6 @@ final class GetImportJobResultTest extends TestCase
       [['rowNumber' => 2, 'column' => 'type', 'code' => 'invalid', 'message' => 'bad value']],
       $result->errorReport,
     );
+    self::assertFalse($result->dryRun);
   }
 }

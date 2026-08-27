@@ -12,12 +12,12 @@ use Equipment\Application\UseCase\Query\Equipment\ListEquipments\{ListEquipments
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\EquipmentFacilityId;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListEquipmentsHandler::class)]
 final class ListEquipmentsHandlerTest extends TestCase
@@ -38,7 +38,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListEquipmentsQuery(
       organizationId: 'invalid-uuid',
@@ -55,7 +55,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListEquipmentsQuery(
       organizationId: self::ORG_ID,
@@ -73,7 +73,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListEquipmentsQuery(
       organizationId: self::ORG_ID,

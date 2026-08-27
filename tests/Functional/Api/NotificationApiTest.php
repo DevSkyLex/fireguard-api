@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Domain\Model\Notification\Notification;
-use Notification\Domain\ValueObject\{NotificationId, NotificationType};
+use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;

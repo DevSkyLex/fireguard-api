@@ -11,7 +11,8 @@ use Maintenance\Application\UseCase\Query\Schedule\ListMaintenanceSchedules\{
   ListMaintenanceSchedulesQuery,
   ListMaintenanceSchedulesResult
 };
-use Maintenance\Domain\Exception\MaintenanceAccessDeniedException;
+use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -39,7 +40,7 @@ final class ListMaintenanceSchedulesHandlerTest extends TestCase
     $schedules->expects(self::once())->method('list')->willReturn($page);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new ListMaintenanceSchedulesHandler($schedules, $authorization);
 
@@ -56,11 +57,27 @@ final class ListMaintenanceSchedulesHandlerTest extends TestCase
     $schedules->expects(self::never())->method('list');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new ListMaintenanceSchedulesHandler($schedules, $authorization);
 
     $this->expectException(MaintenanceAccessDeniedException::class);
+
+    $handler->__invoke(new ListMaintenanceSchedulesQuery(self::USER_ID, self::ORG_ID));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOrganization(): void
+  {
+    $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
+    $schedules->expects(self::never())->method('list');
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new ListMaintenanceSchedulesHandler($schedules, $authorization);
+
+    $this->expectException(MaintenanceNotFoundException::class);
 
     $handler->__invoke(new ListMaintenanceSchedulesQuery(self::USER_ID, self::ORG_ID));
   }

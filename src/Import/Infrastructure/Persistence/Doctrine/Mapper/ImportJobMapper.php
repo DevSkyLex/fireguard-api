@@ -47,6 +47,7 @@ final class ImportJobMapper
       createdBy: $record->createdBy,
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
+      dryRun: $record->dryRun,
       totalRows: $record->totalRows,
       processedRows: $record->processedRows,
       successfulRows: $record->successfulRows,
@@ -86,6 +87,7 @@ final class ImportJobMapper
     $record->status = $job->status()->value;
     $record->storagePath = $job->storagePath();
     $record->originalFilename = $job->originalFilename();
+    $record->dryRun = $job->isDryRun();
     $record->totalRows = $job->totalRows();
     $record->processedRows = $job->processedRows();
     $record->successfulRows = $job->successfulRows();

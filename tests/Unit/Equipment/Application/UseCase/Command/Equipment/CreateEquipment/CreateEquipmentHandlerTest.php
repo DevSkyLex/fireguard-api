@@ -8,15 +8,14 @@ use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\ValueObject\EquipmentId;
-use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CreateEquipmentHandler::class)]
 final class CreateEquipmentHandlerTest extends TestCase
@@ -37,7 +36,7 @@ final class CreateEquipmentHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateEquipmentCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440981',
@@ -121,7 +120,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with('550e8400-e29b-41d4-a716-446655440984', OrganizationQuotaResource::EQUIPMENT)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 50));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 50));
 
     $handler = $this->handler($repository, $uuidFactory, $quota);
 
@@ -130,6 +129,72 @@ final class CreateEquipmentHandlerTest extends TestCase
     $handler->__invoke(new CreateEquipmentCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440984',
       type: 'fire_extinguisher',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithoutPersistingOnADryRun(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440986';
+
+    // The negative assertion is the point: a dry run must never reach the
+    // repository or the transaction manager.
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440906'));
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $quota->expects(self::once())
+      ->method('assertProjectedCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::EQUIPMENT, 0);
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $result = $handler->__invoke(new CreateEquipmentCommand(
+      organizationId: $organizationId,
+      type: 'fire_extinguisher',
+      dryRun: true,
+    ));
+
+    self::assertInstanceOf(CreateEquipmentResult::class, $result);
+    self::assertSame('550e8400-e29b-41d4-a716-446655440906', $result->equipmentId);
+    self::assertSame('in_stock', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeThrowsQuotaExceededOnADryRunWhenTheProjectedCountReachesTheCap(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440987';
+
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440907'));
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $quota->expects(self::once())
+      ->method('assertProjectedCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::EQUIPMENT, 2)
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 10));
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $handler->__invoke(new CreateEquipmentCommand(
+      organizationId: $organizationId,
+      type: 'fire_extinguisher',
+      dryRun: true,
+      quotaProjectionOffset: 2,
     ));
   }
 

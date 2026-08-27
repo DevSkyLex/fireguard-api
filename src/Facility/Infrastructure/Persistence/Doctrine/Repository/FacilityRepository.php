@@ -6,9 +6,11 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Exception\FacilityOrganizationNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
@@ -21,10 +23,14 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
 use function count;
+use function is_numeric;
+use function json_decode;
 use function mb_strtolower;
 use function str_contains;
 use function strtoupper;
 use function usort;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Repository FacilityRepository.
@@ -95,12 +101,21 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $existing->latitude = $record->latitude;
       $existing->longitude = $record->longitude;
       $existing->metadata = $record->metadata;
+      $existing->planGeometry = $record->planGeometry;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (ForeignKeyConstraintViolationException $exception) {
+      if ($this->isOrganizationConstraintViolation($exception)) {
+        throw FacilityOrganizationNotFoundException::create();
+      }
+
+      throw $exception;
+    }
   }
 
   /**
@@ -322,6 +337,48 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
+   * Method findAncestors.
+   *
+   * Walks the facility's parent chain upward via a single recursive CTE,
+   * mirroring {@see descendantIds} in the opposite direction. Only PUBLISHED
+   * records are walked (draft intervention scratchpads are invisible here),
+   * and the result is ordered root-first — direct parent last — excluding the
+   * facility itself. A root facility with no parent yields an empty list.
+   *
+   * @since 1.0.0
+   *
+   * @param string $facilityId the facility identifier whose ancestors are resolved
+   *
+   * @return list<array{id: string, name: string, type: string}> the ancestor breadcrumb, root first
+   */
+  public function findAncestors(string $facilityId): array
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE ancestors AS (
+          SELECT f.id, f.name, f.type, f.parent_facility_id, 1 AS depth
+          FROM facilities f
+          INNER JOIN facilities origin ON origin.id = :facilityId
+          WHERE f.id = origin.parent_facility_id
+            AND f.record_status = :published
+          UNION
+          SELECT parent.id, parent.name, parent.type, parent.parent_facility_id, ancestors.depth + 1
+          FROM facilities parent
+          INNER JOIN ancestors ON parent.id = ancestors.parent_facility_id
+          WHERE parent.record_status = :published
+      )
+      SELECT id, name, type FROM ancestors ORDER BY depth DESC
+      SQL;
+
+    /** @var list<array{id: string, name: string, type: string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'facilityId' => $facilityId,
+      'published' => 'published',
+    ])->fetchAllAssociative();
+
+    return $rows;
+  }
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts facilities for an organization with optional filters.
@@ -335,6 +392,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param ?string $parentFacilityId optional parent facility filter
    * @param ?string $code optional exact code filter
    * @param ?string $search optional text search applied before counting
+   * @param bool $rootsOnly whether only facilities without parent are counted
+   * @param ?bool $hasCoordinates when true, count only facilities with both latitude and longitude set; when false, count only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return int the facilities count
    */
@@ -347,6 +406,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $code = null,
     ?string $search = null,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
@@ -357,6 +417,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $code,
       $search,
       $rootsOnly,
+      $hasCoordinates,
     )
       ->select('COUNT(f.id)')
       ->getQuery()
@@ -572,6 +633,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param bool $rootsOnly whether only facilities without parent are listed
+   * @param ?bool $hasCoordinates when true, list only facilities with both latitude and longitude set; when false, list only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return list<Facility> the facilities
    */
@@ -587,6 +650,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     int $limit = 20,
     int $offset = 0,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createListQueryBuilder(
@@ -598,6 +662,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $code,
       $search,
       $rootsOnly,
+      $hasCoordinates,
     )
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
@@ -655,6 +720,158 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ])->fetchOne();
 
     return false !== $match;
+  }
+
+  /**
+   * Method findZonesForPlanAttachment.
+   *
+   * @since 1.0.0
+   */
+  public function findZonesForPlanAttachment(
+    FacilityOrganizationId $organizationId,
+    FacilityId $rootFacilityId,
+    string $attachmentId,
+  ): array {
+    $sql = <<<'SQL'
+      WITH RECURSIVE subtree AS (
+          SELECT id, status, type, name, plan_geometry
+          FROM facilities
+          WHERE id = :rootId
+            AND organization_id = :organizationId
+            AND record_status = :published
+          UNION
+          SELECT child.id, child.status, child.type, child.name, child.plan_geometry
+          FROM facilities child
+          INNER JOIN subtree ON child.parent_facility_id = subtree.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT id, status, type, name, plan_geometry
+      FROM subtree
+      WHERE plan_geometry IS NOT NULL
+        AND plan_geometry ->> 'attachmentId' = :attachmentId
+      SQL;
+
+    /** @var list<array{id: string, status: string, type: string, name: string, plan_geometry: string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => (string) $rootFacilityId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+      'attachmentId' => $attachmentId,
+    ])->fetchAllAssociative();
+
+    $zones = [];
+    foreach ($rows as $row) {
+      /** @var array{attachmentId: string, points: list<array{0: float, 1: float}>} $geometry */
+      $geometry = json_decode($row['plan_geometry'], true, 512, JSON_THROW_ON_ERROR);
+
+      $zones[] = [
+        'facilityId' => $row['id'],
+        'name' => $row['name'],
+        'type' => $row['type'],
+        'status' => $row['status'],
+        'points' => $geometry['points'],
+      ];
+    }
+
+    return $zones;
+  }
+
+  /**
+   * Method depthOf.
+   *
+   * Reports the facility's depth in its hierarchy, walking upward through
+   * PUBLISHED ancestors only in a single recursive CTE. A root facility
+   * (no parent) sits at depth 1.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return int the facility depth, root = 1
+   */
+  public function depthOf(FacilityId $facilityId): int
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE ancestors AS (
+          SELECT id, parent_facility_id
+          FROM facilities
+          WHERE id = :facilityId
+            AND record_status = :published
+          UNION ALL
+          SELECT parent.id, parent.parent_facility_id
+          FROM facilities parent
+          INNER JOIN ancestors ON parent.id = ancestors.parent_facility_id
+          WHERE parent.record_status = :published
+      )
+      SELECT COUNT(*) FROM ancestors
+      SQL;
+
+    $result = $this->entityManager->getConnection()->executeQuery($sql, [
+      'facilityId' => (string) $facilityId,
+      'published' => 'published',
+    ])->fetchOne();
+
+    return is_numeric($result) ? (int) $result : 0;
+  }
+
+  /**
+   * Method subtreeHeight.
+   *
+   * Reports the height of the facility's sub-tree, walking downward through
+   * PUBLISHED descendants only in a single recursive CTE. A facility with no
+   * descendants has height 0.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the sub-tree root facility identifier
+   *
+   * @return int the sub-tree height, leaf = 0
+   */
+  public function subtreeHeight(FacilityId $facilityId): int
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE descendants AS (
+          SELECT id, 1 AS level
+          FROM facilities
+          WHERE parent_facility_id = :rootId
+            AND record_status = :published
+          UNION ALL
+          SELECT child.id, descendants.level + 1
+          FROM facilities child
+          INNER JOIN descendants ON child.parent_facility_id = descendants.id
+          WHERE child.record_status = :published
+      )
+      SELECT COALESCE(MAX(level), 0) FROM descendants
+      SQL;
+
+    $result = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => (string) $facilityId,
+      'published' => 'published',
+    ])->fetchOne();
+
+    return is_numeric($result) ? (int) $result : 0;
+  }
+
+  /**
+   * Method isOrganizationConstraintViolation.
+   *
+   * Recognises the organization foreign key by name. Driver messages are a
+   * persistence concern and must not reach the Application layer, so the
+   * translation lives here rather than in a handler.
+   *
+   * @since 1.0.0
+   *
+   * @param ForeignKeyConstraintViolationException $exception the driver failure
+   *
+   * @return bool true when the organization foreign key caused the failure
+   */
+  private function isOrganizationConstraintViolation(ForeignKeyConstraintViolationException $exception): bool
+  {
+    $message = mb_strtolower($exception->getMessage());
+
+    return str_contains($message, 'fk_facility_organization')
+      || (str_contains($message, 'facilities') && str_contains($message, 'organization'));
   }
 
   /**
@@ -720,6 +937,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param ?string $code the code value
    * @param ?string $search the search value
    * @param bool $rootsOnly the roots only value
+   * @param ?bool $hasCoordinates when true, keep only facilities with both latitude and longitude set; when false, keep only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return QueryBuilder the create list query builder result
    */
@@ -732,6 +950,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $code,
     ?string $search,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -774,6 +993,15 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $queryBuilder
         ->andWhere('f.code = :code')
         ->setParameter('code', $code);
+    }
+
+    if (true === $hasCoordinates) {
+      $queryBuilder
+        ->andWhere('f.latitude IS NOT NULL')
+        ->andWhere('f.longitude IS NOT NULL');
+    } elseif (false === $hasCoordinates) {
+      $queryBuilder
+        ->andWhere('(f.latitude IS NULL OR f.longitude IS NULL)');
     }
 
     TrigramSearchExpression::apply(

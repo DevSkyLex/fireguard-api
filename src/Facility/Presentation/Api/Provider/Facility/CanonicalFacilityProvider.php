@@ -10,11 +10,11 @@ use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -47,6 +47,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
+   * @param FacilityRepositoryPort $facilityRepository resolves the ancestor breadcrumb for the item read
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
@@ -54,6 +55,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    private FacilityRepositoryPort $facilityRepository,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
@@ -80,9 +82,15 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       if (!$record instanceof FacilityRecord) {
         throw new NotFoundHttpException('Facility not found.');
       }
-      $this->assertRead($record->organization);
+      if (null === $record->organization) {
+        throw new NotFoundHttpException('Facility not found.');
+      }
+      $this->assertRead($record->organization->id);
 
-      return $this->map($record);
+      $output = $this->map($record, includeGeometry: true);
+      $output->path = $this->facilityRepository->findAncestors($record->id);
+
+      return $output;
     }
 
     [$organization, $interventionId, $recordStatus] = $this->filters();
@@ -114,7 +122,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       ->getResult();
     $output = [];
     foreach ($records as $record) {
-      $output[] = $this->map($record);
+      // Collection responses never carry planGeometry — the detail branch
+      // above (includeGeometry: true) is the only reader.
+      $output[] = $this->map($record, includeGeometry: false);
     }
 
     return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
@@ -143,7 +153,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @return array{OrganizationRecord, ?string, string}
+   * @return array{string, ?string, string}
    */
   private function filters(): array
   {
@@ -167,9 +177,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @param mixed $organizationValue the organization value value
    * @param mixed $interventionValue the intervention value value
    *
-   * @return OrganizationRecord the organization result
+   * @return string the organization identifier
    */
-  private function organization(mixed $organizationValue, mixed $interventionValue): OrganizationRecord
+  private function organization(mixed $organizationValue, mixed $interventionValue): string
   {
     $organizationId = is_string($organizationValue) && '' !== $organizationValue
       ? ResourceIriParser::id($organizationValue, 'organizations')
@@ -179,12 +189,13 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
-    if (!$organization instanceof OrganizationRecord) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
 
-    return $organization;
+    // No existence check here. `assertRead()` calls `resolveAccess()`, which
+    // answers OUTSIDE_SCOPE — and therefore the same 404, with the same
+    // message — for an organization that does not exist as for one the caller
+    // is not in. Looking the record up first would issue a second query to
+    // reach an answer the permission gate already gives.
+    return $organizationId;
   }
 
   /**
@@ -194,12 +205,20 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param ?OrganizationRecord $organization the organization value
+   * @param string $organizationId the organization identifier
    */
-  private function assertRead(?OrganizationRecord $organization): void
+  private function assertRead(string $organizationId): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser || !$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.facilities.read')) {
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
+    }
+
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
   }
@@ -212,12 +231,13 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param FacilityRecord $record the record value
+   * @param bool $includeGeometry whether to populate planGeometry — detail reads only, never a collection
    *
    * @return FacilityOutput the map result
    */
-  private function map(FacilityRecord $record): FacilityOutput
+  private function map(FacilityRecord $record, bool $includeGeometry): FacilityOutput
   {
-    if (!$record->organization instanceof OrganizationRecord) {
+    if (null === $record->organization) {
       throw new NotFoundHttpException('Facility organization not found.');
     }
     $output = new FacilityOutput();
@@ -236,6 +256,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $output->latitude = $record->latitude;
     $output->longitude = $record->longitude;
     $output->metadata = $record->metadata;
+    if ($includeGeometry) {
+      $output->planGeometry = $record->planGeometry;
+    }
     $output->createdAt = $record->createdAt->format('c');
     $output->updatedAt = $record->updatedAt->format('c');
 

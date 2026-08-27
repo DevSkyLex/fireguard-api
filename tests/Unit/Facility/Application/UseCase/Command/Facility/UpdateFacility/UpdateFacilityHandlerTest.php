@@ -6,8 +6,10 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\UpdateFacilit
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\UpdateFacility\{UpdateFacilityCommand, UpdateFacilityHandler, UpdateFacilityResult};
+use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
@@ -16,6 +18,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 #[CoversClass(UpdateFacilityHandler::class)]
@@ -50,9 +54,7 @@ final class UpdateFacilityHandlerTest extends TestCase
           && ['foo' => 'bar'] === $saved->metadata();
       }));
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
     $result = $handler->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440911',
@@ -86,11 +88,9 @@ final class UpdateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())
       ->method('save');
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Field "type" cannot be null when provided.');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -120,11 +120,9 @@ final class UpdateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())
       ->method('save');
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('"invalid_type" is not a valid backing value for enum');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -158,9 +156,7 @@ final class UpdateFacilityHandlerTest extends TestCase
           && 2.3522 === $saved->coordinates()->longitude();
       }));
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
     $result = $handler->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440941',
@@ -195,9 +191,7 @@ final class UpdateFacilityHandlerTest extends TestCase
       ->method('save')
       ->with(self::callback(static fn (Facility $saved): bool => null === $saved->coordinates()));
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
     $result = $handler->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440951',
@@ -230,11 +224,9 @@ final class UpdateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())
       ->method('save');
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -263,11 +255,9 @@ final class UpdateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())
       ->method('save');
 
-    $handler = new UpdateFacilityHandler(
-      facilityRepository: $repository,
-    );
+    $handler = $this->handler($repository);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new UpdateFacilityCommand(
@@ -288,9 +278,9 @@ final class UpdateFacilityHandlerTest extends TestCase
     $repository->expects(self::never())->method('findById');
     $repository->expects(self::never())->method('save');
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke(new UpdateFacilityCommand(
+    $this->handler($repository)->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440981',
       facilityId: 'not-a-uuid',
       name: 'Whatever',
@@ -315,7 +305,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $this->expectException(FacilityNotFoundException::class);
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke(new UpdateFacilityCommand(
+    $this->handler($repository)->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440982',
       facilityId: '550e8400-e29b-41d4-a716-446655440980',
       name: 'Renamed',
@@ -328,10 +318,10 @@ final class UpdateFacilityHandlerTest extends TestCase
   {
     $repository = $this->repositoryReturningFacility($this->facility());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Field "name" cannot be null when provided.');
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(name: null, hasName: true));
+    $this->handler($repository)->__invoke($this->command(name: null, hasName: true));
   }
 
   #[Test]
@@ -340,7 +330,7 @@ final class UpdateFacilityHandlerTest extends TestCase
     $facility = $this->facility();
     $repository = $this->repositoryReturningFacility($facility);
 
-    $result = new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(
+    $result = $this->handler($repository)->__invoke($this->command(
       code: 'SITE-NEW',
       hasCode: true,
       address: 'New Address',
@@ -361,7 +351,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $this->expectException(FacilityCodeAlreadyExistsException::class);
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(code: 'SITE-DUP', hasCode: true));
+    $this->handler($repository)->__invoke($this->command(code: 'SITE-DUP', hasCode: true));
   }
 
   #[Test]
@@ -375,7 +365,7 @@ final class UpdateFacilityHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Organization not found.');
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(name: 'Renamed', hasName: true));
+    $this->handler($repository)->__invoke($this->command(name: 'Renamed', hasName: true));
   }
 
   #[Test]
@@ -386,7 +376,96 @@ final class UpdateFacilityHandlerTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('boom');
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(name: 'Renamed', hasName: true));
+    $this->handler($repository)->__invoke($this->command(name: 'Renamed', hasName: true));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenMetadataFailsTheOrganizationSchema(): void
+  {
+    $facility = $this->facility();
+    $repository = $this->repositoryReturningFacility($facility);
+
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+    // No definitions for this organization: back-compat, everything passes.
+    // A dedicated FacilityMetadataSchemaGuardTest covers the definitions case;
+    // here we assert the guard is consulted only when hasMetadata is true.
+    $handler = new UpdateFacilityHandler(
+      facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      metadataSchemaGuard: new FacilityMetadataSchemaGuard($metadataRepository),
+    );
+
+    $result = $handler->__invoke($this->command(name: 'Renamed', hasName: true));
+
+    self::assertSame('Renamed', $result->name);
+  }
+
+  #[Test]
+  public function testInvokeDispatchesFacilityUpdatedEventWithChangedFieldNamesOnly(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        self::assertInstanceOf(FacilityUpdatedEvent::class, $event);
+        self::assertSame('550e8400-e29b-41d4-a716-446655440991', $event->organizationId);
+        self::assertSame('550e8400-e29b-41d4-a716-446655440990', $event->facilityId);
+        self::assertSame(['name', 'code'], $event->changedFields);
+
+        return true;
+      }));
+
+    $handler = $this->handler($repository, $eventDispatcher);
+
+    $handler->__invoke($this->command(name: 'Renamed', hasName: true, code: 'SITE-NEW', hasCode: true));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchWhenPatchResendsTheCurrentValue(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = $this->handler($repository, $eventDispatcher);
+
+    // The stock facility already has code "SITE-OLD" and address "Old
+    // Address" — re-sending the identical values is a no-op patch.
+    $handler->__invoke($this->command(code: 'SITE-OLD', hasCode: true, address: 'Old Address', hasAddress: true));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchWhenNoFieldIsProvided(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = $this->handler($repository, $eventDispatcher);
+
+    $handler->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchWhenSaveFails(): void
+  {
+    $repository = $this->repositoryFailingWith(new RuntimeException('boom'));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->expectException(RuntimeException::class);
+
+    $this->handler($repository, $eventDispatcher)->__invoke($this->command(name: 'Renamed', hasName: true));
   }
 
   private function facility(): Facility
@@ -452,5 +531,21 @@ final class UpdateFacilityHandlerTest extends TestCase
         return '23505';
       }
     };
+  }
+
+  /**
+   * Builds the handler with a permissive metadata schema guard (no
+   * definitions for the organization) unless a test needs otherwise.
+   */
+  private function handler(FacilityRepositoryPort $repository, ?EventDispatcherPort $eventDispatcher = null): UpdateFacilityHandler
+  {
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+
+    return new UpdateFacilityHandler(
+      facilityRepository: $repository,
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      metadataSchemaGuard: new FacilityMetadataSchemaGuard($metadataRepository),
+    );
   }
 }

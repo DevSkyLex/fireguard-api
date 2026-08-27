@@ -8,8 +8,9 @@ use ApiPlatform\Metadata\Patch;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
-use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsCommand;
-use Organization\Domain\Exception\OrganizationArchivedException;
+use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{UpdateOrganizationSettingsCommand, UpdateOrganizationSettingsResult};
+use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationQuery;
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\{
   UpdateOrganizationComplianceInput,
   UpdateOrganizationSettingsInput
@@ -21,7 +22,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
@@ -127,7 +128,29 @@ final class UpdateOrganizationSettingsProcessorTest extends TestCase
     $processor->process($input, new Patch(), ['id' => self::ORGANIZATION_ID]);
   }
 
-  private function createProcessor(CommandBusPort $commandBus): UpdateOrganizationSettingsProcessor
+  #[Test]
+  public function testProcessThrowsNotFoundWhenTheRefreshedReadFailsWrappedInMessengerRuntimeException(): void
+  {
+    $input = new UpdateOrganizationSettingsInput();
+    $input->name = 'Renamed organization';
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willReturn(new UpdateOrganizationSettingsResult(self::ORGANIZATION_ID));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new GetOrganizationQuery(self::ORGANIZATION_ID)),
+      [OrganizationNotFoundException::withId(self::ORGANIZATION_ID)],
+    )));
+
+    $processor = $this->createProcessor($commandBus, $queryBus);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($input, new Patch(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  private function createProcessor(CommandBusPort $commandBus, ?QueryBusPort $queryBus = null): UpdateOrganizationSettingsProcessor
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
@@ -140,7 +163,7 @@ final class UpdateOrganizationSettingsProcessorTest extends TestCase
 
     return new UpdateOrganizationSettingsProcessor(
       commandBus: $commandBus,
-      queryBus: $this->createStub(QueryBusPort::class),
+      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       equipmentTypeCatalog: $equipmentTypeCatalog,
       security: $security,

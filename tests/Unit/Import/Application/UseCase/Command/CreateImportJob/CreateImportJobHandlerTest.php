@@ -6,13 +6,15 @@ namespace Tests\Unit\Import\Application\UseCase\Command\CreateImportJob;
 
 use Import\Application\Port\Outbound\{ImportJobQueuePort, ImportJobRepositoryPort};
 use Import\Application\UseCase\Command\CreateImportJob\{CreateImportJobCommand, CreateImportJobHandler};
-use InvalidArgumentException;
+use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CreateImportJobHandler.
@@ -46,8 +48,9 @@ final class CreateImportJobHandlerTest extends TestCase
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('assertGrantedPermissions')
-      ->with(self::USER_ID, self::ORGANIZATION_ID, ['organization.equipment.write']);
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.equipment.write')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new CreateImportJobHandler(
       repository: $repository,
@@ -71,8 +74,9 @@ final class CreateImportJobHandlerTest extends TestCase
   {
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('assertGrantedPermissions')
-      ->with(self::USER_ID, self::ORGANIZATION_ID, ['organization.facilities.write']);
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.facilities.write')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new CreateImportJobHandler(
       repository: $this->createStub(ImportJobRepositoryPort::class),
@@ -88,11 +92,65 @@ final class CreateImportJobHandlerTest extends TestCase
   }
 
   #[Test]
+  public function itAnswersNotFoundWhenTheCallerIsNotAMemberOfTheTargetOrganization(): void
+  {
+    // Same 404 an unknown organization id produces, so the status cannot be
+    // used to probe which organization identifiers are real.
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $queue = $this->createMock(ImportJobQueuePort::class);
+    $queue->expects(self::never())->method('dispatch');
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new CreateImportJobHandler(
+      repository: $this->createStub(ImportJobRepositoryPort::class),
+      fileStorage: $fileStorage,
+      queue: $queue,
+      authorization: $authorization,
+      uuidFactory: $this->uuidFactory(),
+    );
+
+    $this->expectException(ImportJobNotFoundException::class);
+    $this->expectExceptionMessage(self::ORGANIZATION_ID);
+
+    $handler->__invoke($this->command('equipment'));
+  }
+
+  #[Test]
+  public function itDeniesAMemberLackingTheKindWritePermission(): void
+  {
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $queue = $this->createMock(ImportJobQueuePort::class);
+    $queue->expects(self::never())->method('dispatch');
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
+
+    $handler = new CreateImportJobHandler(
+      repository: $this->createStub(ImportJobRepositoryPort::class),
+      fileStorage: $fileStorage,
+      queue: $queue,
+      authorization: $authorization,
+      uuidFactory: $this->uuidFactory(),
+    );
+
+    $this->expectException(ImportAccessDeniedException::class);
+    $this->expectExceptionMessage('organization.equipment.write');
+
+    $handler->__invoke($this->command('equipment'));
+  }
+
+  #[Test]
   public function itRejectsAnEmptyFileName(): void
   {
     $handler = $this->stubbedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateImportJobCommand(
       userId: self::USER_ID,
@@ -110,7 +168,7 @@ final class CreateImportJobHandlerTest extends TestCase
   {
     $handler = $this->stubbedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateImportJobCommand(
       userId: self::USER_ID,
@@ -128,7 +186,7 @@ final class CreateImportJobHandlerTest extends TestCase
   {
     $handler = $this->stubbedHandler();
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke($this->command('unknown'));
   }
@@ -148,11 +206,14 @@ final class CreateImportJobHandlerTest extends TestCase
     $queue = $this->createMock(ImportJobQueuePort::class);
     $queue->expects(self::never())->method('dispatch');
 
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+
     $handler = new CreateImportJobHandler(
       repository: $repository,
       fileStorage: $fileStorage,
       queue: $queue,
-      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      authorization: $authorization,
       uuidFactory: $this->uuidFactory(),
     );
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Command\Label\CreateInterventionLabel;
 
 use Intervention\Application\Port\Outbound\InterventionLabelPort;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionValidationException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 
@@ -51,7 +51,11 @@ final readonly class CreateInterventionLabelHandler implements CommandHandler
    */
   public function __invoke(CreateInterventionLabelCommand $command): CreateInterventionLabelResult
   {
-    if (!$this->authorization->hasPermission($command->userId, $command->organizationId, 'organization.interventions.write')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.interventions.write');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::forOrganizationScope($command->organizationId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.write permission.');
     }
 

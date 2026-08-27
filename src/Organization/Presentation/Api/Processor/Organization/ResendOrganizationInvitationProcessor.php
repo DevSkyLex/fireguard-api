@@ -12,8 +12,9 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\{ResendOrganizationInvitationCommand, ResendOrganizationInvitationResult};
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Organization\Presentation\Api\Trait\InvitationOutputMapperTrait;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -36,7 +37,7 @@ use function is_string;
 final readonly class ResendOrganizationInvitationProcessor implements ProcessorInterface
 {
   use InvitationOutputMapperTrait;
-  use MessengerExceptionUnwrapperTrait;
+  use UnwrapsOrganizationBusFailures;
 
   private const int HTTP_BAD_GATEWAY = 502;
 
@@ -115,18 +116,18 @@ final readonly class ResendOrganizationInvitationProcessor implements ProcessorI
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, OrganizationInvitationNotFoundException::class)
-        ?? $this->findException($exception, OrganizationNotFoundException::class);
+      $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
       if (null !== $notFound) {
         throw new NotFoundHttpException($notFound->getMessage(), $exception);
       }
 
-      $notificationFailed = $this->findException($exception, OrganizationInvitationNotificationFailedException::class);
+      $notificationFailed = $this->findWrappedException($exception, OrganizationInvitationNotificationFailedException::class);
       if (null !== $notificationFailed) {
         throw new HttpException(self::HTTP_BAD_GATEWAY, $notificationFailed->getMessage(), $exception);
       }
 
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
       if (null !== $invalidArgument) {
         throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
       }

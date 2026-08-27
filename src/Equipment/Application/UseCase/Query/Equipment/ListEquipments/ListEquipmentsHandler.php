@@ -10,7 +10,6 @@ use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResul
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
-use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -77,11 +76,11 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $type = null !== $query->type ? EquipmentType::from($query->type)->value : null;
       $status = null !== $query->status ? EquipmentStatus::from($query->status)->value : null;
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if (null !== $query->maintenanceDueStatus && !in_array($query->maintenanceDueStatus, self::MAINTENANCE_DUE_STATUSES, true)) {
-      throw new InvalidArgumentException('Invalid maintenanceDueStatus filter.');
+      throw InvalidValueException::because('Invalid maintenanceDueStatus filter.');
     }
 
     if (null !== $query->maintenanceDueStatus) {

@@ -11,11 +11,11 @@ use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotF
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(DeleteFacilityAttachmentHandler::class)]
 final class DeleteFacilityAttachmentHandlerTest extends TestCase
@@ -145,7 +145,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       fileStorage: $fileStorage,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new DeleteFacilityAttachmentCommand(
       organizationId: 'not-a-uuid',

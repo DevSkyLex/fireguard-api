@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionLabelInput, UpdateInterventionLabelInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionLabelOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\InterventionLabelProcessor;
 use Intervention\Presentation\Api\Provider\InterventionLabelProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +29,7 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'InterventionLabel',
   operations: [
     new Post(
+      name: InterventionOperations::CREATE_INTERVENTION_LABEL,
       uriTemplate: '/intervention-labels',
       input: CreateInterventionLabelInput::class,
       output: InterventionLabelOutput::class,
@@ -36,11 +38,13 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTION_LABELS,
       uriTemplate: '/intervention-labels',
       output: InterventionLabelOutput::class,
       provider: InterventionLabelProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
@@ -48,6 +52,7 @@ use Symfony\Component\HttpFoundation\Response;
       ]),
     ),
     new Patch(
+      name: InterventionOperations::UPDATE_INTERVENTION_LABEL,
       uriTemplate: '/intervention-labels/{id}',
       read: false,
       input: UpdateInterventionLabelInput::class,
@@ -56,6 +61,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new Delete(
+      name: InterventionOperations::DELETE_INTERVENTION_LABEL,
       uriTemplate: '/intervention-labels/{id}',
       read: false,
       input: false,

@@ -17,11 +17,7 @@ final class OrganizationOperations
 {
   public const string CREATE_ORGANIZATION = 'createOrganization';
 
-  public const string LIST_ORGANIZATION_STATUSES = 'listOrganizationStatuses';
-
   public const string LIST_ORGANIZATION_LEGAL_TYPES = 'listOrganizationLegalTypes';
-
-  public const string LIST_ORGANIZATION_INVITATION_STATUSES = 'listOrganizationInvitationStatuses';
 
   public const string LIST_USER_ORGANIZATIONS = 'listUserOrganizations';
 
@@ -35,7 +31,15 @@ final class OrganizationOperations
 
   public const string DELETE_ORGANIZATION = 'deleteOrganization';
 
+  public const string SUSPEND_ORGANIZATION = 'suspendOrganization';
+
+  public const string RESTORE_ORGANIZATION = 'restoreOrganization';
+
+  public const string TRANSFER_ORGANIZATION_OWNERSHIP = 'transferOrganizationOwnership';
+
   public const string UPLOAD_ORGANIZATION_LOGO = 'uploadOrganizationLogo';
+
+  public const string REMOVE_ORGANIZATION_LOGO = 'removeOrganizationLogo';
 
   public const string GET_ORGANIZATION_LOGO = 'getOrganizationLogo';
 
@@ -44,6 +48,10 @@ final class OrganizationOperations
   public const string GET_ORGANIZATION_DASHBOARD = 'getOrganizationDashboard';
 
   public const string GET_ORGANIZATION_NAVIGATION_COUNTERS = 'getOrganizationNavigationCounters';
+
+  public const string LIST_ORGANIZATION_AUDIT_EVENTS = 'listOrganizationAuditEvents';
+
+  public const string EXPORT_ORGANIZATION_AUDIT_EVENTS = 'exportOrganizationAuditEvents';
 
   public const string GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND = 'getOrganizationDashboardInspectionsTrend';
 
@@ -59,9 +67,17 @@ final class OrganizationOperations
 
   public const string LIST_ORGANIZATION_MEMBERS = 'listOrganizationMembers';
 
+  public const string GET_ORGANIZATION_MEMBER = 'getOrganizationMember';
+
+  public const string REACTIVATE_ORGANIZATION_MEMBER = 'reactivateOrganizationMember';
+
+  public const string SET_ORGANIZATION_MEMBER_ROLES = 'setOrganizationMemberRoles';
+
   public const string CREATE_ORGANIZATION_ROLE = 'createOrganizationRole';
 
   public const string UPDATE_ORGANIZATION_ROLE = 'updateOrganizationRole';
+
+  public const string GET_ORGANIZATION_ROLE = 'getOrganizationRole';
 
   public const string LIST_ORGANIZATION_ROLES = 'listOrganizationRoles';
 
@@ -70,6 +86,8 @@ final class OrganizationOperations
   public const string ASSIGN_ORGANIZATION_ROLE_TO_MEMBER = 'assignOrganizationRoleToMember';
 
   public const string REMOVE_ORGANIZATION_MEMBER = 'removeOrganizationMember';
+
+  public const string LEAVE_ORGANIZATION = 'leaveOrganization';
 
   public const string BATCH_REMOVE_ORGANIZATION_MEMBERS = 'batchRemoveOrganizationMembers';
 

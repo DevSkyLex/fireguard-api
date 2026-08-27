@@ -9,11 +9,10 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Team\ListTeamMembers\{ListTeamMembersQuery, ListTeamMembersResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Team\TeamMemberOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 
@@ -81,12 +80,8 @@ final readonly class ListTeamMembersProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.teams.read permission.');
     }
 
-    try {
-      /** @var ListTeamMembersResult $result */
-      $result = $this->queryBus->ask(new ListTeamMembersQuery($organizationId, $teamId));
-    } catch (TeamNotFoundException|OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var ListTeamMembersResult $result */
+    $result = $this->queryBus->ask(new ListTeamMembersQuery($organizationId, $teamId));
 
     $outputs = [];
     foreach ($result->memberships as $membership) {

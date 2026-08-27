@@ -1,11 +1,265 @@
 api_platform:
-  title: Fireguard Auth API
-  description: OAuth2 and OpenID Connect Authorization Server
+  title: FireGuard API
+  description: Fire-safety compliance platform API — identity, organizations, facilities, equipment, inspections, interventions, maintenance and compliance
   version: 1.0.0
+  # Domain exception -> HTTP status, declaratively.
+  #
+  # FG-035 step 2. These entries only take effect once BusFailureUnwrappingSubscriber
+  # has replaced the bus envelope with the domain exception, and only for a failure
+  # no processor caught first — a processor's own catch still wins, which is what
+  # lets the two mechanisms coexist while the catches are retired module by module.
+  #
+  # The map is the one PresentationExceptionStatusTest freezes. Changing a value
+  # here without changing it there fails that test, on purpose: a status is a
+  # published contract, not a configuration detail.
+  #
+  # PHP's own exceptions are deliberately absent, and that was ARBITRATED rather
+  # than inherited (2026-08-26). Mapping InvalidArgumentException globally to 400
+  # would turn every genuine programming error into a client error — the class is
+  # thrown by vendor code (Doctrine, Symfony, Ramsey) as much as by handlers, and
+  # a 400 wakes nobody where a 500 does. The 86 sites that map it today do so
+  # knowing which call raised it: 77 catch clauses, 9 mapper-trait match arms, and
+  # 1 firstFailureOf. A 87th maps it to 409 (DeletePlanProcessor) and is recorded
+  # as an anomaly in PresentationExceptionStatusTest.
+  #
+  # Measured, not assumed — and corrected twice, so read the history before
+  # trusting a count here:
+  #
+  #   1. An audit that missed the match-arm and firstFailureOf shapes concluded
+  #      three modules mapped it nowhere and that eleven endpoints answered 500.
+  #      Both figures were wrong.
+  #   2. The correction over-corrected: it claimed NOTHING answered 500. One
+  #      thing did. `GET /organizations?status=nonsense` answered 500 until
+  #      2026-08-26 — `ListUserOrganizationsHandler` rewrapped a `ValueError`
+  #      into `InvalidArgumentException` and `ListUserOrganizationsProvider`
+  #      catches nothing, unlike its sibling `ListOrganizationMembersProvider`,
+  #      which validates the same concept against an allow-list before dispatch.
+  #      Proven by a functional test that failed with 500 before the fix, and
+  #      frozen by it since.
+  #
+  # NINE throws remain `InvalidArgumentException` across the Application layer,
+  # and every one of them is deliberate — they are the reason this class stays
+  # out of the map rather than an oversight the conversion missed:
+  #
+  #   - `SendNotificationHandler` (7). `SendNotificationCommand` is dispatched
+  #     only from `NotificationService`, which no Presentation file reaches.
+  #     Its guards describe an internal contract, so a violation is a
+  #     programming error and 500 is the right answer. Converting them to
+  #     `InvalidValueException` would map them to 400 and report a bug in this
+  #     codebase as the caller's fault.
+  #   - `VerifyOtpHandler` (1). `VerifyOtpProcessor` guards the same condition
+  #     before dispatching, so the branch is unreachable over HTTP.
+  #   - `CreateOrganizationHandler` (1). Reachable only inside
+  #     `SecurityUserProvider`'s 15-second cache window, when the caller's own
+  #     account was deleted mid-session — an inconsistent state, not a bad
+  #     request. The handler carries the reasoning.
+  #
+  # `FacilityMediaProcessor` and `InspectionMediaProcessor` were reported as two
+  # more 500s and are NOT: neither carries a `catch (InvalidArgumentException)`,
+  # but neither needs one — every value they pass to a command is either
+  # validated first (`AttachmentKind::tryFrom`) or read off an already-persisted
+  # record. The handler-side parsing behind them is defensive, and unreachable.
+  #
+  # The prescribed fix for a handler that wants a status is a DOMAIN exception,
+  # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
-    Organization\Domain\Exception\OrganizationQuotaExceededException: 409
+    # The three that predate FG-035. They already worked because all three are
+    # raised BEFORE the command bus wraps anything — which is precisely the
+    # limitation step 1 removes.
+    Organization\Application\Contract\Quota\OrganizationQuotaExceededException: 409
     Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
     Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
+
+    # GetPermissionProvider and GetRoleProvider catch these to return null, so
+    # that API Platform answers 404. The query bus wraps every handler failure,
+    # so neither catch has ever matched: both endpoints answer 500 for an
+    # unknown id. Declaring them here is what makes the intended 404 happen.
+    Authorization\Domain\Exception\PermissionNotFoundException: 404
+    Authorization\Domain\Exception\RoleNotFoundException: 404
+
+    # Reached only through the `catch (Throwable)` + private-finder shape, which
+    # the first extraction pass did not read. Found by starting step 3 on the
+    # smallest module and discovering its catch mapped an exception nothing knew
+    # about — removing it would have turned a 404 into a 500.
+    Notification\Application\Exception\NotificationNotFoundException: 404
+    Session\Domain\Exception\SessionNotFoundException: 404
+    Tenant\Domain\Exception\TenantNotFoundException: 404
+    Otp\Application\Exception\TotpPendingEnrollmentNotFoundException: 404
+    Otp\Application\Exception\OtpNotFoundException: 404
+    TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException: 404
+
+    # Billing reached these through `catch (MessengerRuntimeException)` plus a
+    # generic `firstFailureOf($e, X::class)` helper — a fourth mapping shape the
+    # baseline extractor cannot see, since the caught class is the wrapper and
+    # the domain class is a runtime argument.
+    # The OAuth CLIENT-MANAGEMENT surface, not the OAuth2 protocol endpoints:
+    # those answer in RFC 6749's error format and keep their own handling.
+    OAuth\Domain\Exception\Client\InvalidClientException: 404
+
+    Billing\Domain\Exception\NoActiveSubscriptionException: 409
+    Billing\Domain\Exception\BillingCustomerNotFoundException: 409
+    Billing\Domain\Exception\BillingGatewayUnavailableException: 503
+
+    Approval\Domain\Exception\ApprovalAccessDeniedException: 403
+    Approval\Domain\Exception\ApprovalRequestNotFoundException: 404
+    Approval\Domain\Exception\ApprovalRequestNotPendingException: 409
+    Approval\Domain\Exception\ApproverNotAuthorizedException: 403
+    Approval\Domain\Exception\DeferredActionNoLongerApplicableException: 409
+    Approval\Domain\Exception\SelfApprovalNotAllowedException: 403
+    Assistant\Domain\Exception\AssistantDisabledException: 403
+    Assistant\Domain\Exception\AssistantMessageIllegalStatusTransitionException: 409
+    Assistant\Domain\Exception\AssistantThreadNotFoundException: 404
+    Assistant\Domain\Exception\AssistantValidationException: 422
+    Calendar\Domain\Exception\CalendarEventNotFoundException: 404
+    Calendar\Domain\Exception\CalendarEventValidationException: 422
+    Compliance\Domain\Exception\ComplianceAccessDeniedException: 403
+    Compliance\Domain\Exception\ComplianceExportNotEntitledException: 403
+    Compliance\Domain\Exception\ComplianceNotFoundException: 404
+    Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotFoundException: 404
+    # The canonical (flat, offline-syncable) equipment surface, whose
+    # mutations moved out of CanonicalEquipmentMutationProcessor. 422 covers
+    # all five of its refusals — a non-nullable field sent as null, an
+    # unsupported enum value, an illegal transition, a foreign facility, and
+    # an in-service asset left without one — which is the status the
+    # processor emitted for each.
+    Equipment\Domain\Exception\CanonicalEquipmentValidationException: 422
+    Equipment\Domain\Exception\EquipmentRevisionMismatchException: 412
+    Equipment\Domain\Exception\AttachmentNotFoundException: 404
+    Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException: 409
+    Equipment\Domain\Exception\EquipmentNotFoundException: 404
+    Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException: 409
+    Equipment\Domain\Exception\TagNotFoundException: 404
+    # The canonical (flat, offline-syncable) facility surface, whose
+    # mutations moved out of CanonicalFacilityMutationProcessor. Note the
+    # depth message: `FacilityHierarchyException` is 400 below, but the
+    # canonical surface wrapped its MESSAGE in a 422 rather than letting the
+    # exception surface — so the canonical class answers 422 for it too.
+    Facility\Domain\Exception\CanonicalFacilityConflictException: 409
+    Facility\Domain\Exception\CanonicalFacilityValidationException: 422
+    Facility\Domain\Exception\FacilityRevisionMismatchException: 412
+    Facility\Domain\Exception\FacilityArchivedException: 400
+    Facility\Domain\Exception\FacilityAttachmentNotAncestorException: 409
+    Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException: 409
+    Facility\Domain\Exception\FacilityAttachmentNotFoundException: 404
+    Facility\Domain\Exception\FacilityCodeAlreadyExistsException: 409
+    Facility\Domain\Exception\FacilityHierarchyException: 400
+    # 400 because that is what it already answers: the class extends
+    # `InvalidArgumentException`, so every processor catch already maps it. The
+    # entry is the safety net for a path with no catch, not a change. A case
+    # exists for 404 or 422 — the referenced organization genuinely does not
+    # exist — but that is a contract decision, not a refactor's side effect.
+    Facility\Domain\Exception\FacilityOrganizationNotFoundException: 400
+    Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
+    Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
+    Facility\Domain\Exception\FacilityMetadataFieldNotFoundException: 404
+    Facility\Domain\Exception\FacilityNotFoundException: 404
+    Facility\Domain\Exception\FacilitySubtreeSourceArchivedException: 409
+    Facility\Domain\Exception\FacilitySubtreeTooLargeException: 422
+    Import\Domain\Exception\ImportAccessDeniedException: 403
+    Import\Domain\Exception\ImportJobNotFoundException: 404
+    # The canonical (flat, offline-syncable) inspection surface, whose
+    # mutations moved out of CanonicalInspectionMutationProcessor. 422 for an
+    # illegal transition is INHERITED, not chosen: the `Inspection` aggregate
+    # answers 409 for the same situation through POST …/close. The two
+    # surfaces disagreed before the refactor; reconciling them changes a
+    # published status and belongs to its own decision.
+    Inspection\Domain\Exception\CanonicalInspectionConflictException: 409
+    Inspection\Domain\Exception\CanonicalInspectionValidationException: 422
+    Inspection\Domain\Exception\ChecklistArchivedException: 409
+    Inspection\Domain\Exception\ChecklistInUseException: 409
+    Inspection\Domain\Exception\ChecklistNotFoundException: 404
+    Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException: 409
+    Inspection\Domain\Exception\InspectionAlreadyCancelledException: 409
+    Inspection\Domain\Exception\InspectionAlreadyClosedException: 409
+    Inspection\Domain\Exception\InspectionAlreadySubmittedException: 409
+    Inspection\Domain\Exception\InspectionNotFoundException: 404
+    Inspection\Domain\Exception\InspectionNotSubmittedException: 409
+    # Canonical inspection responses, whose mutations moved out of
+    # InspectionResponseProcessor. Every wording is the one the processor
+    # used to emit — the status AND the hydra:description are the contract.
+    #
+    # `InspectionResponseClientIdAlreadyExistsException` is deliberately NOT
+    # here: it answers 412 from PUT /inspection-responses/{id} and 409 from
+    # POST, which is request shape rather than domain state, so the processor
+    # keeps one catch for it. See its docblock.
+    Inspection\Domain\Exception\InspectionResponseConflictException: 409
+    Inspection\Domain\Exception\InspectionResponseNotFoundException: 404
+    Inspection\Domain\Exception\InspectionRevisionMismatchException: 412
+    Inspection\Domain\Exception\NonConformityAlreadyResolvedException: 409
+    Inspection\Domain\Exception\NonConformityNotFoundException: 404
+    Intervention\Domain\Exception\InterventionAccessDeniedException: 403
+    Intervention\Domain\Exception\InterventionBlockedException: 422
+    Intervention\Domain\Exception\InterventionConflictException: 409
+    Intervention\Domain\Exception\InterventionExportTooLargeException: 422
+    Intervention\Domain\Exception\InterventionNotFoundException: 404
+    Intervention\Domain\Exception\InterventionPreconditionFailedException: 412
+    Intervention\Domain\Exception\InterventionPreconditionRequiredException: 428
+    Intervention\Domain\Exception\InterventionResourceNotFoundException: 404
+    Intervention\Domain\Exception\InterventionValidationException: 422
+    Intervention\Domain\Exception\PublicationNotFoundException: 404
+    Maintenance\Domain\Exception\MaintenanceAccessDeniedException: 403
+    Maintenance\Domain\Exception\MaintenanceNotFoundException: 404
+    Maintenance\Domain\Exception\MaintenanceValidationException: 422
+    Messaging\Domain\Exception\MessagingAccessDeniedException: 403
+    Messaging\Domain\Exception\MessagingAttachmentNotFoundException: 404
+    Messaging\Domain\Exception\MessagingConflictException: 409
+    Messaging\Domain\Exception\MessagingNotFoundException: 404
+    Messaging\Domain\Exception\MessagingSubjectNotFoundException: 404
+    Messaging\Domain\Exception\MessagingValidationException: 422
+    # Onboarding's first domain exceptions. They replace `InvalidArgumentException`
+    # throws in `OrganizationOnboardingFlowService`, at the SAME status the two
+    # processors' catch clauses already served — the class changes, the contract
+    # does not. A case exists for 409 on "the required action has not been
+    # completed yet"; changing it is a contract decision, not a side effect of
+    # this refactor.
+    Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
+    Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400
+    # Organization's domain conditions. The conflict family answers 409 as of
+    # 2026-08-26, arbitrated rather than inherited: each of these is a
+    # well-formed request from an entitled caller that the organization's
+    # current state forbids, which is what 409 means. They answered 400 only
+    # because they were all bare `InvalidArgumentException` and one generic
+    # catch decided for them. `PlanKeyAlreadyExistsException` and
+    # `TeamNameAlreadyExistsException` were already 409 for the same family —
+    # this closes that split rather than widening it.
+    Organization\Domain\Exception\DefaultPlanCannotBeDeletedException: 409
+    Organization\Domain\Exception\OrganizationInvitationNotPendingException: 409
+    Organization\Domain\Exception\OrganizationMembershipConflictException: 409
+    Organization\Domain\Exception\OrganizationRoleNameAlreadyExistsException: 409
+    Organization\Domain\Exception\OrganizationSystemRoleImmutableException: 409
+    Organization\Domain\Exception\TeamMembershipException: 409
+    # Not a conflict: the plan exists and the caller may subscribe, the value
+    # they chose is simply not one of the available ones.
+    Organization\Domain\Exception\PlanNotAvailableException: 400
+    # The referenced user does not exist. 400 said "your request is malformed"
+    # about a well-formed request naming an absent resource.
+    Organization\Domain\Exception\OrganizationUserNotFoundException: 404
+    Organization\Domain\Exception\OrganizationAccessDeniedException: 403
+    Organization\Domain\Exception\OrganizationArchivedException: 409
+    Organization\Domain\Exception\OrganizationDeletionConfirmationMismatchException: 422
+    Organization\Domain\Exception\OrganizationInvitationNotFoundException: 404
+    Organization\Domain\Exception\OrganizationLastAdminException: 409
+    # Missed by every extractor: ReactivateOrganizationMemberProcessor mapped it
+    # inside a multi-exception catch, and retiring that catch without this entry
+    # would have turned its 409 into a 500. Its own unit test is what caught it.
+    Organization\Domain\Exception\OrganizationMemberNotInactiveException: 409
+    Organization\Domain\Exception\OrganizationMemberNotFoundException: 404
+    Organization\Domain\Exception\OrganizationNotFoundException: 404
+    Organization\Domain\Exception\OrganizationOwnerCannotLeaveException: 409
+    Organization\Domain\Exception\OrganizationOwnershipUnchangedException: 409
+    Organization\Domain\Exception\OrganizationRoleNotFoundException: 404
+    Organization\Domain\Exception\OrganizationSlugAlreadyExistsException: 409
+    Organization\Domain\Exception\PlanKeyAlreadyExistsException: 409
+    Organization\Domain\Exception\PlanNotFoundException: 404
+    Organization\Domain\Exception\TeamMemberNotFoundException: 404
+    Organization\Domain\Exception\TeamNameAlreadyExistsException: 409
+    Organization\Domain\Exception\TeamNotFoundException: 404
+    Shared\Domain\Attachment\InvalidAttachmentException: 422
+    Shared\Domain\Exception\InvalidValueException: 400
+    User\Domain\Exception\UserNotFoundException: 404
+    Webhook\Domain\Exception\WebhookDeliveryNotFoundException: 404
+    Webhook\Domain\Exception\WebhookSubscriptionNotFoundException: 404
+    Webhook\Domain\Exception\WebhookValidationException: 422
   defaults:
     stateless: true
     cache_headers:

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Scheduler;
 
 use Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand;
+use Intervention\Application\UseCase\Command\Sweep\SendDueReminders\SendDueRemindersCommand;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\{RecurringMessage, Schedule, ScheduleProviderInterface};
@@ -13,16 +14,17 @@ use Symfony\Contracts\Cache\CacheInterface;
 /**
  * Scheduler InterventionScheduleProvider.
  *
- * Triggers the recurring intervention materialization sweep hourly. The
- * schedule is stateful (missed triggers survive a restart, tracked in the
- * cache pool) and lock-guarded so overlapping deployments/workers never run
- * the sweep concurrently.
+ * Triggers the recurring intervention materialization sweep and the due-date
+ * reminder sweep, both hourly. The schedule is stateful (missed triggers
+ * survive a restart, tracked in the cache pool) and lock-guarded so
+ * overlapping deployments/workers never run either sweep concurrently.
  *
- * The sweep message (`MaterializeDueRecurrencesCommand`) is consumed from
- * the `scheduler_intervention` transport that the Scheduler component
- * registers automatically for this provider (DSN `schedule://intervention`);
- * run `messenger:consume scheduler_intervention` alongside the existing
- * `async` worker.
+ * Both sweep messages (`MaterializeDueRecurrencesCommand`,
+ * `SendDueRemindersCommand`) are consumed from the `scheduler_intervention`
+ * transport that the Scheduler component registers automatically for this
+ * provider (DSN `schedule://intervention`); run
+ * `messenger:consume scheduler_intervention` alongside the existing `async`
+ * worker.
  *
  * @category Scheduler
  *
@@ -54,6 +56,7 @@ final readonly class InterventionScheduleProvider implements ScheduleProviderInt
   {
     return new Schedule()
       ->add(RecurringMessage::every('1 hour', new MaterializeDueRecurrencesCommand()))
+      ->add(RecurringMessage::every('1 hour', new SendDueRemindersCommand()))
       ->stateful($this->cache)
       ->lock($this->lockFactory->createLock('intervention.recurrence_sweep'));
   }

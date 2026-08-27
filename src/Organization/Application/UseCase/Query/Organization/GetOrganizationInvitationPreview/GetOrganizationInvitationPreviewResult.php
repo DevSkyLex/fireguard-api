@@ -34,6 +34,7 @@ final readonly class GetOrganizationInvitationPreviewResult implements ResultMes
    * @param string $invitedEmail the invited email address
    * @param string $status the effective invitation status
    * @param DateTimeImmutable $expiresAt the invitation expiration datetime
+   * @param list<string> $roleNames the names of the roles the invitation grants
    */
   public function __construct(
     public string $organizationId,
@@ -43,6 +44,7 @@ final readonly class GetOrganizationInvitationPreviewResult implements ResultMes
     public string $invitedEmail,
     public string $status,
     public DateTimeImmutable $expiresAt,
+    public array $roleNames = [],
   ) {
   }
   // #endregion

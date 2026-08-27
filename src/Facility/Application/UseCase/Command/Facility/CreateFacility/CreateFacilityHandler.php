@@ -9,11 +9,14 @@ use Doctrine\DBAL\Exception\{
   UniqueConstraintViolationException
 };
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
+use Facility\Domain\Event\Facility\FacilityCreatedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
   FacilityCodeAlreadyExistsException,
   FacilityHierarchyException,
-  FacilityNotFoundException
+  FacilityNotFoundException,
+  FacilityOrganizationNotFoundException
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
@@ -23,13 +26,13 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
-use InvalidArgumentException;
+use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 use ValueError;
 
@@ -59,12 +62,19 @@ final readonly class CreateFacilityHandler implements CommandHandler
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param FacilityMetadataSchemaGuard $metadataSchemaGuard the organization's typed metadata schema guard
+   * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private UuidFactory $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
+    private EventDispatcherPort $eventDispatcher,
+    private FacilityMetadataSchemaGuard $metadataSchemaGuard,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
   // #endregion
@@ -100,6 +110,11 @@ final readonly class CreateFacilityHandler implements CommandHandler
         if (!$parent->status()->isActive()) {
           throw FacilityArchivedException::withId((string) $parentId);
         }
+
+        // The new facility would sit one level below its parent.
+        if ($this->facilityRepository->depthOf($parentId) + 1 > $this->maxDepth) {
+          throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
+        }
       }
 
       /** @var FacilityId $facilityId */
@@ -119,7 +134,28 @@ final readonly class CreateFacilityHandler implements CommandHandler
         coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
       );
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
+    }
+
+    $this->metadataSchemaGuard->assertValid(
+      $command->organizationId,
+      $facility->metadata(),
+      $facility->type()->value,
+      true,
+    );
+
+    if ($command->dryRun) {
+      // A dry run never enters the transaction that would take the quota's
+      // advisory lock (see OrganizationQuotaPort::assertCanAdd): it projects
+      // the cap instead, offsetting for rows already provisionally counted
+      // earlier in the same batch (the Import module's dry-run report).
+      $this->quota->assertProjectedCanAdd(
+        $command->organizationId,
+        OrganizationQuotaResource::FACILITIES,
+        $command->quotaProjectionOffset,
+      );
+
+      return $this->toResult($facility);
     }
 
     // Enforce the plan quota and persist in one transaction: assertCanAdd takes a
@@ -136,7 +172,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
         }
 
         if ($this->isOrganizationConstraintViolation($exception)) {
-          throw new InvalidArgumentException('Organization not found.');
+          throw FacilityOrganizationNotFoundException::create();
         }
 
         if ($this->isParentConstraintViolation($exception)) {
@@ -147,6 +183,28 @@ final readonly class CreateFacilityHandler implements CommandHandler
       }
     });
 
+    // Emitted after the durable save so a failed persistence leaves no
+    // ledger row. Both the resource-scoped POST and the canonical PUT
+    // upsert route through this same handler, so both emit exactly once.
+    $this->eventDispatcher->dispatch(new FacilityCreatedEvent(
+      organizationId: (string) $facility->organizationId(),
+      facilityId: (string) $facility->id(),
+    ));
+
+    return $this->toResult($facility);
+  }
+
+  /**
+   * Method toResult.
+   *
+   * @since 1.0.0
+   *
+   * @param Facility $facility the facility aggregate (persisted, or — for a dry run — validated only)
+   *
+   * @return CreateFacilityResult the use case result
+   */
+  private function toResult(Facility $facility): CreateFacilityResult
+  {
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),

@@ -12,9 +12,9 @@ use function sprintf;
  * Exception FacilityHasActiveDependentsException.
  *
  * Raised when a facility cannot be archived because it still has active
- * dependents (child facilities, equipment, or inspections) that archiving would
- * orphan. Mapped to HTTP 409 at the API boundary so the caller can resolve the
- * dependents first.
+ * dependents (child facilities, equipment, inspections, or interventions) that
+ * archiving would orphan. Mapped to HTTP 409 at the API boundary so the caller
+ * can resolve the dependents first.
  *
  * @category Exception
  *
@@ -78,6 +78,25 @@ final class FacilityHasActiveDependentsException extends RuntimeException
   {
     return new self(sprintf(
       'Facility "%s" cannot be archived while it has in-progress inspections; close or cancel them first.',
+      $facilityId,
+    ));
+  }
+
+  /**
+   * Method withActiveInterventions.
+   *
+   * @static
+   *
+   * @since 1.0.0
+   *
+   * @param string $facilityId the facility identifier
+   *
+   * @return self the exception instance
+   */
+  public static function withActiveInterventions(string $facilityId): self
+  {
+    return new self(sprintf(
+      'Facility "%s" cannot be archived while it has active interventions targeting it as their site; complete or abandon them first.',
       $facilityId,
     ));
   }

@@ -149,6 +149,42 @@ final class FacilityPresentationFlowTest extends OAuth2WebTestCase
     $itemData = $this->decodeJsonResponse($itemResponse->getContent() ?: '{}');
     $this->assertSame($facilityId, $this->extractResourceId($itemData), 'Canonical facility ID should match.');
     $this->assertArrayHasKey('type', $itemData, 'Canonical facility should expose its type.');
+    $this->assertArrayHasKey('path', $itemData, 'Canonical facility should expose the ancestor breadcrumb.');
+    $this->assertSame([], $itemData['path'], 'A root facility has an empty ancestor breadcrumb.');
+
+    // A child facility's item read exposes its ancestor as the breadcrumb.
+    $childId = $this->createFacility($client, $token, $organizationId, [
+      'type' => 'building',
+      'name' => 'Canonical Child',
+      'parentFacilityId' => $facilityId,
+    ]);
+    $this->assertNotNull($childId, 'Child facility should be created.');
+
+    $client->request(
+      method: 'GET',
+      uri: '/api/facilities/' . $childId,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $childResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $childResponse->getStatusCode(),
+      'Getting the child canonical facility should succeed. Response: ' . $childResponse->getContent(),
+    );
+    $childData = $this->decodeJsonResponse($childResponse->getContent() ?: '{}');
+    $this->assertArrayHasKey('path', $childData, 'Child canonical facility should expose the ancestor breadcrumb.');
+    $path = $childData['path'];
+    $this->assertIsArray($path, 'The ancestor breadcrumb should be an array.');
+    $this->assertCount(1, $path, 'The child has exactly one ancestor.');
+    $ancestor = $path[0];
+    $this->assertIsArray($ancestor, 'Each breadcrumb entry should be an array.');
+    $this->assertSame($facilityId, $ancestor['id'] ?? null, 'The breadcrumb entry should reference the parent.');
+    $this->assertSame('Canonical Site', $ancestor['name'] ?? null, 'The breadcrumb entry should carry the parent name.');
+    $this->assertSame('site', $ancestor['type'] ?? null, 'The breadcrumb entry should carry the parent type.');
   }
 
   /**
@@ -205,13 +241,12 @@ final class FacilityPresentationFlowTest extends OAuth2WebTestCase
     $attachmentId = '550e8400-e29b-41d4-a716-446655440002';
 
     $cases = [
-      ['GET', '/api/facilities/statuses'],
-      ['GET', '/api/facilities/types'],
       ['GET', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/children'],
       ['GET', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/descendants'],
       ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/archive'],
       ['PATCH', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/restore'],
       ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/move'],
+      ['POST', '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/duplicate'],
       ['GET', '/api/facilities?organization=' . rawurlencode('/api/organizations/' . $organizationId)],
       ['GET', '/api/facilities/' . $facilityId],
       ['GET', '/api/facilities/' . $facilityId . '/attachments'],

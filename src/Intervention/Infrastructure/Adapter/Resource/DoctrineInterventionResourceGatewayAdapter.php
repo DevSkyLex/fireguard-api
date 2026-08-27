@@ -210,6 +210,25 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   }
 
   /**
+   * Method workItemBelongsToIntervention.
+   *
+   * Determines whether a work item belongs to the given intervention.
+   *
+   * @since 1.1.0
+   *
+   * @param string $workItemId the work item id value
+   * @param string $interventionId the intervention id value
+   *
+   * @return bool whether the work item belongs to the intervention
+   */
+  public function workItemBelongsToIntervention(string $workItemId, string $interventionId): bool
+  {
+    $workItem = $this->entityManager->find(InterventionWorkItemRecord::class, $workItemId);
+
+    return $workItem instanceof InterventionWorkItemRecord && $workItem->intervention?->id === $interventionId;
+  }
+
+  /**
    * Method clientIdExists.
    *
    * Executes the client id exists operation.

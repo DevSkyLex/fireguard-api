@@ -17,7 +17,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyRequestsHttpException, UnauthorizedHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException, UnprocessableEntityHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
@@ -100,7 +100,7 @@ final class ConfirmTotpProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessThrowsNotFoundWhenNoPendingEnrollment(): void
+  public function testProcessLetsAMissingPendingEnrollmentPropagate(): void
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->user());
@@ -112,7 +112,7 @@ final class ConfirmTotpProcessorTest extends TestCase
 
     $processor = new ConfirmTotpProcessor(commandBus: $commandBus, security: $security);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(TotpPendingEnrollmentNotFoundException::class);
 
     $processor->process($this->input('123456'), new Post());
   }
@@ -137,17 +137,6 @@ final class ConfirmTotpProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessUnwrapsTheNotFoundFromABareHandlerFailure(): void
-  {
-    $this->expectException(NotFoundHttpException::class);
-
-    $this->processWithDispatchFailure(new HandlerFailedException(
-      new Envelope(new stdClass()),
-      [TotpPendingEnrollmentNotFoundException::forUser('user-1')],
-    ));
-  }
-
-  #[Test]
   public function testProcessRethrowsAHandlerFailureWithoutAPendingEnrollmentCause(): void
   {
     $this->expectException(HandlerFailedException::class);
@@ -155,28 +144,6 @@ final class ConfirmTotpProcessorTest extends TestCase
     $this->processWithDispatchFailure(new HandlerFailedException(
       new Envelope(new stdClass()),
       [new RuntimeException('handler blew up')],
-    ));
-  }
-
-  #[Test]
-  public function testProcessUnwrapsTheNotFoundFromAWrappedHandlerFailure(): void
-  {
-    $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('No pending TOTP setup found');
-
-    $this->processWithDispatchFailure(MessengerRuntimeException::wrap(new HandlerFailedException(
-      new Envelope(new stdClass()),
-      [new RuntimeException('unrelated'), TotpPendingEnrollmentNotFoundException::forUser('user-1')],
-    )));
-  }
-
-  #[Test]
-  public function testProcessUnwrapsTheNotFoundFromAMessengerPreviousChain(): void
-  {
-    $this->expectException(NotFoundHttpException::class);
-
-    $this->processWithDispatchFailure(MessengerRuntimeException::wrap(
-      TotpPendingEnrollmentNotFoundException::forUser('user-1'),
     ));
   }
 

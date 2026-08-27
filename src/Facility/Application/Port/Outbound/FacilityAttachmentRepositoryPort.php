@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\Port\Outbound;
 
 use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 
 /**
  * Port FacilityAttachmentRepositoryPort.
@@ -46,15 +46,31 @@ interface FacilityAttachmentRepositoryPort
   /**
    * Method findByFacilityId.
    *
-   * Lists all attachments for a facility.
+   * Lists all attachments for a facility, optionally narrowed to one kind.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   * @param ?AttachmentKind $kind the optional kind filter
+   *
+   * @return list<FacilityAttachment> the attachment list
+   */
+  public function findByFacilityId(FacilityId $facilityId, ?AttachmentKind $kind = null): array;
+
+  /**
+   * Method countByFacilityId.
+   *
+   * Counts the attachments a facility already carries, without hydrating
+   * them — the input of the
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` cap.
    *
    * @since 1.0.0
    *
    * @param FacilityId $facilityId the facility identifier
    *
-   * @return list<FacilityAttachment> the attachment list
+   * @return int the attachment count
    */
-  public function findByFacilityId(FacilityId $facilityId): array;
+  public function countByFacilityId(FacilityId $facilityId): int;
 
   /**
    * Method delete.
@@ -66,5 +82,36 @@ interface FacilityAttachmentRepositoryPort
    * @param FacilityAttachmentId $id the attachment identifier
    */
   public function delete(FacilityAttachmentId $id): void;
+
+  /**
+   * Method clearPrimaryPlan.
+   *
+   * Clears the `isPrimaryPlan` flag of every floor-plan attachment of the
+   * given facility except `$exceptAttachmentId`. Called from within the same
+   * transaction as the promotion of the new primary plan, so the "at most
+   * one primary plan per facility" invariant never observes two set flags at
+   * once — see `SetPrimaryFacilityAttachmentHandler`.
+   *
+   * @since 1.1.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   * @param FacilityAttachmentId $exceptAttachmentId the attachment being promoted, left untouched
+   */
+  public function clearPrimaryPlan(FacilityId $facilityId, FacilityAttachmentId $exceptAttachmentId): void;
+
+  /**
+   * Method findPrimaryFloorPlan.
+   *
+   * Finds the facility's primary `FLOOR_PLAN` attachment, if any — the
+   * default plan the overlay read falls back to when the caller does not
+   * specify `attachmentId`.
+   *
+   * @since 1.2.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return ?FacilityAttachment the primary floor plan attachment, when set
+   */
+  public function findPrimaryFloorPlan(FacilityId $facilityId): ?FacilityAttachment;
   // #endregion
 }

@@ -8,11 +8,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Plan\GetPlan\{GetPlanQuery, GetPlanResult};
-use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Plan\PlanOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 
@@ -71,12 +70,8 @@ final readonly class GetPlanProvider implements ProviderInterface
       return null;
     }
 
-    try {
-      /** @var GetPlanResult $result */
-      $result = $this->queryBus->ask(new GetPlanQuery($planId));
-    } catch (PlanNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetPlanResult $result */
+    $result = $this->queryBus->ask(new GetPlanQuery($planId));
 
     return PlanOutput::fromResult($result);
   }

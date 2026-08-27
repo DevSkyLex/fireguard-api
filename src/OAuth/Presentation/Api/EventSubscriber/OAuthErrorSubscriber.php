@@ -17,6 +17,8 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Exception\{AccessDeniedException, AuthenticationException};
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Throwable;
 
@@ -51,6 +53,7 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
 
   // #region Methods
   public function __construct(
+    private readonly TokenStorageInterface $tokenStorage,
     #[Autowire('%env(default::OAUTH_ERROR_URI_BASE)%')]
     ?string $errorUriBase = null,
   ) {
@@ -157,6 +160,10 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
       return $this->buildError('invalid_request', $exception->getMessage(), 400, $operationName);
     }
 
+    if ($exception instanceof AuthenticationException || $exception instanceof AccessDeniedException) {
+      return $this->buildSecurityError($exception, $operationName);
+    }
+
     if ($exception instanceof HttpExceptionInterface) {
       return $this->buildHttpExceptionError($exception, $operationName);
     }
@@ -195,6 +202,29 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     }
 
     return $exception;
+  }
+
+  /**
+   * @return array{body: array<string, string>, status: int, headers: array<string, string>}
+   */
+  /**
+   * Maps a Symfony security failure to its RFC 6749 §5.2 shape.
+   *
+   * This subscriber runs at priority 10, ahead of Symfony's own security
+   * ExceptionListener (priority 2), and stops propagation — so the raw
+   * `AccessDeniedException` never reaches the listener that would turn it into
+   * a 401. Without this branch it falls through to `server_error`, and an
+   * anonymous caller reads a 500 where the endpoint in fact rejected them.
+   *
+   * @return array{body: array<string, string>, status: int, headers: array<string, string>}
+   */
+  private function buildSecurityError(Throwable $exception, ?string $operationName): array
+  {
+    $isAuthenticated = null !== $this->tokenStorage->getToken()?->getUser();
+
+    return $isAuthenticated
+      ? $this->buildError('access_denied', $exception->getMessage(), 403, $operationName)
+      : $this->buildError('invalid_client', $exception->getMessage(), 401, $operationName);
   }
 
   /**

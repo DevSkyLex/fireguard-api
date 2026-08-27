@@ -86,6 +86,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: OrganizationOperations::UPDATE_TEAM,
       uriTemplate: '/{organizationId}/teams/{teamId}',
+      // `read: false`: this operation had a processor but no provider and no
+      // explicit `read: false`, so API Platform's default pre-read step
+      // (`read: true`) tried to resolve the current resource state through a
+      // generic provider that cannot resolve this non-Doctrine DTO — every
+      // authenticated PATCH unconditionally 404'd before the processor ever
+      // ran. The sibling `Delete` operations below, and every other mutating
+      // organization operation with a processor, already set `read: false`
+      // for the same reason.
+      read: false,
       input: UpdateTeamInput::class,
       output: TeamOutput::class,
       processor: UpdateTeamProcessor::class,

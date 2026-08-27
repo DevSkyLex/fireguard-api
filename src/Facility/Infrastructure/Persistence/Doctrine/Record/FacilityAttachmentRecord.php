@@ -90,6 +90,38 @@ class FacilityAttachmentRecord
   public int $revision = 1;
 
   /**
+   * Property kind.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'kind', type: 'string', length: 20)]
+  public string $kind = 'document';
+
+  /**
+   * Property isPrimaryPlan.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'is_primary_plan', type: 'boolean')]
+  public bool $isPrimaryPlan = false;
+
+  /**
+   * Property imageWidth.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'image_width', type: 'integer', nullable: true)]
+  public ?int $imageWidth = null;
+
+  /**
+   * Property imageHeight.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'image_height', type: 'integer', nullable: true)]
+  public ?int $imageHeight = null;
+
+  /**
    * Property uploadedAt.
    *
    * @since 1.0.0

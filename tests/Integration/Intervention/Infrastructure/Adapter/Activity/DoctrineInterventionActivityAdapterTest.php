@@ -127,6 +127,49 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
     self::assertSame($third->data['id'], $secondPage->items[0]->data['id']);
   }
 
+  #[Test]
+  public function testAppendIsIdempotentForARepeatedClientId(): void
+  {
+    $first = $this->adapter->append(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      'comment',
+      'comment',
+      'Extinguisher checked on site.',
+      null,
+      'outbox-client-key-1',
+    );
+
+    // The offline outbox replays a write whose response was lost in the field —
+    // indistinguishable, from the device, from one that never arrived. Replaying
+    // must return what was stored, not append a second comment.
+    $second = $this->adapter->append(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      'comment',
+      'comment',
+      'Extinguisher checked on site.',
+      null,
+      'outbox-client-key-1',
+    );
+
+    self::assertSame($first->data['id'], $second->data['id']);
+    self::assertSame(1, $this->adapter->listByIntervention(self::INTERVENTION_ID, 1, 20)->total);
+  }
+
+  #[Test]
+  public function testAppendWithoutAClientIdStillAppendsEachTime(): void
+  {
+    $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'One', null);
+    $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'Two', null);
+
+    // Online comments carry no key and are genuinely distinct writes; the unique
+    // index must not collapse them (NULLs do not collide in Postgres).
+    self::assertSame(2, $this->adapter->listByIntervention(self::INTERVENTION_ID, 1, 20)->total);
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();

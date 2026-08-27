@@ -5,19 +5,17 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\ArchiveFacility;
 
 use DateTimeImmutable;
-use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityHandler, ArchiveFacilityResult};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
-use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException};
+use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException, FacilityOrganizationNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
@@ -26,6 +24,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function is_string;
 
@@ -33,7 +32,7 @@ use function is_string;
 final class ArchiveFacilityHandlerTest extends TestCase
 {
   #[Test]
-  public function testInvokeMapsOrganizationConstraintViolationToInvalidArgument(): void
+  public function testInvokePropagatesOrganizationNotFoundFromRepository(): void
   {
     $facility = Facility::create(
       id: new FacilityId('550e8400-e29b-41d4-a716-446655440950'),
@@ -48,16 +47,11 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->method('findPublishedById')
       ->willReturn($facility);
 
-    $driverException = new class ('SQLSTATE[23503]: update on table "facilities" violates foreign key constraint "fk_facility_organization"') extends RuntimeException implements DoctrineDriverException {
-      public function getSQLState(): string
-      {
-        return '23503';
-      }
-    };
-
+    // The repository owns the driver-level translation; the handler only has to
+    // let the domain exception through untouched.
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
+      ->willThrowException(FacilityOrganizationNotFoundException::create());
 
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::never())->method('findById');
@@ -532,7 +526,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ArchiveFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655442041',

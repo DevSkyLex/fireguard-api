@@ -167,6 +167,36 @@ final class AttachmentRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testCountByEquipmentIdMatchesTheListedAttachments(): void
+  {
+    self::assertSame(0, $this->repository->countByEquipmentId(EquipmentId::fromString(self::EQUIPMENT_ID)));
+
+    $this->repository->save(EquipmentAttachment::reconstitute(
+      id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0041'),
+      equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
+      fileName: 'first.pdf',
+      storagePath: 'org/equipment/first-a0041.pdf',
+      mimeType: 'application/pdf',
+      size: 1024,
+      uploadedAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
+      label: null,
+    ));
+    $this->repository->save(EquipmentAttachment::reconstitute(
+      id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0042'),
+      equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
+      fileName: 'second.pdf',
+      storagePath: 'org/equipment/second-a0042.pdf',
+      mimeType: 'application/pdf',
+      size: 2048,
+      uploadedAt: new DateTimeImmutable('2026-06-01T09:00:00+00:00'),
+      label: null,
+    ));
+    $this->entityManager->clear();
+
+    self::assertSame(2, $this->repository->countByEquipmentId(EquipmentId::fromString(self::EQUIPMENT_ID)));
+  }
+
+  #[Test]
   public function testDeleteRemovesAttachment(): void
   {
     $id = AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0030');

@@ -25,13 +25,13 @@ use Inspection\Domain\ValueObject\{
   InspectionStatus,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CloseInspectionHandlerTest.
@@ -221,7 +221,7 @@ final class CloseInspectionHandlerTest extends TestCase
       logger: new NullLogger(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CloseInspectionCommand(
       organizationId: self::ORG_ID,

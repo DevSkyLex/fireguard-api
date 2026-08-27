@@ -6,19 +6,20 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListUse
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
+use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationCallerRoleResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName, PlanId, PlanKey};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function count;
 
@@ -69,13 +70,6 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       ->method('findByUserId')
       ->with($userId)
       ->willReturn([$activeMembershipA, $activeMembershipDuplicate, $inactiveMembership]);
-    $memberRepository->expects(self::once())
-      ->method('findRoleIdsForMember')
-      ->with(self::callback(static function (OrganizationMemberId $memberId): bool {
-        // The first ACTIVE membership per organization backs the caller lookup.
-        return '550e8400-e29b-41d4-a716-446655440810' === (string) $memberId;
-      }))
-      ->willReturn(['550e8400-e29b-41d4-a716-446655440820']);
     $memberRepository->expects(self::never())->method('countByOrganizationId');
     $memberRepository->expects(self::once())
       ->method('countByOrganizationIds')
@@ -126,34 +120,28 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       isDefault: true,
     ));
 
-    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
-    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
-    $roleRepository->expects(self::once())
-      ->method('findByIdsInOrganization')
+    $role = new GetOrganizationCallerRoleResult(id: '550e8400-e29b-41d4-a716-446655440820', label: 'fire_safety_officer');
+
+    /** @var OrganizationCallerMembershipPort&MockObject $callerMembership */
+    $callerMembership = $this->createMock(OrganizationCallerMembershipPort::class);
+    $callerMembership->expects(self::once())
+      ->method('isOwner')
+      ->with('550e8400-e29b-41d4-a716-446655440001', $userId)
+      ->willReturn(false);
+    $callerMembership->expects(self::once())
+      ->method('resolveRoles')
       ->with(
-        self::callback(static function (OrganizationId $id) use ($organizationId): bool {
-          return $organizationId === (string) $id;
-        }),
-        self::callback(static function (array $roleIds): bool {
-          return 1 === count($roleIds)
-            && $roleIds[0] instanceof OrganizationRoleId
-            && '550e8400-e29b-41d4-a716-446655440820' === (string) $roleIds[0];
-        }),
+        self::isInstanceOf(OrganizationId::class),
+        // The first ACTIVE membership per organization backs the caller lookup.
+        self::identicalTo($activeMembershipA),
       )
-      ->willReturn([OrganizationRole::reconstitute(
-        id: OrganizationRoleId::fromString('550e8400-e29b-41d4-a716-446655440820'),
-        organizationId: new OrganizationId($organizationId),
-        name: new OrganizationRoleName('fire_safety_officer'),
-        permissions: [],
-        isSystem: false,
-        createdAt: new DateTimeImmutable('-9 days'),
-      )]);
+      ->willReturn([$role]);
 
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
       planRepository: $planRepository,
-      roleRepository: $roleRepository,
+      callerMembership: $callerMembership,
     );
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery(
@@ -178,10 +166,7 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     self::assertFalse($result->items[0]->isOwner);
     $roles = $result->items[0]->roles ?? [];
     self::assertCount(1, $roles);
-    $role = $roles[0] ?? null;
-    self::assertInstanceOf(GetOrganizationCallerRoleResult::class, $role);
-    self::assertSame('550e8400-e29b-41d4-a716-446655440820', $role->id);
-    self::assertSame('fire_safety_officer', $role->label);
+    self::assertSame($role, $roles[0] ?? null);
     self::assertSame(1, $result->total);
     self::assertSame(10, $result->limit);
     self::assertSame(5, $result->offset);
@@ -211,15 +196,16 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       isDefault: true,
     ));
 
-    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
-    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
-    $roleRepository->expects(self::never())->method('findByIdsInOrganization');
+    /** @var OrganizationCallerMembershipPort&MockObject $callerMembership */
+    $callerMembership = $this->createMock(OrganizationCallerMembershipPort::class);
+    $callerMembership->expects(self::never())->method('isOwner');
+    $callerMembership->expects(self::never())->method('resolveRoles');
 
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
       planRepository: $planRepository,
-      roleRepository: $roleRepository,
+      callerMembership: $callerMembership,
     );
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery('550e8400-e29b-41d4-a716-446655440800'));
@@ -253,12 +239,8 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       createdAt: new DateTimeImmutable('-30 days'),
     );
 
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('findByUserId')->willReturn([$membership]);
-    $memberRepository->expects(self::once())
-      ->method('findRoleIdsForMember')
-      ->willReturn([]);
     $memberRepository->method('countByOrganizationIds')->willReturn([$organizationId => 1]);
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -270,15 +252,22 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     $planRepository->method('findAll')->willReturn([]);
     $planRepository->method('findDefault')->willReturn(null);
 
-    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
-    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
-    $roleRepository->expects(self::never())->method('findByIdsInOrganization');
+    /** @var OrganizationCallerMembershipPort&MockObject $callerMembership */
+    $callerMembership = $this->createMock(OrganizationCallerMembershipPort::class);
+    $callerMembership->expects(self::once())
+      ->method('isOwner')
+      ->with($userId, $userId)
+      ->willReturn(true);
+    $callerMembership->expects(self::once())
+      ->method('resolveRoles')
+      ->with(self::isInstanceOf(OrganizationId::class), self::identicalTo($membership))
+      ->willReturn([]);
 
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
       planRepository: $planRepository,
-      roleRepository: $roleRepository,
+      callerMembership: $callerMembership,
     );
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery($userId));
@@ -329,12 +318,8 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       limits: ['members' => 50],
     );
 
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('findByUserId')->willReturn([$membership]);
-    $memberRepository->expects(self::once())
-      ->method('findRoleIdsForMember')
-      ->willReturn([]);
     $memberRepository->method('countByOrganizationIds')->willReturn([]);
 
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
@@ -345,11 +330,26 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     $planRepository->method('findAll')->willReturn([$plan]);
     $planRepository->method('findDefault')->willReturn(null);
 
+    /** @var OrganizationCallerMembershipPort&MockObject $callerMembership */
+    $callerMembership = $this->createMock(OrganizationCallerMembershipPort::class);
+    $callerMembership->method('isOwner')->willReturnCallback(
+      static fn (string $ownerUserId, string $callerUserId): bool => $ownerUserId === $callerUserId,
+    );
+    $callerMembership->expects(self::exactly(2))
+      ->method('resolveRoles')
+      ->willReturnCallback(static function (OrganizationId $organizationId, ?OrganizationMember $membership) use ($memberOrganizationId): array {
+        // Only the organization the caller actually belongs to carries a
+        // membership; the stray one resolves to null and therefore no roles.
+        self::assertSame($memberOrganizationId === (string) $organizationId, null !== $membership);
+
+        return [];
+      });
+
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
       planRepository: $planRepository,
-      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      callerMembership: $callerMembership,
     );
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery($userId));
@@ -370,10 +370,13 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
       planRepository: $this->createStub(PlanRepositoryPort::class),
-      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      callerMembership: $this->createStub(OrganizationCallerMembershipPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    // `InvalidValueException`, not `InvalidArgumentException`: the latter is not
+    // in `exception_to_status` and this provider catches nothing, so the old
+    // class made the endpoint answer 500.
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListUserOrganizationsQuery(
       '550e8400-e29b-41d4-a716-446655440800',

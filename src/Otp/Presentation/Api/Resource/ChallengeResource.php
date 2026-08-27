@@ -116,6 +116,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OtpOperations::VERIFY_CHALLENGE,
       uriTemplate: '/challenges/{token}/verify',
+      status: HttpResponse::HTTP_OK,
       input: VerifyOtpInput::class,
       output: VerifyOtpOutput::class,
       processor: VerifyOtpProcessor::class,
@@ -148,6 +149,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: OtpOperations::RESEND_CHALLENGE,
       uriTemplate: '/challenges/{token}/resend',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: ChallengeOutput::class,
       processor: ResendChallengeProcessor::class,

@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\{DeleteOrganizationRoleCommand, DeleteOrganizationRoleHandler, DeleteOrganizationRoleResult};
 use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\OrganizationSystemRoleImmutableException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 
 #[CoversClass(DeleteOrganizationRoleHandler::class)]
 final class DeleteOrganizationRoleHandlerTest extends TestCase
@@ -59,6 +60,12 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn($role);
     $roleRepository->expects(self::once())->method('remove')->with($role);
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanDeleteRole')
+      ->with(self::ORG_ID, self::ROLE_ID);
+
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())
@@ -74,6 +81,8 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new DeleteOrganizationRoleCommand(
@@ -98,6 +107,14 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::never())->method('findById');
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::never())->method('assertCanDeleteRole');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
@@ -106,6 +123,8 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $transactionManager,
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -136,6 +155,12 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn(null);
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanDeleteRole')
+      ->with(self::ORG_ID, self::ROLE_ID);
+
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
@@ -144,6 +169,8 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationRoleNotFoundException::class);
@@ -183,6 +210,12 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn($roleFromAnotherOrg);
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanDeleteRole')
+      ->with(self::ORG_ID, self::ROLE_ID);
+
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
@@ -191,6 +224,8 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationRoleNotFoundException::class);
@@ -230,6 +265,12 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn($systemRole);
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanDeleteRole')
+      ->with(self::ORG_ID, self::ROLE_ID);
+
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
@@ -238,15 +279,74 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationSystemRoleImmutableException::class);
     $this->expectExceptionMessage('System roles cannot be deleted.');
 
     $handler->__invoke(new DeleteOrganizationRoleCommand(
       organizationId: self::ORG_ID,
       roleId: self::ROLE_ID,
     ));
+  }
+
+  #[Test]
+  public function testInvokePropagatesLastAdminExceptionAndPerformsNoRemoveOrDispatch(): void
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId(self::ORG_ID),
+      name: new OrganizationName('Fireguard Paris'),
+      createdByUserId: self::USER_ID,
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findById');
+    $roleRepository->expects(self::never())->method('remove');
+
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanDeleteRole')
+      ->with(self::ORG_ID, self::ROLE_ID)
+      ->willThrowException(OrganizationLastAdminException::cannotUnassignLastAdminRole());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new DeleteOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
+    );
+
+    $this->expectException(OrganizationLastAdminException::class);
+
+    $handler->__invoke(new DeleteOrganizationRoleCommand(
+      organizationId: self::ORG_ID,
+      roleId: self::ROLE_ID,
+    ));
+  }
+
+  private function passthroughTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return $transactionManager;
   }
   // #endregion
 }

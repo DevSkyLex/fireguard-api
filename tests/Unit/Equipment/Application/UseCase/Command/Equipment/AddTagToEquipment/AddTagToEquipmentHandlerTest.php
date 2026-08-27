@@ -10,11 +10,11 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType, TagId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(AddTagToEquipmentHandler::class)]
 final class AddTagToEquipmentHandlerTest extends TestCase
@@ -145,7 +145,7 @@ final class AddTagToEquipmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddTagToEquipmentCommand(
       organizationId: 'not-a-uuid',

@@ -88,6 +88,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $existing->status = $record->status;
       $existing->installedAt = $record->installedAt;
       $existing->commissionedAt = $record->commissionedAt;
+      $existing->planPosition = $record->planPosition;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);

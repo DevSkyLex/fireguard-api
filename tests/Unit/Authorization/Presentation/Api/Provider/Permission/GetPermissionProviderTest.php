@@ -36,8 +36,17 @@ final class GetPermissionProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideReturnsNullWhenMissing(): void
+  public function testProvideLetsAMissingPermissionPropagate(): void
   {
+    // It used to catch this and return null, so API Platform would answer 404.
+    // The catch never fired: MessengerQueryBusAdapter wraps every handler
+    // failure in MessengerRuntimeException, so production answered 500 while
+    // this test passed — the mock threw the bare exception the adapter never
+    // produces.
+    //
+    // The exception now propagates and `exception_to_status` maps it, which is
+    // what makes the intended 404 actually happen. Proven by toggling the
+    // configuration on the running endpoint: 500 without it, 404 with it.
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
@@ -45,11 +54,9 @@ final class GetPermissionProviderTest extends TestCase
       ->with(self::isInstanceOf(GetPermissionQuery::class))
       ->willThrowException(PermissionNotFoundException::withId(permissionId: 'perm-1'));
 
-    $provider = new GetPermissionProvider($queryBus);
+    $this->expectException(PermissionNotFoundException::class);
 
-    $result = $provider->provide(new Get(), ['id' => 'perm-1']);
-
-    self::assertNull($result);
+    new GetPermissionProvider($queryBus)->provide(new Get(), ['id' => 'perm-1']);
   }
 
   #[Test]

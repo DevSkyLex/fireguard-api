@@ -87,20 +87,6 @@ final class EquipmentOperations
   public const string DECOMMISSION_EQUIPMENT = 'equipment_decommission';
 
   /**
-   * Constant LIST_EQUIPMENT_TYPES.
-   *
-   * @var string
-   */
-  public const string LIST_EQUIPMENT_TYPES = 'equipment_types_list';
-
-  /**
-   * Constant LIST_EQUIPMENT_STATUSES.
-   *
-   * @var string
-   */
-  public const string LIST_EQUIPMENT_STATUSES = 'equipment_statuses_list';
-
-  /**
    * Constant ADD_TAG_TO_EQUIPMENT.
    *
    * @var string
@@ -136,6 +122,13 @@ final class EquipmentOperations
   public const string DELETE_ATTACHMENT = 'equipment_delete_attachment';
 
   /**
+   * Constant DOWNLOAD_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string DOWNLOAD_ATTACHMENT = 'equipment_download_attachment';
+
+  /**
    * Constant LIST_TAGS.
    *
    * @var string
@@ -155,5 +148,12 @@ final class EquipmentOperations
    * @var string
    */
   public const string GET_EQUIPMENT_KPIS = 'equipment_get_kpis';
+
+  /**
+   * Constant SET_EQUIPMENT_PLAN_POSITION.
+   *
+   * @var string
+   */
+  public const string SET_EQUIPMENT_PLAN_POSITION = 'equipment_plan_position_set';
   // #endregion
 }

@@ -10,10 +10,9 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
+  # CanonicalFacilityMutationProcessor names no entity manager on purpose:
+  # it holds none since the mutations moved to
+  # Application\UseCase\{Command,Query}\Facility\*CanonicalFacility*.
   Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -26,11 +25,39 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Application\Port\Outbound\FacilityRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository
 
   Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository
+
+  # The offline-sync half of `facilities`: the three columns
+  # FacilityRepositoryPort does not carry, plus the two hierarchy reads the
+  # canonical guards need. Separate port because saving the aggregate cannot
+  # bump the canonical If-Match revision.
+  Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\CanonicalFacilityRepository
+
+  # Third declaration of the same capability, one per consumer — Inspection
+  # and Equipment own theirs too, exactly as the FacilityValidationPorts do.
+  Facility\Application\Port\Outbound\InterventionScopePort:
+    alias: Intervention\Infrastructure\Adapter\Facility\InterventionScopeAdapter
+
+  Intervention\Infrastructure\Adapter\Facility\InterventionScopeAdapter: ~
+
+  # Organization-defined typed metadata schema (facility-metadata-fields)
+  Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository
+
+  Facility\Application\Service\FacilityMetadataSchemaGuard: ~
 
   # R11b: generalized facility attachments (multipart /facilities/{id}/attachments)
   Facility\Presentation\Api\Processor\Attachment\FacilityMediaProcessor:
@@ -38,6 +65,27 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Presentation\Api\Processor\Attachment\SetPrimaryFacilityAttachmentProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Facility plan Phase 4: spatial zone geometry. Neither the processor nor
+  # the provider touches Doctrine directly (they dispatch through the bus),
+  # so no $entityManager wiring is needed here.
+  Facility\Application\Service\FacilityAttachmentAncestryGuard: ~
+
+  Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry\SetFacilityPlanGeometryHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\GetFacilityPlanOverlayHandler:
+    tags: ['messenger.message_handler']
+
+  # R11b follow-up: the download endpoint serving attachment bytes, gated the
+  # same way as FacilityMediaProvider/FacilityMediaProcessor.
+  Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -51,8 +99,16 @@ services:
   Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort:
     alias: Equipment\Infrastructure\Adapter\Facility\FacilityEquipmentDependencyAdapter
 
+  # Facility plan Phase 4, Equipment side: the plan-overlay's equipment read.
+  # Adapter hosted in — and wired by — the Equipment module (owns `equipment`).
+  Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort:
+    alias: Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter
+
   Facility\Application\Port\Outbound\FacilityInspectionDependencyPort:
     alias: Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter
+
+  Facility\Application\Port\Outbound\FacilityInterventionDependencyPort:
+    alias: Intervention\Infrastructure\Adapter\Facility\FacilityInterventionDependencyAdapter
 
   # Inbound port reused by the Import module's bulk CSV import: provisions
   # facilities through CreateFacilityHandler (quota + parentCode resolution included).
@@ -76,6 +132,12 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
     tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
 
+  # Cross-module site naming for the Intervention module's `/interventions/statistics`
+  # bySite breakdown — mirrors Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter.
+  Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -98,6 +160,27 @@ services:
   Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
     tags: ['messenger.message_handler']
 
+  # Canonical (flat, offline-syncable) facility mutations. Both name the
+  # `main` transaction manager explicitly: autowiring would open a transaction
+  # on the `auth` connection while the writes go to `main`.
+  Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\DeleteCanonicalFacilityHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\DuplicateFacilitySubtreeHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityHandler:
     tags: ['messenger.message_handler']
 
@@ -116,7 +199,24 @@ services:
   Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\DeleteFacilityAttachmentHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\SetPrimaryFacilityAttachmentHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\ListFacilityAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\MetadataField\CreateMetadataField\CreateMetadataFieldHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField\UpdateMetadataFieldHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\MetadataField\DeleteMetadataField\DeleteMetadataFieldHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\ListMetadataFieldsHandler:
     tags: ['messenger.message_handler']
 
   # Console Commands use #[AsCommand]

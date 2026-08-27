@@ -4,23 +4,26 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\CreateFacility;
 
+use DateTimeImmutable;
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler, CreateFacilityResult};
+use Facility\Domain\Event\Facility\FacilityCreatedEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
@@ -42,7 +45,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440980',
@@ -199,6 +202,54 @@ final class CreateFacilityHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsWhenMetadataFailsTheOrganizationSchema(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a5'));
+
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([
+      \Facility\Domain\Model\MetadataField\FacilityMetadataField::reconstitute(
+        id: \Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString('550e8400-e29b-41d4-a716-4466554419a6'),
+        organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-4466554419a4'),
+        key: new \Facility\Domain\ValueObject\FacilityMetadataFieldKey('surface-m2'),
+        label: new \Facility\Domain\ValueObject\FacilityMetadataFieldLabel('Surface (m²)'),
+        fieldType: \Facility\Domain\ValueObject\FacilityMetadataFieldType::NUMBER,
+        required: true,
+        createdAt: new DateTimeImmutable(),
+        updatedAt: new DateTimeImmutable(),
+      ),
+    ]);
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      transactionManager: $transactionManager,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      metadataSchemaGuard: new FacilityMetadataSchemaGuard($metadataRepository),
+    );
+
+    $this->expectException(\Facility\Domain\Exception\FacilityMetadataValidationException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419a4',
+      type: 'site',
+      name: 'HQ',
+      // surface-m2 is required and missing on create.
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenOnlyLatitudeIsProvided(): void
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -213,7 +264,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new CreateFacilityCommand(
@@ -239,7 +290,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
 
     $handler->__invoke(new CreateFacilityCommand(
@@ -325,7 +376,7 @@ final class CreateFacilityHandlerTest extends TestCase
 
     $handler = $this->handler($repository, $uuidFactory);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Facility latitude must be between -90 and 90 degrees.');
 
     $handler->__invoke(new CreateFacilityCommand(
@@ -393,7 +444,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with('550e8400-e29b-41d4-a716-4466554419a1', OrganizationQuotaResource::FACILITIES)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 2));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 2));
 
     $handler = $this->handler($repository, $uuidFactory, $quota);
 
@@ -403,6 +454,75 @@ final class CreateFacilityHandlerTest extends TestCase
       organizationId: '550e8400-e29b-41d4-a716-4466554419a1',
       type: 'site',
       name: 'Over Quota HQ',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithoutPersistingOnADryRun(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-4466554419a2');
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419a3';
+
+    // The negative assertion is the point: a dry run must never reach the
+    // repository or the transaction manager.
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($generatedId);
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $quota->expects(self::once())
+      ->method('assertProjectedCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::FACILITIES, 0);
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Would-be HQ',
+      dryRun: true,
+    ));
+
+    self::assertInstanceOf(CreateFacilityResult::class, $result);
+    self::assertSame((string) $generatedId, $result->facilityId);
+    self::assertSame('active', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeThrowsQuotaExceededOnADryRunWhenTheProjectedCountReachesTheCap(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419a4';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a5'));
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+    $quota->expects(self::once())
+      ->method('assertProjectedCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::FACILITIES, 2)
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES->value, 5));
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Tips Over The Cap',
+      dryRun: true,
+      quotaProjectionOffset: 2,
     ));
   }
 
@@ -493,17 +613,139 @@ final class CreateFacilityHandlerTest extends TestCase
     ));
   }
 
-  private function handlerFailingWith(Throwable $failure, ?Facility $parent = null): CreateFacilityHandler
+  #[Test]
+  public function testInvokeAllowsParentAtCapMinusOne(): void
+  {
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442a01');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442a02');
+    $parentFacility = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Level Seven'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->willReturn($parentFacility);
+    $repository->expects(self::once())->method('depthOf')->with($parentId)->willReturn(7);
+    $repository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655442a03'));
+
+    $handler = $this->handler($repository, $uuidFactory, maxDepth: 8);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: (string) $organizationId,
+      type: 'building',
+      name: 'Level Eight',
+      parentFacilityId: (string) $parentId,
+    ));
+
+    self::assertInstanceOf(CreateFacilityResult::class, $result);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenParentAtCapWouldExceedMaxDepth(): void
+  {
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442a11');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442a12');
+    $parentFacility = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Level Eight'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->willReturn($parentFacility);
+    $repository->expects(self::once())->method('depthOf')->with($parentId)->willReturn(8);
+    $repository->expects(self::never())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = $this->handler($repository, $uuidFactory, maxDepth: 8);
+
+    $this->expectException(FacilityHierarchyException::class);
+    $this->expectExceptionMessage('Facility hierarchy depth cap of 8 levels exceeded.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: (string) $organizationId,
+      type: 'building',
+      name: 'Level Nine',
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeDispatchesFacilityCreatedEventAfterSave(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-4466554419c8');
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419c9';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($generatedId);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof FacilityCreatedEvent
+          && $organizationId === $event->organizationId
+          && (string) $generatedId === $event->facilityId,
+      ));
+
+    $handler = $this->handler($repository, $uuidFactory, eventDispatcher: $eventDispatcher);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Dispatch HQ',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchFacilityCreatedEventWhenSaveFails(): void
+  {
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = $this->handlerFailingWith(new RuntimeException('boom'), eventDispatcher: $eventDispatcher);
+
+    $this->expectException(RuntimeException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419ca',
+      type: 'site',
+      name: 'Failed HQ',
+    ));
+  }
+
+  private function handlerFailingWith(Throwable $failure, ?Facility $parent = null, ?EventDispatcherPort $eventDispatcher = null): CreateFacilityHandler
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->method('findById')->willReturn($parent);
+    $repository->method('depthOf')->willReturn(0);
     $repository->expects(self::once())->method('save')->willThrowException($failure);
 
     $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419f0'));
 
-    return $this->handler($repository, $uuidFactory);
+    return $this->handler($repository, $uuidFactory, eventDispatcher: $eventDispatcher);
   }
 
   private function driverException(string $message): DoctrineDriverException
@@ -524,17 +766,25 @@ final class CreateFacilityHandlerTest extends TestCase
     FacilityRepositoryPort $repository,
     UuidFactory $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
+    int $maxDepth = 8,
+    ?EventDispatcherPort $eventDispatcher = null,
   ): CreateFacilityHandler {
     $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')->willReturnCallback(
       static fn (callable $operation): mixed => $operation(),
     );
 
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+
     return new CreateFacilityHandler(
       facilityRepository: $repository,
       uuidFactory: $uuidFactory,
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      metadataSchemaGuard: new FacilityMetadataSchemaGuard($metadataRepository),
+      maxDepth: $maxDepth,
     );
   }
 }

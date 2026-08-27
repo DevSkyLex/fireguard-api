@@ -75,7 +75,11 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
     if (null === $context) {
       throw InterventionNotFoundException::withId($command->interventionId);
     }
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 
@@ -94,6 +98,7 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
       'comment',
       $body,
       null,
+      $command->clientId,
     );
 
     foreach (self::extractMentions($body) as $mentionedMemberId) {
@@ -123,7 +128,7 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
    */
   private static function extractMentions(string $body): array
   {
-    if (1 > preg_match_all('/@\{([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\}/', $body, $matches)) {
+    if (1 > preg_match_all('/(?:@|&#64;)\{([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\}/', $body, $matches)) {
       return [];
     }
 

@@ -6,7 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
@@ -17,13 +17,18 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use RuntimeException;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
+use function addcslashes;
 use function array_filter;
 use function array_map;
 use function array_unique;
 use function array_values;
 use function in_array;
+use function is_array;
+use function mb_strtolower;
+use function strtoupper;
 
 /**
  * Repository OrganizationMemberRepository.
@@ -158,30 +163,88 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   }
 
   /**
-   * Method findByOrganizationId.
+   * Method hasActiveMembership.
    *
-   * Lists members for an organization.
+   * Counts the caller's ACTIVE membership rows rather than hydrating the
+   * aggregate: the answer feeds an authorization decision on the denial
+   * path, where nothing but the boolean is used.
    *
-   * @since 1.0.0
+   * The `isActive` filter mirrors
+   * {@see self::getPermissionNamesForUserInOrganization()} exactly, so the
+   * two can never disagree about who is in scope.
+   *
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param string $userId the user identifier
    *
-   * @return list<OrganizationMember> the organization members
+   * @return bool true when an active membership exists
    */
-  public function findByOrganizationId(OrganizationId $organizationId): array
+  public function hasActiveMembership(OrganizationId $organizationId, string $userId): bool
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-    $records = $this->memberRepository->findBy([
-      'organization' => $organization,
-    ], [
-      'joinedAt' => 'ASC',
-    ]);
 
-    return array_map(
-      static fn (OrganizationMemberRecord $record): OrganizationMember => OrganizationMemberMapper::toDomain($record),
-      $records,
-    );
+    return $this->memberRepository->count([
+      'organization' => $organization,
+      'userId' => $userId,
+      'isActive' => true,
+    ]) > 0;
+  }
+
+  /**
+   * Method findByOrganizationId.
+   *
+   * Lists members for an organization, filtered and sorted at SQL level.
+   * Every filter parameter is optional and defaults to "no filter", so
+   * existing unfiltered callers keep receiving every member of the
+   * organization ordered by `joinedAt` ascending.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param ?string $search free-text filter matched against the member's user identifier
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
+   * @param Sorting $sorting the sort field and direction
+   * @param ?int $limit the maximum number of members to return, or null for no pagination
+   * @param ?int $offset the number of members to skip, ignored when `$limit` is null
+   *
+   * @return list<OrganizationMember> the organization members
+   */
+  public function findByOrganizationId(
+    OrganizationId $organizationId,
+    ?string $search = null,
+    ?bool $isActive = null,
+    ?OrganizationRoleId $roleId = null,
+    Sorting $sorting = new Sorting('joinedAt', SortDirection::ASC),
+    ?int $limit = null,
+    ?int $offset = null,
+  ): array {
+    $organization = $this->getOrganizationReference($organizationId);
+
+    $queryBuilder = $this->createFilteredMemberQueryBuilder($organization, $search, $isActive, $roleId)
+      ->orderBy($this->resolveMemberSortField($sorting->field), strtoupper($sorting->direction->value))
+      ->addOrderBy('organizationMember.id', 'ASC');
+
+    if (null !== $limit) {
+      $queryBuilder->setMaxResults($limit)->setFirstResult($offset ?? 0);
+    }
+
+    $records = $queryBuilder->getQuery()->getResult();
+
+    if (!is_array($records)) {
+      return [];
+    }
+
+    $members = [];
+    foreach ($records as $record) {
+      if ($record instanceof OrganizationMemberRecord) {
+        $members[] = OrganizationMemberMapper::toDomain($record);
+      }
+    }
+
+    return $members;
   }
 
   /**
@@ -344,22 +407,39 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   /**
    * Method countByOrganizationId.
    *
-   * Counts members belonging to an organization.
+   * Counts members belonging to an organization, honoring the same optional
+   * filters as {@see self::findByOrganizationId()} so a caller can compute a
+   * filtered listing's total. The unfiltered path keeps using the cheap
+   * `EntityRepository::count()` form to avoid regressing the many existing
+   * unfiltered callers (dashboards, quota checks).
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param ?string $search free-text filter matched against the member's user identifier
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
    *
    * @return int the member count
    */
-  public function countByOrganizationId(OrganizationId $organizationId): int
-  {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+  public function countByOrganizationId(
+    OrganizationId $organizationId,
+    ?string $search = null,
+    ?bool $isActive = null,
+    ?OrganizationRoleId $roleId = null,
+  ): int {
+    $organization = $this->getOrganizationReference($organizationId);
 
-    return (int) $this->memberRepository->count([
-      'organization' => $organization,
-    ]);
+    if (null === $search && null === $isActive && null === $roleId) {
+      return (int) $this->memberRepository->count([
+        'organization' => $organization,
+      ]);
+    }
+
+    return (int) $this->createFilteredMemberQueryBuilder($organization, $search, $isActive, $roleId)
+      ->select('COUNT(DISTINCT organizationMember.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
   }
 
   /**
@@ -670,6 +750,98 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   private function normalizeTimestampForStorageTimeZone(DateTimeImmutable $value, DateTimeZone $storageTimeZone): string
   {
     return $value->setTimezone($storageTimeZone)->format('Y-m-d H:i:s.u');
+  }
+
+  /**
+   * Method getOrganizationReference.
+   *
+   * Resolves a lazy organization reference without a round-trip query.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return OrganizationRecord the organization reference
+   */
+  private function getOrganizationReference(OrganizationId $organizationId): OrganizationRecord
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return $organization;
+  }
+
+  /**
+   * Method createFilteredMemberQueryBuilder.
+   *
+   * Builds the shared query base for {@see self::findByOrganizationId()} and
+   * {@see self::countByOrganizationId()}. The `$search` filter matches only
+   * `user_id`: display name, first/last name and email are owned by the
+   * User module's database (auth) and cannot be joined from here.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationRecord $organization the organization reference
+   * @param ?string $search free-text filter matched against the member's user identifier
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
+   *
+   * @return QueryBuilder the filtered query builder
+   */
+  private function createFilteredMemberQueryBuilder(
+    OrganizationRecord $organization,
+    ?string $search,
+    ?bool $isActive,
+    ?OrganizationRoleId $roleId,
+  ): QueryBuilder {
+    $queryBuilder = $this->memberRepository->createQueryBuilder('organizationMember')
+      ->where('organizationMember.organization = :organization')
+      ->setParameter('organization', $organization);
+
+    if (null !== $isActive) {
+      $queryBuilder
+        ->andWhere('organizationMember.isActive = :isActive')
+        ->setParameter('isActive', $isActive);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
+
+      $queryBuilder
+        ->andWhere('LOWER(organizationMember.userId) LIKE :search')
+        ->setParameter('search', $normalizedSearch);
+    }
+
+    if (null !== $roleId) {
+      $queryBuilder
+        ->innerJoin('organizationMember.roleAssignments', 'roleAssignment')
+        ->andWhere('IDENTITY(roleAssignment.role) = :roleId')
+        ->setParameter('roleId', (string) $roleId);
+    }
+
+    return $queryBuilder;
+  }
+
+  /**
+   * Method resolveMemberSortField.
+   *
+   * Maps a sort field name to its DQL path. `displayName` has no column on
+   * this table — display name lives in the User module's database — so it
+   * falls back to `userId`, a stable-enough proxy until a materialized
+   * member-directory read model exists.
+   *
+   * @since 1.1.0
+   *
+   * @param string $field the requested sort field
+   *
+   * @return string the DQL sort path
+   */
+  private function resolveMemberSortField(string $field): string
+  {
+    return match ($field) {
+      'joinedAt' => 'organizationMember.joinedAt',
+      default => 'organizationMember.userId',
+    };
   }
   // #endregion
 }

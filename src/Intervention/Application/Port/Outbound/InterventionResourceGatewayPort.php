@@ -118,6 +118,21 @@ interface InterventionResourceGatewayPort
   ): bool;
 
   /**
+   * Method workItemBelongsToIntervention.
+   *
+   * Determines whether a work item belongs to the given intervention —
+   * the cross-scope guard for attaching evidence to a specific work item.
+   *
+   * @since 1.1.0
+   *
+   * @param string $workItemId the work item id value
+   * @param string $interventionId the intervention id value
+   *
+   * @return bool whether the work item belongs to the intervention
+   */
+  public function workItemBelongsToIntervention(string $workItemId, string $interventionId): bool;
+
+  /**
    * Method clientIdExists.
    *
    * Executes the client id exists operation.

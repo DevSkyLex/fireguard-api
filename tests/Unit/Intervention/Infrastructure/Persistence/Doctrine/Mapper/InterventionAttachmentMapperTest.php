@@ -6,7 +6,7 @@ namespace Tests\Unit\Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
-use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionAttachmentMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionAttachmentRecord,
@@ -86,6 +86,38 @@ final class InterventionAttachmentMapperTest extends TestCase
     self::assertNull(InterventionAttachmentMapper::toRecord($this->attachment(label: null))->label);
   }
 
+  #[Test]
+  public function testToDomainMapsTheSignatureKind(): void
+  {
+    $record = $this->record();
+    $record->kind = 'signature';
+
+    self::assertSame(InterventionAttachmentKind::SIGNATURE, InterventionAttachmentMapper::toDomain($record)->kind());
+  }
+
+  #[Test]
+  public function testToDomainDefaultsAnUnknownPersistedKindToFile(): void
+  {
+    $record = $this->record();
+    $record->kind = 'not-a-real-kind';
+
+    self::assertSame(InterventionAttachmentKind::FILE, InterventionAttachmentMapper::toDomain($record)->kind());
+  }
+
+  #[Test]
+  public function testToRecordCopiesTheSignatureKind(): void
+  {
+    $record = InterventionAttachmentMapper::toRecord($this->attachment(kind: InterventionAttachmentKind::SIGNATURE));
+
+    self::assertSame('signature', $record->kind);
+  }
+
+  #[Test]
+  public function testToRecordDefaultsTheKindToFile(): void
+  {
+    self::assertSame('file', InterventionAttachmentMapper::toRecord($this->attachment())->kind);
+  }
+
   private function record(): InterventionAttachmentRecord
   {
     $intervention = new InterventionRecord();
@@ -104,7 +136,7 @@ final class InterventionAttachmentMapperTest extends TestCase
     return $record;
   }
 
-  private function attachment(?string $label = 'Site report'): InterventionAttachment
+  private function attachment(?string $label = 'Site report', InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE): InterventionAttachment
   {
     return InterventionAttachment::reconstitute(
       id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
@@ -115,6 +147,7 @@ final class InterventionAttachmentMapperTest extends TestCase
       size: 4096,
       uploadedAt: new DateTimeImmutable('2026-01-06T11:00:00+00:00'),
       label: $label,
+      kind: $kind,
     );
   }
   // #endregion

@@ -21,6 +21,7 @@ final readonly class ListFacilityAttachmentsQuery implements QueryMessage
   public function __construct(
     public string $organizationId,
     public string $facilityId,
+    public ?string $kind = null,
   ) {
   }
   // #endregion

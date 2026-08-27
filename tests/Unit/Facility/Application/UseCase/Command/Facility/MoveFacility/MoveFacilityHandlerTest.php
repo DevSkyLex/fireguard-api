@@ -18,6 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(MoveFacilityHandler::class)]
 final class MoveFacilityHandlerTest extends TestCase
@@ -39,7 +40,7 @@ final class MoveFacilityHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new MoveFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440941',
@@ -792,6 +793,95 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: (string) $organizationId,
       facilityId: (string) $facilityId,
       parentFacilityId: null,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeAllowsMoveWhenDepthPlusSubtreeHeightStaysAtCap(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442260');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442261');
+    $newParentId = new FacilityId('550e8400-e29b-41d4-a716-446655442262');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Subtree Root'),
+    );
+
+    $newParent = Facility::create(
+      id: $newParentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('New Parent'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findPublishedById')->willReturn($facility);
+    $repository->expects(self::once())->method('findById')->willReturn($newParent);
+    // depth(newParent)=5, +1 for the moved facility, +2 for its subtree height = 8 = cap.
+    $repository->expects(self::once())->method('depthOf')->with($newParentId)->willReturn(5);
+    $repository->expects(self::once())->method('subtreeHeight')->with($facilityId)->willReturn(2);
+    $repository->expects(self::once())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher, maxDepth: 8);
+
+    $result = $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $newParentId,
+    ));
+
+    self::assertSame((string) $newParentId, $result->parentFacilityId);
+  }
+
+  #[Test]
+  public function testInvokeRefusesMoveWhenSubtreeHeightPushesPastCap(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442270');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442271');
+    $newParentId = new FacilityId('550e8400-e29b-41d4-a716-446655442272');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Tall Subtree Root'),
+    );
+
+    $newParent = Facility::create(
+      id: $newParentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('New Parent'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findPublishedById')->willReturn($facility);
+    $repository->expects(self::once())->method('findById')->willReturn($newParent);
+    // depth(newParent)=5, +1 for the moved facility, +3 for its subtree height = 9 > cap of 8.
+    $repository->expects(self::once())->method('depthOf')->with($newParentId)->willReturn(5);
+    $repository->expects(self::once())->method('subtreeHeight')->with($facilityId)->willReturn(3);
+    $repository->expects(self::never())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher, maxDepth: 8);
+
+    $this->expectException(FacilityHierarchyException::class);
+    $this->expectExceptionMessage('Facility hierarchy depth cap of 8 levels exceeded.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $newParentId,
     ));
   }
 

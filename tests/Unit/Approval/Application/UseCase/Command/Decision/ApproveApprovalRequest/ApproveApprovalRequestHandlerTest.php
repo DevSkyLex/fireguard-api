@@ -17,11 +17,12 @@ use Approval\Domain\Exception\{
   DeferredActionNoLongerApplicableException,
   SelfApprovalNotAllowedException
 };
+use Approval\Domain\Exception\ApprovalAccessDeniedException;
 use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
@@ -58,6 +59,47 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsNotFoundWhenRequestBelongsToAnotherOrganization(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    $this->expectException(ApprovalRequestNotFoundException::class);
+
+    $this->handler(requests: $requests)(self::command(organizationId: 'a-different-organization'));
+  }
+
+  #[Test]
+  public function testInvokeThrowsAccessDeniedWhenMemberLacksTheDecidePermission(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    $this->expectException(ApprovalAccessDeniedException::class);
+
+    $this->handler(
+      requests: $requests,
+      authorization: $this->authorizationDeciding(OrganizationAccessDecision::MISSING_PERMISSION),
+    )(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheOrganizationIsOutsideTheCallersScope(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    // Not-found rather than access-denied: a 403 would confirm to a caller
+    // from another organization that the request exists.
+    $this->expectException(ApprovalRequestNotFoundException::class);
+
+    $this->handler(
+      requests: $requests,
+      authorization: $this->authorizationDeciding(OrganizationAccessDecision::OUTSIDE_SCOPE),
+    )(self::command());
+  }
+
+  #[Test]
   public function testInvokeThrowsAccessDeniedWhenActorIsNotAnOrganizationMember(): void
   {
     $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
@@ -66,7 +108,7 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
     $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
     $memberDirectory->method('resolveMemberId')->willReturn(null);
 
-    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectException(ApprovalAccessDeniedException::class);
 
     $this->handler(requests: $requests, memberDirectory: $memberDirectory)(self::command());
   }
@@ -259,9 +301,9 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
     );
   }
 
-  private static function command(): ApproveApprovalRequestCommand
+  private static function command(string $organizationId = self::ORG_ID): ApproveApprovalRequestCommand
   {
-    return new ApproveApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::APPROVER_USER_ID);
+    return new ApproveApprovalRequestCommand($organizationId, self::REQUEST_ID, self::APPROVER_USER_ID);
   }
 
   private static function policy(bool $allowSelfApproval = false): ApprovalPolicy
@@ -271,6 +313,18 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
       allowSelfApproval: $allowSelfApproval,
       approvalTtlDays: 14,
     );
+  }
+
+  /**
+   * Builds an authorization port stub resolving every access check to the
+   * given decision.
+   */
+  private function authorizationDeciding(OrganizationAccessDecision $decision): OrganizationAuthorizationPort
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn($decision);
+
+    return $authorization;
   }
 
   /**
@@ -286,7 +340,7 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
   ): ApproveApprovalRequestHandler {
     $policy ??= $this->createStub(ApprovalPolicyPort::class);
     $memberDirectory ??= $this->createStub(ApprovalMemberDirectoryPort::class);
-    $authorization ??= $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization ??= $this->authorizationDeciding(OrganizationAccessDecision::GRANTED);
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
 
     $clock = $this->createStub(ClockPort::class);

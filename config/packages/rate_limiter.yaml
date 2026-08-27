@@ -1,5 +1,10 @@
 framework:
   rate_limiter:
+    registration:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
     login:
       policy: 'sliding_window'
       limit: 5
@@ -103,6 +108,14 @@ framework:
     invitation_resend:
       policy: 'sliding_window'
       limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    # Keyed by user id, not IP: the endpoint is authenticated, so this bounds
+    # how fast one account can try tokens without penalising everyone behind a
+    # shared address.
+    invitation_accept:
+      policy: 'sliding_window'
+      limit: 10
       interval: '1 minute'
       lock_factory: null
     messaging_presence_ping:

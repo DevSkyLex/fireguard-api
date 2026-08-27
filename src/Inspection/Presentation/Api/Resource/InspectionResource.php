@@ -53,6 +53,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListInspectionsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the facility overview previews a site's inspections in one page,
+      // and a lower ceiling would silently drop rows past the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -84,6 +87,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListInspectionsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -150,6 +154,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: InspectionOperations::SUBMIT_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}/submit',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: InspectionOutput::class,
       processor: SubmitInspectionProcessor::class,
@@ -171,6 +176,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: InspectionOperations::CLOSE_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}/close',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: InspectionOutput::class,
       processor: CloseInspectionProcessor::class,

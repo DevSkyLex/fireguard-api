@@ -10,13 +10,13 @@ use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
   FacilityHierarchyException,
-  FacilityNotFoundException
+  FacilityNotFoundException,
+  FacilityOrganizationNotFoundException
 };
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Domain\Exception\InvalidValueException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function array_key_exists;
@@ -38,6 +38,8 @@ final readonly class MoveFacilityHandler implements CommandHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
   // #endregion
@@ -56,13 +58,9 @@ final readonly class MoveFacilityHandler implements CommandHandler
    */
   public function __invoke(MoveFacilityCommand $command): MoveFacilityResult
   {
-    try {
-      $facilityId = FacilityId::fromString($command->facilityId);
-      $organizationId = FacilityOrganizationId::fromString($command->organizationId);
-      $parentId = $this->resolveParentId($command->parentFacilityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $facilityId = FacilityId::fromString($command->facilityId);
+    $organizationId = FacilityOrganizationId::fromString($command->organizationId);
+    $parentId = $this->resolveParentId($command->parentFacilityId);
 
     // Published-only lookup: draft intervention scratchpads fall through to
     // the not-found path and can neither be moved nor audited.
@@ -89,7 +87,7 @@ final readonly class MoveFacilityHandler implements CommandHandler
       $this->facilityRepository->save($facility);
     } catch (Throwable $exception) {
       if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
+        throw FacilityOrganizationNotFoundException::create();
       }
 
       if ($this->isParentConstraintViolation($exception)) {
@@ -169,6 +167,13 @@ final readonly class MoveFacilityHandler implements CommandHandler
 
     if (!$parent->status()->isActive()) {
       throw FacilityArchivedException::withId((string) $parentId);
+    }
+
+    // Moving a subtree deeper must account for its own height: every
+    // descendant shifts by the same amount as the moved root.
+    $prospectiveDepth = $this->facilityRepository->depthOf($parentId) + 1 + $this->facilityRepository->subtreeHeight($facilityId);
+    if ($prospectiveDepth > $this->maxDepth) {
+      throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
     }
 
     $current = $parent;

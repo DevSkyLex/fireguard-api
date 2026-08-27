@@ -4,23 +4,33 @@ declare(strict_types=1);
 
 namespace Facility\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Facility\Presentation\Api\Dto\Input\Facility\{
   CreateFacilityInput,
+  DuplicateFacilitySubtreeInput,
   MoveFacilityInput,
+  SetFacilityPlanGeometryInput,
   UpdateFacilityInput
 };
-use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Dto\Output\Facility\{FacilityOutput, FacilityPlanOverlayOutput};
 use Facility\Presentation\Api\Operation\FacilityOperations;
 use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
   CreateFacilityProcessor,
+  DuplicateFacilitySubtreeProcessor,
   MoveFacilityProcessor,
   RestoreFacilityProcessor,
+  SetFacilityPlanGeometryProcessor,
   UpdateFacilityProcessor
 };
-use Facility\Presentation\Api\Provider\Facility\{GetFacilityProvider, ListFacilitiesProvider, ListFacilityChildrenProvider, ListFacilityDescendantsProvider};
+use Facility\Presentation\Api\Provider\Facility\{
+  FacilityPlanOverlayProvider,
+  GetFacilityProvider,
+  ListFacilitiesProvider,
+  ListFacilityChildrenProvider,
+  ListFacilityDescendantsProvider
+};
 use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -68,6 +78,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilitiesProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the frontend's
+      // facility store loads every parent option in one page for the create
+      // form's picker, and a lower ceiling would silently drop options past
+      // the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -118,6 +133,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Filter by exact facility code.',
             schema: ['type' => 'string'],
           ),
+          new Parameter(
+            name: 'hasCoordinates',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+            schema: ['type' => 'boolean'],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facilities retrieved'),
@@ -154,6 +176,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilityChildrenProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the frontend's
+      // facility-plans store asks for a facility's children in one page to
+      // build its zone-candidate list, and a lower ceiling would silently drop
+      // candidates past the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -224,6 +251,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: FacilityOperations::ARCHIVE_FACILITY,
       uriTemplate: '/{organizationId}/facilities/{facilityId}/archive',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: FacilityOutput::class,
       processor: ArchiveFacilityProcessor::class,
@@ -265,6 +293,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: FacilityOperations::MOVE_FACILITY,
       uriTemplate: '/{organizationId}/facilities/{facilityId}/move',
+      status: HttpResponse::HTTP_OK,
       input: MoveFacilityInput::class,
       output: FacilityOutput::class,
       processor: MoveFacilityProcessor::class,
@@ -281,6 +310,83 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid hierarchy'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+        ],
+      ),
+    ),
+    new Put(
+      name: FacilityOperations::SET_FACILITY_PLAN_GEOMETRY,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/plan-geometry',
+      read: false,
+      input: SetFacilityPlanGeometryInput::class,
+      output: FacilityOutput::class,
+      processor: SetFacilityPlanGeometryProcessor::class,
+      denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Set facility plan geometry',
+        description: 'Binds this facility (a spatial zone) to a polygon drawn over an ancestor floor plan attachment. Submit "attachmentId" and "points" (>=3 normalized 0-1 coordinates) together to set or replace the geometry, or both null to clear it.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Plan geometry set or cleared'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid geometry shape, bounds, or point count'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::GET_FACILITY_PLAN_OVERLAY,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/plan-overlay',
+      input: false,
+      output: FacilityPlanOverlayOutput::class,
+      provider: FacilityPlanOverlayProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Get facility plan overlay',
+        description: 'Returns one floor plan (explicit "attachmentId", or this facility\'s own primary plan when omitted) and every published self-or-descendant zone bound to it.',
+        parameters: [
+          new Parameter(
+            name: 'attachmentId',
+            in: 'query',
+            required: false,
+            description: 'Floor plan attachment identifier. Defaults to this facility\'s primary plan when omitted.',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Plan overlay retrieved'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
+        ],
+      ),
+    ),
+    new Post(
+      name: FacilityOperations::DUPLICATE_FACILITY_SUBTREE,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/duplicate',
+      input: DuplicateFacilitySubtreeInput::class,
+      output: FacilityOutput::class,
+      processor: DuplicateFacilitySubtreeProcessor::class,
+      status: HttpResponse::HTTP_CREATED,
+      denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Duplicate facility subtree',
+        description: 'Duplicates a facility and its full subtree into a new, independent branch.',
+        responses: [
+          HttpResponse::HTTP_CREATED => new Response(description: 'Facility subtree duplicated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input or target parent'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Source facility is archived, or the organization plan quota would be exceeded'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Subtree exceeds the duplication size limit'),
         ],
       ),
     ),

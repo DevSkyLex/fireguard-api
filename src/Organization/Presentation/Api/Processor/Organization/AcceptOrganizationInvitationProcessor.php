@@ -8,14 +8,18 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationResult};
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AcceptOrganizationInvitationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 /**
  * Processor AcceptOrganizationInvitationProcessor.
@@ -30,7 +34,7 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
  */
 final readonly class AcceptOrganizationInvitationProcessor implements ProcessorInterface
 {
-  use MessengerExceptionUnwrapperTrait;
+  use UnwrapsOrganizationBusFailures;
 
   // #region Constructor
   /**
@@ -43,10 +47,13 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
    *
    * @param CommandBusPort $commandBus the command bus
    * @param Security $security the security service
+   * @param RateLimiterFactory|null $rateLimiter the per-user accept rate limiter
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private Security $security,
+    #[Autowire(service: 'limiter.invitation_accept')]
+    private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -72,6 +79,8 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
+    $this->enforceRateLimit($user->getId());
+
     try {
       /** @var AcceptOrganizationInvitationResult $result */
       $result = $this->commandBus->dispatch(new AcceptOrganizationInvitationCommand(
@@ -88,19 +97,19 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
       // must be unwrapped here: the member cap (assertCanAcceptMember) maps to 409,
       // and the domain not-found / validation failures to 404 / 400 (the direct
       // catches above never fire for bus-dispatched errors).
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+      $quotaExceeded = $this->findWrappedException($exception, OrganizationQuotaExceededException::class);
       if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
         throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
       }
 
-      $notFound = $this->findException($exception, OrganizationInvitationNotFoundException::class)
-        ?? $this->findException($exception, OrganizationNotFoundException::class)
-        ?? $this->findException($exception, OrganizationRoleNotFoundException::class);
+      $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
       if (null !== $notFound) {
         throw new NotFoundHttpException($notFound->getMessage(), $exception);
       }
 
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
       if ($invalidArgument instanceof InvalidArgumentException) {
         throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
       }
@@ -117,6 +126,33 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
     $output->roleIds = $result->roleIds;
 
     return $output;
+  }
+
+  /**
+   * Method enforceRateLimit.
+   *
+   * Bounds how fast one account can submit invitation tokens. The token itself
+   * is 256 bits of CSPRNG, so guessing is not the threat this closes — an
+   * unthrottled authenticated endpoint that hits the database on every call
+   * is. Keyed by user id rather than IP because the caller is always
+   * authenticated here, so a shared address costs nobody else their quota.
+   *
+   * A missing limiter (some test contexts) is a no-op, mirroring the preview
+   * and resend endpoints.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the authenticated caller
+   */
+  private function enforceRateLimit(string $userId): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    if (!$this->rateLimiter->create($userId)->consume()->isAccepted()) {
+      throw new TooManyRequestsHttpException(message: 'Too many invitation accept requests.');
+    }
   }
   // #endregion
 }

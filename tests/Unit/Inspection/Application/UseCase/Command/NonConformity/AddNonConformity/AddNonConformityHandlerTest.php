@@ -31,6 +31,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test AddNonConformityHandlerTest.
@@ -181,7 +182,7 @@ final class AddNonConformityHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddNonConformityCommand(
       organizationId: self::ORG_ID,
@@ -194,7 +195,7 @@ final class AddNonConformityHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsInvalidArgumentOnAnUnknownSeverity(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $this->makeDraftHandler()->__invoke(new AddNonConformityCommand(
       organizationId: self::ORG_ID,
@@ -207,7 +208,7 @@ final class AddNonConformityHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsInvalidArgumentOnAMalformedDueAt(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $this->makeDraftHandler()->__invoke(new AddNonConformityCommand(
       organizationId: self::ORG_ID,

@@ -164,6 +164,23 @@ class EquipmentRecord
   public ?DateTimeImmutable $commissionedAt = null;
 
   /**
+   * Property planPosition.
+   *
+   * `{"attachmentId": "<uuid>", "x": float, "y": float}`, normalized 0-1
+   * image coordinates bound to a floor plan attachment. Doctrine's `json`
+   * DBAL type round-trips through `json_encode`/`json_decode` regardless of
+   * the underlying Postgres storage type, matching `FacilityRecord::$planGeometry`;
+   * the physical column is hand-migrated `JSONB` for the plan-overlay read's
+   * `plan_position ->> 'attachmentId'` filter.
+   *
+   * @since 1.0.0
+   *
+   * @var ?array{attachmentId: string, x: float, y: float}
+   */
+  #[ORM\Column(name: 'plan_position', type: 'json', nullable: true)]
+  public ?array $planPosition = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

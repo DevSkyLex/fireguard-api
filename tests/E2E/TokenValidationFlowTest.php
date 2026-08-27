@@ -183,41 +183,17 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
   // #region Token Introspection Tests
 
   /**
-   * Test introspection returns correct token info.
+   * Test that introspection rejects an unauthenticated caller.
+   *
+   * The endpoint answers RFC 7662 with token metadata (`active`, `scope`,
+   * `client_id`, `username`), so an open one lets anybody confirm a stolen
+   * token is live. `access_control` always demanded ROLE_USER here; the
+   * firewall pattern used to swallow the route and void that rule.
    */
-  public function testIntrospectionReturnsTokenInfo(): void
+  public function testIntrospectionRejectsAnonymousCaller(): void
   {
     $client = static::createClientWithFixtures();
 
-    // Get a token first
-    $client->request(
-      method: 'POST',
-      uri: '/api/oauth2/token',
-      server: [
-        'CONTENT_TYPE' => 'application/ld+json',
-        'HTTP_ACCEPT' => 'application/ld+json',
-      ],
-      content: json_encode([
-        'grant_type' => 'client_credentials',
-        'client_id' => self::API_CLIENT_ID,
-        'client_secret' => self::API_CLIENT_SECRET,
-        'scope' => 'READ WRITE',
-      ]) ?: '',
-    );
-
-    $response = $client->getResponse();
-
-    $this->assertContains(
-      $response->getStatusCode(),
-      [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent(),
-    );
-
-    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
-    $accessTokenVal = $data['access_token'] ?? '';
-    $accessToken = is_string($accessTokenVal) ? $accessTokenVal : '';
-
-    // Introspect the token
     $client->request(
       method: 'POST',
       uri: '/api/oauth2/token/introspect',
@@ -225,64 +201,26 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
-      content: json_encode([
-        'token' => $accessToken,
-      ]) ?: '',
+      content: json_encode(['token' => 'any-token-value']) ?: '',
     );
 
-    $response = $client->getResponse();
-
-    $this->assertContains(
-      $response->getStatusCode(),
-      [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Introspection should succeed',
+    $this->assertSame(
+      Response::HTTP_UNAUTHORIZED,
+      $client->getResponse()->getStatusCode(),
+      'Introspection must not answer an anonymous caller.',
     );
-
-    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
-
-    $this->assertArrayHasKey('active', $introspectData);
-    $this->assertTrue($introspectData['active'], 'Token should be active');
-
-    // Check for standard introspection response fields (optional per RFC 7662)
-    // client_id and token_type are OPTIONAL in the spec
   }
 
   /**
-   * Test introspection of revoked token.
+   * Test that revocation rejects an unauthenticated caller.
+   *
+   * An open revocation endpoint lets any caller invalidate another party's
+   * token on demand.
    */
-  public function testIntrospectionOfRevokedToken(): void
+  public function testRevocationRejectsAnonymousCaller(): void
   {
     $client = static::createClientWithFixtures();
 
-    // Get a token
-    $client->request(
-      method: 'POST',
-      uri: '/api/oauth2/token',
-      server: [
-        'CONTENT_TYPE' => 'application/ld+json',
-        'HTTP_ACCEPT' => 'application/ld+json',
-      ],
-      content: json_encode([
-        'grant_type' => 'client_credentials',
-        'client_id' => self::API_CLIENT_ID,
-        'client_secret' => self::API_CLIENT_SECRET,
-        'scope' => 'READ',
-      ]) ?: '',
-    );
-
-    $response = $client->getResponse();
-
-    $this->assertContains(
-      $response->getStatusCode(),
-      [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent(),
-    );
-
-    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
-    $accessTokenVal = $data['access_token'] ?? '';
-    $accessToken = is_string($accessTokenVal) ? $accessTokenVal : '';
-
-    // Revoke the token
     $client->request(
       method: 'POST',
       uri: '/api/oauth2/token/revoke',
@@ -290,28 +228,14 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
-      content: json_encode([
-        'token' => $accessToken,
-      ]) ?: '',
+      content: json_encode(['token' => 'any-token-value']) ?: '',
     );
 
-    // Now introspect - should be inactive
-    $client->request(
-      method: 'POST',
-      uri: '/api/oauth2/token/introspect',
-      server: [
-        'CONTENT_TYPE' => 'application/ld+json',
-        'HTTP_ACCEPT' => 'application/ld+json',
-      ],
-      content: json_encode([
-        'token' => $accessToken,
-      ]) ?: '',
+    $this->assertSame(
+      Response::HTTP_UNAUTHORIZED,
+      $client->getResponse()->getStatusCode(),
+      'Revocation must not answer an anonymous caller.',
     );
-
-    $response = $client->getResponse();
-    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
-
-    $this->assertFalse($introspectData['active'] ?? true, 'Revoked token should be inactive');
   }
 
   // #endregion
@@ -592,4 +516,5 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
   }
 
   // #endregion
+
 }

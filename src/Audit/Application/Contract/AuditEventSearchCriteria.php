@@ -33,6 +33,7 @@ final readonly class AuditEventSearchCriteria
    * @param string|null $subjectId filter by subject ID
    * @param string|null $clientId filter by client ID
    * @param string|null $tenantId filter by tenant ID
+   * @param string|null $organizationId filter by organization ID
    * @param string|null $ipHash filter by IP hash
    * @param string|null $actorEmailHash filter by actor email hash
    * @param DateTimeImmutable|null $from lower bound (inclusive)
@@ -46,6 +47,7 @@ final readonly class AuditEventSearchCriteria
     public ?string $subjectId = null,
     public ?string $clientId = null,
     public ?string $tenantId = null,
+    public ?string $organizationId = null,
     public ?string $ipHash = null,
     public ?string $actorEmailHash = null,
     public ?DateTimeImmutable $from = null,

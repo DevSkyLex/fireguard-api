@@ -10,15 +10,21 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Inspection\Application\Port\Outbound\InterventionScopePort;
+use Inspection\Application\UseCase\Query\Response\GetInspectionResponse\{GetInspectionResponseHandler, GetInspectionResponseQuery};
+use Inspection\Application\UseCase\Query\Response\ListInspectionResponses\{ListInspectionResponsesHandler, ListInspectionResponsesQuery};
+use Inspection\Application\UseCase\Query\Response\ResolveInspectionResponseScope\{ResolveInspectionResponseScopeHandler, ResolveInspectionResponseScopeQuery};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
+use Inspection\Infrastructure\Persistence\Doctrine\Repository\{InspectionRepository, InspectionResponseRepository};
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
 use Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider;
-use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
-use Intervention\Application\Service\InterventionResourceManager;
+use LogicException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Message\{QueryMessage, ResultMessage};
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -186,8 +192,14 @@ final class InspectionResponseProviderTest extends KernelTestCase
   {
     $this->expectException(NotFoundHttpException::class);
 
-    $this->provider(['organization' => '/api/organizations/992e8400-e29b-41d4-a716-4466554920ff'])
-      ->provide(new GetCollection(), []);
+    // `inScope: false` is what the real port answers for an organization with
+    // no membership row. The provider used to prove this with its own
+    // `entityManager->find()`; that query was removed because `resolveAccess()`
+    // already produces the same 404, and this asserts that it still does.
+    $this->provider(
+      ['organization' => '/api/organizations/992e8400-e29b-41d4-a716-4466554920ff'],
+      inScope: false,
+    )->provide(new GetCollection(), []);
   }
 
   #[Test]
@@ -215,31 +227,67 @@ final class InspectionResponseProviderTest extends KernelTestCase
   /**
    * @param array<string, string> $query
    */
-  private function provider(array $query, bool $permitted = true): InspectionResponseProvider
+  private function provider(array $query, bool $permitted = true, bool $inScope = true): InspectionResponseProvider
   {
     $requestStack = new RequestStack();
     $requestStack->push(Request::create('/api/inspection_responses', 'GET', $query));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn($permitted);
+    // Three distinct answers, because the provider now depends on all three.
+    // OUTSIDE_SCOPE is what an organization with no membership row produces —
+    // an unknown id necessarily has none — and it is also what a real
+    // organization the caller is not in produces. That identity is the point:
+    // the provider no longer looks the record up itself.
+    $authorization->method('resolveAccess')->willReturn(match (true) {
+      !$inScope => OrganizationAccessDecision::OUTSIDE_SCOPE,
+      $permitted => OrganizationAccessDecision::GRANTED,
+      default => OrganizationAccessDecision::MISSING_PERMISSION,
+    });
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
       new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
     );
 
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionAssignmentContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
-    );
-
     return new InspectionResponseProvider(
-      entityManager: $this->entityManager,
+      queryBus: $this->queryBus(),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
-      interventionResourceManager: new InterventionResourceManager($gateway),
     );
+  }
+
+  /**
+   * Method queryBus.
+   *
+   * A real bus over the REAL handlers and the REAL repositories, so the DQL
+   * this test exists for is still the DQL under test. Only the intervention
+   * lookup is stubbed: it belongs to another module and another table.
+   *
+   * @return QueryBusPort the bus wired to the three response queries
+   */
+  private function queryBus(): QueryBusPort
+  {
+    $interventions = $this->createStub(InterventionScopePort::class);
+    $interventions->method('organizationIdOf')->willReturn(self::ORGANIZATION_ID);
+
+    $responses = new InspectionResponseRepository($this->entityManager);
+    $get = new GetInspectionResponseHandler($responses);
+    $list = new ListInspectionResponsesHandler($responses);
+    $resolve = new ResolveInspectionResponseScopeHandler($interventions, new InspectionRepository($this->entityManager));
+
+    $bus = $this->createStub(QueryBusPort::class);
+    $bus->method('ask')->willReturnCallback(
+      static fn (QueryMessage $query): ResultMessage => match (true) {
+        $query instanceof ResolveInspectionResponseScopeQuery => $resolve($query),
+        $query instanceof ListInspectionResponsesQuery => $list($query),
+        $query instanceof GetInspectionResponseQuery => $get($query),
+        default => throw new LogicException('Unexpected query on the response bus.'),
+      },
+    );
+
+    return $bus;
   }
 
   private function createResponse(string $id, string $itemKey): InspectionResponseRecord

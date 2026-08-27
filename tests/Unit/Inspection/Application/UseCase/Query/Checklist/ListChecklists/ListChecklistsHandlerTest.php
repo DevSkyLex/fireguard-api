@@ -8,11 +8,11 @@ use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Application\UseCase\Query\Checklist\ListChecklists\{ListChecklistResult, ListChecklistsHandler, ListChecklistsQuery};
 use Inspection\Domain\Model\Checklist\Checklist;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test ListChecklistsHandlerTest.
@@ -99,7 +99,7 @@ final class ListChecklistsHandlerTest extends TestCase
   {
     $handler = new ListChecklistsHandler($this->createStub(ChecklistRepositoryPort::class));
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListChecklistsQuery(organizationId: self::ORG_ID, status: 'retired'));
   }

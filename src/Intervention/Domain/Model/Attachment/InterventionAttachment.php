@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Domain\Model\Attachment;
 
 use DateTimeImmutable;
-use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 
 /**
  * Model InterventionAttachment.
@@ -37,6 +37,8 @@ final class InterventionAttachment
    * @param int $size the file size in bytes
    * @param DateTimeImmutable $uploadedAt the upload timestamp
    * @param ?string $label the optional label
+   * @param ?string $workItemId the optional owning work item identifier
+   * @param InterventionAttachmentKind $kind the attachment kind (plain file or the typed completion signature)
    */
   private function __construct(
     private InterventionAttachmentId $id,
@@ -47,6 +49,8 @@ final class InterventionAttachment
     private int $size,
     private DateTimeImmutable $uploadedAt,
     private ?string $label = null,
+    private ?string $workItemId = null,
+    private InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE,
   ) {
   }
   // #endregion
@@ -66,6 +70,8 @@ final class InterventionAttachment
    * @param string $mimeType the MIME type
    * @param int $size the file size in bytes
    * @param ?string $label the optional label
+   * @param ?string $workItemId the optional owning work item identifier
+   * @param InterventionAttachmentKind $kind the attachment kind
    *
    * @return self the created attachment
    */
@@ -77,6 +83,8 @@ final class InterventionAttachment
     string $mimeType,
     int $size,
     ?string $label = null,
+    ?string $workItemId = null,
+    InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE,
   ): self {
     return new self(
       id: $id,
@@ -87,6 +95,8 @@ final class InterventionAttachment
       size: $size,
       uploadedAt: new DateTimeImmutable(),
       label: $label,
+      workItemId: $workItemId,
+      kind: $kind,
     );
   }
 
@@ -105,6 +115,8 @@ final class InterventionAttachment
    * @param int $size the file size in bytes
    * @param DateTimeImmutable $uploadedAt the upload timestamp
    * @param ?string $label the optional label
+   * @param ?string $workItemId the optional owning work item identifier
+   * @param InterventionAttachmentKind $kind the attachment kind
    *
    * @return self the reconstituted attachment
    */
@@ -117,6 +129,8 @@ final class InterventionAttachment
     int $size,
     DateTimeImmutable $uploadedAt,
     ?string $label = null,
+    ?string $workItemId = null,
+    InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE,
   ): self {
     return new self(
       id: $id,
@@ -127,6 +141,8 @@ final class InterventionAttachment
       size: $size,
       uploadedAt: $uploadedAt,
       label: $label,
+      workItemId: $workItemId,
+      kind: $kind,
     );
   }
 
@@ -208,6 +224,32 @@ final class InterventionAttachment
   public function uploadedAt(): DateTimeImmutable
   {
     return $this->uploadedAt;
+  }
+
+  /**
+   * Method workItemId.
+   *
+   * The optional intervention work item this attachment is scoped to. Null
+   * when the attachment is a plain intervention-level attachment.
+   *
+   * @since 1.1.0
+   */
+  public function workItemId(): ?string
+  {
+    return $this->workItemId;
+  }
+
+  /**
+   * Method kind.
+   *
+   * The attachment kind — a plain evidence file, or the typed completion
+   * signature captured at submission time.
+   *
+   * @since 1.2.0
+   */
+  public function kind(): InterventionAttachmentKind
+  {
+    return $this->kind;
   }
   // #endregion
 }

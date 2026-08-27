@@ -97,7 +97,7 @@ final class ResendPasswordResetHandlerTest extends TestCase
 
     self::assertFalse($result->success);
     self::assertSame(ResendPasswordResetResult::ERROR_INVALID_TOKEN, $result->errorCode);
-    self::assertSame('Invalid or expired reset token.', $result->message);
+    self::assertSame('Invalid or expired reset code. Please check the code, or request a new reset.', $result->message);
   }
 
   #[Test]

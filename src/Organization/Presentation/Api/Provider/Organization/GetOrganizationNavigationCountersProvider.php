@@ -8,13 +8,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\GetNavigationCounters\{GetNavigationCountersQuery, GetNavigationCountersResult};
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationNavigationCountersOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function is_string;
 
@@ -31,23 +28,6 @@ use function is_string;
  */
 final readonly class GetOrganizationNavigationCountersProvider implements ProviderInterface
 {
-  // #region Traits
-  /**
-   * Trait UnwrapsOrganizationQueryExceptions.
-   *
-   * The query bus wraps every handler-thrown exception into
-   * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so
-   * a direct `catch (OrganizationNotFoundException|OrganizationMemberNotFoundException)`
-   * around `queryBus->ask()` alone would never match at runtime — this trait
-   * (already used by `GetOrganizationDashboardProvider`) walks the wrapped
-   * exception's `getPrevious()`/`HandlerFailedException` chain to find the
-   * real domain exception underneath.
-   *
-   * @see UnwrapsOrganizationQueryExceptions
-   */
-  use UnwrapsOrganizationQueryExceptions;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.
@@ -86,24 +66,13 @@ final readonly class GetOrganizationNavigationCountersProvider implements Provid
       return null;
     }
 
-    try {
-      /** @var GetNavigationCountersResult $result */
-      $result = $this->queryBus->ask(new GetNavigationCountersQuery($organizationId, $user->getId()));
-    } catch (OrganizationNotFoundException|OrganizationMemberNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationMemberNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var GetNavigationCountersResult $result */
+    $result = $this->queryBus->ask(new GetNavigationCountersQuery($organizationId, $user->getId()));
 
     $output = new OrganizationNavigationCountersOutput();
     $output->openInterventions = $result->openInterventions;
     $output->openNonConformities = $result->openNonConformities;
+    $output->submittedInterventions = $result->submittedInterventions;
 
     return $output;
   }

@@ -12,12 +12,11 @@ use Organization\Application\UseCase\Query\Plan\GetPlan\{GetPlanQuery, GetPlanRe
 use Organization\Domain\Exception\{PlanKeyAlreadyExistsException, PlanNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Plan\CreatePlanInput;
 use Organization\Presentation\Api\Dto\Output\Plan\PlanOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
 
 /**
  * Processor CreatePlanProcessor.
@@ -32,6 +31,20 @@ use Throwable;
  */
 final readonly class CreatePlanProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The bus adapters wrap every handler failure into
+   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
+   * bare in-process throw. The `MessengerRuntimeException` clauses using
+   * this trait are what map the real dispatch path.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -82,7 +95,16 @@ final readonly class CreatePlanProcessor implements ProcessorInterface
     } catch (InvalidArgumentException|InvalidValueException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $this->rethrowDomainFailure($exception);
+      $conflict = $this->findWrappedException($exception, PlanKeyAlreadyExistsException::class);
+      if (null !== $conflict) {
+        throw new ConflictHttpException($conflict->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class)
+        ?? $this->findWrappedException($exception, InvalidValueException::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
 
       throw $exception;
     }
@@ -97,52 +119,5 @@ final readonly class CreatePlanProcessor implements ProcessorInterface
     return PlanOutput::fromResult($plan);
   }
 
-  /**
-   * Method rethrowDomainFailure.
-   *
-   * Unwraps a messenger runtime failure and rethrows the matching HTTP error.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the caught runtime exception
-   */
-  private function rethrowDomainFailure(Throwable $exception): void
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      foreach ($this->wrappedExceptions($current) as $candidate) {
-        if ($candidate instanceof PlanKeyAlreadyExistsException) {
-          throw new ConflictHttpException($candidate->getMessage(), $exception);
-        }
-
-        if ($candidate instanceof InvalidArgumentException || $candidate instanceof InvalidValueException) {
-          throw new BadRequestHttpException($candidate->getMessage(), $exception);
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-  }
-
-  /**
-   * Method wrappedExceptions.
-   *
-   * Yields the exception itself and any handler-wrapped exceptions.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the exception to expand
-   *
-   * @return iterable<Throwable> the candidate exceptions
-   */
-  private function wrappedExceptions(Throwable $exception): iterable
-  {
-    yield $exception;
-
-    if ($exception instanceof HandlerFailedException) {
-      yield from $exception->getWrappedExceptions();
-    }
-  }
   // #endregion
 }

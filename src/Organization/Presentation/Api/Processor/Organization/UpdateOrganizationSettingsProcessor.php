@@ -20,7 +20,6 @@ use Organization\Domain\Exception\{
   OrganizationNotFoundException,
   OrganizationSlugAlreadyExistsException
 };
-use Organization\Domain\ValueObject\OrganizationSettings;
 use Organization\Presentation\Api\Dto\Input\Organization\{
   UpdateOrganizationApprovalInput,
   UpdateOrganizationAssistantInput,
@@ -30,7 +29,9 @@ use Organization\Presentation\Api\Dto\Input\Organization\{
   UpdateOrganizationRegionalInput,
   UpdateOrganizationSettingsInput
 };
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Organization\Presentation\Api\Trait\OrganizationOutputMapperTrait;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Domain\Exception\InvalidValueException;
@@ -41,8 +42,6 @@ use Symfony\Component\HttpKernel\Exception\{
   ConflictHttpException,
   NotFoundHttpException
 };
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
 use ValueError;
 
 use function array_key_exists;
@@ -68,6 +67,27 @@ use function sprintf;
  */
 final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInterface
 {
+  /**
+   * Trait OrganizationOutputMapperTrait.
+   *
+   * @see OrganizationOutputMapperTrait
+   */
+  use OrganizationOutputMapperTrait;
+
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The bus adapters wrap every handler failure into
+   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
+   * bare in-process throw. The `MessengerRuntimeException` clauses using
+   * this trait are what map the real dispatch path.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -150,57 +170,61 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
     } catch (InvalidArgumentException|InvalidValueException|ValueError $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $this->rethrowDomainFailure($exception);
+      $conflict = $this->findWrappedException($exception, OrganizationArchivedException::class)
+        ?? $this->findWrappedException($exception, OrganizationSlugAlreadyExistsException::class);
+      if (null !== $conflict) {
+        throw new ConflictHttpException($conflict->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class)
+        ?? $this->findWrappedException($exception, InvalidValueException::class)
+        ?? $this->findWrappedException($exception, ValueError::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
 
       throw $exception;
     }
 
-    return $this->buildOutput($result->organizationId);
+    return $this->buildOutput($result->organizationId, $user->getId());
   }
 
   /**
    * Method buildOutput.
    *
-   * Re-reads the organization and maps it to the API output.
+   * Re-reads the organization and maps it to the API output. Passing
+   * `$callerUserId` through resolves `isOwner`/`roles` for the acting user
+   * via `OrganizationCallerMembershipPort` (see `GetOrganizationHandler`).
    *
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
+   * @param string $callerUserId the acting user identifier
    *
    * @return OrganizationOutput the refreshed organization output
    */
-  private function buildOutput(string $organizationId): OrganizationOutput
+  private function buildOutput(string $organizationId, string $callerUserId): OrganizationOutput
   {
     try {
       /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
+      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId, callerUserId: $callerUserId));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
-    $output = new OrganizationOutput();
-    $output->id = $result->id;
-    $output->name = $result->name;
-    $output->slug = $result->slug;
-    $output->ownerUserId = $result->ownerUserId;
-    $output->createdByUserId = $result->createdByUserId;
-    $output->status = $result->status;
-    $output->isActive = $result->isActive;
-    $output->description = $result->description;
-    $output->logoUrl = $result->logoUrl;
-    $output->memberCount = $result->memberCount;
-    $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
-    $output->planId = $result->planId;
-    $output->planName = $result->planName;
-    $output->country = $result->country;
-    $output->legalType = $result->legalType;
-    $output->legalName = $result->legalName;
-    $output->registrationNumber = $result->registrationNumber;
-    $output->vatNumber = $result->vatNumber;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->buildOrganizationOutput($result);
   }
 
   /**
@@ -417,56 +441,5 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
     ];
   }
 
-  /**
-   * Method rethrowDomainFailure.
-   *
-   * Unwraps a messenger runtime failure and rethrows the matching HTTP error.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the caught runtime exception
-   */
-  private function rethrowDomainFailure(Throwable $exception): void
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      foreach ($this->wrappedExceptions($current) as $candidate) {
-        if ($candidate instanceof OrganizationArchivedException || $candidate instanceof OrganizationSlugAlreadyExistsException) {
-          throw new ConflictHttpException($candidate->getMessage(), $exception);
-        }
-
-        if ($candidate instanceof OrganizationNotFoundException) {
-          throw new NotFoundHttpException($candidate->getMessage(), $exception);
-        }
-
-        if ($candidate instanceof InvalidArgumentException || $candidate instanceof InvalidValueException || $candidate instanceof ValueError) {
-          throw new BadRequestHttpException($candidate->getMessage(), $exception);
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-  }
-
-  /**
-   * Method wrappedExceptions.
-   *
-   * Yields the exception itself and any handler-wrapped exceptions.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the exception to expand
-   *
-   * @return iterable<Throwable> the candidate exceptions
-   */
-  private function wrappedExceptions(Throwable $exception): iterable
-  {
-    yield $exception;
-
-    if ($exception instanceof HandlerFailedException) {
-      yield from $exception->getWrappedExceptions();
-    }
-  }
   // #endregion
 }

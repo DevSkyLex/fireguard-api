@@ -20,7 +20,7 @@ use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -62,7 +62,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 {
   // #region Traits
   /**
-   * Trait UnwrapsOrganizationQueryExceptions.
+   * Trait UnwrapsOrganizationBusFailures.
    *
    * This trait provides utility methods to unwrap exceptions thrown by the query bus
    * and identify specific domain exceptions related to organization queries.
@@ -70,9 +70,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * It allows the provider to catch generic messenger exceptions and rethrow more specific HTTP exceptions
    * based on the underlying cause, improving error handling and client feedback.
    *
-   * @see UnwrapsOrganizationQueryExceptions
+   * @see UnwrapsOrganizationBusFailures
    */
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
   // #endregion
 
   // region Constants

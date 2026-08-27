@@ -7,33 +7,56 @@ namespace Inspection\Presentation\Api\Processor\InspectionResponse;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
+use Inspection\Application\Contract\Response\InspectionResponseView;
+use Inspection\Application\UseCase\Command\Response\CreateInspectionResponse\{CreateInspectionResponseCommand, CreateInspectionResponseResult};
+use Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\DeleteInspectionResponseCommand;
+use Inspection\Application\UseCase\Command\Response\UpdateInspectionResponse\{UpdateInspectionResponseCommand, UpdateInspectionResponseResult};
+use Inspection\Application\UseCase\Query\Response\GetInspectionResponse\{GetInspectionResponseQuery, GetInspectionResponseResult};
+use Inspection\Domain\Exception\InspectionResponseClientIdAlreadyExistsException;
 use Inspection\Presentation\Api\Dto\Input\InspectionResponse\{CreateInspectionResponseInput, PatchInspectionResponseInput};
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
-use Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard, RevisionGuard};
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 use function is_string;
-use function trim;
 
 /**
  * Processor InspectionResponseProcessor.
  *
+ * Translates the five `/inspection-responses` mutations into use cases and
+ * nothing else: it parses IRIs and headers, runs the authorization gate, and
+ * maps a Result back to an Output. It holds no entity manager, opens no
+ * transaction, persists nothing, and decides no lifecycle state — the draft
+ * and published rules, the replay guard and the scope checks all live in
+ * `Application\UseCase\Command\Response\`.
+ *
+ * Two things deliberately stay here.
+ *
+ * The **authorization gate** does, because the permission it needs is a
+ * function of the request (`organization.inspection.write`, or whatever
+ * `InterventionResourceManager::mutationPermission()` resolves for an
+ * intervention-scoped row) and because `OUTSIDE_SCOPE` must answer 404 while
+ * `MISSING_PERMISSION` answers 403 — the enumeration oracle closed on
+ * 2026-08-26. Every sibling processor in this module gates the same way.
+ *
+ * The **one catch** does, because the duplicate-`clientId` condition answers
+ * 412 on the `PUT /inspection-responses/{id}` route and 409 on `POST`, and
+ * the request shape is the only thing that knows which. Every other failure
+ * is now a domain exception mapped declaratively in
+ * `config/packages/api_platform.yaml`.
+ *
  * @category Processor
  *
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -41,6 +64,7 @@ use function trim;
  */
 final readonly class InspectionResponseProcessor implements ProcessorInterface
 {
+  // #region Constructor
   /**
    * Constructor.
    *
@@ -48,8 +72,8 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param EntityManagerInterface $entityManager the entity manager value
-   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param CommandBusPort $commandBus the command bus value
+   * @param QueryBusPort $queryBus the query bus value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
@@ -58,8 +82,8 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    * @param RevisionGuard $revisionGuard the revision guard value
    */
   public function __construct(
-    private EntityManagerInterface $entityManager,
-    private UuidFactory $uuidFactory,
+    private CommandBusPort $commandBus,
+    private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
@@ -68,11 +92,11 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     private RevisionGuard $revisionGuard,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
    * Method process.
-   *
-   * Executes the process operation.
    *
    * @since 1.0.0
    *
@@ -85,60 +109,46 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?InspectionResponseOutput
   {
-    return $this->entityManager->wrapInTransaction(
-      fn (): ?InspectionResponseOutput => $this->processMutation($data, $uriVariables),
-    );
-  }
-
-  /**
-   * Method processMutation.
-   *
-   * Executes one inspection response mutation in a transaction.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $data the data value
-   * @param array<string, mixed> $uriVariables the uri variables value
-   *
-   * @return ?InspectionResponseOutput the mutation result
-   */
-  private function processMutation(mixed $data, array $uriVariables): ?InspectionResponseOutput
-  {
     if ($data instanceof CreateInspectionResponseInput) {
       return $this->create($data, $uriVariables);
     }
-    $record = $this->record($uriVariables);
-    $this->assertWrite($record->organization, $record->interventionId);
-    $this->revisionGuard->assertMatches($record->revision);
+
+    // The order below is a contract: absent answers 404 before the gate
+    // speaks, the gate speaks before `If-Match` is read, and only then does
+    // the payload shape matter. Moving `expectedRevision()` up would turn a
+    // 404 on an unknown id into a 428 for a caller that forgot the header.
+    $view = $this->view($uriVariables);
+    $this->assertWrite($view->organizationId, $view->interventionId);
+    $this->revisionGuard->assertMatches($view->revision);
+
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
-      if ('draft' !== $record->recordStatus) {
-        throw new ConflictHttpException('Published inspection responses cannot be deleted.');
-      }
-      $this->entityManager->remove($record);
-      $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
-      $this->entityManager->flush();
+      $this->commandBus->dispatch(new DeleteInspectionResponseCommand(
+        responseId: $view->id,
+        expectedRevision: $view->revision,
+      ));
 
       return null;
     }
+
     if (!$data instanceof PatchInspectionResponseInput) {
       throw new ConflictHttpException('Invalid inspection response mutation.');
     }
-    if ('draft' !== $record->recordStatus) {
-      throw new ConflictHttpException('Published inspection responses are immutable.');
-    }
-    $record->value = $data->value;
-    ++$record->revision;
-    $record->updatedAt = new DateTimeImmutable();
-    $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
-    $this->entityManager->flush();
 
-    return InspectionResponseProvider::output($record);
+    /** @var UpdateInspectionResponseResult $result */
+    $result = $this->commandBus->dispatch(new UpdateInspectionResponseCommand(
+      responseId: $view->id,
+      expectedRevision: $view->revision,
+      value: $data->value,
+    ));
+
+    return self::output($result->view);
   }
 
   /**
    * Method create.
    *
-   * Executes the create operation.
+   * Handles `POST /inspection-responses` and the offline
+   * `PUT /inspection-responses/{id}`.
    *
    * @since 1.0.0
    *
@@ -149,10 +159,12 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    */
   private function create(CreateInspectionResponseInput $data, array $uriVariables): InspectionResponseOutput
   {
-    $organization = $this->entityManager->find(OrganizationRecord::class, ResourceIriParser::id($data->organization, 'organizations'));
-    if (!$organization instanceof OrganizationRecord) {
-      throw new NotFoundHttpException('Organization not found.');
-    }
+    // No organization lookup. `resolveAccess()` below answers OUTSIDE_SCOPE
+    // — and therefore the same 404, with the same message — for an
+    // organization that does not exist as for one the caller is not in, so
+    // reading the record first would buy a second query and no answer.
+    // `InspectionResponseProvider` dropped the same lookup on 2026-08-26.
+    $organizationId = ResourceIriParser::id($data->organization, 'organizations');
     $resourceId = $uriVariables['id'] ?? null;
     if (is_string($resourceId)) {
       $this->creationPreconditionGuard->assertCreateOnly();
@@ -161,81 +173,65 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
       $resourceId = null;
     }
     $interventionId = null === $data->intervention ? null : ResourceIriParser::id($data->intervention, 'interventions');
-    $this->assertWrite($organization, $interventionId);
-    if (null !== $data->clientId) {
-      if (null !== $this->entityManager->getRepository(InspectionResponseRecord::class)->findOneBy(['clientId' => $data->clientId])) {
-        throw new ClientResourceAlreadyExistsHttpException(
-          null !== $resourceId ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
-        );
-      }
-    }
-    $inspection = $this->entityManager->find(InspectionRecord::class, ResourceIriParser::id($data->inspection, 'inspections'));
-    if (!$inspection instanceof InspectionRecord || $inspection->organization?->id !== $organization->id) {
-      throw new ConflictHttpException('Inspection must belong to the organization.');
-    }
-    if (null !== $interventionId && $inspection->interventionId !== $interventionId) {
-      throw new ConflictHttpException('Inspection and response must belong to the same intervention.');
-    }
-    $now = new DateTimeImmutable();
-    $record = new InspectionResponseRecord();
-    $record->id = $resourceId ?? $this->uuidFactory->generateRaw();
-    $record->organization = $organization;
-    $record->inspectionId = $inspection->id;
-    $record->clientId = $data->clientId;
-    $record->itemKey = trim($data->itemKey);
-    $record->value = $data->value;
-    $record->createdAt = $now;
-    $record->updatedAt = $now;
-    if (null !== $data->intervention) {
-      $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
-      if (!$intervention instanceof InterventionRecord || $intervention->organization?->id !== $organization->id) {
-        throw new ConflictHttpException('Intervention must belong to the organization.');
-      }
-      $record->interventionId = $intervention->id;
-      $record->recordStatus = 'draft';
-      ++$intervention->revision;
-      $intervention->updatedAt = $now;
-    }
-    $this->entityManager->persist($record);
-    $this->entityManager->flush();
+    $this->assertWrite($organizationId, $interventionId);
 
-    return InspectionResponseProvider::output($record);
+    try {
+      /** @var CreateInspectionResponseResult $result */
+      $result = $this->commandBus->dispatch(new CreateInspectionResponseCommand(
+        organizationId: $organizationId,
+        inspectionId: ResourceIriParser::id($data->inspection, 'inspections'),
+        itemKey: $data->itemKey,
+        value: $data->value,
+        interventionId: $interventionId,
+        resourceId: $resourceId,
+        clientId: $data->clientId,
+      ));
+    } catch (Throwable $exception) {
+      throw $this->mapClientIdConflict($exception, null !== $resourceId);
+    }
+
+    return self::output($result->view);
   }
 
   /**
-   * Method record.
+   * Method view.
+   *
+   * Reads the response the mutation targets, so the authorization gate has
+   * an organization to check against and `RevisionGuard` a revision to
+   * compare. Unknown and malformed identifiers answer alike.
    *
    * @since 1.0.0
    *
-   * @param array<string, mixed> $uriVariables
+   * @param array<string, mixed> $uriVariables the uri variables value
    *
-   * @return InspectionResponseRecord the record result
+   * @return InspectionResponseView the targeted response
    */
-  private function record(array $uriVariables): InspectionResponseRecord
+  private function view(array $uriVariables): InspectionResponseView
   {
     $id = $uriVariables['id'] ?? null;
-    $record = is_string($id) ? $this->entityManager->find(InspectionResponseRecord::class, $id) : null;
-    if (!$record instanceof InspectionResponseRecord) {
+
+    /** @var GetInspectionResponseResult $result */
+    $result = $this->queryBus->ask(new GetInspectionResponseQuery(is_string($id) ? $id : ''));
+
+    if (null === $result->view) {
       throw new NotFoundHttpException('Inspection response not found.');
     }
 
-    return $record;
+    return $result->view;
   }
 
   /**
    * Method assertWrite.
    *
-   * Executes the assert write operation.
-   *
    * @since 1.0.0
    *
-   * @param ?OrganizationRecord $organization the organization value
+   * @param string $organizationId the owning organization identifier
    * @param ?string $interventionId the intervention id value
    */
-  private function assertWrite(?OrganizationRecord $organization, ?string $interventionId): void
+  private function assertWrite(string $organizationId, ?string $interventionId): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+    if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
@@ -250,8 +246,99 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, $permission)) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
   }
+
+  /**
+   * Method mapClientIdConflict.
+   *
+   * Turns the one domain failure whose status depends on the request shape
+   * into its HTTP form, and hands every other failure straight back for the
+   * declarative map to answer.
+   *
+   * @since 1.0.0
+   *
+   * @param Throwable $exception the failure as the bus raised it
+   * @param bool $clientChosenIdentifier whether the identifier came from the PUT URI
+   *
+   * @return Throwable the exception to raise
+   */
+  private function mapClientIdConflict(Throwable $exception, bool $clientChosenIdentifier): Throwable
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      foreach (self::candidates($current) as $candidate) {
+        if ($candidate instanceof InspectionResponseClientIdAlreadyExistsException) {
+          return new ClientResourceAlreadyExistsHttpException(
+            $clientChosenIdentifier ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
+            $candidate,
+          );
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return $exception;
+  }
+
+  /**
+   * Method candidates.
+   *
+   * @static
+   *
+   * Yields an exception and, when it is a handler envelope, the failures it
+   * wraps — Messenger hides the real one behind `getWrappedExceptions()`
+   * rather than behind `getPrevious()` when several handlers run.
+   *
+   * @since 1.0.0
+   *
+   * @param Throwable $exception the exception to expand
+   *
+   * @return iterable<Throwable> the candidate exceptions
+   */
+  private static function candidates(Throwable $exception): iterable
+  {
+    yield $exception;
+
+    if ($exception instanceof HandlerFailedException) {
+      yield from $exception->getWrappedExceptions();
+    }
+  }
+
+  /**
+   * Method output.
+   *
+   * @static
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionResponseView $view the response view
+   *
+   * @return InspectionResponseOutput the output result
+   */
+  private static function output(InspectionResponseView $view): InspectionResponseOutput
+  {
+    $output = new InspectionResponseOutput();
+    $output->id = $view->id;
+    $output->organization = '/api/organizations/' . $view->organizationId;
+    $output->intervention = null !== $view->interventionId ? '/api/interventions/' . $view->interventionId : null;
+    $output->inspection = '/api/inspections/' . $view->inspectionId;
+    $output->recordStatus = $view->recordStatus;
+    $output->revision = $view->revision;
+    $output->itemKey = $view->itemKey;
+    $output->value = $view->value;
+    $output->createdAt = $view->createdAt->format('c');
+    $output->updatedAt = $view->updatedAt->format('c');
+
+    return $output;
+  }
+  // #endregion
 }

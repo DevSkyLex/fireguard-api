@@ -8,11 +8,10 @@ use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepo
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId};
-use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Exception\InvalidValueException;
+use Shared\Domain\Attachment\AttachmentConstraints;
 use Throwable;
 
 use function basename;
@@ -47,12 +46,8 @@ final readonly class AddAttachmentHandler implements CommandHandler
    */
   public function __invoke(AddAttachmentCommand $command): AddAttachmentResult
   {
-    try {
-      $equipmentId = EquipmentId::fromString($command->equipmentId);
-      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $equipmentId = EquipmentId::fromString($command->equipmentId);
+    $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
     $equipment = $this->equipmentRepository->findById($equipmentId);
 
@@ -60,13 +55,15 @@ final readonly class AddAttachmentHandler implements CommandHandler
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
-    try {
-      /** @var AttachmentId $attachmentId */
-      $attachmentId = null === $command->attachmentId
-        ? $this->uuidFactory->create(AttachmentId::class)
-        : AttachmentId::fromString($command->attachmentId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    /** @var AttachmentId $attachmentId */
+    $attachmentId = null === $command->attachmentId
+      ? $this->uuidFactory->create(AttachmentId::class)
+      : AttachmentId::fromString($command->attachmentId);
+
+    // A client-supplied id that already exists is a retry overwriting its own
+    // row, not a new attachment — it must not be rejected at the cap.
+    if (null === $this->attachmentRepository->findById($attachmentId)) {
+      AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
     }
 
     $storagePath = sprintf(

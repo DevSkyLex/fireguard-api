@@ -105,6 +105,19 @@ final readonly class AttachmentRepository implements AttachmentRepositoryPort
   }
 
   /**
+   * Method countByEquipmentId.
+   *
+   * @since 1.0.0
+   */
+  public function countByEquipmentId(EquipmentId $equipmentId): int
+  {
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
+
+    return $this->repository->count(['equipment' => $equipment]);
+  }
+
+  /**
    * Method delete.
    *
    * @since 1.0.0

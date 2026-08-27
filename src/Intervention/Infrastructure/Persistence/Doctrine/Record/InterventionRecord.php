@@ -146,6 +146,31 @@ class InterventionRecord
   public ?string $reviewNote = null;
 
   /**
+   * Property dueSoonNotifiedAt.
+   *
+   * Record-level anti-spam guard: set once the `intervention.due_soon`
+   * reminder has been sent for the current `dueAt`, so the sweep never
+   * re-announces it. Reset to `null` whenever `dueAt` is rescheduled — same
+   * treatment as {@see self::$overdueNotifiedAt}.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'due_soon_notified_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $dueSoonNotifiedAt = null;
+
+  /**
+   * Property overdueNotifiedAt.
+   *
+   * Record-level anti-spam guard: set once the `intervention.overdue`
+   * reminder has been sent for the current `dueAt`, so the sweep never
+   * re-announces it. Reset to `null` whenever `dueAt` is rescheduled.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'overdue_notified_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $overdueNotifiedAt = null;
+
+  /**
    * Property revision.
    *
    * @since 1.0.0

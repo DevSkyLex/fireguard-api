@@ -301,6 +301,7 @@ final class ImportJobRepositoryTest extends KernelTestCase
       createdBy: self::ACTOR_ID,
       createdAt: $createdAt,
       updatedAt: $createdAt,
+      dryRun: false,
       totalRows: null,
       processedRows: 0,
       successfulRows: 0,

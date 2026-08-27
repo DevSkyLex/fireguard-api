@@ -39,6 +39,20 @@ as the list endpoint (`action`, `actorType`, `actorId`, `subjectType`,
 `AuditEventExportCriteriaFactory` so an export always matches what the caller
 is currently looking at.
 
+- **`audit.export` is enforced by the controller, not by the operation's
+  `security:` metadata.** API Platform evaluates `security:` inside the state
+  provider chain (`AccessCheckerProvider`), which a `read: false` operation
+  with a custom `controller:` never enters — the expression is
+  documentation-only. `ExportAuditEventsController` therefore checks
+  `ExportAuditEventsController::EXPORT_PERMISSION` itself before touching the
+  query bus. Any future export endpoint built on the same
+  `controller:` + `read: false` pattern must do the same, or every
+  authenticated caller streams the whole ledger.
+- **The row cap surfaces as 422 only because the controller unwraps the bus
+  exception chain.** `MessengerQueryBusAdapter` wraps every handler failure
+  (`MessengerRuntimeException` → `HandlerFailedException` → domain), so a
+  direct `catch (AuditExportTooLargeException)` is dead code.
+
 - **Format — CSV, not PDF.** The ledger is an append-only, tabular event log
   that auditors filter/pivot in a spreadsheet — CSV is the natural fit and
   needs no template rendering. A PDF renderer already exists in this codebase
@@ -134,15 +148,26 @@ and appends one ledger entry per action:
   `decommissioned` (each with `previous_status`) — same rules; the canonical
   processors collect their events during the wrapped mutation and dispatch
   after the commit
-- `intervention.*` — `published` (THE audit point for the intervention write
-  path: the per-resource adapters never emit; drafts materialize here) and
-  `publication_failed` (with `reason`), both emitted by
+- `intervention.*` — `published` (the audit point for the intervention
+  publication write path: the per-resource adapters never emit; drafts
+  materialize here) and `publication_failed` (with `reason`), both emitted by
   `ExecutePublicationHandler` after `publish()`/`markFailed()` are durable.
   Failures before the intervention context resolves are not ledgered (no
   organization scope) but stay on the publication record. The Stripe webhook
   plan path needs no dedicated action: it dispatches
   `ChangeOrganizationPlanCommand` through the bus, so it lands in the ledger
-  as `organization.plan_changed` with actor `system`.
+  as `organization.plan_changed` with actor `system`. `status_transitioned`
+  covers every intervention status change (metadata: `intervention_number`,
+  `from_status`, `to_status`, and `review_note` when the target is
+  `changes_requested`), emitted by
+  `Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter`
+  — the single write path behind `PATCH /interventions/{id}` and the
+  work-item-driven `planned -> in_progress` auto-start — deferred until its
+  `wrapInTransaction` commits, mirroring the notification-deferral pattern
+  already in that adapter; the actor is always the mutating user — the
+  auto-start is attributed to the member whose work-item update triggered it
+  (a `null` actor falling back to `system` is modeled by the event but has no
+  production call site today).
 - `maintenance.*` — `schedule_overridden` (`PATCH /maintenance/schedules/{id}`
   setting/clearing `intervalOverride`; metadata: `equipment_id`,
   `interval_override`) and `campaign_generated` (`POST /maintenance/campaigns`;
@@ -154,10 +179,26 @@ and appends one ledger entry per action:
   (emitted by `MaterializeDueRecurrencesHandler` for every due occurrence it
   processes, success or failure; metadata: `succeeded`, `intervention_id`,
   `error`; actor is always `system`, since the recurring sweep has no user).
+- `intervention.list_exported` — every CSV export of an organization's
+  interventions (`GET /interventions/export`, the same synchronous,
+  streamed, row-capped pattern as `audit.audit_events_exported_event`);
+  subject is the organization; metadata: `row_count`, `filter_keys` (the
+  applied filter **names** only, never the raw values); actor is the
+  exporting user. Emitted by `ExportInterventionsController` after the
+  bounded result is fetched, before the response is streamed.
 - `automation.rule_*` — `rule_executed` (metadata: `rule_key`,
   `intervention_id`) and `rule_failed` (metadata: `rule_key`, `error`), both
   emitted by `ExecuteAutomationRuleHandler`; actor is always `system`
   (automations are never attributed to a user).
+- `calendar.event_*` — `event_created`, `event_updated`, `event_deleted`
+  (subject type `calendar_event`, subject id = the event id), emitted
+  synchronously by `Create`/`Update`/`DeleteCalendarEventHandler` with the
+  acting user as actor. The raw ledger metadata carries `title`/`starts_at`
+  for `event_created`/`event_updated` (empty for `event_deleted`, which adds
+  no field beyond the ids already on the row), but the organization-audience
+  projection (below) withholds both: an event title is operator-typed free
+  text, unlike a curated organization/team name, and can embed identifying
+  detail.
 - `messaging.*` — `conversation_archived` (`PATCH /conversations/{id}`
   transitioning to archived; subject is the conversation, metadata:
   `subject_type`, `subject_id`) and `message_moderated` (a manager holding
@@ -222,9 +263,93 @@ security token, falling back to `system` for CLI/async paths. Their metadata
 always includes `organization_id`, and invited emails are stored through the
 PII sanitizer (masked value + hash).
 
+The `organization_id` metadata value is also denormalized into a dedicated
+nullable, indexed `audit_events.organization_id` column (auth migration
+`Version20260811120000`, backfilled from `metadata->>'organization_id'`), so
+organization-scoped reads filter on an index instead of a JSON scan. The
+metadata copy remains the hash-covered source of truth — the column is
+deliberately **not** part of the event-hash payload, keeping every row
+(pre- and post-backfill) verifiable with the same payload recipe.
+`RecordAuditEventHandler` enforces the coherence invariant on every write:
+when the command carries an `organizationId`, it is synced into
+`metadata['organization_id']` (overwriting any mismatched caller value), so
+the column is always provably derived from a hash-covered field — no caller
+can persist a column value the ledger's tamper-evidence does not cover.
+
+`organization.ownership_transferred` is part of this set like the rest:
+`recordOrganizationAudit()` gives it the column, so it appears in the
+organization feed, and its payload (`previous_owner_user_id`,
+`new_owner_user_id` — two opaque ids) is vetted in the projection below
+rather than admitted by default.
+
+`AuditEventSearchCriteria` accepts an `organizationId` filter for this; the
+platform-level `/api/audit-events` HTTP filter set is unchanged (list and
+export stay in sync).
+
+### Published capability: the organization audit feed
+
+`Audit\Application\Port\Inbound\OrganizationAuditFeedPort`
+(implemented by `Application\Service\OrganizationAuditFeedService`, aliased in
+`config/modules/audit.yaml`) is this module's **only** published read
+capability, consumed directly cross-module in the same way
+`Organization\Application\Port\Inbound\TeamDirectoryPort` is. Its sole
+consumer today is the Organization module's
+`GET /api/organizations/{organizationId}/audit-events` activity feed
+(`organization.audit.read`).
+
+It exists so that two invariants belong to this module rather than to whoever
+reads it:
+
+- **Scope.** The service builds the `AuditEventSearchCriteria` itself with
+  `organizationId` always set. No argument combination reaches a query that
+  spans organizations.
+- **Reduction.** The port publishes `Application\Contract\OrganizationAuditEntry`,
+  which simply has no field for actor email (plain or hashed), IP address or
+  hash, user agent, client/tenant id, or the chain internals — they cannot be
+  forgotten downstream because there is nowhere to put them. This holds
+  regardless of `SECURITY_LOG_INCLUDE_PII`, which governs platform auditors,
+  a different and higher-trust audience.
+
+A consumer must **not** be given `Application\Port\Outbound\AuditEventRepositoryPort`
+instead: that is this module's own dependency on its persistence adapter, it
+hands over the unfiltered ledger, and it makes the reduction a rule someone
+has to remember. Note that `deptrac.yaml` defines hexagonal layers with no
+per-module layers, so an Application→Application import passes green — the
+gate does not police this, review does.
+
+**Metadata producer contract**: metadata dispatched through
+`recordOrganizationAudit()` is potentially readable by organization admins.
+It is filtered by `Application\Service\OrganizationAuditMetadataProjection`,
+a **per-action allowlist**, and the default is *drop*: an action absent from
+the map publishes an empty payload, and a key absent from its action's entry
+is dropped. A denylist of key names was tried first and is unsound twice
+over — it cannot see inside a value, and it admits by default whatever a
+future producer invents.
+
+So: **adding an organization-scoped action without an entry in that map
+degrades the feed rather than leaking through it.** When extending the map,
+admissible values are identifiers, catalog/enum keys, booleans, counts, and
+organization-owned entity labels. Not admissible: operator-typed prose
+(`reason`, `context`), system internals (`error`, `job_error` — exception
+text embeds file paths and row fragments), personal data (emails, IPs, user
+agents), and anything belonging to another permission's surface
+(`invited_email` → `organization.members.manage`, `url_host` →
+`organization.webhooks.*`); the feed must never become a way around a
+permission the caller was not granted. `organization_id` is dropped
+everywhere — the reader already scoped the request to one organization.
+
+`OrganizationAuditMetadataProjectionTest` holds a standing guard over the
+whole map, so a future entry cannot quietly admit a prose or credential key.
+
 ## Configuration
 
 - Audit events are stored in `audit_events` and `audit_event_chains`.
+- `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` is aliased to
+  `Audit\Application\Service\OrganizationAuditFeedService` in
+  `config/modules/audit.yaml`. It reads through `AuditEventRepositoryPort` and
+  touches no entity manager of its own, so it names none;
+  `AuditEventRepository` resolves the default manager, which is `auth` — the
+  database `audit_events` lives in.
 - PII handling uses the same flags as security logs:
   - `SECURITY_LOG_INCLUDE_PII`
   - `SECURITY_LOG_PII_SALT`
@@ -238,7 +363,11 @@ PII sanitizer (masked value + hash).
   metadata cell, no PHP `NULL` leakage), `AuditEventExportCriteriaFactoryTest`
   (filter parsing, blank-string handling, applied-filter-name extraction) and
   an `AuditEventSubscriberTest` case for `onAuditEventsExported` asserting
-  the recorded metadata never carries raw filter values.
+  the recorded metadata never carries raw filter values. Also
+  `OrganizationAuditMetadataProjectionTest` (fail-closed on an unknown action,
+  every free-text/PII key the producers actually emit named one by one, and
+  the standing guard over the whole map) and `OrganizationAuditFeedServiceTest`
+  (the scope invariant, and the reduction proven on a row saturated with PII).
 - Integration: `tests/Integration/Audit/Infrastructure/Persistence/Doctrine/Repository/AuditEventRepositoryTest`
   runs `AuditEventRepository::countMatching()`/`stream()` against a real
   entity manager (a mocked QueryBuilder never parses the DQL those methods

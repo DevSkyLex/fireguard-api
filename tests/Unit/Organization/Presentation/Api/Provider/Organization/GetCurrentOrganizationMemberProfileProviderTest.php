@@ -20,7 +20,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 #[CoversClass(GetCurrentOrganizationMemberProfileProvider::class)]
 final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
@@ -142,7 +142,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationMemberNotFoundException::class);
 
     $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655442308']);
   }

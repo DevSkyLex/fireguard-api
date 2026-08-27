@@ -37,6 +37,15 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
 
   private const string ADMIN_PASSWORD = 'Admin123!';
 
+  /**
+   * A seeded active user holding the plain `user` role
+   * ({@see \Authorization\Infrastructure\Catalog\RoleCatalog::userPermissionNames()}),
+   * which grants profile/session/OTP self-service and **not** `audit.export`.
+   */
+  private const string PLAIN_USER_EMAIL = 'test@fireguard.local';
+
+  private const string PLAIN_USER_PASSWORD = 'Test123!';
+
   private const string EXPORT_URI = '/api/audit-events/export';
 
   /**
@@ -86,6 +95,10 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
     $client = static::createClientWithFixtures();
     $token = $this->loginAndGetUserAccessToken($client, self::ADMIN_EMAIL, self::ADMIN_PASSWORD);
 
+    // `tenantId` also switches TenantIsolationSubscriber's `tenant` Doctrine
+    // filter on for the whole request. The authorization tables opt out of it
+    // through TenantFilterExempt, so the caller keeps its own grants and the
+    // export stays a 200 instead of the 403 this used to produce.
     $query = http_build_query([
       'action' => 'auth.login_success',
       'actorType' => 'user',
@@ -114,6 +127,64 @@ final class AuditWriteFlowTest extends OAuth2WebTestCase
     self::assertTrue(
       is_string($contentType) && str_contains($contentType, 'text/csv'),
       'The filtered export must still be streamed as CSV; got Content-Type: ' . (string) $contentType,
+    );
+  }
+
+  /**
+   * GET /api/audit-events/export — an authenticated caller without
+   * `audit.export` is refused with 403. Authentication alone must never
+   * open the ledger: the plain `user` role has full self-service rights and
+   * still may not export who did what.
+   */
+  public function testAuthenticatedUserWithoutTheExportPermissionIsForbidden(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->loginAndGetUserAccessToken($client, self::PLAIN_USER_EMAIL, self::PLAIN_USER_PASSWORD);
+
+    $client->request(
+      method: 'GET',
+      uri: self::EXPORT_URI,
+      server: [
+        'HTTP_ACCEPT' => 'text/csv',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(
+      Response::HTTP_FORBIDDEN,
+      $response->getStatusCode(),
+      'A user without audit.export must be refused with 403, not served the ledger. Response: ' . $response->getContent(),
+    );
+  }
+
+  /**
+   * GET /api/audit-events?tenantId=<uuid> — the sibling list endpoint stays
+   * readable under the same tenant scope. Both routes are permission-gated,
+   * and the `tenant` Doctrine filter must not reach the tables the caller's
+   * own grants are read from.
+   */
+  public function testAdminListsAuditEventsFilteredByTenant(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->loginAndGetUserAccessToken($client, self::ADMIN_EMAIL, self::ADMIN_PASSWORD);
+
+    $client->request(
+      method: 'GET',
+      uri: '/api/audit-events?' . http_build_query([
+        'tenantId' => OrganizationFixtures::ORGANIZATION_ID,
+      ]),
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(
+      Response::HTTP_OK,
+      $response->getStatusCode(),
+      'A tenant-filtered list should stay readable for an admin holding audit.read. Response: ' . $response->getContent(),
     );
   }
 

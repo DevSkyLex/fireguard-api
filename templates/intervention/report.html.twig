@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Intervention report — FG-{{ number }}</title>
+  <style>
+    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1f2933; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    h2 { font-size: 14px; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #cbd2d9; padding-bottom: 4px; }
+    .meta { color: #52606d; margin-bottom: 12px; }
+    .meta div { margin-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    th, td { border: 1px solid #cbd2d9; padding: 4px 6px; text-align: left; }
+    th { background-color: #f5f7fa; text-transform: uppercase; font-size: 9px; letter-spacing: 0.04em; }
+    .label-chip { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 3px; border: 1px solid #cbd2d9; font-size: 9px; }
+    .severity-blocker { color: #b3261e; font-weight: bold; }
+    .severity-warning { color: #9a6700; font-weight: bold; }
+    .severity-recommendation { color: #52606d; font-weight: bold; }
+    .footer { margin-top: 18px; font-size: 9px; color: #7b8794; }
+    .empty { color: #7b8794; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Intervention report — FG-{{ number }}</h1>
+  <div class="meta">
+    <div>Name: {{ name }}</div>
+    <div>Type: {{ type }}</div>
+    <div>Status: {{ status }}</div>
+    <div>Priority: {{ priority }}</div>
+    <div>Site: {{ siteName|default('—') }}</div>
+    <div>Responsible: {{ responsibleName|default('—') }}</div>
+    <div>Participants: {{ participantNames is not empty ? participantNames|join(', ') : '—' }}</div>
+    <div>Planned start: {{ plannedStartAt|default('—') }}</div>
+    <div>Due: {{ dueAt|default('—') }}</div>
+    {% if reviewNote is not empty %}
+      <div>Review note: {{ reviewNote }}</div>
+    {% endif %}
+    <div>Completion signature captured: {{ hasSignature ? 'Yes' : 'No' }}</div>
+    {% if labels is not empty %}
+      <div>
+        Labels:
+        {% for label in labels %}
+          <span class="label-chip">{{ label.name }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div>Generated at: {{ generatedAt }}</div>
+  </div>
+
+  <h2>Work items</h2>
+  {% if workItems is empty %}
+    <p class="empty">No work items.</p>
+  {% else %}
+    <table>
+      <tr>
+        <th>Action</th>
+        <th>Target</th>
+        <th>Assignee</th>
+        <th>Status</th>
+        <th>Required</th>
+        <th>Skip reason</th>
+        <th>Evidence</th>
+      </tr>
+      {% for workItem in workItems %}
+        <tr>
+          <td>{{ workItem.action }}</td>
+          <td>{{ workItem.target }}</td>
+          <td>{{ workItem.assigneeName|default('—') }}</td>
+          <td>{{ workItem.status }}</td>
+          <td>{{ workItem.required ? 'Yes' : 'No' }}</td>
+          <td>{{ workItem.skipReason|default('—') }}</td>
+          <td>{{ workItem.evidenceCount }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  <h2>Issues</h2>
+  {% if issues is empty %}
+    <p class="empty">No issues.</p>
+  {% else %}
+    <table>
+      <tr>
+        <th>Severity</th>
+        <th>Message</th>
+      </tr>
+      {% for issue in issues %}
+        <tr>
+          <td class="severity-{{ issue.severity }}">{{ issue.severity }}</td>
+          <td>{{ issue.message }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  <h2>Changes</h2>
+  <table>
+    <tr>
+      <th>Proposed</th>
+      <th>Applied</th>
+      <th>Rejected</th>
+    </tr>
+    <tr>
+      <td>{{ proposedChangesCount }}</td>
+      <td>{{ appliedChangesCount }}</td>
+      <td>{{ rejectedChangesCount }}</td>
+    </tr>
+  </table>
+
+  <h2>Attachments</h2>
+  {% if attachments is empty %}
+    <p class="empty">No attachments.</p>
+  {% else %}
+    <table>
+      <tr>
+        <th>File name</th>
+        <th>Kind</th>
+      </tr>
+      {% for attachment in attachments %}
+        <tr>
+          <td>{{ attachment.fileName }}</td>
+          <td>{{ attachment.kind }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  <h2>Activity highlights</h2>
+  {% if activities is empty %}
+    <p class="empty">No recorded activity.</p>
+  {% else %}
+    <table>
+      <tr>
+        <th>Date</th>
+        <th>Kind</th>
+        <th>Event</th>
+        <th>Actor</th>
+        <th>Comment</th>
+      </tr>
+      {% for activity in activities %}
+        <tr>
+          <td>{{ activity.createdAt }}</td>
+          <td>{{ activity.kind }}</td>
+          <td>{{ activity.event }}</td>
+          <td>{{ activity.actorName|default('—') }}</td>
+          <td>{{ activity.body|default('—') }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  <div class="footer">
+    This document is a point-in-time snapshot and is not stored; regenerate it at any time from the
+    live intervention record.
+  </div>
+</body>
+</html>

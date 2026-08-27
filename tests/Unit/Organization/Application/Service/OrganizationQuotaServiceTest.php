@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Outbound\{
   EquipmentStatisticsPort,
   FacilityStatisticsPort,
@@ -16,10 +17,9 @@ use Organization\Application\Port\Outbound\{
   PlanRepositoryPort
 };
 use Organization\Application\Service\OrganizationQuotaService;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource, PlanId, PlanKey};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource as DomainQuotaResource, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -107,6 +107,49 @@ final class OrganizationQuotaServiceTest extends TestCase
     $service->assertCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
 
     $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddPassesUnderTheProjectedCount(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddThrowsWhenUsagePlusOffsetReachesTheCap(): void
+  {
+    // usage (2) + offset (3) >= limit (5): rows already counted earlier in
+    // the same dry-run batch tip this one over the cap.
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 3);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddPassesWhenUnlimited(): void
+  {
+    $service = $this->service(plan: $this->plan([]), facilityCount: 9999);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 500);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertProjectedCanAddNeverTakesTheAdvisoryLock(): void
+  {
+    $lock = $this->createMock(OrganizationQuotaLockPort::class);
+    $lock->expects(self::never())->method('acquire');
+
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $lock);
+
+    $service->assertProjectedCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 0);
   }
 
   #[Test]
@@ -208,7 +251,7 @@ final class OrganizationQuotaServiceTest extends TestCase
     $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
     $quotaLock->expects(self::once())
       ->method('acquire')
-      ->with(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+      ->with(self::ORGANIZATION_ID, DomainQuotaResource::FACILITIES);
 
     $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
 
@@ -227,6 +270,75 @@ final class OrganizationQuotaServiceTest extends TestCase
     $service->assertCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
 
     $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultiplePassesUnderLimit(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 3);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultipleThrowsWhenBatchWouldExceedLimit(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    // 2 already used + 4 requested = 6, exceeds the cap of 5.
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 4);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultiplePassesAtExactlyTheRemainingCapacity(): void
+  {
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 3);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultiplePassesWhenUnlimited(): void
+  {
+    $service = $this->service(plan: $this->plan([]), facilityCount: 9999);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1000);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultipleIsANoOpForANonPositiveCount(): void
+  {
+    /** @var OrganizationQuotaLockPort&MockObject $quotaLock */
+    $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
+    $quotaLock->expects(self::never())->method('acquire');
+
+    $service = $this->service(plan: $this->plan(['facilities' => 1]), facilityCount: 1, quotaLock: $quotaLock);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 0);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAddMultipleAcquiresTheAdvisoryLockWhenLimited(): void
+  {
+    /** @var OrganizationQuotaLockPort&MockObject $quotaLock */
+    $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
+    $quotaLock->expects(self::once())
+      ->method('acquire')
+      ->with(self::ORGANIZATION_ID, DomainQuotaResource::FACILITIES);
+
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
+
+    $service->assertCanAddMultiple(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES, 1);
   }
 
   private function service(

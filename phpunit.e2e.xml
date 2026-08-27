@@ -5,11 +5,14 @@
     E2E-only config, split out from phpunit.dist.xml.
 
     Runs against the seeded `fireguard_*_e2e` databases (created once by the
-    CI workflow / a local `make test-db`-style step) instead of the empty
-    `fireguard_*_test` ones the other suites need — see
-    tests/E2E/OAuth2WebTestCase.php for why the two cannot share a config.
-    Under paratest, tests/bootstrap.php clones each worker its own copy of
-    these databases keyed by TEST_TOKEN.
+    CI workflow) rather than the `fireguard_*_test` ones `make test-db` builds
+    locally, so CI can keep an E2E-only baseline separate from the databases
+    the other suites share. Both baselines are seeded the same way; the E2E
+    suite also runs under phpunit.dist.xml against `fireguard_*_test`.
+
+    tests/bootstrap.php clones whichever pair is configured into a private
+    copy per run, keyed by TEST_TOKEN, so the exact-count assertions in
+    tests/E2E cannot be moved by anything outside the run.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"

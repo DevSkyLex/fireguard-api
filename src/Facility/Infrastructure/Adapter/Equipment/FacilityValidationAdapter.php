@@ -48,5 +48,22 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
       throw new InvalidArgumentException(sprintf('Facility with ID "%s" is archived and cannot be used.', $facilityId));
     }
   }
+
+  /**
+   * Method belongsToOrganization.
+   *
+   * @since 1.1.0
+   *
+   * @param string $facilityId the facility identifier
+   * @param string $organizationId the expected organization identifier
+   *
+   * @return bool true when the facility exists and belongs to that organization
+   */
+  public function belongsToOrganization(string $facilityId, string $organizationId): bool
+  {
+    $facility = $this->facilityRepository->findById(FacilityId::fromString($facilityId));
+
+    return null !== $facility && (string) $facility->organizationId() === $organizationId;
+  }
   // #endregion
 }

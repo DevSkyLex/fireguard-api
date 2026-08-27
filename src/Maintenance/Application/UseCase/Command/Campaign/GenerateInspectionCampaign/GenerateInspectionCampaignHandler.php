@@ -8,7 +8,7 @@ use Intervention\Application\Contract\Draft\{CreateInterventionDraftRequest, Int
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
-use Maintenance\Domain\Exception\MaintenanceValidationException;
+use Maintenance\Domain\Exception\{MaintenanceNotFoundException, MaintenanceValidationException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -27,8 +27,11 @@ use const JSON_THROW_ON_ERROR;
  * `InterventionDraftFactoryPort` (the same programmatic draft-creation path
  * other automations use) with `origin: 'maintenance:campaign'`.
  *
- * Authorization requires BOTH `organization.maintenance.manage` (the
- * maintenance-side "prepare a campaign" capability) and
+ * Authorization gates on `OrganizationAuthorizationPort::isMemberOf()` first
+ * — a caller with no active membership in the organization gets the same 404
+ * an unknown organization id produces, never a 403 that would confirm the
+ * organization exists — then requires BOTH `organization.maintenance.manage`
+ * (the maintenance-side "prepare a campaign" capability) and
  * `organization.interventions.plan` (the draft factory itself does not
  * authorize — callers must).
  *
@@ -69,6 +72,10 @@ final readonly class GenerateInspectionCampaignHandler implements CommandHandler
    */
   public function __invoke(GenerateInspectionCampaignCommand $command): GenerateInspectionCampaignResult
   {
+    if (!$this->authorization->isMemberOf($command->actorUserId, $command->organizationId)) {
+      throw MaintenanceNotFoundException::forOrganizationScope($command->organizationId);
+    }
+
     $this->authorization->assertGrantedPermissions($command->actorUserId, $command->organizationId, [
       'organization.maintenance.manage',
       'organization.interventions.plan',

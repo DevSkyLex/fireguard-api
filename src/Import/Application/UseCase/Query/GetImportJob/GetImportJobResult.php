@@ -35,11 +35,12 @@ final readonly class GetImportJobResult implements ResultMessage
    * @param string $kind the import kind value (`equipment`|`facility`)
    * @param string $status the import job status value
    * @param string $originalFilename the original uploaded file name
+   * @param bool $dryRun whether the job validated and reported without provisioning anything
    * @param ?int $totalRows the total data row count, once counted
    * @param int $processedRows the number of data rows processed so far
-   * @param int $successfulRows the number of rows successfully provisioned
+   * @param int $successfulRows the number of rows successfully provisioned (or, for a dry run, that would be)
    * @param int $failedRows the number of rows reported as failed
-   * @param list<array{rowNumber: int, column: ?string, code: string, message: string}> $errorReport the per-row error report
+   * @param list<array{rowNumber: int, column: ?string, code: string, message: string}> $errorReport the per-row report
    * @param ?string $jobError the catastrophic failure reason, when failed
    * @param string $createdBy the creating user identifier
    * @param DateTimeImmutable $createdAt the creation timestamp
@@ -53,6 +54,7 @@ final readonly class GetImportJobResult implements ResultMessage
     public string $kind,
     public string $status,
     public string $originalFilename,
+    public bool $dryRun,
     public ?int $totalRows,
     public int $processedRows,
     public int $successfulRows,
@@ -90,6 +92,7 @@ final readonly class GetImportJobResult implements ResultMessage
       kind: $job->kind()->value,
       status: $job->status()->value,
       originalFilename: $job->originalFilename(),
+      dryRun: $job->isDryRun(),
       totalRows: $job->totalRows(),
       processedRows: $job->processedRows(),
       successfulRows: $job->successfulRows(),

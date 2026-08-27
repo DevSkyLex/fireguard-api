@@ -27,9 +27,16 @@ final readonly class GetOrganizationQuery implements QueryMessage
    * @since 1.0.0
    *
    * @param string $organizationId the organization ID
+   * @param ?string $callerUserId the requesting user's identifier; when
+   *                              provided, the result's `isOwner`/`roles`
+   *                              caller-membership fields are resolved,
+   *                              mirroring ListUserOrganizations. Null
+   *                              (the default) preserves the pre-existing
+   *                              behavior of leaving both null
    */
   public function __construct(
     public string $organizationId,
+    public ?string $callerUserId = null,
   ) {
   }
   // #endregion

@@ -67,10 +67,16 @@ is only issued after the exact same authorization a normal `GET` on the
 thread would apply (mirrors `Messaging`'s `GetMessagingSubscriptionProvider`
 / `Notification`'s `GetMercureSubscriptionProvider`).
 
-**Deferred org-level gate:** endpoints are gated on the
-`organization.assistant.use` permission ONLY. `OrganizationSettings.assistant.enabled`
-is still **not checked** — unchanged since L2.1, see "Deferred cross-module
-work" below.
+**Two gates, both opt-in.** Every endpoint passes through
+`Application\Service\AssistantAccessPolicy::assertCanUseAssistant()`, which asserts
+the `organization.assistant.use` permission **and** that the organization has
+turned the assistant on (`OrganizationSettings.assistant.enabled`, read through
+`AssistantOrganizationSettingsPort::isEnabledFor()`). A disabled organization
+answers 403 even to a member who holds the permission.
+
+Order matters: the permission is asserted first, so a caller outside the
+organization keeps the answer the authorization port decides rather than
+learning from a toggle whether the organization exists.
 
 ## Architecture
 
@@ -272,14 +278,7 @@ Published event payload (JSON):
 
 ## Deferred cross-module work
 
-1. **`settings.assistant.enabled` gate.** `Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort::isEnabledFor()`
-   is bound (L2.2, to `Organization\Infrastructure\Adapter\Assistant\OrganizationAssistantSettingsAdapter`)
-   but still **not called** by any handler/processor: every Assistant
-   endpoint still gates on the `organization.assistant.use` permission ONLY.
-   Only the port's OTHER method, `includeBusinessContextFor()`, is consumed
-   so far (by `GenerateAssistantReplyHandler`, for the business-context seam
-   below).
-2. **Member identity.** `memberId` is still the authenticated user's id, not
+1. **Member identity.** `memberId` is still the authenticated user's id, not
    a resolved `OrganizationMemberId`.
 
 ## The business-context injection seam (`assistant.context_provider`, L2.2)
@@ -291,10 +290,10 @@ first. `buildContextBlocks()` now delegates to `AssistantContextAssembler`
 when the CALLER indicates business context is wanted — it is a private
 method with no external callers of its own, so this stayed additive.
 
-**Why server-side pre-injection, not LLM tool-calling.** The mockup's
-assistant suggestions ("List the open non-conformities", "What's blocking
-the campaign?") require truthful, current organization data the thread
-transcript alone can never contain. Tool-calling would let a small local
+**Why server-side pre-injection, not LLM tool-calling.** The assistant's
+suggested prompts ("List the open non-conformities", "What's blocking the
+campaign?") require truthful, current organization data the thread transcript
+alone can never contain. Tool-calling would let a small local
 model hallucinate a tool invocation or its arguments; pre-injecting a
 deterministic, server-rendered text block is auditable (the exact bytes sent
 to Ollama are reconstructable from `organizationId` + `includeBusinessContext`

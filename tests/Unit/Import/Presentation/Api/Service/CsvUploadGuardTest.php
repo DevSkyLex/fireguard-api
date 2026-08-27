@@ -45,6 +45,31 @@ final class CsvUploadGuardTest extends TestCase
       self::assertSame('facilities.csv', $result->fileName);
       self::assertSame('text/csv', $result->mimeType);
       self::assertStringContainsString('Main site', $result->contents);
+      self::assertFalse($result->dryRun);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  #[Test]
+  public function itParsesTheDryRunFlagFromTheMultipartField(): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'import-');
+    self::assertIsString($path);
+    file_put_contents($path, "type,name\nsite,Main site\n");
+
+    try {
+      $request = Request::create('/api/imports', 'POST', [
+        'kind' => 'facility',
+        'organization' => 'org-1',
+        'dryRun' => 'true',
+      ], [], [
+        'file' => new UploadedFile($path, 'facilities.csv', 'text/csv', null, true),
+      ]);
+
+      $result = new CsvUploadGuard()->fromRequest($request);
+
+      self::assertTrue($result->dryRun);
     } finally {
       unlink($path);
     }

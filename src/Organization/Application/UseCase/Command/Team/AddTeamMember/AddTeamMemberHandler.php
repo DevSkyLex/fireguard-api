@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Team\AddTeamMember;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, TeamRepositoryPort};
 use Organization\Domain\Event\Team\TeamMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, TeamNotFoundException};
+use Organization\Domain\Exception\TeamMembershipException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, TeamId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -82,11 +82,11 @@ final readonly class AddTeamMemberHandler implements CommandHandler
     }
 
     if (!$member->isActive()) {
-      throw new InvalidArgumentException('Member is not active in this organization.');
+      throw TeamMembershipException::memberNotActive();
     }
 
     if (in_array($command->memberId, $this->teamRepository->findMemberIds($teamId), true)) {
-      throw new InvalidArgumentException('Member is already part of this team.');
+      throw TeamMembershipException::alreadyOnTheTeam();
     }
 
     $this->teamRepository->addMember($teamId, $memberId, $command->role);

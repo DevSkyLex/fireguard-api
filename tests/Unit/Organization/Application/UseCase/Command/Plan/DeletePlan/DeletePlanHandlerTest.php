@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Command\Plan\DeletePlan;
 
-use InvalidArgumentException;
 use Organization\Application\Port\Outbound\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Plan\DeletePlan\{
   DeletePlanCommand,
   DeletePlanHandler
 };
-use Organization\Domain\Exception\PlanNotFoundException;
+use Organization\Domain\Exception\{DefaultPlanCannotBeDeletedException, PlanNotFoundException};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\Test;
@@ -73,7 +72,7 @@ final class DeletePlanHandlerTest extends TestCase
 
     $handler = new DeletePlanHandler($repository, $this->transactionManager());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(DefaultPlanCannotBeDeletedException::class);
     $this->expectExceptionMessage('The default plan cannot be deleted.');
 
     $handler(new DeletePlanCommand(self::PLAN_ID));

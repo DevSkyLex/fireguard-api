@@ -16,8 +16,9 @@ use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 use function base64_decode;
 use function is_string;
@@ -68,13 +69,28 @@ final readonly class AddAttachmentProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and equipmentId URI parameters are required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.equipment.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.equipment.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.equipment.write permission.');
     }
 
     $contents = base64_decode($data->content, strict: true);
     if (false === $contents) {
       throw new BadRequestHttpException('File content must be valid base64-encoded data.');
+    }
+
+    // Mirrors MultipartAttachmentGuard's own MIME/size check (the shared
+    // kernel every OTHER module's media processor routes through) — this
+    // JSON/base64 wire shape carries no multipart Request for the guard to
+    // extract from, so the same shared policy is applied directly here
+    // instead. See src/Equipment/MODULE.md.
+    try {
+      AttachmentConstraints::validate($data->mimeType, strlen($contents));
+    } catch (InvalidAttachmentException $exception) {
+      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
     }
 
     try {

@@ -13,6 +13,7 @@ use Equipment\Presentation\Api\Dto\Input\Equipment\AssignToFacilityInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\AssignToFacilityProcessor;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -58,9 +59,9 @@ final class AssignToFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new AssignToFacilityCommand(
@@ -115,8 +116,8 @@ final class AssignToFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
-      ->willReturn(true);
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $now = new DateTimeImmutable('2026-03-02T10:00:00+00:00');
 
@@ -177,9 +178,9 @@ final class AssignToFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.write')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -200,6 +201,45 @@ final class AssignToFacilityProcessorTest extends TestCase
         'equipmentId' => $equipmentId,
       ],
     );
+  }
+
+  #[Test]
+  public function testProcessThrowsNotFoundWhenOrganizationIsOutsideCallersScope(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441223';
+    $equipmentId = '550e8400-e29b-41d4-a716-446655441224';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441225');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new AssignToFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    // Not AccessDeniedHttpException: a 403 for a caller outside the organization's
+    // scope would confirm the record exists across an organization boundary.
+    try {
+      $processor->process(
+        data: new AssignToFacilityInput(),
+        operation: new Post(),
+        uriVariables: [
+          'organizationId' => $organizationId,
+          'equipmentId' => $equipmentId,
+        ],
+      );
+      self::fail('Expected NotFoundHttpException to be thrown.');
+    } catch (NotFoundHttpException $exception) {
+      self::assertSame('Organization not found.', $exception->getMessage());
+    }
   }
 
   #[Test]
@@ -355,7 +395,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $commandBus->method('dispatch')->willThrowException($failure);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new AssignToFacilityProcessor(
       commandBus: $commandBus,

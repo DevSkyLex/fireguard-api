@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\{
@@ -22,9 +22,10 @@ use Organization\Domain\Exception\{
   OrganizationPlanUsageExceededException,
   PlanNotFoundException
 };
+use Organization\Domain\Exception\PlanNotAvailableException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource, PlanId, PlanKey};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -212,7 +213,7 @@ final class ChangeOrganizationPlanHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(PlanNotAvailableException::class);
 
     $handler->__invoke(new ChangeOrganizationPlanCommand(
       organizationId: self::ORGANIZATION_ID,

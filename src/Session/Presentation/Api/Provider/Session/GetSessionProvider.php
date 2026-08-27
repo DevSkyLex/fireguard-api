@@ -7,12 +7,10 @@ namespace Session\Presentation\Api\Provider\Session;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Session\Application\UseCase\Query\Session\GetSession\{GetSessionQuery, GetSessionResult};
-use Session\Domain\Exception\SessionNotFoundException;
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -62,54 +60,22 @@ final readonly class GetSessionProvider implements ProviderInterface
       throw new NotFoundHttpException('Session ID is required.');
     }
 
-    try {
-      $query = new GetSessionQuery(sessionId: $sessionId);
-      /** @var GetSessionResult $result */
-      $result = $this->queryBus->ask(query: $query);
+    /** @var GetSessionResult $result */
+    $result = $this->queryBus->ask(query: new GetSessionQuery(sessionId: $sessionId));
 
-      $output = new SessionOutput();
-      $output->id = $result->sessionId;
-      $output->userId = $result->userId;
-      $output->ipAddress = $result->ipAddress;
-      $output->userAgent = $result->userAgent;
-      $output->deviceType = $result->deviceType;
-      $output->browser = $result->browser;
-      $output->createdAt = $result->createdAt->format('c');
-      $output->lastActivityAt = $result->lastActivityAt->format('c');
-      $output->isActive = !$result->isRevoked;
+    $output = new SessionOutput();
+    $output->id = $result->sessionId;
+    $output->userId = $result->userId;
+    $output->ipAddress = $result->ipAddress;
+    $output->userAgent = $result->userAgent;
+    $output->deviceType = $result->deviceType;
+    $output->browser = $result->browser;
+    $output->createdAt = $result->createdAt->format('c');
+    $output->lastActivityAt = $result->lastActivityAt->format('c');
+    $output->isActive = !$result->isRevoked;
 
-      return $output;
-    } catch (Throwable $exception) {
-      $notFound = $this->findSessionNotFound($exception);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    return $output;
   }
 
-  /**
-   * Method findSessionNotFound.
-   *
-   * Extracts a SessionNotFoundException from a nested exception chain.
-   *
-   * @param Throwable $exception the exception to inspect
-   *
-   * @return SessionNotFoundException|null the not found exception if present
-   */
-  private function findSessionNotFound(Throwable $exception): ?SessionNotFoundException
-  {
-    $current = $exception;
-    while (null !== $current) {
-      if ($current instanceof SessionNotFoundException) {
-        return $current;
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return null;
-  }
   // #endregion
 }

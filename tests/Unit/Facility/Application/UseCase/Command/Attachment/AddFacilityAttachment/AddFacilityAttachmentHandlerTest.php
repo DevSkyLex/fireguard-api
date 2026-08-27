@@ -9,13 +9,16 @@ use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\{AddFa
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
+use Shared\Domain\Exception\InvalidValueException;
+
+use function base64_decode;
 
 #[CoversClass(AddFacilityAttachmentHandler::class)]
 final class AddFacilityAttachmentHandlerTest extends TestCase
@@ -255,7 +258,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddFacilityAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -311,7 +314,7 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddFacilityAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -321,6 +324,184 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       mimeType: 'application/pdf',
       size: 7,
       attachmentId: 'not-a-uuid',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUploadWhenTheFacilityIsAtTheAttachmentCap(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn($this->facility());
+
+    /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('countByFacilityId')
+      ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    // The cap must be refused BEFORE any byte reaches storage.
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddFacilityAttachmentHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidAttachmentException::class);
+
+    $handler->__invoke(new AddFacilityAttachmentCommand(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      fileName: 'floor-plan.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeStoresAFloorPlanWithItsProbedDimensions(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn($this->facility());
+
+    /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::once())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddFacilityAttachmentHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    // A real 1x1 PNG.
+    $pngContents = (string) base64_decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      true,
+    );
+
+    $result = $handler->__invoke(new AddFacilityAttachmentCommand(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      fileName: 'ground-floor.png',
+      contents: $pngContents,
+      mimeType: 'image/png',
+      size: 68,
+      kind: 'floor_plan',
+    ));
+
+    self::assertSame('floor_plan', $result->kind);
+    self::assertFalse($result->isPrimaryPlan);
+    self::assertSame(1, $result->imageWidth);
+    self::assertSame(1, $result->imageHeight);
+  }
+
+  #[Test]
+  public function testInvokeDefaultsToDocumentWithNoDimensions(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn($this->facility());
+
+    $attachmentRepository = $this->createStub(FacilityAttachmentRepositoryPort::class);
+    $fileStorage = $this->createStub(FileStoragePort::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddFacilityAttachmentHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new AddFacilityAttachmentCommand(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      fileName: 'report.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+    ));
+
+    self::assertSame('document', $result->kind);
+    self::assertNull($result->imageWidth);
+    self::assertNull($result->imageHeight);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAFloorPlanWithADisallowedMimeType(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn($this->facility());
+
+    /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddFacilityAttachmentHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidAttachmentException::class);
+
+    $handler->__invoke(new AddFacilityAttachmentCommand(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      fileName: 'plan.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+      kind: 'floor_plan',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUnknownKind(): void
+  {
+    $handler = new AddFacilityAttachmentHandler(
+      facilityRepository: $this->createStub(FacilityRepositoryPort::class),
+      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidValueException::class);
+
+    $handler->__invoke(new AddFacilityAttachmentCommand(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      fileName: 'plan.png',
+      contents: 'content',
+      mimeType: 'image/png',
+      size: 7,
+      kind: 'not-a-kind',
     ));
   }
 

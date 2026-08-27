@@ -6,6 +6,12 @@ services:
   Intervention\Presentation\:
     resource: '../../src/Intervention/Presentation'
 
+  # PDF rendering (module-local adapter) — mirrors config/modules/compliance.yaml
+  Intervention\Infrastructure\Pdf\DompdfInterventionReportRenderer: ~
+
+  Intervention\Application\Port\Outbound\InterventionReportPdfRendererPort:
+    alias: Intervention\Infrastructure\Pdf\DompdfInterventionReportRenderer
+
   Intervention\Application\:
     resource: '../../src/Intervention/Application'
 
@@ -24,6 +30,13 @@ services:
     alias: Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter
 
   Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Reports active (not closed) interventions targeting a facility as their
+  # site (for the facility archival guard) — mirrors
+  # Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter.
+  Intervention\Infrastructure\Adapter\Facility\FacilityInterventionDependencyAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -71,6 +84,22 @@ services:
   Intervention\Application\Port\Outbound\InterventionRecurrencePort:
     alias: Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter
 
+  Intervention\Application\Port\Outbound\InterventionReminderPort:
+    alias: Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter
+
+  Intervention\Application\Port\Outbound\InterventionStatisticsGatewayPort:
+    alias: Intervention\Infrastructure\Adapter\Statistics\DoctrineInterventionStatisticsGatewayAdapter
+
+  # Hosted by Facility (site names) and Organization (responsible member
+  # names) respectively — the statistics endpoint's bySite/byResponsible
+  # top-10 breakdowns. See config/modules/facility.yaml and organization.yaml
+  # for the adapters themselves.
+  Intervention\Application\Port\Outbound\InterventionSiteNamingPort:
+    alias: Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter
+
+  Intervention\Application\Port\Outbound\InterventionMemberNamingPort:
+    alias: Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter
+
   Intervention\Application\Service\InterventionChangeApplication:
     arguments:
       $appliers: !tagged_iterator intervention.change_applier
@@ -109,6 +138,14 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Statistics\DoctrineInterventionStatisticsGatewayAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -214,6 +251,9 @@ services:
   Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesHandler:
     tags: ['messenger.message_handler']
 
+  Intervention\Application\UseCase\Command\Sweep\SendDueReminders\SendDueRemindersHandler:
+    tags: ['messenger.message_handler']
+
   # R9: team -> participants snapshot assignment. Consumes Organization's
   # inbound TeamDirectoryPort directly, exactly like OrganizationAuthorizationPort
   # above; no new alias needed (Organization\Application\Port\Inbound\TeamDirectoryPort
@@ -228,4 +268,13 @@ services:
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\ListInterventionAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Attachment\GetInterventionAttachmentContent\GetInterventionAttachmentContentHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Workflow\GetInterventionStatistics\GetInterventionStatisticsHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\ExportInterventions\ExportInterventionsHandler:
     tags: ['messenger.message_handler']

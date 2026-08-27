@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment;
 
-use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingAttachmentNotFoundException, MessagingNotFoundException};
@@ -54,7 +53,7 @@ final readonly class DownloadMessageAttachmentHandler implements QueryHandler
     try {
       $attachmentId = MessagingAttachmentId::fromString($query->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $attachment = $this->attachments->findById($attachmentId);
@@ -67,8 +66,14 @@ final readonly class DownloadMessageAttachmentHandler implements QueryHandler
       throw MessagingNotFoundException::conversation($attachment->conversationId());
     }
 
+    // Membership is resolved BEFORE the visibility branch, not inside it.
+    // `resolveActiveMemberId()` answers 404 for a caller outside the
+    // conversation's organization, whereas `assertCanReadThread()` answers 403 —
+    // which would confirm to an outsider that the conversation exists. Nine
+    // sibling handlers already hoist it; these four did not.
+    $memberId = $this->accessPolicy->resolveActiveMemberId($conversation->organizationId, $query->userId);
+
     if (ConversationVisibility::PARTICIPANTS->value === $conversation->visibility) {
-      $memberId = $this->accessPolicy->resolveActiveMemberId($conversation->organizationId, $query->userId);
       $this->accessPolicy->assertCanReadChannel($query->userId, $conversation->organizationId, $conversation->id, $memberId);
     } else {
       $requiredSubjectPermission = 'organization.messaging.read';

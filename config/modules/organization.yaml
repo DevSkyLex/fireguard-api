@@ -34,19 +34,59 @@ services:
   Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\CreateOrganizationRoleHandler:
     tags: ['messenger.message_handler']
 
+  # The handlers guarded against last-administrator lockout run the check and the
+  # write in one 'main' transaction: the guard's advisory lock is
+  # transaction-scoped, so it only serializes concurrent callers when it is taken
+  # on the same connection that commits the write.
   Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\UpdateOrganizationRoleHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\LeaveOrganization\LeaveOrganizationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership\TransferOrganizationOwnershipHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\ReactivateOrganizationMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+      $quota: '@Organization\Application\Port\Inbound\OrganizationQuotaPort'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles\SetOrganizationMemberRolesHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\SuspendOrganization\SuspendOrganizationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RestoreOrganization\RestoreOrganizationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo\RemoveOrganizationLogoHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Team\CreateTeam\CreateTeamHandler:
@@ -130,6 +170,21 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents\ListOrganizationAuditEventsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\ExportOrganizationAuditEvents\ExportOrganizationAuditEventsHandler:
+    tags: ['messenger.message_handler']
+
+  # Shared by the audit list and the audit export: it carries the rule deciding
+  # which actors may be named to an organization audience.
+  Organization\Application\Service\OrganizationAuditEntryProjector: ~
+
+  Organization\Presentation\Api\Service\OrganizationAuditEventCsvWriter: ~
+
+  Organization\Presentation\Api\Controller\ExportOrganizationAuditEventsController:
+    tags: ['controller.service_arguments']
+
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
     tags: ['messenger.message_handler']
 
@@ -140,6 +195,9 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationRole\GetOrganizationRoleHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanHandler:
@@ -235,7 +293,12 @@ services:
   Organization\Application\Port\Inbound\TeamDirectoryPort:
     alias: Organization\Application\Service\TeamDirectoryService
 
+  Organization\Application\Port\Inbound\OrganizationCallerMembershipPort:
+    alias: Organization\Application\Service\OrganizationCallerMembershipService
+
   Organization\Application\Service\TeamDirectoryService: ~
+
+  Organization\Application\Service\OrganizationCallerMembershipService: ~
 
   Organization\Application\Service\OrganizationInvitationTokenHasher: ~
 
@@ -301,6 +364,10 @@ services:
   # Cross-module member directory for the Calendar module (actor member
   # resolution for standalone event creation)
   Organization\Infrastructure\Adapter\Calendar\OrganizationCalendarMemberDirectoryAdapter: ~
+
+  # Cross-module member directory for the Intervention module's
+  # `/interventions/statistics` byResponsible breakdown
+  Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter: ~
 
   # Image services
   Organization\Infrastructure\Image\OrganizationLogoResizer: ~

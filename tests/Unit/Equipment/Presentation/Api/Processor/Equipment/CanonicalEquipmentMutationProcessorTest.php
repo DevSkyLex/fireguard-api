@@ -7,800 +7,424 @@ namespace Tests\Unit\Equipment\Presentation\Api\Processor\Equipment;
 use ApiPlatform\Metadata\{Delete, Patch};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
-use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Equipment\Application\Contract\Equipment\CanonicalEquipmentView;
+use Equipment\Application\UseCase\Command\Equipment\DeleteCanonicalEquipment\DeleteCanonicalEquipmentCommand;
+use Equipment\Application\UseCase\Command\Equipment\PatchCanonicalEquipment\PatchCanonicalEquipmentCommand;
+use Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentResult;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Input\Equipment\PatchCanonicalEquipmentInput;
+use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Message\{CommandMessage, ResultMessage};
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
-use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
+/**
+ * Test CanonicalEquipmentMutationProcessorTest.
+ *
+ * The processor no longer persists, decides a lifecycle state, syncs the
+ * maintenance log or dispatches an audit event — those moved to
+ * `Application\UseCase\{Command,Query}\Equipment\*CanonicalEquipment*` and
+ * are covered by their own tests. What is pinned here is what it still owns:
+ * the order of its three gates, the permission it picks, the merge-patch
+ * `has*` flags, and the facility IRI parse.
+ *
+ * @category Unit Tests
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 #[CoversClass(CanonicalEquipmentMutationProcessor::class)]
 final class CanonicalEquipmentMutationProcessorTest extends TestCase
 {
-  private const string EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655440001';
+  // #region Constants
+  private const string EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655440031';
 
-  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440002';
+  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440032';
 
-  private const string USER_ID = '550e8400-e29b-41d4-a716-446655440003';
+  private const string USER_ID = '550e8400-e29b-41d4-a716-446655440033';
 
-  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440004';
+  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440034';
 
-  private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655440005';
+  private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655440035';
+  // #endregion
 
+  // #region Tests — the gates
+  /**
+   * Method testANonStringIdentifierIsNotFound.
+   *
+   * @return void no return value
+   */
   #[Test]
-  public function testDeletingPublishedEquipmentDecommissionsIt(): void
+  public function testANonStringIdentifierIsNotFound(): void
   {
-    $record = $this->record();
-    $record->interventionId = self::INTERVENTION_ID;
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::never())->method('remove');
-    $entityManager->expects(self::once())->method('flush');
-
-    $resources = $this->createMock(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
-    );
-    $resources->expects(self::once())->method('touchDraftIntervention')->with(self::INTERVENTION_ID);
-
-    $result = $this->processor(
-      $record,
-      $this->request('DELETE'),
-      $entityManager,
-      $resources,
-    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertNull($result);
-    self::assertSame('decommissioned', $record->status);
-    self::assertSame(4, $record->revision);
-  }
-
-  #[Test]
-  public function testDeletingAlreadyDecommissionedEquipmentIsIdempotent(): void
-  {
-    // A repeat DELETE must neither bump the revision nor touch the maintenance
-    // log, matching the facility and inspection canonical surfaces.
-    $record = $this->record();
-    $record->status = 'decommissioned';
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::never())->method('remove');
-    $entityManager->expects(self::once())->method('flush');
-
-    $synchronizer = $this->createMock(EquipmentMaintenanceLogSynchronizerPort::class);
-    $synchronizer->expects(self::never())->method('syncForStatusTransition');
-
-    $result = $this->processor(
-      $record,
-      $this->request('DELETE'),
-      $entityManager,
-      null,
-      $synchronizer,
-    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertNull($result);
-    self::assertSame('decommissioned', $record->status);
-    self::assertSame(3, $record->revision);
-  }
-
-  #[Test]
-  public function testMergePatchExplicitNullClearsNullableField(): void
-  {
-    $record = $this->record();
-    $record->serialNumber = 'SN-123';
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $result = $this->processor(
-      $record,
-      $this->request('PATCH', '{"serialNumber":null}'),
-      $entityManager,
-    )->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertNull($record->serialNumber);
-    self::assertSame(4, $record->revision);
-    self::assertSame(4, $result?->revision);
-  }
-
-  #[Test]
-  public function testRejectsIllegalPublishedStatusTransition(): void
-  {
-    $record = $this->record();
-    $record->status = 'decommissioned';
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::never())->method('flush');
-
-    $this->expectException(UnprocessableEntityHttpException::class);
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"operational"}'),
-      $entityManager,
-    )->process($this->patchStatus('operational'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testAllowsLegalPublishedStatusTransition(): void
-  {
-    $record = $this->record();
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $result = $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"under_maintenance"}'),
-      $entityManager,
-    )->process($this->patchStatus('under_maintenance'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('under_maintenance', $record->status);
-    self::assertSame(4, $record->revision);
-    self::assertSame(4, $result?->revision);
-  }
-
-  #[Test]
-  public function testCommissioningStampsCommissionedAtAndSyncsLog(): void
-  {
-    $record = $this->record();
-    $record->status = 'in_stock';
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $synchronizer = $this->createMock(EquipmentMaintenanceLogSynchronizerPort::class);
-    $synchronizer->expects(self::once())
-      ->method('syncForStatusTransition')
-      ->with(self::EQUIPMENT_ID, self::ORGANIZATION_ID, 'in_stock', 'operational');
-
-    self::assertNull($record->commissionedAt);
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"operational"}'),
-      $entityManager,
-      null,
-      $synchronizer,
-    )->process($this->patchStatus('operational'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('operational', $record->status);
-    self::assertInstanceOf(DateTimeImmutable::class, $record->commissionedAt);
-  }
-
-  #[Test]
-  public function testEnteringMaintenanceSyncsLog(): void
-  {
-    $record = $this->record();
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $synchronizer = $this->createMock(EquipmentMaintenanceLogSynchronizerPort::class);
-    $synchronizer->expects(self::once())
-      ->method('syncForStatusTransition')
-      ->with(self::EQUIPMENT_ID, self::ORGANIZATION_ID, 'operational', 'under_maintenance');
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"under_maintenance"}'),
-      $entityManager,
-      null,
-      $synchronizer,
-    )->process($this->patchStatus('under_maintenance'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('under_maintenance', $record->status);
-  }
-
-  #[Test]
-  public function testDeleteClosesOpenMaintenanceLogOnDecommission(): void
-  {
-    $record = $this->record();
-    $record->status = 'under_maintenance';
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $synchronizer = $this->createMock(EquipmentMaintenanceLogSynchronizerPort::class);
-    $synchronizer->expects(self::once())
-      ->method('syncForStatusTransition')
-      ->with(self::EQUIPMENT_ID, self::ORGANIZATION_ID, 'under_maintenance', 'decommissioned');
-
-    $this->processor(
-      $record,
-      $this->request('DELETE'),
-      $entityManager,
-      null,
-      $synchronizer,
-    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('decommissioned', $record->status);
-  }
-
-  #[Test]
-  public function testDraftStatusChangeSkipsMaintenanceSyncAndCommissionedAt(): void
-  {
-    // Draft (intervention scratchpad) records are materialized at publication, so
-    // they must not touch the real maintenance history or commissioning date.
-    $record = $this->record();
-    $record->recordStatus = 'draft';
-    $record->interventionId = self::INTERVENTION_ID;
-    $record->status = 'in_stock';
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
-    );
-
-    $synchronizer = $this->createMock(EquipmentMaintenanceLogSynchronizerPort::class);
-    $synchronizer->expects(self::never())->method('syncForStatusTransition');
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"operational"}'),
-      $entityManager,
-      $resources,
-      $synchronizer,
-    )->process($this->patchStatus('operational'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('operational', $record->status);
-    self::assertNull($record->commissionedAt);
-  }
-
-  #[Test]
-  public function testRejectsClearingFacilityOfUnderMaintenanceEquipment(): void
-  {
-    // Clearing the facility of an in-service asset would strand it in an illegal
-    // facility-less state and leak its open maintenance log; the caller must move
-    // it back to stock first.
-    $record = $this->record();
-    $record->status = 'under_maintenance';
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::never())->method('flush');
-
-    $this->expectException(UnprocessableEntityHttpException::class);
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"facility":null}'),
-      $entityManager,
-    )->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testDraftRecordSkipsStatusTransitionValidation(): void
-  {
-    $record = $this->record();
-    $record->recordStatus = 'draft';
-    $record->interventionId = self::INTERVENTION_ID;
-    $record->status = 'decommissioned';
-    $record->facilityId = null;
-
-    $entityManager = $this->entityManager($record);
-    $entityManager->expects(self::once())->method('flush');
-
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
-    );
-
-    // A draft (intervention scratchpad) record may be freely edited — an
-    // otherwise-illegal transition (decommissioned -> in_stock) must not throw.
-    $result = $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"in_stock"}'),
-      $entityManager,
-      $resources,
-    )->process($this->patchStatus('in_stock'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('in_stock', $record->status);
-    self::assertSame(4, $result?->revision);
-  }
-
-  #[Test]
-  public function testDeletingPublishedEquipmentDispatchesDecommissionedEvent(): void
-  {
-    // Audit ledger: decommissioning a published asset through the canonical
-    // DELETE emits an EquipmentDecommissionedEvent carrying the pre-retirement status.
-    $record = $this->record();
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
-      static fn (object $event): bool => $event instanceof EquipmentDecommissionedEvent
-        && self::ORGANIZATION_ID === $event->organizationId
-        && self::EQUIPMENT_ID === $event->equipmentId
-        && 'operational' === $event->previousStatus,
-    ));
-
-    $result = $this->processor(
-      $record,
-      $this->request('DELETE'),
-      eventDispatcher: $eventDispatcher,
-    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertNull($result);
-    self::assertSame('decommissioned', $record->status);
-  }
-
-  #[Test]
-  public function testCommissioningPublishedEquipmentDispatchesCommissionedEvent(): void
-  {
-    // Audit ledger: a published in_stock -> operational PATCH emits an
-    // EquipmentCommissionedEvent carrying the assigned facility.
-    $record = $this->record();
-    $record->status = 'in_stock';
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
-      static fn (object $event): bool => $event instanceof EquipmentCommissionedEvent
-        && self::ORGANIZATION_ID === $event->organizationId
-        && self::EQUIPMENT_ID === $event->equipmentId
-        && self::FACILITY_ID === $event->facilityId
-        && 'in_stock' === $event->previousStatus,
-    ));
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"operational"}'),
-      eventDispatcher: $eventDispatcher,
-    )->process($this->patchStatus('operational'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('operational', $record->status);
-  }
-
-  #[Test]
-  public function testEnteringMaintenanceDispatchesPutUnderMaintenanceEvent(): void
-  {
-    // Audit ledger: a published operational -> under_maintenance PATCH emits an
-    // EquipmentPutUnderMaintenanceEvent carrying the assigned facility.
-    $record = $this->record();
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
-      static fn (object $event): bool => $event instanceof EquipmentPutUnderMaintenanceEvent
-        && self::ORGANIZATION_ID === $event->organizationId
-        && self::EQUIPMENT_ID === $event->equipmentId
-        && self::FACILITY_ID === $event->facilityId
-        && 'operational' === $event->previousStatus,
-    ));
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"under_maintenance"}'),
-      eventDispatcher: $eventDispatcher,
-    )->process($this->patchStatus('under_maintenance'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('under_maintenance', $record->status);
-  }
-
-  #[Test]
-  public function testReturningToStockDispatchesReturnedToStockEvent(): void
-  {
-    // Audit ledger: a published operational -> in_stock PATCH emits an
-    // EquipmentReturnedToStockEvent — the canonical surface is the only
-    // emitter of equipment.returned_to_stock.
-    $record = $this->record();
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
-      static fn (object $event): bool => $event instanceof EquipmentReturnedToStockEvent
-        && self::ORGANIZATION_ID === $event->organizationId
-        && self::EQUIPMENT_ID === $event->equipmentId
-        && 'operational' === $event->previousStatus,
-    ));
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"in_stock"}'),
-      eventDispatcher: $eventDispatcher,
-    )->process($this->patchStatus('in_stock'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('in_stock', $record->status);
-  }
-
-  #[Test]
-  public function testDecommissioningViaPatchDispatchesDecommissionedEvent(): void
-  {
-    // Audit ledger: the PATCH route to the terminal state must emit exactly
-    // like the canonical DELETE.
-    $record = $this->record();
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
-      static fn (object $event): bool => $event instanceof EquipmentDecommissionedEvent
-        && self::ORGANIZATION_ID === $event->organizationId
-        && self::EQUIPMENT_ID === $event->equipmentId
-        && 'operational' === $event->previousStatus,
-    ));
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"decommissioned"}'),
-      eventDispatcher: $eventDispatcher,
-    )->process($this->patchStatus('decommissioned'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('decommissioned', $record->status);
-  }
-
-  #[Test]
-  public function testRepeatDeleteOnDecommissionedEquipmentDispatchesNothing(): void
-  {
-    // The idempotent repeat DELETE leaves the record untouched: no ledger row.
-    $record = $this->record();
-    $record->status = 'decommissioned';
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
-
-    $this->processor(
-      $record,
-      $this->request('DELETE'),
-      eventDispatcher: $eventDispatcher,
-    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testDeletingDraftEquipmentDispatchesNothing(): void
-  {
-    // A draft (intervention scratchpad) hard-delete never reaches the ledger.
-    $record = $this->record();
-    $record->recordStatus = 'draft';
-    $record->interventionId = self::INTERVENTION_ID;
-
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
-    );
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
-
-    $this->processor(
-      $record,
-      $this->request('DELETE'),
-      resources: $resources,
-      eventDispatcher: $eventDispatcher,
-    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testPatchingDraftEquipmentDispatchesNothing(): void
-  {
-    // Draft scratchpad edits are not audited, even on a status change.
-    $record = $this->record();
-    $record->recordStatus = 'draft';
-    $record->interventionId = self::INTERVENTION_ID;
-    $record->status = 'in_stock';
-
-    $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
-    );
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"operational"}'),
-      resources: $resources,
-      eventDispatcher: $eventDispatcher,
-    )->process($this->patchStatus('operational'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame('operational', $record->status);
-  }
-
-  #[Test]
-  public function testRolledBackMutationDispatchesNothing(): void
-  {
-    // The audit events are collected during the mutation but dispatched only
-    // after the transaction commits: a commit failure (rollback) must leave
-    // no ledger row — the ledger is append-only and hash-chained, so a
-    // phantom entry could never be removed.
-    $record = $this->record();
-
-    $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->method('wrapInTransaction')->willReturnCallback(
-      static function (callable $callback): mixed {
-        $callback();
-
-        throw new RuntimeException('commit failed');
-      },
-    );
-    $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
-
-    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::never())->method('dispatch');
-
-    $this->expectException(RuntimeException::class);
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"status":"under_maintenance"}'),
-      $entityManager,
-      eventDispatcher: $eventDispatcher,
-    )->process($this->patchStatus('under_maintenance'), new Patch(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testReportsANonStringIdentifierAsNotFound(): void
-  {
-    $record = $this->record();
-
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Equipment not found.');
 
-    $this->processor($record, $this->request('PATCH', '{}'))
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => 42]);
+    $this->processor($this->request('DELETE'), found: false)
+      ->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => 42]);
   }
 
+  /**
+   * Method testAnUnknownEquipmentIsNotFoundBeforeTheRevisionGuard.
+   *
+   * The request below carries no `If-Match`. A 428 here would mean the
+   * revision guard ran before the row was looked up.
+   *
+   * @return void no return value
+   */
   #[Test]
-  public function testReportsAnUnknownEquipmentAsNotFound(): void
+  public function testAnUnknownEquipmentIsNotFoundBeforeTheRevisionGuard(): void
   {
-    $record = $this->record();
-
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('wrapInTransaction')->willReturnCallback(
-      static fn (callable $callback): mixed => $callback(),
-    );
-    $entityManager->method('find')->willReturn(null);
-
     $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Equipment not found.');
 
-    $this->processor($record, $this->request('PATCH', '{}'), $entityManager)
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+    $this->processor($this->request('DELETE', ifMatch: null), found: false)
+      ->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
   }
 
+  /**
+   * Method testAnUnauthenticatedCallerIsRefused.
+   *
+   * @return void no return value
+   */
   #[Test]
-  public function testRejectsAnUnexpectedInputType(): void
+  public function testAnUnauthenticatedCallerIsRefused(): void
   {
-    $record = $this->record();
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Canonical equipment mutation input expected.');
-
-    $this->processor($record, $this->request('PATCH', '{}'))
-      ->process(new stdClass(), new Patch(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testRejectsANullStatus(): void
-  {
-    $record = $this->record();
-
-    $this->expectException(UnprocessableEntityHttpException::class);
-    $this->expectExceptionMessage('Equipment status cannot be null.');
-
-    $this->processor($record, $this->request('PATCH', '{"status":null}'))
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testRejectsAFacilityFromAnotherOrganization(): void
-  {
-    $record = $this->record();
-    $foreignFacility = new FacilityRecord();
-    $foreignFacility->id = self::FACILITY_ID;
-
-    $input = new PatchCanonicalEquipmentInput();
-    $input->facility = '/api/facilities/' . self::FACILITY_ID;
-
-    $this->expectException(UnprocessableEntityHttpException::class);
-    $this->expectExceptionMessage('Facility must belong to the same organization.');
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"facility":"/api/facilities/' . self::FACILITY_ID . '"}'),
-      $this->entityManagerFor($record, $foreignFacility),
-    )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
-  }
-
-  #[Test]
-  public function testReassignsTheEquipmentToAFacilityOfTheSameOrganization(): void
-  {
-    $record = $this->record();
-    $record->facilityId = null;
-    $record->status = 'in_stock';
-
-    $organization = new OrganizationRecord();
-    $organization->id = self::ORGANIZATION_ID;
-    $facility = new FacilityRecord();
-    $facility->id = self::FACILITY_ID;
-    $facility->organization = $organization;
-
-    $input = new PatchCanonicalEquipmentInput();
-    $input->facility = '/api/facilities/' . self::FACILITY_ID;
-
-    $this->processor(
-      $record,
-      $this->request('PATCH', '{"facility":"/api/facilities/' . self::FACILITY_ID . '"}'),
-      $this->entityManagerFor($record, $facility),
-    )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
-
-    self::assertSame(self::FACILITY_ID, $record->facilityId);
-  }
-
-  #[Test]
-  public function testRequiresAnAuthenticatedSecurityUser(): void
-  {
-    $record = $this->record();
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Authentication required.');
 
-    $this->customProcessor($record, $this->request('PATCH', '{}'), authenticated: false)
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+    $this->processor($this->request('DELETE'), security: $security)
+      ->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
   }
 
+  /**
+   * Method testAForeignOrganizationIsNotFoundRatherThanForbidden.
+   *
+   * @return void no return value
+   */
   #[Test]
-  public function testRejectsACallerWithoutTheRequiredPermission(): void
+  public function testAForeignOrganizationIsNotFoundRatherThanForbidden(): void
   {
-    $record = $this->record();
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Equipment not found.');
+
+    $this->processor($this->request('DELETE'), authorization: $authorization)
+      ->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  /**
+   * Method testAMissingPermissionIsForbidden.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAMissingPermissionIsForbidden(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.equipment.write permission.');
 
-    $this->customProcessor($record, $this->request('PATCH', '{}'), hasPermission: false)
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+    $this->processor($this->request('DELETE'), authorization: $authorization)
+      ->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
   }
 
+  /**
+   * Method testAScratchpadRowAsksTheInterventionForThePermission.
+   *
+   * @return void no return value
+   */
   #[Test]
-  public function testDraftRecordReportsAnUnknownInterventionAsNotFound(): void
+  public function testAScratchpadRowAsksTheInterventionForThePermission(): void
   {
-    $record = $this->record();
-    $record->recordStatus = 'draft';
-    $record->interventionId = self::INTERVENTION_ID;
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
+    );
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(null);
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Missing organization.interventions.plan permission.');
+
+    $this->processor(
+      $this->request('DELETE'),
+      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
+      authorization: $authorization,
+      resources: $resources,
+    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  /**
+   * Method testAMissingParentInterventionIsNotFound.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAMissingParentInterventionIsNotFound(): void
+  {
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(null);
 
     $this->expectException(NotFoundHttpException::class);
 
-    $this->customProcessor($record, $this->request('PATCH', '{}'), gateway: $gateway)
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+    $this->processor(
+      $this->request('DELETE'),
+      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
+      resources: $resources,
+    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
   }
 
+  /**
+   * Method testAnImmutableParentInterventionIsAConflict.
+   *
+   * @return void no return value
+   */
   #[Test]
-  public function testDraftRecordReportsAnImmutableInterventionAsConflict(): void
+  public function testAnImmutableParentInterventionIsAConflict(): void
   {
-    $record = $this->record();
-    $record->recordStatus = 'draft';
-    $record->interventionId = self::INTERVENTION_ID;
-
-    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
-    $gateway->method('interventionMutationContext')->willReturn(
-      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'submitted'),
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'published'),
     );
 
     $this->expectException(ConflictHttpException::class);
 
-    $this->customProcessor($record, $this->request('PATCH', '{}'), gateway: $gateway)
-      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+    $this->processor(
+      $this->request('DELETE'),
+      view: $this->view(recordStatus: 'draft', interventionId: self::INTERVENTION_ID),
+      resources: $resources,
+    )->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
   }
 
-  private function entityManagerFor(EquipmentRecord $record, FacilityRecord $facility): EntityManagerInterface
+  /**
+   * Method testAPatchWithoutTheCanonicalInputIsABadRequest.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAPatchWithoutTheCanonicalInputIsABadRequest(): void
   {
-    $entityManager = $this->createStub(EntityManagerInterface::class);
-    $entityManager->method('wrapInTransaction')->willReturnCallback(
-      static fn (callable $callback): mixed => $callback(),
-    );
-    $entityManager->method('find')->willReturnCallback(
-      static fn (string $class): object => EquipmentRecord::class === $class ? $record : $facility,
-    );
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Canonical equipment mutation input expected.');
 
-    return $entityManager;
+    $this->processor($this->request('PATCH', '{"status":"operational"}'))
+      ->process(null, new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+  // #endregion
+
+  // #region Tests — what travels into the commands
+  /**
+   * Method testDeleteCarriesTheStoredRevisionAndReturnsNothing.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testDeleteCarriesTheStoredRevisionAndReturnsNothing(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+
+    $result = $this->processor($this->request('DELETE'), commandBus: $commandBus)
+      ->process(new PatchCanonicalEquipmentInput(), new Delete(), ['id' => self::EQUIPMENT_ID]);
+
+    self::assertNull($result);
+    self::assertCount(1, $commandBus->dispatched);
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(DeleteCanonicalEquipmentCommand::class, $command);
+    self::assertSame(self::EQUIPMENT_ID, $command->equipmentId);
+    self::assertSame(3, $command->expectedRevision);
   }
 
-  private function customProcessor(
-    EquipmentRecord $record,
-    RequestStack $requestStack,
-    bool $hasPermission = true,
-    bool $authenticated = true,
-    ?InterventionResourceGatewayPort $gateway = null,
-  ): CanonicalEquipmentMutationProcessor {
-    $entityManager = $this->entityManager($record);
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($authenticated ? $this->user() : null);
-    $manager = new InterventionResourceManager($gateway ?? $this->createStub(InterventionResourceGatewayPort::class));
+  /**
+   * Method testAnAbsentKeyAndAnExplicitNullAreNotTheSameCommand.
+   *
+   * The whole reason `MergePatchFields` stays in Presentation: `{"brand":null}`
+   * must erase the brand, while omitting the key must leave it alone — and
+   * the deserialized DTO carries null in both cases.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnAbsentKeyAndAnExplicitNullAreNotTheSameCommand(): void
+  {
+    $commandBus = $this->recordingCommandBus();
 
-    return new CanonicalEquipmentMutationProcessor(
-      $entityManager,
-      $authorization,
-      $security,
-      $requestStack,
-      new CanonicalEquipmentProvider($entityManager, $authorization, $security, $requestStack, $manager),
-      $manager,
-      new RevisionGuard($requestStack),
-      new MergePatchFields($requestStack),
-      $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class),
-      $this->createStub(EventDispatcherPort::class),
-    );
+    $this->processor($this->request('PATCH', '{"brand":null}'), commandBus: $commandBus)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    $erasing = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalEquipmentCommand::class, $erasing);
+    self::assertTrue($erasing->hasBrand);
+    self::assertNull($erasing->brand);
+    self::assertFalse($erasing->hasModel);
+    self::assertFalse($erasing->hasType);
+    self::assertFalse($erasing->hasStatus);
+    self::assertFalse($erasing->hasFacility);
   }
 
+  /**
+   * Method testTheFacilityIriIsParsedIntoAnIdentifier.
+   *
+   * An IRI is transport; the command carries an identifier.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testTheFacilityIriIsParsedIntoAnIdentifier(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+    $input = new PatchCanonicalEquipmentInput();
+    $input->facility = '/api/facilities/' . self::FACILITY_ID;
+
+    $this->processor(
+      $this->request('PATCH', '{"facility":"/api/facilities/' . self::FACILITY_ID . '"}'),
+      commandBus: $commandBus,
+    )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalEquipmentCommand::class, $command);
+    self::assertTrue($command->hasFacility);
+    self::assertSame(self::FACILITY_ID, $command->facilityId);
+  }
+
+  /**
+   * Method testDetachingTheFacilityCarriesAPresentNullIdentifier.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testDetachingTheFacilityCarriesAPresentNullIdentifier(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+
+    $this->processor($this->request('PATCH', '{"facility":null}'), commandBus: $commandBus)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalEquipmentCommand::class, $command);
+    self::assertTrue($command->hasFacility);
+    self::assertNull($command->facilityId);
+  }
+
+  /**
+   * Method testPatchForwardsTheSubmittedValuesAndTheStoredRevision.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testPatchForwardsTheSubmittedValuesAndTheStoredRevision(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+    $input = new PatchCanonicalEquipmentInput();
+    $input->status = 'operational';
+    $input->type = 'sprinkler';
+    $input->locationLabel = 'Level 2';
+
+    $output = $this->processor(
+      $this->request('PATCH', '{"status":"operational","type":"sprinkler","locationLabel":"Level 2"}'),
+      commandBus: $commandBus,
+    )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    self::assertInstanceOf(EquipmentOutput::class, $output);
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalEquipmentCommand::class, $command);
+    self::assertSame(self::EQUIPMENT_ID, $command->equipmentId);
+    self::assertSame(3, $command->expectedRevision);
+    self::assertTrue($command->hasStatus);
+    self::assertSame('operational', $command->status);
+    self::assertTrue($command->hasType);
+    self::assertSame('sprinkler', $command->type);
+    self::assertTrue($command->hasLocationLabel);
+    self::assertSame('Level 2', $command->locationLabel);
+  }
+  // #endregion
+
+  // #region Helpers
+  /**
+   * Method processor.
+   *
+   * @param RequestStack $requestStack the request stack
+   * @param ?CanonicalEquipmentView $view the row the query bus answers with
+   * @param ?CommandBusPort $commandBus the command bus
+   * @param ?OrganizationAuthorizationPort $authorization the authorization port
+   * @param ?Security $security the security helper
+   * @param ?InterventionResourceGatewayPort $resources the intervention gateway
+   * @param bool $found whether the query bus finds the row
+   *
+   * @return CanonicalEquipmentMutationProcessor the processor under test
+   */
   private function processor(
-    EquipmentRecord $record,
     RequestStack $requestStack,
-    ?EntityManagerInterface $entityManager = null,
+    ?CanonicalEquipmentView $view = null,
+    ?CommandBusPort $commandBus = null,
+    ?OrganizationAuthorizationPort $authorization = null,
+    ?Security $security = null,
     ?InterventionResourceGatewayPort $resources = null,
-    ?EquipmentMaintenanceLogSynchronizerPort $synchronizer = null,
-    ?EventDispatcherPort $eventDispatcher = null,
+    bool $found = true,
   ): CanonicalEquipmentMutationProcessor {
-    $entityManager ??= $this->entityManager($record);
-    $resources ??= $this->createStub(InterventionResourceGatewayPort::class);
-    $synchronizer ??= $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class);
-    $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->user());
-    $manager = new InterventionResourceManager($resources);
-    $provider = new CanonicalEquipmentProvider(
-      $entityManager,
-      $authorization,
-      $security,
-      $requestStack,
-      $manager,
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetCanonicalEquipmentResult(
+      $found ? $view ?? $this->view() : null,
+    ));
+
+    if (null === $authorization) {
+      $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+      $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+    }
+
+    if (null === $security) {
+      $security = $this->createStub(Security::class);
+      $security->method('getUser')->willReturn(
+        new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+      );
+    }
+
+    $manager = new InterventionResourceManager(
+      $resources ?? $this->createStub(InterventionResourceGatewayPort::class),
     );
 
     return new CanonicalEquipmentMutationProcessor(
-      $entityManager,
+      $commandBus ?? $this->createStub(CommandBusPort::class),
+      $queryBus,
       $authorization,
       $security,
       $requestStack,
-      $provider,
+      new CanonicalEquipmentProvider($this->entityManager(), $authorization, $security, $requestStack, $manager),
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
-      $synchronizer,
-      $eventDispatcher,
     );
   }
 
   /**
-   * @return EntityManagerInterface&MockObject
+   * Method entityManager.
+   *
+   * Only `CanonicalEquipmentProvider` reaches it — the processor holds none.
+   *
+   * @return EntityManagerInterface a manager answering with one seeded record
    */
-  private function entityManager(EquipmentRecord $record): EntityManagerInterface
-  {
-    $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->method('wrapInTransaction')->willReturnCallback(
-      static fn (callable $callback): mixed => $callback(),
-    );
-    $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
-
-    return $entityManager;
-  }
-
-  private function patchStatus(string $status): PatchCanonicalEquipmentInput
-  {
-    $input = new PatchCanonicalEquipmentInput();
-    $input->status = $status;
-
-    return $input;
-  }
-
-  private function record(): EquipmentRecord
+  private function entityManager(): EntityManagerInterface
   {
     $organization = new OrganizationRecord();
     $organization->id = self::ORGANIZATION_ID;
@@ -810,26 +434,79 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     $record->recordStatus = 'published';
     $record->revision = 3;
     $record->type = 'fire_extinguisher';
-    $record->status = 'operational';
-    $record->facilityId = self::FACILITY_ID;
+    $record->status = 'in_stock';
     $record->createdAt = new DateTimeImmutable();
     $record->updatedAt = new DateTimeImmutable();
+    $record->attachments = new ArrayCollection();
+    $record->tagLinks = new ArrayCollection();
 
-    return $record;
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($record);
+
+    return $entityManager;
   }
 
-  private function request(string $method, ?string $content = null): RequestStack
+  /**
+   * Method view.
+   *
+   * @param string $recordStatus the record status
+   * @param ?string $interventionId the preparing intervention
+   *
+   * @return CanonicalEquipmentView the gate projection
+   */
+  private function view(string $recordStatus = 'published', ?string $interventionId = null): CanonicalEquipmentView
+  {
+    return new CanonicalEquipmentView(
+      id: self::EQUIPMENT_ID,
+      organizationId: self::ORGANIZATION_ID,
+      recordStatus: $recordStatus,
+      interventionId: $interventionId,
+      revision: 3,
+    );
+  }
+
+  /**
+   * Method request.
+   *
+   * @param string $method the HTTP method
+   * @param ?string $content the raw body
+   * @param ?string $ifMatch the If-Match header, null to omit it
+   *
+   * @return RequestStack the stack holding the request
+   */
+  private function request(string $method, ?string $content = null, ?string $ifMatch = '"revision-3"'): RequestStack
   {
     $request = Request::create('/api/equipment/' . self::EQUIPMENT_ID, $method, [], [], [], [], $content);
-    $request->headers->set('If-Match', '"revision-3"');
+    if (null !== $ifMatch) {
+      $request->headers->set('If-Match', $ifMatch);
+    }
     $stack = new RequestStack();
     $stack->push($request);
 
     return $stack;
   }
 
-  private function user(): SecurityUser
+  /**
+   * Method recordingCommandBus.
+   *
+   * @return CommandBusPort&object{dispatched: list<CommandMessage>} a bus that keeps what it was given
+   */
+  private function recordingCommandBus(): CommandBusPort
   {
-    return new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true);
+    return new class () implements CommandBusPort {
+      /**
+       * @var list<CommandMessage>
+       */
+      public array $dispatched = [];
+
+      public function dispatch(CommandMessage $command): ResultMessage
+      {
+        $this->dispatched[] = $command;
+
+        return new class () implements ResultMessage {
+        };
+      }
+    };
   }
+  // #endregion
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Application\Port\Outbound;
 
 use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
@@ -43,6 +43,22 @@ interface OrganizationRepositoryPort
    * @return ?Organization the organization aggregate when found
    */
   public function findById(OrganizationId $id): ?Organization;
+
+  /**
+   * Method statusOf.
+   *
+   * Reads an organization's status without hydrating the aggregate.
+   *
+   * This exists for the authorization hot path, which asks the question on
+   * every permission check and must not pay a full hydration for it.
+   *
+   * @since 1.2.0
+   *
+   * @param OrganizationId $id the organization identifier
+   *
+   * @return OrganizationStatus|null the status, or null when the organization does not exist
+   */
+  public function statusOf(OrganizationId $id): ?OrganizationStatus;
 
   /**
    * Method findByIds.

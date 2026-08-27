@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\Service;
 
 use Intervention\Application\Contract\Resource\{InterventionIssue, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 
 use function in_array;
 use function sprintf;
@@ -29,9 +29,12 @@ final readonly class InterventionIssueFinder
    * @since 1.0.0
    *
    * @param InterventionResourceGatewayPort $resources the resources value
+   * @param InterventionAttachmentRepositoryPort $attachments the attachment repository value
    */
-  public function __construct(private InterventionResourceGatewayPort $resources)
-  {
+  public function __construct(
+    private InterventionResourceGatewayPort $resources,
+    private InterventionAttachmentRepositoryPort $attachments,
+  ) {
   }
 
   /**
@@ -81,6 +84,19 @@ final readonly class InterventionIssueFinder
     }
     if ($workItems->skipped > 0) {
       $issues[] = new InterventionIssue('warning', 'intervention', $interventionId, null, sprintf('%d work item(s) were skipped and require review.', $workItems->skipped));
+    }
+
+    // Phase 5d.2 nudge, never a blocker: once every required work item is
+    // done and the intervention is in progress, the responsible is close to
+    // submitting — prompt for the completion signature before they do. The
+    // zero-work-item case is already covered above by the "no explicit work
+    // item" blocker/warning, so this recommendation is free to stack on it.
+    if (
+      'in_progress' === $context?->status
+      && 0 === $workItems->requiredIncomplete
+      && !$this->attachments->hasSignature($interventionId)
+    ) {
+      $issues[] = new InterventionIssue('recommendation', 'intervention', $interventionId, null, 'Capture the completion signature before submitting.');
     }
 
     foreach ($this->resources->equipmentDrafts($interventionId) as $item) {

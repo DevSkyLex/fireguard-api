@@ -8,9 +8,11 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -30,6 +32,20 @@ use function is_string;
  */
 final readonly class DeleteOrganizationRoleProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * Every failure of this endpoint — including the last-administrator refusal,
+   * which the handler now raises from inside its own transaction — arrives
+   * wrapped in `MessengerRuntimeException`, so the clause using this trait is
+   * what maps them all.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -45,7 +61,6 @@ final readonly class DeleteOrganizationRoleProcessor implements ProcessorInterfa
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
-    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -84,18 +99,28 @@ final readonly class DeleteOrganizationRoleProcessor implements ProcessorInterfa
     }
 
     try {
-      $this->lastAdminGuard->assertCanDeleteRole($organizationId, $roleId);
-
       $this->commandBus->dispatch(new DeleteOrganizationRoleCommand(
         organizationId: $organizationId,
         roleId: $roleId,
       ));
-    } catch (OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationRoleNotFoundException|OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InvalidArgumentException $exception) {
-      throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
+      if (null !== $lastAdmin) {
+        throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationRoleNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     return null;

@@ -42,7 +42,7 @@ final class ListConversationAttachmentsHandlerTest extends TestCase
     $attachments->method('listByConversationId')->willReturn($page);
 
     $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
-    $accessPolicy = new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $this->createStub(MessagingMemberDirectoryPort::class), $this->createStub(MessagingParticipantRepositoryPort::class));
+    $accessPolicy = new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $this->activeMemberDirectory(), $this->createStub(MessagingParticipantRepositoryPort::class));
 
     $handler = new ListConversationAttachmentsHandler($conversations, $attachments, $registry, $accessPolicy);
 
@@ -70,6 +70,38 @@ final class ListConversationAttachmentsHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeAnswersNotFoundRatherThanForbiddenForAConversationInAnotherOrganization(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->view());
+
+    // Outside the conversation's organization: no active member resolves. A 403
+    // here would confirm to an outsider that this conversation exists — the
+    // cross-tenant existence oracle the identical 404 exists to prevent.
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(null);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('assertGrantedPermissions')->willThrowException(
+      new MessagingAccessDeniedException('Missing permission.'),
+    );
+
+    $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->expects(self::never())->method('listByConversationId');
+
+    $handler = new ListConversationAttachmentsHandler(
+      $conversations,
+      $attachments,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new ListConversationAttachmentsQuery('user-1', self::CONVERSATION_ID));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenSubjectReadPermissionIsMissing(): void
   {
     $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
@@ -81,7 +113,7 @@ final class ListConversationAttachmentsHandlerTest extends TestCase
     );
 
     $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
-    $accessPolicy = new MessagingAccessPolicy($authorization, $this->createStub(MessagingMemberDirectoryPort::class), $this->createStub(MessagingParticipantRepositoryPort::class));
+    $accessPolicy = new MessagingAccessPolicy($authorization, $this->activeMemberDirectory(), $this->createStub(MessagingParticipantRepositoryPort::class));
 
     $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
     $attachments->expects(self::never())->method('listByConversationId');
@@ -149,6 +181,21 @@ final class ListConversationAttachmentsHandlerTest extends TestCase
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'channel', null, 'participants', null, 0, false, $now, $now, 'general');
+  }
+
+  /**
+   * A directory that resolves the caller to an active member.
+   *
+   * The handler now checks membership BEFORE the visibility branch, so a
+   * directory returning null answers 404 and the test never reaches the
+   * permission assertion it exists to exercise.
+   */
+  private function activeMemberDirectory(): MessagingMemberDirectoryPort
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn('member-1');
+
+    return $members;
   }
 
   private function facilityResolver(): MessagingSubjectResolverPort

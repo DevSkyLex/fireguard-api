@@ -7,13 +7,13 @@ namespace Tests\Unit\Onboarding\Application\Service;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
-use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\{
   ExecuteOnboardingStepPayload,
   OrganizationOnboardingFlowService
 };
+use Onboarding\Domain\Exception\{OnboardingStepNotExecutableException, UnsupportedOnboardingStepException};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
@@ -110,7 +110,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
-  public function testGetFlowWithPreExistingOrgIsNotAdoptedForFreshSession(): void
+  public function testGetFlowCompletesWhenMemberAlreadyBelongsToAnOrganization(): void
   {
     $userId = '550e8400-e29b-41d4-a716-446655440113';
     $orgId = '550e8400-e29b-41d4-a716-446655440153';
@@ -138,19 +138,22 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $state = $service->getFlow($userId);
 
-    // A pre-existing org must not be auto-adopted: targetOrganizationId stays null
-    // and the user is required to create a new org for this onboarding session.
-    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->nextStep);
-    self::assertNull($state->targetOrganizationId);
-    self::assertSame([], $state->completedSteps);
+    // The member already has a workspace — the shape of an accepted invitation.
+    // Sending them to `create_organization` used to strand them there for good,
+    // since onboardingRequiredGuard holds every route until the flow completes.
+    self::assertSame(OrganizationOnboardingState::COMPLETED, $state->state);
+    self::assertNull($state->nextStep);
+    self::assertSame($orgId, $state->targetOrganizationId);
+
+    // The safety property the old expectation really guarded: this organization
+    // predates the session, so no rollback may ever reach it.
     self::assertFalse($state->canRollback);
   }
 
   #[Test]
   public function testExecuteStepThrowsInvalidArgumentForUnknownStep(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(UnsupportedOnboardingStepException::class);
     $this->expectExceptionMessage('Unsupported onboarding step "unknown_step".');
 
     $service = $this->buildService();
@@ -262,7 +265,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OnboardingStepNotExecutableException::class);
     $this->expectExceptionMessage('No organization found.');
 
     $service = $this->buildService(
@@ -279,11 +282,12 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
-  public function testExecuteStepCreateOrganizationThrowsWhenPreExistingOrgIsPresent(): void
+  public function testExecuteStepCreateOrganizationIsUnreachableWhenPreExistingOrgIsPresent(): void
   {
-    // A pre-existing org (createdAt in the past) must not be adoptable for create_organization.
-    // Without this guard, rollback would destroy a production org the user did not create
-    // during onboarding.
+    // A pre-existing org must never become a rollback target, or rollback would
+    // destroy a production org the user did not create during onboarding. The
+    // guard now bites earlier: the member already has a workspace, so the flow
+    // completes and `create_organization` is no longer an available step at all.
     $userId = '550e8400-e29b-41d4-a716-446655440116';
     $orgId = '550e8400-e29b-41d4-a716-446655440156';
     $sessionId = '550e8400-e29b-41d4-a716-446655440186';
@@ -304,15 +308,19 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
-    $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('No organization found.');
-
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
       queryBus: $queryBus,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
     );
+
+    // No rollback action exists over an organization the flow never created.
+    self::assertFalse($service->getFlow($userId)->canRollback);
+
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Step "create_organization" is not available.');
+
     $service->executeStep(
       userId: $userId,
       stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
@@ -503,7 +511,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   #[Test]
   public function testSkipStepThrowsInvalidArgumentForUnknownStep(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(UnsupportedOnboardingStepException::class);
     $this->expectExceptionMessage('Unsupported onboarding step "teleport_to_mars".');
 
     $service = $this->buildService();
@@ -793,7 +801,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     // Facility does NOT exist yet
     $this->configureQueryBus($queryBus, $orgResult, hasFacility: false);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OnboardingStepNotExecutableException::class);
     $this->expectExceptionMessage('Cannot confirm step "create_first_facility"');
 
     $service = $this->buildService(

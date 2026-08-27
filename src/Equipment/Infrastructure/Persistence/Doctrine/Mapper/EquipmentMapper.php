@@ -10,7 +10,8 @@ use Equipment\Domain\ValueObject\{
   EquipmentId,
   EquipmentOrganizationId,
   EquipmentStatus,
-  EquipmentType
+  EquipmentType,
+  PlanPosition
 };
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
@@ -60,6 +61,7 @@ final class EquipmentMapper
       locationLabel: $record->locationLabel,
       installedAt: $record->installedAt,
       commissionedAt: $record->commissionedAt,
+      planPosition: null !== $record->planPosition ? PlanPosition::fromArray($record->planPosition) : null,
     );
   }
 
@@ -88,6 +90,7 @@ final class EquipmentMapper
     $record->status = $equipment->status()->value;
     $record->installedAt = $equipment->installedAt();
     $record->commissionedAt = $equipment->commissionedAt();
+    $record->planPosition = $equipment->planPosition()?->toArray();
     $record->createdAt = $equipment->createdAt();
     $record->updatedAt = $equipment->updatedAt();
 

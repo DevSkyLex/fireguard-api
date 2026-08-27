@@ -6,6 +6,8 @@ namespace Organization\Domain\Catalog;
 
 use InvalidArgumentException;
 
+use function str_ends_with;
+
 /**
  * OrganizationPermissionCatalog.
  *
@@ -20,6 +22,85 @@ use InvalidArgumentException;
  */
 final class OrganizationPermissionCatalog
 {
+  /**
+   * The one write permission a suspended organization keeps.
+   *
+   * Suspension is read-only, but restoring is itself a write. Without this
+   * escape hatch a suspended organization would wall itself in: `RestoreOrganization`
+   * requires exactly this permission and there is no platform-level bypass.
+   *
+   * @since 1.2.0
+   */
+  private const string SUSPENSION_ESCAPE_HATCH = 'organization.settings.write';
+
+  /**
+   * Method isRead.
+   *
+   * Tells whether a permission only reads, and therefore survives any
+   * non-active organization status.
+   *
+   * The rule is the `.read` suffix rather than an enumerated list, so a
+   * permission added later is classified correctly without touching this
+   * method. Two non-mutating permissions are nevertheless excluded on purpose:
+   * `organization.compliance.export` and `organization.assistant.use` spend
+   * resources on behalf of an organization whose access has been withdrawn.
+   *
+   * @since 1.2.0
+   *
+   * @param string $name the permission name
+   *
+   * @return bool true when the permission is a pure read
+   */
+  public static function isRead(string $name): bool
+  {
+    return str_ends_with($name, '.read');
+  }
+
+  /**
+   * Method isSuspensionEscapeHatch.
+   *
+   * Tells whether a permission is the one write a suspended organization keeps,
+   * so that it can be restored from inside. Archived organizations do not get
+   * this hatch — see MODULE.md.
+   *
+   * @since 1.2.0
+   *
+   * @param string $name the permission name
+   *
+   * @return bool true for the restore escape hatch
+   */
+  public static function isSuspensionEscapeHatch(string $name): bool
+  {
+    return self::SUSPENSION_ESCAPE_HATCH === $name;
+  }
+
+  /**
+   * Method isArchivalGuardedDownstream.
+   *
+   * Tells whether a permission gates operations that already refuse an
+   * archived organization from their own handler, with a 409 naming the
+   * archived state.
+   *
+   * Those permissions are let through the archived read-only rule so the
+   * specific answer survives. Denying them here would flatten five documented
+   * 409s — suspend, update settings, remove logo, transfer ownership,
+   * reactivate member — into a bare 403, which tells the caller less. The
+   * authorization layer defers where a more precise answer already exists.
+   *
+   * This applies to `ARCHIVED` only. Suspension has no such handler guards, so
+   * nothing there would be shadowed.
+   *
+   * @since 1.2.0
+   *
+   * @param string $name the permission name
+   *
+   * @return bool true when the archived state is already answered downstream
+   */
+  public static function isArchivalGuardedDownstream(string $name): bool
+  {
+    return self::SUSPENSION_ESCAPE_HATCH === $name || 'organization.members.manage' === $name;
+  }
+
   /**
    * Method dashboardReadDependencies.
    *
@@ -171,6 +252,13 @@ final class OrganizationPermissionCatalog
       // Compliance register + regulatory export
       ['name' => 'organization.compliance.read', 'description' => 'View the compliance register/summary (organization rollup and per-facility breakdown)'],
       ['name' => 'organization.compliance.export', 'description' => 'Export the regulatory safety register PDF (also requires a pro/max plan)'],
+
+      // Organization-scoped audit read (admin-granted: the activity feed
+      // exposes who did what across the whole organization, so this is
+      // deliberately not part of the member system role — admins hold it
+      // through the organization.* wildcard and may grant it explicitly)
+      ['name' => 'organization.audit.read', 'description' => 'View the organization activity feed (audit events scoped to the organization)'],
+      ['name' => 'organization.audit.export', 'description' => 'Export the organization activity feed as CSV (separate from reading it: an export leaves the product)'],
 
       // Four-eyes approval workflows
       ['name' => 'organization.approvals.read', 'description' => 'View the organization\'s pending and decided four-eyes approval requests'],

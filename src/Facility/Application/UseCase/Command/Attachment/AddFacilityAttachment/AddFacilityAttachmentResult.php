@@ -27,6 +27,10 @@ final readonly class AddFacilityAttachmentResult implements ResultMessage
     public int $size,
     public ?string $label,
     public DateTimeImmutable $uploadedAt,
+    public string $kind = 'document',
+    public bool $isPrimaryPlan = false,
+    public ?int $imageWidth = null,
+    public ?int $imageHeight = null,
   ) {
   }
   // #endregion

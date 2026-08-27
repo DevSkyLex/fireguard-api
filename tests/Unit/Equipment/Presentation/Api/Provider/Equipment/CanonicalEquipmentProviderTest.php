@@ -7,10 +7,12 @@ namespace Tests\Unit\Equipment\Presentation\Api\Provider\Equipment;
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -87,7 +89,12 @@ final class CanonicalEquipmentProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
     $this->expectExceptionMessage('Organization not found.');
 
-    $this->provider($entityManager, $requestStack, $this->context())
+    // OUTSIDE_SCOPE is what the real port answers for an organization with no
+    // membership row, which an unknown id necessarily has none of. The provider
+    // used to prove this with its own `entityManager->find()`; that query was
+    // removed because `resolveAccess()` already produces the same 404, and this
+    // is the assertion that it still does.
+    $this->provider($entityManager, $requestStack, $this->context(), OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->provide(new GetCollection(), []);
   }
 
@@ -105,7 +112,45 @@ final class CanonicalEquipmentProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->provider($entityManager, $requestStack, null, false)
+    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::MISSING_PERMISSION)
+      ->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenTheOrganizationIsOutsideCallerScopeOnTheItemRoute(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+
+    $equipment = new EquipmentRecord();
+    $equipment->organization = $organization;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($equipment);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Equipment not found.');
+
+    $this->provider($entityManager, new RequestStack(), null, OrganizationAccessDecision::OUTSIDE_SCOPE)
+      ->provide(new Get(), ['id' => 'equipment-id']);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenTheOrganizationIsOutsideCallerScopeOnTheCollectionRoute(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/equipment?organization=/api/organizations/' . self::ORGANIZATION_ID));
+
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($organization);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Organization not found.');
+
+    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->provide(new GetCollection(), []);
   }
 
@@ -118,10 +163,10 @@ final class CanonicalEquipmentProviderTest extends TestCase
     EntityManagerInterface $entityManager,
     RequestStack $requestStack,
     ?InterventionAssignmentContext $context,
-    bool $granted = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
   ): CanonicalEquipmentProvider {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($granted);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(

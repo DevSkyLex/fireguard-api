@@ -11,11 +11,11 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId, MaintenanceLogSource};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListMaintenanceLogsHandler::class)]
 final class ListMaintenanceLogsHandlerTest extends TestCase
@@ -34,7 +34,7 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListMaintenanceLogsQuery(
       organizationId: self::ORG_ID,
@@ -51,7 +51,7 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListMaintenanceLogsQuery(
       organizationId: 'bad-org',

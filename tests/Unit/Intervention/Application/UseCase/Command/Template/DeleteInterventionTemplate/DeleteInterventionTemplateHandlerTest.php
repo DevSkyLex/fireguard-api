@@ -9,6 +9,7 @@ use Intervention\Application\Contract\Template\InterventionTemplateView;
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Application\UseCase\Command\Template\DeleteInterventionTemplate\{DeleteInterventionTemplateCommand, DeleteInterventionTemplateHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -50,9 +51,24 @@ final class DeleteInterventionTemplateHandlerTest extends TestCase
     $templates->method('find')->willReturn(self::view());
     $templates->expects(self::never())->method('delete');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    new DeleteInterventionTemplateHandler($templates, $authorization)(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $templates = $this->createMock(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn(self::view());
+    $templates->expects(self::never())->method('delete');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(InterventionNotFoundException::withId(self::TEMPLATE_ID)->getMessage());
 
     new DeleteInterventionTemplateHandler($templates, $authorization)(self::command());
   }
@@ -65,7 +81,7 @@ final class DeleteInterventionTemplateHandlerTest extends TestCase
     $templates->expects(self::once())->method('delete')->with(self::TEMPLATE_ID);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new DeleteInterventionTemplateHandler($templates, $authorization)(self::command());
 

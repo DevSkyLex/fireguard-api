@@ -8,7 +8,6 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
 use Authorization\Application\UseCase\Query\Role\GetRole\{GetRoleQuery, GetRoleResult};
-use Authorization\Domain\Exception\RoleNotFoundException;
 use Authorization\Presentation\Api\Dto\Output\Permission\PermissionOutput;
 use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -74,11 +73,7 @@ final readonly class GetRoleProvider implements ProviderInterface
 
     $query = new GetRoleQuery(roleId: $id);
 
-    try {
-      $result = $this->queryBus->ask(query: $query);
-    } catch (RoleNotFoundException) {
-      return null;
-    }
+    $result = $this->queryBus->ask(query: $query);
 
     assert($result instanceof GetRoleResult);
 

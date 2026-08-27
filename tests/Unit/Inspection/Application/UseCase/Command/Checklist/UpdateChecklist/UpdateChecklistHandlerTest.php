@@ -21,13 +21,13 @@ use Inspection\Domain\Exception\{
 };
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test UpdateChecklistHandlerTest.
@@ -164,7 +164,7 @@ final class UpdateChecklistHandlerTest extends TestCase
       uuidFactory: $this->makeUuidFactory(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Field "name" cannot be null when provided.');
 
     $handler->__invoke(new UpdateChecklistCommand(
@@ -283,7 +283,7 @@ final class UpdateChecklistHandlerTest extends TestCase
       uuidFactory: $this->makeUuidFactory(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new UpdateChecklistCommand(
       organizationId: self::ORG_ID,

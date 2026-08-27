@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend;
 
 use DateInterval;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\{GetOrganizationDashboardTrendHandler, GetOrganizationDashboardTrendQuery, GetOrganizationDashboardTrendResult};
@@ -17,6 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_keys;
 use function count;
@@ -412,7 +412,7 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetOrganizationDashboardTrendQuery(
       organizationId: self::ORG_ID,
@@ -592,7 +592,7 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetOrganizationDashboardTrendQuery(
       organizationId: self::ORG_ID,
@@ -617,7 +617,7 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('At most 4 dashboard trend metrics may be requested at once.');
 
     $handler->__invoke(new GetOrganizationDashboardTrendQuery(

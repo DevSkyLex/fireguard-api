@@ -7,6 +7,7 @@ namespace Authorization\Infrastructure\Persistence\Doctrine\Record;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt;
 
 /**
  * Record RoleRecord.
@@ -20,6 +21,7 @@ use Doctrine\ORM\Mapping as ORM;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ORM\Entity]
+#[TenantFilterExempt]
 #[ORM\Table(name: 'roles')]
 #[ORM\Index(name: 'idx_roles_tenant', columns: ['tenant_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_roles_name', columns: ['name'])]

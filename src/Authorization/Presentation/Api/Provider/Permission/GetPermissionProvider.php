@@ -7,7 +7,6 @@ namespace Authorization\Presentation\Api\Provider\Permission;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Authorization\Application\UseCase\Query\Permission\GetPermission\{GetPermissionQuery, GetPermissionResult};
-use Authorization\Domain\Exception\PermissionNotFoundException;
 use Authorization\Presentation\Api\Dto\Output\Permission\PermissionOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 
@@ -71,11 +70,7 @@ final readonly class GetPermissionProvider implements ProviderInterface
 
     $query = new GetPermissionQuery(permissionId: $id);
 
-    try {
-      $result = $this->queryBus->ask(query: $query);
-    } catch (PermissionNotFoundException) {
-      return null;
-    }
+    $result = $this->queryBus->ask(query: $query);
 
     assert($result instanceof GetPermissionResult);
 

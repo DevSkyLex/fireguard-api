@@ -8,9 +8,7 @@ use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNami
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * UseCase GetInspectionHandler.
@@ -42,12 +40,8 @@ final readonly class GetInspectionHandler implements QueryHandler
    */
   public function __invoke(GetInspectionQuery $query): GetInspectionResult
   {
-    try {
-      $inspectionId = InspectionId::fromString($query->inspectionId);
-      $organizationId = InspectionOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $inspectionId = InspectionId::fromString($query->inspectionId);
+    $organizationId = InspectionOrganizationId::fromString($query->organizationId);
 
     $inspection = $this->inspectionRepository->findById($inspectionId);
 

@@ -231,8 +231,8 @@ register.
 
 ## Enriched facility tree (`GET /facility-tree`, L2.9)
 
-The mockup's Facilities page is a Site → Building → Floor → Zone tree with,
-per node, an equipment count and a compliance indicator. `GET
+The Facilities page renders a Site → Building → Floor → Zone tree with, per
+node, an equipment count and a compliance indicator. `GET
 /organizations/{organizationId}/facility-tree` serves exactly that, and is
 owned by **Compliance, not Facility**: Facility's own `/children` and
 `/descendants` endpoints (`FacilityOutput`) are left byte-for-byte unchanged,

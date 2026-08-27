@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionRecurrenceInput, UpdateInterventionRecurrenceInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionRecurrenceOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\InterventionRecurrenceProcessor;
 use Intervention\Presentation\Api\Provider\InterventionRecurrenceProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,6 +31,7 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'InterventionRecurrence',
   operations: [
     new Post(
+      name: InterventionOperations::CREATE_INTERVENTION_RECURRENCE,
       uriTemplate: '/intervention-recurrences',
       input: CreateInterventionRecurrenceInput::class,
       output: InterventionRecurrenceOutput::class,
@@ -38,11 +40,13 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTION_RECURRENCES,
       uriTemplate: '/intervention-recurrences',
       output: InterventionRecurrenceOutput::class,
       provider: InterventionRecurrenceProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
@@ -51,12 +55,14 @@ use Symfony\Component\HttpFoundation\Response;
       ]),
     ),
     new Get(
+      name: InterventionOperations::GET_INTERVENTION_RECURRENCE,
       uriTemplate: '/intervention-recurrences/{id}',
       output: InterventionRecurrenceOutput::class,
       provider: InterventionRecurrenceProvider::class,
       security: "is_granted('ROLE_USER')",
     ),
     new Patch(
+      name: InterventionOperations::UPDATE_INTERVENTION_RECURRENCE,
       uriTemplate: '/intervention-recurrences/{id}',
       read: false,
       input: UpdateInterventionRecurrenceInput::class,
@@ -65,6 +71,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new Delete(
+      name: InterventionOperations::DELETE_INTERVENTION_RECURRENCE,
       uriTemplate: '/intervention-recurrences/{id}',
       read: false,
       input: false,

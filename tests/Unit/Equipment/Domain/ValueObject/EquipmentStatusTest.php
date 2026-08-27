@@ -40,13 +40,4 @@ final class EquipmentStatusTest extends TestCase
     self::assertTrue(EquipmentStatus::DECOMMISSIONED->isDecommissioned());
     self::assertFalse(EquipmentStatus::OPERATIONAL->isDecommissioned());
   }
-
-  #[Test]
-  public function itLabelsEveryCase(): void
-  {
-    self::assertSame('In stock', EquipmentStatus::IN_STOCK->label());
-    self::assertSame('Operational', EquipmentStatus::OPERATIONAL->label());
-    self::assertSame('Under maintenance', EquipmentStatus::UNDER_MAINTENANCE->label());
-    self::assertSame('Decommissioned', EquipmentStatus::DECOMMISSIONED->label());
-  }
 }

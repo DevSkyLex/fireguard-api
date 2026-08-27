@@ -48,6 +48,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: PasswordResetOperations::REQUEST,
       uriTemplate: '/reset/request',
+      status: HttpResponse::HTTP_OK,
       input: RequestPasswordResetInput::class,
       output: RequestPasswordResetOutput::class,
       processor: RequestPasswordResetProcessor::class,
@@ -79,6 +80,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: PasswordResetOperations::RESEND,
       uriTemplate: '/reset/resend',
+      status: HttpResponse::HTTP_OK,
       input: ResendPasswordResetInput::class,
       output: RequestPasswordResetOutput::class,
       processor: ResendPasswordResetProcessor::class,
@@ -113,6 +115,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: PasswordResetOperations::CONFIRM,
       uriTemplate: '/reset/confirm',
+      status: HttpResponse::HTTP_OK,
       input: ConfirmPasswordResetInput::class,
       output: ConfirmPasswordResetOutput::class,
       processor: ConfirmPasswordResetProcessor::class,

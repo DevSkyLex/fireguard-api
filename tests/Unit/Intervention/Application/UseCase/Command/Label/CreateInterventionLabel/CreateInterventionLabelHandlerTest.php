@@ -8,10 +8,13 @@ use DateTimeImmutable;
 use Intervention\Application\Contract\Label\InterventionLabelView;
 use Intervention\Application\Port\Outbound\InterventionLabelPort;
 use Intervention\Application\UseCase\Command\Label\CreateInterventionLabel\{CreateInterventionLabelCommand, CreateInterventionLabelHandler};
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionValidationException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+
+use function sprintf;
 
 /**
  * Test CreateInterventionLabelHandlerTest.
@@ -38,7 +41,7 @@ final class CreateInterventionLabelHandlerTest extends TestCase
       ->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new CreateInterventionLabelHandler($labels, $authorization)(
       new CreateInterventionLabelCommand(self::USER_ID, self::ORGANIZATION_ID, '  Urgent  ', '#ff0000'),
@@ -53,7 +56,7 @@ final class CreateInterventionLabelHandlerTest extends TestCase
     $labels = $this->createMock(InterventionLabelPort::class);
     $labels->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
 
@@ -68,12 +71,28 @@ final class CreateInterventionLabelHandlerTest extends TestCase
     $labels = $this->createMock(InterventionLabelPort::class);
     $labels->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
     new CreateInterventionLabelHandler($labels, $authorization)(
       new CreateInterventionLabelCommand(self::USER_ID, self::ORGANIZATION_ID, '   ', '#ff0000'),
+    );
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $labels = $this->createMock(InterventionLabelPort::class);
+    $labels->expects(self::never())->method('create');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Organization with ID "%s" not found.', self::ORGANIZATION_ID));
+
+    new CreateInterventionLabelHandler($labels, $authorization)(
+      new CreateInterventionLabelCommand(self::USER_ID, self::ORGANIZATION_ID, 'Urgent', '#ff0000'),
     );
   }
 }

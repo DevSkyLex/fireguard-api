@@ -113,6 +113,27 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testCountByMessageIdCountsOnlyThatMessagesAttachments(): void
+  {
+    $messages = new MessagingMessageRepository($this->entityManager);
+    $repository = new MessagingAttachmentRepository($this->entityManager);
+
+    $first = $this->appendMessage($messages, 'First');
+    $second = $this->appendMessage($messages, 'Second');
+
+    self::assertSame(0, $repository->countByMessageId((string) $first->id()));
+
+    $repository->save($this->makeAttachment($this->uuid(), (string) $first->id(), new DateTimeImmutable('2026-01-01T10:00:00+00:00'), 'a.pdf'));
+    $repository->save($this->makeAttachment($this->uuid(), (string) $first->id(), new DateTimeImmutable('2026-01-01T10:01:00+00:00'), 'b.pdf'));
+    // Same conversation, different message: the cap is per message, so this
+    // must not count against the first message's budget.
+    $repository->save($this->makeAttachment($this->uuid(), (string) $second->id(), new DateTimeImmutable('2026-01-01T10:02:00+00:00'), 'c.pdf'));
+
+    self::assertSame(2, $repository->countByMessageId((string) $first->id()));
+    self::assertSame(1, $repository->countByMessageId((string) $second->id()));
+  }
+
+  #[Test]
   public function testFindByMessageIdsReturnsEmptyForNoMessageIds(): void
   {
     $repository = new MessagingAttachmentRepository($this->entityManager);

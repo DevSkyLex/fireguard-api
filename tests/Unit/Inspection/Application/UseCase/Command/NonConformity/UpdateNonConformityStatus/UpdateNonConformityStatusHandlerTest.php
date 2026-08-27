@@ -26,11 +26,11 @@ use Inspection\Domain\ValueObject\{
   NonConformitySeverity,
   NonConformityStatus
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(UpdateNonConformityStatusHandler::class)]
 final class UpdateNonConformityStatusHandlerTest extends TestCase
@@ -317,7 +317,7 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new UpdateNonConformityStatusCommand(
       organizationId: self::ORG_ID,

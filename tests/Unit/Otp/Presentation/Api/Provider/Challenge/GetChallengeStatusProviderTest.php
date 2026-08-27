@@ -14,7 +14,6 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use stdClass;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -76,7 +75,7 @@ final class GetChallengeStatusProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideMapsOtpNotFound(): void
+  public function testProvideLetsAMissingChallengePropagate(): void
   {
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -86,51 +85,9 @@ final class GetChallengeStatusProviderTest extends TestCase
 
     $provider = new GetChallengeStatusProvider($queryBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OtpNotFoundException::class);
 
     $provider->provide(new Get(), ['token' => 'token-2']);
-  }
-
-  #[Test]
-  public function testProvideMapsOtpNotFoundHandlerFailedException(): void
-  {
-    $handlerFailed = new HandlerFailedException(
-      new Envelope(new stdClass()),
-      ['handler' => OtpNotFoundException::forIdentifier('token-3')],
-    );
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->willThrowException($handlerFailed);
-
-    $provider = new GetChallengeStatusProvider($queryBus);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new Get(), ['token' => 'token-3']);
-  }
-
-  #[Test]
-  public function testProvideMapsOtpNotFoundMessengerException(): void
-  {
-    $handlerFailed = new HandlerFailedException(
-      new Envelope(new stdClass()),
-      ['handler' => OtpNotFoundException::forIdentifier('token-4')],
-    );
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->willThrowException(MessengerRuntimeException::wrap($handlerFailed));
-
-    $provider = new GetChallengeStatusProvider($queryBus);
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new Get(), ['token' => 'token-4']);
   }
 
   #[Test]
@@ -168,42 +125,6 @@ final class GetChallengeStatusProviderTest extends TestCase
 
     $this->expectException(HandlerFailedException::class);
     $provider->provide(new Get(), ['token' => 'token-6']);
-  }
-
-  #[Test]
-  public function testProvideMapsOtpNotFoundFromMessengerPrevious(): void
-  {
-    $otpNotFound = OtpNotFoundException::forIdentifier('token-7');
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->willThrowException(MessengerRuntimeException::wrap($otpNotFound));
-
-    $provider = new GetChallengeStatusProvider($queryBus);
-
-    $this->expectException(NotFoundHttpException::class);
-    $provider->provide(new Get(), ['token' => 'token-7']);
-  }
-
-  #[Test]
-  public function testProvideMapsOtpNotFoundFromDeepMessengerPrevious(): void
-  {
-    $otpNotFound = OtpNotFoundException::forIdentifier('token-9');
-    $middle = new RuntimeException('middle', 0, $otpNotFound);
-    $outer = new RuntimeException('outer', 0, $middle);
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->willThrowException(MessengerRuntimeException::wrap($outer));
-
-    $provider = new GetChallengeStatusProvider($queryBus);
-
-    $this->expectException(NotFoundHttpException::class);
-    $provider->provide(new Get(), ['token' => 'token-9']);
   }
 
   #[Test]

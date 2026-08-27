@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Tenant\Infrastructure\Persistence\Doctrine\Filter;
 
+use Audit\Infrastructure\Persistence\Doctrine\Record\AuditEventRecord;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\FilterCollection;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter;
 
 /**
  * Test TenantFilterTest.
+ *
+ * Also guards the blast radius of the filter: it scopes the multi-tenant
+ * business tables and leaves the authorization tables alone. Filtering the
+ * latter strips the caller of its own grants, which turned every
+ * permission-gated endpoint into a 403 as soon as a request carried a
+ * `tenantId`.
  *
  * @category Doctrine Filter Tests
  *
@@ -45,6 +53,8 @@ final class TenantFilterTest extends TestCase
       ->method('hasField')
       ->with('tenantId')
       ->willReturn(true);
+    $metadata->method('getName')
+      ->willReturn(AuditEventRecord::class);
 
     self::assertSame('', $filter->addFilterConstraint($metadata, 't'));
   }
@@ -60,6 +70,8 @@ final class TenantFilterTest extends TestCase
       ->method('hasField')
       ->with('tenantId')
       ->willReturn(true);
+    $metadata->method('getName')
+      ->willReturn(AuditEventRecord::class);
     $metadata->expects(self::once())
       ->method('getColumnName')
       ->with('tenantId')
@@ -79,6 +91,40 @@ final class TenantFilterTest extends TestCase
       ->method('hasField')
       ->with('tenantId')
       ->willReturn(true);
+    $metadata->method('getName')
+      ->willReturn(AuditEventRecord::class);
+
+    self::assertSame('', $filter->addFilterConstraint($metadata, 't'));
+  }
+
+  /**
+   * @return iterable<string, array{class-string}>
+   */
+  public static function exemptRecordProvider(): iterable
+  {
+    yield 'roles' => [RoleRecord::class];
+    yield 'role assignments' => [RoleAssignmentRecord::class];
+  }
+
+  /**
+   * @param class-string $class the exempt record class
+   */
+  #[Test]
+  #[DataProvider('exemptRecordProvider')]
+  public function testReturnsEmptyForTenantFilterExemptEntities(string $class): void
+  {
+    $filter = $this->createFilter();
+    $filter->setParameter('tenant_id', 'tenant-123');
+
+    $metadata = $this->createMock(ClassMetadata::class);
+    $metadata->expects(self::once())
+      ->method('hasField')
+      ->with('tenantId')
+      ->willReturn(true);
+    $metadata->method('getName')
+      ->willReturn($class);
+    $metadata->expects(self::never())
+      ->method('getColumnName');
 
     self::assertSame('', $filter->addFilterConstraint($metadata, 't'));
   }

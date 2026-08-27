@@ -8,11 +8,11 @@ use Equipment\Application\Port\Outbound\TagRepositoryPort;
 use Equipment\Application\UseCase\Query\Tag\ListTags\{ListTagsHandler, ListTagsQuery, ListTagsResult};
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentOrganizationId, TagId};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function sprintf;
 
@@ -30,7 +30,7 @@ final class ListTagsHandlerTest extends TestCase
       tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListTagsQuery(
       organizationId: 'not-a-uuid',

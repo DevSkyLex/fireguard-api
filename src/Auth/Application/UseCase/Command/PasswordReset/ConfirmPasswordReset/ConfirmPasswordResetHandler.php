@@ -66,8 +66,14 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
     $otp = $this->otpRepository->findByChallengeToken($challengeToken);
 
     if (null === $otp) {
+      // Same message as a wrong code, deliberately.
+      //
+      // Anyone can obtain a challenge token for any address — unknown ones get a
+      // decoy — so if this branch said "unknown token" while a wrong code said
+      // "invalid code", submitting one bogus code would still reveal whether the
+      // account exists. The two failures must be indistinguishable on the wire.
       return ConfirmPasswordResetResult::failed(
-        message: 'Invalid or expired reset token.',
+        message: 'Invalid or expired reset code. Please check the code, or request a new reset.',
         errorCode: ConfirmPasswordResetResult::ERROR_INVALID_TOKEN,
       );
     }
@@ -81,7 +87,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
 
       if (!$verified) {
         return ConfirmPasswordResetResult::failed(
-          message: 'Invalid verification code. Please check and try again.',
+          message: 'Invalid or expired reset code. Please check the code, or request a new reset.',
           errorCode: ConfirmPasswordResetResult::ERROR_INVALID_CODE,
           attemptsRemaining: $otp->attemptsRemaining(),
         );

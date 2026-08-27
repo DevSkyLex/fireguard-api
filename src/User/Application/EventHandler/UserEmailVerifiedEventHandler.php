@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace User\Application\EventHandler;
 
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
 use User\Domain\Event\UserEmailVerifiedEvent;

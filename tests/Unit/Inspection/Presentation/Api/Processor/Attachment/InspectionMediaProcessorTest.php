@@ -12,6 +12,7 @@ use Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachment\{A
 use Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment\DeleteInspectionAttachmentCommand;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
 use Inspection\Presentation\Api\Processor\Attachment\InspectionMediaProcessor;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -77,9 +78,9 @@ final class InspectionMediaProcessorTest extends TestCase
 
       $authorization = $this->createMock(OrganizationAuthorizationPort::class);
       $authorization->expects(self::once())
-        ->method('hasPermission')
+        ->method('resolveAccess')
         ->with('user-id', self::ORGANIZATION_ID, 'organization.inspection.write')
-        ->willReturn(true);
+        ->willReturn(OrganizationAccessDecision::GRANTED);
 
       $security = $this->createStub(Security::class);
       $security->method('getUser')->willReturn(
@@ -162,7 +163,7 @@ final class InspectionMediaProcessorTest extends TestCase
       );
 
       $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-      $authorization->method('hasPermission')->willReturn(true);
+      $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
       $security = $this->createStub(Security::class);
       $security->method('getUser')->willReturn(
@@ -228,7 +229,7 @@ final class InspectionMediaProcessorTest extends TestCase
     $entityManager->method('find')->willReturn($inspection);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -274,7 +275,7 @@ final class InspectionMediaProcessorTest extends TestCase
     $entityManager->method('find')->willReturn($attachment);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -534,7 +535,9 @@ final class InspectionMediaProcessorTest extends TestCase
     }
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($permitted);
+    $authorization->method('resolveAccess')->willReturn(
+      $permitted ? OrganizationAccessDecision::GRANTED : OrganizationAccessDecision::MISSING_PERMISSION,
+    );
 
     return new InspectionMediaProcessor(
       $entityManager,

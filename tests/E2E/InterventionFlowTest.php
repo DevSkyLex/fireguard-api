@@ -10,8 +10,10 @@ use Symfony\Component\HttpFoundation\Response;
 use function basename;
 use function http_build_query;
 use function is_array;
+use function is_int;
 use function is_string;
 use function json_encode;
+use function sprintf;
 use function str_contains;
 use function uniqid;
 
@@ -95,6 +97,159 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame('planned', $planned['status'] ?? null);
     self::assertSame('high', $planned['priority'] ?? null);
     self::assertSame(2, $planned['revision'] ?? null);
+  }
+
+  public function testWithdrawSubmissionReopensFieldWorkUntilResubmission(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-withdraw-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Withdraw Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Withdrawable mission');
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    $memberIri = $this->firstMemberIri($client, $token, $organizationId);
+    self::assertNotNull($memberIri);
+    $facilityId = $this->createFacility($client, $token, $organizationId);
+    self::assertNotNull($facilityId);
+
+    // Field work is prepared while drafting (only discovered work items may
+    // appear later); the submission below freezes it.
+    $client->request(
+      method: 'POST',
+      uri: '/api/intervention-work-items',
+      server: $this->headers($token, self::LD_JSON),
+      content: json_encode([
+        'intervention' => '/api/interventions/' . $interventionId,
+        'action' => 'inventory',
+        'target' => 'Extinguishers — floor 2',
+      ]) ?: '',
+    );
+    self::assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode());
+    $workItem = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $workItemId = $this->extractResourceId($workItem);
+    self::assertNotNull($workItemId);
+
+    $current = $this->getResource($client, $token, '/api/interventions/' . $interventionId);
+    $revision = $current['revision'] ?? null;
+    self::assertIsInt($revision);
+
+    $planned = $this->patch($client, $token, '/api/interventions/' . $interventionId, $revision, [
+      'site' => '/api/facilities/' . $facilityId,
+      'responsible' => $memberIri,
+      'plannedStartAt' => '2026-08-01T09:00:00Z',
+      'dueAt' => '2026-08-02T09:00:00Z',
+      'status' => 'planned',
+    ]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($planned), ['status' => 'in_progress']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($started), ['status' => 'submitted']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('submitted', $submitted['status'] ?? null);
+    self::assertSame(
+      ['changes_requested', 'in_progress'],
+      $submitted['allowedTransitions'] ?? null,
+      'A submitted intervention must offer withdrawal alongside the review outcome.',
+    );
+
+    // Submission freezes field work.
+    $this->patch($client, $token, '/api/intervention-work-items/' . $workItemId, 1, ['status' => 'in_progress']);
+    self::assertSame(
+      Response::HTTP_CONFLICT,
+      $client->getResponse()->getStatusCode(),
+      'Work items must stay frozen while the intervention is under review.',
+    );
+
+    // The responsible withdraws the submission; work becomes mutable again.
+    $withdrawn = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($submitted), ['status' => 'in_progress']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('in_progress', $withdrawn['status'] ?? null);
+
+    $this->patch($client, $token, '/api/intervention-work-items/' . $workItemId, 1, ['status' => 'in_progress']);
+    self::assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'Withdrawing the submission must reopen field work.',
+    );
+
+    // The work-item mutation above touched the intervention: re-read the
+    // revision instead of trusting the pre-mutation snapshot.
+    $reopened = $this->getResource($client, $token, '/api/interventions/' . $interventionId);
+    $resubmitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($reopened), ['status' => 'submitted']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('submitted', $resubmitted['status'] ?? null);
+  }
+
+  public function testReplansANonDraftInterventionButFreezesItUnderReview(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-replan-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Replan Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Delayed mission');
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+    $memberIri = $this->firstMemberIri($client, $token, $organizationId);
+    self::assertNotNull($memberIri);
+    $facilityId = $this->createFacility($client, $token, $organizationId);
+    self::assertNotNull($facilityId);
+
+    $planned = $this->patch($client, $token, '/api/interventions/' . $interventionId, 1, [
+      'site' => '/api/facilities/' . $facilityId,
+      'responsible' => $memberIri,
+      'plannedStartAt' => '2026-08-10T09:00:00Z',
+      'dueAt' => '2026-08-12T09:00:00Z',
+      'status' => 'planned',
+    ]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    // The delayed intervention is rescheduled in place — no abandon-and-recreate.
+    $replanned = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($planned), [
+      'plannedStartAt' => '2026-08-17T09:00:00Z',
+      'dueAt' => '2026-08-19T09:00:00Z',
+      'priority' => 'urgent',
+    ]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('urgent', $replanned['priority'] ?? null);
+    self::assertSame('planned', $replanned['status'] ?? null);
+
+    // Clearing a planning value outside draft is refused.
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($replanned), ['dueAt' => null]);
+    self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
+
+    // The site is frozen after planning.
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($replanned), ['site' => '/api/facilities/' . $facilityId]);
+    self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
+
+    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($replanned), ['status' => 'in_progress']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($started), ['status' => 'submitted']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    // Under review everything is frozen: withdraw first.
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($submitted), ['dueAt' => '2026-08-25T09:00:00Z']);
+    self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
+
+    // The replan left its trace on the activity feed.
+    $activities = $this->getResource($client, $token, '/api/interventions/' . $interventionId . '/activities');
+    $events = [];
+    foreach ((array) ($activities['member'] ?? []) as $activity) {
+      if (is_array($activity) && isset($activity['event'])) {
+        $events[] = $activity['event'];
+      }
+    }
+    self::assertContains('rescheduled', $events, 'A non-draft replan must append a rescheduled activity.');
   }
 
   public function testPlanWithoutScheduleReturnsConflict(): void
@@ -291,6 +446,177 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertNotContains($otherId, $ids, 'Non-matching interventions must be excluded.');
   }
 
+  public function testPriorityFilterBoundsTheCollectionAndRejectsUnknownValues(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-priority-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Priority Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $urgent = $this->createDraftIntervention($client, $token, $organizationId, 'Urgent mission');
+    $normal = $this->createDraftIntervention($client, $token, $organizationId, 'Routine mission');
+    $urgentId = $this->extractResourceId($urgent);
+    $normalId = $this->extractResourceId($normal);
+    self::assertNotNull($urgentId);
+    self::assertNotNull($normalId);
+    $this->patch($client, $token, '/api/interventions/' . $urgentId, 1, ['priority' => 'urgent']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'priority' => 'urgent',
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($urgentId, $ids, 'The urgent intervention must be listed.');
+    self::assertNotContains($normalId, $ids, 'Other priorities must be excluded.');
+
+    // An unknown value must be a client error, not a silently empty collection.
+    $client->request(
+      'GET',
+      '/api/interventions?' . http_build_query([
+        'organization' => '/api/organizations/' . $organizationId,
+        'priority' => 'catastrophic',
+      ]),
+      server: $this->headers($token, self::LD_JSON),
+    );
+    self::assertSame(Response::HTTP_BAD_REQUEST, $client->getResponse()->getStatusCode());
+  }
+
+  public function testLabelFilterBoundsTheCollection(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-label-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Label Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/intervention-labels',
+      server: $this->headers($token, self::LD_JSON),
+      content: json_encode([
+        'organization' => '/api/organizations/' . $organizationId,
+        'name' => 'Urgent Recall',
+        'color' => '#ff0000',
+      ]) ?: '',
+    );
+    self::assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode());
+    $label = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $labelId = $this->extractResourceId($label);
+    self::assertNotNull($labelId);
+
+    $labeled = $this->createDraftInterventionWithLabels($client, $token, $organizationId, 'Labeled mission', [$labelId]);
+    $unlabeled = $this->createDraftIntervention($client, $token, $organizationId, 'Unlabeled mission');
+    $labeledId = $this->extractResourceId($labeled);
+    $unlabeledId = $this->extractResourceId($unlabeled);
+    self::assertNotNull($labeledId);
+    self::assertNotNull($unlabeledId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'label' => '/api/intervention-labels/' . $labelId,
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($labeledId, $ids, 'The labeled intervention must be listed.');
+    self::assertNotContains($unlabeledId, $ids, 'The unlabeled intervention must be excluded.');
+  }
+
+  public function testMemberFilterMatchesResponsibleOrParticipant(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-member-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Member Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $memberIri = $this->firstMemberIri($client, $token, $organizationId);
+    self::assertNotNull($memberIri);
+
+    $asResponsible = $this->createDraftIntervention($client, $token, $organizationId, 'Responsible mission');
+    $asResponsibleId = $this->extractResourceId($asResponsible);
+    self::assertNotNull($asResponsibleId);
+    $this->patch($client, $token, '/api/interventions/' . $asResponsibleId, 1, ['responsible' => $memberIri]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $asParticipant = $this->createDraftIntervention($client, $token, $organizationId, 'Participant mission');
+    $asParticipantId = $this->extractResourceId($asParticipant);
+    self::assertNotNull($asParticipantId);
+    $this->patch($client, $token, '/api/interventions/' . $asParticipantId, 1, ['participants' => [$memberIri]]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $unrelated = $this->createDraftIntervention($client, $token, $organizationId, 'Unrelated mission');
+    $unrelatedId = $this->extractResourceId($unrelated);
+    self::assertNotNull($unrelatedId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'member' => $memberIri,
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($asResponsibleId, $ids, 'The intervention where the member is responsible must be listed.');
+    self::assertContains($asParticipantId, $ids, 'The intervention where the member is a participant must be listed.');
+    self::assertNotContains($unrelatedId, $ids, 'An unrelated intervention must be excluded.');
+  }
+
+  public function testNumberFilterMatchesExactlyAcceptsFgPrefixAndRejectsNonNumeric(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-number-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Number Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Numbered mission');
+    $number = $intervention['number'] ?? null;
+    self::assertIsInt($number);
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'number' => (string) $number,
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertSame([$interventionId], $ids, 'The number filter must match exactly.');
+
+    $prefixed = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'number' => 'FG-' . $number,
+    ]));
+    self::assertSame([$interventionId], $this->memberIds($prefixed), 'The FG- prefix must be accepted and stripped.');
+
+    $lowercase = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'number' => 'fg-' . $number,
+    ]));
+    self::assertSame([$interventionId], $this->memberIds($lowercase), 'The FG- prefix must be matched case-insensitively.');
+
+    foreach (['not-a-number', '12.5', '-5', '1e3'] as $invalid) {
+      $client->request(
+        'GET',
+        '/api/interventions?' . http_build_query([
+          'organization' => '/api/organizations/' . $organizationId,
+          'number' => $invalid,
+        ]),
+        server: $this->headers($token, self::LD_JSON),
+      );
+      self::assertSame(
+        Response::HTTP_BAD_REQUEST,
+        $client->getResponse()->getStatusCode(),
+        sprintf('The number filter must reject "%s" with a 400.', $invalid),
+      );
+    }
+  }
+
   /**
    * @return array<string, mixed>
    */
@@ -323,6 +649,52 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     );
 
     return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+  }
+
+  /**
+   * @param list<string> $labelIds
+   *
+   * @return array<string, mixed>
+   */
+  private function createDraftInterventionWithLabels(
+    KernelBrowser $client,
+    string $token,
+    string $organizationId,
+    string $name,
+    array $labelIds,
+  ): array {
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions',
+      server: $this->headers($token, self::LD_JSON),
+      content: json_encode([
+        'organization' => '/api/organizations/' . $organizationId,
+        'type' => 'inspection_campaign',
+        'name' => $name,
+        'labelIds' => $labelIds,
+      ]) ?: '',
+    );
+
+    self::assertSame(
+      Response::HTTP_CREATED,
+      $client->getResponse()->getStatusCode(),
+      'Labeled draft intervention creation should succeed. Response: ' . ($client->getResponse()->getContent() ?: ''),
+    );
+
+    return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+  }
+
+  /**
+   * Reads the optimistic-concurrency revision out of a decoded response
+   * payload, defaulting to 0 when absent or non-integer.
+   *
+   * @param array<string, mixed> $payload
+   */
+  private static function revisionOf(array $payload): int
+  {
+    $revision = $payload['revision'] ?? 0;
+
+    return is_int($revision) ? $revision : 0;
   }
 
   /**

@@ -8,7 +8,6 @@ use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, Facilit
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus, FacilityType};
-use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -57,11 +56,11 @@ final readonly class ListFacilitiesHandler implements QueryHandler
         ? (string) FacilityId::fromString($query->parentFacilityId)
         : null;
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     if ($query->rootsOnly && null !== $parentFacilityId) {
-      throw new InvalidArgumentException('rootsOnly cannot be combined with parentFacilityId.');
+      throw InvalidValueException::because('rootsOnly cannot be combined with parentFacilityId.');
     }
 
     $facilities = $this->facilityRepository->findByOrganizationId(
@@ -76,6 +75,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
       rootsOnly: $query->rootsOnly,
+      hasCoordinates: $query->hasCoordinates,
     );
 
     $total = $this->facilityRepository->countByOrganizationId(
@@ -87,6 +87,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       code: $query->code,
       search: $query->search,
       rootsOnly: $query->rootsOnly,
+      hasCoordinates: $query->hasCoordinates,
     );
 
     $childCounts = $this->facilityRepository->countChildrenByParentIds(

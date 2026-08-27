@@ -57,6 +57,21 @@ interface AttachmentRepositoryPort
   public function findByEquipmentId(EquipmentId $equipmentId): array;
 
   /**
+   * Method countByEquipmentId.
+   *
+   * Counts the attachments an equipment already carries, without hydrating
+   * them — the input of the
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` cap.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentId $equipmentId the equipment identifier
+   *
+   * @return int the attachment count
+   */
+  public function countByEquipmentId(EquipmentId $equipmentId): int;
+
+  /**
    * Method delete.
    *
    * Deletes an attachment record.

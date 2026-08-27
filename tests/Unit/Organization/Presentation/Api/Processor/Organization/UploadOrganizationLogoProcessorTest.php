@@ -19,6 +19,8 @@ use Organization\Presentation\Api\Processor\Organization\UploadOrganizationLogoP
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -27,7 +29,6 @@ use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
-  NotFoundHttpException,
   UnprocessableEntityHttpException
 };
 
@@ -215,7 +216,7 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessMapsAMissingOrganizationOnTheReadBackToHttp404(): void
+  public function testProcessLetsAMissingOrganizationOnTheReadBackPropagate(): void
   {
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(
@@ -224,7 +225,22 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
 
     $processor = $this->createProcessor(request: $this->requestWithLogo(), queryBus: $queryBus);
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(OrganizationNotFoundException::class);
+
+    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $processor = $this->createProcessor(request: $this->requestWithLogo(), commandBus: $commandBus);
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }

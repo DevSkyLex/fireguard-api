@@ -20,14 +20,14 @@ use Intervention\Domain\ValueObject\InterventionResourceType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
+use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Shared\Presentation\Api\Http\{ResourceIriParser, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 use function is_string;
-use function strlen;
 
 /**
  * Processor MediaProcessor.
@@ -56,6 +56,7 @@ final readonly class MediaProcessor implements ProcessorInterface
    * @param RequestStack $requestStack the request stack value
    * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
+   * @param MultipartAttachmentGuard $attachmentGuard validates the uploaded file's MIME type and size
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -65,6 +66,7 @@ final readonly class MediaProcessor implements ProcessorInterface
     private RequestStack $requestStack,
     private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
+    private MultipartAttachmentGuard $attachmentGuard,
   ) {
   }
 
@@ -103,11 +105,14 @@ final readonly class MediaProcessor implements ProcessorInterface
   private function upload(): AttachmentOutput
   {
     $request = $this->requestStack->getCurrentRequest();
-    $equipmentValue = $request?->request->get('equipment');
-    $interventionValue = $request?->request->get('intervention');
-    $clientId = $request?->request->get('clientId');
-    $file = $request?->files->get('file');
-    if (!is_string($equipmentValue) || !$file instanceof UploadedFile) {
+    if (!$request instanceof Request) {
+      throw new BadRequestHttpException('Request payload is required.');
+    }
+
+    $equipmentValue = $request->request->get('equipment');
+    $interventionValue = $request->request->get('intervention');
+    $clientId = $request->request->get('clientId');
+    if (!is_string($equipmentValue) || !$request->files->get('file') instanceof UploadedFile) {
       throw new BadRequestHttpException('Multipart fields "equipment" and "file" are required.');
     }
     if (null !== $interventionValue && !is_string($interventionValue)) {
@@ -142,16 +147,23 @@ final readonly class MediaProcessor implements ProcessorInterface
         return MediaProvider::output($existing);
       }
     }
-    $contents = $file->getContent();
+
+    // MIME/size validation happens LAST, only once the clientId dedup
+    // short-circuit above has ruled out a retry — a retry never needs the
+    // file re-read or re-checked. See MultipartAttachmentGuard, the same
+    // kernel Facility/Intervention/Inspection/Messaging already route
+    // through.
+    $uploaded = $this->attachmentGuard->fromRequest($request);
+
     /** @var AddAttachmentResult $result */
     $result = $this->commandBus->dispatch(new AddAttachmentCommand(
       organizationId: $organizationId,
       equipmentId: $equipment->id,
-      fileName: $file->getClientOriginalName(),
-      contents: $contents,
-      mimeType: $file->getMimeType() ?? 'application/octet-stream',
-      size: strlen($contents),
-      label: is_string($request?->request->get('label')) ? $request->request->get('label') : null,
+      fileName: $uploaded->fileName,
+      contents: $uploaded->contents,
+      mimeType: $uploaded->mimeType,
+      size: $uploaded->size,
+      label: $uploaded->label,
       attachmentId: is_string($clientId) && '' !== $clientId ? $clientId : null,
     ));
     $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $result->attachmentId);
@@ -246,7 +258,11 @@ final readonly class MediaProcessor implements ProcessorInterface
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
-    if (!$this->authorization->hasPermission($user->getId(), $equipment->organization->id, $permission)) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $equipment->organization->id, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Equipment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
   }

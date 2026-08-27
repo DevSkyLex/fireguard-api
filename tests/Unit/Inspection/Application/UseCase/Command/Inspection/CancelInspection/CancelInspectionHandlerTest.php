@@ -25,11 +25,11 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(CancelInspectionHandler::class)]
 final class CancelInspectionHandlerTest extends TestCase
@@ -230,7 +230,7 @@ final class CancelInspectionHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CancelInspectionCommand(
       organizationId: self::ORG_ID,

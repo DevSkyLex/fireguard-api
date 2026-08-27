@@ -64,9 +64,47 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * Known cross-module `Domain` imports, keyed `Consumer => Provider`.
    *
    * Captured 2026-07-19. A pair may only shrink or disappear.
+   * Refreshed 2026-08-10: every `=> Notification` pair was cleaned up by
+   * intervening commits and removed; `Intervention => Organization` was
+   * raised 4 → 5 for the reviewer-notification services added by 44da9e06 —
+   * see `src/Intervention/MODULE.md` (Architecture debt).
+   * Refreshed 2026-08-18: `Facility => Organization` raised 5 → 6 for the
+   * subtree-duplication quota check — `OrganizationQuotaPort`'s surface was
+   * typed with `Organization\Domain\ValueObject\OrganizationQuotaResource`,
+   * so any caller had to import it; the quota-exceeded *exception* crossing
+   * was promoted to `Organization\Application\Contract\Quota` instead of
+   * widening this baseline further.
+   * `Inspection => Organization` raised 2 → 3: the gated non-conformity
+   * waiver must answer 403, not 500, when the caller lacks
+   * `organization.approvals.request`, and `ApprovalGate` signals that by
+   * throwing `OrganizationAccessDeniedException` — Approval's own
+   * `ApprovalExceptionMapperTrait` catches the very same class for the very
+   * same reason (`Approval => Organization`, baseline 2). Mapping it at the
+   * Presentation boundary is the established treatment here; see
+   * `src/Inspection/MODULE.md` (Architecture debt).
+   * Tightened 2026-08-19: `Import => Organization` lowered 2 → 1,
+   * `ListImportJobsHandler` having stopped throwing Organization's
+   * `OrganizationAccessDeniedException` in favour of the module-owned
+   * `ImportAccessDeniedException`. The one that remains is
+   * `ImportExceptionMapperTrait`, which still maps the exception the
+   * Organization port itself raises.
+   * Refreshed 2026-08-19 (follow-up): the quota-contract migration completed
+   * — `OrganizationQuotaPort` is now typed entirely with
+   * `Organization\Application\Contract\Quota` types (resource enum and
+   * exception), so every quota-related Domain import vanished:
+   * `Facility => Organization` 6 → 2, `Equipment => Organization` 4 → 1,
+   * `Inspection => Organization` 3 → 1. The survivors are `OrganizationId`
+   * value-object imports and the waiver's access-denied mapping, both
+   * unrelated to quotas.
+   * Tightened 2026-08-20: `Approval => Organization` lowered 4 → 2, the four
+   * decision/query handlers having stopped throwing Organization's
+   * `OrganizationAccessDeniedException` in favour of the module-owned
+   * `ApprovalAccessDeniedException`. The two that remain are `ApprovalGate`
+   * and `ApprovalExceptionMapperTrait`, which still map the exception the
+   * Organization port itself raises.
    */
   private const array BASELINE = [
-    'Approval => Organization' => 4,
+    'Approval => Organization' => 2,
     'Assistant => Organization' => 1,
     'Auth => Otp' => 9,
     'Auth => User' => 6,
@@ -77,19 +115,17 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Equipment => Approval' => 1,
     'Equipment => Intervention' => 8,
     'Equipment => Messaging' => 1,
-    'Equipment => Notification' => 1,
-    'Equipment => Organization' => 4,
+    'Equipment => Organization' => 1,
     'Facility => Intervention' => 5,
     'Facility => Messaging' => 1,
-    'Facility => Notification' => 1,
-    'Facility => Organization' => 5,
-    'Import => Organization' => 2,
+    'Facility => Organization' => 2,
+    'Import => Organization' => 1,
     'Inspection => Approval' => 1,
     'Inspection => Intervention' => 6,
     'Inspection => Messaging' => 1,
-    'Inspection => Organization' => 2,
+    'Inspection => Organization' => 1,
     'Intervention => Messaging' => 1,
-    'Intervention => Organization' => 4,
+    'Intervention => Organization' => 5,
     'Maintenance => Organization' => 2,
     'Messaging => Organization' => 3,
     'OAuth => Auth' => 4,
@@ -97,10 +133,8 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Organization => Equipment' => 2,
     'Organization => Facility' => 2,
     'Organization => Inspection' => 2,
-    'Organization => Notification' => 6,
     'Organization => User' => 6,
     'User => Authorization' => 2,
-    'User => Notification' => 1,
     'Webhook => Equipment' => 1,
     'Webhook => Facility' => 1,
     'Webhook => Inspection' => 2,

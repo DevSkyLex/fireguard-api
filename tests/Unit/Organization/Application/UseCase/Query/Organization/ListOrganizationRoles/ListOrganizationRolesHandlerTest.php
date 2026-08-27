@@ -14,6 +14,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, Organizat
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\Pagination;
 
 #[CoversClass(ListOrganizationRolesHandler::class)]
 final class ListOrganizationRolesHandlerTest extends TestCase
@@ -52,8 +53,16 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::once())
       ->method('findByOrganizationId')
-      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id),
+        null,
+        null,
+      )
       ->willReturn([$role]);
+    $roleRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
+      ->willReturn(1);
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -71,6 +80,7 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     $result = $handler->__invoke(new ListOrganizationRolesQuery($organizationId));
 
     self::assertInstanceOf(ListOrganizationRolesResult::class, $result);
+    self::assertSame(1, $result->total);
     self::assertCount(1, $result->roles);
     self::assertSame($roleId, $result->roles[0]->id);
     self::assertSame($organizationId, $result->roles[0]->organizationId);
@@ -79,6 +89,53 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     self::assertFalse($result->roles[0]->isSystem);
     self::assertSame('', $result->roles[0]->description);
     self::assertSame(4, $result->roles[0]->memberCount);
+  }
+
+  #[Test]
+  public function testInvokeForwardsPaginationToRepositoryAndReportsTotal(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441020';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Toulon'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-5 days'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($organization);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(self::anything(), 30, 0)
+      ->willReturn([]);
+    $roleRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->willReturn(45);
+
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('countActiveMembersGroupedByRoleId')->willReturn([]);
+
+    $handler = new ListOrganizationRolesHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      memberRepository: $memberRepository,
+    );
+
+    $result = $handler->__invoke(new ListOrganizationRolesQuery(
+      organizationId: $organizationId,
+      pagination: new Pagination(offset: 0, limit: 30),
+    ));
+
+    self::assertSame([], $result->roles);
+    self::assertSame(45, $result->total);
   }
 
   #[Test]
@@ -138,6 +195,9 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     $roleRepository->expects(self::once())
       ->method('findByOrganizationId')
       ->willReturn($roles);
+    $roleRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->willReturn(3);
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -176,6 +236,7 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::never())->method('findByOrganizationId');
+    $roleRepository->expects(self::never())->method('countByOrganizationId');
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);

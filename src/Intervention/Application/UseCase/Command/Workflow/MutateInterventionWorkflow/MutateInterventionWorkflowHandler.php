@@ -6,11 +6,12 @@ namespace Intervention\Application\UseCase\Command\Workflow\MutateInterventionWo
 
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowMutation};
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
-use Intervention\Application\Service\InterventionMemberPolicy;
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 
+use function in_array;
 use function is_string;
 
 /**
@@ -34,11 +35,13 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
    * @param InterventionWorkflowGatewayPort $gateway the gateway value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param InterventionMemberPolicy $memberPolicy the intervention member policy
+   * @param InterventionActionPolicy $actionPolicy the shared action policy
    */
   public function __construct(
     private InterventionWorkflowGatewayPort $gateway,
     private OrganizationAuthorizationPort $authorization,
     private InterventionMemberPolicy $memberPolicy,
+    private InterventionActionPolicy $actionPolicy,
   ) {
   }
 
@@ -56,11 +59,17 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
   public function __invoke(MutateInterventionWorkflowCommand $command): MutateInterventionWorkflowResult
   {
     $context = $this->context($command);
-    $permission = $this->permission($command, $context);
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
-      throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+    $permissions = $this->actionPolicy->requiredPermissions($command->resource, $command->action, $command->payload, $context->status);
+    foreach ($permissions as $permission) {
+      $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw $this->outsideScope($command, $context);
+      }
+      if (!$decision->isGranted()) {
+        throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+      }
     }
-    if ('organization.interventions.execute' === $permission) {
+    if (in_array('organization.interventions.execute', $permissions, true)) {
       $this->memberPolicy->assertCanExecuteIntervention(
         $context->organizationId,
         $command->userId,
@@ -121,47 +130,26 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
   }
 
   /**
-   * Method permission.
+   * Method outsideScope.
    *
-   * Executes the permission operation.
+   * The not-found exception a caller with no active membership in the owning
+   * organization must receive.
    *
-   * @since 1.0.0
+   * Deliberately the same exception {@see self::context()} raises on the same
+   * branch for an unknown identifier: an outsider who could tell the two
+   * apart would be able to confirm which identifiers are real.
+   *
+   * @since 1.1.0
    *
    * @param MutateInterventionWorkflowCommand $command the command value
-   * @param InterventionWorkflowContext $context the context value
+   * @param InterventionWorkflowContext $context the resolved context
    *
-   * @return string the permission result
+   * @return InterventionNotFoundException the exception to throw
    */
-  private function permission(MutateInterventionWorkflowCommand $command, InterventionWorkflowContext $context): string
+  private function outsideScope(MutateInterventionWorkflowCommand $command, InterventionWorkflowContext $context): InterventionNotFoundException
   {
-    if ('intervention' === $command->resource) {
-      if ('create' === $command->action) {
-        return 'organization.interventions.plan';
-      }
-      $status = $command->payload['status'] ?? null;
-      if (is_string($status)) {
-        return match ($status) {
-          'planned' => 'organization.interventions.plan',
-          'in_progress', 'submitted' => 'organization.interventions.execute',
-          'abandoned' => match ($context->status) {
-            'draft' => 'organization.interventions.plan',
-            'changes_requested' => 'organization.interventions.review',
-            default => 'organization.interventions.execute',
-          },
-          'changes_requested' => 'organization.interventions.review',
-          default => 'organization.interventions.plan',
-        };
-      }
-
-      return 'draft' === $context->status ? 'organization.interventions.plan' : 'organization.interventions.execute';
-    }
-
-    if ('work_item' === $command->resource) {
-      return 'draft' === $context->status ? 'organization.interventions.plan' : 'organization.interventions.execute';
-    }
-
-    return 'submitted' === $context->status && 'create' !== $command->action
-      ? 'organization.interventions.review'
-      : 'organization.interventions.execute';
+    return 'create' === $command->action && 'intervention' === $command->resource
+      ? InterventionNotFoundException::forOrganizationScope($context->organizationId)
+      : InterventionNotFoundException::withId($command->id ?? 'unknown');
   }
 }

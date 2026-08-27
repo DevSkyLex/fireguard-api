@@ -10,9 +10,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\{GetTenantQuery, GetTenantResult};
-use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Presentation\Api\Dto\Output\Tenant\TenantOutput;
-use Throwable;
 
 use function is_string;
 
@@ -62,55 +60,22 @@ final readonly class GetTenantProvider implements ProviderInterface
       throw new NotFoundHttpException('Tenant ID is required.');
     }
 
-    try {
-      $query = new GetTenantQuery(tenantId: $tenantId);
-      /** @var GetTenantResult $result */
-      $result = $this->queryBus->ask(query: $query);
+    /** @var GetTenantResult $result */
+    $result = $this->queryBus->ask(query: new GetTenantQuery(tenantId: $tenantId));
 
-      $output = new TenantOutput();
-      $output->id = $result->tenantId;
-      $output->name = $result->name;
-      $output->isActive = $result->isActive;
-      $output->accessTokenTtl = $result->settings->accessTokenTtl;
-      $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
-      $output->requirePkce = $result->settings->requirePkce;
-      $output->allowPublicClients = $result->settings->allowPublicClients;
-      $output->allowedScopes = $result->settings->allowedScopes;
-      $output->customIssuer = $result->settings->customIssuer;
-      $output->createdAt = $result->createdAt->format('c');
+    $output = new TenantOutput();
+    $output->id = $result->tenantId;
+    $output->name = $result->name;
+    $output->isActive = $result->isActive;
+    $output->accessTokenTtl = $result->settings->accessTokenTtl;
+    $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
+    $output->requirePkce = $result->settings->requirePkce;
+    $output->allowPublicClients = $result->settings->allowPublicClients;
+    $output->allowedScopes = $result->settings->allowedScopes;
+    $output->customIssuer = $result->settings->customIssuer;
+    $output->createdAt = $result->createdAt->format('c');
 
-      return $output;
-    } catch (Throwable $exception) {
-      $notFound = $this->findTenantNotFound($exception);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
-  }
-
-  /**
-   * Method findTenantNotFound.
-   *
-   * Extracts a TenantNotFoundException from a nested exception chain.
-   *
-   * @param Throwable $exception the exception to inspect
-   *
-   * @return TenantNotFoundException|null the not found exception if present
-   */
-  private function findTenantNotFound(Throwable $exception): ?TenantNotFoundException
-  {
-    $current = $exception;
-    while (null !== $current) {
-      if ($current instanceof TenantNotFoundException) {
-        return $current;
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return null;
+    return $output;
   }
   // #endregion
 }

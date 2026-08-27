@@ -18,9 +18,9 @@ use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, I
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -68,9 +68,9 @@ final class CreateEquipmentProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $domainException = EquipmentSerialNumberAlreadyExistsException::withSerialNumber('EXT-2026-001');
     $handlerFailure = new HandlerFailedException(
@@ -121,12 +121,12 @@ final class CreateEquipmentProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
-      ->willReturn(true);
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new CreateEquipmentCommand(organizationId: $organizationId, type: 'fire_extinguisher')),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 50)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 50)],
     );
 
     /** @var CommandBusPort&MockObject $commandBus */
@@ -169,8 +169,8 @@ final class CreateEquipmentProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
-      ->willReturn(true);
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $now = new DateTimeImmutable('2026-03-02T10:00:00+00:00');
 
@@ -245,7 +245,20 @@ final class CreateEquipmentProcessorTest extends TestCase
   {
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->dispatch($this->processor(hasPermission: false));
+    $this->dispatch($this->processor(decision: OrganizationAccessDecision::MISSING_PERMISSION));
+  }
+
+  #[Test]
+  public function testProcessThrowsNotFoundWhenOrganizationIsOutsideCallersScope(): void
+  {
+    // Not AccessDeniedHttpException: a 403 for a caller outside the organization's
+    // scope would confirm the record exists across an organization boundary.
+    try {
+      $this->dispatch($this->processor(decision: OrganizationAccessDecision::OUTSIDE_SCOPE));
+      self::fail('Expected NotFoundHttpException to be thrown.');
+    } catch (NotFoundHttpException $exception) {
+      self::assertSame('Organization not found.', $exception->getMessage());
+    }
   }
 
   #[Test]
@@ -423,9 +436,9 @@ final class CreateEquipmentProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.plan')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('wrapInTransaction')->willReturnCallback(
@@ -549,10 +562,10 @@ final class CreateEquipmentProcessorTest extends TestCase
     $processor->process(data: $this->makeInput(), operation: new Post(), uriVariables: ['organizationId' => self::ORG_ID]);
   }
 
-  private function processor(?Throwable $exception = null, bool $hasPermission = true): CreateEquipmentProcessor
+  private function processor(?Throwable $exception = null, OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED): CreateEquipmentProcessor
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $commandBus = $this->createStub(CommandBusPort::class);
 
@@ -609,7 +622,7 @@ final class CreateEquipmentProcessorTest extends TestCase
   private function permissiveAuthorization(): OrganizationAuthorizationPort
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return $authorization;
   }

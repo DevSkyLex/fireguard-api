@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent;
 
 use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
+use Calendar\Domain\Event\CalendarEventUpdatedEvent;
 use Calendar\Domain\Exception\CalendarEventNotFoundException;
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * UseCase UpdateCalendarEventHandler.
@@ -33,10 +35,12 @@ final readonly class UpdateCalendarEventHandler implements CommandHandler
    *
    * @param CalendarEventRepositoryPort $repository the calendar event repository port
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private CalendarEventRepositoryPort $repository,
     private OrganizationAuthorizationPort $authorization,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -76,6 +80,14 @@ final readonly class UpdateCalendarEventHandler implements CommandHandler
     );
 
     $this->repository->save($event);
+
+    $this->eventDispatcher->dispatch(new CalendarEventUpdatedEvent(
+      organizationId: $command->organizationId,
+      eventId: (string) $event->id(),
+      title: $event->title(),
+      startsAt: $event->startsAt(),
+      actorUserId: $command->actorUserId,
+    ));
 
     return UpdateCalendarEventResult::fromDomain($event);
   }

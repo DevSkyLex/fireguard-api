@@ -47,5 +47,17 @@ final class FacilityHierarchyException extends InvalidArgumentException
   {
     return new self('Cannot move facility: hierarchy cycle detected.');
   }
+
+  /**
+   * Method maxDepthExceeded.
+   *
+   * @since 1.0.0
+   *
+   * @param int $cap the configured maximum hierarchy depth
+   */
+  public static function maxDepthExceeded(int $cap): self
+  {
+    return new self('Facility hierarchy depth cap of ' . $cap . ' levels exceeded.');
+  }
   // #endregion
 }

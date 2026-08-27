@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\Service;
 
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort, FacilityInterventionDependencyPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 
@@ -14,8 +14,9 @@ use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
  *
  * Enforces the "no active dependents" rule for facility archival across every
  * write surface: a facility may only be archived once it has no active child
- * facility (anywhere in its sub-tree), no active equipment, and no in-progress
- * inspection — otherwise archiving would orphan a live dependent.
+ * facility (anywhere in its sub-tree), no active equipment, no in-progress
+ * inspection, and no active intervention — otherwise archiving would orphan a
+ * live dependent.
  *
  * @category Service
  *
@@ -36,11 +37,13 @@ final readonly class FacilityArchivalGuard implements FacilityArchivalGuardPort
    * @param FacilityRepositoryPort $facilityRepository the facility repository port
    * @param FacilityEquipmentDependencyPort $equipmentDependency the equipment dependency port
    * @param FacilityInspectionDependencyPort $inspectionDependency the inspection dependency port
+   * @param FacilityInterventionDependencyPort $interventionDependency the intervention dependency port
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private FacilityEquipmentDependencyPort $equipmentDependency,
     private FacilityInspectionDependencyPort $inspectionDependency,
+    private FacilityInterventionDependencyPort $interventionDependency,
   ) {
   }
   // #endregion
@@ -74,6 +77,10 @@ final readonly class FacilityArchivalGuard implements FacilityArchivalGuardPort
 
     if ($this->inspectionDependency->hasActiveInspectionInFacility($organizationId, $facilityId)) {
       throw FacilityHasActiveDependentsException::withActiveInspections($facilityId);
+    }
+
+    if ($this->interventionDependency->hasActiveInterventionInFacility($organizationId, $facilityId)) {
+      throw FacilityHasActiveDependentsException::withActiveInterventions($facilityId);
     }
   }
   // #endregion

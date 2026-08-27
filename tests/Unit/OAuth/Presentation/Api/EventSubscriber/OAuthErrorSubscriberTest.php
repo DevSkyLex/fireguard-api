@@ -22,6 +22,10 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\{TokenStorage, TokenStorageInterface};
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\Security\Core\User\InMemoryUser;
 use Symfony\Component\Validator\ConstraintViolationInterface;
 use Throwable;
 
@@ -39,7 +43,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionIgnoresNonOAuthOperation(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
 
     $event = $this->createEvent(new RuntimeException('boom'), 'not_oauth');
 
@@ -51,7 +55,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionMapsTooManyRequests(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
 
     $exception = new TooManyRequestsHttpException(
       retryAfter: 10,
@@ -102,7 +106,7 @@ final class OAuthErrorSubscriberTest extends TestCase
       }
     };
 
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -116,7 +120,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionMapsAuthorizationExceptionWithErrorUriBase(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: 'https://errors.example');
+    $subscriber = $this->createSubscriber('https://errors.example');
     $exception = OAuthAuthorizationException::invalidClient('Invalid client provided');
 
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
@@ -139,7 +143,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionMapsOAuthServerException(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $exception = new OAuthServerException('Scope invalid', 0, 'invalid_scope', 400);
 
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
@@ -155,7 +159,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionMapsHttpExceptionWithHeaders(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
 
     $exception = new BadRequestHttpException('Bad request', null, 0, [
       'X-Test' => ['a', 'b'],
@@ -181,7 +185,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionUnwrapsMessengerException(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
 
     $inner = OAuthAuthorizationException::invalidGrant('Invalid grant');
     $handlerFailed = new HandlerFailedException(new Envelope(new stdClass()), ['handler' => $inner]);
@@ -201,7 +205,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[DataProvider('domainExceptionProvider')]
   public function testOnKernelExceptionMapsDomainExceptions(Throwable $exception, string $expectedError): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -214,7 +218,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionMapsUnknownExceptionToServerError(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent(new RuntimeException('unexpected'), OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -222,6 +226,43 @@ final class OAuthErrorSubscriberTest extends TestCase
     $body = $this->decodeResponseBody($event);
 
     self::assertSame('server_error', $body['error'] ?? null);
+  }
+
+  #[Test]
+  public function testOnKernelExceptionMapsAnonymousAccessDeniedToUnauthorized(): void
+  {
+    $subscriber = $this->createSubscriber();
+    $event = $this->createEvent(
+      new AccessDeniedException("Access Denied. The user doesn't have ROLE_USER."),
+      OAuthOperations::INTROSPECT_TOKEN,
+    );
+
+    $subscriber->onKernelException($event);
+
+    $body = $this->decodeResponseBody($event);
+
+    self::assertSame(401, $event->getResponse()?->getStatusCode());
+    self::assertSame('invalid_client', $body['error'] ?? null);
+  }
+
+  #[Test]
+  public function testOnKernelExceptionMapsAuthenticatedAccessDeniedToForbidden(): void
+  {
+    $tokenStorage = new TokenStorage();
+    $tokenStorage->setToken(new UsernamePasswordToken(new InMemoryUser('someone', null), 'api'));
+
+    $subscriber = $this->createSubscriber(tokenStorage: $tokenStorage);
+    $event = $this->createEvent(
+      new AccessDeniedException('Access Denied.'),
+      OAuthOperations::INTROSPECT_TOKEN,
+    );
+
+    $subscriber->onKernelException($event);
+
+    $body = $this->decodeResponseBody($event);
+
+    self::assertSame(403, $event->getResponse()?->getStatusCode());
+    self::assertSame('access_denied', $body['error'] ?? null);
   }
 
   #[Test]
@@ -235,7 +276,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionUnwrapsMessengerExceptionPreviousChain(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
 
     $inner = OAuthServerException::invalidRequest('client_id');
     $outer = new RuntimeException('wrapper', 0, $inner);
@@ -253,7 +294,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionUnwrapsHandlerFailedExceptionDirect(): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
 
     $inner = OAuthServerException::invalidRequest('client_id');
     $handlerFailed = new HandlerFailedException(new Envelope(new stdClass()), [$inner]);
@@ -271,7 +312,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[DataProvider('httpStatusProvider')]
   public function testOnKernelExceptionMapsHttpStatusErrors(Throwable $exception, string $expectedError): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -285,7 +326,7 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[DataProvider('emptyDescriptionProvider')]
   public function testOnKernelExceptionUsesDefaultDescriptions(Throwable $exception, string $expectedError, string $expectedDescription): void
   {
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -306,7 +347,7 @@ final class OAuthErrorSubscriberTest extends TestCase
       }
     };
 
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -329,7 +370,7 @@ final class OAuthErrorSubscriberTest extends TestCase
       }
     };
 
-    $subscriber = new OAuthErrorSubscriber(errorUriBase: '');
+    $subscriber = $this->createSubscriber();
     $event = $this->createEvent($exception, OAuthOperations::TOKEN);
 
     $subscriber->onKernelException($event);
@@ -386,6 +427,21 @@ final class OAuthErrorSubscriberTest extends TestCase
   // #endregion
 
   // #region Helpers
+  /**
+   * Builds the subscriber with an empty token storage — the anonymous caller
+   * every one of these cases represents. Tests covering the authenticated
+   * branch pass their own storage.
+   */
+  private function createSubscriber(
+    string $errorUriBase = '',
+    ?TokenStorageInterface $tokenStorage = null,
+  ): OAuthErrorSubscriber {
+    return new OAuthErrorSubscriber(
+      tokenStorage: $tokenStorage ?? new TokenStorage(),
+      errorUriBase: $errorUriBase,
+    );
+  }
+
   private function createEvent(Throwable $exception, ?string $operationName): ExceptionEvent
   {
     $request = new Request();

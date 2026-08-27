@@ -38,19 +38,34 @@ abstract class OAuth2WebTestCase extends WebTestCase
 
   protected const string API_CLIENT_SECRET = 'api_secret_789';
 
+  /**
+   * Constant SEEDED_ADMIN_EMAIL.
+   *
+   * The fixtures account used to authenticate flows that need a real user.
+   */
+  protected const string SEEDED_ADMIN_EMAIL = 'admin@fireguard.local';
+
+  /**
+   * Constant SEEDED_ADMIN_PASSWORD.
+   */
+  protected const string SEEDED_ADMIN_PASSWORD = 'Admin123!';
+
   protected ?string $accessToken = null;
 
   /**
-   * Create a client against the seeded E2E databases.
+   * Create a client against the seeded databases.
    *
-   * The fixture baseline lives in `fireguard_*_e2e`, seeded once by
-   * `make test-db`. This suite therefore runs under phpunit.e2e.xml, not
-   * phpunit.dist.xml — the other suites need those tables empty.
+   * The fixture baseline is seeded once, into `fireguard_*_test` by
+   * `make test-db` (phpunit.dist.xml, which runs this suite alongside the
+   * others) or into `fireguard_*_e2e` by CI (phpunit.e2e.xml). Loading it per
+   * test instead cost ~5s each and bought nothing: DAMA wraps every test in a
+   * transaction it rolls back, so the seeded data is already pristine at the
+   * start of each one, and the test's own writes still disappear at the end.
    *
-   * Loading the baseline here instead cost ~5s per test and bought nothing:
-   * DAMA wraps every test in a transaction it rolls back, so the seeded data is
-   * already pristine at the start of each one, and the test's own writes still
-   * disappear at the end.
+   * That rollback only isolates tests from each other *inside one process*.
+   * Isolation from everything outside it — a concurrent run, a reseed, a psql
+   * session — comes from tests/bootstrap.php, which clones both databases per
+   * run so nothing else can reach the rows these exact-count assertions read.
    */
   protected static function createClientWithFixtures(): KernelBrowser
   {
@@ -157,6 +172,51 @@ abstract class OAuth2WebTestCase extends WebTestCase
 
     // Clear entity manager to ensure fresh data
     $em->clear();
+  }
+
+  /**
+   * Sign a seeded user in and return their access token.
+   *
+   * Token revocation and introspection are restricted to authenticated
+   * callers, and a `client_credentials` token cannot stand in: the
+   * authenticator resolves a `sub` claim to a real user, which a machine token
+   * has none of. Flows exercising those two endpoints therefore log in first.
+   *
+   * @param KernelBrowser $client the E2E client
+   * @param string $email the seeded account's address
+   * @param string $password the seeded account's password
+   *
+   * @return string the bearer token to send on subsequent calls
+   */
+  protected function authenticateAsSeededAdmin(
+    KernelBrowser $client,
+    string $email = self::SEEDED_ADMIN_EMAIL,
+    string $password = self::SEEDED_ADMIN_PASSWORD,
+  ): string {
+    $client->request(
+      method: 'POST',
+      uri: '/api/auth/login',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'email' => $email,
+        'password' => $password,
+      ]) ?: '',
+    );
+
+    $response = $client->getResponse();
+    self::assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed for the seeded account. Response: ' . $response->getContent(),
+    );
+
+    $token = $this->decodeJsonResponse($response->getContent() ?: '{}')['access_token'] ?? null;
+    self::assertTrue(is_string($token) && '' !== $token, 'Login should return an access_token.');
+
+    return $token;
   }
 
   /**

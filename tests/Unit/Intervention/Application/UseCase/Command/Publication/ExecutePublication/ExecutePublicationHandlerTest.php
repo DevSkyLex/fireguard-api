@@ -7,7 +7,7 @@ namespace Tests\Unit\Intervention\Application\UseCase\Command\Publication\Execut
 use DateTimeImmutable;
 use Intervention\Application\Contract\Publication\{InterventionPublicationContext, PublicationView};
 use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionResourceGatewayPort, PublicationRepositoryPort};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort, PublicationRepositoryPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\ExecutePublication\{ExecutePublicationCommand, ExecutePublicationHandler};
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
@@ -257,7 +257,7 @@ final class ExecutePublicationHandlerTest extends TestCase
 
     return new ExecutePublicationHandler(
       $repository,
-      new InterventionIssueFinder($resources),
+      new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
       $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
     );
   }

@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Equipment\Domain\Model\Equipment;
 
 use DateTimeImmutable;
-use Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException;
+use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotAssignedToFacilityException};
 use Equipment\Domain\ValueObject\{
   EquipmentFacilityId,
   EquipmentId,
   EquipmentOrganizationId,
   EquipmentStatus,
-  EquipmentType
+  EquipmentType,
+  PlanPosition
 };
 use InvalidArgumentException;
 
@@ -52,6 +53,7 @@ final class Equipment
    * @param ?string $locationLabel the optional location label
    * @param ?DateTimeImmutable $installedAt the optional installation timestamp
    * @param ?DateTimeImmutable $commissionedAt the optional commissioning timestamp
+   * @param ?PlanPosition $planPosition the optional position pinned on a floor plan attachment
    */
   private function __construct(
     private EquipmentId $id,
@@ -68,6 +70,7 @@ final class Equipment
     private ?string $locationLabel = null,
     private ?DateTimeImmutable $installedAt = null,
     private ?DateTimeImmutable $commissionedAt = null,
+    private ?PlanPosition $planPosition = null,
   ) {
   }
   // #endregion
@@ -142,6 +145,7 @@ final class Equipment
    * @param ?string $locationLabel the optional location label
    * @param ?DateTimeImmutable $installedAt the optional installation timestamp
    * @param ?DateTimeImmutable $commissionedAt the optional commissioning timestamp
+   * @param ?PlanPosition $planPosition the optional position pinned on a floor plan attachment
    *
    * @return self the reconstituted equipment aggregate
    */
@@ -160,6 +164,7 @@ final class Equipment
     ?string $locationLabel = null,
     ?DateTimeImmutable $installedAt = null,
     ?DateTimeImmutable $commissionedAt = null,
+    ?PlanPosition $planPosition = null,
   ): self {
     return new self(
       id: $id,
@@ -176,6 +181,7 @@ final class Equipment
       locationLabel: $locationLabel,
       installedAt: $installedAt,
       commissionedAt: $commissionedAt,
+      planPosition: $planPosition,
     );
   }
 
@@ -252,6 +258,9 @@ final class Equipment
 
     $this->facilityId = null;
     $this->installedAt = null;
+    // A plan position is bound to the (now former) facility's floor plan attachment;
+    // it cannot outlive the assignment it was placed under.
+    $this->planPosition = null;
     // Unassigning always resets the status to IN_STOCK regardless of prior state,
     // since the equipment can no longer be operational or under maintenance without a facility.
     $this->status = EquipmentStatus::IN_STOCK;
@@ -324,6 +333,48 @@ final class Equipment
     }
 
     $this->status = EquipmentStatus::DECOMMISSIONED;
+    $this->touch();
+  }
+
+  /**
+   * Method placeOnPlan.
+   *
+   * Pins the equipment at a point over a floor plan attachment. The
+   * attachment/facility ownership check is a cross-module concern handled by
+   * the use case handler (through `EquipmentFloorPlanValidationPort`) before
+   * this method is called — the aggregate only enforces the invariants it can
+   * see on its own: a decommissioned asset is terminal, and an unassigned
+   * asset has no facility whose plan the position could belong to.
+   *
+   * @since 1.0.0
+   *
+   * @param PlanPosition $position the position to pin the equipment at
+   */
+  public function placeOnPlan(PlanPosition $position): void
+  {
+    if (EquipmentStatus::DECOMMISSIONED === $this->status) {
+      throw EquipmentAlreadyDecommissionedException::withId((string) $this->id);
+    }
+
+    if (null === $this->facilityId) {
+      throw EquipmentNotAssignedToFacilityException::withId((string) $this->id);
+    }
+
+    $this->planPosition = $position;
+    $this->touch();
+  }
+
+  /**
+   * Method removeFromPlan.
+   *
+   * Clears the equipment's plan position. Idempotent: removing an already
+   * unset position is a no-op-shaped success, not an error.
+   *
+   * @since 1.0.0
+   */
+  public function removeFromPlan(): void
+  {
+    $this->planPosition = null;
     $this->touch();
   }
 
@@ -445,6 +496,16 @@ final class Equipment
   public function commissionedAt(): ?DateTimeImmutable
   {
     return $this->commissionedAt;
+  }
+
+  /**
+   * Method planPosition.
+   *
+   * @since 1.0.0
+   */
+  public function planPosition(): ?PlanPosition
+  {
+    return $this->planPosition;
   }
 
   /**

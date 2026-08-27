@@ -11,6 +11,7 @@ use Equipment\Application\UseCase\Query\Tag\ListTags\{ListTagsQuery, ListTagsRes
 use Equipment\Presentation\Api\Dto\Output\Equipment\TagOutput;
 use Equipment\Presentation\Api\Provider\Tag\ListTagsProvider;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -21,7 +22,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
@@ -89,9 +90,9 @@ final class ListTagsProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), self::ORG_ID, 'organization.equipment.read')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
@@ -112,6 +113,39 @@ final class ListTagsProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsOutsideCallerScope(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460022');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), self::ORG_ID, 'organization.equipment.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new ListTagsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->buildRequestStack(),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
   public function testProvideMapsWrappedInvalidArgumentToBadRequest(): void
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460012');
@@ -120,7 +154,7 @@ final class ListTagsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new ListTagsQuery(organizationId: 'bad-id', search: null, pagination: new Pagination(offset: 0, limit: 30))),
@@ -155,7 +189,7 @@ final class ListTagsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -189,7 +223,7 @@ final class ListTagsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $tagId = '550e8400-e29b-41d4-a716-446655460099';
 
@@ -242,7 +276,7 @@ final class ListTagsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -275,7 +309,7 @@ final class ListTagsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(new InvalidArgumentException('Invalid organization id.'));
@@ -305,7 +339,7 @@ final class ListTagsProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new ListTagsQuery(organizationId: self::ORG_ID, search: null, pagination: new Pagination(offset: 0, limit: 30))),

@@ -13,13 +13,13 @@ use Inspection\Application\UseCase\Command\Checklist\CreateChecklist\{
   CreateChecklistResult
 };
 use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CreateChecklistHandler.
@@ -80,7 +80,7 @@ final class CreateChecklistHandlerTest extends TestCase
       uuidFactory: $this->makeUuidFactory(),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new CreateChecklistCommand(
       organizationId: 'not-a-uuid',

@@ -9,6 +9,7 @@ use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 
 use function in_array;
+use function sprintf;
 
 /**
  * Service InterventionMemberPolicy.
@@ -67,16 +68,17 @@ final readonly class InterventionMemberPolicy
    * @param string $organizationId the organization id value
    * @param string $userId the user id value
    * @param ?string $responsibleId the responsible id value
+   * @param string $action the workflow action named in the error message
    */
-  public function assertResponsible(string $organizationId, string $userId, ?string $responsibleId): void
+  public function assertResponsible(string $organizationId, string $userId, ?string $responsibleId, string $action = 'submit'): void
   {
     if (null === $responsibleId) {
-      throw new InterventionConflictException('A responsible member is required to submit the intervention.');
+      throw new InterventionConflictException(sprintf('A responsible member is required to %s the intervention.', $action));
     }
 
     $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
     if (null === $member || !$member->isActive() || $member->id()->value !== $responsibleId) {
-      throw new InterventionConflictException('Only the responsible member can submit the intervention.');
+      throw new InterventionConflictException(sprintf('Only the responsible member can %s the intervention.', $action));
     }
   }
 

@@ -154,7 +154,13 @@ Key folders:
 - Public clients must have PKCE enabled (`allowPublicClients` implies `requirePkce`).
 - Token TTLs are bounded to prevent unsafe token lifetimes.
 - Tenant isolation is enforced via a Doctrine filter using `X-Tenant-Id` (or `X-Tenant`)
-  headers and is applied to entities exposing a `tenantId` field.
+  headers (or a `tenantId` query parameter) and is applied to entities exposing a
+  `tenantId` field.
+- Records carrying `Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt` opt out
+  of that filter. The authorization tables (`roles`, `role_assignments`, `permissions`) do:
+  they are read to resolve the caller's own grants, so filtering them by the tenant of the
+  request being served stripped those grants and made every permission-gated endpoint answer
+  403. They are scoped explicitly by their repositories instead.
 
 ## API Integration Examples
 

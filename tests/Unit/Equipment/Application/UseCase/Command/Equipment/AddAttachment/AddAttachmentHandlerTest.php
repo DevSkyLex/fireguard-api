@@ -9,13 +9,14 @@ use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachment
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(AddAttachmentHandler::class)]
 final class AddAttachmentHandlerTest extends TestCase
@@ -252,7 +253,7 @@ final class AddAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -319,7 +320,7 @@ final class AddAttachmentHandlerTest extends TestCase
       uuidFactory: $this->createStub(UuidFactory::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new AddAttachmentCommand(
       organizationId: self::ORG_ID,
@@ -329,6 +330,52 @@ final class AddAttachmentHandlerTest extends TestCase
       mimeType: 'application/pdf',
       size: 7,
       attachmentId: 'not-a-uuid',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUploadWhenTheEquipmentIsAtTheAttachmentCap(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('countByEquipmentId')
+      ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    // The cap must be refused BEFORE any byte reaches storage.
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidAttachmentException::class);
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
     ));
   }
   // #endregion

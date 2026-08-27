@@ -126,6 +126,23 @@ final class InterventionOutput
   public int $revision = 1;
 
   /**
+   * Property recurrence.
+   *
+   * IRI of the recurrence that materialized this intervention, letting a
+   * client show where a scheduled intervention came from and link back to the
+   * series. Null — and therefore absent from the payload, since API Platform
+   * omits null fields — for a manually created intervention.
+   *
+   * **Detail reads only.** Resolving it costs a query against
+   * `intervention_recurrence_runs`, so the paginated collection leaves it
+   * unset rather than paying that per row; a client must not read its absence
+   * in a list as "not recurring".
+   *
+   * @since 1.2.0
+   */
+  public ?string $recurrence = null;
+
+  /**
    * Property allowedTransitions.
    *
    * Workflow-legal next statuses reachable from the current status, straight
@@ -139,6 +156,22 @@ final class InterventionOutput
    * @var list<string>
    */
   public array $allowedTransitions = [];
+
+  /**
+   * Property allowedActions.
+   *
+   * The caller-specific action-capability surface, straight from
+   * `InterventionActionPolicy` — the same policy `MutateInterventionWorkflowHandler`
+   * consults to enforce a mutation, so the client never re-derives the
+   * permission/status/identity matrix by hand. Populated on the item and
+   * collection read paths and on every mutation response that returns the
+   * refreshed intervention, so a client menu recomputed from a write's
+   * response can never go stale; `null` only when a response carries no
+   * view at all.
+   *
+   * @since 1.3.0
+   */
+  public ?InterventionAllowedActionsOutput $allowedActions = null;
 
   /**
    * Property facilitiesCount.
@@ -195,6 +228,17 @@ final class InterventionOutput
    * @since 1.0.0
    */
   public int $commentsCount = 0;
+
+  /**
+   * Property hasSignature.
+   *
+   * Whether the intervention already carries a completion signature
+   * attachment (Phase 5d.2). At most one exists per intervention — a
+   * re-upload replaces it, it never flips back to false on its own.
+   *
+   * @since 1.2.0
+   */
+  public bool $hasSignature = false;
 
   /**
    * Property labels.

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\Service;
 
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
 use Organization\Domain\Exception\OrganizationLastAdminException;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationQuotaResource, OrganizationRoleId};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_intersect;
@@ -22,6 +22,14 @@ use function in_array;
  * active member whose effective permissions grant organization.members.manage
  * (directly or through a wildcard) — the capability required to re-admit members
  * and recover the organization.
+ *
+ * Every assertion here is a check-then-write, so it is only an invariant when the
+ * check and the write are serialized. Each authoritative assertion therefore takes
+ * the per-organization MEMBERS advisory lock through {@see OrganizationQuotaLockPort}
+ * before reading, and its caller MUST already be inside the transaction that
+ * performs the write: the lock is transaction-scoped, so a caller that ran the
+ * check outside a transaction would release it before writing and two concurrent
+ * removals could still strand the organization with zero administrators.
  *
  * @category Service
  *
@@ -61,12 +69,14 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
    * @param OrganizationRoleRepositoryPort $roleRepository the role repository port
    * @param OrganizationAuthorizationPort $authorization the authorization port (effective permission resolution)
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port (audit trail of prevented lockouts)
+   * @param OrganizationQuotaLockPort $memberLock the advisory lock serializing check+write on the member set
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private OrganizationAuthorizationPort $authorization,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationQuotaLockPort $memberLock,
   ) {
   }
   // #endregion
@@ -74,6 +84,8 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
   // #region Methods
   public function assertCanRemoveMember(string $organizationId, string $memberId): void
   {
+    $this->lockMemberSet($organizationId);
+
     $organization = OrganizationId::fromString($organizationId);
     $member = $this->memberRepository->findById(OrganizationMemberId::fromString($memberId));
 
@@ -100,6 +112,8 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
 
   public function assertCanUnassignRole(string $organizationId, string $memberId, string $roleId): void
   {
+    $this->lockMemberSet($organizationId);
+
     $organization = OrganizationId::fromString($organizationId);
     $member = $this->memberRepository->findById(OrganizationMemberId::fromString($memberId));
 
@@ -131,6 +145,10 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
 
   public function assertCanRemoveMembers(string $organizationId, array $memberIds): void
   {
+    // Deliberately unlocked: a batch is executed as one independent removal per
+    // id, so this is a whole-batch pre-check that fails the request early with a
+    // useful message. The authority is assertCanRemoveMember(), which each of
+    // those removals runs under the lock inside its own transaction.
     if ([] === $memberIds) {
       return;
     }
@@ -194,6 +212,8 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
     ?array $newPermissions,
     string $attemptedAction,
   ): void {
+    $this->lockMemberSet($organizationId);
+
     $organization = OrganizationId::fromString($organizationId);
     $role = $this->roleRepository->findById(OrganizationRoleId::fromString($roleId));
 
@@ -228,6 +248,23 @@ final readonly class OrganizationLastAdminGuardService implements OrganizationLa
     ));
 
     throw OrganizationLastAdminException::cannotUnassignLastAdminRole();
+  }
+
+  /**
+   * Method lockMemberSet.
+   *
+   * Takes the per-organization advisory lock guarding the member set, so the
+   * administrator census below and the caller's write happen while no other
+   * removal is between its own census and its own write. The lock is
+   * transaction-scoped and released when the caller's transaction ends.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   */
+  private function lockMemberSet(string $organizationId): void
+  {
+    $this->memberLock->acquire($organizationId, OrganizationQuotaResource::MEMBERS);
   }
 
   /**

@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\ListUserOrganizations;
 
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
-use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationCallerRoleResult, GetOrganizationResult};
-use Organization\Domain\Model\OrganizationMember\OrganizationMember;
+use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
+use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Domain\Model\Plan\Plan;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationStatus};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
+use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_map;
@@ -40,13 +41,13 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param PlanRepositoryPort $planRepository the plan repository
-   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   * @param OrganizationCallerMembershipPort $callerMembership the caller-membership projection port (isOwner/roles)
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRepositoryPort $organizationRepository,
     private PlanRepositoryPort $planRepository,
-    private OrganizationRoleRepositoryPort $roleRepository,
+    private OrganizationCallerMembershipPort $callerMembership,
   ) {
   }
   // #endregion
@@ -69,7 +70,12 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
     try {
       $status = null !== $query->status ? OrganizationStatus::from($query->status)->value : null;
     } catch (ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      // `InvalidValueException`, not `InvalidArgumentException`: the latter is
+      // deliberately absent from `api_platform.exception_to_status`, and
+      // `ListUserOrganizationsProvider` catches nothing — so the rewrap left
+      // `?status=nonsense` answering 500. This class is a domain exception and
+      // is already mapped to 400.
+      throw InvalidValueException::because($exception->getMessage());
     }
 
     $memberships = $this->memberRepository->findByUserId($query->userId);
@@ -154,8 +160,8 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
         vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
         planId: $plan instanceof Plan ? (string) $plan->id() : null,
         planName: $plan instanceof Plan ? $plan->name() : null,
-        isOwner: $organization->ownerUserId() === $query->userId,
-        roles: $this->resolveCallerRoles($organization->id(), $membershipsByOrganizationId[$organizationId] ?? null),
+        isOwner: $this->callerMembership->isOwner($organization->ownerUserId(), $query->userId),
+        roles: $this->callerMembership->resolveRoles($organization->id(), $membershipsByOrganizationId[$organizationId] ?? null),
       );
     }
 
@@ -165,48 +171,6 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
     );
-  }
-
-  /**
-   * Method resolveCallerRoles.
-   *
-   * Resolves the organization roles assigned to the caller's membership,
-   * following the same repository join as ListOrganizationMembers /
-   * GetCurrentOrganizationMemberProfile (`findRoleIdsForMember` then
-   * `findByIdsInOrganization`). Returns an empty list when the caller has
-   * no membership or no assigned role.
-   *
-   * @since 1.0.0
-   *
-   * @param OrganizationId $organizationId the organization identifier
-   * @param ?OrganizationMember $membership the caller's active membership when known
-   *
-   * @return list<GetOrganizationCallerRoleResult> the caller's assigned roles
-   */
-  private function resolveCallerRoles(OrganizationId $organizationId, ?OrganizationMember $membership): array
-  {
-    if (null === $membership) {
-      return [];
-    }
-
-    $roleIds = array_map(
-      static fn (string $roleId): OrganizationRoleId => OrganizationRoleId::fromString($roleId),
-      $this->memberRepository->findRoleIdsForMember($membership->id()),
-    );
-
-    if ([] === $roleIds) {
-      return [];
-    }
-
-    $roles = [];
-    foreach ($this->roleRepository->findByIdsInOrganization($organizationId, $roleIds) as $role) {
-      $roles[] = new GetOrganizationCallerRoleResult(
-        id: (string) $role->id(),
-        label: (string) $role->name(),
-      );
-    }
-
-    return $roles;
   }
   // #endregion
 }

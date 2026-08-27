@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\InviteOrganizationMember;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
@@ -15,9 +15,9 @@ use Organization\Application\UseCase\Command\Organization\InviteOrganizationMemb
 use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Exception\{
   OrganizationNotFoundException,
-  OrganizationQuotaExceededException,
   OrganizationRoleNotFoundException
 };
+use Organization\Domain\Exception\OrganizationMembershipConflictException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -27,7 +27,6 @@ use Organization\Domain\ValueObject\{
   OrganizationInvitationId,
   OrganizationMemberId,
   OrganizationName,
-  OrganizationQuotaResource,
   OrganizationRoleId,
   OrganizationRoleName
 };
@@ -37,6 +36,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
@@ -626,7 +626,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $quota->expects(self::once())
       ->method('assertCanAdd')
       ->with($organizationId, OrganizationQuotaResource::MEMBERS)
-      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 1));
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 1));
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -687,7 +687,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
   {
     $handler = $this->makeHandler(organizationRepository: $this->organizationRepositoryStub());
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('Invalid email address.');
 
     $handler->__invoke(new InviteOrganizationMemberCommand(
@@ -713,7 +713,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationMembershipConflictException::class);
     $this->expectExceptionMessage('A pending invitation already exists for this email.');
 
     $handler->__invoke(new InviteOrganizationMemberCommand(
@@ -786,7 +786,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       userRepository: $userRepository,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(OrganizationMembershipConflictException::class);
     $this->expectExceptionMessage('User is already an active member of this organization.');
 
     $handler->__invoke(new InviteOrganizationMemberCommand(

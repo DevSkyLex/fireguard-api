@@ -37,8 +37,11 @@ final class GetRoleProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideReturnsNullWhenRoleMissing(): void
+  public function testProvideLetsAMissingRolePropagate(): void
   {
+    // See GetPermissionProviderTest for the full story: the catch this replaces
+    // never fired in production, because the query bus adapter wraps. The
+    // exception now propagates and `exception_to_status` maps it to 404.
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
@@ -46,11 +49,9 @@ final class GetRoleProviderTest extends TestCase
       ->with(self::isInstanceOf(GetRoleQuery::class))
       ->willThrowException(RoleNotFoundException::withId(roleId: 'role-123'));
 
-    $provider = new GetRoleProvider($queryBus);
+    $this->expectException(RoleNotFoundException::class);
 
-    $result = $provider->provide(new Get(), ['id' => 'role-123']);
-
-    self::assertNull($result);
+    new GetRoleProvider($queryBus)->provide(new Get(), ['id' => 'role-123']);
   }
 
   #[Test]

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Application\Service;
 
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
-use Messaging\Domain\Exception\MessagingAccessDeniedException;
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 
 /**
@@ -286,7 +286,7 @@ final readonly class MessagingAccessPolicy
   {
     $memberId = $this->members->resolveActiveMemberId($organizationId, $userId);
     if (null === $memberId) {
-      throw new MessagingAccessDeniedException('The current user is not an active member of the conversation organization.');
+      throw MessagingNotFoundException::outsideScope();
     }
 
     return $memberId;

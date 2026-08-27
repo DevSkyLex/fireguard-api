@@ -42,6 +42,7 @@ final class ImportJobOutputFactory
     $output->kind = $result->kind;
     $output->status = $result->status;
     $output->originalFilename = $result->originalFilename;
+    $output->dryRun = $result->dryRun;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->createdAt->format('c');
 
@@ -67,6 +68,7 @@ final class ImportJobOutputFactory
     $output->kind = $view->kind;
     $output->status = $view->status;
     $output->originalFilename = $view->originalFilename;
+    $output->dryRun = $view->dryRun;
     $output->totalRows = $view->totalRows;
     $output->processedRows = $view->processedRows;
     $output->successfulRows = $view->successfulRows;

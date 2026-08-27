@@ -7,9 +7,7 @@ namespace Organization\Presentation\Api\Provider\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\{GetOrganizationInvitationPreviewQuery, GetOrganizationInvitationPreviewResult};
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationPreviewOutput;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -31,8 +29,6 @@ use function is_string;
  */
 final readonly class GetOrganizationInvitationPreviewProvider implements ProviderInterface
 {
-  use MessengerExceptionUnwrapperTrait;
-
   // #region Constructor
   /**
    * Constructor.
@@ -76,19 +72,8 @@ final readonly class GetOrganizationInvitationPreviewProvider implements Provide
       throw new NotFoundHttpException('Invitation token is required.');
     }
 
-    try {
-      /** @var GetOrganizationInvitationPreviewResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationInvitationPreviewQuery($token));
-    } catch (OrganizationInvitationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, OrganizationInvitationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      throw $exception;
-    }
+    /** @var GetOrganizationInvitationPreviewResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationInvitationPreviewQuery($token));
 
     $output = new OrganizationInvitationPreviewOutput();
     $output->organizationId = $result->organizationId;
@@ -98,6 +83,7 @@ final readonly class GetOrganizationInvitationPreviewProvider implements Provide
     $output->invitedEmail = $result->invitedEmail;
     $output->status = $result->status;
     $output->expiresAt = $result->expiresAt->format('c');
+    $output->roleNames = $result->roleNames;
 
     return $output;
   }

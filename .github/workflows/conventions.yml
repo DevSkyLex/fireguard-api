@@ -1,0 +1,91 @@
+name: Conventions
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  naming:
+    name: Branch and commit naming
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The full history of the PR: the commit check walks base..head, which
+          # the default shallow fetch cannot resolve.
+          fetch-depth: 0
+
+      - name: Check the branch name
+        # The branch name is attacker-controlled on a fork PR, so it goes through
+        # the environment rather than being interpolated into the script body.
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          pattern='^(feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$'
+          exempt='^(main|develop|claude/.+|release/[0-9]+\.[0-9]+\.[0-9]+)$'
+
+          if printf '%s' "$BRANCH" | grep -Eq "$exempt"; then
+            echo "Branch '$BRANCH' is exempt."
+            exit 0
+          fi
+
+          if ! printf '%s' "$BRANCH" | grep -Eq "$pattern"; then
+            echo "::error::Branch name '$BRANCH' does not follow <type>/<description-kebab>, e.g. feat/organization-invitations. Type is one of: feat fix chore refactor docs test perf ci build style revert hotfix."
+            exit 1
+          fi
+          echo "Branch '$BRANCH' is fine."
+
+      - name: Check the commit headers
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          pattern='^(feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert)(\([a-z0-9][a-z0-9._/-]*\))?!?: [a-z].*$'
+          failed=0
+
+          # --no-merges: a merge commit's header is git's, not the author's.
+          while IFS= read -r header; do
+            [ -z "$header" ] && continue
+            case "$header" in Revert*|fixup!*|squash!*) continue ;; esac
+
+            # GitHub appends " (#123)" to a squash-merge subject. The commit-msg
+            # hook and guard-git.mjs measure the header the author wrote, before
+            # that suffix exists; this job re-reads already-merged headers on a
+            # develop -> main PR, so without stripping it the 100-char rule turns
+            # retroactively unsatisfiable for any subject in the 94-100 band.
+            measured=$(printf '%s' "$header" | sed -E 's/ \(#[0-9]+\)$//')
+
+            if ! printf '%s' "$header" | grep -Eq "$pattern"; then
+              echo "::error::Commit header '$header' is not a Conventional Commit. Expected <type>(<scope>): <subject>."
+              failed=1
+            elif [ "${#measured}" -gt 100 ]; then
+              echo "::error::Commit header is ${#measured} characters (max 100): '$measured'"
+              failed=1
+            fi
+          done <<< "$(git log --no-merges --format=%s "$BASE_SHA..$HEAD_SHA")"
+
+          exit "$failed"
+
+      - name: Check the pull request title
+        # Squash-merging uses the PR title as the commit header, so a clean commit
+        # history is not enough on its own.
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert)(\([a-z0-9][a-z0-9._/-]*\))?!?: [a-z].*$'
+
+          if ! printf '%s' "$TITLE" | grep -Eq "$pattern"; then
+            echo "::error::Pull request title '$TITLE' is not a Conventional Commit. Expected <type>(<scope>): <subject>."
+            exit 1
+          fi
+          echo "Title is fine."

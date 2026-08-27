@@ -64,8 +64,8 @@ final class InspectionFixturesIntegrationTest extends KernelTestCase
 
     self::assertSame(2, $this->entityManager->getRepository(ChecklistRecord::class)->count([]));
     self::assertSame(8, $this->entityManager->getRepository(ChecklistItemRecord::class)->count([]));
-    self::assertSame(197, $this->entityManager->getRepository(InspectionRecord::class)->count([]));
-    self::assertSame(100, $this->entityManager->getRepository(NonConformityRecord::class)->count([]));
+    self::assertSame(221, $this->entityManager->getRepository(InspectionRecord::class)->count([]));
+    self::assertSame(112, $this->entityManager->getRepository(NonConformityRecord::class)->count([]));
 
     /** @var InspectionRecord $passingInspection */
     $passingInspection = $inspectionFixtures->getReference(InspectionFixtures::PASSING_INSPECTION_REFERENCE, InspectionRecord::class);
@@ -97,8 +97,8 @@ final class InspectionFixturesIntegrationTest extends KernelTestCase
     self::assertSame('submitted', $failingInspection->status);
     self::assertSame(SeedTimeline::at('2026-03-20T14:00:00+00:00')->format('Y-m-d'), $failingInspection->performedAt->format('Y-m-d'));
     self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $failingInspection->organization?->id);
-    self::assertCount(39, array_unique($inspectionDays));
-    self::assertCount(26, array_unique($openedDays));
-    self::assertCount(22, array_unique($resolvedDays));
+    self::assertCount(41, array_unique($inspectionDays));
+    self::assertCount(28, array_unique($openedDays));
+    self::assertCount(24, array_unique($resolvedDays));
   }
 }

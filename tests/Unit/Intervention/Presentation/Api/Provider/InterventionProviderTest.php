@@ -8,13 +8,16 @@ use ApiPlatform\Metadata\{Get, GetCollection};
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
+use Intervention\Application\Service\{InterventionActionPolicy, InterventionMemberPolicy};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Domain\Exception\InterventionNotFoundException;
-use Intervention\Domain\Service\InterventionTransitionPolicy;
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilityPolicy, InterventionTransitionPolicy};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Provider\InterventionProvider;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +26,9 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+
+use function iterator_to_array;
+use function sprintf;
 
 /**
  * Test InterventionProviderTest.
@@ -60,6 +66,7 @@ final class InterventionProviderTest extends TestCase
 
     self::assertInstanceOf(InterventionOutput::class, $output);
     self::assertSame(self::INTERVENTION_ID, $output->id);
+    self::assertNotNull($output->allowedActions, 'The item read path must advertise the caller action-capability block.');
   }
 
   #[Test]
@@ -81,7 +88,7 @@ final class InterventionProviderTest extends TestCase
         self::assertSame('intervention', $query->resource);
         self::assertSame(self::ORG_ID, $query->scopeId);
         self::assertSame(
-          ['name' => 'audit', 'responsibleId' => self::MEMBER_ID, 'siteId' => self::SITE_ID],
+          ['name' => 'audit', 'responsibleId' => [self::MEMBER_ID], 'siteId' => [self::SITE_ID]],
           $query->filters,
         );
         self::assertSame('updatedAt', $query->sorting->field);
@@ -94,6 +101,140 @@ final class InterventionProviderTest extends TestCase
     $paginator = $this->provider($queryBus, $requestStack)->provide(new GetCollection());
 
     self::assertInstanceOf(TraversablePaginator::class, $paginator);
+    $items = iterator_to_array($paginator);
+    self::assertNotNull(
+      $items[0]->allowedActions,
+      'The collection read path must advertise the caller action-capability block on every row.',
+    );
+  }
+
+  #[Test]
+  public function testProvideAcceptsRepeatedValuesOnTheEnumAndIriFilters(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID
+      . '&status[]=draft&status[]=planned'
+      . '&type[]=site_setup&type[]=inventory'
+      . '&priority[]=high&priority[]=urgent'
+      . '&site[]=/api/facilities/' . self::SITE_ID
+      . '&label[]=/api/intervention-labels/550e8400-e29b-41d4-a716-446655449001'
+      . '&responsible[]=/api/organizations/' . self::ORG_ID . '/members/' . self::MEMBER_ID,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
+        self::assertSame(['site_setup', 'inventory'], $query->filters['type']);
+        self::assertSame(['draft', 'planned'], $query->filters['status']);
+        self::assertSame(['high', 'urgent'], $query->filters['priority']);
+        self::assertSame([self::SITE_ID], $query->filters['siteId']);
+        self::assertSame(['550e8400-e29b-41d4-a716-446655449001'], $query->filters['labelId']);
+        self::assertSame([self::MEMBER_ID], $query->filters['responsibleId']);
+
+        return true;
+      }))
+      ->willReturn(new ListInterventionWorkflowResult(new InterventionWorkflowPage([], 1, 30, 0)));
+
+    self::assertInstanceOf(
+      TraversablePaginator::class,
+      $this->provider($queryBus, $requestStack)->provide(new GetCollection()),
+    );
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnknownPriorityAmongRepeatedValues(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID . '&priority[]=high&priority[]=impossible',
+    );
+    $provider = $this->provider($this->createStub(QueryBusPort::class), $requestStack);
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnknownStatusAndTypeValueWithA400(): void
+  {
+    foreach (['status[]=draft&status[]=bogus', 'type[]=nonsense'] as $queryString) {
+      $requestStack = $this->requestStack(
+        '?organization=/api/organizations/' . self::ORG_ID . '&' . $queryString,
+      );
+      $provider = $this->provider($this->createStub(QueryBusPort::class), $requestStack);
+
+      try {
+        $provider->provide(new GetCollection());
+        self::fail(sprintf('Expected a 400 for "%s".', $queryString));
+      } catch (BadRequestHttpException) {
+        $this->addToAssertionCount(1);
+      }
+    }
+  }
+
+  #[Test]
+  public function testProvideSilentlyDropsMalformedArrayMembersFromAListFilter(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID
+      . '&status[a][b]=draft&site[]=&responsible[]=/api/organizations/' . self::ORG_ID . '/members/' . self::MEMBER_ID,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
+        self::assertArrayNotHasKey('status', $query->filters, 'A nested-array member is not a string and must be dropped.');
+        self::assertArrayNotHasKey('siteId', $query->filters, 'An empty array member must be dropped.');
+        self::assertSame([self::MEMBER_ID], $query->filters['responsibleId']);
+
+        return true;
+      }))
+      ->willReturn(new ListInterventionWorkflowResult(new InterventionWorkflowPage([], 1, 30, 0)));
+
+    self::assertInstanceOf(
+      TraversablePaginator::class,
+      $this->provider($queryBus, $requestStack)->provide(new GetCollection()),
+    );
+  }
+
+  #[Test]
+  public function testProvideForwardsTheOverdueDueFilter(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID . '&due=overdue',
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
+        self::assertSame(['due' => 'overdue'], $query->filters);
+
+        return true;
+      }))
+      ->willReturn(new ListInterventionWorkflowResult(new InterventionWorkflowPage([], 1, 30, 0)));
+
+    $paginator = $this->provider($queryBus, $requestStack)->provide(new GetCollection());
+
+    self::assertInstanceOf(TraversablePaginator::class, $paginator);
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnknownDueValue(): void
+  {
+    $requestStack = $this->requestStack(
+      '?organization=/api/organizations/' . self::ORG_ID . '&due=someday',
+    );
+    $provider = $this->provider($this->createStub(QueryBusPort::class), $requestStack);
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
   }
 
   #[Test]
@@ -114,7 +255,7 @@ final class InterventionProviderTest extends TestCase
 
     $provider = new InterventionProvider(
       $this->createStub(QueryBusPort::class),
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
       $security,
       $this->requestStack(''),
     );
@@ -157,9 +298,26 @@ final class InterventionProviderTest extends TestCase
   {
     return new InterventionProvider(
       $queryBus,
-      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      new InterventionOutputFactory(new InterventionTransitionPolicy(), $this->actionPolicy()),
       $this->security(),
       $requestStack,
+    );
+  }
+
+  /**
+   * The shared {@see InterventionActionPolicy}, wired with inert
+   * collaborators sufficient to compute `allowedActions` without asserting
+   * on its content — these tests cover the provider's routing, not the
+   * policy's matrix (see InterventionActionPolicyTest for that).
+   */
+  private function actionPolicy(): InterventionActionPolicy
+  {
+    return new InterventionActionPolicy(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class)),
+      new InterventionTransitionPolicy(),
+      new InterventionMutabilityPolicy(),
+      new InterventionChangePolicy(),
     );
   }
 
@@ -212,6 +370,7 @@ final class InterventionProviderTest extends TestCase
       'completedWorkItemsCount' => 0,
       'proposedChangesCount' => 0,
       'commentsCount' => 0,
+      'hasSignature' => false,
       'labels' => [],
       'createdAt' => '2026-01-01T00:00:00+00:00',
       'updatedAt' => '2026-01-01T00:00:00+00:00',

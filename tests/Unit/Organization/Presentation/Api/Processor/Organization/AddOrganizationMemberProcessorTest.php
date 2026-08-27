@@ -8,10 +8,10 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\AddOrganizationMemberProcessor;
@@ -178,7 +178,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
         organizationId: '550e8400-e29b-41d4-a716-446655441210',
         userId: '550e8400-e29b-41d4-a716-446655441201',
       )),
-      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5)],
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5)],
     );
 
     /** @var CommandBusPort&MockObject $commandBus */
@@ -243,6 +243,42 @@ final class AddOrganizationMemberProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessMapsAWrappedAccessDeniedToHttp403(): void
+  {
+    $processor = $this->processorWithFailingCommandBus($this->wrapped(
+      OrganizationAccessDeniedException::cannotGrantPermission('organization.*'),
+    ));
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedMissingRoleToHttp404(): void
+  {
+    $processor = $this->processorWithFailingCommandBus($this->wrapped(
+      OrganizationRoleNotFoundException::withId('550e8400-e29b-41d4-a716-446655441211'),
+    ));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $processor = $this->processorWithFailingCommandBus($this->wrapped(
+      new InvalidArgumentException('Member is already registered.'),
+    ));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
   public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
   {
     $failure = MessengerRuntimeException::wrap(new RuntimeException('the member store is offline'));
@@ -270,6 +306,20 @@ final class AddOrganizationMemberProcessorTest extends TestCase
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
+  }
+
+  /**
+   * Wraps a domain failure exactly as the command bus adapter does at runtime.
+   */
+  private function wrapped(Throwable $domainFailure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new AddOrganizationMemberCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441210',
+        userId: '550e8400-e29b-41d4-a716-446655441201',
+      )),
+      [$domainFailure],
+    ));
   }
 
   private function createInput(): AddOrganizationMemberInput

@@ -23,6 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'intervention_activities')]
 #[ORM\Index(name: 'idx_intervention_activity_intervention_created', columns: ['intervention_id', 'created_at'])]
+#[ORM\UniqueConstraint(name: 'uniq_intervention_activity_client_id', columns: ['client_id'])]
 class InterventionActivityRecord
 {
   /**
@@ -33,6 +34,25 @@ class InterventionActivityRecord
   #[ORM\Id]
   #[ORM\Column(type: 'string', length: 36)]
   public string $id;
+
+  /**
+   * Property clientId.
+   *
+   * Idempotency key minted by the client before the write leaves the device.
+   *
+   * Field work is queued in an offline outbox and replayed later, so the same
+   * comment can be sent more than once: a request that reached the server but
+   * whose response was lost is indistinguishable, from the device, from one that
+   * never arrived. Replaying it must not append a second copy. The unique
+   * constraint — not a check-then-insert — is what makes that safe under
+   * concurrent replays.
+   *
+   * Null for comments written online, which never go through the outbox.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'client_id', type: 'string', length: 64, nullable: true)]
+  public ?string $clientId = null;
 
   /**
    * Property intervention.

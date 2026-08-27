@@ -17,9 +17,13 @@ use Organization\Presentation\Api\Processor\Team\CreateTeamProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
 #[CoversClass(CreateTeamProcessor::class)]
@@ -133,7 +137,10 @@ final class CreateTeamProcessorTest extends TestCase
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willThrowException(TeamNameAlreadyExistsException::withName('Field crew A'));
+      ->willThrowException($this->wrapped(
+        TeamNameAlreadyExistsException::withName('Field crew A'),
+        new CreateTeamCommand(organizationId: self::ORGANIZATION_ID, name: 'Field crew A'),
+      ));
 
     $processor = new CreateTeamProcessor(
       commandBus: $commandBus,
@@ -188,7 +195,27 @@ final class CreateTeamProcessorTest extends TestCase
     $processor->process($this->createInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }
 
-  private function processorWithFailingCommandBus(Throwable $failure): CreateTeamProcessor
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $processor = $this->processorWithRawFailingCommandBus(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $domainFailure): CreateTeamProcessor
+  {
+    return $this->processorWithRawFailingCommandBus($this->wrapped(
+      $domainFailure,
+      new CreateTeamCommand(organizationId: self::ORGANIZATION_ID, name: 'Field crew A'),
+    ));
+  }
+
+  private function processorWithRawFailingCommandBus(Throwable $failure): CreateTeamProcessor
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->securityUser());
@@ -203,6 +230,13 @@ final class CreateTeamProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
+    );
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
 

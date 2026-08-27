@@ -31,7 +31,7 @@ APP_LOG_DIR ?= $(TMP_DIR)/$(PROJECT_NAME)/log/$(APP_ENV)
 export APP_CACHE_DIR
 export APP_LOG_DIR
 
-.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 # Run the whole suite: unit, architecture, integration, functional and E2E.
 
@@ -44,10 +44,11 @@ phpunit-fast:
 
 # Run the suite across parallel workers.
 #
-# Each worker clones the databases `make test-db` migrated into its own
-# `*_w<token>` copy, so workers never share rows. That clone costs a couple of
-# seconds per worker up front, which only pays off over the whole suite — for a
-# single testsuite or a --filter run, plain `make phpunit-fast` is faster.
+# Every run — parallel or not — clones the databases `make test-db` migrated
+# into a private `*_w<token>` copy and drops it again on exit (see
+# tests/bootstrap.php), so runs never share rows with each other or with
+# anything else on the machine. Here that also means workers never share rows
+# with each other.
 #
 # Override the worker count with `make phpunit-parallel PARALLEL_WORKERS=16`.
 phpunit-parallel:
@@ -67,24 +68,42 @@ lint:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) lint:container
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) lint:yaml config --parse-tags
 
+# --using-cache=no on both gate targets: the cache is gitignored, so CI always
+# runs cold while a developer runs warm. Measured 2026-08-26 on the same tree,
+# seconds apart: cached said "0 of 5187", uncached said "33 of 5187", and CI
+# failed on those 33. A gate that disagrees with CI is not a gate. Cost: 3s -> 14s.
 cs-lint:
-	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff --using-cache=no
+
+# Fail when the committed openapi.json no longer matches the code. The spec is
+# the contract-of-record the frontend and /fg-contract-check read; it silently
+# went eight endpoints stale once, so freshness is part of the gate now.
+#
+# Compared with `cmp`, not `git diff --no-index`: the latter also compares FILE
+# MODES, and the checked-in openapi.json reads 100755 through the Docker
+# bind-mount on Windows while the freshly generated one is 100644. The gate then
+# failed on the executable bit alone, contents byte-identical — a permanent
+# false red that teaches people to ignore it.
+openapi-check:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) api:openapi:export --output=$(TMP_DIR)/openapi.fresh.json
+	@cmp -s openapi.json $(TMP_DIR)/openapi.fresh.json \
+		|| (echo "openapi.json is stale - run: php -d memory_limit=1G bin/console api:openapi:export --output=openapi.json" && exit 1)
 
 cs-fix:
-	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --using-cache=no
 
 # Clear and warmup cache to detect configuration errors
 cache-clear:
-	$(PHP) $(CONSOLE_BIN) cache:clear
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) cache:clear
 
 
 # Apply auth database migrations
 migrate-auth:
-	$(PHP) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
 
 # Apply main database migrations
 migrate-main:
-	$(PHP) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
 
 # Apply all database migrations
 migrate-all: migrate-auth migrate-main
@@ -99,6 +118,11 @@ migrate-all: migrate-auth migrate-main
 # E2E test (~5s each) only for DAMA to roll it back. Tests that need different
 # data create it themselves; tests that need a table empty purge it themselves —
 # the rollback undoes either. No test may assume it owns the database.
+#
+# These two databases are templates: no test run writes to them. Each run
+# clones them (tests/bootstrap.php) and works on the copy, so this target is
+# the only thing that changes the baseline. It purges before reloading, so
+# re-running it always restores exactly the baseline the E2E counts assert.
 test-db:
 	docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_auth_test'" | grep -q 1 || docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -c "CREATE DATABASE fireguard_auth_test;"
 	docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_main_test'" | grep -q 1 || docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -c "CREATE DATABASE fireguard_main_test;"
@@ -106,21 +130,41 @@ test-db:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --env=test --no-interaction
 
-# Drop the per-worker database clones left by `make phpunit-parallel`.
+# Drop the per-run database clones left behind by killed test runs.
 #
-# Clones are rebuilt on every parallel run, so they never accumulate beyond the
-# largest worker count used — but a one-off `-p 32` leaves 64 databases behind.
-# The LIKE pattern matches only the `_w<token>` clones, never the migrated
-# templates or the dev databases.
+# A run drops its own clones on exit, so they do not normally accumulate. A run
+# killed outright (Ctrl-C, SIGKILL) never reaches that shutdown hook and leaks
+# two databases; this is the sweep for those. The pattern matches only the
+# `_w<token>` clones, never the migrated templates or the dev databases.
 test-db-clean:
 	docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname ~ '^fireguard_auth_test_w'" | docker exec -i fireguard-sso-api-auth_database-1 psql -U admin -d postgres
 	docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname ~ '^fireguard_main_test_w'" | docker exec -i fireguard-sso-api-main_database-1 psql -U main_admin -d postgres
 
+# Drop the compiled container caches the suite keys on its own sources.
+#
+# tests/bootstrap.php names each cache directory after a fingerprint of config/,
+# src/, templates/, translations/, composer.lock and the dotenv files, and
+# collects the ones nothing has booted for a week. This is the manual sweep for
+# the rest: the directories the old token-keyed layout leaked once per `phpunit`
+# run, and anything left over after a `composer update`. Nothing here is state —
+# the next run recompiles what it needs, at the usual ~14s.
+test-cache-clean:
+	rm -rf $(TMP_DIR)/fireguard-auth $(TMP_DIR)/fireguard-auth-*
+
 # Load repository seed fixtures into auth and main databases safely
 seed-fixtures:
-	$(PHP) $(CONSOLE_BIN) app:fixtures:load --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
-test: cs-lint phpstan deptrac lint phpunit-parallel
+# Mapping vs database, on BOTH entity managers, against the test databases the
+# suite runs on. CI has always run this inside the "Prepare PostgreSQL test
+# environment" action; `make test` never did, so `main` drifted from its mapping
+# for weeks and only the first PR to `main` in five weeks caught it -- with all
+# three test jobs failing at setup, before a single test ran.
+schema-check:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:schema:validate --env=test --em=auth
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:schema:validate --env=test --em=main
+
+test: cs-lint phpstan deptrac lint openapi-check schema-check phpunit-parallel
 
 # Run tests with code coverage (requires PCOV or Xdebug)
 #

@@ -30,7 +30,19 @@ Main goals:
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors the
-Intervention module's templates/labels).
+Intervention module's templates/labels). Every user-facing handler is
+scope-aware: the by-id and list schedule handlers decide access through
+`OrganizationAuthorizationPort::resolveAccess()`, and the campaign handler —
+which must assert two permissions — gates on
+`OrganizationAuthorizationPort::isMemberOf()` first. A schedule owned by, or a
+listing/campaign scoped to, an organization the caller has no active
+membership in yields the same 404 an unknown id produces
+(`MaintenanceNotFoundException::withId()` / `::forOrganizationScope()` — a 403
+would confirm the record or organization exists), while a member lacking the
+required permission gets 403. The invariant is pinned by
+`tests/Architecture/Unit/MaintenanceAuthorizationEnforcementTest.php`
+(`RecomputeMaintenanceSchedulesHandler`, the user-less system sweep, is the
+single justified exemption).
 
 ## Flows
 
@@ -76,7 +88,9 @@ everything page-wise (bounded memory):
 
 ### Generate an inspection campaign (synchronous)
 
-`GenerateInspectionCampaignHandler` asserts BOTH
+`GenerateInspectionCampaignHandler` gates on
+`OrganizationAuthorizationPort::isMemberOf()` first (a non-member gets 404,
+see API Endpoints above), then asserts BOTH
 `organization.maintenance.manage` and `organization.interventions.plan`
 (the draft factory itself does not authorize), selects `due_soon`/`overdue`
 schedules matching the given filters, and routes through
@@ -101,6 +115,14 @@ equipment (`target: {"equipmentId": "..."}`).
   events.
 - **Infrastructure** (`src/Maintenance/Infrastructure`): Doctrine record/repository,
   the Inspection-side synchronizer adapter, and the hourly scheduler.
+
+**Documented gap**: `maintenance_schedules.facility_id` is a denormalized,
+FK-less string link (see `## Persistence`), and Maintenance has no outbound
+dependency port consumed by `Facility\Application\Service\FacilityArchivalGuard`.
+Archiving a facility does **not** stop its schedules from generating —
+the recurring sweep keeps materializing maintenance work against an archived
+facility. Deliberate for now; a follow-up candidate if this proves to matter
+in practice.
 
 ### Ports & adapters (`config/modules/maintenance.yaml`)
 
@@ -152,8 +174,8 @@ See `src/Calendar/MODULE.md`.
 `MaintenanceAssistantContextProviderAdapter` implements the Assistant
 module's `assistant.context_provider` tagged-iterator seam
 (`Assistant\Application\Port\Outbound\AssistantContextProviderPort` — see
-`src/Assistant/MODULE.md`), feeding the mockup's "What's blocking the
-campaign?" suggestion: overdue + due-soon totals plus up to 5 rows of each
+`src/Assistant/MODULE.md`), feeding the assistant's "What's blocking the
+campaign?" suggested prompt: overdue + due-soon totals plus up to 5 rows of each
 (equipment type, due status, due date), soonest-due first. `supports()`
 gates on `organization.maintenance.read`. Reuses
 `MaintenanceScheduleRepositoryPort::list()` VERBATIM (two calls,

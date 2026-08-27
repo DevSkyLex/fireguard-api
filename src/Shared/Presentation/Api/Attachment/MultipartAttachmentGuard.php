@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnprocessableEntityHttpException};
 
+use function in_array;
 use function is_string;
 use function sprintf;
 
@@ -40,13 +41,17 @@ final readonly class MultipartAttachmentGuard
    * @param Request $request the current HTTP request
    * @param string $fileField the multipart field holding the file
    * @param string $labelField the multipart field holding the optional label
+   * @param ?list<string> $allowedMimeTypes when given, replaces the shared MIME
+   *                                        allow-list for this call (size cap still
+   *                                        applies) — for a kind-specific policy
+   *                                        narrower or wider than {@see AttachmentConstraints::allowedMimeTypes()}
    *
    * @throws BadRequestHttpException when no valid file is present
    * @throws UnprocessableEntityHttpException when the file violates the MIME/size policy
    *
    * @return UploadedAttachment the validated upload
    */
-  public function fromRequest(Request $request, string $fileField = 'file', string $labelField = 'label'): UploadedAttachment
+  public function fromRequest(Request $request, string $fileField = 'file', string $labelField = 'label', ?array $allowedMimeTypes = null): UploadedAttachment
   {
     $file = $request->files->get($fileField);
 
@@ -59,7 +64,14 @@ final readonly class MultipartAttachmentGuard
     $mimeType = $file->getMimeType() ?? 'application/octet-stream';
 
     try {
-      AttachmentConstraints::validate($mimeType, $size);
+      if (null !== $allowedMimeTypes) {
+        AttachmentConstraints::validateSize($size);
+        if (!in_array($mimeType, $allowedMimeTypes, true)) {
+          throw InvalidAttachmentException::forMimeType($mimeType);
+        }
+      } else {
+        AttachmentConstraints::validate($mimeType, $size);
+      }
     } catch (InvalidAttachmentException $exception) {
       throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
     }

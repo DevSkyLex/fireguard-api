@@ -14,7 +14,9 @@ use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOu
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Throwable;
 
@@ -52,6 +54,7 @@ final readonly class InterventionMediaProvider implements ProviderInterface
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private RequestStack $requestStack,
   ) {
   }
   // #endregion
@@ -96,8 +99,10 @@ final readonly class InterventionMediaProvider implements ProviderInterface
     $output->mimeType = $record->mimeType;
     $output->size = $record->size;
     $output->label = $record->label;
+    $output->kind = $record->kind;
     $output->revision = $record->revision;
     $output->uploadedAt = $record->uploadedAt->format('c');
+    $output->workItemId = $record->workItem?->id;
 
     return $output;
   }
@@ -120,11 +125,17 @@ final readonly class InterventionMediaProvider implements ProviderInterface
 
     $user = $this->user();
 
+    $workItem = $this->requestStack->getCurrentRequest()?->query->get('workItem');
+    $workItemId = is_string($workItem) && '' !== $workItem
+      ? ResourceIriParser::id($workItem, 'intervention-work-items')
+      : null;
+
     try {
       /** @var ListInterventionAttachmentsResult $result */
       $result = $this->queryBus->ask(new ListInterventionAttachmentsQuery(
         userId: $user->getId(),
         interventionId: $interventionId,
+        workItemId: $workItemId,
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);
@@ -139,7 +150,9 @@ final readonly class InterventionMediaProvider implements ProviderInterface
       $output->mimeType = $attachment['mimeType'];
       $output->size = $attachment['size'];
       $output->label = $attachment['label'];
+      $output->kind = $attachment['kind'];
       $output->uploadedAt = $attachment['uploadedAt'];
+      $output->workItemId = $attachment['workItemId'];
       $outputs[] = $output;
     }
 
@@ -166,7 +179,11 @@ final readonly class InterventionMediaProvider implements ProviderInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $record->intervention->organization->id, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $record->intervention->organization->id, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.interventions.read permission.');
     }
 

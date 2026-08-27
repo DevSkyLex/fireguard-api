@@ -21,10 +21,24 @@ JWT keys:
 
 ## Token and cookie security
 
+- **Every bearer token is signature-verified before any of its claims is trusted.**
+  `OAuth2Authenticator` validates the RSA signature and the expiry first, then branches on
+  the token's origin. Both issuance paths sign with `config/jwt/private.key` — the login
+  flow through `JwtTokenAdapter`, the OAuth2 flow through League's `AuthorizationServer` —
+  so a single verification key covers both. The database lookup keys on `jti` and never
+  binds it back to `sub`, which is why the signature check must not be conditional: a
+  branch that skipped it would let a forged token carrying a live `jti` and an arbitrary
+  `sub` authenticate as that subject.
 - Refresh tokens are issued in HttpOnly cookies with SameSite=Strict.
 - In production, cookies are marked Secure and use the `__Host-` prefix.
 - Keep short access token lifetimes and use refresh tokens for renewals.
 - Revoke tokens on logout and suspicious activity.
+- **Revoking a session invalidates its access token on the next request.**
+  Login-flow tokens are not rows in the OAuth2 token table, so `OAuth2Authenticator`
+  resolves them through `SessionStatusPort` instead. A token whose session was never
+  recorded is accepted rather than rejected — session recording is deliberately
+  best-effort, and treating an absent row as a revocation would lock a user out for
+  the token's full lifetime after a failure they never saw.
 - Access tokens include email/roles/permissions by default for backward compatibility.
   - To minimize token size and reduce data exposure, set `ACCESS_TOKEN_INCLUDE_EMAIL=false` and `ACCESS_TOKEN_INCLUDE_RBAC=false`.
 
@@ -52,6 +66,9 @@ Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 - `mfa_resend`
 - `otp_challenge_create`
 - `otp_challenge_verify`
+- `invitation_preview` (per IP — the endpoint is public)
+- `invitation_resend` (per user)
+- `invitation_accept` (per user)
 
 Tune limits to match threat models and expected traffic. In test environments, limits may be overridden for determinism.
 

@@ -7,6 +7,8 @@ namespace Tests\Integration\Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Domain\Exception\InterventionResourceNotFoundException;
@@ -42,7 +44,11 @@ final class FacilityInterventionResourceAdapterTest extends KernelTestCase
     // The archival guard is only consulted by apply()'s archiving path, which
     // these tests do not exercise; a stub keeps the adapter constructible.
     $guard = self::createStub(FacilityArchivalGuardPort::class);
-    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard);
+    /** @var FacilityRepositoryPort $facilityRepository */
+    $facilityRepository = static::getContainer()->get(FacilityRepositoryPort::class);
+    $metadataRepository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $facilityRepository, new FacilityMetadataSchemaGuard($metadataRepository));
 
     $this->removeOrganization(self::ORGANIZATION_ID);
     $this->removeOrganization(self::OTHER_ORGANIZATION_ID);

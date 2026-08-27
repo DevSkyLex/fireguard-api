@@ -18,6 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(RestoreFacilityHandler::class)]
 final class RestoreFacilityHandlerTest extends TestCase
@@ -397,7 +398,7 @@ final class RestoreFacilityHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new RestoreFacilityCommand(
       organizationId: 'not-a-uuid',

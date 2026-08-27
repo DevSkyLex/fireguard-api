@@ -6,7 +6,6 @@ namespace Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNon
 
 use Inspection\Application\Port\Outbound\{EquipmentNamingPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformitySeverity, NonConformityStatus};
-use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -56,7 +55,7 @@ final readonly class ListOrganizationNonConformitiesHandler implements QueryHand
       $severity = null !== $query->severity ? NonConformitySeverity::from($query->severity)->value : null;
       $status = null !== $query->status ? NonConformityStatus::from($query->status)->value : null;
     } catch (InvalidValueException|ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $nonConformities = $this->nonConformityRepository->findByOrganizationId(

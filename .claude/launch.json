@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fireguard-api",
+      "url": "http://localhost:8000",
+      "port": 8000,
+      "autoPort": false
+    },
+    {
+      "name": "mailpit",
+      "url": "http://localhost:8025",
+      "port": 8025,
+      "autoPort": false
+    },
+    {
+      "name": "mercure",
+      "url": "http://localhost:3000",
+      "port": 3000,
+      "autoPort": false
+    }
+  ]
+}

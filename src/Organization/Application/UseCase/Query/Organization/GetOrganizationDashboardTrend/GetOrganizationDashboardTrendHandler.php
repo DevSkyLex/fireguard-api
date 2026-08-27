@@ -6,7 +6,6 @@ namespace Organization\Application\UseCase\Query\Organization\GetOrganizationDas
 
 use DateTimeImmutable;
 use DateTimeZone;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
 use Organization\Application\Support\{DashboardDateTimeParser, DashboardSeriesBuilder};
@@ -15,6 +14,7 @@ use Organization\Domain\Exception\{OrganizationAccessDeniedException, Organizati
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function count;
@@ -130,7 +130,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
   private function assertSupportedMetric(string $metric): string
   {
     if (!in_array($metric, [self::METRIC_INSPECTIONS_PERFORMED, self::METRIC_EQUIPMENT_CREATED, self::METRIC_FACILITIES_CREATED, self::METRIC_NON_CONFORMITIES_OPENED, self::METRIC_NON_CONFORMITIES_RESOLVED], true)) {
-      throw new InvalidArgumentException('Unsupported dashboard trend metric.');
+      throw InvalidValueException::because('Unsupported dashboard trend metric.');
     }
 
     return $metric;
@@ -156,7 +156,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     }
 
     if (count($metrics) > self::MAX_REQUESTED_METRICS) {
-      throw new InvalidArgumentException(sprintf('At most %d dashboard trend metrics may be requested at once.', self::MAX_REQUESTED_METRICS));
+      throw InvalidValueException::because(sprintf('At most %d dashboard trend metrics may be requested at once.', self::MAX_REQUESTED_METRICS));
     }
 
     return $metrics;
@@ -290,7 +290,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
       self::METRIC_FACILITIES_CREATED => $this->countFacilitiesCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->facilityType),
       self::METRIC_NON_CONFORMITIES_OPENED => $this->countNonConformitiesCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->nonConformitySeverity, $query->nonConformityStatus),
       self::METRIC_NON_CONFORMITIES_RESOLVED => $this->countNonConformitiesResolvedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->nonConformitySeverity, $query->nonConformityStatus),
-      default => throw new InvalidArgumentException('Unsupported dashboard trend metric.'),
+      default => throw InvalidValueException::because('Unsupported dashboard trend metric.'),
     };
   }
 

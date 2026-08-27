@@ -18,13 +18,16 @@ use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent, UserLoggedOu
 use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
+use Intervention\Domain\Event\Export\InterventionsExportedEvent;
+use Intervention\Domain\Event\InterventionReportExportedEvent;
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
@@ -32,6 +35,7 @@ use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceMaterializedEvent,
   InterventionRecurrenceUpdatedEvent
 };
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Messaging\Domain\Event\Channel\{
@@ -47,7 +51,7 @@ use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
-use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
+use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
 use Organization\Domain\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
@@ -142,6 +146,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'organization.organization_invitation_accepted_event' => 'onOrganizationInvitationAccepted',
       'organization.organization_invitation_revoked_event' => 'onOrganizationInvitationRevoked',
       'organization.organization_plan_changed_event' => 'onOrganizationPlanChanged',
+      'organization.organization_ownership_transferred_event' => 'onOrganizationOwnershipTransferred',
       'organization.organization_permission_grant_denied_event' => 'onOrganizationPermissionGrantDenied',
       'organization.organization_last_admin_lockout_prevented_event' => 'onOrganizationLastAdminLockoutPrevented',
       'organization.team_created_event' => 'onTeamCreated',
@@ -154,23 +159,31 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'inspection.inspection_cancelled_event' => 'onInspectionCancelled',
       'inspection.non_conformity_recorded_event' => 'onNonConformityRecorded',
       'inspection.non_conformity_status_changed_event' => 'onNonConformityStatusChanged',
+      'facility.facility_created_event' => 'onFacilityCreated',
       'facility.facility_archived_event' => 'onFacilityArchived',
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
+      'facility.facility_updated_event' => 'onFacilityUpdated',
+      'facility.facility_subtree_duplicated_event' => 'onFacilitySubtreeDuplicated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
       'equipment.equipment_put_under_maintenance_event' => 'onEquipmentPutUnderMaintenance',
       'equipment.equipment_returned_to_stock_event' => 'onEquipmentReturnedToStock',
       'equipment.equipment_decommissioned_event' => 'onEquipmentDecommissioned',
       'intervention.intervention_published_event' => 'onInterventionPublished',
       'intervention.intervention_publication_failed_event' => 'onInterventionPublicationFailed',
+      'intervention.intervention_status_transitioned_event' => 'onInterventionStatusTransitioned',
       'intervention.intervention_recurrence_created_event' => 'onInterventionRecurrenceCreated',
       'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
       'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
       'intervention.intervention_recurrence_materialized_event' => 'onInterventionRecurrenceMaterialized',
+      'intervention.intervention_report_exported_event' => 'onInterventionReportExported',
       'maintenance.maintenance_schedule_overridden_event' => 'onMaintenanceScheduleOverridden',
       'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
       'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
       'automation.automation_rule_failed_event' => 'onAutomationRuleFailed',
+      'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
+      'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
+      'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -190,6 +203,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'approval.approval_expired_event' => 'onApprovalExpired',
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
+      'intervention.interventions_exported_event' => 'onInterventionsExported',
     ];
   }
 
@@ -929,6 +943,30 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onOrganizationOwnershipTransferred.
+   *
+   * Records an organization ownership transfer.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationOwnershipTransferredEvent $event the domain event
+   */
+  public function onOrganizationOwnershipTransferred(OrganizationOwnershipTransferredEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'organization.ownership_transferred',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'previous_owner_user_id' => $event->previousOwnerUserId,
+        'new_owner_user_id' => $event->newOwnerUserId,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
    * Method onOrganizationPermissionGrantDenied.
    *
    * Records a refused privilege-escalation attempt.
@@ -1094,6 +1132,27 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onFacilityCreated.
+   *
+   * Records a facility creation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityCreatedEvent $event the domain event
+   */
+  public function onFacilityCreated(FacilityCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.created',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->facilityId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
    * Method onFacilityArchived.
    *
    * Records a facility archival.
@@ -1154,6 +1213,56 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       metadata: [
         'previous_parent_facility_id' => $event->previousParentFacilityId,
         'new_parent_facility_id' => $event->newParentFacilityId,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onFacilityUpdated.
+   *
+   * Records a facility descriptive-field update. `changed_fields` carries
+   * only the field NAMES (never their values) — the ledger must not become
+   * a second copy of potentially sensitive facility data (address,
+   * metadata) nor grow noisy with every partial patch's payload.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityUpdatedEvent $event the domain event
+   */
+  public function onFacilityUpdated(FacilityUpdatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.updated',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->facilityId,
+      metadata: [
+        'changed_fields' => $event->changedFields,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onFacilitySubtreeDuplicated.
+   *
+   * Records a facility subtree duplication.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilitySubtreeDuplicatedEvent $event the domain event
+   */
+  public function onFacilitySubtreeDuplicated(FacilitySubtreeDuplicatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.subtree_duplicated',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->sourceFacilityId,
+      metadata: [
+        'new_root_facility_id' => $event->newRootFacilityId,
+        'node_count' => $event->nodeCount,
       ],
       occurredAt: $event->occurredAt,
     );
@@ -1424,6 +1533,40 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onInterventionStatusTransitioned.
+   *
+   * Records a successful intervention status transition — every explicit
+   * transition applied through the workflow gateway, plus the work-item-driven
+   * `planned -> in_progress` auto-start. `review_note` is present only when
+   * the target status is `changes_requested`.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionStatusTransitionedEvent $event the domain event
+   */
+  public function onInterventionStatusTransitioned(InterventionStatusTransitionedEvent $event): void
+  {
+    $metadata = [
+      'intervention_number' => $event->interventionNumber,
+      'from_status' => $event->fromStatus,
+      'to_status' => $event->toStatus,
+    ];
+    if (null !== $event->reviewNote) {
+      $metadata['review_note'] = $event->reviewNote;
+    }
+
+    $this->recordOrganizationAudit(
+      action: 'intervention.status_transitioned',
+      organizationId: $event->organizationId,
+      subjectType: 'intervention',
+      subjectId: $event->interventionId,
+      metadata: $metadata,
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
    * Method onInterventionRecurrenceCreated.
    *
    * Records the creation of a recurring intervention schedule.
@@ -1515,6 +1658,29 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'error' => $event->error,
       ],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onInterventionReportExported.
+   *
+   * Records every export of an intervention's PDF report — mirrors
+   * `onSafetyRegisterExported`'s "who pulled this document" traceability.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionReportExportedEvent $event the domain event
+   */
+  public function onInterventionReportExported(InterventionReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'intervention.report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'intervention',
+      subjectId: $event->interventionId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 
@@ -1616,6 +1782,84 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'error' => $event->error,
       ],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onCalendarEventCreated.
+   *
+   * Records the creation of a standalone organization calendar event.
+   * `title`/`starts_at` are kept in the raw ledger payload (full detail,
+   * hash-covered) but withheld from the organization-audience projection —
+   * see {@see \Audit\Application\Service\OrganizationAuditMetadataProjection} —
+   * because an event title is operator-typed free text (unlike a curated
+   * organization/team name) and can embed identifying detail.
+   *
+   * @since 1.4.0
+   *
+   * @param CalendarEventCreatedEvent $event the domain event
+   */
+  public function onCalendarEventCreated(CalendarEventCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.event_created',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_event',
+      subjectId: $event->eventId,
+      metadata: [
+        'title' => $event->title,
+        'starts_at' => $event->startsAt->format(DateTimeImmutable::ATOM),
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarEventUpdated.
+   *
+   * Records an update to a standalone organization calendar event. Mirrors
+   * `onCalendarEventCreated`'s free-text withholding rationale.
+   *
+   * @since 1.4.0
+   *
+   * @param CalendarEventUpdatedEvent $event the domain event
+   */
+  public function onCalendarEventUpdated(CalendarEventUpdatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.event_updated',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_event',
+      subjectId: $event->eventId,
+      metadata: [
+        'title' => $event->title,
+        'starts_at' => $event->startsAt->format(DateTimeImmutable::ATOM),
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarEventDeleted.
+   *
+   * Records the deletion of a standalone organization calendar event.
+   *
+   * @since 1.4.0
+   *
+   * @param CalendarEventDeletedEvent $event the domain event
+   */
+  public function onCalendarEventDeleted(CalendarEventDeletedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.event_deleted',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_event',
+      subjectId: $event->eventId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 
@@ -1910,6 +2154,35 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onInterventionsExported.
+   *
+   * Records every CSV export of an organization's interventions — the
+   * intervention module auditing its own export action, mirroring
+   * {@see self::onAuditEventsExported()} and
+   * {@see self::onSafetyRegisterExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.5.0
+   *
+   * @param InterventionsExportedEvent $event the domain event
+   */
+  public function onInterventionsExported(InterventionsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'intervention.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
    * Method onWebhookSubscriptionCreated.
    *
    * Records the creation of an outbound webhook subscription. Metadata
@@ -2139,8 +2412,10 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
    * Method recordOrganizationAudit.
    *
    * Builds and dispatches an organization-scoped audit event.
-   * The organization ID is always appended to the metadata so
-   * every organization action can be filtered uniformly.
+   * The organization ID is always appended to the metadata (the
+   * hash-covered source of truth) and mirrored into the dedicated
+   * organizationId column so every organization action can be
+   * filtered uniformly on an indexed column.
    *
    * @since 1.0.0
    *
@@ -2175,6 +2450,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       actorEmailHash: $this->sanitizer->emailHash($actor['email']),
       subjectType: $subjectType,
       subjectId: $subjectId,
+      organizationId: $organizationId,
       ipAddress: $this->sanitizer->ip($context['ip']),
       ipHash: $this->sanitizer->ipHash($context['ip']),
       userAgent: $context['user_agent'],

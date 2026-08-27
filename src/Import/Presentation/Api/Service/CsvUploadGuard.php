@@ -8,11 +8,15 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnprocessableEntityHttpException};
 
+use function filter_var;
 use function in_array;
 use function is_string;
 use function sprintf;
 use function str_ends_with;
 use function strtolower;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Service CsvUploadGuard.
@@ -107,12 +111,19 @@ final readonly class CsvUploadGuard
       throw new UnprocessableEntityHttpException(sprintf('MIME type "%s" is not accepted for a CSV import.', $mimeType));
     }
 
+    $dryRun = filter_var(
+      $request->request->get('dryRun'),
+      FILTER_VALIDATE_BOOLEAN,
+      FILTER_NULL_ON_FAILURE,
+    ) ?? false;
+
     return new UploadedCsv(
       kind: $kind,
       fileName: $fileName,
       contents: $file->getContent(),
       mimeType: $mimeType,
       size: $size,
+      dryRun: $dryRun,
     );
   }
   // #endregion

@@ -12,7 +12,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Command\User\DeactivateUser\DeactivateUserCommand;
 use User\Application\UseCase\Query\User\GetCurrentUserProfile\{
@@ -130,7 +130,7 @@ final class DeactivateCurrentUserProfileProcessorTest extends TestCase
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(UserNotFoundException::class);
 
     $processor->process(null, new Post());
   }

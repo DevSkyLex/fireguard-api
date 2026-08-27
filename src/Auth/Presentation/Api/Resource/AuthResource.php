@@ -45,6 +45,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: AuthOperations::LOGIN,
       uriTemplate: '/login',
+      status: HttpResponse::HTTP_OK,
       input: LoginInput::class,
       output: LoginOutput::class,
       processor: LoginProcessor::class,
@@ -95,6 +96,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: AuthOperations::REFRESH,
       uriTemplate: '/refresh',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: LoginOutput::class,
       processor: RefreshTokenProcessor::class,
@@ -163,6 +165,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: AuthOperations::MFA_VERIFY,
       uriTemplate: '/mfa/verify',
+      status: HttpResponse::HTTP_OK,
       input: \Auth\Presentation\Api\Dto\Input\Auth\MfaVerifyInput::class,
       output: LoginOutput::class,
       processor: \Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor::class,
@@ -212,6 +215,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: AuthOperations::MFA_RESEND,
       uriTemplate: '/mfa/resend',
+      status: HttpResponse::HTTP_OK,
       input: MfaResendInput::class,
       output: LoginOutput::class,
       processor: MfaResendProcessor::class,

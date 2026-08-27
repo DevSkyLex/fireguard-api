@@ -25,7 +25,7 @@ final class WebhookEventTypeTest extends TestCase
   {
     $values = WebhookEventType::values();
 
-    self::assertCount(13, $values);
+    self::assertCount(15, $values);
     self::assertContains('intervention.published', $values);
     self::assertContains('webhook.ping', $values);
   }

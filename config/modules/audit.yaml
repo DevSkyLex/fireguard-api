@@ -31,3 +31,14 @@ services:
     resource: '../../src/Audit/Presentation/'
 
   Audit\Application\Port\Outbound\AuditEventRepositoryPort: '@Audit\Infrastructure\Persistence\Doctrine\Repository\AuditEventRepository'
+
+  # Published inbound capability: the organization-scoped, reduced slice of the
+  # ledger. Consumed cross-module by Organization's activity-feed endpoint.
+  # Reads through AuditEventRepositoryPort above (audit_events lives in the
+  # AUTH database, which is also doctrine's default_entity_manager, so that
+  # repository resolves the right one). This service touches no entity manager
+  # of its own and therefore names none.
+  Audit\Application\Port\Inbound\OrganizationAuditFeedPort:
+    alias: Audit\Application\Service\OrganizationAuditFeedService
+
+  Audit\Application\Service\OrganizationAuditFeedService: ~

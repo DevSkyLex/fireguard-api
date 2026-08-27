@@ -10,11 +10,13 @@ use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_filter;
 use function count;
@@ -22,14 +24,19 @@ use function count;
 #[CoversClass(ListOrganizationMembersHandler::class)]
 final class ListOrganizationMembersHandlerTest extends TestCase
 {
+  private const string ORG_ID = '550e8400-e29b-41d4-a716-446655440900';
+
+  private const string MEMBER_ID = '550e8400-e29b-41d4-a716-446655440901';
+
+  private const string USER_ID = '550e8400-e29b-41d4-a716-446655440902';
+
+  private const string ROLE_ID = '550e8400-e29b-41d4-a716-446655440903';
+
   #[Test]
   public function testInvokeReturnsMembersWithRoleIds(): void
   {
-    $organizationId = '550e8400-e29b-41d4-a716-446655440900';
-    $memberId = '550e8400-e29b-41d4-a716-446655440901';
-
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
+      id: new OrganizationId(self::ORG_ID),
       name: new OrganizationName('Fireguard Lille'),
       createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
       isActive: true,
@@ -37,9 +44,9 @@ final class ListOrganizationMembersHandlerTest extends TestCase
     );
 
     $member = OrganizationMember::reconstitute(
-      id: new OrganizationMemberId($memberId),
-      organizationId: new OrganizationId($organizationId),
-      userId: '550e8400-e29b-41d4-a716-446655440902',
+      id: new OrganizationMemberId(self::MEMBER_ID),
+      organizationId: new OrganizationId(self::ORG_ID),
+      userId: self::USER_ID,
       isActive: true,
       joinedAt: new DateTimeImmutable('-2 days'),
     );
@@ -54,29 +61,203 @@ final class ListOrganizationMembersHandlerTest extends TestCase
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
     $memberRepository->expects(self::once())
       ->method('findByOrganizationId')
-      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => self::ORG_ID === (string) $id),
+        null,
+        null,
+        null,
+        self::callback(static fn (Sorting $sorting): bool => 'joinedAt' === $sorting->field && SortDirection::ASC === $sorting->direction),
+        20,
+        0,
+      )
       ->willReturn([$member]);
     $memberRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => self::ORG_ID === (string) $id),
+        null,
+        null,
+        null,
+      )
+      ->willReturn(1);
+    $memberRepository->expects(self::once())
       ->method('findRoleIdsForMember')
-      ->with(self::callback(static fn (OrganizationMemberId $id): bool => $memberId === (string) $id))
-      ->willReturn(['550e8400-e29b-41d4-a716-446655440903']);
+      ->with(self::callback(static fn (OrganizationMemberId $id): bool => self::MEMBER_ID === (string) $id))
+      ->willReturn([self::ROLE_ID]);
 
     $handler = new ListOrganizationMembersHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
     );
 
-    $result = $handler->__invoke(new ListOrganizationMembersQuery($organizationId));
+    $result = $handler->__invoke(new ListOrganizationMembersQuery(self::ORG_ID));
 
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertCount(1, $result->items);
-    self::assertSame($memberId, $result->items[0]->id);
-    self::assertSame($organizationId, $result->items[0]->organizationId);
-    self::assertSame('550e8400-e29b-41d4-a716-446655440902', $result->items[0]->userId);
-    self::assertSame(['550e8400-e29b-41d4-a716-446655440903'], $result->items[0]->roleIds);
+    self::assertSame(self::MEMBER_ID, $result->items[0]->id);
+    self::assertSame(self::ORG_ID, $result->items[0]->organizationId);
+    self::assertSame(self::USER_ID, $result->items[0]->userId);
+    self::assertSame([self::ROLE_ID], $result->items[0]->roleIds);
     self::assertSame(1, $result->total);
-    self::assertSame(1, $result->limit);
+    self::assertSame(20, $result->limit);
     self::assertSame(0, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokePassesSearchStatusRoleAndSortingFiltersToTheRepository(): void
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId(self::ORG_ID),
+      name: new OrganizationName('Fireguard Lille'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-4 days'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => self::ORG_ID === (string) $id),
+        'jane',
+        true,
+        self::callback(static fn (OrganizationRoleId $id): bool => self::ROLE_ID === (string) $id),
+        self::callback(static fn (Sorting $sorting): bool => 'displayName' === $sorting->field && SortDirection::DESC === $sorting->direction),
+        10,
+        5,
+      )
+      ->willReturn([]);
+    $memberRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => self::ORG_ID === (string) $id),
+        'jane',
+        true,
+        self::callback(static fn (OrganizationRoleId $id): bool => self::ROLE_ID === (string) $id),
+      )
+      ->willReturn(0);
+
+    $handler = new ListOrganizationMembersHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+    );
+
+    $result = $handler->__invoke(new ListOrganizationMembersQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(offset: 5, limit: 10),
+      search: 'jane',
+      status: 'active',
+      roleId: self::ROLE_ID,
+      sorting: new Sorting('displayName', SortDirection::DESC),
+    ));
+
+    self::assertSame([], $result->items);
+    self::assertSame(0, $result->total);
+    self::assertSame(10, $result->limit);
+    self::assertSame(5, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokeMapsInactiveStatusFilterToFalse(): void
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId(self::ORG_ID),
+      name: new OrganizationName('Fireguard Lille'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-4 days'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(self::anything(), null, false, null, self::anything(), self::anything(), self::anything())
+      ->willReturn([]);
+    $memberRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(self::anything(), null, false, null)
+      ->willReturn(0);
+
+    $handler = new ListOrganizationMembersHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+    );
+
+    $handler->__invoke(new ListOrganizationMembersQuery(self::ORG_ID, status: 'inactive'));
+  }
+
+  #[Test]
+  public function testInvokeTreatsAllStatusAsNoFilter(): void
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId(self::ORG_ID),
+      name: new OrganizationName('Fireguard Lille'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-4 days'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(self::anything(), null, null, null, self::anything(), self::anything(), self::anything())
+      ->willReturn([]);
+    $memberRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(self::anything(), null, null, null)
+      ->willReturn(0);
+
+    $handler = new ListOrganizationMembersHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+    );
+
+    $handler->__invoke(new ListOrganizationMembersQuery(self::ORG_ID, status: 'all'));
+  }
+
+  #[Test]
+  public function testInvokeThrowsOnAnInvalidStatusFilter(): void
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId(self::ORG_ID),
+      name: new OrganizationName('Fireguard Lille'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-4 days'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findByOrganizationId');
+    $memberRepository->expects(self::never())->method('countByOrganizationId');
+
+    $handler = new ListOrganizationMembersHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+    );
+
+    $this->expectException(InvalidValueException::class);
+
+    $handler->__invoke(new ListOrganizationMembersQuery(self::ORG_ID, status: 'bogus'));
   }
 
   #[Test]
@@ -91,6 +272,7 @@ final class ListOrganizationMembersHandlerTest extends TestCase
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
     $memberRepository->expects(self::never())->method('findByOrganizationId');
+    $memberRepository->expects(self::never())->method('countByOrganizationId');
 
     $handler = new ListOrganizationMembersHandler(
       organizationRepository: $organizationRepository,
@@ -99,7 +281,7 @@ final class ListOrganizationMembersHandlerTest extends TestCase
 
     $this->expectException(OrganizationNotFoundException::class);
 
-    $handler->__invoke(new ListOrganizationMembersQuery('550e8400-e29b-41d4-a716-446655440900'));
+    $handler->__invoke(new ListOrganizationMembersQuery(self::ORG_ID));
   }
 
   #[Test]
@@ -148,6 +330,7 @@ final class ListOrganizationMembersHandlerTest extends TestCase
     $memberRepository->expects(self::once())
       ->method('findByOrganizationId')
       ->willReturn([$ownerMember, $otherMember]);
+    $memberRepository->method('countByOrganizationId')->willReturn(2);
     $memberRepository->method('findRoleIdsForMember')->willReturn([]);
 
     $handler = new ListOrganizationMembersHandler(

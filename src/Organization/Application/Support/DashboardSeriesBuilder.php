@@ -7,7 +7,7 @@ namespace Organization\Application\Support;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function array_sum;
 use function in_array;
@@ -89,13 +89,13 @@ final class DashboardSeriesBuilder
   {
     if (null !== $timeZone) {
       if (!in_array($timeZone, timezone_identifiers_list(), true)) {
-        throw new InvalidArgumentException('Invalid "timezone" filter. Use a valid IANA timezone such as Europe/Paris.');
+        throw InvalidValueException::because('Invalid "timezone" filter. Use a valid IANA timezone such as Europe/Paris.');
       }
 
       return new DateTimeZone($timeZone);
     }
     if ($periodFrom instanceof DateTimeImmutable && $periodTo instanceof DateTimeImmutable && $periodFrom->getTimezone()->getName() !== $periodTo->getTimezone()->getName()) {
-      throw new InvalidArgumentException('Mixed timezone offsets require the "timezone" filter.');
+      throw InvalidValueException::because('Mixed timezone offsets require the "timezone" filter.');
     }
 
     return self::normalizeImplicitDashboardTimeZone($periodFrom?->getTimezone() ?? $periodTo?->getTimezone() ?? $fallbackNow->getTimezone(), $periodFrom ?? $periodTo ?? $fallbackNow);
@@ -140,10 +140,10 @@ final class DashboardSeriesBuilder
   public static function assertSupportedPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): void
   {
     if ($periodStart->getTimestamp() > $periodEnd->getTimestamp()) {
-      throw new InvalidArgumentException('The "from" datetime filter must be before or equal to "to".');
+      throw InvalidValueException::because('The "from" datetime filter must be before or equal to "to".');
     }
     if ((int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1 > self::MAX_TREND_PERIOD_DAYS) {
-      throw new InvalidArgumentException('Dashboard period cannot exceed 366 days.');
+      throw InvalidValueException::because('Dashboard period cannot exceed 366 days.');
     }
   }
 
@@ -314,7 +314,7 @@ final class DashboardSeriesBuilder
       return new DateTimeZone('UTC');
     }
 
-    throw new InvalidArgumentException('Non-UTC offset datetimes require the "timezone" filter.');
+    throw InvalidValueException::because('Non-UTC offset datetimes require the "timezone" filter.');
   }
 
   /**

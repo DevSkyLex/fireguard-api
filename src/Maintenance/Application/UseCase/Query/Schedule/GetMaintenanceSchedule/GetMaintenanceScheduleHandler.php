@@ -50,7 +50,11 @@ final readonly class GetMaintenanceScheduleHandler implements QueryHandler
       throw MaintenanceNotFoundException::withId($query->scheduleId);
     }
 
-    if (!$this->authorization->hasPermission($query->userId, $schedule->organizationId, 'organization.maintenance.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $schedule->organizationId, 'organization.maintenance.read');
+    if ($decision->isOutsideScope()) {
+      throw MaintenanceNotFoundException::withId($query->scheduleId);
+    }
+    if (!$decision->isGranted()) {
       throw new MaintenanceAccessDeniedException('Missing organization.maintenance.read permission.');
     }
 

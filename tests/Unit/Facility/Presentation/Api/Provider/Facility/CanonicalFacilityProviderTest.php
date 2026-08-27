@@ -6,14 +6,20 @@ namespace Tests\Unit\Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -85,9 +91,14 @@ final class CanonicalFacilityProviderTest extends TestCase
     $entityManager->method('find')->willReturn(null);
 
     $this->expectException(NotFoundHttpException::class);
-    $this->expectExceptionMessage('Organization not found.');
+    // 'Facility not found.', not 'Organization not found.': the message now
+    // comes from `assertRead()`'s OUTSIDE_SCOPE branch rather than from the
+    // removed existence lookup. Same status, and a better one to send — an
+    // unknown organization and one the caller is not in now produce an
+    // identical body, where before the two differed.
+    $this->expectExceptionMessage('Facility not found.');
 
-    $this->provider($entityManager, $requestStack, $this->context())
+    $this->provider($entityManager, $requestStack, $this->context(), OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->provide(new GetCollection(), []);
   }
 
@@ -105,8 +116,80 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->provider($entityManager, $requestStack, null, false)
+    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::MISSING_PERMISSION)
       ->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenTheOrganizationIsOutsideCallerScope(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/facilities?organization=/api/organizations/' . self::ORGANIZATION_ID));
+
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($organization);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
+
+    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::OUTSIDE_SCOPE)
+      ->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideMapsAncestorPathOnTheItemRoute(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+
+    $record = new FacilityRecord();
+    $record->id = 'facility-id';
+    $record->organization = $organization;
+    $record->type = 'building';
+    $record->name = 'Building B';
+    $record->status = 'active';
+    $record->metadata = [];
+    $record->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $record->updatedAt = $record->createdAt;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($record);
+
+    /** @var FacilityRepositoryPort&MockObject $facilityRepository */
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::once())
+      ->method('findAncestors')
+      ->with('facility-id')
+      ->willReturn([
+        ['id' => 'root-id', 'name' => 'Root', 'type' => 'site'],
+      ]);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+
+    $provider = new CanonicalFacilityProvider(
+      $entityManager,
+      $facilityRepository,
+      $authorization,
+      $security,
+      new RequestStack(),
+      new InterventionResourceManager($resources),
+    );
+
+    $output = $provider->provide(new Get(), ['id' => 'facility-id']);
+
+    self::assertInstanceOf(FacilityOutput::class, $output);
+    self::assertSame([['id' => 'root-id', 'name' => 'Root', 'type' => 'site']], $output->path);
   }
 
   private function context(): InterventionAssignmentContext
@@ -118,10 +201,10 @@ final class CanonicalFacilityProviderTest extends TestCase
     EntityManagerInterface $entityManager,
     RequestStack $requestStack,
     ?InterventionAssignmentContext $context,
-    bool $granted = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
   ): CanonicalFacilityProvider {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($granted);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -133,6 +216,7 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     return new CanonicalFacilityProvider(
       $entityManager,
+      $this->createStub(FacilityRepositoryPort::class),
       $authorization,
       $security,
       $requestStack,

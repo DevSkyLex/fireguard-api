@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Infrastructure\Adapter\Activity;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter;
@@ -46,10 +46,11 @@ final class DoctrineInterventionActivityAdapterTest extends TestCase
     // The view mapper is final, so it is built for real over stubbed ports;
     // the append never reaches it on this path.
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $attachments = $this->createStub(InterventionAttachmentRepositoryPort::class);
     $adapter = new DoctrineInterventionActivityAdapter(
       $entityManager,
       $this->createStub(UuidFactory::class),
-      new InterventionViewMapper($entityManager, $resources, new InterventionIssueFinder($resources)),
+      new InterventionViewMapper($entityManager, $resources, new InterventionIssueFinder($resources, $attachments)),
     );
 
     $this->expectException(InterventionNotFoundException::class);

@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\{AddFacilityAttachmentCommand, AddFacilityAttachmentResult};
 use Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\DeleteFacilityAttachmentCommand;
+use Facility\Domain\ValueObject\AttachmentKind;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Facility\Presentation\Api\Dto\Output\Attachment\FacilityAttachmentOutput;
 use Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider;
@@ -91,7 +92,11 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $facility->organization->id, 'organization.facilities.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $facility->organization->id, 'organization.facilities.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
     }
 
@@ -100,7 +105,15 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Request payload is required.');
     }
 
-    $uploaded = $this->attachmentGuard->fromRequest($request);
+    $rawKind = $request->request->get('kind', AttachmentKind::DOCUMENT->value);
+    $kind = is_string($rawKind) ? AttachmentKind::tryFrom($rawKind) : null;
+    if (null === $kind) {
+      throw new BadRequestHttpException('The kind field must be "document" or "floor_plan".');
+    }
+
+    // A floor plan trades the shared image allow-list for a narrower-but-also-
+    // wider one (adds image/svg+xml, drops image/gif) — see AttachmentKind.
+    $uploaded = $this->attachmentGuard->fromRequest($request, allowedMimeTypes: $kind->allowedMimeTypes());
 
     /** @var AddFacilityAttachmentResult $result */
     $result = $this->commandBus->dispatch(new AddFacilityAttachmentCommand(
@@ -111,6 +124,7 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
       mimeType: $uploaded->mimeType,
       size: $uploaded->size,
       label: $uploaded->label,
+      kind: $kind->value,
     ));
 
     $record = $this->entityManager->find(FacilityAttachmentRecord::class, $result->attachmentId);
@@ -142,7 +156,11 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
 
     $organization = $record->facility->organization;
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.facilities.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
     }
 

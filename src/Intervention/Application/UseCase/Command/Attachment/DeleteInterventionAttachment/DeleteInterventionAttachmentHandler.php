@@ -8,7 +8,6 @@ use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -52,6 +51,14 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
       throw InterventionNotFoundException::withId($command->interventionId);
     }
 
+    // Scope gate BEFORE the permission is derived — see the identical note in
+    // AddInterventionAttachmentHandler: deriving the permission reads the
+    // intervention's phase and can throw a conflict, which would confirm to
+    // an outsider that this intervention exists.
+    if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+
     $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
 
     if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
@@ -61,7 +68,7 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
     try {
       $attachmentId = InterventionAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $attachment = $this->attachmentRepository->findById($attachmentId);

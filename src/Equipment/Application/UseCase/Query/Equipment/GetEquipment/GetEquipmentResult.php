@@ -26,6 +26,7 @@ final readonly class GetEquipmentResult implements ResultMessage
    *
    * @param list<array{id: string, name: string, organizationId: string}> $tags
    * @param string $maintenanceDueStatus the maintenance due status value (`unscheduled`|`up_to_date`|`due_soon`|`overdue`), resolved cross-module from the Maintenance module; `unscheduled` when the equipment has no maintenance schedule
+   * @param ?array{attachmentId: string, x: float, y: float} $planPosition the equipment's plan position, or null when unset. Deliberately left `null` by `ListEquipmentsHandler` — this shape is shared with `GetEquipmentResult`'s single-item read, but only the detail endpoint populates it.
    */
   public function __construct(
     public string $equipmentId,
@@ -45,6 +46,7 @@ final readonly class GetEquipmentResult implements ResultMessage
     public DateTimeImmutable $updatedAt,
     public string $maintenanceDueStatus = 'unscheduled',
     public ?string $facilityName = null,
+    public ?array $planPosition = null,
   ) {
   }
   // #endregion

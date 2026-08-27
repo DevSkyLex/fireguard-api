@@ -6,6 +6,7 @@ namespace Tests\Unit\Calendar\Application\UseCase\Command\Event\UpdateCalendarEv
 
 use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\{UpdateCalendarEventCommand, UpdateCalendarEventHandler};
+use Calendar\Domain\Event\CalendarEventUpdatedEvent;
 use Calendar\Domain\Exception\CalendarEventNotFoundException;
 use Calendar\Domain\Model\Event\CalendarEvent;
 use Calendar\Domain\ValueObject\CalendarEventId;
@@ -13,6 +14,7 @@ use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(UpdateCalendarEventHandler::class)]
 final class UpdateCalendarEventHandlerTest extends TestCase
@@ -27,7 +29,7 @@ final class UpdateCalendarEventHandlerTest extends TestCase
     $event = $this->event();
     $repository = $this->repositoryFor($event);
 
-    $handler = new UpdateCalendarEventHandler($repository, $this->authorization());
+    $handler = new UpdateCalendarEventHandler($repository, $this->authorization(), $this->createStub(EventDispatcherPort::class));
     $result = $handler(new UpdateCalendarEventCommand(
       organizationId: self::ORGANIZATION_ID,
       actorUserId: 'user-1',
@@ -56,7 +58,7 @@ final class UpdateCalendarEventHandlerTest extends TestCase
     $repository = $this->repositoryFor($event);
     $newStart = new DateTimeImmutable('2026-08-01T10:00:00+02:00');
 
-    $handler = new UpdateCalendarEventHandler($repository, $this->authorization());
+    $handler = new UpdateCalendarEventHandler($repository, $this->authorization(), $this->createStub(EventDispatcherPort::class));
     $result = $handler(new UpdateCalendarEventCommand(
       organizationId: self::ORGANIZATION_ID,
       actorUserId: 'user-1',
@@ -81,13 +83,52 @@ final class UpdateCalendarEventHandlerTest extends TestCase
   }
 
   #[Test]
+  public function itDispatchesTheUpdatedEventAfterSaving(): void
+  {
+    $event = $this->event();
+    $repository = $this->repositoryFor($event);
+    $newStart = new DateTimeImmutable('2026-08-01T10:00:00+02:00');
+
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(function (CalendarEventUpdatedEvent $updated) use ($newStart): bool {
+        self::assertSame(self::ORGANIZATION_ID, $updated->organizationId);
+        self::assertSame(self::EVENT_ID, $updated->eventId);
+        self::assertSame('Updated drill', $updated->title);
+        self::assertEquals($newStart, $updated->startsAt);
+        self::assertSame('user-1', $updated->actorUserId);
+
+        return true;
+      }));
+
+    $handler = new UpdateCalendarEventHandler($repository, $this->authorization(), $dispatcher);
+    $handler(new UpdateCalendarEventCommand(
+      organizationId: self::ORGANIZATION_ID,
+      actorUserId: 'user-1',
+      eventId: self::EVENT_ID,
+      title: 'Updated drill',
+      description: null,
+      startsAt: $newStart,
+      endsAt: null,
+      allDay: null,
+      facilityId: null,
+      hasTitle: true,
+      hasStartsAt: true,
+    ));
+  }
+
+  #[Test]
   public function itThrowsWhenTheEventDoesNotExist(): void
   {
     $repository = $this->createMock(CalendarEventRepositoryPort::class);
     $repository->method('findById')->willReturn(null);
     $repository->expects(self::never())->method('save');
 
-    $handler = new UpdateCalendarEventHandler($repository, $this->authorization());
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateCalendarEventHandler($repository, $this->authorization(), $dispatcher);
 
     $this->expectException(CalendarEventNotFoundException::class);
 
@@ -114,7 +155,10 @@ final class UpdateCalendarEventHandlerTest extends TestCase
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())->method('assertGrantedPermissions');
 
-    $handler = new UpdateCalendarEventHandler($repository, $authorization);
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateCalendarEventHandler($repository, $authorization, $dispatcher);
 
     $this->expectException(CalendarEventNotFoundException::class);
 

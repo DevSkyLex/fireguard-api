@@ -12,28 +12,6 @@ final class EquipmentApiTest extends WebTestCase
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   #[Test]
-  public function testListEquipmentStatusesRequiresAuthentication(): void
-  {
-    $client = static::createClient();
-
-    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/equipment-statuses');
-
-    $statusCode = $client->getResponse()->getStatusCode();
-
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/{organizationId}/equipment-statuses endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /equipment-statuses, got ' . $statusCode,
-    );
-  }
-
-  #[Test]
   public function testListEquipmentWithMaintenanceDueStatusFilterRequiresAuthentication(): void
   {
     $client = static::createClient();

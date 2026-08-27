@@ -10,7 +10,6 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
@@ -20,7 +19,6 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
-  NotFoundHttpException,
   UnprocessableEntityHttpException
 };
 
@@ -204,12 +202,8 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
    */
   private function buildOutput(string $organizationId): OrganizationOutput
   {
-    try {
-      /** @var GetOrganizationResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    }
+    /** @var GetOrganizationResult $result */
+    $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
 
     $output = new OrganizationOutput();
     $output->id = $result->id;

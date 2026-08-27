@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Facility\Domain\Exception;
+
+use RuntimeException;
+
+/**
+ * Exception FacilityRevisionMismatchException.
+ *
+ * The optimistic-concurrency check, re-run INSIDE the handler's transaction.
+ *
+ * `RevisionGuard` already compares the `If-Match` revision in the processor,
+ * but it does so against a scope read on the query bus — a separate
+ * transaction from the one the mutation runs in. Re-comparing here closes
+ * that window. Mapped to 412, the same status and wording `RevisionGuard`
+ * emits, so the two paths are indistinguishable to a client.
+ *
+ * @category Exception
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class FacilityRevisionMismatchException extends RuntimeException
+{
+  // #region Methods
+  /**
+   * Method stale.
+   *
+   * @since 1.0.0
+   *
+   * @return self the exception instance
+   */
+  public static function stale(): self
+  {
+    return new self('The resource revision is stale.');
+  }
+  // #endregion
+}

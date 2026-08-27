@@ -7,13 +7,25 @@ namespace Tests\Integration\Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
+use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\ValueObject\{
+  FacilityMetadataFieldId,
+  FacilityMetadataFieldKey,
+  FacilityMetadataFieldLabel,
+  FacilityMetadataFieldType,
+  FacilityOrganizationId
+};
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Domain\Exception\InterventionConflictException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function sprintf;
 
 /**
  * Test FacilityInterventionResourceAdapter::apply().
@@ -51,6 +63,8 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
 
   private EntityManagerInterface $entityManager;
 
+  private FacilityRepositoryPort $facilityRepository;
+
   private FacilityInterventionResourceAdapter $adapter;
 
   protected function setUp(): void
@@ -59,13 +73,16 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
     $this->entityManager = $entityManager;
+    /** @var FacilityRepositoryPort $facilityRepository */
+    $facilityRepository = static::getContainer()->get(FacilityRepositoryPort::class);
+    $this->facilityRepository = $facilityRepository;
 
     $this->cleanup();
 
     // The archival guard is a non-DB collaborator; a stub keeps every non-archiving
     // branch deterministic. The archiving branches inject their own guard double.
     $guard = self::createStub(FacilityArchivalGuardPort::class);
-    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard);
+    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, $this->permissiveMetadataSchemaGuard());
 
     $this->createOrganization();
     $this->createFacility(self::TARGET_ID, 'building', 'Warehouse', 'active', 'published');
@@ -152,6 +169,65 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
   }
 
   #[Test]
+  public function testApplyRejectsInvalidCoordinates(): void
+  {
+    $target = $this->iri(self::TARGET_ID);
+
+    // One half of the pair, mirroring the canonical mutation processor.
+    self::assertSame(
+      'Facility latitude and longitude must be provided together.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566])->getMessage(),
+    );
+    self::assertSame(
+      'Facility latitude and longitude must be provided together.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['longitude' => 2.3522])->getMessage(),
+    );
+    self::assertSame(
+      'Facility latitude and longitude must be provided together.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566, 'longitude' => null])->getMessage(),
+    );
+    self::assertSame(
+      'Facility latitude must be a number or null.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => '48.85', 'longitude' => 2.3522])->getMessage(),
+    );
+    self::assertSame(
+      'Facility longitude must be a number or null.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566, 'longitude' => '2.35'])->getMessage(),
+    );
+    self::assertSame(
+      'Facility coordinates are out of range.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 91.0, 'longitude' => 2.3522])->getMessage(),
+    );
+    self::assertSame(
+      'Facility coordinates are out of range.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566, 'longitude' => -180.5])->getMessage(),
+    );
+  }
+
+  #[Test]
+  public function testApplySetsThenClearsCoordinates(): void
+  {
+    $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [
+      'latitude' => 48.8566,
+      'longitude' => 2.3522,
+    ]);
+
+    $record = $this->entityManager->find(FacilityRecord::class, self::TARGET_ID);
+    self::assertInstanceOf(FacilityRecord::class, $record);
+    self::assertSame(48.8566, $record->latitude);
+    self::assertSame(2.3522, $record->longitude);
+    self::assertSame(2, $record->revision);
+
+    $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [
+      'latitude' => null,
+      'longitude' => null,
+    ]);
+    self::assertNull($record->latitude);
+    self::assertNull($record->longitude);
+    self::assertSame(3, $record->revision);
+  }
+
+  #[Test]
   public function testApplyUpdatesScalarFieldsAndBumpsRevision(): void
   {
     $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [
@@ -231,12 +307,73 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
       ->method('assertNoActiveDependents')
       ->with(self::ORGANIZATION_ID, self::TARGET_ID)
       ->willThrowException(FacilityHasActiveDependentsException::withActiveEquipment(self::TARGET_ID));
-    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard);
+    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, $this->permissiveMetadataSchemaGuard());
 
     $this->expectException(InterventionConflictException::class);
     $this->expectExceptionMessage('cannot be archived while it has active equipment assigned');
 
     $adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['status' => 'archived']);
+  }
+
+  #[Test]
+  public function testApplyRefusesParentAssignmentThatWouldExceedTheDepthCap(): void
+  {
+    // Builds a straight published chain 8 levels deep (root = level 1), so
+    // the deepest node sits exactly at the default FACILITY_MAX_DEPTH cap.
+    $chain = [];
+    $previousId = null;
+    for ($level = 1; $level <= 8; ++$level) {
+      $id = $this->chainFacilityId($level);
+      $this->createFacility($id, 'zone', 'Chain Level ' . $level, 'active', 'published', $previousId);
+      $chain[$level] = $id;
+      $previousId = $id;
+    }
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    // TARGET is currently a root-level (depth 1, height 0) facility. Reparenting
+    // it under the level-8 leaf would push it to depth 9 — over the cap.
+    $exception = $this->assertApplyConflict(
+      self::ORGANIZATION_ID,
+      $this->iri(self::TARGET_ID),
+      ['parent' => $this->iri($chain[8])],
+    );
+    self::assertSame('Facility hierarchy depth cap of 8 levels exceeded.', $exception->getMessage());
+
+    // Reparenting under the level-7 node lands TARGET at depth 8 — exactly the cap.
+    $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['parent' => $this->iri($chain[7])]);
+
+    $record = $this->entityManager->find(FacilityRecord::class, self::TARGET_ID);
+    self::assertInstanceOf(FacilityRecord::class, $record);
+    self::assertInstanceOf(FacilityRecord::class, $record->parentFacility);
+    self::assertSame($chain[7], $record->parentFacility->id);
+  }
+
+  #[Test]
+  public function testApplyRejectsMetadataFailingTheOrganizationSchema(): void
+  {
+    $repository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([
+      FacilityMetadataField::reconstitute(
+        id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655440020'),
+        organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
+        key: new FacilityMetadataFieldKey('surface-m2'),
+        label: new FacilityMetadataFieldLabel('Surface (m²)'),
+        fieldType: FacilityMetadataFieldType::NUMBER,
+        required: false,
+        createdAt: new DateTimeImmutable(self::CREATED_AT),
+        updatedAt: new DateTimeImmutable(self::CREATED_AT),
+      ),
+    ]);
+    $guard = self::createStub(FacilityArchivalGuardPort::class);
+    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, new FacilityMetadataSchemaGuard($repository));
+
+    try {
+      $adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['metadata' => ['surface-m2' => 'not-a-number']]);
+      self::fail('Expected InterventionConflictException was not thrown.');
+    } catch (InterventionConflictException $exception) {
+      self::assertStringContainsString('surface-m2', $exception->getMessage());
+    }
   }
 
   #[Test]
@@ -249,6 +386,14 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     );
 
     self::assertSame('Cannot restore a facility while its parent is archived.', $exception->getMessage());
+  }
+
+  private function permissiveMetadataSchemaGuard(): FacilityMetadataSchemaGuard
+  {
+    $repository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([]);
+
+    return new FacilityMetadataSchemaGuard($repository);
   }
 
   /**
@@ -274,6 +419,11 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
   private function iri(string $facilityId): string
   {
     return '/api/facilities/' . $facilityId;
+  }
+
+  private function chainFacilityId(int $level): string
+  {
+    return sprintf('660e8400-e29b-41d4-a716-44665544%04d', 2000 + $level);
   }
 
   private function createOrganization(): void

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Application\UseCase\Query\Notification\ListUserNotifications;
 
 use DateTimeImmutable;
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsHandler, ListUserNotificationsQuery, ListUserNotificationsResult};
 use Notification\Domain\Model\Notification\Notification;
-use Notification\Domain\ValueObject\{NotificationId, NotificationType};
+use Notification\Domain\ValueObject\NotificationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

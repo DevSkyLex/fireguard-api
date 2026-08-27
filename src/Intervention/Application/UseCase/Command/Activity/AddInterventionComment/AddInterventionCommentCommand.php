@@ -30,6 +30,10 @@ final readonly class AddInterventionCommentCommand implements CommandMessage
     public string $userId,
     public string $interventionId,
     public string $body,
+    /**
+     * Idempotency key when the comment is replayed from the offline outbox.
+     */
+    public ?string $clientId = null,
   ) {
   }
 }

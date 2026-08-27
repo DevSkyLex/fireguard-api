@@ -24,9 +24,10 @@ use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
@@ -269,7 +270,13 @@ final class ListOrganizationMembersProviderTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
       ->method('ask')
-      ->willThrowException(OrganizationNotFoundException::withId($organizationId));
+      // The real MessengerQueryBusAdapter always wraps a handler-thrown
+      // exception in MessengerRuntimeException (see
+      // MessengerQueryBusAdapter::ask()) — a raw OrganizationNotFoundException
+      // never reaches the provider, so mocking that directly would lock in
+      // ListOrganizationMembersProvider's own dead-catch bug instead of
+      // testing the UnwrapsOrganizationBusFailures path it actually uses.
+      ->willThrowException(MessengerRuntimeException::wrap(OrganizationNotFoundException::withId($organizationId)));
 
     $provider = new ListOrganizationMembersProvider(
       queryBus: $queryBus,
@@ -281,6 +288,101 @@ final class ListOrganizationMembersProviderTest extends TestCase
     $this->expectExceptionMessage('Organization with ID "' . $organizationId . '" not found.');
 
     $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
+  }
+
+  #[Test]
+  public function testProvideThrows422ForAnInvalidStatusFilter(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441770';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441771'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new ListOrganizationMembersProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => $organizationId], [
+      'filters' => ['status' => 'bogus'],
+    ]);
+  }
+
+  #[Test]
+  public function testProvideForwardsFiltersSortingAndPaginationToTheQuery(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441780';
+    $roleId = '550e8400-e29b-41d4-a716-446655441781';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441782'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::exactly(2))
+      ->method('ask')
+      ->willReturnCallback(static function (object $query) use ($organizationId, $roleId): object {
+        if ($query instanceof ListOrganizationMembersQuery) {
+          // This is the assertion that proves the provider no longer
+          // re-searches, re-sorts, or re-slices in memory: it must forward
+          // every filter/sort/page parameter straight to the query.
+          self::assertSame($organizationId, $query->organizationId);
+          self::assertSame('jane', $query->search);
+          self::assertSame('inactive', $query->status);
+          self::assertSame($roleId, $query->roleId);
+          self::assertSame('displayName', $query->sorting->field);
+          self::assertSame(10, $query->pagination->limit);
+          self::assertSame(10, $query->pagination->offset);
+
+          return new PaginatedResult(items: [], total: 0, limit: 10, offset: 10);
+        }
+
+        if ($query instanceof ListOrganizationRolesQuery) {
+          return new ListOrganizationRolesResult([]);
+        }
+
+        throw new LogicException('Unexpected query.');
+      });
+
+    $provider = new ListOrganizationMembersProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $provider->provide(new GetCollection(), ['organizationId' => $organizationId], [
+      'filters' => [
+        'search' => 'jane',
+        'status' => 'inactive',
+        'roleId' => $roleId,
+        'order' => ['displayName' => 'desc'],
+        'page' => 2,
+        'itemsPerPage' => 10,
+      ],
+    ]);
   }
 
   #[Test]

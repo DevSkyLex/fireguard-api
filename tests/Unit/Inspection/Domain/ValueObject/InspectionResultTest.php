@@ -37,12 +37,4 @@ final class InspectionResultTest extends TestCase
     self::assertTrue(InspectionResult::FAIL->isFail());
     self::assertFalse(InspectionResult::PASS->isFail());
   }
-
-  #[Test]
-  public function itLabelsEveryCase(): void
-  {
-    self::assertSame('Pass', InspectionResult::PASS->label());
-    self::assertSame('Fail', InspectionResult::FAIL->label());
-    self::assertSame('Partial', InspectionResult::PARTIAL->label());
-  }
 }

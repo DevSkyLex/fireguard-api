@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Test GetPlanProvider.
@@ -57,7 +57,7 @@ final class GetPlanProviderTest extends TestCase
 
     $provider = new GetPlanProvider($queryBus, $this->authenticatedSecurity());
 
-    $this->expectException(NotFoundHttpException::class);
+    $this->expectException(PlanNotFoundException::class);
 
     $provider->provide(new Get(), ['id' => self::PLAN_ID]);
   }

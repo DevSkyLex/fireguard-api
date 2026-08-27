@@ -8,12 +8,12 @@ use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, Facilit
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListFacilitiesHandler::class)]
 final class ListFacilitiesHandlerTest extends TestCase
@@ -46,6 +46,7 @@ final class ListFacilitiesHandlerTest extends TestCase
         15,
         30,
         false,
+        true,
       )
       ->willReturn([$activeFacility]);
     $repository->expects(self::once())
@@ -59,6 +60,7 @@ final class ListFacilitiesHandlerTest extends TestCase
         'SITE-001',
         'hq',
         false,
+        true,
       )
       ->willReturn(4);
     $repository->expects(self::once())
@@ -80,6 +82,7 @@ final class ListFacilitiesHandlerTest extends TestCase
       status: 'active',
       parentFacilityId: '550e8400-e29b-41d4-a716-446655441803',
       code: 'SITE-001',
+      hasCoordinates: true,
       search: 'hq',
       sorting: new Sorting('createdAt', SortDirection::DESC),
     ));
@@ -92,6 +95,62 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertSame(4, $result->total);
     self::assertSame(15, $result->limit);
     self::assertSame(30, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokePassesHasCoordinatesFalseToRepository(): void
+  {
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441804');
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(
+        $organizationId,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        new Sorting('name', SortDirection::ASC),
+        20,
+        0,
+        false,
+        false,
+      )
+      ->willReturn([]);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        $organizationId,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        false,
+      )
+      ->willReturn(0);
+    $repository->expects(self::once())
+      ->method('countChildrenByParentIds')
+      ->willReturn([]);
+
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
+
+    $result = $handler->__invoke(new ListFacilitiesQuery(
+      organizationId: (string) $organizationId,
+      hasCoordinates: false,
+    ));
+
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertEmpty($result->items);
   }
 
   #[Test]
@@ -139,7 +198,7 @@ final class ListFacilitiesHandlerTest extends TestCase
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListFacilitiesQuery(
       organizationId: '550e8400-e29b-41d4-a716-446655441820',
@@ -159,7 +218,7 @@ final class ListFacilitiesHandlerTest extends TestCase
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListFacilitiesQuery(
       organizationId: '550e8400-e29b-41d4-a716-446655441830',
@@ -175,7 +234,7 @@ final class ListFacilitiesHandlerTest extends TestCase
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('rootsOnly cannot be combined with parentFacilityId.');
 
     $handler->__invoke(new ListFacilitiesQuery(

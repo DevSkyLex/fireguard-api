@@ -7,9 +7,7 @@ namespace Inspection\Application\UseCase\Query\NonConformity\GetNonConformity;
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityId};
-use InvalidArgumentException;
 use Shared\Application\Message\QueryHandler;
-use Shared\Domain\Exception\InvalidValueException;
 
 final readonly class GetNonConformityHandler implements QueryHandler
 {
@@ -21,13 +19,9 @@ final readonly class GetNonConformityHandler implements QueryHandler
 
   public function __invoke(GetNonConformityQuery $query): GetNonConformityResult
   {
-    try {
-      $organizationId = InspectionOrganizationId::fromString($query->organizationId);
-      $inspectionId = InspectionId::fromString($query->inspectionId);
-      $nonConformityId = NonConformityId::fromString($query->nonConformityId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
-    }
+    $organizationId = InspectionOrganizationId::fromString($query->organizationId);
+    $inspectionId = InspectionId::fromString($query->inspectionId);
+    $nonConformityId = NonConformityId::fromString($query->nonConformityId);
 
     $inspection = $this->inspectionRepository->findById($inspectionId);
 

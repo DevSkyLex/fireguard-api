@@ -10,6 +10,9 @@ use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
+use DateTimeImmutable;
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
@@ -69,6 +72,7 @@ final class AuditEventSubscriberTest extends TestCase
       'organization.organization_invitation_accepted_event' => 'onOrganizationInvitationAccepted',
       'organization.organization_invitation_revoked_event' => 'onOrganizationInvitationRevoked',
       'organization.organization_plan_changed_event' => 'onOrganizationPlanChanged',
+      'organization.organization_ownership_transferred_event' => 'onOrganizationOwnershipTransferred',
       'organization.organization_permission_grant_denied_event' => 'onOrganizationPermissionGrantDenied',
       'organization.organization_last_admin_lockout_prevented_event' => 'onOrganizationLastAdminLockoutPrevented',
       'organization.team_created_event' => 'onTeamCreated',
@@ -81,23 +85,31 @@ final class AuditEventSubscriberTest extends TestCase
       'inspection.inspection_cancelled_event' => 'onInspectionCancelled',
       'inspection.non_conformity_recorded_event' => 'onNonConformityRecorded',
       'inspection.non_conformity_status_changed_event' => 'onNonConformityStatusChanged',
+      'facility.facility_created_event' => 'onFacilityCreated',
       'facility.facility_archived_event' => 'onFacilityArchived',
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
+      'facility.facility_updated_event' => 'onFacilityUpdated',
+      'facility.facility_subtree_duplicated_event' => 'onFacilitySubtreeDuplicated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
       'equipment.equipment_put_under_maintenance_event' => 'onEquipmentPutUnderMaintenance',
       'equipment.equipment_returned_to_stock_event' => 'onEquipmentReturnedToStock',
       'equipment.equipment_decommissioned_event' => 'onEquipmentDecommissioned',
       'intervention.intervention_published_event' => 'onInterventionPublished',
       'intervention.intervention_publication_failed_event' => 'onInterventionPublicationFailed',
+      'intervention.intervention_status_transitioned_event' => 'onInterventionStatusTransitioned',
       'intervention.intervention_recurrence_created_event' => 'onInterventionRecurrenceCreated',
       'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
       'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
       'intervention.intervention_recurrence_materialized_event' => 'onInterventionRecurrenceMaterialized',
+      'intervention.intervention_report_exported_event' => 'onInterventionReportExported',
       'maintenance.maintenance_schedule_overridden_event' => 'onMaintenanceScheduleOverridden',
       'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
       'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
       'automation.automation_rule_failed_event' => 'onAutomationRuleFailed',
+      'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
+      'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
+      'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -117,6 +129,7 @@ final class AuditEventSubscriberTest extends TestCase
       'approval.approval_expired_event' => 'onApprovalExpired',
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
+      'intervention.interventions_exported_event' => 'onInterventionsExported',
     ], AuditEventSubscriber::getSubscribedEvents());
   }
 
@@ -464,6 +477,108 @@ final class AuditEventSubscriberTest extends TestCase
   }
 
   #[Test]
+  public function testOnCalendarEventCreatedRecordsEventAudit(): void
+  {
+    $startsAt = new DateTimeImmutable('2026-08-01T09:00:00+02:00');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'calendar.event_created' === $command->action
+        && 'user' === $command->actorType
+        && 'user-1' === $command->actorId
+        && 'calendar_event' === $command->subjectType
+        && 'event-1' === $command->subjectId
+        && [
+          'title' => 'Fire drill',
+          'starts_at' => $startsAt->format(DateTimeImmutable::ATOM),
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onCalendarEventCreated(new CalendarEventCreatedEvent(
+      organizationId: 'org-1',
+      eventId: 'event-1',
+      title: 'Fire drill',
+      startsAt: $startsAt,
+      actorUserId: 'user-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnCalendarEventUpdatedRecordsEventAudit(): void
+  {
+    $startsAt = new DateTimeImmutable('2026-08-01T10:00:00+02:00');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'calendar.event_updated' === $command->action
+        && 'calendar_event' === $command->subjectType
+        && 'event-1' === $command->subjectId
+        && [
+          'title' => 'Updated drill',
+          'starts_at' => $startsAt->format(DateTimeImmutable::ATOM),
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-202'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onCalendarEventUpdated(new CalendarEventUpdatedEvent(
+      organizationId: 'org-1',
+      eventId: 'event-1',
+      title: 'Updated drill',
+      startsAt: $startsAt,
+      actorUserId: 'user-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnCalendarEventDeletedRecordsEventAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'calendar.event_deleted' === $command->action
+        && 'calendar_event' === $command->subjectType
+        && 'event-1' === $command->subjectId
+        && ['organization_id' => 'org-1'] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-203'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onCalendarEventDeleted(new CalendarEventDeletedEvent(
+      organizationId: 'org-1',
+      eventId: 'event-1',
+      actorUserId: 'user-1',
+    ));
+  }
+
+  #[Test]
   public function testOnWebhookSubscriptionCreatedRecordsSubscriptionAudit(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
@@ -566,6 +681,79 @@ final class AuditEventSubscriberTest extends TestCase
     ));
   }
   // #endregion
+
+  #[Test]
+  public function testOnInterventionStatusTransitionedRecordsTransitionAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'intervention.status_transitioned' === $command->action
+        && 'user' === $command->actorType
+        && 'user-7' === $command->actorId
+        && 'intervention' === $command->subjectType
+        && 'intervention-1' === $command->subjectId
+        && [
+          'intervention_number' => 42,
+          'from_status' => 'planned',
+          'to_status' => 'in_progress',
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-200'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
+      organizationId: 'org-1',
+      interventionId: 'intervention-1',
+      interventionNumber: 42,
+      actorUserId: 'user-7',
+      fromStatus: 'planned',
+      toStatus: 'in_progress',
+    ));
+  }
+
+  #[Test]
+  public function testOnInterventionStatusTransitionedIncludesReviewNoteForChangesRequested(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => [
+        'intervention_number' => 42,
+        'from_status' => 'submitted',
+        'to_status' => 'changes_requested',
+        'review_note' => 'Please redo the panel check.',
+        'organization_id' => 'org-1',
+      ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
+      organizationId: 'org-1',
+      interventionId: 'intervention-1',
+      interventionNumber: 42,
+      actorUserId: 'user-7',
+      fromStatus: 'submitted',
+      toStatus: 'changes_requested',
+      reviewNote: 'Please redo the panel check.',
+    ));
+  }
 
   // #region Helpers
   /**

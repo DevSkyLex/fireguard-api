@@ -9,19 +9,13 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
-use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
-  BadRequestHttpException,
-  NotFoundHttpException,
-  UnprocessableEntityHttpException
+  BadRequestHttpException
 };
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
 
 use function is_string;
 
@@ -99,70 +93,13 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
     $slugQueryParam = $this->requestStack->getCurrentRequest()?->query->get('slug');
     $slugConfirmation = is_string($slugQueryParam) ? $slugQueryParam : null;
 
-    try {
-      $this->commandBus->dispatch(new DeleteOrganizationCommand(
-        organizationId: $organizationId,
-        slugConfirmation: $slugConfirmation,
-      ));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationDeletionConfirmationMismatchException $exception) {
-      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
-    } catch (MessengerRuntimeException $exception) {
-      $this->rethrowDomainFailure($exception);
-
-      throw $exception;
-    }
+    $this->commandBus->dispatch(new DeleteOrganizationCommand(
+      organizationId: $organizationId,
+      slugConfirmation: $slugConfirmation,
+    ));
 
     return null;
   }
 
-  /**
-   * Method rethrowDomainFailure.
-   *
-   * Unwraps a messenger runtime failure and rethrows the matching HTTP error.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the caught runtime exception
-   */
-  private function rethrowDomainFailure(Throwable $exception): void
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      foreach ($this->wrappedExceptions($current) as $candidate) {
-        if ($candidate instanceof OrganizationNotFoundException) {
-          throw new NotFoundHttpException($candidate->getMessage(), $exception);
-        }
-
-        if ($candidate instanceof OrganizationDeletionConfirmationMismatchException) {
-          throw new UnprocessableEntityHttpException($candidate->getMessage(), $exception);
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-  }
-
-  /**
-   * Method wrappedExceptions.
-   *
-   * Yields the exception itself and any handler-wrapped exceptions.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the exception to expand
-   *
-   * @return iterable<Throwable> the candidate exceptions
-   */
-  private function wrappedExceptions(Throwable $exception): iterable
-  {
-    yield $exception;
-
-    if ($exception instanceof HandlerFailedException) {
-      yield from $exception->getWrappedExceptions();
-    }
-  }
   // #endregion
 }

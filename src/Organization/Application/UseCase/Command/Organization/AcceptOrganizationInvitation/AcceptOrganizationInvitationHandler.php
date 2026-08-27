@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation;
 
 use DateTimeImmutable;
-use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
-use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
@@ -81,7 +81,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
   {
     $token = trim($command->token);
     if ('' === $token) {
-      throw new InvalidArgumentException('Invitation token is required.');
+      throw InvalidValueException::because('Invitation token is required.');
     }
 
     $invitation = $this->invitationRepository->findByTokenHash(
@@ -98,17 +98,22 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       $invitation->expire($now);
       $this->invitationRepository->save($invitation);
 
-      throw new InvalidArgumentException('Invitation has expired.');
+      throw OrganizationInvitationNotPendingException::expired();
     }
 
     if (!$invitation->status()->isPending()) {
-      throw new InvalidArgumentException('Invitation is no longer pending.');
+      throw OrganizationInvitationNotPendingException::noLongerPending();
     }
 
     $invitedEmail = strtolower(trim((string) $invitation->email()));
     $authenticatedEmail = strtolower(trim($command->userEmail));
     if ($invitedEmail !== $authenticatedEmail) {
-      throw new InvalidArgumentException('Invitation email does not match the authenticated user.');
+      // The SAME exception, and therefore the same 404 and the same body, as a
+      // token that does not exist. Answering 400 with "the email does not
+      // match" told the caller their stolen or guessed token was real and
+      // addressed to someone else — an enumeration oracle on a public endpoint.
+      // `withToken()`'s message is deliberately generic for exactly this.
+      throw OrganizationInvitationNotFoundException::withToken();
     }
 
     $memberWasAdded = false;

@@ -193,6 +193,22 @@ final class EquipmentOutput
   public string $maintenanceDueStatus = 'unscheduled';
 
   /**
+   * Property planPosition.
+   *
+   * The equipment's position pinned on a floor plan attachment, or null when
+   * unset. Populated on the **detail** read (`GET .../equipment/{id}`) and by
+   * the plan-position mutation endpoint only — deliberately left unset on the
+   * list/collection endpoints.
+   *
+   * @since 1.1.0
+   *
+   * @var ?array{attachmentId: string, x: float, y: float}
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Position pinned on a floor plan attachment (detail read only)')]
+  public ?array $planPosition = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

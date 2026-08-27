@@ -6,11 +6,11 @@ namespace Import\Application\UseCase\Query\ListImportJobs;
 
 use Import\Application\Port\Outbound\ImportJobRepositoryPort;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
+use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\ValueObject\ImportKind;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Shared\Application\Message\QueryHandler;
+use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_map;
@@ -23,9 +23,15 @@ use function max;
  * read permission is required; otherwise either `organization.equipment.read`
  * or `organization.facilities.read` grants visibility over the mixed list.
  *
+ * The caller names the organization in the query, so the check separates
+ * "not a member of that organization" (404, the same answer an unknown
+ * organization identifier produces) from "member, but not entitled" (403) —
+ * see
+ * {@see \Organization\Application\Contract\Authorization\OrganizationAccessDecision}.
+ *
  * @category UseCase
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -90,7 +96,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
     try {
       return ImportKind::from($kind);
     } catch (ValueError $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
   }
 
@@ -106,16 +112,32 @@ final readonly class ListImportJobsHandler implements QueryHandler
   private function assertReadAccess(string $userId, string $organizationId, ?ImportKind $kind): void
   {
     if (null !== $kind) {
-      $this->authorization->assertGrantedPermissions($userId, $organizationId, [$this->readPermission($kind)]);
+      $permission = $this->readPermission($kind);
+
+      $decision = $this->authorization->resolveAccess($userId, $organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw ImportJobNotFoundException::forOrganizationScope($organizationId);
+      }
+      if (!$decision->isGranted()) {
+        throw ImportAccessDeniedException::missingPermission($permission);
+      }
 
       return;
+    }
+
+    // The unfiltered list is granted by EITHER read permission, so scope has
+    // to be gated on its own before the two are OR'd — resolveAccess() can
+    // only answer about one permission at a time, and a member holding
+    // neither must still be told 403 rather than 404.
+    if (!$this->authorization->isMemberOf($userId, $organizationId)) {
+      throw ImportJobNotFoundException::forOrganizationScope($organizationId);
     }
 
     $hasEquipmentRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.equipment.read');
     $hasFacilityRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.facilities.read');
 
     if (!$hasEquipmentRead && !$hasFacilityRead) {
-      throw OrganizationAccessDeniedException::missingPermission('organization.equipment.read');
+      throw ImportAccessDeniedException::missingPermission('organization.equipment.read');
     }
   }
 

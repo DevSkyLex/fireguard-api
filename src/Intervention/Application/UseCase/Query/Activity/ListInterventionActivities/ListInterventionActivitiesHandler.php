@@ -55,7 +55,11 @@ final readonly class ListInterventionActivitiesHandler implements QueryHandler
     if (null === $context) {
       throw InterventionNotFoundException::withId($query->interventionId);
     }
-    if (!$this->authorization->hasPermission($query->userId, $context->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $context->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($query->interventionId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

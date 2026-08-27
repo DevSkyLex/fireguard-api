@@ -8,9 +8,9 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationResult};
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationQuotaExceededException};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AcceptOrganizationInvitationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\AcceptOrganizationInvitationProcessor;
@@ -21,9 +21,11 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, TooManyRequestsHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Throwable;
 
 #[CoversClass(AcceptOrganizationInvitationProcessor::class)]
@@ -34,7 +36,7 @@ final class AcceptOrganizationInvitationProcessorTest extends TestCase
   {
     $processor = new AcceptOrganizationInvitationProcessor(
       commandBus: $this->throwingCommandBus(
-        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5),
+        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS->value, 5),
       ),
       security: $this->securityWithUser(),
     );
@@ -156,6 +158,47 @@ final class AcceptOrganizationInvitationProcessorTest extends TestCase
     $processor->process($this->input(), new Post());
   }
 
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenTheRateLimitIsExhausted(): void
+  {
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create('550e8400-e29b-41d4-a716-4466554460b0')->consume();
+
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $this->securityWithUser(),
+      rateLimiter: $rateLimiter,
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process($this->input(), new Post());
+  }
+
+  #[Test]
+  public function testProcessSkipsRateLimitingWhenNoLimiterIsWired(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')->willReturn(new AcceptOrganizationInvitationResult(
+      invitationId: '550e8400-e29b-41d4-a716-4466554460a0',
+      memberId: '550e8400-e29b-41d4-a716-4466554460a1',
+      organizationId: '550e8400-e29b-41d4-a716-4466554460a2',
+      userId: '550e8400-e29b-41d4-a716-4466554460a3',
+      roleIds: ['550e8400-e29b-41d4-a716-4466554460a4'],
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-1 hour'),
+    ));
+
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $commandBus,
+      security: $this->securityWithUser(),
+      rateLimiter: null,
+    );
+
+    $processor->process($this->input(), new Post());
+  }
+
   private function directlyThrowingCommandBus(Throwable $domainException): CommandBusPort
   {
     $commandBus = $this->createStub(CommandBusPort::class);
@@ -202,5 +245,18 @@ final class AcceptOrganizationInvitationProcessorTest extends TestCase
     ));
 
     return $security;
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'invitation_accept',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
   }
 }

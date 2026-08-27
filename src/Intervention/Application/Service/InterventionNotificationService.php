@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Service;
 
+use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
@@ -36,11 +37,13 @@ final readonly class InterventionNotificationService
    * @param NotificationPort $notifications the notifications value
    * @param OrganizationMemberRepositoryPort $members the members value
    * @param OrganizationNotificationPolicyPort $policy the organization notification policy port
+   * @param InterventionReviewerRecipientResolver $reviewers the submission reviewer resolver
    */
   public function __construct(
     private NotificationPort $notifications,
     private OrganizationMemberRepositoryPort $members,
     private OrganizationNotificationPolicyPort $policy,
+    private InterventionReviewerRecipientResolver $reviewers,
   ) {
   }
 
@@ -115,6 +118,138 @@ final readonly class InterventionNotificationService
   }
 
   /**
+   * Method submitted.
+   *
+   * Notifies the organization's reviewers — active members whose effective
+   * permissions grant `organization.interventions.review` — that an
+   * intervention awaits their review. A submission is workflow-critical, so
+   * like a mention it is delivered in-app AND by email, each channel honoring
+   * its own organization toggle. The submitting user is excluded. Every
+   * resubmission notifies again: there is deliberately no deduplication, the
+   * reviewers must learn about each new review round.
+   *
+   * @since 1.2.0
+   *
+   * @param string $interventionId the intervention id value
+   * @param string $interventionName the intervention name value
+   * @param string $organizationId the organization owning the intervention
+   * @param string $actorUserId the submitting user, excluded from recipients
+   */
+  public function submitted(string $interventionId, string $interventionName, string $organizationId, string $actorUserId): void
+  {
+    try {
+      $policy = $this->policy->notificationPolicy($organizationId);
+
+      $channels = [];
+      if ($policy->inAppEnabled) {
+        $channels[] = NotificationChannel::MERCURE;
+      }
+      if ($policy->emailEnabled) {
+        $channels[] = NotificationChannel::EMAIL;
+      }
+      if ([] === $channels) {
+        return;
+      }
+
+      foreach ($this->reviewers->organizationReviewers($organizationId) as $reviewerUserId) {
+        if ($reviewerUserId === $actorUserId) {
+          continue;
+        }
+
+        try {
+          $this->notifications->send(new SendNotificationRequest(
+            type: 'intervention.submitted',
+            subject: 'Intervention submitted for review',
+            body: sprintf('"%s" was submitted and awaits review.', $interventionName),
+            channels: $channels,
+            payload: ['interventionId' => $interventionId],
+            recipientUserId: $reviewerUserId,
+            organizationId: $organizationId,
+          ));
+        } catch (Throwable) {
+          // Best-effort per recipient: one failed delivery must not starve the others.
+        }
+      }
+    } catch (Throwable) {
+      // Notifications must not make a successful intervention mutation fail.
+    }
+  }
+
+  /**
+   * Method dueSoon.
+   *
+   * Notifies the intervention's responsible member and participants that its
+   * `dueAt` is within the reminder window. Workflow-critical like a
+   * submission, so delivered in-app AND by email, each channel honoring its
+   * own organization toggle. The caller ({@see
+   * \Intervention\Application\UseCase\Command\Sweep\SendDueReminders\SendDueRemindersHandler})
+   * is responsible for the anti-spam stamp — this method sends unconditionally.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   * @param int $interventionNumber the intervention's human-readable number
+   * @param string $interventionName the intervention name value
+   * @param string $organizationId the organization owning the intervention
+   * @param DateTimeImmutable $dueAt the intervention's due date
+   * @param list<string> $memberIds the responsible and participant member ids
+   */
+  public function dueSoon(
+    string $interventionId,
+    int $interventionNumber,
+    string $interventionName,
+    string $organizationId,
+    DateTimeImmutable $dueAt,
+    array $memberIds,
+  ): void {
+    $this->remind(
+      'intervention.due_soon',
+      'Intervention due soon',
+      $interventionId,
+      $interventionNumber,
+      $interventionName,
+      $organizationId,
+      $dueAt,
+      $memberIds,
+    );
+  }
+
+  /**
+   * Method overdue.
+   *
+   * Notifies the intervention's responsible member and participants that its
+   * `dueAt` has passed. See {@see self::dueSoon()} for the delivery rules.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   * @param int $interventionNumber the intervention's human-readable number
+   * @param string $interventionName the intervention name value
+   * @param string $organizationId the organization owning the intervention
+   * @param DateTimeImmutable $dueAt the intervention's due date
+   * @param list<string> $memberIds the responsible and participant member ids
+   */
+  public function overdue(
+    string $interventionId,
+    int $interventionNumber,
+    string $interventionName,
+    string $organizationId,
+    DateTimeImmutable $dueAt,
+    array $memberIds,
+  ): void {
+    $this->remind(
+      'intervention.overdue',
+      'Intervention overdue',
+      $interventionId,
+      $interventionNumber,
+      $interventionName,
+      $organizationId,
+      $dueAt,
+      $memberIds,
+    );
+  }
+
+  /**
    * Method mentioned.
    *
    * Notifies a member that a teammate mentioned them in an intervention
@@ -161,6 +296,83 @@ final readonly class InterventionNotificationService
       ));
     } catch (Throwable) {
       // Notifications must not make a successful intervention mutation fail.
+    }
+  }
+
+  /**
+   * Method remind.
+   *
+   * Shared delivery for the due-date reminders: resolves each candidate
+   * member id to an active, in-organization member — mirroring how
+   * {@see self::mentioned()} validates a member id sourced outside the
+   * request that owns it — then sends best-effort to each resolved user.
+   *
+   * @since 1.0.0
+   *
+   * @param string $type the notification type value
+   * @param string $subject the notification subject value
+   * @param string $interventionId the intervention id value
+   * @param int $interventionNumber the intervention's human-readable number
+   * @param string $interventionName the intervention name value
+   * @param string $organizationId the organization owning the intervention
+   * @param DateTimeImmutable $dueAt the intervention's due date
+   * @param list<string> $memberIds the candidate member ids
+   */
+  private function remind(
+    string $type,
+    string $subject,
+    string $interventionId,
+    int $interventionNumber,
+    string $interventionName,
+    string $organizationId,
+    DateTimeImmutable $dueAt,
+    array $memberIds,
+  ): void {
+    try {
+      $policy = $this->policy->notificationPolicy($organizationId);
+
+      $channels = [];
+      if ($policy->inAppEnabled) {
+        $channels[] = NotificationChannel::MERCURE;
+      }
+      if ($policy->emailEnabled) {
+        $channels[] = NotificationChannel::EMAIL;
+      }
+      if ([] === $channels) {
+        return;
+      }
+
+      $body = sprintf(
+        '"%s" (FG-%d) is due %s. /organizations/%s/interventions/%s',
+        $interventionName,
+        $interventionNumber,
+        $dueAt->format('Y-m-d'),
+        $organizationId,
+        $interventionId,
+      );
+
+      foreach (array_values(array_unique($memberIds)) as $memberId) {
+        $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
+        if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
+          continue;
+        }
+
+        try {
+          $this->notifications->send(new SendNotificationRequest(
+            type: $type,
+            subject: $subject,
+            body: $body,
+            channels: $channels,
+            payload: ['interventionId' => $interventionId],
+            recipientUserId: $member->userId(),
+            organizationId: $organizationId,
+          ));
+        } catch (Throwable) {
+          // Best-effort per recipient: one failed delivery must not starve the others.
+        }
+      }
+    } catch (Throwable) {
+      // Notifications must not make a successful reminder sweep fail.
     }
   }
 

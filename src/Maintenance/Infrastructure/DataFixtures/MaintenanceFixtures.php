@@ -17,7 +17,7 @@ use Maintenance\Domain\ValueObject\MaintenanceDueStatus;
 use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
+use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
 
 use function sprintf;
 
@@ -138,7 +138,7 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
       $nextDueAt = $policy->computeNextDueAt($lastInspectionClosedAt, $interval);
 
       $schedule = new MaintenanceScheduleRecord();
-      $schedule->id = sprintf('66666666-6666-4666-8666-6666666666%02x', $index);
+      $schedule->id = SeedUuid::from(sprintf('maintenance-schedule:%s', $reference));
       $schedule->organization = $organization;
       $schedule->equipmentId = $equipment->id;
       $schedule->facilityId = $equipment->facilityId;
@@ -218,6 +218,15 @@ final class MaintenanceFixtures extends Fixture implements DependentFixtureInter
 
     foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $seed) {
       $references[] = $seed['reference'];
+    }
+
+    // The dozen extra regional sites EquipmentFixtures added purely for
+    // pagination volume: without a schedule here, every one of those assets
+    // would be non-decommissioned but untracked, which the compliance
+    // register's `trackedEquipmentCount` treats as a state the seed should
+    // never produce.
+    for ($index = 0; $index < EquipmentFixtures::EXTRA_REGIONAL_EQUIPMENT_COUNT; ++$index) {
+      $references[] = EquipmentFixtures::extraRegionalEquipmentReference($index);
     }
 
     return $references;

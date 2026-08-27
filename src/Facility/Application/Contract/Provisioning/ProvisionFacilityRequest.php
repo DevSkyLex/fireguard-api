@@ -15,6 +15,18 @@ namespace Facility\Application\Contract\Provisioning;
  * facility identifier inside {@see \Facility\Application\Service\FacilityProvisioningService},
  * so callers never need to know a facility's internal identifier.
  *
+ * `dryRun` runs the exact same resolution and validation without persisting
+ * anything: {@see \Facility\Application\Service\FacilityProvisioningService}
+ * skips the transactional save and instead projects the plan quota via
+ * `OrganizationQuotaPort::getLimit()`/`getUsage()` (never `assertCanAdd()`,
+ * which takes a persistence-scoped advisory lock this request never enters).
+ * `quotaProjectionOffset` lets a caller processing many rows in one dry run
+ * (the Import module) account for rows earlier in the same batch that would
+ * already have consumed the quota. `knownPendingCodes` lets `parentCode`
+ * resolve against a parent that would itself be created earlier in the same
+ * dry-run batch — not yet in the database — mirroring how the real (write)
+ * path lets a file order its parents before its children.
+ *
  * @category Contract
  *
  * @version 1.0.0
@@ -37,6 +49,9 @@ final readonly class ProvisionFacilityRequest
    * @param ?float $latitude the optional latitude, required together with longitude
    * @param ?float $longitude the optional longitude, required together with latitude
    * @param ?string $parentCode the optional parent facility code, resolved internally
+   * @param bool $dryRun when true, validates and projects the quota without persisting
+   * @param int $quotaProjectionOffset facilities already provisionally counted earlier in the same dry run
+   * @param ?list<string> $knownPendingCodes codes of rows earlier in the same dry-run batch that would themselves be created
    */
   public function __construct(
     public string $organizationId,
@@ -47,6 +62,9 @@ final readonly class ProvisionFacilityRequest
     public ?float $latitude = null,
     public ?float $longitude = null,
     public ?string $parentCode = null,
+    public bool $dryRun = false,
+    public int $quotaProjectionOffset = 0,
+    public ?array $knownPendingCodes = null,
   ) {
   }
   // #endregion

@@ -51,6 +51,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                   'organization' => ['type' => 'string', 'description' => 'Organization IRI.'],
                   'kind' => ['type' => 'string', 'enum' => ['equipment', 'facility']],
                   'file' => ['type' => 'string', 'format' => 'binary'],
+                  'dryRun' => [
+                    'type' => 'boolean',
+                    'description' => 'Validate, resolve parent-by-code and project the plan quota '
+                      . 'without provisioning anything; the report is returned via GET /imports/{id}.',
+                  ],
                 ],
                 'required' => ['organization', 'kind', 'file'],
               ],
@@ -71,6 +76,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ImportJobCollectionProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [

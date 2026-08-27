@@ -10,8 +10,7 @@ use Equipment\Application\Service\EquipmentProvisioningService;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -50,7 +49,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
   {
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(
-      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 5),
+      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 5),
     );
 
     $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
@@ -62,7 +61,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
   #[Test]
   public function itUnwrapsAQuotaExceededExceptionFromAMessengerRuntimeException(): void
   {
-    $quotaException = OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 5);
+    $quotaException = OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 5);
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($quotaException));
 
@@ -122,6 +121,33 @@ final class EquipmentProvisioningServiceTest extends TestCase
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
     self::assertStringContainsString('SN-42', (string) $result->message);
+  }
+
+  #[Test]
+  public function itPassesDryRunAndTheQuotaProjectionOffsetThrough(): void
+  {
+    $captured = null;
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(function (CreateEquipmentCommand $command) use (&$captured): CreateEquipmentResult {
+        $captured = $command;
+
+        return $this->fakeResult('equipment-2');
+      });
+
+    $request = new ProvisionEquipmentRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'fire_extinguisher',
+      dryRun: true,
+      quotaProjectionOffset: 4,
+    );
+
+    new EquipmentProvisioningService($commandBus)->provision($request);
+
+    self::assertInstanceOf(CreateEquipmentCommand::class, $captured);
+    self::assertTrue($captured->dryRun);
+    self::assertSame(4, $captured->quotaProjectionOffset);
   }
 
   private function request(): ProvisionEquipmentRequest

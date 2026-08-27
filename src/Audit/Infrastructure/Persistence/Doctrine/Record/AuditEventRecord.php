@@ -28,6 +28,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_audit_subject_id', columns: ['subject_id'])]
 #[ORM\Index(name: 'idx_audit_client_id', columns: ['client_id'])]
 #[ORM\Index(name: 'idx_audit_tenant_id', columns: ['tenant_id'])]
+#[ORM\Index(name: 'idx_audit_organization_id', columns: ['organization_id'])]
 #[ORM\Index(name: 'idx_audit_ip_hash', columns: ['ip_hash'])]
 class AuditEventRecord
 {
@@ -152,6 +153,18 @@ class AuditEventRecord
    */
   #[ORM\Column(name: 'tenant_id', type: 'string', length: 64, nullable: true)]
   public ?string $tenantId = null;
+
+  /**
+   * Property organizationId.
+   *
+   * The organization identifier (if any). Denormalized from
+   * metadata['organization_id'] so organization-scoped reads can
+   * filter on an indexed column.
+   *
+   * @since 1.4.0
+   */
+  #[ORM\Column(name: 'organization_id', type: 'string', length: 64, nullable: true)]
+  public ?string $organizationId = null;
 
   /**
    * Property ipAddress.

@@ -168,6 +168,23 @@ final class FacilityOutput
   public array $metadata = [];
 
   /**
+   * Property planGeometry.
+   *
+   * Optional spatial geometry `{attachmentId, points}` binding this facility
+   * (a zone) to a polygon drawn over an ancestor's floor plan attachment.
+   * Populated on detail reads only (`GET .../facilities/{id}` and the
+   * canonical single-item read) — never on a list or collection response,
+   * where API Platform's null-field omission simply drops it.
+   *
+   * @since 1.2.0
+   *
+   * @var ?array{attachmentId: string, points: list<array{0: float, 1: float}>}
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Optional spatial geometry bound to an ancestor floor plan (detail views only)')]
+  public ?array $planGeometry = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0
@@ -184,5 +201,22 @@ final class FacilityOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $updatedAt = '';
+
+  /**
+   * Property path.
+   *
+   * Ancestor breadcrumb ordered root first, direct parent last, excluding
+   * this facility. Empty for a root facility. Populated on the detail (item)
+   * providers only — {@see FacilitySerializationGroup::READ} is shared with
+   * the collection providers, which deliberately leave this an empty list to
+   * avoid an N+1 ancestor lookup per row.
+   *
+   * @since 1.2.0
+   *
+   * @var list<array{id: string, name: string, type: string}>
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Ancestor breadcrumb, root first, excluding this facility')]
+  public array $path = [];
   // #endregion
 }

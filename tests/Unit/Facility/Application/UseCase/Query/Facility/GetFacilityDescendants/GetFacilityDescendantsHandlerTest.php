@@ -9,9 +9,9 @@ use Facility\Application\UseCase\Query\Facility\GetFacilityDescendants\{GetFacil
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test GetFacilityDescendantsHandler.
@@ -173,7 +173,7 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
       equipmentDependency: $equipmentDependency,
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetFacilityDescendantsQuery(
       organizationId: 'not-a-uuid',

@@ -6,7 +6,7 @@ namespace Tests\Unit\Messaging\Application\Service;
 
 use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
-use Messaging\Domain\Exception\MessagingAccessDeniedException;
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -90,16 +90,36 @@ final class MessagingAccessPolicyTest extends TestCase
   }
 
   #[Test]
-  public function testResolveActiveMemberIdThrowsWhenNotAnActiveMember(): void
+  public function testResolveActiveMemberIdAnswersNotFoundWhenNotAnActiveMember(): void
   {
     $members = $this->createStub(MessagingMemberDirectoryPort::class);
     $members->method('resolveActiveMemberId')->willReturn(null);
 
     $policy = new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class));
 
-    $this->expectException(MessagingAccessDeniedException::class);
+    // Not 403: every Messaging handler loads its record by global id and then
+    // lands here, so a "forbidden" would confirm the record exists to a caller
+    // from another organization — an id-enumeration oracle across tenants.
+    $this->expectException(MessagingNotFoundException::class);
 
     $policy->resolveActiveMemberId('org-1', 'user-1');
+  }
+
+  #[Test]
+  public function testResolveActiveMemberIdLeaksNothingAboutTheRecordItGuards(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(null);
+
+    $policy = new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class));
+
+    try {
+      $policy->resolveActiveMemberId('org-1', 'user-1');
+      self::fail('Expected a not-found exception.');
+    } catch (MessagingNotFoundException $exception) {
+      self::assertStringNotContainsString('org-1', $exception->getMessage());
+      self::assertStringNotContainsString('user-1', $exception->getMessage());
+    }
   }
 
   #[Test]

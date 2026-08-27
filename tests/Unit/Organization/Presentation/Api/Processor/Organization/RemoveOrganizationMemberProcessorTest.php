@@ -6,16 +6,17 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 #[CoversClass(RemoveOrganizationMemberProcessor::class)]
 final class RemoveOrganizationMemberProcessorTest extends TestCase
@@ -29,7 +30,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -50,7 +50,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -75,7 +74,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -111,7 +109,6 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -124,7 +121,7 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessThrowsNotFoundWhenMemberAbsent(): void
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
@@ -133,51 +130,17 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
     $authorization->method('hasPermission')->willReturn(true);
 
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')
-      ->willThrowException(OrganizationMemberNotFoundException::withId('550e8400-e29b-41d4-a716-446655441412'));
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
 
     $processor = new RemoveOrganizationMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
-    $this->expectException(NotFoundHttpException::class);
-
-    $processor->process(null, new Delete(), [
-      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
-      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
-    ]);
-  }
-
-  #[Test]
-  public function testProcessThrowsConflictWhenRemovingLastAdmin(): void
-  {
-    $security = $this->createStub(Security::class);
-    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
-
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
-
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::once())
-      ->method('assertCanRemoveMember')
-      ->willThrowException(OrganizationLastAdminException::cannotRemoveLastAdmin());
-
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
-
-    $processor = new RemoveOrganizationMemberProcessor(
-      commandBus: $commandBus,
-      authorization: $authorization,
-      lastAdminGuard: $lastAdminGuard,
-      security: $security,
-    );
-
-    $this->expectException(ConflictHttpException::class);
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(null, new Delete(), [
       'organizationId' => '550e8400-e29b-41d4-a716-446655441410',

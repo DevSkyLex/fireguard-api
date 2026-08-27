@@ -6,13 +6,13 @@ namespace Tests\Unit\Organization\Application\Service;
 
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationQuotaLockPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationLastAdminGuardService;
 use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
 use Organization\Domain\Exception\OrganizationLastAdminException;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -57,6 +57,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->authorizationWith([self::REGULAR_USER_ID => ['organization.read']]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanRemoveMember(self::ORG_ID, self::REGULAR_MEMBER_ID);
@@ -80,6 +81,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::OTHER_ADMIN_USER_ID => ['organization.members.manage'],
       ]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
@@ -103,6 +105,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::REGULAR_USER_ID => ['organization.read'],
       ]),
       $this->dispatcherExpectingLockoutEvent('remove_member', memberId: self::ADMIN_MEMBER_ID),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -121,6 +124,24 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
+    );
+
+    $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
+  }
+
+  #[Test]
+  public function testRemoveMemberAcquiresMemberLockForOrganization(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn(null);
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingAcquire(self::ORG_ID),
     );
 
     $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
@@ -148,6 +169,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::OTHER_ADMIN_USER_ID => ['organization.*'],
       ]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanUnassignRole(self::ORG_ID, self::ADMIN_MEMBER_ID, self::ROLE_A);
@@ -175,6 +197,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::REGULAR_USER_ID => ['organization.read'],
       ]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanUnassignRole(self::ORG_ID, self::ADMIN_MEMBER_ID, self::ROLE_REMOVED);
@@ -202,11 +225,29 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::REGULAR_USER_ID => ['organization.read'],
       ]),
       $this->dispatcherExpectingLockoutEvent('unassign_role', memberId: self::ADMIN_MEMBER_ID, roleId: self::ROLE_ADMIN),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
 
     $service->assertCanUnassignRole(self::ORG_ID, self::ADMIN_MEMBER_ID, self::ROLE_ADMIN);
+  }
+
+  #[Test]
+  public function testUnassignRoleAcquiresMemberLockForOrganization(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn(null);
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingAcquire(self::ORG_ID),
+    );
+
+    $service->assertCanUnassignRole(self::ORG_ID, self::ADMIN_MEMBER_ID, self::ROLE_A);
   }
 
   // #endregion
@@ -232,6 +273,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::REGULAR_USER_ID => ['organization.read'],
       ]),
       $this->dispatcherExpectingLockoutEvent('remove_members'),
+      $this->lockExpectingNoAcquire(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -256,6 +298,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
         self::OTHER_ADMIN_USER_ID => ['organization.*'],
       ]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingNoAcquire(),
     );
 
     $service->assertCanRemoveMembers(self::ORG_ID, [self::ADMIN_MEMBER_ID]);
@@ -272,6 +315,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingNoAcquire(),
     );
 
     $service->assertCanRemoveMembers(self::ORG_ID, []);
@@ -295,6 +339,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->roleRepositoryWith([self::ROLE_ADMIN => $this->role(self::ROLE_ADMIN, ['organization.members.manage'])]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingLockoutEvent('delete_role', roleId: self::ROLE_ADMIN),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -325,6 +370,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       ]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_ADMIN);
@@ -341,6 +387,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->roleRepositoryWith([self::ROLE_A => $this->role(self::ROLE_A, ['organization.read'])]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_A);
@@ -360,6 +407,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->roleRepositoryWith([self::ROLE_ADMIN => $this->role(self::ROLE_ADMIN, ['organization.members.manage'])]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingLockoutEvent('update_role_permissions', roleId: self::ROLE_ADMIN),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -378,9 +426,44 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->roleRepositoryWith([self::ROLE_ADMIN => $this->role(self::ROLE_ADMIN, ['organization.members.manage'])]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanUpdateRolePermissions(self::ORG_ID, self::ROLE_ADMIN, ['organization.*']);
+  }
+
+  #[Test]
+  public function testUpdateRolePermissionsAcquiresMemberLockForOrganization(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findByOrganizationId');
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->roleRepositoryWith([]),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingAcquire(self::ORG_ID),
+    );
+
+    $service->assertCanUpdateRolePermissions(self::ORG_ID, self::ROLE_A, ['organization.read']);
+  }
+
+  #[Test]
+  public function testDeleteRoleAcquiresMemberLockForOrganization(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findByOrganizationId');
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->roleRepositoryWith([]),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingAcquire(self::ORG_ID),
+    );
+
+    $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_A);
   }
 
   // #endregion
@@ -404,6 +487,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
@@ -420,6 +504,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
@@ -436,6 +521,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanUnassignRole(self::ORG_ID, self::ADMIN_MEMBER_ID, self::ROLE_A);
@@ -455,6 +541,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->authorizationWith([self::REGULAR_USER_ID => ['organization.read']]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanUnassignRole(self::ORG_ID, self::REGULAR_MEMBER_ID, self::ROLE_A);
@@ -474,6 +561,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->createStub(OrganizationRoleRepositoryPort::class),
       $this->authorizationWith([self::REGULAR_USER_ID => ['organization.read']]),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockExpectingNoAcquire(),
     );
 
     $service->assertCanRemoveMembers(self::ORG_ID, [self::REGULAR_MEMBER_ID]);
@@ -490,6 +578,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->roleRepositoryWith([]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_A);
@@ -516,6 +605,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $roleRepository,
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingNoDispatch(),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_ADMIN);
@@ -536,6 +626,7 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       $this->roleRepositoryWith([self::ROLE_ADMIN => $this->role(self::ROLE_ADMIN, ['organization.members.manage'])]),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->dispatcherExpectingLockoutEvent('delete_role', roleId: self::ROLE_ADMIN),
+      $this->lockAllowingAnyAcquire(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -592,6 +683,40 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
       ->willReturnCallback(static fn (OrganizationRoleId $id): ?OrganizationRole => $rolesById[(string) $id] ?? null);
 
     return $roleRepository;
+  }
+
+  /**
+   * Stubs the lock port to allow any number of acquire() calls without
+   * asserting on them — used by tests whose focus is a different branch.
+   */
+  private function lockAllowingAnyAcquire(): OrganizationQuotaLockPort
+  {
+    return $this->createStub(OrganizationQuotaLockPort::class);
+  }
+
+  /**
+   * Mocks the lock port to require exactly one acquire() call, for the given
+   * organization id and the MEMBERS resource.
+   */
+  private function lockExpectingAcquire(string $organizationId): OrganizationQuotaLockPort
+  {
+    $lock = $this->createMock(OrganizationQuotaLockPort::class);
+    $lock->expects(self::once())->method('acquire')->with($organizationId, OrganizationQuotaResource::MEMBERS);
+
+    return $lock;
+  }
+
+  /**
+   * Mocks the lock port to require that acquire() is never called — the
+   * batch pre-check does not lock; only assertCanRemoveMember() does, once
+   * per removal, inside the caller's own transaction.
+   */
+  private function lockExpectingNoAcquire(): OrganizationQuotaLockPort
+  {
+    $lock = $this->createMock(OrganizationQuotaLockPort::class);
+    $lock->expects(self::never())->method('acquire');
+
+    return $lock;
   }
 
   private function member(string $memberId, string $userId, bool $active = true): OrganizationMember

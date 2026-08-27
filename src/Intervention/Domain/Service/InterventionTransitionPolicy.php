@@ -62,7 +62,7 @@ final class InterventionTransitionPolicy
       InterventionStatus::DRAFT => [InterventionStatus::PLANNED, InterventionStatus::ABANDONED],
       InterventionStatus::PLANNED => [InterventionStatus::IN_PROGRESS, InterventionStatus::ABANDONED],
       InterventionStatus::IN_PROGRESS => [InterventionStatus::SUBMITTED, InterventionStatus::ABANDONED],
-      InterventionStatus::SUBMITTED => [InterventionStatus::CHANGES_REQUESTED],
+      InterventionStatus::SUBMITTED => [InterventionStatus::CHANGES_REQUESTED, InterventionStatus::IN_PROGRESS],
       InterventionStatus::CHANGES_REQUESTED => [InterventionStatus::IN_PROGRESS, InterventionStatus::SUBMITTED, InterventionStatus::ABANDONED],
       InterventionStatus::PUBLISHED, InterventionStatus::ABANDONED => [],
     };

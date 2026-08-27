@@ -215,6 +215,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       name: ClientOperations::REGENERATE_SECRET,
       description: 'Generates a new secret for the client. Store the new secret securely.',
       uriTemplate: '/clients/{id}/regenerate-secret',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: ClientOutput::class,
       processor: RegenerateSecretProcessor::class,

@@ -75,6 +75,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: BillingOperations::CANCEL_SUBSCRIPTION,
       uriTemplate: '/{organizationId}/billing/cancel',
+      status: HttpResponse::HTTP_OK,
       read: false,
       input: false,
       output: SubscriptionOutput::class,
@@ -95,6 +96,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: BillingOperations::RESUME_SUBSCRIPTION,
       uriTemplate: '/{organizationId}/billing/resume',
+      status: HttpResponse::HTTP_OK,
       read: false,
       input: false,
       output: SubscriptionOutput::class,

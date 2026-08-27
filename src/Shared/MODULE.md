@@ -142,10 +142,15 @@ endpoint end-to-end (see the module's own `MODULE.md`).
   and `validate(string $mimeType, int $size): void`, throwing
   `InvalidAttachmentException` (reason `size` or `mime`) on violation. This is
   the only place the MIME/size allow-list is defined — no module keeps its own
-  copy.
+  copy. It also owns `MAX_ATTACHMENTS_PER_PARENT` (**25**) and
+  `validateCount(int $currentCount): void` (reason `count`): the per-parent
+  cardinality cap, enforced by every module's `Add…Attachment` **handler**,
+  because the count is a rule over persisted state that the request-scoped
+  guard cannot see. One constant for all modules, on purpose — a per-module
+  number would drift.
 - **`Shared\Domain\Attachment\InvalidAttachmentException`**: `forMimeType()` /
-  `forSize()` factories; `reason(): string` distinguishes the two cases for
-  callers that want to branch on it.
+  `forSize()` / `forCount()` factories; `reason(): string` distinguishes the
+  three cases for callers that want to branch on it.
 - **`Shared\Domain\Attachment\StoragePathScheme::build(module, parentId, attachmentId, fileName): string`**:
   deterministic, path-traversal-safe key
   `{module}/{parentId}/attachments/{attachmentId}_{sanitizedFileName}`
@@ -162,13 +167,28 @@ endpoint end-to-end (see the module's own `MODULE.md`).
   `UploadedAttachment`. Throws `BadRequestHttpException` (missing/invalid file)
   or `UnprocessableEntityHttpException` (MIME/size violation). Consumed by
   every module's `<Module>MediaProcessor`.
+- **`Shared\Presentation\Api\EventSubscriber\AttachmentConstraintExceptionSubscriber`**:
+  the CENTRAL HTTP mapping for the handler-raised `InvalidAttachmentException`
+  (the count cap) — a `KernelEvents::EXCEPTION` subscriber (priority 10,
+  before API Platform's own listener, mirroring `OAuthErrorSubscriber`) that
+  walks the `getPrevious()` chain (the bus wraps the exception:
+  `MessengerRuntimeException` → `HandlerFailedException` → …) and replaces
+  the throwable with the same `422` the guard returns for MIME/size, which
+  API Platform then normalizes to RFC 7807. No module's processor maps this
+  exception locally, per the Presentation-layer rule that domain-exception →
+  HTTP mapping is centralized in an EventSubscriber; an already-mapped
+  `HttpExceptionInterface` (e.g. the guard's own 422) is left untouched.
+  Auto-registered through `config/modules/shared.yaml`'s
+  `Shared\Presentation\` resource load (`autoconfigure: true`).
 
 **Equipment was NOT refactored onto this kernel** in R11b: its existing
 `AddAttachmentHandler`/`MediaProcessor` inline their own MIME-agnostic
 (no validation) path-building logic and predate the kernel. Routing Equipment
 through `MultipartAttachmentGuard` is noted as a low-risk, optional follow-up
 (would close its current lack of MIME/size validation) but was not required
-to ship this lot and was left untouched to minimize blast radius.
+to ship this lot and was left untouched to minimize blast radius. Equipment
+**does** honour `MAX_ATTACHMENTS_PER_PARENT` — the count cap was applied to
+all five attachment slices at once so the number cannot diverge.
 
 ## Testing
 
@@ -181,7 +201,8 @@ to ship this lot and was left untouched to minimize blast radius.
     filesystem, plus `FilesystemException` -> `FileStorageException` wrapping.
   - `Domain/Attachment/AttachmentConstraintsTest` — allowed MIME types within
     the size limit, disallowed MIME type / oversize rejection with the right
-    `reason()`, boundary at exactly `MAX_SIZE_BYTES`.
+    `reason()`, boundary at exactly `MAX_SIZE_BYTES`, and `validateCount()`
+    boundary at exactly `MAX_ATTACHMENTS_PER_PARENT`.
   - `Domain/Attachment/StoragePathSchemeTest` — deterministic scheme,
     path-traversal stripping (POSIX and Windows-style separators).
   - `Presentation/Api/Attachment/MultipartAttachmentGuardTest` — valid upload

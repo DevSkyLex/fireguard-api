@@ -247,6 +247,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: AuthorizationOperations::ROLE_ADD_PERMISSION,
       uriTemplate: '/roles/{roleId}/permissions',
+      status: HttpResponse::HTTP_OK,
       uriVariables: [
         'roleId' => new Link(
           fromClass: RoleRecord::class,

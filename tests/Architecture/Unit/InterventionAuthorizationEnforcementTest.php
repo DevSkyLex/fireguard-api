@@ -12,6 +12,7 @@ use SplFileInfo;
 
 use function dirname;
 use function file_get_contents;
+use function implode;
 use function in_array;
 use function sprintf;
 use function str_contains;
@@ -55,10 +56,27 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
    * due recurrences into drafts: it acts as the platform (system actor, no
    * user), and the recurrence itself was authorized at creation time
    * (organization.interventions.plan in CreateInterventionRecurrenceHandler).
+   * SendDueRemindersHandler is the same kind of scheduler-driven sweep (no
+   * user context, system actor): it only reads interventions and sends
+   * best-effort notifications to their existing responsible/participants —
+   * membership itself was already authorized when those were assigned.
    *
    * @var list<string>
    */
-  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler'];
+  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler', 'SendDueRemindersHandler'];
+
+  /**
+   * Constant SCOPE_AWARE_METHODS.
+   *
+   * The port methods that can tell "not a member of this organization" from
+   * "member, but not entitled". A handler that only calls the flat
+   * hasPermission() collapses both into 403, and since these handlers look a
+   * record up by path id before they know who owns it, that 403 confirms the
+   * record exists to a caller from another organization.
+   *
+   * @var list<string>
+   */
+  private const array SCOPE_AWARE_METHODS = ['resolveAccess', 'isMemberOf'];
   // #endregion
 
   // #region Methods
@@ -103,6 +121,26 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
           '%s must depend on %s (or be added to EXEMPT_HANDLERS with a justification).',
           $shortName,
           self::AUTHORIZATION_PORT,
+        );
+
+        continue;
+      }
+
+      $isScopeAware = false;
+      foreach (self::SCOPE_AWARE_METHODS as $method) {
+        if (str_contains($contents, $method . '(')) {
+          $isScopeAware = true;
+
+          break;
+        }
+      }
+      if (!$isScopeAware) {
+        $violations[] = sprintf(
+          '%s must decide access through one of %s, not the flat hasPermission() alone: a boolean cannot '
+          . 'separate "outside the organization" (404) from "member without the permission" (403), and the '
+          . '403 it returns instead confirms to an outsider that the record exists.',
+          $shortName,
+          '`' . implode('` / `', self::SCOPE_AWARE_METHODS) . '`',
         );
       }
     }

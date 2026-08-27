@@ -1,0 +1,28 @@
+{
+  "php": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/start.mjs", "php"],
+    "extensionToLanguage": {
+      ".php": "php"
+    },
+    "settings": {
+      "intelephense": {
+        "files": {
+          "exclude": ["**/.git/**", "**/node_modules/**", "**/var/**", "**/public/bundles/**"],
+          "maxSize": 3000000
+        },
+        "environment": {
+          "phpVersion": "8.4.8"
+        },
+        "diagnostics": {
+          "run": "onType"
+        }
+      }
+    },
+    "startupTimeout": 120000,
+    "shutdownTimeout": 15000,
+    "restartOnCrash": true,
+    "maxRestarts": 3,
+    "diagnostics": true
+  }
+}

@@ -10,10 +10,10 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(ListEquipmentAttachmentsHandler::class)]
 final class ListEquipmentAttachmentsHandlerTest extends TestCase
@@ -32,7 +32,7 @@ final class ListEquipmentAttachmentsHandlerTest extends TestCase
       attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new ListEquipmentAttachmentsQuery(
       organizationId: self::ORG_ID,

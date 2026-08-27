@@ -9,10 +9,12 @@ Two capabilities:
   member). This is what makes the calendar UI's "New event" button work.
 - **B. A unified feed** — a single, bounded, date-ranged read that merges
   standalone events with three read-only cross-module sources: Inspection,
-  Intervention, and Maintenance. **The mockup's fourth category, "Audit", has
-  no business existence in this backend** — there is no generic
-  cross-module audit-log feed wired into the calendar. Only these four
-  sources ever contribute:
+  Intervention, and Maintenance. **There is no "Audit" category** — no generic
+  cross-module audit-log feed is wired into the calendar, and none is planned.
+  (This paragraph used to justify the absence against a design mockup. That
+  mockup was deleted on 2026-08-09 and is no longer a reference for anything,
+  so the gap is stated on its own terms.) Only these four sources ever
+  contribute:
   - `calendar_event` — standalone events (this module's own data)
   - `inspection` — inspections whose `performedAt` falls in range
   - `intervention` — interventions whose `plannedStartAt` or `dueAt` falls in range
@@ -90,10 +92,14 @@ detail (e.g. to populate an edit form).
   invariant: `endsAt` (when set) must not be before `startsAt` —
   `CalendarEventValidationException::endBeforeStart()`.
 - `Domain\ValueObject\CalendarEventId` — UUID value object.
-- `Domain\Event\CalendarEventCreatedEvent` / `CalendarEventDeletedEvent` —
-  dispatched on create/delete. No `Updated` event, mirroring
-  `Webhook\Domain\Event\Subscription`'s precedent (only `Created`/`Deleted`
-  exist there too).
+- `Domain\Event\CalendarEventCreatedEvent` / `CalendarEventUpdatedEvent` /
+  `CalendarEventDeletedEvent` — dispatched on create/update/delete, each
+  consumed by `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber`
+  (actions `calendar.event_created` / `calendar.event_updated` /
+  `calendar.event_deleted`; see `Audit\MODULE.md`). `CalendarEventUpdatedEvent`
+  was added later than `Created`/`Deleted` — until then this module diverged
+  from `Webhook\Domain\Event\Subscription`'s Created/Deleted-only precedent by
+  omission (calendar writes left no audit trail), not by design.
 - `Domain\Exception\CalendarEventNotFoundException` → 404,
   `CalendarEventValidationException` → 422.
 
@@ -195,6 +201,13 @@ Table (**main** database), created by `Version20260718124213`:
   `updated_at`. Index `(organization_id, starts_at)`. No foreign key to
   `organizations`/`facilities` — mirrors `automation_runs`/
   `approval_requests`.
+
+**Documented gap**: `facility_id` is not covered by
+`Facility\Application\Service\FacilityArchivalGuard` — Calendar has no
+outbound dependency port and never blocks facility archival. This is
+deliberate: calendar reads are display-only (the module never writes back to
+a facility), so an event referencing an archived facility is harmless — it
+simply keeps showing on the calendar.
 
 Doctrine record: `src/Calendar/Infrastructure/Persistence/Doctrine/Record/
 CalendarEventRecord.php` (unchanged since L2.0).

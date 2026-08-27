@@ -53,7 +53,11 @@ final readonly class GetInterventionWorkflowHandler implements QueryHandler
     if (null === $view) {
       throw InterventionNotFoundException::withId($query->id);
     }
-    if (!$this->authorization->hasPermission($query->userId, $view->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $view->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($query->id);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

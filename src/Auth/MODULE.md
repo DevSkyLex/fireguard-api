@@ -318,6 +318,26 @@ Key folders:
 - `src/Auth/Domain`
 - `src/Auth/Infrastructure`
 
+### How `OAuth2Authenticator` validates a bearer token
+
+The order matters, and each step exists because skipping it was a defect:
+
+1. **Signature, always.** Verified before any claim is read as trusted. Both
+   issuance paths sign with `config/jwt/private.key`, so one verification key
+   covers both. This must never become conditional: the database lookup keys on
+   `jti` and never binds it back to `sub`, so an unverified token reusing a live
+   `jti` with an arbitrary `sub` would authenticate as that subject.
+2. **Expiry**, from the now-trusted claims.
+3. **Revocation**, and here the two token kinds diverge:
+   - `_fireguard_token_use: auth_session` (login flow) — resolved through
+     `Auth\Application\Port\Outbound\SessionStatusPort`, since these tokens have
+     no row in the OAuth2 token table and the session carries their revocation
+     state. An **untracked** token is accepted, not rejected: session recording
+     is best-effort by design, so an absent row means "never recorded", not
+     "revoked". See `src/Session/MODULE.md`.
+   - everything else (OAuth2 flow) — resolved through `AccessTokenLookupPort`,
+     which is also authoritative on an expiry preceding the token's own.
+
 ## Configuration
 
 Environment variables (see `.env`):

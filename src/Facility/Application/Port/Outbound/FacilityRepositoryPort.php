@@ -131,6 +131,35 @@ interface FacilityRepositoryPort
   public function hasActiveDescendants(FacilityOrganizationId $organizationId, FacilityId $facilityId): bool;
 
   /**
+   * Method depthOf.
+   *
+   * Reports the facility's depth in its hierarchy, walking upward through
+   * PUBLISHED ancestors only. A root facility (no parent) sits at depth 1.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return int the facility depth, root = 1
+   */
+  public function depthOf(FacilityId $facilityId): int;
+
+  /**
+   * Method subtreeHeight.
+   *
+   * Reports the height of the facility's sub-tree, walking downward through
+   * PUBLISHED descendants only. A facility with no descendants has height 0;
+   * one with only direct children has height 1, and so on.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the sub-tree root facility identifier
+   *
+   * @return int the sub-tree height, leaf = 0
+   */
+  public function subtreeHeight(FacilityId $facilityId): int;
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts facilities for an organization with optional filters.
@@ -145,6 +174,7 @@ interface FacilityRepositoryPort
    * @param ?string $code optional exact code filter
    * @param ?string $search optional text search applied before counting
    * @param bool $rootsOnly whether only facilities without parent are counted
+   * @param ?bool $hasCoordinates when true, count only facilities with both latitude and longitude set; when false, count only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return int the facilities count
    */
@@ -157,6 +187,7 @@ interface FacilityRepositoryPort
     ?string $code = null,
     ?string $search = null,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): int;
 
   /**
@@ -243,6 +274,7 @@ interface FacilityRepositoryPort
    * @param int $limit maximum number of results
    * @param int $offset result offset
    * @param bool $rootsOnly whether only facilities without parent are listed
+   * @param ?bool $hasCoordinates when true, list only facilities with both latitude and longitude set; when false, list only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return list<Facility> the facilities collection
    */
@@ -258,6 +290,44 @@ interface FacilityRepositoryPort
     int $limit = 20,
     int $offset = 0,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
+  ): array;
+
+  /**
+   * Method findAncestors.
+   *
+   * Resolves the ancestor breadcrumb for a facility by walking its parent
+   * chain upward over PUBLISHED records, ordered root first (direct parent
+   * last), excluding the facility itself. Empty for a root facility.
+   *
+   * @since 1.0.0
+   *
+   * @param string $facilityId the facility identifier whose ancestors are resolved
+   *
+   * @return list<array{id: string, name: string, type: string}> the ancestor breadcrumb, root first
+   */
+  public function findAncestors(string $facilityId): array;
+
+  /**
+   * Method findZonesForPlanAttachment.
+   *
+   * Lists every published facility, self-or-descendant of `$rootFacilityId`,
+   * whose `planGeometry` is bound to `$attachmentId` — a single recursive
+   * CTE joined with a JSONB equality filter, so the overlay read never
+   * hydrates the whole subtree just to discard most of it.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $rootFacilityId the facility the overlay was requested for (included)
+   * @param string $attachmentId the floor plan attachment identifier
+   *
+   * @return list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}> the matching zones
+   */
+  public function findZonesForPlanAttachment(
+    FacilityOrganizationId $organizationId,
+    FacilityId $rootFacilityId,
+    string $attachmentId,
   ): array;
 
   // #endregion

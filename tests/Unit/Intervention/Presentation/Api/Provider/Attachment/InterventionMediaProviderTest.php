@@ -13,12 +13,14 @@ use Intervention\Domain\Exception\InterventionAccessDeniedException;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
@@ -53,7 +55,7 @@ final class InterventionMediaProviderTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ListInterventionAttachmentsResult([
-      ['id' => 'attachment-id', 'fileName' => 'evidence.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00'],
+      ['id' => 'attachment-id', 'fileName' => 'evidence.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'workItemId' => null, 'kind' => 'file'],
     ]));
 
     $result = new InterventionMediaProvider(
@@ -61,6 +63,7 @@ final class InterventionMediaProviderTest extends TestCase
       $queryBus,
       $this->createStub(OrganizationAuthorizationPort::class),
       $security,
+      $this->createStub(RequestStack::class),
     )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
 
     self::assertIsArray($result);
@@ -89,6 +92,7 @@ final class InterventionMediaProviderTest extends TestCase
       $queryBus,
       $this->createStub(OrganizationAuthorizationPort::class),
       $security,
+      $this->createStub(RequestStack::class),
     )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
   }
 
@@ -112,7 +116,7 @@ final class InterventionMediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($attachment);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -124,6 +128,7 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $authorization,
       $security,
+      $this->createStub(RequestStack::class),
     )->provide(new Get(), ['id' => 'attachment-id']);
 
     self::assertInstanceOf(InterventionAttachmentOutput::class, $result);
@@ -146,7 +151,7 @@ final class InterventionMediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($attachment);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -160,7 +165,48 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $authorization,
       $security,
+      $this->createStub(RequestStack::class),
     )->provide(new Get(), ['id' => 'attachment-id']);
+  }
+
+  #[Test]
+  public function testProvideGetOneThrowsTheSameNotFoundResponseAsAMissingIdWhenTheOrganizationIsOutsideTheCallersScope(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $intervention = new InterventionRecord();
+    $intervention->id = self::INTERVENTION_ID;
+    $intervention->organization = $organization;
+    $attachment = new InterventionAttachmentRecord();
+    $attachment->id = 'attachment-id';
+    $attachment->intervention = $intervention;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($attachment);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    // Byte-identical to the response for an id that does not exist at all
+    // (see testProvideGetOneThrowsNotFoundWhenMissing): the 403/404 split
+    // must not become an existence oracle across organizations.
+    try {
+      new InterventionMediaProvider(
+        $entityManager,
+        $this->createStub(QueryBusPort::class),
+        $authorization,
+        $security,
+        $this->createStub(RequestStack::class),
+      )->provide(new Get(), ['id' => 'attachment-id']);
+      self::fail('Expected NotFoundHttpException to be thrown.');
+    } catch (NotFoundHttpException $exception) {
+      self::assertSame('Attachment not found.', $exception->getMessage());
+    }
   }
 
   #[Test]
@@ -176,6 +222,7 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(Security::class),
+      $this->createStub(RequestStack::class),
     )->provide(new Get(), ['id' => 'missing-id']);
   }
 
@@ -189,6 +236,7 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(Security::class),
+      $this->createStub(RequestStack::class),
     )->provide(new Get(), []);
   }
 
@@ -202,6 +250,7 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(Security::class),
+      $this->createStub(RequestStack::class),
     )->provide(new GetCollection(), ['interventionId' => '']);
   }
 
@@ -218,6 +267,7 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(QueryBusPort::class),
       $this->createStub(OrganizationAuthorizationPort::class),
       $security,
+      $this->createStub(RequestStack::class),
     )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
   }
 

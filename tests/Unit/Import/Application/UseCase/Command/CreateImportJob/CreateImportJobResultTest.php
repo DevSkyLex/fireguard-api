@@ -39,5 +39,6 @@ final class CreateImportJobResultTest extends TestCase
     self::assertSame('pending', $result->status);
     self::assertSame('facilities.csv', $result->originalFilename);
     self::assertSame($createdAt, $result->createdAt);
+    self::assertFalse($result->dryRun);
   }
 }

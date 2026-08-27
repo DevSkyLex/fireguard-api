@@ -12,6 +12,7 @@ use Equipment\Presentation\Api\Dto\Input\Equipment\AddTagInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\TagOutput;
 use Equipment\Presentation\Api\Processor\Equipment\AddTagToEquipmentProcessor;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -49,9 +50,9 @@ final class AddTagToEquipmentProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), self::ORG_ID, 'organization.equipment.write')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -75,6 +76,43 @@ final class AddTagToEquipmentProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessThrowsNotFoundWhenOrganizationIsOutsideCallersScope(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655457014');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $input = new AddTagInput();
+    $input->name = 'urgent';
+
+    $processor = new AddTagToEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    // Not AccessDeniedHttpException: a 403 for a caller outside the organization's
+    // scope would confirm the record exists across an organization boundary.
+    try {
+      $processor->process(
+        data: $input,
+        operation: new Post(),
+        uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+      );
+      self::fail('Expected NotFoundHttpException to be thrown.');
+    } catch (NotFoundHttpException $exception) {
+      self::assertSame('Organization not found.', $exception->getMessage());
+    }
+  }
+
+  #[Test]
   public function testProcessMapsWrappedNotFoundToHttp404(): void
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655457011');
@@ -83,7 +121,7 @@ final class AddTagToEquipmentProcessorTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $input = new AddTagInput();
     $input->name = 'urgent';
@@ -125,7 +163,7 @@ final class AddTagToEquipmentProcessorTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $input = new AddTagInput();
     $input->name = 'urgent';
@@ -287,7 +325,7 @@ final class AddTagToEquipmentProcessorTest extends TestCase
     $commandBus->method('dispatch')->willThrowException($failure);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new AddTagToEquipmentProcessor(
       commandBus: $commandBus,

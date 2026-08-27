@@ -9,11 +9,11 @@ use Facility\Application\UseCase\Query\Facility\GetFacilityChildren\{GetFacility
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Domain\Exception\InvalidValueException;
 
 #[CoversClass(GetFacilityChildrenHandler::class)]
 final class GetFacilityChildrenHandlerTest extends TestCase
@@ -126,7 +126,7 @@ final class GetFacilityChildrenHandlerTest extends TestCase
       equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
     );
 
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
 
     $handler->__invoke(new GetFacilityChildrenQuery(
       organizationId: 'not-a-uuid',

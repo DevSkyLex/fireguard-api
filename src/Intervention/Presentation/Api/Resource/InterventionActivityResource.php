@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
 use Intervention\Presentation\Api\Dto\Input\CreateInterventionCommentInput;
 use Intervention\Presentation\Api\Dto\Output\InterventionActivityOutput;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Intervention\Presentation\Api\Processor\InterventionActivityProcessor;
 use Intervention\Presentation\Api\Provider\InterventionActivityProvider;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,18 +29,21 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'InterventionActivity',
   operations: [
     new GetCollection(
+      name: InterventionOperations::LIST_INTERVENTION_ACTIVITIES,
       uriTemplate: '/interventions/{interventionId}/activities',
       output: InterventionActivityOutput::class,
       provider: InterventionActivityProvider::class,
       paginationEnabled: true,
       paginationItemsPerPage: 30,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       openapi: new Operation(parameters: [
         new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
       ]),
       security: "is_granted('ROLE_USER')",
     ),
     new Post(
+      name: InterventionOperations::CREATE_INTERVENTION_COMMENT,
       uriTemplate: '/interventions/{interventionId}/comments',
       input: CreateInterventionCommentInput::class,
       output: InterventionActivityOutput::class,

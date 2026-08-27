@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
-use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
 use LogicException;
 
@@ -41,6 +41,8 @@ final class InterventionAttachmentMapper
       size: $record->size,
       uploadedAt: $record->uploadedAt,
       label: $record->label,
+      workItemId: $record->workItem?->id,
+      kind: InterventionAttachmentKind::tryFrom($record->kind) ?? InterventionAttachmentKind::FILE,
     );
   }
 
@@ -59,6 +61,7 @@ final class InterventionAttachmentMapper
     $record->size = $attachment->size();
     $record->label = $attachment->label();
     $record->uploadedAt = $attachment->uploadedAt();
+    $record->kind = $attachment->kind()->value;
 
     return $record;
   }

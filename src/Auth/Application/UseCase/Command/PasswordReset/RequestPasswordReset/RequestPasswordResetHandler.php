@@ -62,17 +62,25 @@ final readonly class RequestPasswordResetHandler implements CommandHandler
     // Find user by email (timing-safe: always return success to prevent enumeration)
     $user = $this->userRepository->findByEmail($email);
 
-    if (null === $user) {
-      // Silent success to prevent user enumeration
-      return RequestPasswordResetResult::success(
-        canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
+    // No account, or one that cannot sign in: answer with a decoy challenge.
+    //
+    // Returning a bare success was already the intent, but it produced a *shorter*
+    // payload than the real one — no `challengeToken`, no `maskedRecipient` — and
+    // that difference enumerated the entire user base one request at a time. The
+    // decoy is issued but never stored, so whatever code the caller submits next
+    // fails through the ordinary invalid-challenge path.
+    if (null === $user || !$user->canLogin()) {
+      $decoy = $this->otpChallenge->generateDecoy(
+        purpose: OtpPurpose::PASSWORD_RESET,
+        channel: OtpChannel::EMAIL,
+        recipient: $email->value,
       );
-    }
 
-    // Only process if user can login (is active/verified)
-    if (!$user->canLogin()) {
-      // Silent success to prevent user enumeration
       return RequestPasswordResetResult::success(
+        challengeToken: $decoy->challengeToken,
+        maskedRecipient: $decoy->maskedRecipient,
+        expiresAt: $decoy->expiresAt,
+        maxAttempts: $decoy->maxAttempts,
         canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
       );
     }

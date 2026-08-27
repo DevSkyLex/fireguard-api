@@ -6,10 +6,10 @@ namespace Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments;
 
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityNotFoundException;
-use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
-use InvalidArgumentException;
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityId, FacilityOrganizationId};
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
+use ValueError;
 
 /**
  * UseCase ListFacilityAttachmentsHandler.
@@ -41,8 +41,9 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
     try {
       $facilityId = FacilityId::fromString($query->facilityId);
       $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
-      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+      $kind = null === $query->kind ? null : AttachmentKind::from($query->kind);
+    } catch (InvalidValueException|ValueError $exception) {
+      throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 
     $facility = $this->facilityRepository->findById($facilityId);
@@ -51,7 +52,7 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
       throw FacilityNotFoundException::withId($query->facilityId);
     }
 
-    $attachments = $this->attachmentRepository->findByFacilityId($facilityId);
+    $attachments = $this->attachmentRepository->findByFacilityId($facilityId, $kind);
 
     $result = [];
     foreach ($attachments as $attachment) {
@@ -62,6 +63,10 @@ final readonly class ListFacilityAttachmentsHandler implements QueryHandler
         'size' => $attachment->size(),
         'label' => $attachment->label(),
         'uploadedAt' => $attachment->uploadedAt()->format('c'),
+        'kind' => $attachment->kind()->value,
+        'isPrimaryPlan' => $attachment->isPrimaryPlan(),
+        'imageWidth' => $attachment->imageWidth(),
+        'imageHeight' => $attachment->imageHeight(),
       ];
     }
 

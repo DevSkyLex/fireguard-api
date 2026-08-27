@@ -91,6 +91,10 @@ final class AuditEventRepository implements AuditEventRepositoryPort
       }
       $sequence = $lastSequence + 1;
 
+      // organization_id is deliberately absent from the hash payload: the
+      // column is a denormalized filter copy of metadata['organization_id'],
+      // which is already hash-covered. Keeping the payload recipe unchanged
+      // keeps every row (pre- and post-backfill) verifiable the same way.
       $payload = [
         'id' => $event->id->value,
         'chain_id' => $chainId,
@@ -130,6 +134,7 @@ final class AuditEventRepository implements AuditEventRepositoryPort
       $record->subjectId = $event->subjectId;
       $record->clientId = $event->clientId;
       $record->tenantId = $event->tenantId;
+      $record->organizationId = $event->organizationId;
       $record->ipAddress = $event->ipAddress;
       $record->ipHash = $event->ipHash;
       $record->userAgent = $event->userAgent;
@@ -173,6 +178,7 @@ final class AuditEventRepository implements AuditEventRepositoryPort
         sequence: $sequence,
         prevHash: $prevHash,
         eventHash: $eventHash,
+        organizationId: $event->organizationId,
       );
     });
   }
@@ -412,6 +418,10 @@ final class AuditEventRepository implements AuditEventRepositoryPort
       $qb->andWhere('a.tenantId = :tenantId')->setParameter('tenantId', $criteria->tenantId);
     }
 
+    if ($criteria->organizationId) {
+      $qb->andWhere('a.organizationId = :organizationId')->setParameter('organizationId', $criteria->organizationId);
+    }
+
     if ($criteria->ipHash) {
       $qb->andWhere('a.ipHash = :ipHash')->setParameter('ipHash', $criteria->ipHash);
     }
@@ -477,6 +487,7 @@ final class AuditEventRepository implements AuditEventRepositoryPort
       sequence: $record->sequence,
       prevHash: $record->prevHash,
       eventHash: $record->eventHash,
+      organizationId: $record->organizationId,
     );
   }
   // #endregion

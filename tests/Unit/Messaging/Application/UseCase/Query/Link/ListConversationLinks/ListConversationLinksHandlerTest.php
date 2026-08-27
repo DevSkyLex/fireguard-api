@@ -55,6 +55,40 @@ final class ListConversationLinksHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeAnswersNotFoundRatherThanForbiddenForAConversationInAnotherOrganization(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->view());
+
+    // Outside the conversation's organization: the directory resolves no active
+    // member. The permission port would answer AccessDenied (403) if it were
+    // reached, and a 403 here would confirm to an outsider that this
+    // conversation exists — the cross-tenant existence oracle the identical
+    // 404 exists to prevent.
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(null);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('assertGrantedPermissions')->willThrowException(
+      new MessagingAccessDeniedException('Missing permission.'),
+    );
+
+    $links = $this->createMock(MessagingLinkRepositoryPort::class);
+    $links->expects(self::never())->method('listByConversation');
+
+    $handler = new ListConversationLinksHandler(
+      $conversations,
+      $links,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new ListConversationLinksQuery('user-1', self::CONVERSATION_ID));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenConversationIsNotFound(): void
   {
     $conversations = $this->createStub(MessagingConversationRepositoryPort::class);

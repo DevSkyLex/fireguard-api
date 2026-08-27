@@ -95,6 +95,12 @@ final class WebhookEventCatalog
   public const string MAINTENANCE_CAMPAIGN_GENERATED_EVENT = 'maintenance.maintenance_campaign_generated_event';
 
   /**
+   * Facility\Domain\Event\Facility\FacilityCreatedEvent. Fields:
+   * `organizationId`, `facilityId`.
+   */
+  public const string FACILITY_CREATED_EVENT = 'facility.facility_created_event';
+
+  /**
    * Facility\Domain\Event\Facility\FacilityArchivedEvent. Fields:
    * `organizationId`, `facilityId`.
    */
@@ -105,6 +111,12 @@ final class WebhookEventCatalog
    * `organizationId`, `facilityId`.
    */
   public const string FACILITY_RESTORED_EVENT = 'facility.facility_restored_event';
+
+  /**
+   * Facility\Domain\Event\Facility\FacilityUpdatedEvent. Fields:
+   * `organizationId`, `facilityId`, `changedFields`.
+   */
+  public const string FACILITY_UPDATED_EVENT = 'facility.facility_updated_event';
   // #endregion
 
   // #region Methods

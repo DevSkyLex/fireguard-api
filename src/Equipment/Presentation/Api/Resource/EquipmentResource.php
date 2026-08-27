@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Equipment\Presentation\Api\Dto\Input\Equipment\{
   AssignToFacilityInput,
   CreateEquipmentInput,
+  SetEquipmentPlanPositionInput,
   UpdateEquipmentInput
 };
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
@@ -19,6 +20,7 @@ use Equipment\Presentation\Api\Processor\Equipment\{
   CreateEquipmentProcessor,
   DecommissionEquipmentProcessor,
   PutUnderMaintenanceProcessor,
+  SetEquipmentPlanPositionProcessor,
   UnassignFromFacilityProcessor,
   UpdateEquipmentProcessor
 };
@@ -69,6 +71,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListEquipmentsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      // 200 rather than the 100 every other collection caps at: the facility overview previews a site's equipment in one page,
+      // and a lower ceiling would silently drop rows past the cut rather than fail.
+      paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -142,6 +147,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListEquipmentsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -246,6 +252,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::ASSIGN_TO_FACILITY,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/assign',
+      status: HttpResponse::HTTP_OK,
       input: AssignToFacilityInput::class,
       output: EquipmentOutput::class,
       processor: AssignToFacilityProcessor::class,
@@ -267,6 +274,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::UNASSIGN_FROM_FACILITY,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/unassign',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: UnassignFromFacilityProcessor::class,
@@ -287,6 +295,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::COMMISSION_EQUIPMENT,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/commission',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: CommissionEquipmentProcessor::class,
@@ -309,6 +318,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: EquipmentOperations::PUT_UNDER_MAINTENANCE,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/maintenance',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: PutUnderMaintenanceProcessor::class,
@@ -327,9 +337,33 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ],
       ),
     ),
+    new Put(
+      name: EquipmentOperations::SET_EQUIPMENT_PLAN_POSITION,
+      uriTemplate: '/{organizationId}/equipment/{equipmentId}/plan-position',
+      read: false,
+      input: SetEquipmentPlanPositionInput::class,
+      output: EquipmentOutput::class,
+      processor: SetEquipmentPlanPositionProcessor::class,
+      denormalizationContext: ['groups' => [EquipmentSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Equipment'],
+        summary: 'Set equipment plan position',
+        description: 'Pins the equipment at a point over a floor plan attachment belonging to its own facility or one of its ancestors. Submit "attachmentId", "x" and "y" (normalized 0-1 coordinates) together to set or replace the position, or all three null to clear it. The equipment must be assigned to a facility.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Plan position set or cleared'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment or attachment not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Equipment not assigned to a facility, already decommissioned, or attachment is not a floor plan / not an ancestor'),
+        ],
+      ),
+    ),
     new Post(
       name: EquipmentOperations::DECOMMISSION_EQUIPMENT,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/decommission',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: EquipmentOutput::class,
       processor: DecommissionEquipmentProcessor::class,

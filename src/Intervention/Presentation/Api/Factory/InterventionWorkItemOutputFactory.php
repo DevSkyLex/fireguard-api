@@ -108,6 +108,7 @@ final class InterventionWorkItemOutputFactory
     $output->status = $this->string($data, 'status');
     $output->required = $this->boolean($data, 'required');
     $output->skipReason = $this->nullableString($data, 'skipReason');
+    $output->evidenceCount = $this->integer($data, 'evidenceCount');
     $output->revision = $this->integer($data, 'revision');
     $output->createdAt = $this->string($data, 'createdAt');
     $output->updatedAt = $this->string($data, 'updatedAt');

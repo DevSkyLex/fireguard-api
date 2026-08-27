@@ -47,6 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListChecklistsProvider::class,
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
+      paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -85,6 +86,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Post(
       name: InspectionOperations::ARCHIVE_CHECKLIST,
       uriTemplate: '/{organizationId}/checklists/{checklistId}/archive',
+      status: HttpResponse::HTTP_OK,
       input: false,
       output: ChecklistOutput::class,
       processor: ArchiveChecklistProcessor::class,

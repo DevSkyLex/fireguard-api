@@ -29,7 +29,7 @@ final class InvalidAttachmentException extends DomainException
    * @since 1.0.0
    *
    * @param string $message the exception message
-   * @param string $reason the violation reason (`mime` or `size`)
+   * @param string $reason the violation reason (`mime`, `size` or `count`)
    */
   private function __construct(
     string $message,
@@ -84,9 +84,36 @@ final class InvalidAttachmentException extends DomainException
   }
 
   /**
+   * Method forCount.
+   *
+   * @static
+   *
+   * Creates an exception for a parent record that already carries the
+   * maximum number of attachments.
+   *
+   * @since 1.0.0
+   *
+   * @param int $currentCount the number of attachments already carried
+   * @param int $maxCount the maximum allowed number of attachments
+   *
+   * @return self the created exception instance
+   */
+  public static function forCount(int $currentCount, int $maxCount): self
+  {
+    return new self(
+      sprintf(
+        'This record already carries %d attachments and may not exceed the maximum of %d.',
+        $currentCount,
+        $maxCount,
+      ),
+      'count',
+    );
+  }
+
+  /**
    * Method reason.
    *
-   * Returns the violation reason (`mime` or `size`).
+   * Returns the violation reason (`mime`, `size` or `count`).
    *
    * @since 1.0.0
    *

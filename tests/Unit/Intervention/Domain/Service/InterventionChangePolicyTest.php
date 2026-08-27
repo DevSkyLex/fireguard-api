@@ -6,8 +6,8 @@ namespace Tests\Unit\Intervention\Domain\Service;
 
 use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Domain\Service\InterventionChangePolicy;
-use Intervention\Domain\ValueObject\InterventionStatus;
-use PHPUnit\Framework\Attributes\Test;
+use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionStatus};
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
 final class InterventionChangePolicyTest extends TestCase
@@ -31,7 +31,7 @@ final class InterventionChangePolicyTest extends TestCase
   #[Test]
   public function itAllowsReviewersToRejectButNotEditSubmittedChanges(): void
   {
-    $this->policy->assertCanChangeStatus(InterventionStatus::SUBMITTED, 'rejected');
+    $this->policy->assertCanChangeStatus(InterventionStatus::SUBMITTED, InterventionChangeStatus::REJECTED);
 
     $this->expectException(InterventionConflictException::class);
     $this->policy->assertCanEditPatch(InterventionStatus::SUBMITTED);
@@ -63,6 +63,55 @@ final class InterventionChangePolicyTest extends TestCase
   public function itRejectsANonRejectionStatusChangeOnASubmittedIntervention(): void
   {
     $this->expectException(InterventionConflictException::class);
-    $this->policy->assertCanChangeStatus(InterventionStatus::SUBMITTED, 'accepted');
+    $this->policy->assertCanChangeStatus(InterventionStatus::SUBMITTED, InterventionChangeStatus::PROPOSED);
+  }
+
+  /**
+   * @return iterable<string, array{InterventionChangeStatus, InterventionChangeStatus}>
+   */
+  public static function allowedTransitions(): iterable
+  {
+    yield 'reject a proposed change' => [InterventionChangeStatus::PROPOSED, InterventionChangeStatus::REJECTED];
+    yield 'apply a proposed change on publication' => [InterventionChangeStatus::PROPOSED, InterventionChangeStatus::APPLIED];
+    yield 'reopen a rejected change' => [InterventionChangeStatus::REJECTED, InterventionChangeStatus::PROPOSED];
+  }
+
+  #[Test]
+  #[DataProvider('allowedTransitions')]
+  public function itAllowsTheChangeStatusStateMachineTransitions(InterventionChangeStatus $from, InterventionChangeStatus $to): void
+  {
+    $this->policy->assertTransitionAllowed($from, $to);
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function itTreatsAChangeStatusTransitionToTheSameStatusAsANoOp(): void
+  {
+    $this->policy->assertTransitionAllowed(InterventionChangeStatus::PROPOSED, InterventionChangeStatus::PROPOSED);
+
+    self::addToAssertionCount(1);
+  }
+
+  /**
+   * @return iterable<string, array{InterventionChangeStatus, InterventionChangeStatus}>
+   */
+  public static function refusedTransitions(): iterable
+  {
+    yield 'applied is terminal' => [InterventionChangeStatus::APPLIED, InterventionChangeStatus::PROPOSED];
+    yield 'rejected cannot go straight to applied' => [InterventionChangeStatus::REJECTED, InterventionChangeStatus::APPLIED];
+  }
+
+  #[Test]
+  #[DataProvider('refusedTransitions')]
+  public function itRefusesChangeStatusStateMachineIllegalTransitions(InterventionChangeStatus $from, InterventionChangeStatus $to): void
+  {
+    $this->expectException(InterventionConflictException::class);
+    $this->policy->assertTransitionAllowed($from, $to);
+  }
+
+  #[Test]
+  public function itNeverAllowsTransitionsFromTheAppliedTerminalStatus(): void
+  {
+    self::assertSame([], $this->policy->allowedFrom(InterventionChangeStatus::APPLIED));
   }
 }

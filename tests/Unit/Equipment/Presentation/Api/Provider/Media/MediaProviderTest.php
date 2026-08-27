@@ -11,6 +11,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
 use Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput;
 use Equipment\Presentation\Api\Provider\Media\MediaProvider;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -41,7 +42,7 @@ final class MediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($record);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $output = new MediaProvider($entityManager, $authorization, $this->securityWithUser())
       ->provide(new Get(), ['id' => 'attachment-id']);
@@ -86,9 +87,24 @@ final class MediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($this->record());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    new MediaProvider($entityManager, $authorization, $this->securityWithUser())
+      ->provide(new Get(), ['id' => 'attachment-id']);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsOutsideCallerScope(): void
+  {
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($this->record());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
 
     new MediaProvider($entityManager, $authorization, $this->securityWithUser())
       ->provide(new Get(), ['id' => 'attachment-id']);

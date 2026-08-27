@@ -16,7 +16,7 @@ use Inspection\Domain\ValueObject\{ChecklistStatus, InspectionResult, Inspection
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord, InspectionRecord, NonConformityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
+use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
 
 use function intdiv;
 use function sprintf;
@@ -31,7 +31,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
   public const string FAILING_INSPECTION_REFERENCE = 'inspection-seed-fail';
 
-  public const string TREND_CHECKLIST_ID = '44444444-4444-4444-8444-444444444441';
+  public const string TREND_CHECKLIST_ID = 'e6f5fe61-910b-4cd0-8d09-72af38405c64';
 
   public static function getGroups(): array
   {
@@ -100,10 +100,10 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $this->addReference(self::CHECKLIST_REFERENCE, $checklist);
 
     foreach ([
-      ['44444444-4444-4444-8444-444444444442', 'Visual inspection', 0],
-      ['44444444-4444-4444-8444-444444444443', 'Pressure gauge reading', 1],
+      ['8cc0efe4-7aaa-4c21-a339-5d84121ff4e6', 'Visual inspection', 0],
+      ['9dd8ef7e-45b4-4370-8caa-f22f4aa4d3ab', 'Pressure gauge reading', 1],
       ['44444444-4444-4444-8444-444444444444', 'Seal intact', 2],
-      ['44444444-4444-4444-8444-444444444445', 'Sign-off', 3],
+      ['b65a2b48-6831-4453-a0a6-6aa5ac17c853', 'Sign-off', 3],
     ] as [$id, $label, $position]) {
       $item = new ChecklistItemRecord();
       $item->id = $id;
@@ -115,7 +115,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     }
 
     $passingInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444446',
+      id: '72caf154-79de-4216-92b8-347af0f0fe2c',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
@@ -132,7 +132,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $this->addReference(self::PASSING_INSPECTION_REFERENCE, $passingInspection);
 
     $earlyPassInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444450',
+      id: '332806dd-44a5-4186-b108-ddd9af7c3356',
       organization: $organization,
       equipmentId: $detector->id,
       facilityId: $zone->id,
@@ -148,7 +148,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($earlyPassInspection);
 
     $partialInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444451',
+      id: 'f3274415-59aa-44aa-b66d-261e913a9f26',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
@@ -164,7 +164,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($partialInspection);
 
     $failingInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444447',
+      id: '120f280d-5b81-4211-a690-5883a6a3a691',
       organization: $organization,
       equipmentId: $detector->id,
       facilityId: $zone->id,
@@ -181,7 +181,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $this->addReference(self::FAILING_INSPECTION_REFERENCE, $failingInspection);
 
     $lateFailInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444452',
+      id: '1d408f0b-5ab5-4e84-bde5-caa6c1f41986',
       organization: $organization,
       equipmentId: $detector->id,
       facilityId: $zone->id,
@@ -197,7 +197,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($lateFailInspection);
 
     $latePartialInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444453',
+      id: '4260d1fb-c9eb-424a-9f0d-a6ad21256c02',
       organization: $organization,
       equipmentId: $detector->id,
       facilityId: $zone->id,
@@ -213,7 +213,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($latePartialInspection);
 
     $recentPassInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444454',
+      id: '95a0d708-2f2e-4227-8533-ea24aaf12c42',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
@@ -229,7 +229,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($recentPassInspection);
 
     $siteEmergencyLightingInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444484',
+      id: '6d6b5a05-62e0-4b82-a5b5-701c5c0804eb',
       organization: $organization,
       equipmentId: $siteEmergencyLighting->id,
       facilityId: $site->id,
@@ -245,7 +245,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($siteEmergencyLightingInspection);
 
     $buildingFireDoorInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444485',
+      id: 'c1946361-b9e1-4820-8ef0-5f80c6ca6c54',
       organization: $organization,
       equipmentId: $buildingFireDoor->id,
       facilityId: $building->id,
@@ -261,7 +261,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($buildingFireDoorInspection);
 
     $floorOneCameraInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444486',
+      id: 'cb31abb9-fefb-4293-ad28-152b60e3e434',
       organization: $organization,
       equipmentId: $floorOneCamera->id,
       facilityId: $floorOne->id,
@@ -277,7 +277,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($floorOneCameraInspection);
 
     $floorTwoGasDetectorInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444487',
+      id: 'b08fe499-8410-450d-a862-0131e4fdab17',
       organization: $organization,
       equipmentId: $floorTwoGasDetector->id,
       facilityId: $floorTwo->id,
@@ -293,7 +293,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($floorTwoGasDetectorInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444488',
+      id: 'eb036e88-ba3e-4e9e-831c-fc7f3bef8f82',
       inspection: $buildingFireDoorInspection,
       description: 'Door closer tension below expected threshold.',
       severity: NonConformitySeverity::LOW->value,
@@ -305,7 +305,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444489',
+      id: '335c4924-bb48-4a3c-b018-fd458e2116cf',
       inspection: $floorTwoGasDetectorInspection,
       description: 'Calibration drift above tolerance on gas detector channel A.',
       severity: NonConformitySeverity::HIGH->value,
@@ -341,7 +341,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
         ));
 
         $inspection = $this->createInspection(
-          id: sprintf('44444444-4444-4444-8444-4444444445%02x', $bulkInspectionIndex++),
+          id: SeedUuid::from(sprintf('inspection-bulk:%d', $bulkInspectionIndex++)),
           organization: $organization,
           equipmentId: $equipment->id,
           facilityId: $equipment->facilityId,
@@ -376,7 +376,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
             || NonConformityStatus::WAIVED->value === $nonConformityStatus;
 
           $manager->persist($this->createNonConformity(
-            id: sprintf('44444444-4444-4444-8444-4444444446%02x', $nonConformityIndex),
+            id: SeedUuid::from(sprintf('non-conformity-bulk:%d', $nonConformityIndex)),
             inspection: $inspection,
             description: InspectionResult::FAIL->value === $result
               ? sprintf('%s failed validation during seeded inspection.', $seed['locationLabel'])
@@ -394,7 +394,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     }
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444448',
+      id: 'f261d7e4-48af-4bf7-8b2d-2c171e50b822',
       inspection: $partialInspection,
       description: 'Pressure gauge label needed replacement.',
       severity: NonConformitySeverity::MEDIUM->value,
@@ -406,7 +406,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444449',
+      id: '802f138e-98a7-47ae-b271-8761d554e251',
       inspection: $failingInspection,
       description: 'Alarm propagation failed during smoke detector test.',
       severity: NonConformitySeverity::CRITICAL->value,
@@ -418,7 +418,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444455',
+      id: '4158f69f-e262-44a9-8421-fe92c89bcd6e',
       inspection: $failingInspection,
       description: 'Detector casing needed repositioning.',
       severity: NonConformitySeverity::LOW->value,
@@ -430,7 +430,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444456',
+      id: '1744019f-76c4-4924-9ed9-93bc745fc6dc',
       inspection: $failingInspection,
       description: 'Temporary alert delay accepted until replacement kit arrives.',
       severity: NonConformitySeverity::HIGH->value,
@@ -442,7 +442,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444457',
+      id: '8a5e5d6d-56eb-4c63-8ab7-e6e6018fc38c',
       inspection: $lateFailInspection,
       description: 'Control panel acknowledgment sequence still unstable.',
       severity: NonConformitySeverity::MEDIUM->value,
@@ -454,7 +454,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444458',
+      id: '373bf781-649c-46e9-ac7d-f02557ae9e80',
       inspection: $latePartialInspection,
       description: 'Calibration drift corrected after follow-up inspection.',
       severity: NonConformitySeverity::LOW->value,
@@ -467,7 +467,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Annual Safety Checklist
     $annualChecklist = new ChecklistRecord();
-    $annualChecklist->id = '44444444-4444-4444-8444-444444444460';
+    $annualChecklist->id = 'd0ff24d9-e54d-427d-bfa0-eb99268ffdf2';
     $annualChecklist->organization = $organization;
     $annualChecklist->name = 'Annual Safety Audit';
     $annualChecklist->version = 'v1.0';
@@ -478,10 +478,10 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $this->addReference(self::ANNUAL_CHECKLIST_REFERENCE, $annualChecklist);
 
     foreach ([
-      ['44444444-4444-4444-8444-444444444461', 'Annual visual inspection', 0],
-      ['44444444-4444-4444-8444-444444444462', 'Equipment tag verification', 1],
-      ['44444444-4444-4444-8444-444444444463', 'Documentation review', 2],
-      ['44444444-4444-4444-8444-444444444464', 'Compliance sign-off', 3],
+      ['3f7b1b7e-5d2d-4132-ac9c-c3eaadb2b858', 'Annual visual inspection', 0],
+      ['163a95eb-4dea-430e-823c-aeabd9b86533', 'Equipment tag verification', 1],
+      ['895feb24-2356-4a9c-b48f-fa54b9df7b5a', 'Documentation review', 2],
+      ['ea41b391-d6fc-4f1e-8bf2-30e200967b17', 'Compliance sign-off', 3],
     ] as [$id, $label, $position]) {
       $item = new ChecklistItemRecord();
       $item->id = $id;
@@ -494,7 +494,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // February – hydrant annual inspection (PASS, closed)
     $hydrantPassInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444465',
+      id: 'e5c40817-6dae-4095-b81d-7580db679237',
       organization: $organization,
       equipmentId: $hydrant->id,
       facilityId: null,
@@ -511,7 +511,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // February – sprinkler inspection (PASS, closed)
     $sprinklerPassInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444466',
+      id: 'd6d0395c-5bfe-418b-8aac-684469c5b114',
       organization: $organization,
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
@@ -528,7 +528,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // February – alarm panel inspection (PARTIAL, closed) with non-conformity
     $alarmPanelInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444467',
+      id: '2fcce4e6-5464-46ee-93ac-fceabc6fbe1a',
       organization: $organization,
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
@@ -544,7 +544,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($alarmPanelInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444470',
+      id: 'c7e889d0-639a-45e7-951f-e9c4290d5051',
       inspection: $alarmPanelInspection,
       description: 'Event log buffer over 80% capacity, requires archiving.',
       severity: NonConformitySeverity::MEDIUM->value,
@@ -556,7 +556,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444471',
+      id: '5eacfccc-77fb-487a-a880-4b72b1176952',
       inspection: $alarmPanelInspection,
       description: 'Zone 3 supervision fault indicator occasionally flashing.',
       severity: NonConformitySeverity::LOW->value,
@@ -569,7 +569,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // March – heat detector in storage room (DRAFT, in progress)
     $heatDetectorDraftInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444468',
+      id: '2c83b788-eeaf-40ff-abfd-cedb53e9b4ae',
       organization: $organization,
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
@@ -586,7 +586,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // April – extinguisher in area / server room (PASS, closed)
     $extinguisherAreaInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444469',
+      id: '201feedf-a814-496e-883b-be8aba0e8212',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $area->id,
@@ -603,7 +603,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // April – sprinkler re-check (SUBMITTED, awaiting review)
     $sprinklerRecheckInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-44444444446a',
+      id: '498bd754-7b1c-4b41-814b-6b60eed12a98',
       organization: $organization,
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
@@ -619,7 +619,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($sprinklerRecheckInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444472',
+      id: 'd216b5e9-e74c-46d8-822e-119587ffbd4b',
       inspection: $sprinklerRecheckInspection,
       description: 'Corrosion visible on sprinkler head at position 4B.',
       severity: NonConformitySeverity::HIGH->value,
@@ -634,7 +634,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Jan 6 – extinguisher Zone A (PASS, closed)
     $janExtinguisherInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444473',
+      id: 'cf5ee49b-bf8e-4bf6-ac2e-b0a7ad98e715',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
@@ -651,7 +651,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Jan 12 – smoke detector server room (PASS, closed)
     $janDetectorInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444474',
+      id: 'e2e136bb-befa-414e-9a2b-5a3cec42a0d8',
       organization: $organization,
       equipmentId: $detector->id,
       facilityId: $area->id,
@@ -668,7 +668,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Jan 19 – hydrant (FAIL, closed) + NC
     $janHydrantInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444475',
+      id: 'fec7240e-c55f-4f46-8edd-de4bdd685fec',
       organization: $organization,
       equipmentId: $hydrant->id,
       facilityId: null,
@@ -684,7 +684,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($janHydrantInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444476',
+      id: 'f4c4a0e4-eefa-4800-9f42-ed9bcfd90509',
       inspection: $janHydrantInspection,
       description: 'Hydrant coupling thread worn, coupling replacement required.',
       severity: NonConformitySeverity::HIGH->value,
@@ -697,7 +697,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Jan 23 – alarm panel initial check (PASS, closed)
     $janAlarmInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444477',
+      id: '1b8b0174-85e8-4138-8fe4-28d1ae12164f',
       organization: $organization,
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
@@ -714,7 +714,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Jan 28 – sprinkler initial commissioning check (PASS, closed)
     $janSprinklerInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444478',
+      id: 'ff2f22c4-4020-4605-8011-8b4747b2ab63',
       organization: $organization,
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
@@ -733,7 +733,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Feb 5 – heat detector storage room (PASS, closed)
     $febHeatDetectorInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444479',
+      id: '1ce89757-65ee-42ee-a41c-e090dc769741',
       organization: $organization,
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
@@ -750,7 +750,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Feb 14 – extinguisher Zone A (PARTIAL, closed) + NC
     $febExtinguisherInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-44444444447a',
+      id: '0da23966-5101-4e7d-9e2f-d631229e43f1',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
@@ -766,7 +766,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($febExtinguisherInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-44444444447b',
+      id: 'f6a552b1-7c2c-42ca-aeec-243561e8ac51',
       inspection: $febExtinguisherInspection,
       description: 'Service sticker expired – maintenance log not updated after last charge.',
       severity: NonConformitySeverity::LOW->value,
@@ -781,7 +781,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Mar 4 – sprinkler Zone B (PASS, closed)
     $marSprinklerInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-44444444447c',
+      id: '59850189-704e-46ae-a944-bf5d56a1b02e',
       organization: $organization,
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
@@ -798,7 +798,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Mar 11 – alarm panel (FAIL, submitted) + NC
     $marAlarmFailInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-44444444447d',
+      id: '6127483b-a9e8-4e2b-8f5e-181b92e77887',
       organization: $organization,
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
@@ -814,7 +814,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($marAlarmFailInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-44444444447e',
+      id: 'd5e1ca5b-1db9-422d-821f-949ed0a2d016',
       inspection: $marAlarmFailInspection,
       description: 'Zone 2 end-of-line resistor missing, zone supervision lost.',
       severity: NonConformitySeverity::CRITICAL->value,
@@ -826,7 +826,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     ));
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-44444444447f',
+      id: 'bde3e5b7-eee5-4882-9501-c872edb8a58c',
       inspection: $marAlarmFailInspection,
       description: 'Remote annunciator display blank during Zone 2 test.',
       severity: NonConformitySeverity::MEDIUM->value,
@@ -839,7 +839,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Mar 17 – heat detector storage room (PARTIAL, closed) + NC
     $marHeatDetectorInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444480',
+      id: '882b7a7b-8644-4fb8-8c12-1c031522695e',
       organization: $organization,
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
@@ -855,7 +855,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($marHeatDetectorInspection);
 
     $manager->persist($this->createNonConformity(
-      id: '44444444-4444-4444-8444-444444444481',
+      id: 'c1b915f6-7204-4999-a5ef-09fb7014aac6',
       inspection: $marHeatDetectorInspection,
       description: 'Response time 8.2 s vs. 6 s spec – sensor aging suspected.',
       severity: NonConformitySeverity::MEDIUM->value,
@@ -868,7 +868,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Mar 26 – hydrant (PASS, closed) post-repair validation
     $marHydrantInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444482',
+      id: '1afcb6a3-3a82-495d-9a6c-1df29828efbd',
       organization: $organization,
       equipmentId: $hydrant->id,
       facilityId: null,
@@ -887,7 +887,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
     // Apr 3 – heat detector (PASS, closed) after sensor replacement
     $aprHeatDetectorInspection = $this->createInspection(
-      id: '44444444-4444-4444-8444-444444444483',
+      id: 'e6e3b2fa-3fab-4aac-b686-50529bbc7c56',
       organization: $organization,
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,

@@ -7,6 +7,7 @@ namespace Organization\Application\Port\Outbound;
 use DateTimeImmutable;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port OrganizationMemberRepositoryPort.
@@ -59,17 +60,64 @@ interface OrganizationMemberRepositoryPort
   public function findByOrganizationAndUser(OrganizationId $organizationId, string $userId): ?OrganizationMember;
 
   /**
-   * Method findByOrganizationId.
+   * Method hasActiveMembership.
    *
-   * Lists members for an organization.
+   * Tells whether a user holds an ACTIVE membership in an organization,
+   * without loading the aggregate or its role assignments.
    *
-   * @since 1.0.0
+   * "Active" is the same predicate
+   * {@see self::getPermissionNamesForUserInOrganization()} filters on, so the
+   * two answers cannot disagree: anyone this method rejects has no effective
+   * permission either. It exists so an authorization check can tell a
+   * non-member (the organization is outside their scope — 404) from an
+   * unentitled member (403), a distinction an empty permission list cannot
+   * carry, since an active member with no role also resolves to no
+   * permissions.
+   *
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param string $userId the user identifier
+   *
+   * @return bool true when an active membership exists
+   */
+  public function hasActiveMembership(OrganizationId $organizationId, string $userId): bool;
+
+  /**
+   * Method findByOrganizationId.
+   *
+   * Lists members for an organization, filtered and sorted at SQL level.
+   * Every filter parameter is optional and defaults to "no filter", so
+   * existing unfiltered callers keep receiving every member of the
+   * organization ordered by `joinedAt` ascending. `$limit` of `null` returns
+   * the full (unpaginated) result set.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param ?string $search free-text filter matched against the member's
+   *                        user identifier (the only free-text column this
+   *                        table owns; display name and email live in the
+   *                        User module's database and cannot be joined here)
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
+   * @param Sorting $sorting the sort field (`joinedAt` or `displayName`,
+   *                         the latter falling back to `userId` for the
+   *                         same reason as `$search`) and direction
+   * @param ?int $limit the maximum number of members to return, or null for no pagination
+   * @param ?int $offset the number of members to skip, ignored when `$limit` is null
    *
    * @return list<OrganizationMember> the organization members
    */
-  public function findByOrganizationId(OrganizationId $organizationId): array;
+  public function findByOrganizationId(
+    OrganizationId $organizationId,
+    ?string $search = null,
+    ?bool $isActive = null,
+    ?OrganizationRoleId $roleId = null,
+    Sorting $sorting = new Sorting('joinedAt', SortDirection::ASC),
+    ?int $limit = null,
+    ?int $offset = null,
+  ): array;
 
   /**
    * Method findByUserId.
@@ -135,15 +183,25 @@ interface OrganizationMemberRepositoryPort
   /**
    * Method countByOrganizationId.
    *
-   * Counts members belonging to an organization.
+   * Counts members belonging to an organization, honoring the same optional
+   * filters as {@see self::findByOrganizationId()} so a caller can compute a
+   * filtered listing's total.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param ?string $search free-text filter matched against the member's user identifier
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
    *
    * @return int the member count
    */
-  public function countByOrganizationId(OrganizationId $organizationId): int;
+  public function countByOrganizationId(
+    OrganizationId $organizationId,
+    ?string $search = null,
+    ?bool $isActive = null,
+    ?OrganizationRoleId $roleId = null,
+  ): int;
 
   /**
    * Counts members for multiple organizations in one query.

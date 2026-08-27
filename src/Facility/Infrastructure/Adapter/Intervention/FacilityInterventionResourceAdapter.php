@@ -7,12 +7,17 @@ namespace Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Domain\Exception\FacilityHasActiveDependentsException;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
+use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException, FacilityMetadataValidationException};
+use Facility\Domain\ValueObject\{FacilityId, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
+use Shared\Domain\Exception\InvalidValueException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_diff;
 use function array_key_exists;
@@ -20,6 +25,8 @@ use function array_keys;
 use function implode;
 use function in_array;
 use function is_array;
+use function is_float;
+use function is_int;
 use function is_string;
 use function preg_match;
 use function sprintf;
@@ -36,7 +43,7 @@ use function trim;
  */
 final readonly class FacilityInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
-  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent'];
+  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude', 'planGeometry'];
 
   private const STATUSES = ['active', 'archived'];
 
@@ -51,10 +58,17 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
    *
    * @param EntityManagerInterface $entityManager the entity manager value
    * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
+   * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param FacilityMetadataSchemaGuard $metadataSchemaGuard the organization's typed metadata schema guard
+   * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private FacilityArchivalGuardPort $archivalGuard,
+    private FacilityRepositoryPort $facilityRepository,
+    private FacilityMetadataSchemaGuard $metadataSchemaGuard,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
 
@@ -273,13 +287,63 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
         $record->{$property} = is_string($value) ? trim($value) : null;
       }
     }
+    if (array_key_exists('latitude', $patch) || array_key_exists('longitude', $patch)) {
+      // Coordinates are pairwise, mirroring the canonical mutation processor.
+      if (array_key_exists('latitude', $patch) !== array_key_exists('longitude', $patch)) {
+        throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
+      }
+      $latitude = $patch['latitude'];
+      $longitude = $patch['longitude'];
+      if ((null === $latitude) !== (null === $longitude)) {
+        throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
+      }
+      if (null === $latitude) {
+        $record->latitude = null;
+        $record->longitude = null;
+      } else {
+        if (!is_int($latitude) && !is_float($latitude)) {
+          throw new InterventionConflictException('Facility latitude must be a number or null.');
+        }
+        if (!is_int($longitude) && !is_float($longitude)) {
+          throw new InterventionConflictException('Facility longitude must be a number or null.');
+        }
+        if ($latitude < -90.0 || $latitude > 90.0 || $longitude < -180.0 || $longitude > 180.0) {
+          throw new InterventionConflictException('Facility coordinates are out of range.');
+        }
+        $record->latitude = (float) $latitude;
+        $record->longitude = (float) $longitude;
+      }
+    }
     if (array_key_exists('metadata', $patch)) {
       if (!is_array($patch['metadata'])) {
         throw new InterventionConflictException('Proposed facility metadata must be an object.');
       }
       /** @var array<string, mixed> $metadata */
       $metadata = $patch['metadata'];
+
+      // required is enforced on CREATE only, mirroring the canonical PATCH
+      // surface and the command handlers.
+      try {
+        $this->metadataSchemaGuard->assertValid($organizationId, $metadata, $record->type, false);
+      } catch (FacilityMetadataValidationException $exception) {
+        throw new InterventionConflictException($exception->getMessage());
+      }
       $record->metadata = $metadata;
+    }
+    if (array_key_exists('planGeometry', $patch)) {
+      $planGeometry = $patch['planGeometry'];
+      if (null === $planGeometry) {
+        $record->planGeometry = null;
+      } elseif (is_array($planGeometry)) {
+        try {
+          /** @var array{attachmentId?: mixed, points?: mixed} $planGeometry */
+          $record->planGeometry = PlanGeometry::fromArray($planGeometry)->toArray();
+        } catch (InvalidValueException $exception) {
+          throw new InterventionConflictException($exception->getMessage());
+        }
+      } else {
+        throw new InterventionConflictException('Proposed facility plan geometry must be an object or null.');
+      }
     }
     if (array_key_exists('status', $patch)) {
       $status = $patch['status'];
@@ -301,6 +365,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
         if ('archived' === $parent->status) {
           throw new InterventionConflictException('Proposed parent facility is archived.');
         }
+        $this->assertDepthWithinCap($record, $parent);
         $record->parentFacility = $parent;
       } else {
         throw new InterventionConflictException('Proposed parent facility must be an IRI or null.');
@@ -394,6 +459,31 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
         throw new InterventionConflictException('Proposed parent facility would create a hierarchy cycle.');
       }
       $ancestor = $ancestor->parentFacility;
+    }
+  }
+
+  /**
+   * Method assertDepthWithinCap.
+   *
+   * Refuses a proposed re-parenting that would push the record (and whatever
+   * PUBLISHED sub-tree still hangs beneath it) past the configured hierarchy
+   * depth cap. Depth and height are computed over the PUBLISHED tree only,
+   * matching the scope of the surrounding `apply()` guard (published records
+   * only).
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the facility being reparented
+   * @param FacilityRecord $parent the proposed parent
+   */
+  private function assertDepthWithinCap(FacilityRecord $record, FacilityRecord $parent): void
+  {
+    $prospectiveDepth = $this->facilityRepository->depthOf(FacilityId::fromString($parent->id))
+      + 1
+      + $this->facilityRepository->subtreeHeight(FacilityId::fromString($record->id));
+
+    if ($prospectiveDepth > $this->maxDepth) {
+      throw new InterventionConflictException(FacilityHierarchyException::maxDepthExceeded($this->maxDepth)->getMessage());
     }
   }
 

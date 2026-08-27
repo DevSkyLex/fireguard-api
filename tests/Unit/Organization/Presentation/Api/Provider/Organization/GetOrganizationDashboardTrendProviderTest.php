@@ -19,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
@@ -1002,7 +1003,11 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
 
-    $this->expectException(BadRequestHttpException::class);
+    // The provider no longer maps this one: `DashboardDateTimeParser` throws
+    // `InvalidValueException`, which `exception_to_status` carries at 400. The
+    // unit's job is to let it through; the status is proved through the real
+    // kernel by OrganizationDomainFailureMappingApiTest.
+    $this->expectException(InvalidValueException::class);
 
     $provider->provide(
       new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),

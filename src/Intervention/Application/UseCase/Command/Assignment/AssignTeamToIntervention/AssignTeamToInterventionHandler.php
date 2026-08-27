@@ -7,6 +7,7 @@ namespace Intervention\Application\UseCase\Command\Assignment\AssignTeamToInterv
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow\{MutateInterventionWorkflowCommand, MutateInterventionWorkflowResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Organization\Application\Contract\Team\TeamMembershipSnapshot;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, TeamDirectoryPort};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -21,12 +22,14 @@ use function array_values;
  * intervention's `participants` list. No change to the Intervention
  * aggregate, record, offline PUT/ETag, or revision engine: this dispatches
  * the EXISTING {@see MutateInterventionWorkflowCommand} so numbering,
- * activities, the planning freeze, and ETag/revision bumps all apply
- * identically to a manual participants edit. Expansion happens at
- * assignment time (a copy of member ids), never a live/dynamic link: a
- * later team-membership change never mutates an already-assigned
+ * activities, the schedule mutability guard, and ETag/revision bumps all
+ * apply identically to a manual participants edit — participants therefore
+ * stay assignable through `planned`, `in_progress` and `changes_requested`,
+ * and only `submitted`, `published` or `abandoned` conflict. Expansion
+ * happens at assignment time (a copy of member ids), never a live/dynamic
+ * link: a later team-membership change never mutates an already-assigned
  * intervention, which keeps behavior deterministic under the offline/ETag
- * optimistic-concurrency replay model and the draft-only planning freeze.
+ * optimistic-concurrency replay model.
  *
  * @category UseCase
  *
@@ -76,17 +79,29 @@ final readonly class AssignTeamToInterventionHandler implements CommandHandler
       throw InterventionNotFoundException::withId($command->interventionId);
     }
 
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, 'organization.interventions.plan')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, 'organization.interventions.plan');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.plan permission.');
     }
 
-    $activeMemberIds = $this->teamDirectory->listActiveMemberIds($context->organizationId, $command->teamId);
+    // resolveTeam rather than listActiveMemberIds: the latter flattens an
+    // unknown, malformed or foreign team into the same empty list an existing
+    // team with no active members returns, which would answer 422 to a caller
+    // whose real problem is a wrong team identifier.
+    $team = $this->teamDirectory->resolveTeam($context->organizationId, $command->teamId);
+    if (!$team instanceof TeamMembershipSnapshot) {
+      throw InterventionNotFoundException::forTeam($command->teamId);
+    }
 
-    if ([] === $activeMemberIds) {
+    if ([] === $team->memberIds) {
       throw new InterventionValidationException('The team has no active members to assign.');
     }
 
-    $participants = array_values(array_unique([...$context->participants, ...$activeMemberIds]));
+    $participants = array_values(array_unique([...$context->participants, ...$team->memberIds]));
 
     /** @var MutateInterventionWorkflowResult $result */
     $result = $this->commandBus->dispatch(new MutateInterventionWorkflowCommand(
@@ -95,7 +110,7 @@ final readonly class AssignTeamToInterventionHandler implements CommandHandler
       userId: $command->userId,
       id: $command->interventionId,
       payload: ['participants' => $participants],
-      expectedRevision: null,
+      expectedRevision: $command->expectedRevision,
       createOnly: false,
     ));
 

@@ -141,15 +141,18 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
   /**
    * Method findByOrganizationId.
    *
-   * Lists roles belonging to an organization.
+   * Lists roles belonging to an organization, ordered by name. `$limit` of
+   * `null` returns the full (unpaginated) result set.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param ?int $limit the maximum number of roles to return, or null for no pagination
+   * @param ?int $offset the number of roles to skip, ignored when `$limit` is null
    *
    * @return list<OrganizationRole> the organization roles
    */
-  public function findByOrganizationId(OrganizationId $organizationId): array
+  public function findByOrganizationId(OrganizationId $organizationId, ?int $limit = null, ?int $offset = null): array
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -157,7 +160,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       'organization' => $organization,
     ], [
       'name' => 'ASC',
-    ]);
+    ], $limit, null !== $limit ? $offset : null);
 
     return array_map(
       fn (OrganizationRoleRecord $record): OrganizationRole => $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record)),

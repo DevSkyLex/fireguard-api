@@ -19,6 +19,7 @@ use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -162,19 +163,28 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
       throw $exception;
     }
 
-    $decision = $this->approvalGate->evaluate(new ApprovalGateRequest(
-      organizationId: $organizationId,
-      actionType: ApprovalActionTypes::NC_WAIVER,
-      subjectId: $nonConformityId,
-      requestedByUserId: $actorUserId,
-      payload: [
-        'organizationId' => $organizationId,
-        'inspectionId' => $inspectionId,
-        'nonConformityId' => $nonConformityId,
-        'severity' => $current->severity,
-        'status' => NonConformityStatus::WAIVED->value,
-      ],
-    ));
+    try {
+      $decision = $this->approvalGate->evaluate(new ApprovalGateRequest(
+        organizationId: $organizationId,
+        actionType: ApprovalActionTypes::NC_WAIVER,
+        subjectId: $nonConformityId,
+        requestedByUserId: $actorUserId,
+        payload: [
+          'organizationId' => $organizationId,
+          'inspectionId' => $inspectionId,
+          'nonConformityId' => $nonConformityId,
+          'severity' => $current->severity,
+          'status' => NonConformityStatus::WAIVED->value,
+        ],
+      ));
+    } catch (OrganizationAccessDeniedException $exception) {
+      // Opening the approval request is a second, distinct entitlement:
+      // `organization.approvals.request`, asserted inside the gate. A caller
+      // who may write inspections but may not request approvals is denied,
+      // not failed — mirrors `ApprovalExceptionMapperTrait`, which maps the
+      // same exception on the Approval module's own endpoints.
+      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
+    }
 
     if (!$decision->deferred) {
       return null;

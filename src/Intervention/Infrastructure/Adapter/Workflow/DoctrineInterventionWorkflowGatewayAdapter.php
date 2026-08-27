@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Adapter\Workflow;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
+use Intervention\Application\Contract\Export\InterventionExportCandidate;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowMutation,
@@ -16,6 +18,7 @@ use Intervention\Application\Contract\Workflow\{
 };
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionIssueQueryPort, InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\Service\{InterventionDraftPublisher, InterventionIssueFinder, InterventionMemberPolicy, InterventionNotificationService};
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
   InterventionConflictException,
@@ -25,8 +28,8 @@ use Intervention\Domain\Exception\{
   InterventionValidationException
 };
 use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
-use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy};
-use Intervention\Domain\ValueObject\{InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType};
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy, InterventionWorkItemTransitionPolicy};
+use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType, InterventionWorkItemStatus};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\{InterventionMapper, InterventionViewMapper};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
@@ -38,8 +41,10 @@ use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -47,6 +52,7 @@ use function array_unique;
 use function array_values;
 use function in_array;
 use function is_array;
+use function is_int;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -77,18 +83,21 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param InterventionTransitionPolicy $transitionPolicy the transition policy value
    * @param InterventionChangePolicy $changePolicy the change policy value
+   * @param InterventionWorkItemTransitionPolicy $workItemTransitionPolicy the work item transition policy value
    * @param InterventionMemberPolicy $memberPolicy the member policy value
    * @param InterventionNotificationService $notifications the notifications value
    * @param InterventionResourceGatewayPort $resources the resources value
    * @param InterventionIssueFinder $issueFinder the issue finder value
    * @param InterventionViewMapper $views the view mapper value
    * @param InterventionActivityPort $activities the activity feed port value
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher (audit ledger)
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private UuidFactory $uuidFactory,
     private InterventionTransitionPolicy $transitionPolicy,
     private InterventionChangePolicy $changePolicy,
+    private InterventionWorkItemTransitionPolicy $workItemTransitionPolicy,
     private InterventionMemberPolicy $memberPolicy,
     private InterventionNotificationService $notifications,
     private InterventionResourceGatewayPort $resources,
@@ -96,6 +105,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private InterventionViewMapper $views,
     private InterventionActivityPort $activities,
     private InterventionDraftPublisher $draftPublisher,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
 
@@ -274,6 +284,63 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   }
 
   /**
+   * Method countInterventions.
+   *
+   * Executes the count interventions operation.
+   *
+   * @since 1.5.0
+   *
+   * @param string $organizationId the organization id value
+   * @param array<string, mixed> $filters the filters value
+   *
+   * @return int the count interventions result
+   */
+  public function countInterventions(string $organizationId, array $filters): int
+  {
+    $qb = $this->interventionListQuery($organizationId, $filters);
+
+    return (int) $qb->resetDQLPart('orderBy')->select('COUNT(m.id)')->getQuery()->getSingleScalarResult();
+  }
+
+  /**
+   * Method listInterventionExportCandidates.
+   *
+   * Executes the list intervention export candidates operation.
+   *
+   * @since 1.5.0
+   *
+   * @param string $organizationId the organization id value
+   * @param array<string, mixed> $filters the filters value
+   *
+   * @return list<InterventionExportCandidate> the list intervention export candidates result
+   */
+  public function listInterventionExportCandidates(string $organizationId, array $filters): array
+  {
+    $qb = $this->interventionListQuery($organizationId, $filters)
+      ->orderBy('m.updatedAt', 'DESC')
+      ->addOrderBy('m.id', 'ASC');
+
+    /** @var list<InterventionRecord> $records */
+    $records = $qb->getQuery()->getResult();
+
+    return array_map(
+      static fn (InterventionRecord $record): InterventionExportCandidate => new InterventionExportCandidate(
+        id: $record->id,
+        name: $record->name,
+        type: $record->type,
+        status: $record->status,
+        priority: $record->priority,
+        siteId: $record->siteId,
+        responsibleId: $record->responsibleId,
+        dueAt: $record->dueAt?->format(DateTimeInterface::ATOM),
+        createdAt: $record->createdAt->format(DateTimeInterface::ATOM),
+        updatedAt: $record->updatedAt->format(DateTimeInterface::ATOM),
+      ),
+      $records,
+    );
+  }
+
+  /**
    * Method issues.
    *
    * Executes the issues operation.
@@ -405,6 +472,8 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $organizationId = $this->organizationId($intervention);
     $previousStatus = $intervention->status;
     $aggregate = InterventionMapper::toDomain($intervention);
+    $previousPlannedStartAt = $aggregate->plannedStartAt();
+    $previousDueAt = $aggregate->dueAt();
     $responsibleId = $aggregate->responsibleId();
     if (array_key_exists('responsibleId', $mutation->payload)) {
       $responsibleId = $this->nullableString($mutation->payload, 'responsibleId');
@@ -428,6 +497,18 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       if (InterventionStatus::SUBMITTED === $nextStatus) {
         try {
           $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $responsibleId);
+        } catch (InterventionConflictException $exception) {
+          throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
+        }
+      }
+      // Withdrawing a submission (submitted -> in_progress) is reserved to the
+      // responsible member, like submitting. Gate on the source status so the
+      // participant-open planned/changes_requested -> in_progress paths stay
+      // untouched, and on the aggregate's responsible (the guard runs before
+      // edit() applies any payload change).
+      if (InterventionStatus::IN_PROGRESS === $nextStatus && InterventionStatus::SUBMITTED->value === $previousStatus) {
+        try {
+          $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $aggregate->responsibleId(), 'withdraw');
         } catch (InterventionConflictException $exception) {
           throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
         }
@@ -456,6 +537,13 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       hasReviewNote: array_key_exists('reviewNote', $mutation->payload),
     );
     InterventionMapper::sync($aggregate, $intervention);
+    // A rescheduled due date invalidates any reminder already sent against the
+    // old one: the anti-spam stamps must not silently suppress a reminder for
+    // the new date.
+    if ($previousDueAt?->getTimestamp() !== $aggregate->dueAt()?->getTimestamp()) {
+      $intervention->dueSoonNotifiedAt = null;
+      $intervention->overdueNotifiedAt = null;
+    }
     if (array_key_exists('labelIds', $mutation->payload)) {
       $intervention->labels->clear();
       foreach ($this->resolveLabels($mutation->payload['labelIds'] ?? [], $organizationId) as $label) {
@@ -473,12 +561,66 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         null,
         ['from' => $previousStatus, 'to' => $nextStatus->value],
       );
+      // Audit ledger: deferred like the notifications below, so the event
+      // fires only once the surrounding wrapInTransaction has actually
+      // committed — a rollback (e.g. a later validation failure in this same
+      // request) must never leave a ledger entry for a transition that never
+      // happened.
+      $interventionId = $intervention->id;
+      $interventionNumber = $intervention->number;
+      $actorUserId = $mutation->userId;
+      $fromStatus = $previousStatus;
+      $toStatus = $nextStatus->value;
+      $reviewNote = InterventionStatus::CHANGES_REQUESTED === $nextStatus ? $aggregate->reviewNote() : null;
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
+        organizationId: $organizationId,
+        interventionId: $interventionId,
+        interventionNumber: $interventionNumber,
+        actorUserId: $actorUserId,
+        fromStatus: $fromStatus,
+        toStatus: $toStatus,
+        reviewNote: $reviewNote,
+      ));
+    }
+    // A replan of a non-draft intervention leaves a trace: the operators who
+    // planned around the old window learn it moved, and by how much.
+    $nextPlannedStartAt = $aggregate->plannedStartAt();
+    $nextDueAt = $aggregate->dueAt();
+    $datesChanged = $previousPlannedStartAt?->getTimestamp() !== $nextPlannedStartAt?->getTimestamp()
+      || $previousDueAt?->getTimestamp() !== $nextDueAt?->getTimestamp();
+    if ('draft' !== $previousStatus && $datesChanged) {
+      $this->activities->append(
+        $intervention->id,
+        $organizationId,
+        $this->memberPolicy->findMemberId($organizationId, $mutation->userId),
+        'system',
+        'rescheduled',
+        null,
+        [
+          'from' => [
+            'plannedStartAt' => $previousPlannedStartAt?->format(DateTimeInterface::ATOM),
+            'dueAt' => $previousDueAt?->format(DateTimeInterface::ATOM),
+          ],
+          'to' => [
+            'plannedStartAt' => $nextPlannedStartAt?->format(DateTimeInterface::ATOM),
+            'dueAt' => $nextDueAt?->format(DateTimeInterface::ATOM),
+          ],
+        ],
+      );
     }
     if (InterventionStatus::CHANGES_REQUESTED === $nextStatus) {
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
       $responsibleId = $intervention->responsibleId;
       $notifications[] = fn () => $this->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
+    }
+    // Every entry into submitted — first submission and each resubmission —
+    // tells the organization's reviewers a review round awaits them.
+    if (InterventionStatus::SUBMITTED === $nextStatus && InterventionStatus::SUBMITTED->value !== $previousStatus) {
+      $interventionId = $intervention->id;
+      $interventionName = $intervention->name;
+      $actorUserId = $mutation->userId;
+      $notifications[] = fn () => $this->notifications->submitted($interventionId, $interventionName, $organizationId, $actorUserId);
     }
     // Abandoning an intervention is terminal: its draft resources can never be
     // published, so purge them here to avoid permanent orphaned draft rows.
@@ -537,10 +679,9 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
       $skipReason = $this->nullableString($mutation->payload, 'skipReason');
-      if ('skipped' === $status && (null === $skipReason || '' === trim($skipReason))) {
-        throw new InterventionValidationException('A skip reason is required.');
-      }
-      $record->status = $status;
+      $nextWorkItemStatus = InterventionWorkItemStatus::from($status);
+      $this->workItemTransitionPolicy->assertAllowed(InterventionWorkItemStatus::from($record->status), $nextWorkItemStatus, $skipReason);
+      $record->status = $nextWorkItemStatus->value;
       if ('planned' === $intervention->status && 'planned' !== $status) {
         $intervention->status = 'in_progress';
         $interventionAutoStarted = true;
@@ -579,6 +720,19 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         null,
         ['from' => 'planned', 'to' => 'in_progress'],
       );
+      // Audit ledger: same deferred-until-commit treatment as the explicit
+      // transition path in updateIntervention().
+      $autoStartInterventionId = $intervention->id;
+      $autoStartInterventionNumber = $intervention->number;
+      $autoStartActorUserId = $mutation->userId;
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
+        organizationId: $activityOrganizationId,
+        interventionId: $autoStartInterventionId,
+        interventionNumber: $autoStartInterventionNumber,
+        actorUserId: $autoStartActorUserId,
+        fromStatus: 'planned',
+        toStatus: 'in_progress',
+      ));
     }
     if (null !== $record->assigneeId && $record->assigneeId !== $previousAssigneeId) {
       $interventionId = $intervention->id;
@@ -695,8 +849,10 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
-      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $status);
-      $record->status = $status;
+      $nextChangeStatus = InterventionChangeStatus::from($status);
+      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $nextChangeStatus);
+      $this->changePolicy->assertTransitionAllowed(InterventionChangeStatus::from($record->status), $nextChangeStatus);
+      $record->status = $nextChangeStatus->value;
     }
     $now = new DateTimeImmutable();
     ++$record->revision;
@@ -752,6 +908,37 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   }
 
   /**
+   * Method filterValues.
+   *
+   * @static
+   *
+   * Normalizes an enum/IRI list filter that accepts one or several values: a
+   * plain string becomes a one-element list, a list keeps its non-empty
+   * string members. The provider already validates and normalizes; this keeps
+   * the gateway safe against a caller passing the legacy scalar form.
+   *
+   * @since 1.4.0
+   *
+   * @param mixed $raw the raw filter value
+   *
+   * @return list<string> the normalized values
+   */
+  private static function filterValues(mixed $raw): array
+  {
+    if (is_string($raw) && '' !== $raw) {
+      return [$raw];
+    }
+    if (!is_array($raw)) {
+      return [];
+    }
+
+    return array_values(array_filter(
+      array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $raw),
+      static fn (string $value): bool => '' !== $value,
+    ));
+  }
+
+  /**
    * Method interventionSortField.
    *
    * Maps a requested sort field to a column, falling back to `updatedAt` so an
@@ -759,7 +946,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    *
    * @since 1.0.0
    *
-   * @param string $field the requested field
+   * @param string $field the requested sort field
    *
    * @return string the record property to order by
    */
@@ -790,19 +977,23 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       ->where('m.organization = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('m.updatedAt', 'DESC');
-    foreach (['type', 'status'] as $filter) {
-      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
-        $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+    foreach (['type', 'status', 'priority', 'responsibleId', 'siteId'] as $filter) {
+      $values = self::filterValues($filters[$filter] ?? null);
+      if ([] !== $values) {
+        $qb->andWhere('m.' . $filter . ' IN (:' . $filter . ')')->setParameter($filter, $values);
       }
     }
     if (is_string($filters['name'] ?? null)) {
       TrigramSearchExpression::apply($qb, 'name', $filters['name'], 'm.name');
     }
-    if (is_string($filters['responsibleId'] ?? null) && '' !== $filters['responsibleId']) {
-      $qb->andWhere('m.responsibleId = :responsibleId')->setParameter('responsibleId', $filters['responsibleId']);
+    if (is_int($filters['number'] ?? null)) {
+      $qb->andWhere('m.number = :number')->setParameter('number', $filters['number']);
     }
-    if (is_string($filters['siteId'] ?? null) && '' !== $filters['siteId']) {
-      $qb->andWhere('m.siteId = :siteId')->setParameter('siteId', $filters['siteId']);
+    $labelIds = self::filterValues($filters['labelId'] ?? null);
+    if ([] !== $labelIds) {
+      $qb->innerJoin('m.labels', 'l')
+        ->andWhere('l.id IN (:labelIds)')
+        ->setParameter('labelIds', $labelIds);
     }
     if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
       $ids = $this->entityManager->getConnection()->fetchFirstColumn(
@@ -812,6 +1003,20 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $qb->andWhere([] === $ids ? '1 = 0' : 'm.id IN (:participantIds)');
       if ([] !== $ids) {
         $qb->setParameter('participantIds', $ids);
+      }
+    }
+    if (is_string($filters['memberId'] ?? null) && '' !== $filters['memberId']) {
+      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :member)',
+        ['organization' => $organizationId, 'member' => $filters['memberId']],
+      );
+      $qb->andWhere(
+        [] === $ids
+          ? 'm.responsibleId = :memberId'
+          : '(m.responsibleId = :memberId OR m.id IN (:memberInterventionIds))',
+      )->setParameter('memberId', $filters['memberId']);
+      if ([] !== $ids) {
+        $qb->setParameter('memberInterventionIds', $ids);
       }
     }
     foreach (
@@ -830,6 +1035,19 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         }
         $qb->andWhere(sprintf('m.%s %s :%s', $field, $operator, $filter))->setParameter($filter, $date);
       }
+    }
+    // `overdueAsOf`/`overdueExcludedStatuses` are never client input: the
+    // handler derives them from the `due=overdue` filter (see
+    // `ListInterventionWorkflowHandler::resolveFilters()`) and this query
+    // only applies them mechanically, exactly like the `dueAtAfter`/
+    // `dueAtBefore` bounds above, with which they compose.
+    $overdueAsOf = $filters['overdueAsOf'] ?? null;
+    if ($overdueAsOf instanceof DateTimeImmutable) {
+      $qb->andWhere('m.dueAt < :overdueAsOf')->setParameter('overdueAsOf', $overdueAsOf);
+    }
+    $overdueExcludedStatuses = $filters['overdueExcludedStatuses'] ?? null;
+    if (is_array($overdueExcludedStatuses) && [] !== $overdueExcludedStatuses) {
+      $qb->andWhere('m.status NOT IN (:overdueExcludedStatuses)')->setParameter('overdueExcludedStatuses', $overdueExcludedStatuses);
     }
 
     return $qb;
