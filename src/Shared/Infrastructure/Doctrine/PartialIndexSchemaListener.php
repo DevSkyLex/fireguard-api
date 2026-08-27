@@ -56,6 +56,34 @@ final class PartialIndexSchemaListener
       }
     }
 
+    if ($schema->hasTable('intervention_attachments')) {
+      $table = $schema->getTable('intervention_attachments');
+
+      if (!$table->hasIndex('uniq_intervention_attachment_signature')) {
+        $table->addUniqueIndex(
+          ['intervention_id'],
+          'uniq_intervention_attachment_signature',
+          ['where' => "((kind)::text = 'signature'::text)"],
+        );
+      }
+    }
+
+    if ($schema->hasTable('facility_attachments')) {
+      $table = $schema->getTable('facility_attachments');
+
+      if (!$table->hasIndex('uniq_facility_attachment_primary_plan')) {
+        // No parentheses and no cast: a bare boolean column is stored by
+        // PostgreSQL exactly as written, unlike the `(x)::text = 'y'::text`
+        // form a varchar comparison normalizes to. Read back from
+        // pg_indexes to confirm rather than assumed.
+        $table->addUniqueIndex(
+          ['facility_id'],
+          'uniq_facility_attachment_primary_plan',
+          ['where' => 'is_primary_plan'],
+        );
+      }
+    }
+
     if ($schema->hasTable('messaging_messages')) {
       $table = $schema->getTable('messaging_messages');
 

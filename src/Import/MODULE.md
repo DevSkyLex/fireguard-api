@@ -340,7 +340,11 @@ create an import job) and `organization.equipment.read` /
 - Migration: `migrations/main/Version20260717134458.php` (base table),
   `migrations/main/Version20260816170000.php` (adds `is_dry_run BOOLEAN NOT
   NULL DEFAULT false` — v2 dry-run mode; backfilled `false` for every
-  existing job).
+  existing job), `migrations/main/Version20260826230000.php` (drops that
+  `DEFAULT`). The default existed only because `ADD COLUMN ... NOT NULL` is
+  rejected on a non-empty table without one; the mapping never declared it, so
+  it left `main` out of sync with its mapping. `ImportJobRecord` always writes
+  the column, so nothing in the application could reach the default.
 
 ## Configuration
 
