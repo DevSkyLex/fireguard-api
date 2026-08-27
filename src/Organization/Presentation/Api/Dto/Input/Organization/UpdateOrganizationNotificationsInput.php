@@ -85,6 +85,16 @@ final class UpdateOrganizationNotificationsInput
   public ?bool $nonConformityOpened = null;
 
   /**
+   * Property nonConformitySlaBreached.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Type('bool')]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Notify when a non-conformity breaches its resolution SLA', required: false)]
+  public ?bool $nonConformitySlaBreached = null;
+
+  /**
    * Property memberInvited.
    *
    * @since 1.0.0

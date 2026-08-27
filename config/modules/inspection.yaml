@@ -6,6 +6,12 @@ services:
   Inspection\Presentation\:
     resource: '../../src/Inspection/Presentation'
 
+  Inspection\Application\Service\:
+    resource: '../../src/Inspection/Application/Service'
+
+  Inspection\Infrastructure\Scheduler\:
+    resource: '../../src/Inspection/Infrastructure/Scheduler'
+
   # CanonicalInspectionProvider names no entity manager: both of its reads
   # went to Application\UseCase\Query\Inspection\.
   # CanonicalInspectionMutationProcessor names no entity manager on purpose:
@@ -205,6 +211,9 @@ services:
   Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\EscalateNonConformitySlaBreachesHandler:
+    tags: ['messenger.message_handler']
+
   Inspection\Application\UseCase\Command\Checklist\CreateChecklist\CreateChecklistHandler:
     tags: ['messenger.message_handler']
 
@@ -303,3 +312,16 @@ services:
   Inspection\Application\UseCase\Query\ExportNonConformities\ExportNonConformitiesHandler:
     tags: ['messenger.message_handler']
 
+
+  # NC SLA escalation sweep: candidate selection over non_conformities (main DB)
+  Inspection\Application\Port\Outbound\NonConformitySlaPort:
+    alias: Inspection\Infrastructure\Adapter\Sla\DoctrineNonConformitySlaAdapter
+
+  Inspection\Infrastructure\Adapter\Sla\DoctrineNonConformitySlaAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module read model: per-severity non-conformity resolution SLAs
+  # (adapter lives in the owning Organization module)
+  Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort:
+    alias: Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter

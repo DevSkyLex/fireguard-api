@@ -78,6 +78,15 @@ final class OrganizationNotificationSettingsOutput
   public bool $nonConformityOpened = true;
 
   /**
+   * Property nonConformitySlaBreached.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $nonConformitySlaBreached = true;
+
+  /**
    * Property memberInvited.
    *
    * @since 1.0.0
@@ -110,6 +119,7 @@ final class OrganizationNotificationSettingsOutput
     $output->interventionAssigned = $settings->interventionAssigned;
     $output->inspectionDue = $settings->inspectionDue;
     $output->nonConformityOpened = $settings->nonConformityOpened;
+    $output->nonConformitySlaBreached = $settings->nonConformitySlaBreached;
     $output->memberInvited = $settings->memberInvited;
 
     return $output;

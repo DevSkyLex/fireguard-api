@@ -13,7 +13,7 @@ use Exception;
 use Inspection\Application\Contract\Export\NonConformityExportCandidate;
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
-use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId};
+use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformityStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
 use RuntimeException;
@@ -47,6 +47,22 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof NonConformityRecord) {
+      // Re-arm the SLA escalation guard: reopening a resolved non-conformity
+      // clears the stamp so a still-breached one is escalated again — mirrors
+      // how an intervention reschedule clears its reminder stamps at the
+      // source (DoctrineInterventionWorkflowGatewayAdapter::updateIntervention).
+      // Deliberately anticipatory: `NonConformity::updateStatus()` rejects
+      // reopening today, so no production path reaches this branch yet — it
+      // guards the day a reopen use case ships, and is covered by
+      // `DoctrineNonConformitySlaAdapterTest::testReopeningAResolvedNonConformityClearsTheStampAndReArmsTheSweep`
+      // through a reconstituted aggregate.
+      if (
+        NonConformityStatus::from($existing->status)->isResolved()
+        && !NonConformityStatus::from($record->status)->isResolved()
+      ) {
+        $existing->slaBreachNotifiedAt = null;
+      }
+
       $existing->inspection = $inspection;
       $existing->description = $record->description;
       $existing->severity = $record->severity;

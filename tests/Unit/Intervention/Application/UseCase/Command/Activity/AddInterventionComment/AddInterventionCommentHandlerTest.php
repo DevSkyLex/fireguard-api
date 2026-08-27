@@ -7,7 +7,7 @@ namespace Tests\Unit\Intervention\Application\UseCase\Command\Activity\AddInterv
 use DateTimeImmutable;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionWorkflowGatewayPort};
-use Intervention\Application\Service\{InterventionMemberPolicy, InterventionNotificationService, InterventionReviewerRecipientResolver};
+use Intervention\Application\Service\{InterventionMemberPolicy, InterventionNotificationService, InterventionRecurrenceRecipientResolver, InterventionReviewerRecipientResolver};
 use Intervention\Application\UseCase\Command\Activity\AddInterventionComment\{AddInterventionCommentCommand, AddInterventionCommentHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
@@ -226,11 +226,17 @@ final class AddInterventionCommentHandlerTest extends TestCase
       $this->createStub(OrganizationAuthorizationPort::class),
     );
 
+    $admins = new InterventionRecurrenceRecipientResolver(
+      $reviewerMembers,
+      $this->createStub(OrganizationAuthorizationPort::class),
+    );
+
     return new InterventionNotificationService(
       $port ?? $this->createStub(NotificationPort::class),
       $members,
       $policy,
       $reviewers,
+      $admins,
     );
   }
 

@@ -523,6 +523,7 @@ cancel endpoint and no server-side deadline to settle it.
 php bin/console messenger:consume \
   async webhook assistant \
   scheduler_maintenance scheduler_intervention scheduler_approval \
+  scheduler_inspection \
   --time-limit=3600
 ```
 
@@ -539,6 +540,7 @@ work" and produces no log line to investigate. Concretely, per transport:
 | `scheduler_maintenance` | Inspection due dates are never recomputed; no due/overdue reminders |
 | `scheduler_intervention` | Recurring interventions are never materialized |
 | `scheduler_approval` | Pending four-eyes approval requests never expire; they accumulate until manually decided |
+| `scheduler_inspection` | Non-conformity SLA breaches are never escalated; the per-severity SLAs configured in the organization compliance settings stay decorative |
 
 The `webhook` and `assistant` transports are deliberately isolated from `async`
 so a slow or unreachable third party (or a cold model load) cannot starve

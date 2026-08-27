@@ -291,6 +291,13 @@ and processes every candidate page-wise, mirroring
    toggle, mirroring `submitted()`); a candidate member id is re-validated as
    active and in-organization before delivery, the same check `mentioned()`
    applies to a member id sourced outside the mutation that owns it.
+   `overdue()` **additionally escalates to the organization's
+   administrators** — active members granted `organization.interventions.plan`
+   directly or through a wildcard, resolved by
+   `InterventionRecurrenceRecipientResolver` — deduplicated against the users
+   already notified as responsible/participant: an overdue intervention is a
+   compliance signal the planners must see even when they are not assigned.
+   `dueSoon()` deliberately does not escalate.
 3. Immediately stamps the anti-spam guard
    (`InterventionReminderPort::markDueSoonNotified` /
    `markOverdueNotified`) — **one notification per threshold per

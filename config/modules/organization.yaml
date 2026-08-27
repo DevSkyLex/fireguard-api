@@ -349,6 +349,9 @@ services:
   # Cross-module read model for the Maintenance module (compliance policy)
   Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter: ~
 
+  # Cross-module read model for the Inspection module (non-conformity SLA policy)
+  Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter: ~
+
   # Cross-module read model for the Automation module (automation policy)
   Organization\Infrastructure\Adapter\Automation\OrganizationAutomationPolicyAdapter: ~
 

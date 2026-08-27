@@ -47,6 +47,14 @@ class NonConformityRecord
   #[ORM\Column(name: 'notes', type: 'text', nullable: true)]
   public ?string $notes = null;
 
+  /**
+   * Anti-duplicate stamp for the SLA escalation sweep: set when the breach
+   * was signalled, cleared when a resolved non-conformity is reopened
+   * ({@see \Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository::save()}).
+   */
+  #[ORM\Column(name: 'sla_breach_notified_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $slaBreachNotifiedAt = null;
+
   #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
   public DateTimeImmutable $createdAt;
 

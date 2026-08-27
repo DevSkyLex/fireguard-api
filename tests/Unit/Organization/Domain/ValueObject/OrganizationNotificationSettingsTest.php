@@ -29,6 +29,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
     self::assertTrue($settings->interventionAssigned);
     self::assertTrue($settings->inspectionDue);
     self::assertTrue($settings->nonConformityOpened);
+    self::assertTrue($settings->nonConformitySlaBreached);
     self::assertTrue($settings->memberInvited);
   }
 
@@ -44,6 +45,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
       'intervention_assigned' => true,
       'inspection_due' => true,
       'non_conformity_opened' => true,
+      'non_conformity_sla_breached' => true,
       'member_invited' => true,
     ], $settings->toArray());
   }
@@ -67,6 +69,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
       interventionAssigned: true,
       inspectionDue: false,
       nonConformityOpened: true,
+      nonConformitySlaBreached: false,
       memberInvited: false,
     );
 

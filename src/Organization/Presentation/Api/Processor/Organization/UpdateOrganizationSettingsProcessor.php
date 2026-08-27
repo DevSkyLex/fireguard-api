@@ -253,6 +253,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
       'intervention_assigned' => $input->interventionAssigned,
       'inspection_due' => $input->inspectionDue,
       'non_conformity_opened' => $input->nonConformityOpened,
+      'non_conformity_sla_breached' => $input->nonConformitySlaBreached,
       'member_invited' => $input->memberInvited,
     ];
   }

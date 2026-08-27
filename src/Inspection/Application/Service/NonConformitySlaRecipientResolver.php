@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Intervention\Application\Service;
+namespace Inspection\Application\Service;
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
@@ -13,17 +13,16 @@ use function array_unique;
 use function array_values;
 
 /**
- * Service InterventionRecurrenceRecipientResolver.
+ * Service NonConformitySlaRecipientResolver.
  *
- * Resolves the organization's planning administrators — active members whose
- * effective permissions grant `organization.interventions.plan` directly or
- * through a wildcard. Two call sites rely on it: the fallback recipients of a
- * recurrence materialization failure notification (when the recurrence
- * carries no responsible member override), and the administrator escalation
- * of `intervention.overdue` reminders. Mirrors the administrator-detection rule
+ * Resolves the recipients of a non-conformity SLA breach escalation: the
+ * organization's active administrators, i.e. members whose effective
+ * permissions grant `organization.inspection.write` directly or through a
+ * wildcard — the permission that governs acting on non-conformities. Mirrors
+ * the administrator-detection rule
  * {@see \Maintenance\Application\Service\MaintenanceReminderRecipientResolver}
- * uses for `organization.maintenance.manage`, adapted to the planning
- * permission that governs intervention recurrences.
+ * uses for `organization.maintenance.manage`, adapted to the inspection
+ * permission.
  *
  * @category Service
  *
@@ -31,16 +30,16 @@ use function array_values;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class InterventionRecurrenceRecipientResolver
+final readonly class NonConformitySlaRecipientResolver
 {
   /**
-   * Granted permission patterns that satisfy organization.interventions.plan.
+   * Granted permission patterns that satisfy organization.inspection.write.
    *
    * @var list<string>
    */
   private const array ADMIN_GRANTING_PERMISSIONS = [
-    'organization.interventions.plan',
-    'organization.interventions.*',
+    'organization.inspection.write',
+    'organization.inspection.*',
     'organization.*',
     '*',
     '*.*',

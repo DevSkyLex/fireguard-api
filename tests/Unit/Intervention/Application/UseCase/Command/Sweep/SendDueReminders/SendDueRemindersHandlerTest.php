@@ -7,7 +7,7 @@ namespace Tests\Unit\Intervention\Application\UseCase\Command\Sweep\SendDueRemin
 use DateTimeImmutable;
 use Intervention\Application\Contract\Reminder\{InterventionReminderCandidate, InterventionReminderPage};
 use Intervention\Application\Port\Outbound\InterventionReminderPort;
-use Intervention\Application\Service\{InterventionNotificationService, InterventionReviewerRecipientResolver};
+use Intervention\Application\Service\{InterventionNotificationService, InterventionRecurrenceRecipientResolver, InterventionReviewerRecipientResolver};
 use Intervention\Application\UseCase\Command\Sweep\SendDueReminders\{SendDueRemindersCommand, SendDueRemindersHandler, SendDueRemindersResult};
 use Notification\Application\Contract\Notification\SendNotificationRequest;
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -222,6 +222,10 @@ final class SendDueRemindersHandlerTest extends TestCase
 
     $reviewers = new InterventionReviewerRecipientResolver($members, $this->createStub(OrganizationAuthorizationPort::class));
 
-    return new InterventionNotificationService($notifications, $members, $policy, $reviewers);
+    $adminMembers = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $adminMembers->method('findByOrganizationId')->willReturn([]);
+    $admins = new InterventionRecurrenceRecipientResolver($adminMembers, $this->createStub(OrganizationAuthorizationPort::class));
+
+    return new InterventionNotificationService($notifications, $members, $policy, $reviewers, $admins);
   }
 }

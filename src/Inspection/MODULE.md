@@ -365,6 +365,56 @@ sequenceDiagram
   UC-->>Bus: ListInspectionsResult
 ```
 
+### Non-conformity SLA escalation sweep (hourly)
+
+`Infrastructure/Scheduler/InspectionScheduleProvider` (`#[AsSchedule('inspection')]`)
+triggers `EscalateNonConformitySlaBreachesCommand` hourly on the
+`scheduler_inspection` transport (DSN `schedule://inspection`); run
+`messenger:consume scheduler_inspection` alongside the existing workers. The
+schedule is stateful and lock-guarded (`inspection.nc_sla_sweep`), mirroring
+the Maintenance module's sweep exactly.
+
+`EscalateNonConformitySlaBreachesHandler` is idempotent and processes every
+candidate page-wise:
+
+1. Pages through unresolved non-conformities (`open`, `in_progress`) not yet
+   signalled (`sla_breach_notified_at IS NULL`) through
+   `NonConformitySlaPort::pageOpenUnnotified` — the owning organization is
+   resolved through the join to the inspection record, never from input.
+2. Resolves the owning organization's per-severity resolution SLA through
+   `NonConformitySlaPolicyPort` (adapter
+   `Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter`,
+   reading `OrganizationComplianceSettings::effectiveNonConformitySlaDays()` —
+   the first consumer of the org compliance `nonConformitySlaDays` setting),
+   cached per organization for the run. A breach is
+   `createdAt + slaDays < now`; a severity with no SLA never breaches.
+3. Escalates each breach through
+   `Application/Service/NonConformitySlaNotifier` as a
+   **`non_conformity.sla_breached`** notification to the organization's
+   administrators — active members granted `organization.inspection.write`
+   directly or through a wildcard
+   (`Application/Service/NonConformitySlaRecipientResolver`, mirroring
+   `MaintenanceReminderRecipientResolver`) — honoring the organization's
+   `nonConformitySlaBreached` category toggle and the
+   `inAppEnabled`/`emailEnabled` channel toggles. Best-effort: a delivery
+   failure never fails the sweep.
+4. Immediately stamps the anti-duplicate guard
+   (`NonConformitySlaPort::markSlaBreachNotified`,
+   `non_conformities.sla_breach_notified_at`) — **one escalation per breach
+   per non-conformity**: a candidate is only selected while its stamp is
+   `null`, so a repeat tick never re-announces a breach that stays
+   unresolved.
+
+Resolving the non-conformity (`done`/`waived`) removes it from the sweep
+entirely. **Reopening a resolved non-conformity clears the stamp** at the
+source (`NonConformityRepository::save()` detects the resolved→unresolved
+transition), so a still-breached reopened non-conformity is deliberately
+escalated again — mirroring how an intervention reschedule re-arms its
+due-date reminders. Today `NonConformity::updateStatus()` rejects reopening
+(`NonConformityAlreadyResolvedException`), so the re-arm is a persistence-level
+guard for the day a reopen path exists; the documented choice stands either
+way: re-notifying after a reopen is correct behavior, not a duplicate.
+
 ## Domain Model
 
 Aggregates and entities:
@@ -471,6 +521,9 @@ Status transitions:
 ## Persistence
 
 - Tables: `inspections`, `checklists`, `checklist_items`, `non_conformities` (main database)
+- `non_conformities.sla_breach_notified_at` (nullable, migration
+  `migrations/main/Version20260827100000.php`) is the SLA escalation sweep's
+  anti-duplicate stamp — see the sweep section above.
 - Doctrine mapping: `src/Inspection/Infrastructure/Persistence/Doctrine/Record`
 - Repository implementations: `Inspection\Infrastructure\Persistence\Doctrine\Repository`
 - Table: `inspection_attachments` (main database, R11b) — `inspection_id` FK
@@ -594,6 +647,17 @@ gate reporting refusal through its own `Application/Contract/` type instead
 of a foreign domain exception — then this baseline shrinks back. The other
 two imports are `OrganizationQuotaResource` / `OrganizationQuotaExceededException`
 on the inspection-creation quota path.
+
+Refreshed 2026-08-27: after the quota-contract migration shrank the baseline
+to 1, it was raised 1 -> 2 for
+`Application/Service/NonConformitySlaRecipientResolver` importing
+`Organization\Domain\ValueObject\OrganizationId` — forced by
+`OrganizationMemberRepositoryPort::findByOrganizationId()`, whose signature is
+typed with that value object. The identical import for the identical reason
+already exists in `MaintenanceReminderRecipientResolver`,
+`InterventionReviewerRecipientResolver` and
+`InterventionRecurrenceRecipientResolver`; it shrinks back the day the member
+port is retyped with an `Application/Contract` identifier.
 
 ### A foreign organization answers 404, never 403
 
@@ -896,6 +960,15 @@ and reachable on its own; only which of the two failures wins moved.
   serve both.
 - `PatchCanonicalInspectionHandler` and `DeleteCanonicalInspectionHandler` name
   `@inspection.main_transaction_manager`, same reason as the response handlers.
+- `Inspection\Application\Port\Outbound\NonConformitySlaPort` is aliased to
+  `DoctrineNonConformitySlaAdapter`, wired to `main` explicitly;
+  `Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort`
+  is aliased to the Organization-owned
+  `OrganizationNonConformitySlaPolicyAdapter` (registered in
+  `config/modules/organization.yaml`) — the port is declared by the consumer,
+  the adapter belongs to the owner, mirroring `MaintenanceCompliancePolicyPort`.
+- The SLA escalation sweep runs on the `scheduler_inspection` transport the
+  Scheduler component registers for `InspectionScheduleProvider`.
 
 ## Testing
 

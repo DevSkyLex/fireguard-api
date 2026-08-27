@@ -49966,6 +49966,12 @@
                         "default": true,
                         "type": "boolean"
                     },
+                    "nonConformitySlaBreached": {
+                        "readOnly": true,
+                        "description": "Property nonConformitySlaBreached.",
+                        "default": true,
+                        "type": "boolean"
+                    },
                     "memberInvited": {
                         "readOnly": true,
                         "description": "Property memberInvited.",
@@ -52999,6 +53005,13 @@
                     },
                     "nonConformityOpened": {
                         "description": "Notify when an equipment non-conformity is opened",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "nonConformitySlaBreached": {
+                        "description": "Notify when a non-conformity breaches its resolution SLA",
                         "type": [
                             "boolean",
                             "null"

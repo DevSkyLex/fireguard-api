@@ -63,6 +63,14 @@ final readonly class OrganizationNotificationSettings
   public bool $nonConformityOpened;
 
   /**
+   * Whether a non-conformity breaching its resolution SLA generates a
+   * notification.
+   *
+   * @since 1.1.0
+   */
+  public bool $nonConformitySlaBreached;
+
+  /**
    * Whether inviting a new member generates a notification.
    *
    * @since 1.0.0
@@ -84,6 +92,7 @@ final readonly class OrganizationNotificationSettings
    * @param bool $interventionAssigned whether intervention assignment notifies
    * @param bool $inspectionDue whether due inspections notify
    * @param bool $nonConformityOpened whether opened non-conformities notify
+   * @param bool $nonConformitySlaBreached whether SLA-breaching non-conformities notify
    * @param bool $memberInvited whether member invitations notify
    */
   public function __construct(
@@ -93,6 +102,7 @@ final readonly class OrganizationNotificationSettings
     bool $interventionAssigned = true,
     bool $inspectionDue = true,
     bool $nonConformityOpened = true,
+    bool $nonConformitySlaBreached = true,
     bool $memberInvited = true,
   ) {
     $this->emailEnabled = $emailEnabled;
@@ -101,6 +111,7 @@ final readonly class OrganizationNotificationSettings
     $this->interventionAssigned = $interventionAssigned;
     $this->inspectionDue = $inspectionDue;
     $this->nonConformityOpened = $nonConformityOpened;
+    $this->nonConformitySlaBreached = $nonConformitySlaBreached;
     $this->memberInvited = $memberInvited;
   }
   // #endregion
@@ -124,6 +135,7 @@ final readonly class OrganizationNotificationSettings
       'intervention_assigned' => $this->interventionAssigned,
       'inspection_due' => $this->inspectionDue,
       'non_conformity_opened' => $this->nonConformityOpened,
+      'non_conformity_sla_breached' => $this->nonConformitySlaBreached,
       'member_invited' => $this->memberInvited,
     ];
   }
@@ -151,6 +163,7 @@ final readonly class OrganizationNotificationSettings
       interventionAssigned: (bool) ($data['intervention_assigned'] ?? true),
       inspectionDue: (bool) ($data['inspection_due'] ?? true),
       nonConformityOpened: (bool) ($data['non_conformity_opened'] ?? true),
+      nonConformitySlaBreached: (bool) ($data['non_conformity_sla_breached'] ?? true),
       memberInvited: (bool) ($data['member_invited'] ?? true),
     );
   }
