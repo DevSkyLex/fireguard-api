@@ -84,6 +84,39 @@
         path: "{{ fireguard_env_file }}"
         mode: "0600"
 
+    # The image ships NO .env: .dockerignore excludes `.env` and `.env.*` and keeps
+    # only `.env.example`, which symfony/dotenv never loads. Every key the app reads
+    # must therefore be a real environment variable coming from this file.
+    #
+    # A key missing here is not a warning, it is an EnvNotFoundException on the first
+    # request that reads it — which is how the 2026-07-28 and 2026-08-27 deploys each
+    # spent four minutes failing the health check on a bare 500, *after* stopping the
+    # app and migrating both databases. This check runs BEFORE any of that, so a
+    # missing key costs a named error instead of a half-deployed production.
+    - name: Read the production env file
+      ansible.builtin.slurp:
+        src: "{{ fireguard_env_file }}"
+      register: fireguard_env_contents
+
+    - name: Collect the env keys the application declares
+      ansible.builtin.set_fact:
+        fireguard_declared_env_keys: "{{ lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)=') }}"
+
+    - name: Collect the env keys the production file sets
+      ansible.builtin.set_fact:
+        fireguard_present_env_keys: "{{ fireguard_env_contents.content | b64decode | regex_findall('(?m)^([A-Z][A-Z0-9_]*)=') }}"
+
+    - name: Stop before touching production if a declared key is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ fireguard_env_file }} is missing
+          {{ fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length }}
+          key(s) that .env.example declares:
+          {{ fireguard_declared_env_keys | difference(fireguard_present_env_keys) | join(', ') }}.
+          The image carries no .env, so each of these is an EnvNotFoundException at
+          runtime. Add them on the VPS and redeploy. Nothing has been changed yet.
+      when: fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length > 0
+
     - name: Check Traefik Docker network
       ansible.builtin.command: "docker network inspect {{ fireguard_traefik_network }}"
       register: fireguard_traefik_network_check
@@ -271,7 +304,19 @@
           ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} logs --tail=200 --no-color app"
           args:
             chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_app_logs
           changed_when: false
+          # Never let the diagnostic itself abort the rescue block: a failure
+          # here would replace the message below with a docker error and hide
+          # the thing we came to read.
+          failed_when: false
+        # `command` output is registered, not printed. Without this task the
+        # dump above went to a variable nobody read, and the failure message
+        # pointed at logs that were never in the run output -- which is exactly
+        # how the 2026-07-28 deploy failed undiagnosed for five weeks.
+        - name: Surface the application logs in the run output
+          ansible.builtin.debug:
+            msg: "{{ (fireguard_app_logs.stdout_lines | default([])) + (fireguard_app_logs.stderr_lines | default([])) }}"
         - name: Fail the deploy after surfacing application logs
           ansible.builtin.fail:
             msg: >-

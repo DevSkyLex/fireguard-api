@@ -305,6 +305,15 @@ final class FacilityRepositoryCoverageTest extends KernelTestCase
       $organizationId,
       [self::ALPHA_ID, self::BETA_ID, self::FOREIGN_ID],
     );
+
+    // ksort because `assertSame` on an associative array also compares KEY
+    // ORDER, and this map has none to compare. `getFacilityNamesByIds` returns
+    // "map of facilityId => name" from a query with no ORDER BY, so PostgreSQL
+    // may hand the rows back in either order and callers index by id anyway.
+    // Asserting the raw order made this test fail in CI on 2026-08-27 with the
+    // two rows simply swapped, on a commit that touched nothing but a playbook.
+    ksort($names);
+
     self::assertSame(
       [self::ALPHA_ID => 'Alpha HQ', self::BETA_ID => 'Beta Wing'],
       $names,
