@@ -1296,6 +1296,15 @@ exactly like labels):
   partial index (same precedent as
   `uniq_approval_request_org_action_subject_pending`, so no
   `#[ORM\UniqueConstraint]` was added to `InterventionAttachmentRecord`).
+  **The half of that precedent this originally missed:** an index only the
+  migration knows about makes `doctrine:schema:validate --em=main` report the
+  table out of sync forever, and `migrations:diff` emit a DROP for it. The
+  index is therefore also declared in
+  `Shared\Infrastructure\Doctrine\PartialIndexSchemaListener`, which injects it
+  into the schema Doctrine derives from the mappings. The predicate there must
+  match, character for character, what PostgreSQL reads back — here
+  `((kind)::text = 'signature'::text)`, with the outer parentheses and both
+  casts. It was omitted until 2026-08-26 and the drift failed CI.
   Before this index, two concurrent `kind: signature` uploads for the same
   intervention could both pass the application-level "at most one signature"
   read and both persist. It forces a save-order inversion in the replace

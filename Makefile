@@ -31,7 +31,7 @@ APP_LOG_DIR ?= $(TMP_DIR)/$(PROJECT_NAME)/log/$(APP_ENV)
 export APP_CACHE_DIR
 export APP_LOG_DIR
 
-.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 # Run the whole suite: unit, architecture, integration, functional and E2E.
 
@@ -155,7 +155,16 @@ test-cache-clean:
 seed-fixtures:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
-test: cs-lint phpstan deptrac lint openapi-check phpunit-parallel
+# Mapping vs database, on BOTH entity managers, against the test databases the
+# suite runs on. CI has always run this inside the "Prepare PostgreSQL test
+# environment" action; `make test` never did, so `main` drifted from its mapping
+# for weeks and only the first PR to `main` in five weeks caught it -- with all
+# three test jobs failing at setup, before a single test ran.
+schema-check:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:schema:validate --env=test --em=auth
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:schema:validate --env=test --em=main
+
+test: cs-lint phpstan deptrac lint openapi-check schema-check phpunit-parallel
 
 # Run tests with code coverage (requires PCOV or Xdebug)
 #

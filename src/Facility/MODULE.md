@@ -437,12 +437,23 @@ Aggregate:
   **not** delete the stored object — parents are expected to be archived, not
   hard-deleted, in normal operation; a scheduled orphan-object sweep is
   deferred (same accepted gap as `equipment_attachments`).
-- `facility_attachments` gains `kind` (`VARCHAR(20) NOT NULL DEFAULT
-  'document'`), `is_primary_plan` (`BOOLEAN NOT NULL DEFAULT false`),
-  `image_width`/`image_height` (`INT NULL`), plus the partial unique index
+- `facility_attachments` gains `kind` (`VARCHAR(20) NOT NULL`),
+  `is_primary_plan` (`BOOLEAN NOT NULL`), `image_width`/`image_height`
+  (`INT NULL`), plus the partial unique index
   `uniq_facility_attachment_primary_plan ON facility_attachments (facility_id)
   WHERE is_primary_plan` — Migration: `migrations/main/Version20260816110904.php`
   (Facility plan Phase 3).
+  Both columns were added with a `DEFAULT` (`'document'` and `false`), because
+  `ADD COLUMN ... NOT NULL` is rejected on a non-empty table without one. The
+  defaults were backfill scaffolding, not contract: the mapping never declared
+  them, so they put `main` out of sync with its mapping until
+  `migrations/main/Version20260826230000.php` dropped them. Doctrine always
+  writes both columns, so nothing in the application could reach a default —
+  only a bug could, and it would then be absorbed instead of failing.
+  The partial index itself is unmappable in ORM attributes and is re-declared in
+  `Shared\Infrastructure\Doctrine\PartialIndexSchemaListener`, predicate
+  `is_primary_plan` — a bare boolean, no parentheses and no cast, unlike the
+  `((kind)::text = 'signature'::text)` form a varchar comparison normalizes to.
 - Table: `facility_metadata_fields` (main database) — `organization_id` FK
   `ON DELETE CASCADE`, unique `(organization_id, field_key)`. Migration:
   `migrations/main/Version20260816165736.php`. Repository:
