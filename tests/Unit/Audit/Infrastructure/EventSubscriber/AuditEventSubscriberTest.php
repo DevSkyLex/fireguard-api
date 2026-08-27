@@ -29,7 +29,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
-use function hash;
+use function hash_hmac;
 
 /**
  * Test AuditEventSubscriberTest.
@@ -143,7 +143,7 @@ final class AuditEventSubscriberTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $sanitizer = new AuditPiiSanitizer(includePii: true, piiSalt: null);
+    $sanitizer = new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests');
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -154,9 +154,9 @@ final class AuditEventSubscriberTest extends TestCase
           && 'user' === $command->actorType
           && 'user-123' === $command->actorId
           && 'user@example.com' === $command->actorEmail
-          && hash('sha256', 'user@example.com') === $command->actorEmailHash
+          && hash_hmac('sha256', 'user@example.com', 'salt-for-tests') === $command->actorEmailHash
           && '203.0.113.10' === $command->ipAddress
-          && hash('sha256', '203.0.113.10') === $command->ipHash
+          && hash_hmac('sha256', '203.0.113.10', 'salt-for-tests') === $command->ipHash
           && 'Mozilla/5.0' === $command->userAgent
           && ['request_id' => 'req-123'] === $command->metadata;
       }))
@@ -203,7 +203,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $logger,
@@ -230,7 +230,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -253,7 +253,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -284,7 +284,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(new SecurityUser(
         id: 'admin-1',
@@ -323,7 +323,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -351,7 +351,7 @@ final class AuditEventSubscriberTest extends TestCase
         && 'inv-1' === $command->subjectId
         && [
           'invited_email' => 'invitee@example.com',
-          'invited_email_hash' => hash('sha256', 'invitee@example.com'),
+          'invited_email_hash' => hash_hmac('sha256', 'invitee@example.com', 'salt-for-tests'),
           'resend' => true,
           'organization_id' => 'org-1',
         ] === $command->metadata))
@@ -359,7 +359,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(new SecurityUser(
         id: 'other-2',
@@ -399,7 +399,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -430,7 +430,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -462,7 +462,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -499,7 +499,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -535,7 +535,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -565,7 +565,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -599,7 +599,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -631,7 +631,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -666,7 +666,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -704,7 +704,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
@@ -738,7 +738,7 @@ final class AuditEventSubscriberTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),

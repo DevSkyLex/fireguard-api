@@ -25,6 +25,10 @@
       - AUTH_DATABASE_URL
       - MAIN_DATABASE_URL
     fireguard_traefik_network: traefik_proxy
+    # How many per-deployment backup directories to keep. Nothing pruned them
+    # before: every deploy wrote a full dump of BOTH databases and left it there,
+    # so the VPS filled up at a rate nobody was tracking.
+    fireguard_backup_retention: 10
     fireguard_healthcheck_retries: 30
     fireguard_healthcheck_delay: 5
     fireguard_deployment_timestamp: ""
@@ -379,6 +383,27 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
+
+    # Directory names are the deployment timestamp, YYYYMMDDHHMMSS, so a
+    # lexicographic sort is chronological. The slice takes everything EXCEPT the
+    # newest N; `max(0, ...)` keeps it empty while there are fewer than N, rather
+    # than relying on a negative slice to mean the same thing by accident.
+    - name: List the deployment backups
+      ansible.builtin.find:
+        paths: "{{ fireguard_app_dir }}/backups"
+        file_type: directory
+        recurse: false
+      register: fireguard_backup_dirs
+
+    - name: Prune every deployment backup but the newest few
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: >-
+        {{ (fireguard_backup_dirs.files | map(attribute='path') | sort)
+           [:[0, (fireguard_backup_dirs.files | length) - (fireguard_backup_retention | int)] | max] }}
+      loop_control:
+        label: "{{ item | basename }}"
 
     - name: Stop application service before schema changes
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} stop app"

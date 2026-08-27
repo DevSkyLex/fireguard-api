@@ -83,7 +83,7 @@ final class LogoutProcessorTest extends TestCase
       commandBus: $commandBus,
       eventDispatcher: $eventDispatcher,
       logger: $logger,
-      sanitizer: new SecurityLogSanitizer(includePii: true),
+      sanitizer: new SecurityLogSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
     );
 
     $output = $processor->process(null, new Post());

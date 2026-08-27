@@ -71,7 +71,7 @@ final class InspectionAuditWiringTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $security,
       logger: new NullLogger(),

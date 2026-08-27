@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 use function array_keys;
 use function count;
-use function hash;
+use function hash_hmac;
 use function sprintf;
 
 /**
@@ -80,7 +80,7 @@ final class OrganizationAuditWiringTest extends TestCase
       'organization.role_unassigned' => ['organization_member', 'member-1', ['role_id' => 'role-1', 'organization_id' => 'org-1']],
       'organization.member_added' => ['organization_member', 'member-1', ['user_id' => 'user-1', 'role_ids' => ['role-1'], 'organization_id' => 'org-1']],
       'organization.member_removed' => ['organization_member', 'member-1', ['user_id' => 'user-1', 'organization_id' => 'org-1']],
-      'organization.invitation_sent' => ['organization_invitation', 'inv-1', ['invited_email' => 'a@b.c', 'invited_email_hash' => hash('sha256', 'a@b.c'), 'resend' => false, 'organization_id' => 'org-1']],
+      'organization.invitation_sent' => ['organization_invitation', 'inv-1', ['invited_email' => 'a@b.c', 'invited_email_hash' => hash_hmac('sha256', 'a@b.c', 'salt-for-tests'), 'resend' => false, 'organization_id' => 'org-1']],
       'organization.invitation_accepted' => ['organization_invitation', 'inv-1', ['member_id' => 'member-1', 'role_ids' => ['role-1'], 'organization_id' => 'org-1']],
       'organization.invitation_revoked' => ['organization_invitation', 'inv-1', ['reason' => 'delivery_failed', 'organization_id' => 'org-1']],
       'organization.plan_changed' => ['organization', 'org-1', ['plan_id' => 'plan-2', 'previous_plan_id' => 'plan-1', 'over_quota_resources' => ['members'], 'organization_id' => 'org-1']],
@@ -103,7 +103,7 @@ final class OrganizationAuditWiringTest extends TestCase
 
     $subscriber = new AuditEventSubscriber(
       commandBus: $commandBus,
-      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
       security: $security,
       logger: new NullLogger(),

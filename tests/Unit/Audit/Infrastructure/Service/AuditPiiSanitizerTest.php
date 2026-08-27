@@ -7,6 +7,7 @@ namespace Tests\Unit\Audit\Infrastructure\Service;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 use function hash;
 use function hash_hmac;
@@ -25,17 +26,21 @@ final class AuditPiiSanitizerTest extends TestCase
   #[Test]
   public function testHashesWhenPiiIsExcluded(): void
   {
-    $sanitizer = new AuditPiiSanitizer(includePii: false, piiSalt: null);
+    // This used to assert hash('sha256', ...) — it encoded the unsalted fallback as
+    // the contract, which is how a reversible digest passed for a privacy measure
+    // for as long as it did. The value is normalized and trimmed before hashing;
+    // that part was always right.
+    $sanitizer = new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests');
 
     self::assertNull($sanitizer->email(' User@Example.com '));
     self::assertSame(
-      hash('sha256', 'user@example.com'),
+      hash_hmac('sha256', 'user@example.com', 'salt-for-tests'),
       $sanitizer->emailHash(' User@Example.com '),
     );
 
     self::assertNull($sanitizer->ip(' 127.0.0.1 '));
     self::assertSame(
-      hash('sha256', '127.0.0.1'),
+      hash_hmac('sha256', '127.0.0.1', 'salt-for-tests'),
       $sanitizer->ipHash(' 127.0.0.1 '),
     );
   }
@@ -81,6 +86,44 @@ final class AuditPiiSanitizerTest extends TestCase
     self::assertNull($sanitizer->emailHash('   '));
     self::assertNull($sanitizer->ip("\t\n"));
     self::assertNull($sanitizer->ipHash("\t\n"));
+  }
+
+  #[Test]
+  public function testRefusesToStartWithoutASalt(): void
+  {
+    // The whole point of the change: a blank salt used to fall through to a bare
+    // sha256, which is not a privacy measure. The input space is a wordlist of
+    // email addresses, so the digest is reversible by anyone holding the events.
+    // It was blank in every env file in the repository, so that is what shipped.
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessageMatches('/SECURITY_LOG_PII_SALT is blank/');
+
+    new AuditPiiSanitizer(includePii: false, piiSalt: '   ');
+  }
+
+  #[Test]
+  public function testHashesWithAnHmacKeyedOnTheSaltAndNeverABareDigest(): void
+  {
+    $sanitizer = new AuditPiiSanitizer(includePii: false, piiSalt: 'pepper');
+
+    self::assertSame(
+      hash_hmac('sha256', 'user@example.com', 'pepper'),
+      $sanitizer->emailHash('user@example.com'),
+    );
+    self::assertNotSame(
+      hash('sha256', 'user@example.com'),
+      $sanitizer->emailHash('user@example.com'),
+    );
+  }
+
+  #[Test]
+  public function testTwoSaltsDisagreeOnTheSameValue(): void
+  {
+    // If they agreed, the salt would not be keying anything.
+    self::assertNotSame(
+      new AuditPiiSanitizer(piiSalt: 'one')->emailHash('user@example.com'),
+      new AuditPiiSanitizer(piiSalt: 'two')->emailHash('user@example.com'),
+    );
   }
   // #endregion
 }
