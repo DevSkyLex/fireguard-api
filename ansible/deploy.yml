@@ -209,14 +209,20 @@
     # produce a broken line -- it produces an EXTRA line, and compose loads it.
     # Measured: ADMIN_EMAIL carrying a line break followed by "INJECTED_KEY=pwned"
     # rendered both lines, and DeployEnvContractTest does not catch it -- it asserts
-    # which keys are DECLARED, not which end up in the file. Leading and trailing
-    # whitespace is rejected on the same pass: none of the 34 keys can legitimately
-    # need it, and a pasted trailing space silently breaks a URL or a DSN.
+    # which keys are DECLARED, not which end up in the file.
+    #
+    # A single quote is rejected too. Every value in the template is single-quoted,
+    # because this file is SOURCED by /bin/sh in the two role-password tasks and not
+    # merely read by compose: unquoted, the `&` in `?serverVersion=16&charset=utf8`
+    # backgrounds the assignment and leaves AUTH_DATABASE_URL empty. That is what
+    # broke the first managed deploy. Leading and trailing whitespace goes on the
+    # same pass: no key can legitimately need it, and a pasted trailing space
+    # silently breaks a URL or a DSN.
     - name: Collect the values that would corrupt the generated file
       ansible.builtin.set_fact:
         fireguard_unsafe_env_keys: >-
           {{ fireguard_unsafe_env_keys | default([])
-             + ([item] if (lookup('env', item) is search('[\r\n]')
+             + ([item] if (lookup('env', item) is search('[\r\n\x27]')
                            or lookup('env', item) != (lookup('env', item) | trim))
                 else []) }}
       loop: "{{ fireguard_declared_env_keys | difference(fireguard_computed_env_keys) | list }}"
@@ -227,12 +233,15 @@
     - name: Refuse to generate an env file from a value that would corrupt it
       ansible.builtin.fail:
         msg: >-
-          These values contain a line break, or leading/trailing whitespace:
+          These values contain a line break, a single quote, or leading or trailing
+          whitespace:
           {{ fireguard_unsafe_env_keys | join(', ') }}.
-          Written verbatim, a line break adds a KEY=VALUE line that compose loads
-          and nothing reviews; stray whitespace silently becomes part of a URL or
-          a DSN. Fix the GitHub variable or secret. The application is still running
-          and no migration has run.
+          A line break adds a KEY=VALUE line that compose loads and nothing reviews.
+          A single quote closes the quoting the file depends on -- it is SOURCED by
+          /bin/sh in the role-password tasks, not only read by compose. Stray
+          whitespace silently becomes part of a URL or a DSN. Fix the GitHub
+          variable or secret. The application is still running and no migration has
+          run.
       when:
         - fireguard_managed_env
         - fireguard_unsafe_env_keys | default([]) | length > 0
