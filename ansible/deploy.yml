@@ -271,7 +271,19 @@
           ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} logs --tail=200 --no-color app"
           args:
             chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_app_logs
           changed_when: false
+          # Never let the diagnostic itself abort the rescue block: a failure
+          # here would replace the message below with a docker error and hide
+          # the thing we came to read.
+          failed_when: false
+        # `command` output is registered, not printed. Without this task the
+        # dump above went to a variable nobody read, and the failure message
+        # pointed at logs that were never in the run output -- which is exactly
+        # how the 2026-07-28 deploy failed undiagnosed for five weeks.
+        - name: Surface the application logs in the run output
+          ansible.builtin.debug:
+            msg: "{{ (fireguard_app_logs.stdout_lines | default([])) + (fireguard_app_logs.stderr_lines | default([])) }}"
         - name: Fail the deploy after surfacing application logs
           ansible.builtin.fail:
             msg: >-
