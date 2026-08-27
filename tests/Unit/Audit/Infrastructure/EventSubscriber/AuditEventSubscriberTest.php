@@ -130,6 +130,11 @@ final class AuditEventSubscriberTest extends TestCase
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
       'intervention.interventions_exported_event' => 'onInterventionsExported',
+      'equipment.equipments_exported_event' => 'onEquipmentsExported',
+      'facility.facilities_exported_event' => 'onFacilitiesExported',
+      'inspection.inspections_exported_event' => 'onInspectionsExported',
+      'inspection.non_conformities_exported_event' => 'onNonConformitiesExported',
+      'maintenance.maintenance_schedules_exported_event' => 'onMaintenanceSchedulesExported',
     ], AuditEventSubscriber::getSubscribedEvents());
   }
 

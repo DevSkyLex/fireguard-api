@@ -31,6 +31,13 @@ final class FacilityOperations
   public const string LIST_FACILITIES = 'facility_list';
 
   /**
+   * Constant EXPORT_FACILITIES.
+   *
+   * @var string
+   */
+  public const string EXPORT_FACILITIES = 'facility_export';
+
+  /**
    * Constant GET_FACILITY.
    *
    * @var string

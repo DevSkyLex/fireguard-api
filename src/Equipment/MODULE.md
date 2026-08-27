@@ -35,6 +35,7 @@ Main goals:
 | GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}/download` | Download an attachment's raw bytes (`Content-Disposition: attachment`, never inline — see below) |
 | POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
 | GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
+| GET | `/api/organizations/{organizationId}/equipment/export` | Streams a bounded CSV export of every equipment item in the organization — see below |
 
 Removed 2026-08-20: `GET /api/organizations/{organizationId}/equipment-types` and
 `GET /api/organizations/{organizationId}/equipment-statuses` (unconsumed reference
@@ -107,6 +108,49 @@ should target this endpoint AS-IS (base64 JSON `AddAttachmentInput`), not
 the multipart shape** — `EquipmentService.uploadEvidence()` (`POST
 /api/media`) remains the separate canonical/offline-evidence path, already
 multipart, unchanged by this work.
+
+**CSV export (added 2026-08-27).** `GET .../equipment/export`
+(`EXPORT_EQUIPMENTS`, resolved on a dedicated `EquipmentExportResource` — a
+separate resource rather than a fourth operation on `EquipmentResource`,
+because that resource's `GET_EQUIPMENT` operation carries no `{equipmentId}`
+format requirement and an `export` literal segment would otherwise collide
+with it, exactly the reason `EquipmentKpiResource` is already separate)
+streams a synchronous CSV (no 202+poll), mirroring
+`Intervention\...\ExportInterventionsController`. `ExportEquipmentsController`
+resolves `organizationId` off the URI (this module's routes are
+organization-path-scoped, unlike Intervention's query-parameter
+`organization`), dispatches `ExportEquipmentsQuery` through the query bus, and
+streams the CSV via `EquipmentCsvWriter`. `ExportEquipmentsHandler` resolves
+`organization.equipment.read` through `OrganizationAuthorizationPort` —
+`EquipmentNotFoundException::forOrganizationScope()` (404) when the caller is
+outside the organization, `EquipmentAccessDeniedException` (403) when the
+permission is missing — then bounds the request with a cheap
+`EquipmentRepositoryPort::countEquipments()` before fetching a single row,
+rejecting with `EquipmentExportTooLargeException` (422) past
+`ExportEquipmentsHandler::MAX_EXPORT_ROWS` (50 000). **Deliberately
+unfiltered**: unlike the Intervention export, which replicates the list
+endpoint's filter subset, this export always scopes to the whole organization
+— it doubles as the full-organization backup/reimport source for the Import
+module's bulk CSV import, so filtering it down to whatever the caller has the
+list page currently filtered on would silently produce an incomplete backup.
+A successful export dispatches `EquipmentsExportedEvent`
+(`organizationId`/`actorUserId`/`format`/`rowCount`); the Audit module wires
+its own subscriber to turn that into an `equipment.list_exported` ledger
+entry — not wired here, matching the layering every other module's own
+`*ExportedEvent` follows.
+
+**CSV column contract — the import round-trip.** `EquipmentCsvWriter::HEADER`
+is a `public` constant, and its first six columns
+(`type`, `subType`, `brand`, `model`, `serialNumber`, `locationLabel`, in that
+exact order) are a published contract: they are the same six columns, in the
+same order, that `Import\Application\Service\EquipmentRowFactory` reads back
+by column *name* (not position — the importer maps by header, so reordering
+is actually safe for the importer itself, but the position is still frozen
+here to keep the two sides human-comparable) on a bulk CSV reimport. Every
+column after the sixth (`id`, `status`, `facilityId`, `facilityName`,
+`installedAt`, `commissionedAt`, `createdAt`, `updatedAt`) is read-only
+metadata the importer ignores. The frozen slice is asserted by
+`tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
 
 ## Flows
 
@@ -618,6 +662,12 @@ names the write path has no reason to carry).
   (implements Facility's `FacilityEquipmentPlanPositionPort`) is wired with
   `doctrine.orm.main_entity_manager` here; the port alias itself is
   registered in `config/modules/facility.yaml` (the port's owning module).
+- CSV export: `Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler`
+  is tagged `messenger.message_handler`. It touches Doctrine only through the
+  already-wired `EquipmentRepositoryPort`/`FacilityNamingPort` aliases, so it
+  needs no `$entityManager` of its own; same for `ExportEquipmentsController`,
+  which reaches Doctrine only via the query bus and is covered by the
+  `Equipment\Presentation\:` resource autowiring.
 
 ## Testing
 
@@ -713,6 +763,27 @@ names the write path has no reason to carry).
     partial input. Overlay-side equipment inclusion is covered in
     `tests/Functional/Api/FacilityPlanGeometryApiTest.php` (Facility owns
     that endpoint).
+- CSV export:
+  - `tests/Unit/Equipment/Application/UseCase/Query/ExportEquipments/ExportEquipmentsHandlerTest`
+    — 403 without `organization.equipment.read`, 404 outside the
+    organization's scope, 422 past `MAX_EXPORT_ROWS`, and bulk facility-name
+    resolution with the raw-id fallback when a name cannot be resolved.
+  - `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest` —
+    freezes `EquipmentCsvWriter::HEADER`'s first six columns
+    (`type`/`subType`/`brand`/`model`/`serialNumber`/`locationLabel`) as the
+    Import module's round-trip contract, plus the header/data-row write and
+    the facility-name fallback.
+  - `tests/Unit/Equipment/Presentation/Api/Controller/ExportEquipmentsControllerTest`
+    — the CSV body and headers (`StreamedResponse::getContent()` is not
+    reliably buffered by the functional `KernelBrowser`), the missing-URI-
+    variable 400, the unauthenticated 401, the `EquipmentsExportedEvent`
+    dispatch, and the bus-wrapped 403/422 unwrapping.
+  - Functional: `tests/Functional/Api/EquipmentExportApiTest.php` — 200 with
+    CSV content type/attachment disposition and the import column order, 401,
+    403 for a member without `organization.equipment.read`, 404 for a caller
+    outside the organization. The 422 row-cap path is unit-only (`MAX_EXPORT_ROWS`
+    is a class constant; seeding 50 001 rows for a functional test is not
+    worth the runtime).
 - Run module tests: `make test tests/Unit/Equipment/`
 
 ## Error Codes
@@ -738,6 +809,8 @@ names the write path has no reason to carry).
 - `FloorPlanAttachmentNotFoundException` → 404 (Phase 4, contract exception)
 - `FloorPlanAttachmentNotFloorPlanException` → 409 (Phase 4, contract exception)
 - `FloorPlanAttachmentNotAncestorException` → 409 (Phase 4, contract exception)
+- `EquipmentAccessDeniedException` → 403 (export only — authenticated member missing `organization.equipment.read`)
+- `EquipmentExportTooLargeException` → 422 (export only — past `ExportEquipmentsHandler::MAX_EXPORT_ROWS`)
 
 The three `FloorPlanAttachment*` exceptions are **contract exceptions**, not
 Domain ones: they live under `Application/Contract/FloorPlan/` because they

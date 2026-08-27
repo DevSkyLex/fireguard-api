@@ -8134,6 +8134,55 @@
                 }
             }
         },
+        "/api/organizations/{organizationId}/equipment/export": {
+            "get": {
+                "operationId": "equipment_export",
+                "tags": [
+                    "Equipment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV export streamed successfully"
+                    },
+                    "400": {
+                        "description": "Missing organizationId URI parameter"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.equipment.read"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Export exceeds the row cap"
+                    },
+                    "204": {
+                        "description": "EquipmentExport resource"
+                    }
+                },
+                "summary": "Export equipment (CSV)",
+                "description": "Streams a CSV export of every equipment item (Content-Disposition: attachment) for the given organization. Requires `organization.equipment.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. The first six columns (type, subType, brand, model, serialNumber, locationLabel) are the import round-trip contract read back by the bulk CSV import; the remaining columns are read-only metadata. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the organization has more.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "EquipmentExport identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/equipment/kpis": {
             "get": {
                 "operationId": "equipment_get_kpis",
@@ -11123,6 +11172,165 @@
                     },
                     "required": true
                 }
+            }
+        },
+        "/api/organizations/{organizationId}/facilities/export": {
+            "get": {
+                "operationId": "facility_export",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV export streamed successfully"
+                    },
+                    "400": {
+                        "description": "Invalid organization identifier or an invalid enum filter value"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.facilities.read"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Export exceeds the row cap; narrow the filters and retry"
+                    },
+                    "204": {
+                        "description": "LegacyFacility resource"
+                    }
+                },
+                "summary": "Export facilities (CSV)",
+                "description": "Streams a CSV export of facilities (Content-Disposition: attachment) for the given organization, using the same filter subset as the list endpoint. Requires `organization.facilities.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow with a more specific filter and retry. The first seven CSV columns (type, name, code, address, latitude, longitude, parentCode) are the round-trip contract read back by the bulk CSV import.",
+                "parameters": [
+                    {
+                        "name": "includeArchived",
+                        "in": "query",
+                        "description": "When true, archived facilities are included. Default: false.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filter by facility type.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "site",
+                                "building",
+                                "floor",
+                                "zone",
+                                "area"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by facility status.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "archived"
+                            ]
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "parentFacilityId",
+                        "in": "query",
+                        "description": "Filter by direct parent facility identifier.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "rootsOnly",
+                        "in": "query",
+                        "description": "When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "code",
+                        "in": "query",
+                        "description": "Filter by exact facility code.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Text search across facility name/code.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "hasCoordinates",
+                        "in": "query",
+                        "description": "When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/organizations/{organizationId}/facilities/{facilityId}": {
@@ -14539,6 +14747,155 @@
                 }
             }
         },
+        "/api/organizations/{organizationId}/inspections/export": {
+            "get": {
+                "operationId": "inspection_export",
+                "tags": [
+                    "Inspection"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV export streamed successfully"
+                    },
+                    "400": {
+                        "description": "Missing organizationId or an invalid enum filter value"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.inspection.read"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Export exceeds the row cap; narrow the filters and retry"
+                    },
+                    "204": {
+                        "description": "LegacyInspection resource"
+                    }
+                },
+                "summary": "Export inspections (CSV)",
+                "description": "Streams a CSV export of inspections (Content-Disposition: attachment) for the given organization, using the same filter subset as the list endpoint. Requires `organization.inspection.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow the filters and retry.",
+                "parameters": [
+                    {
+                        "name": "equipmentId",
+                        "in": "query",
+                        "description": "Filter by equipment",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "query",
+                        "description": "Filter by facility",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "result",
+                        "in": "query",
+                        "description": "Filter by result (pass, fail, partial)",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by status (draft, submitted, closed, cancelled)",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "performedAtFrom",
+                        "in": "query",
+                        "description": "Filter inspections performed on or after this instant.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "performedAtTo",
+                        "in": "query",
+                        "description": "Filter inspections performed on or before this instant.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "inspectorUserId",
+                        "in": "query",
+                        "description": "Filter by inspector user identifier.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "checklistId",
+                        "in": "query",
+                        "description": "Filter by checklist identifier.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyInspection identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/inspections/{inspectionId}": {
             "get": {
                 "operationId": "inspection_get",
@@ -15482,6 +15839,79 @@
                         },
                         "style": "form",
                         "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/non-conformities/export": {
+            "get": {
+                "operationId": "inspection_export_non_conformities",
+                "tags": [
+                    "Inspection"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV export streamed successfully"
+                    },
+                    "400": {
+                        "description": "Missing organizationId or an invalid enum filter value"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.inspection.read"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Export exceeds the row cap; narrow the filters and retry"
+                    },
+                    "204": {
+                        "description": "NonConformity resource"
+                    }
+                },
+                "summary": "Export non-conformities (CSV)",
+                "description": "Streams a CSV export of non-conformities (Content-Disposition: attachment) across every inspection of the given organization, using the same filter subset as the organization-wide list endpoint. Requires `organization.inspection.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow the filters and retry.",
+                "parameters": [
+                    {
+                        "name": "severity",
+                        "in": "query",
+                        "description": "Filter by severity (low, medium, high, critical)",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by status (open, in_progress, done, waived)",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "NonConformity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
                     }
                 ]
             }
@@ -20482,6 +20912,91 @@
                     },
                     "required": true
                 }
+            }
+        },
+        "/api/maintenance/schedules/export": {
+            "get": {
+                "operationId": "maintenance_schedule_export",
+                "tags": [
+                    "Maintenance"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "CSV export streamed successfully"
+                    },
+                    "400": {
+                        "description": "Missing organization filter"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.maintenance.read"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Export exceeds the row cap; narrow the filters and retry"
+                    },
+                    "204": {
+                        "description": "MaintenanceSchedule resource"
+                    }
+                },
+                "summary": "Export maintenance schedules (CSV)",
+                "description": "Streams a CSV export of maintenance schedules (Content-Disposition: attachment) for the given organization, using the cheap, indexed filter subset of the list endpoint (`facility`, `equipmentType`, `dueStatus` \u2014 `dueBefore` is not exposed here). Requires `organization.maintenance.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow with a more specific filter and retry.",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "query",
+                        "description": "Organization IRI.",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "facility",
+                        "in": "query",
+                        "description": "Facility IRI filter.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "equipmentType",
+                        "in": "query",
+                        "description": "Equipment type filter.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "dueStatus",
+                        "in": "query",
+                        "description": "Due status filter (unscheduled|up_to_date|due_soon|overdue).",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
             }
         },
         "/api/maintenance/campaigns": {
@@ -53342,6 +53857,10 @@
         },
         {
             "name": "MaintenanceSchedule",
+            "description": "Resource MaintenanceScheduleResource.\n\nOrganization-scoped preventive-maintenance schedules: one row per tracked\npiece of equipment, computed from the equipment's inspection history and\nthe organization's compliance periodicity (or a per-equipment override)."
+        },
+        {
+            "name": "Maintenance",
             "description": "Resource MaintenanceScheduleResource.\n\nOrganization-scoped preventive-maintenance schedules: one row per tracked\npiece of equipment, computed from the equipment's inspection history and\nthe organization's compliance periodicity (or a per-equipment override)."
         },
         {

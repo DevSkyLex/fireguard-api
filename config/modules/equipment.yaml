@@ -94,6 +94,11 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # Cross-module equipment naming for the Maintenance module's schedule CSV export
+  Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Cross-module read model for the Compliance module (equipment inventory, by facility)
   Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter:
     arguments:
@@ -247,5 +252,8 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Tag\ListTags\ListTagsHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler:
     tags: ['messenger.message_handler']
 

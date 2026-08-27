@@ -41,4 +41,8 @@ final class InspectionOperations
   public const string ARCHIVE_CHECKLIST = 'inspection_archive_checklist';
 
   public const string UPDATE_CHECKLIST = 'inspection_update_checklist';
+
+  public const string EXPORT_INSPECTIONS = 'inspection_export';
+
+  public const string EXPORT_NON_CONFORMITIES = 'inspection_export_non_conformities';
 }

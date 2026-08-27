@@ -6,6 +6,8 @@ namespace Inspection\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
+use Inspection\Application\UseCase\Query\ExportInspections\ExportInspectionsHandler;
+use Inspection\Presentation\Api\Controller\ExportInspectionsController;
 use Inspection\Presentation\Api\Dto\Input\Inspection\{CreateInspectionInput, EditInspectionInput};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Operation\InspectionOperations;
@@ -111,8 +113,49 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
+      name: InspectionOperations::EXPORT_INSPECTIONS,
+      description: 'Streams a bounded CSV export of inspections using the same filter subset as the list endpoint.',
+      uriTemplate: '/{organizationId}/inspections/export',
+      controller: ExportInspectionsController::class,
+      read: false,
+      write: false,
+      deserialize: false,
+      serialize: false,
+      output: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'Export inspections (CSV)',
+        description: 'Streams a CSV export of inspections (Content-Disposition: attachment) for the given '
+          . 'organization, using the same filter subset as the list endpoint. Requires '
+          . '`organization.inspection.read` on the organization, resolved the same way the list endpoint '
+          . 'resolves it — a resource-level ROLE_USER check alone does not grant access. Bounded to '
+          . ExportInspectionsHandler::MAX_EXPORT_ROWS . ' matching rows — the request is rejected with 422 if '
+          . 'the filters match more; narrow the filters and retry.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(name: 'equipmentId', in: 'query', description: 'Filter by equipment', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'facilityId', in: 'query', description: 'Filter by facility', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'result', in: 'query', description: 'Filter by result (pass, fail, partial)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'status', in: 'query', description: 'Filter by status (draft, submitted, closed, cancelled)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'performedAtFrom', in: 'query', description: 'Filter inspections performed on or after this instant.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'performedAtTo', in: 'query', description: 'Filter inspections performed on or before this instant.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'inspectorUserId', in: 'query', description: 'Filter by inspector user identifier.', required: false, schema: ['type' => 'string', 'format' => 'uuid']),
+          new Parameter(name: 'checklistId', in: 'query', description: 'Filter by checklist identifier.', required: false, schema: ['type' => 'string', 'format' => 'uuid']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'CSV export streamed successfully'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing organizationId or an invalid enum filter value'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.inspection.read'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'The organization is outside the caller\'s scope'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row cap; narrow the filters and retry'),
+        ],
+      ),
+    ),
+    new Get(
       name: InspectionOperations::GET_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}',
+      requirements: ['inspectionId' => self::UUID_PATTERN],
       input: false,
       output: InspectionOutput::class,
       provider: GetInspectionProvider::class,
@@ -132,6 +175,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: InspectionOperations::EDIT_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}',
+      requirements: ['inspectionId' => self::UUID_PATTERN],
       input: EditInspectionInput::class,
       output: InspectionOutput::class,
       processor: EditInspectionProcessor::class,
@@ -197,6 +241,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Delete(
       name: InspectionOperations::CANCEL_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}',
+      requirements: ['inspectionId' => self::UUID_PATTERN],
       input: false,
       output: false,
       read: false,
@@ -229,4 +274,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 final class InspectionResource
 {
+  // #region Constants
+  /**
+   * Constant UUID_PATTERN.
+   *
+   * Disambiguates `{inspectionId}` from the static `/inspections/export`
+   * route: without a requirement, `export` matches `{inspectionId}` too, and
+   * whichever operation the attribute scanner discovers first wins the
+   * route — not a stable thing to depend on. Mirrors
+   * `Intervention\Presentation\Api\Resource\InterventionResource`'s `{id}`
+   * requirement.
+   *
+   * @var string
+   */
+  private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+  // #endregion
 }

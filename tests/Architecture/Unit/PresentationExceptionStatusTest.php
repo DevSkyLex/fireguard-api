@@ -138,14 +138,23 @@ final class PresentationExceptionStatusTest extends TestCase
     'ComplianceExportNotEntitledException' => 'AccessDeniedHttpException',
     'ComplianceNotFoundException' => 'NotFoundHttpException',
     'DeferredActionNoLongerApplicableException' => 'ConflictHttpException',
+    // Known scanner blind spot: EquipmentAccessDeniedException and
+    // EquipmentExportTooLargeException are mapped by ExportEquipmentsController
+    // through EquipmentExceptionUnwrapperTrait, whose find<X>Exception()
+    // finders live in the trait file, not the controller file — so
+    // collectMappings() cannot see them and the anti-stale assertion forbids
+    // listing them here. Their 403/422 mapping is covered by
+    // EquipmentExportApiTest instead.
     'EquipmentAlreadyDecommissionedException' => 'ConflictHttpException',
     'EquipmentNotFoundException' => 'NotFoundHttpException',
     'EquipmentSerialNumberAlreadyExistsException' => 'ConflictHttpException',
+    'FacilityAccessDeniedException' => 'AccessDeniedHttpException',
     'FacilityArchivedException' => 'BadRequestHttpException',
     'FacilityAttachmentNotAncestorException' => 'ConflictHttpException',
     'FacilityAttachmentNotFloorPlanException' => 'ConflictHttpException',
     'FacilityAttachmentNotFoundException' => 'NotFoundHttpException',
     'FacilityCodeAlreadyExistsException' => 'ConflictHttpException',
+    'FacilityExportTooLargeException' => 'UnprocessableEntityHttpException',
     'FacilityHierarchyException' => 'BadRequestHttpException',
     'FacilityMetadataFieldKeyAlreadyExistsException' => 'ConflictHttpException',
     'FacilityMetadataFieldLimitExceededException' => 'UnprocessableEntityHttpException',
@@ -156,9 +165,11 @@ final class PresentationExceptionStatusTest extends TestCase
     'FloorPlanAttachmentNotFoundException' => 'NotFoundHttpException',
     'ImportAccessDeniedException' => 'AccessDeniedHttpException',
     'ImportJobNotFoundException' => 'NotFoundHttpException',
+    'InspectionAccessDeniedException' => 'AccessDeniedHttpException',
     'InspectionAlreadyCancelledException' => 'ConflictHttpException',
     'InspectionAlreadyClosedException' => 'ConflictHttpException',
     'InspectionAlreadySubmittedException' => 'ConflictHttpException',
+    'InspectionExportTooLargeException' => 'UnprocessableEntityHttpException',
     'InspectionNotFoundException' => 'NotFoundHttpException',
     'InspectionNotSubmittedException' => 'ConflictHttpException',
     'InterventionAccessDeniedException' => 'AccessDeniedHttpException',
@@ -175,6 +186,7 @@ final class PresentationExceptionStatusTest extends TestCase
     'InvalidValueException' => 'BadRequestHttpException',
     'LogicException' => 'ConflictHttpException',
     'MaintenanceAccessDeniedException' => 'AccessDeniedHttpException',
+    'MaintenanceExportTooLargeException' => 'UnprocessableEntityHttpException',
     'MaintenanceNotFoundException' => 'NotFoundHttpException',
     'MaintenanceValidationException' => 'UnprocessableEntityHttpException',
     'MessagingAccessDeniedException' => 'AccessDeniedHttpException',

@@ -257,6 +257,24 @@ interface FacilityRepositoryPort
   public function getFacilityNamesByIds(FacilityOrganizationId $organizationId, array $facilityIds): array;
 
   /**
+   * Method getFacilityCodesByIds.
+   *
+   * Resolves facility `code` values for a bounded set of identifiers, scoped
+   * to the organization — backs the CSV export's `parentCode` column, which
+   * mirrors {@see self::getFacilityNamesByIds()} but for the field
+   * {@see \Import\Application\Service\FacilityRowFactory} reads back on
+   * import. A facility with no code is simply absent from the returned map.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> map of facilityId => code
+   */
+  public function getFacilityCodesByIds(FacilityOrganizationId $organizationId, array $facilityIds): array;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities for an organization with optional filters.

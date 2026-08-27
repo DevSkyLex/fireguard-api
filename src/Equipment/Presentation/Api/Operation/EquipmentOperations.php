@@ -155,5 +155,12 @@ final class EquipmentOperations
    * @var string
    */
   public const string SET_EQUIPMENT_PLAN_POSITION = 'equipment_plan_position_set';
+
+  /**
+   * Constant EXPORT_EQUIPMENTS.
+   *
+   * @var string
+   */
+  public const string EXPORT_EQUIPMENTS = 'equipment_export';
   // #endregion
 }

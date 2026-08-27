@@ -626,6 +626,50 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
+   * Method getFacilityCodesByIds.
+   *
+   * Resolves facility `code` values for a bounded set of identifiers, scoped
+   * to the organization — mirrors {@see self::getFacilityNamesByIds()}.
+   * Facilities with no code are simply absent from the returned map.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> map of facilityId => code
+   */
+  public function getFacilityCodesByIds(FacilityOrganizationId $organizationId, array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{id: string, code: ?string}> $rows */
+    $rows = $this->repository->createQueryBuilder('f')
+      ->select('f.id AS id, f.code AS code')
+      ->where('f.organization = :organization')
+      ->andWhere('f.id IN (:facilityIds)')
+      ->setParameter('organization', $organization)
+      ->setParameter('facilityIds', $facilityIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $codes = [];
+    foreach ($rows as $row) {
+      if (null === $row['code'] || '' === $row['code']) {
+        continue;
+      }
+      $codes[(string) $row['id']] = (string) $row['code'];
+    }
+
+    return $codes;
+  }
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities by organization identifier.

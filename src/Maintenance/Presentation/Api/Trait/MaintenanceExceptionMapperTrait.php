@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maintenance\Presentation\Api\Trait;
 
 use InvalidArgumentException;
-use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceNotFoundException, MaintenanceValidationException};
+use Maintenance\Domain\Exception\{MaintenanceAccessDeniedException, MaintenanceExportTooLargeException, MaintenanceNotFoundException, MaintenanceValidationException};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
@@ -47,6 +47,7 @@ trait MaintenanceExceptionMapperTrait
         $current instanceof OrganizationAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
         $current instanceof MaintenanceNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
         $current instanceof MaintenanceValidationException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
+        $current instanceof MaintenanceExportTooLargeException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
         $current instanceof InvalidArgumentException => new BadRequestHttpException($current->getMessage(), $exception),
         default => null,
       };

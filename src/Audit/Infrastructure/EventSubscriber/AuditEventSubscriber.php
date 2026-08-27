@@ -22,8 +22,11 @@ use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent,
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
+use Facility\Domain\Event\Export\FacilitiesExportedEvent;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
+use Inspection\Domain\Event\Export\{InspectionsExportedEvent, NonConformitiesExportedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Export\InterventionsExportedEvent;
@@ -37,6 +40,7 @@ use Intervention\Domain\Event\Recurrence\{
 };
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
 use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Messaging\Domain\Event\Channel\{
   MessagingChannelCreatedEvent,
@@ -204,6 +208,11 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
       'intervention.interventions_exported_event' => 'onInterventionsExported',
+      'equipment.equipments_exported_event' => 'onEquipmentsExported',
+      'facility.facilities_exported_event' => 'onFacilitiesExported',
+      'inspection.inspections_exported_event' => 'onInspectionsExported',
+      'inspection.non_conformities_exported_event' => 'onNonConformitiesExported',
+      'maintenance.maintenance_schedules_exported_event' => 'onMaintenanceSchedulesExported',
     ];
   }
 
@@ -2170,6 +2179,145 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   {
     $this->recordOrganizationAudit(
       action: 'intervention.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onEquipmentsExported.
+   *
+   * Records every CSV export of an organization's equipment park — the
+   * equipment module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. The export carries no filters,
+   * so the metadata holds the row count only.
+   *
+   * @since 1.6.0
+   *
+   * @param EquipmentsExportedEvent $event the domain event
+   */
+  public function onEquipmentsExported(EquipmentsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onFacilitiesExported.
+   *
+   * Records every CSV export of an organization's facilities — the facility
+   * module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param FacilitiesExportedEvent $event the domain event
+   */
+  public function onFacilitiesExported(FacilitiesExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onInspectionsExported.
+   *
+   * Records every CSV export of an organization's inspections — the
+   * inspection module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionsExportedEvent $event the domain event
+   */
+  public function onInspectionsExported(InspectionsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onNonConformitiesExported.
+   *
+   * Records every CSV export of an organization's non-conformities — the
+   * inspection module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param NonConformitiesExportedEvent $event the domain event
+   */
+  public function onNonConformitiesExported(NonConformitiesExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.non_conformities_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onMaintenanceSchedulesExported.
+   *
+   * Records every CSV export of an organization's maintenance schedules —
+   * the maintenance module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param MaintenanceSchedulesExportedEvent $event the domain event
+   */
+  public function onMaintenanceSchedulesExported(MaintenanceSchedulesExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'maintenance.schedules_exported',
       organizationId: $event->organizationId,
       subjectType: 'organization',
       subjectId: $event->organizationId,

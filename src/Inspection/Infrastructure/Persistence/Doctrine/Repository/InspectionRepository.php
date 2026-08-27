@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
+use Inspection\Application\Contract\Export\InspectionExportCandidate;
 use Inspection\Application\Contract\Inspection\InspectionScope;
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
@@ -336,6 +338,123 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     }
 
     return $equipmentIds;
+  }
+
+  /**
+   * Method countExportCandidates.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param ?string $equipmentId the equipment id value
+   * @param ?string $facilityId the facility id value
+   * @param ?string $result the result value
+   * @param ?string $status the status value
+   * @param ?string $performedAtFrom the performed at from value
+   * @param ?string $performedAtTo the performed at to value
+   * @param ?string $inspectorUserId the inspector user id value
+   * @param ?string $checklistId the checklist id value
+   *
+   * @return int the count export candidates result
+   */
+  public function countExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $equipmentId = null,
+    ?string $facilityId = null,
+    ?string $result = null,
+    ?string $status = null,
+    ?string $performedAtFrom = null,
+    ?string $performedAtTo = null,
+    ?string $inspectorUserId = null,
+    ?string $checklistId = null,
+  ): int {
+    return (int) $this->createListQueryBuilder(
+      $organizationId,
+      $equipmentId,
+      $facilityId,
+      $result,
+      $status,
+      $performedAtFrom,
+      $performedAtTo,
+      $inspectorUserId,
+      null,
+      $checklistId,
+      null,
+    )
+      ->select('COUNT(i.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
+  /**
+   * Method listExportCandidates.
+   *
+   * Never hydrates the full {@see Inspection} aggregate — maps the Doctrine
+   * record straight to {@see InspectionExportCandidate}, mirroring
+   * `Intervention\...\DoctrineInterventionWorkflowGatewayAdapter::listInterventionExportCandidates()`.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param ?string $equipmentId the equipment id value
+   * @param ?string $facilityId the facility id value
+   * @param ?string $result the result value
+   * @param ?string $status the status value
+   * @param ?string $performedAtFrom the performed at from value
+   * @param ?string $performedAtTo the performed at to value
+   * @param ?string $inspectorUserId the inspector user id value
+   * @param ?string $checklistId the checklist id value
+   *
+   * @return list<InspectionExportCandidate> the list export candidates result
+   */
+  public function listExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $equipmentId = null,
+    ?string $facilityId = null,
+    ?string $result = null,
+    ?string $status = null,
+    ?string $performedAtFrom = null,
+    ?string $performedAtTo = null,
+    ?string $inspectorUserId = null,
+    ?string $checklistId = null,
+  ): array {
+    /** @var list<InspectionRecord> $records */
+    $records = $this->createListQueryBuilder(
+      $organizationId,
+      $equipmentId,
+      $facilityId,
+      $result,
+      $status,
+      $performedAtFrom,
+      $performedAtTo,
+      $inspectorUserId,
+      null,
+      $checklistId,
+      null,
+    )
+      ->orderBy('i.updatedAt', 'DESC')
+      ->addOrderBy('i.id', 'ASC')
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      function (InspectionRecord $record): InspectionExportCandidate {
+        $normalized = $this->reinterpretRecordDateTimesFromStorage($record);
+
+        return new InspectionExportCandidate(
+          id: $normalized->id,
+          equipmentId: $normalized->equipmentId,
+          facilityId: $normalized->facilityId,
+          checklistId: $normalized->checklistId,
+          status: $normalized->status,
+          result: $normalized->result,
+          performedAt: $normalized->performedAt->format(DateTimeInterface::ATOM),
+          createdAt: $normalized->createdAt->format(DateTimeInterface::ATOM),
+          updatedAt: $normalized->updatedAt->format(DateTimeInterface::ATOM),
+        );
+      },
+      $records,
+    );
   }
 
   /**

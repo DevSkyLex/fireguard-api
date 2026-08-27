@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maintenance\Application\Port\Outbound\Schedule;
 
 use DateTimeImmutable;
+use Maintenance\Application\Contract\Export\MaintenanceScheduleExportCandidate;
 use Maintenance\Application\Contract\Schedule\{MaintenanceSchedulePage, MaintenanceScheduleSnapshot, MaintenanceScheduleView};
 
 /**
@@ -141,5 +142,52 @@ interface MaintenanceScheduleRepositoryPort
    * @param string $equipmentId the equipment identifier
    */
   public function removeByOrganizationAndEquipment(string $organizationId, string $equipmentId): void;
+
+  /**
+   * Method countForExport.
+   *
+   * Counts an organization's maintenance schedules matching the given
+   * (cheap, indexed) filters, without fetching a single row. Backs the CSV
+   * export's row cap, mirroring `InterventionWorkflowGatewayPort::countInterventions()`.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param ?string $dueStatus optional due status filter
+   *
+   * @return int the matching schedule count
+   */
+  public function countForExport(
+    string $organizationId,
+    ?string $facilityId,
+    ?string $equipmentType,
+    ?string $dueStatus,
+  ): int;
+
+  /**
+   * Method listExportCandidates.
+   *
+   * Lists every schedule matching the given organization and filters, in the
+   * CSV export's stable order (`updatedAt` DESC, `id` ASC), as lightweight
+   * {@see MaintenanceScheduleExportCandidate} rows. Callers must first bound
+   * the result with {@see self::countForExport()}.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param ?string $dueStatus optional due status filter
+   *
+   * @return list<MaintenanceScheduleExportCandidate> the matching schedule rows
+   */
+  public function listExportCandidates(
+    string $organizationId,
+    ?string $facilityId,
+    ?string $equipmentType,
+    ?string $dueStatus,
+  ): array;
   // #endregion
 }

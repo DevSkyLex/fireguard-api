@@ -6,6 +6,8 @@ namespace Inspection\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
+use Inspection\Application\UseCase\Query\ExportNonConformities\ExportNonConformitiesHandler;
+use Inspection\Presentation\Api\Controller\ExportNonConformitiesController;
 use Inspection\Presentation\Api\Dto\Input\NonConformity\{AddNonConformityInput, UpdateNonConformityStatusInput};
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Operation\InspectionOperations;
@@ -90,6 +92,40 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Get(
+      name: InspectionOperations::EXPORT_NON_CONFORMITIES,
+      description: 'Streams a bounded CSV export of an organization\'s non-conformities using the same filter subset as the list endpoint.',
+      uriTemplate: '/{organizationId}/non-conformities/export',
+      controller: ExportNonConformitiesController::class,
+      read: false,
+      write: false,
+      deserialize: false,
+      serialize: false,
+      output: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'Export non-conformities (CSV)',
+        description: 'Streams a CSV export of non-conformities (Content-Disposition: attachment) across every '
+          . 'inspection of the given organization, using the same filter subset as the organization-wide list '
+          . 'endpoint. Requires `organization.inspection.read` on the organization, resolved the same way the '
+          . 'list endpoint resolves it — a resource-level ROLE_USER check alone does not grant access. Bounded '
+          . 'to ' . ExportNonConformitiesHandler::MAX_EXPORT_ROWS . ' matching rows — the request is rejected '
+          . 'with 422 if the filters match more; narrow the filters and retry.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'CSV export streamed successfully'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing organizationId or an invalid enum filter value'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.inspection.read'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'The organization is outside the caller\'s scope'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row cap; narrow the filters and retry'),
         ],
       ),
     ),

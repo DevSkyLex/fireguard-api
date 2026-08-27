@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
+use Inspection\Application\Contract\Export\NonConformityExportCandidate;
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId};
@@ -506,6 +508,106 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return (int) $queryBuilder
       ->getQuery()
       ->getSingleScalarResult();
+  }
+
+  /**
+   * Method countsOpenByInspectionIds.
+   *
+   * @since 1.6.0
+   *
+   * @param list<string> $inspectionIds
+   *
+   * @return array<string, int>
+   */
+  public function countsOpenByInspectionIds(array $inspectionIds): array
+  {
+    if ([] === $inspectionIds) {
+      return [];
+    }
+
+    $qb = $this->entityManager->createQueryBuilder();
+
+    /** @var list<array{inspectionId: string, cnt: int|string}> $rows */
+    $rows = $qb
+      ->select('IDENTITY(r.inspection) AS inspectionId, COUNT(r.id) AS cnt')
+      ->from(NonConformityRecord::class, 'r')
+      ->where($qb->expr()->in('IDENTITY(r.inspection)', ':ids'))
+      ->andWhere('r.status IN (:openStatuses)')
+      ->setParameter('ids', $inspectionIds)
+      ->setParameter('openStatuses', ['open', 'in_progress'])
+      ->groupBy('r.inspection')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['inspectionId']] = (int) $row['cnt'];
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Method countExportCandidates.
+   *
+   * @since 1.6.0
+   */
+  public function countExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int {
+    $qb = $this->createOrganizationListQueryBuilder($organizationId, $severity, $status, null);
+
+    return (int) $qb->select('COUNT(r.id)')->getQuery()->getSingleScalarResult();
+  }
+
+  /**
+   * Method listExportCandidates.
+   *
+   * Selects the owning inspection's `facilityId`/`equipmentId` in the same
+   * query (a partial `NEW` object select), so naming the facility/equipment
+   * in bulk never needs a second round trip per row to discover which
+   * inspection each non-conformity belongs to.
+   *
+   * @since 1.6.0
+   *
+   * @return list<NonConformityExportCandidate>
+   */
+  public function listExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    $qb = $this->createOrganizationListQueryBuilder($organizationId, $severity, $status, null);
+
+    /** @var list<array{0: NonConformityRecord, facilityId: string|null, equipmentId: string}> $rows */
+    $rows = $qb
+      ->addSelect('i.facilityId AS facilityId', 'i.equipmentId AS equipmentId')
+      ->orderBy('r.createdAt', 'DESC')
+      ->addOrderBy('r.id', 'ASC')
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      function (array $row): NonConformityExportCandidate {
+        /** @var NonConformityRecord $record */
+        $record = $row[0];
+        $normalized = $this->reinterpretRecordDateTimesFromStorage($record);
+
+        return new NonConformityExportCandidate(
+          id: $normalized->id,
+          inspectionId: (string) $normalized->inspection?->id,
+          severity: $normalized->severity,
+          status: $normalized->status,
+          facilityId: $row['facilityId'],
+          equipmentId: $row['equipmentId'],
+          createdAt: $normalized->createdAt->format(DateTimeInterface::ATOM),
+          resolvedAt: $normalized->resolvedAt?->format(DateTimeInterface::ATOM),
+        );
+      },
+      $rows,
+    );
   }
 
   private function createListQueryBuilder(

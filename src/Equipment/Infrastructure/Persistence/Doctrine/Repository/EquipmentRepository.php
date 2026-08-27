@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
+use Equipment\Application\Contract\Export\EquipmentExportCandidate;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -406,6 +408,72 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     }
 
     return $counts;
+  }
+
+  /**
+   * Method countEquipments.
+   *
+   * @since 1.0.0
+   */
+  public function countEquipments(EquipmentOrganizationId $organizationId): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->entityManager->createQueryBuilder()
+      ->select('COUNT(e.id)')
+      ->from(EquipmentRecord::class, 'e')
+      ->where('e.organization = :organization')
+      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->setParameter('organization', $organization)
+      ->setParameter('publishedRecordStatus', 'published')
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
+  /**
+   * Method listEquipmentExportCandidates.
+   *
+   * @since 1.0.0
+   *
+   * @return list<EquipmentExportCandidate>
+   */
+  public function listEquipmentExportCandidates(EquipmentOrganizationId $organizationId): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<EquipmentRecord> $records */
+    $records = $this->entityManager->createQueryBuilder()
+      ->select('e')
+      ->from(EquipmentRecord::class, 'e')
+      ->where('e.organization = :organization')
+      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->setParameter('organization', $organization)
+      ->setParameter('publishedRecordStatus', 'published')
+      ->orderBy('e.updatedAt', 'DESC')
+      ->addOrderBy('e.id', 'ASC')
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      static fn (EquipmentRecord $record): EquipmentExportCandidate => new EquipmentExportCandidate(
+        id: $record->id,
+        type: $record->type,
+        subType: $record->subType,
+        brand: $record->brand,
+        model: $record->model,
+        serialNumber: $record->serialNumber,
+        locationLabel: $record->locationLabel,
+        status: $record->status,
+        facilityId: $record->facilityId,
+        installedAt: $record->installedAt?->format(DateTimeInterface::ATOM),
+        commissionedAt: $record->commissionedAt?->format(DateTimeInterface::ATOM),
+        createdAt: $record->createdAt->format(DateTimeInterface::ATOM),
+        updatedAt: $record->updatedAt->format(DateTimeInterface::ATOM),
+      ),
+      $records,
+    );
   }
 
   /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
+use Inspection\Application\Contract\Export\NonConformityExportCandidate;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -241,5 +242,65 @@ interface NonConformityRepositoryPort
    * Counts critical non-conformities that are still open or in progress.
    */
   public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int;
+
+  /**
+   * Method countsOpenByInspectionIds.
+   *
+   * Counts still-open (`open` or `in_progress`) non-conformities for
+   * multiple inspections in a single query — the "open" counterpart to
+   * {@see self::countsByInspectionIds()}, backing
+   * `ExportInspectionsHandler`'s bulk `nonConformitiesOpen` column.
+   *
+   * @since 1.6.0
+   *
+   * @param list<string> $inspectionIds the inspection identifiers as strings
+   *
+   * @return array<string, int> map of inspectionId => open count
+   */
+  public function countsOpenByInspectionIds(array $inspectionIds): array;
+
+  /**
+   * Method countExportCandidates.
+   *
+   * Counts non-conformities matching the given organization and filters —
+   * the same subset {@see self::findByOrganizationId()} accepts — without
+   * fetching a single row. Backs the CSV export's row cap.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $severity optional severity filter
+   * @param ?string $status optional status filter
+   *
+   * @return int the matching non-conformity count
+   */
+  public function countExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Method listExportCandidates.
+   *
+   * Lists every non-conformity matching the given organization and filters,
+   * newest first, as lightweight {@see NonConformityExportCandidate} rows
+   * carrying the owning inspection's `facilityId`/`equipmentId` resolved in
+   * the same query. Callers must first bound the result with
+   * {@see self::countExportCandidates()}.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $severity optional severity filter
+   * @param ?string $status optional status filter
+   *
+   * @return list<NonConformityExportCandidate> the matching non-conformity rows
+   */
+  public function listExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
   // #endregion
 }

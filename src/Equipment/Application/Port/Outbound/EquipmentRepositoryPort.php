@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\Port\Outbound;
 
+use Equipment\Application\Contract\Export\EquipmentExportCandidate;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -170,6 +171,40 @@ interface EquipmentRepositoryPort
     ?string $type = null,
     ?string $status = null,
   ): array;
+
+  /**
+   * Method countEquipments.
+   *
+   * Counts every published equipment item for an organization, with no
+   * filters — backs the CSV export's row cap, mirroring
+   * `Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort::countInterventions()`.
+   * Deliberately unfiltered: the export scopes to the whole organization, not
+   * to the list endpoint's current filter selection.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return int the matching equipment count
+   */
+  public function countEquipments(EquipmentOrganizationId $organizationId): int;
+
+  /**
+   * Method listEquipmentExportCandidates.
+   *
+   * Lists every published equipment item for an organization, in the CSV
+   * export's stable order (`updatedAt` DESC, `id` ASC), as lightweight
+   * {@see EquipmentExportCandidate} rows. Callers must first bound the result
+   * with {@see self::countEquipments()}. Mirrors
+   * `Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort::listInterventionExportCandidates()`.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return list<EquipmentExportCandidate> the matching equipment rows
+   */
+  public function listEquipmentExportCandidates(EquipmentOrganizationId $organizationId): array;
 
   // #endregion
 }

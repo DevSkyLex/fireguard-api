@@ -23,6 +23,13 @@ services:
   Maintenance\Application\Port\Outbound\Directory\MaintenanceEquipmentDirectoryPort:
     alias: Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter
 
+  # Cross-module naming ports for the CSV export (adapters live in the owning module)
+  Maintenance\Application\Port\Outbound\Naming\MaintenanceEquipmentNamingPort:
+    alias: Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter
+
+  Maintenance\Application\Port\Outbound\Naming\MaintenanceFacilityNamingPort:
+    alias: Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter
+
   Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort:
     alias: Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter
 
@@ -81,4 +88,7 @@ services:
     tags: ['messenger.message_handler']
 
   Maintenance\Application\UseCase\Query\Schedule\GetMaintenanceSchedule\GetMaintenanceScheduleHandler:
+    tags: ['messenger.message_handler']
+
+  Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules\ExportMaintenanceSchedulesHandler:
     tags: ['messenger.message_handler']

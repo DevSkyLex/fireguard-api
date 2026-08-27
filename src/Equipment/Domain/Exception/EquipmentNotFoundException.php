@@ -35,5 +35,27 @@ final class EquipmentNotFoundException extends RuntimeException
   {
     return new self(sprintf('Equipment with ID "%s" not found.', $id));
   }
+
+  /**
+   * Method forOrganizationScope.
+   *
+   * Builds the exception for an organization the caller is not an active
+   * member of, on a route whose scope the caller supplied directly (the
+   * export) rather than reaching through a record identifier. Deliberately
+   * the SAME class, and therefore the same 404, that an unknown identifier
+   * produces: a distinct status here would tell an outsider which
+   * organization identifiers are real. Mirrors
+   * `Intervention\Domain\Exception\InterventionNotFoundException::forOrganizationScope()`.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return self the with organization scope result
+   */
+  public static function forOrganizationScope(string $organizationId): self
+  {
+    return new self(sprintf('Organization with ID "%s" not found.', $organizationId));
+  }
   // #endregion
 }

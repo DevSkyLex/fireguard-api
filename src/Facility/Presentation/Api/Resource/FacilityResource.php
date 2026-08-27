@@ -6,6 +6,8 @@ namespace Facility\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
+use Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler;
+use Facility\Presentation\Api\Controller\ExportFacilitiesController;
 use Facility\Presentation\Api\Dto\Input\Facility\{
   CreateFacilityInput,
   DuplicateFacilitySubtreeInput,
@@ -145,6 +147,96 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Facilities retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::EXPORT_FACILITIES,
+      description: 'Streams a bounded CSV export of facilities using the same filter subset as the list endpoint.',
+      uriTemplate: '/{organizationId}/facilities/export',
+      controller: ExportFacilitiesController::class,
+      read: false,
+      write: false,
+      deserialize: false,
+      serialize: false,
+      output: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Export facilities (CSV)',
+        description: 'Streams a CSV export of facilities (Content-Disposition: attachment) for the given '
+          . 'organization, using the same filter subset as the list endpoint. Requires '
+          . '`organization.facilities.read` on the organization, resolved the same way the list endpoint '
+          . 'resolves it — a resource-level ROLE_USER check alone does not grant access. Bounded to '
+          . ExportFacilitiesHandler::MAX_EXPORT_ROWS . ' matching rows — the request is rejected with 422 if '
+          . 'the filters match more; narrow with a more specific filter and retry. The first seven CSV columns '
+          . '(type, name, code, address, latitude, longitude, parentCode) are the round-trip contract read back '
+          . 'by the bulk CSV import.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(
+            name: 'includeArchived',
+            in: 'query',
+            required: false,
+            description: 'When true, archived facilities are included. Default: false.',
+            schema: ['type' => 'boolean', 'default' => false],
+          ),
+          new Parameter(
+            name: 'type',
+            in: 'query',
+            required: false,
+            description: 'Filter by facility type.',
+            schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
+          ),
+          new Parameter(
+            name: 'status',
+            in: 'query',
+            required: false,
+            description: 'Filter by facility status.',
+            schema: ['type' => 'string', 'enum' => ['active', 'archived']],
+          ),
+          new Parameter(
+            name: 'parentFacilityId',
+            in: 'query',
+            required: false,
+            description: 'Filter by direct parent facility identifier.',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+          new Parameter(
+            name: 'rootsOnly',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+            schema: ['type' => 'boolean', 'default' => false],
+          ),
+          new Parameter(
+            name: 'code',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact facility code.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'search',
+            in: 'query',
+            required: false,
+            description: 'Text search across facility name/code.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'hasCoordinates',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+            schema: ['type' => 'boolean'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'CSV export streamed successfully'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier or an invalid enum filter value'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.facilities.read'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'The organization is outside the caller\'s scope'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row cap; narrow the filters and retry'),
         ],
       ),
     ),

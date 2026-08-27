@@ -4,7 +4,15 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Trait\Equipment;
 
-use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentAlreadyDecommissionedException, EquipmentNotFoundException, EquipmentSerialNumberAlreadyExistsException, TagNotFoundException};
+use Equipment\Domain\Exception\{
+  AttachmentNotFoundException,
+  EquipmentAccessDeniedException,
+  EquipmentAlreadyDecommissionedException,
+  EquipmentExportTooLargeException,
+  EquipmentNotFoundException,
+  EquipmentSerialNumberAlreadyExistsException,
+  TagNotFoundException
+};
 use InvalidArgumentException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -153,6 +161,62 @@ trait EquipmentExceptionUnwrapperTrait
       if ($current instanceof HandlerFailedException) {
         foreach ($current->getWrappedExceptions() as $wrappedException) {
           if ($wrappedException instanceof TagNotFoundException) {
+            return $wrappedException;
+          }
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return null;
+  }
+
+  /**
+   * Method findEquipmentAccessDeniedException.
+   *
+   * @since 1.0.0
+   */
+  private function findEquipmentAccessDeniedException(Throwable $exception): ?EquipmentAccessDeniedException
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      if ($current instanceof EquipmentAccessDeniedException) {
+        return $current;
+      }
+
+      if ($current instanceof HandlerFailedException) {
+        foreach ($current->getWrappedExceptions() as $wrappedException) {
+          if ($wrappedException instanceof EquipmentAccessDeniedException) {
+            return $wrappedException;
+          }
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return null;
+  }
+
+  /**
+   * Method findEquipmentExportTooLargeException.
+   *
+   * @since 1.0.0
+   */
+  private function findEquipmentExportTooLargeException(Throwable $exception): ?EquipmentExportTooLargeException
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      if ($current instanceof EquipmentExportTooLargeException) {
+        return $current;
+      }
+
+      if ($current instanceof HandlerFailedException) {
+        foreach ($current->getWrappedExceptions() as $wrappedException) {
+          if ($wrappedException instanceof EquipmentExportTooLargeException) {
             return $wrappedException;
           }
         }

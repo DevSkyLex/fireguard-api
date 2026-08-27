@@ -35,5 +35,24 @@ final class InspectionNotFoundException extends RuntimeException
   {
     return new self(sprintf('Inspection with ID "%s" not found.', $id));
   }
+
+  /**
+   * Method forOrganizationScope.
+   *
+   * Creates the exception raised when the caller has no active membership in
+   * the given organization — deliberately the same 404 an absent
+   * organization would answer, so a foreign organization's existence is
+   * never confirmed. Mirrors `Intervention\...\InterventionNotFoundException::forOrganizationScope()`.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return self the exception instance
+   */
+  public static function forOrganizationScope(string $organizationId): self
+  {
+    return new self(sprintf('Organization with ID "%s" not found.', $organizationId));
+  }
   // #endregion
 }

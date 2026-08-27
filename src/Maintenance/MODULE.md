@@ -24,6 +24,7 @@ Main goals:
 | Method | Path | Description | Permission |
 | --- | --- | --- | --- |
 | GET | `/api/maintenance/schedules` | List schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus`, `dueBefore`; 30/page, client page size) | `organization.maintenance.read` |
+| GET | `/api/maintenance/schedules/export` | Streams a bounded, synchronous CSV export of schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus` — the cheap, indexed subset of the list endpoint; `dueBefore` is not exposed). Bounded to 50 000 matching rows (422 above the cap). Header: `id,equipment_id,equipment_type,equipment_serial,facility,periodicity_override,last_inspection_closed_at,next_due_at,due_status,created_at,updated_at` | `organization.maintenance.read` |
 | GET | `/api/maintenance/schedules/{id}` | Get a schedule | `organization.maintenance.read` |
 | PATCH | `/api/maintenance/schedules/{id}` | Set/clear `intervalOverride` (`null` clears) | `organization.maintenance.manage` |
 | POST | `/api/maintenance/campaigns` | Generate an intervention draft from due/overdue schedules matching `facility`/`equipmentType`/`dueBefore`; `201 {interventionId, number, workItemsCount}` | `organization.maintenance.manage` AND `organization.interventions.plan` |
@@ -136,6 +137,26 @@ in practice.
 | `Equipment\Application\Port\Outbound\MaintenanceDueStatusPort` *(cross-module, consumed by Equipment)* | `Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter` |
 | `Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort` *(cross-module, consumed by Calendar)* | `Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter` |
 | `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, consumed by Assistant, tagged `assistant.context_provider`)* | `Maintenance\Infrastructure\Adapter\Assistant\MaintenanceAssistantContextProviderAdapter` |
+| `MaintenanceEquipmentNamingPort` (outbound, cross-module) | `Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter` |
+| `MaintenanceFacilityNamingPort` (outbound, cross-module) | `Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter` |
+
+**CSV export (`GET /maintenance/schedules/export`)**: mirrors the Intervention
+module's `ExportInterventionsHandler`/`ExportInterventionsController` pattern
+exactly — a synchronous, streamed CSV (no 202+poll), bounded to
+`ExportMaintenanceSchedulesHandler::MAX_EXPORT_ROWS` (50 000) via a cheap
+`COUNT` before any row is fetched (`MaintenanceScheduleRepositoryPort::countForExport()`
+/ `::listExportCandidates()`, ordered `updatedAt` DESC, `id` ASC), with the
+equipment serial number and facility display name resolved in two bulk round
+trips — never one query per row — through the two naming ports above. Unlike
+the calendar feed adapter (which explicitly skips equipment naming as a
+per-row cost), the export's naming stays bulk and is therefore affordable.
+Only the cheap, indexed filter subset (`facility`, `equipmentType`,
+`dueStatus`) is exposed; `dueBefore` is deliberately not, since it is not
+part of the schedule's `(organization_id, due_status, next_due_at)` index in
+the export's unpaginated shape. The controller dispatches
+`MaintenanceSchedulesExportedEvent` (organization id, actor, `csv`, row
+count, applied filter *names* only) after a successful stream, the same
+audit-without-raw-values discipline `InterventionsExportedEvent` follows.
 
 `EquipmentMaintenanceDirectoryAdapter` queries `EquipmentRecord` directly
 (published records only) rather than growing `EquipmentRepositoryPort`: the
@@ -262,7 +283,9 @@ automatically — no backfill migration is needed.
   the schedule itself is consumed from the auto-registered `scheduler_maintenance`
   transport)
 - Cross-module wiring (additive): `config/modules/equipment.yaml`,
-  `config/modules/organization.yaml`, `config/modules/inspection.yaml`
+  `config/modules/organization.yaml`, `config/modules/inspection.yaml`,
+  `config/modules/facility.yaml` (the two export naming adapters' entity
+  manager arguments)
 
 ## Testing
 
@@ -273,6 +296,12 @@ automatically — no backfill migration is needed.
   repository throws) — no new DQL, so a stubbed/mocked
   `MaintenanceScheduleRepositoryPort` fully covers it.
 - Integration (real DQL, real database): `tests/Integration/Maintenance/Infrastructure/Adapter/Equipment/EquipmentMaintenanceDueStatusAdapterTest.php`
+- Export coverage: `tests/Unit/Maintenance/Application/UseCase/Query/ExportMaintenanceSchedules/ExportMaintenanceSchedulesHandlerTest.php`
+  (403/404/422/success, ports mocked), `tests/Unit/Maintenance/Presentation/Api/Controller/ExportMaintenanceSchedulesControllerTest.php`
+  (CSV body — `StreamedResponse::getContent()` is not reliably buffered by the
+  functional `KernelBrowser` test client, the same reason the functional test
+  below stops at the HTTP-contract level), `tests/Functional/Api/MaintenanceScheduleExportApiTest.php`
+  (200 + content type/disposition, 401, 403, 404).
 - Run module tests: `make test tests/Unit/Maintenance/`
 
 ## Error Codes
@@ -282,4 +311,5 @@ automatically — no backfill migration is needed.
 | `MaintenanceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
 | `MaintenanceNotFoundException` | 404 Not Found |
 | `MaintenanceValidationException` | 422 Unprocessable Entity |
+| `MaintenanceExportTooLargeException` | 422 Unprocessable Entity |
 | `InvalidArgumentException` | 400 Bad Request |

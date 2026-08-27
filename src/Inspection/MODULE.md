@@ -29,6 +29,74 @@ localized typed registries are the source of these values).
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}` | Get inspection |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/submit` | Submit inspection (`draft → submitted`) |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/close` | Close inspection (`submitted → closed`) |
+| GET | `/api/organizations/{organizationId}/inspections/export` | Streams a bounded CSV export of inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) — B8 |
+
+**B8 — synchronous CSV exports (inspections and non-conformities).**
+
+Two streamed, synchronous CSV export endpoints — `GET .../inspections/export` and
+`GET .../non-conformities/export` — mirroring the canonical pattern
+`Intervention\...\ExportInterventionsController` established: an invokable API
+Platform controller (`read`/`write`/`serialize`/`deserialize`/`output` all
+disabled on the `Get` operation), a query-bus round trip to a dedicated export
+handler, and a `StreamedResponse` with `Content-Type: text/csv; charset=utf-8`,
+`Content-Disposition: attachment`, and `X-Accel-Buffering: no`. No 202+poll —
+both are bounded and fast enough to answer inline.
+
+- **Row cap**: `ExportInspectionsHandler::MAX_EXPORT_ROWS` /
+  `ExportNonConformitiesHandler::MAX_EXPORT_ROWS` — 50 000. A cheap `COUNT`
+  runs before a single row is fetched; exceeding the cap answers **422**
+  (`InspectionExportTooLargeException`) without ever hydrating the matched
+  rows. Narrow the filters and retry.
+- **Authorization**: both use `OrganizationAuthorizationPort::resolveAccess()`
+  with `organization.inspection.read` — the same permission the list
+  endpoints require — and, unlike those list endpoints'
+  `hasPermission()`-only gate, separate `OUTSIDE_SCOPE` (**404**, same as an
+  absent organization) from `MISSING_PERMISSION` (**403**). The resource-level
+  `is_granted('ROLE_USER')` is only the coarse gate.
+- **Filters**: each export reuses the *cheap* subset of its list endpoint's
+  filters only — equality/range predicates the existing indexed query
+  builders already serve. The inspection export **excludes** `inspectorType`
+  (never exposed by the list provider) and free-text `search` (trigram,
+  deliberately left out of the export's cost budget). The non-conformity
+  export reuses the organization-wide list's full filter set (`severity`,
+  `status`) since that list carries no free-text search either.
+- **Bulk resolution, never per-row**: one `COUNT`, one bounded `SELECT`, then
+  every display name and counter in a fixed number of additional round trips —
+  `FacilityNamingPort::findNamesByIds()`, `EquipmentNamingPort::findSerialNumbersByIds()`,
+  `ChecklistRepositoryPort::findNamesByIds()` (inspections only), and the two
+  non-conformity counters via `NonConformityRepositoryPort::countsByInspectionIds()`
+  (existing) and the new `countsOpenByInspectionIds()` (open/in-progress
+  only). A name that cannot be resolved renders as the raw identifier in the
+  CSV, never as a blank cell mistaken for "no value".
+- **New port methods**, mirroring `InterventionWorkflowGatewayPort::countInterventions()`/`listInterventionExportCandidates()`:
+  `InspectionRepositoryPort::countExportCandidates()`/`listExportCandidates()`
+  (lightweight `InspectionExportCandidate` rows — never the full `Inspection`
+  aggregate) and `NonConformityRepositoryPort::countExportCandidates()`/`listExportCandidates()`/`countsOpenByInspectionIds()`.
+  The non-conformity `listExportCandidates()` resolves the owning
+  inspection's `facilityId`/`equipmentId` in the *same* query (a mixed
+  entity + scalar select against the existing `createOrganizationListQueryBuilder()`
+  join), never a second round trip per row.
+- **`ageInDays`** (non-conformity export only) is computed in the handler
+  against `ClockPort::now()`, never in the CSV writer — the writer only
+  formats, per the Presentation-layer rule.
+- **CSV columns**, in order:
+  - Inspections (`InspectionCsvWriter::HEADER`): `id, status, result, facility,
+    equipment, checklist, performed_at, non_conformities_open,
+    non_conformities_total, created_at, updated_at`.
+  - Non-conformities (`NonConformityCsvWriter::HEADER`): `id, severity, status,
+    age_in_days, facility, equipment, inspection_id, created_at, resolved_at`.
+- **Audit**: each controller dispatches its own domain event after a
+  successful export — `Inspection\Domain\Event\Export\InspectionsExportedEvent`
+  / `NonConformitiesExportedEvent` — carrying `organizationId`, `actorUserId`,
+  `format` (`csv`), `rowCount`, and `filterKeys` (names only, never values).
+  Centralized audit wiring (`Audit\...\AuditEventSubscriber`) is untouched by
+  this change; only the events are created and dispatched here.
+- **Route disambiguation**: `/inspections/export` sits at the same path depth
+  as `/inspections/{inspectionId}`, so `GET_INSPECTION`/`EDIT_INSPECTION`/`CANCEL_INSPECTION`
+  gained an explicit UUID `requirements` constraint on `{inspectionId}` —
+  mirrors `InterventionResource::UUID_PATTERN`'s `{id}` disambiguation against
+  `/interventions/export`. `/non-conformities/export` needed no such
+  constraint: no sibling route shares its path shape.
 
 ### Checklists
 
@@ -121,6 +189,7 @@ localized typed registries are the source of these values).
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | Record a deficiency |
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities for one inspection (filters: `severity`, `status`) |
 | GET | `/api/organizations/{organizationId}/non-conformities` | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7 |
+| GET | `/api/organizations/{organizationId}/non-conformities/export` | Streams a bounded CSV export of an organization's non-conformities (filters: `severity`, `status`) — B8 |
 | PATCH | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status |
 
 **B7 — organization-wide non-conformity collection.**

@@ -138,6 +138,11 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # Cross-module facility naming for the Maintenance module's schedule CSV export
+  Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -185,6 +190,9 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\Facility\GetFacilityChildren\GetFacilityChildrenHandler:

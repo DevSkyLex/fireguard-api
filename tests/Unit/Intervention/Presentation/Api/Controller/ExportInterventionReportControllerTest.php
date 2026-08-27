@@ -87,7 +87,8 @@ final class ExportInterventionReportControllerTest extends TestCase
       'vatNumber' => 'FR12345678901',
     ], $context['org']);
     self::assertSame('fr', $context['lang']);
-    self::assertMatchesRegularExpression('/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/', (string) $context['generatedAtFormatted']);
+    self::assertIsString($context['generatedAtFormatted']);
+    self::assertMatchesRegularExpression('/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/', $context['generatedAtFormatted']);
     self::assertSame('01/06/2026 10:00', $context['plannedStartAt']);
     self::assertSame('10/06/2026 19:00', $context['dueAt']);
 
@@ -321,6 +322,7 @@ final class ExportInterventionReportControllerTest extends TestCase
     $renderer->expects(self::once())
       ->method('render')
       ->willReturnCallback(static function (array $received) use (&$context): string {
+        /** @var array<string, mixed> $received */
         $context = $received;
 
         return '%PDF-fake';

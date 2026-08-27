@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Maintenance\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
+use DateTimeInterface;
+use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
+use Maintenance\Application\Contract\Export\MaintenanceScheduleExportCandidate;
 use Maintenance\Application\Contract\Schedule\{MaintenanceSchedulePage, MaintenanceScheduleSnapshot, MaintenanceScheduleView};
 use Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort;
 use Maintenance\Domain\Exception\MaintenanceNotFoundException;
@@ -210,6 +212,34 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $this->entityManager->flush();
   }
 
+  public function countForExport(
+    string $organizationId,
+    ?string $facilityId,
+    ?string $equipmentType,
+    ?string $dueStatus,
+  ): int {
+    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus);
+
+    return (int) $qb->select('COUNT(s.id)')->getQuery()->getSingleScalarResult();
+  }
+
+  public function listExportCandidates(
+    string $organizationId,
+    ?string $facilityId,
+    ?string $equipmentType,
+    ?string $dueStatus,
+  ): array {
+    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus)
+      ->select('s')
+      ->orderBy('s.updatedAt', 'DESC')
+      ->addOrderBy('s.id', 'ASC');
+
+    /** @var list<MaintenanceScheduleRecord> $records */
+    $records = $qb->getQuery()->getResult();
+
+    return array_map($this->exportCandidate(...), $records);
+  }
+
   /**
    * Method findRecordByOrganizationAndEquipment.
    *
@@ -231,6 +261,74 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     ]);
 
     return $record;
+  }
+
+  /**
+   * Method exportQuery.
+   *
+   * Builds the base, unpaginated query shared by {@see self::countForExport()}
+   * and {@see self::listExportCandidates()} — the same (cheap, indexed)
+   * filter subset {@see self::list()} applies, minus `dueBefore`, which the
+   * export endpoint deliberately does not expose.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $equipmentType optional equipment type filter
+   * @param ?string $dueStatus optional due status filter
+   *
+   * @return QueryBuilder the query builder result
+   */
+  private function exportQuery(
+    string $organizationId,
+    ?string $facilityId,
+    ?string $equipmentType,
+    ?string $dueStatus,
+  ): QueryBuilder {
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+
+    $qb = $this->entityManager->createQueryBuilder()
+      ->from(MaintenanceScheduleRecord::class, 's')
+      ->where('s.organization = :organization')
+      ->setParameter('organization', $organization);
+
+    if (null !== $facilityId) {
+      $qb->andWhere('s.facilityId = :facilityId')->setParameter('facilityId', $facilityId);
+    }
+    if (null !== $equipmentType) {
+      $qb->andWhere('s.equipmentType = :equipmentType')->setParameter('equipmentType', $equipmentType);
+    }
+    if (null !== $dueStatus) {
+      $qb->andWhere('s.dueStatus = :dueStatus')->setParameter('dueStatus', $dueStatus);
+    }
+
+    return $qb;
+  }
+
+  /**
+   * Method exportCandidate.
+   *
+   * @since 1.0.0
+   *
+   * @param MaintenanceScheduleRecord $record the record value
+   *
+   * @return MaintenanceScheduleExportCandidate the export candidate result
+   */
+  private function exportCandidate(MaintenanceScheduleRecord $record): MaintenanceScheduleExportCandidate
+  {
+    return new MaintenanceScheduleExportCandidate(
+      id: $record->id,
+      equipmentId: $record->equipmentId,
+      equipmentType: $record->equipmentType,
+      facilityId: $record->facilityId,
+      intervalOverride: $record->intervalOverride,
+      lastInspectionClosedAt: $record->lastInspectionClosedAt?->format(DateTimeInterface::ATOM),
+      nextDueAt: $record->nextDueAt?->format(DateTimeInterface::ATOM),
+      dueStatus: $record->dueStatus,
+      createdAt: $record->createdAt->format(DateTimeInterface::ATOM),
+      updatedAt: $record->updatedAt->format(DateTimeInterface::ATOM),
+    );
   }
 
   /**

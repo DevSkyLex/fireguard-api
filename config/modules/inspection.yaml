@@ -297,3 +297,9 @@ services:
   Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\ResolveCanonicalInspectionScopeHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Query\ExportInspections\ExportInspectionsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\ExportNonConformities\ExportNonConformitiesHandler:
+    tags: ['messenger.message_handler']
+

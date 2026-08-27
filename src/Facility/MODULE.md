@@ -18,6 +18,7 @@ Main goals:
 | --- | --- | --- |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
+| GET | `/api/organizations/{organizationId}/facilities/export` | Streams a bounded CSV export of facilities, same filter subset as the list endpoint plus `search`. Requires `organization.facilities.read`, resolved in `ExportFacilitiesHandler` (not the resource's coarse `ROLE_USER` gate). Bounded to `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) matching rows — 422 past that. |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants` | List all descendants for bulk subtree reads |
@@ -60,6 +61,44 @@ default empty array — populating it per row would be an N+1 ancestor lookup pe
 page. `FacilitySerializationGroup::READ` is shared across every operation (there
 is no detail-only serialization group in this module today), so the split is
 enforced by the providers, not by the wire contract.
+
+### CSV export and the Import round-trip contract
+
+`GET /api/organizations/{organizationId}/facilities/export` streams a synchronous
+CSV (no 202+poll), mirroring `Intervention\...\ExportInterventionsController`'s
+pattern: `ExportFacilitiesController` authenticates, resolves the same filter
+subset the list endpoint accepts (plus `search`), and dispatches
+`ExportFacilitiesQuery`. `ExportFacilitiesHandler` resolves
+`organization.facilities.read` through `OrganizationAuthorizationPort` itself —
+the resource's `is_granted('ROLE_USER')` is only the coarse gate — counts the
+match before fetching a single row, and rejects with 422
+(`FacilityExportTooLargeException`) past `MAX_EXPORT_ROWS` (50 000). Under the
+cap, `FacilityRepositoryPort::findByOrganizationId()` is reused directly (no
+intermediate "candidate" projection: unlike Intervention's cross-context
+workflow gateway, this port already returns the full `Facility` aggregate in
+one query), and every row's parent facility `code` is resolved in one bulk
+call to `FacilityRepositoryPort::getFacilityCodesByIds()`.
+
+`FacilityCsvWriter::HEADER`'s **first seven columns are a stable contract**:
+
+```
+type, name, code, address, latitude, longitude, parentCode
+```
+
+in that exact order — `Import\Application\Service\FacilityRowFactory` reads a
+bulk-import CSV back with this same header, so a file exported here can be
+re-imported unchanged. `parentCode` is the parent facility's own `code`, never
+its id, because the import side resolves a parent by `code`. Latitude/longitude
+are written as plain decimal strings (no locale formatting). Every column past
+`parentCode` (`id`, `status`, `createdAt`, `updatedAt`) is read-only export
+metadata the import side ignores.
+`tests/Unit/Facility/Presentation/Api/Service/FacilityCsvWriterTest.php` freezes
+the first-seven-columns ordering.
+
+A `FacilitiesExportedEvent` is dispatched after a successful export, carrying
+only the applied filter **names** (`filterKeys`), never their raw values. The
+Audit module wires it centrally to the `facility.list_exported` action — this
+module never writes to the audit ledger directly.
 
 ### Attachments (R11b, floor plans Phase 3)
 
@@ -768,10 +807,35 @@ counts and ancestry the write path has no reason to carry).
   and `Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort`
   are wired with `$entityManager: '@doctrine.orm.main_entity_manager'`, same
   as every other Facility repository.
+- `ExportFacilitiesHandler` is registered with the `messenger.message_handler`
+  tag, same as every other query handler; it touches Doctrine only through
+  `FacilityRepositoryPort`, so it names no `$entityManager` itself.
+  `ExportFacilitiesController`, `FacilityCsvWriter`, and
+  `FacilityExportCriteriaFactory` are plain autowired Presentation services
+  under the `Facility\Presentation\` resource scan — none of them touch
+  Doctrine directly, so none needs an `$entityManager` argument either.
+  `getFacilityCodesByIds()` was added to `FacilityRepositoryPort` /
+  `FacilityRepository` for the export's `parentCode` resolution; it reuses the
+  already-wired `doctrine.orm.main_entity_manager`, no new alias needed.
 
 ## Testing
 
 - Unit: `tests/Unit/Facility`
+  - `Application/UseCase/Query/ExportFacilities/ExportFacilitiesHandlerTest` —
+    403 without `organization.facilities.read`, 404 outside the organization's
+    scope, 422 past `MAX_EXPORT_ROWS`, and the success path resolving a
+    child's `parentCode` in one bulk call while an unresolvable parent id
+    falls back to `null` rather than an empty string.
+  - `Presentation/Api/Controller/ExportFacilitiesControllerTest` — the
+    streamed CSV shape (content type, `Content-Disposition: attachment`,
+    header row, `parentCode` in a data row), the 400 for a missing
+    `organizationId`, the audited filter *names* only, 401 unauthenticated,
+    and the bus-wrapped 403/422 domain exceptions unwrapped by
+    `FacilityExportExceptionMapperTrait`.
+  - `Presentation/Api/Service/FacilityCsvWriterTest` — freezes
+    `FacilityCsvWriter::HEADER`'s first seven columns as the
+    `Import\Application\Service\FacilityRowFactory` round-trip contract, and
+    the plain-decimal coordinate formatting.
   - `Domain/Model/Facility/CanonicalFacilityTest` — the canonical rules with
     no container and no mocks: the changed-field list reporting what DIFFERS
     rather than what the body carried, trimming, explicit-null erasure versus
@@ -844,6 +908,15 @@ counts and ancestry the write path has no reason to carry).
   `path` mapping, collection left empty);
   `tests/Integration/Facility/Infrastructure/Adapter/Intervention/FacilityInterventionResourceAdapterApplyTest`
   (includes the metadata-schema-rejection case on the offline apply() path).
+- Functional: `tests/Functional/Api/FacilityExportApiTest.php` — 200 with CSV
+  content type, attachment disposition, the header row, and a seeded child
+  facility's row carrying its parent's resolved `code`; 400 on an unknown
+  `type` filter value; 401 unauthenticated; 403 for a member without
+  `organization.facilities.read`; 404 for a member of another organization
+  (deliberately not 403 — that would confirm the organization exists). The
+  422 row-cap path is covered by `ExportFacilitiesHandlerTest` instead, since
+  `MAX_EXPORT_ROWS` is a class constant and exercising it end-to-end would
+  require seeding 50 001 facilities.
 - Functional: `tests/Functional/Api/{FacilityAttachmentApiTest,FacilityMetadataFieldApiTest}.php`,
   plus the typed-metadata create cases added to `FacilityApiTest.php` — floor
   plan upload (happy path + wrong-MIME 422), `?kind=` list filter, the
@@ -930,6 +1003,8 @@ counts and ancestry the write path has no reason to carry).
 | `CanonicalFacilityValidationException` | 422 | The canonical surface's refusals: a non-nullable field sent as null, an unsupported enum value, a half-supplied coordinate pair, an invalid/foreign/archived parent, a cycle, a depth-cap breach, and a restore under an archived parent. **Note the depth case: `FacilityHierarchyException` is 400, but the canonical surface wrapped its MESSAGE in a 422 rather than letting the exception surface — so this class answers 422 for it too.** |
 | `CanonicalFacilityConflictException` | 409 | Hard-deleting a draft scratchpad row that still has child facilities |
 | `FacilityRevisionMismatchException` | 412 | `If-Match` lost the race between the scope read on the query bus and the mutation's own transaction |
+| `FacilityAccessDeniedException` | 403 | Export endpoint: caller is inside the organization's scope but lacks `organization.facilities.read` |
+| `FacilityExportTooLargeException` | 422 | Export endpoint: the filters match more than `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) facilities |
 
 Every other domain exception in this module (facility hierarchy, archival
 dependents, code conflicts, …) is mapped locally by its processor/provider,
