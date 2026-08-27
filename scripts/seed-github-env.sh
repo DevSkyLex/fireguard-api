@@ -11,7 +11,10 @@
 #
 #   scp <vps>:/srv/apps/fireguard/production/back/.env ./prod.env
 #   ./scripts/seed-github-env.sh ./prod.env
-#   shred -u ./prod.env          # it holds every production secret
+#   rm ./prod.env                # it holds every production secret
+#
+# (`shred` is GNU coreutils and is absent on macOS and on Git Bash for Windows;
+# on an SSD it does not overwrite in place anyway, so a plain rm is no weaker.)
 #
 # The script pushes what the file has, and REFUSES to finish while a required key
 # is absent from it — those are the ones you must add by hand, and the ones the
@@ -35,9 +38,7 @@ fi
 # configuration and goes in as a variable, so it can be reviewed and diffed.
 SECRETS="
 APP_SECRET
-AUTH_DATABASE_URL
 MAILER_DSN
-MAIN_DATABASE_URL
 MERCURE_JWT_SECRET
 OAUTH_ENCRYPTION_KEY
 POSTGRES_AUTH_PASSWORD
@@ -83,7 +84,10 @@ required_keys() {
     in_env && $0 !~ /^      / && NF { in_env = 0 }
   ' "$repo_root/compose.prod.yaml" > "$tmp_pinned"
 
-  echo FIREGUARD_IMAGE >> "$tmp_pinned"
+  # Computed by the template, never supplied: the image ref comes from the build
+  # job, and the two connection URLs are derived from the POSTGRES_* parts.
+  printf '%s
+' FIREGUARD_IMAGE AUTH_DATABASE_URL MAIN_DATABASE_URL >> "$tmp_pinned"
   sort -u -o "$tmp_pinned" "$tmp_pinned"
 
   comm -23 "$tmp_declared" "$tmp_pinned"

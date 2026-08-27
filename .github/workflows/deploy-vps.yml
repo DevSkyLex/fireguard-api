@@ -126,7 +126,6 @@ jobs:
       MAILER_FROM:                     ${{ vars.MAILER_FROM }}
       MERCURE_CORS_ORIGINS:            ${{ vars.MERCURE_CORS_ORIGINS }}
       MESSENGER_TRANSPORT_DSN:         ${{ vars.MESSENGER_TRANSPORT_DSN }}
-      MFA_ENABLED:                     ${{ vars.MFA_ENABLED }}
       OAUTH_ISSUER:                    ${{ vars.OAUTH_ISSUER }}
       OLLAMA_BASE_URL:                 ${{ vars.OLLAMA_BASE_URL }}
       POSTGRES_AUTH_DB:                ${{ vars.POSTGRES_AUTH_DB }}
@@ -143,12 +142,13 @@ jobs:
       STRIPE_PRICE_PRO_YEARLY:         ${{ vars.STRIPE_PRICE_PRO_YEARLY }}
       STRIPE_PRICE_PRO_YEARLY_AMOUNT:  ${{ vars.STRIPE_PRICE_PRO_YEARLY_AMOUNT }}
 
-      # Secrets — write-only. A wrong value here is applied, not rejected:
-      # the playbook feeds AUTH_DATABASE_URL to ALTER USER on the live database.
+      # Secrets — write-only. A wrong value here is applied, not rejected: the
+      # playbook derives AUTH_DATABASE_URL from POSTGRES_AUTH_PASSWORD and feeds it
+      # to ALTER USER on the live database. The two connection URLs are absent on
+      # purpose — the template composes them from the parts, so the password has
+      # exactly one source and cannot disagree with itself.
       APP_SECRET:                      ${{ secrets.APP_SECRET }}
-      AUTH_DATABASE_URL:               ${{ secrets.AUTH_DATABASE_URL }}
       MAILER_DSN:                      ${{ secrets.MAILER_DSN }}
-      MAIN_DATABASE_URL:               ${{ secrets.MAIN_DATABASE_URL }}
       MERCURE_JWT_SECRET:              ${{ secrets.MERCURE_JWT_SECRET }}
       OAUTH_ENCRYPTION_KEY:            ${{ secrets.OAUTH_ENCRYPTION_KEY }}
       POSTGRES_AUTH_PASSWORD:          ${{ secrets.POSTGRES_AUTH_PASSWORD }}

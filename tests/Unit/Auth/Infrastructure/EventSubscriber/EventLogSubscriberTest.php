@@ -11,7 +11,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
-use function hash;
+use function hash_hmac;
 
 /**
  * Test EventLogSubscriberTest.
@@ -42,15 +42,15 @@ final class EventLogSubscriberTest extends TestCase
         self::callback(
           fn (array $context): bool => 'user-123' === $context['user_id']
           && 'user@example.com' === $context['email']
-          && hash('sha256', 'user@example.com') === $context['email_hash']
+          && hash_hmac('sha256', 'user@example.com', 'salt-for-tests') === $context['email_hash']
           && '127.0.0.1' === $context['ip']
-          && hash('sha256', '127.0.0.1') === $context['ip_hash'],
+          && hash_hmac('sha256', '127.0.0.1', 'salt-for-tests') === $context['ip_hash'],
         ),
       );
 
     $subscriber = new EventLogSubscriber(
       $logger,
-      new SecurityLogSanitizer(includePii: true),
+      new SecurityLogSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
     );
 
     $subscriber->onUserLoggedIn(new UserLoggedInEvent(
@@ -70,16 +70,16 @@ final class EventLogSubscriberTest extends TestCase
         'Login attempt failed',
         self::callback(
           fn (array $context): bool => 'user@example.com' === $context['email']
-          && hash('sha256', 'user@example.com') === $context['email_hash']
+          && hash_hmac('sha256', 'user@example.com', 'salt-for-tests') === $context['email_hash']
           && '127.0.0.1' === $context['ip']
-          && hash('sha256', '127.0.0.1') === $context['ip_hash']
+          && hash_hmac('sha256', '127.0.0.1', 'salt-for-tests') === $context['ip_hash']
           && 'invalid_password' === $context['reason'],
         ),
       );
 
     $subscriber = new EventLogSubscriber(
       $logger,
-      new SecurityLogSanitizer(includePii: true),
+      new SecurityLogSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
     );
 
     $subscriber->onLoginFailed(new LoginFailedEvent(
