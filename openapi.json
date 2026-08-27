@@ -9459,6 +9459,64 @@
                 }
             }
         },
+        "/api/organizations/{organizationId}/equipment/{equipmentId}/report": {
+            "get": {
+                "operationId": "equipment_export_report",
+                "tags": [
+                    "Equipment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Equipment sheet PDF"
+                    },
+                    "400": {
+                        "description": "Missing organizationId or equipmentId URI parameter"
+                    },
+                    "403": {
+                        "description": "Missing organization.equipment.read, or plan not entitled (pro/max required)"
+                    },
+                    "404": {
+                        "description": "Organization outside the caller's scope, or equipment not found"
+                    },
+                    "204": {
+                        "description": "EquipmentReportExport resource"
+                    }
+                },
+                "summary": "Export an equipment sheet as PDF",
+                "description": "Streams a PDF sheet of one equipment item (identity, maintenance history, attachment index) with Content-Disposition: attachment. Requires organization.equipment.read, resolved with the module's standard 403/404 split, AND a pro/max plan \u2014 the same entitlement gate as the regulatory safety register export.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "EquipmentReportExport identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "equipmentId",
+                        "in": "path",
+                        "description": "EquipmentReportExport identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/equipment/{equipmentId}/tags": {
             "post": {
                 "operationId": "equipment_add_tag",
@@ -15631,6 +15689,64 @@
                 }
             }
         },
+        "/api/organizations/{organizationId}/inspections/{inspectionId}/report": {
+            "get": {
+                "operationId": "inspection_export_report",
+                "tags": [
+                    "Inspection"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Inspection report PDF"
+                    },
+                    "400": {
+                        "description": "Missing organizationId or inspectionId URI parameter"
+                    },
+                    "403": {
+                        "description": "Missing organization.inspection.read, or plan not entitled (pro/max required)"
+                    },
+                    "404": {
+                        "description": "Organization outside the caller's scope, or inspection not found"
+                    },
+                    "204": {
+                        "description": "InspectionReportExport resource"
+                    }
+                },
+                "summary": "Export an inspection report as PDF",
+                "description": "Streams a PDF report of one inspection (identity, checklist responses, non-conformities) with Content-Disposition: attachment. Requires organization.inspection.read, resolved with the module's standard 403/404 split, AND a pro/max plan \u2014 the same entitlement gate as the regulatory safety register export.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "InspectionReportExport identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "inspectionId",
+                        "in": "path",
+                        "description": "InspectionReportExport identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/inspections/{inspectionId}/submit": {
             "post": {
                 "operationId": "inspection_submit",
@@ -15871,6 +15987,79 @@
                 },
                 "summary": "Export non-conformities (CSV)",
                 "description": "Streams a CSV export of non-conformities (Content-Disposition: attachment) across every inspection of the given organization, using the same filter subset as the organization-wide list endpoint. Requires `organization.inspection.read` on the organization, resolved the same way the list endpoint resolves it \u2014 a resource-level ROLE_USER check alone does not grant access. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow the filters and retry.",
+                "parameters": [
+                    {
+                        "name": "severity",
+                        "in": "query",
+                        "description": "Filter by severity (low, medium, high, critical)",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by status (open, in_progress, done, waived)",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "NonConformity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/non-conformities/report": {
+            "get": {
+                "operationId": "inspection_export_non_conformities_report",
+                "tags": [
+                    "Inspection"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Non-conformities report PDF"
+                    },
+                    "400": {
+                        "description": "Missing organizationId or an invalid enum filter value"
+                    },
+                    "403": {
+                        "description": "Missing organization.inspection.read, or plan not entitled (pro/max required)"
+                    },
+                    "404": {
+                        "description": "The organization is outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Report exceeds the row cap; narrow the filters and retry"
+                    },
+                    "204": {
+                        "description": "NonConformity resource"
+                    }
+                },
+                "summary": "Export non-conformities report (PDF)",
+                "description": "Streams a PDF report of non-conformities (Content-Disposition: attachment) across every inspection of the given organization, grouped by severity, using the same severity/status filter subset as the CSV export. Requires `organization.inspection.read` on the organization, resolved with the module's standard 403/404 split, AND a pro/max plan \u2014 the same entitlement gate as the regulatory safety register export. Bounded to 50000 matching rows \u2014 the request is rejected with 422 if the filters match more; narrow the filters and retry.",
                 "parameters": [
                     {
                         "name": "severity",

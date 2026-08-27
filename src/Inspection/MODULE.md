@@ -30,6 +30,7 @@ localized typed registries are the source of these values).
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/submit` | Submit inspection (`draft → submitted`) |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/close` | Close inspection (`submitted → closed`) |
 | GET | `/api/organizations/{organizationId}/inspections/export` | Streams a bounded CSV export of inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) — B8 |
+| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/report` | Streams a PDF report of one inspection (identity, checklist responses, non-conformities) — plan-gated, see PDF reports below |
 
 **B8 — synchronous CSV exports (inspections and non-conformities).**
 
@@ -97,6 +98,47 @@ both are bounded and fast enough to answer inline.
   mirrors `InterventionResource::UUID_PATTERN`'s `{id}` disambiguation against
   `/interventions/export`. `/non-conformities/export` needed no such
   constraint: no sibling route shares its path shape.
+
+**PDF reports — inspection report and non-conformities report (plan-gated).**
+
+Two synchronous PDF exports on the shared PDF socle (`templates/pdf/layout.html.twig`,
+translator domain `pdf`, `OrganizationDocumentBrandingPort` for letterhead +
+regional date formatting, dompdf renderer adapters with `isRemoteEnabled`/
+`isPhpEnabled` off and canvas `page_text()` pagination):
+
+- `GET .../inspections/{inspectionId}/report` —
+  `ExportInspectionReportController`, reusing `GetInspectionQuery`,
+  `ListInspectionResponsesQuery` (scoped by `inspectionId`, `published`
+  records by default) and `ListNonConformitiesQuery`. No new business logic.
+- `GET .../non-conformities/report` —
+  `ExportNonConformitiesReportController`, reusing the CSV export's
+  `NonConformityExportCriteriaFactory` (same `severity`/`status` filters) and
+  `ExportNonConformitiesQuery` (same handler: row cap, bulk naming,
+  `ageInDays`), then grouping rows by severity (critical → low) as pure
+  presentation shaping. Inherits the CSV export's 422 row cap.
+
+**Decision — entitlement gate.** Both reports are reserved to the `pro`/`max`
+plans, exactly like the Compliance safety register: the controllers check
+`InspectionReportEntitlementPort` (aliased to the SAME Organization adapter,
+`OrganizationExportEntitlementAdapter`, so the plan allow-list lives in one
+place) and answer a dedicated **403** (`InspectionReportNotEntitledException::planTooLow`)
+when the plan is lower. This deliberately does **not** mirror the intervention
+report (`GET /api/interventions/{id}/report`), which predates the decision and
+remains ungated — the asymmetry is known and accepted; new document exports
+align on the gated register, not on it.
+
+Authorization mirrors the CSV exports: `resolveAccess()` with
+`organization.inspection.read`, `OUTSIDE_SCOPE` → **404**,
+`MISSING_PERMISSION` → **403**, entitlement checked only after that split so
+an outsider never learns the route exists. Each export dispatches its audit
+event (`inspection.report_exported` with the plan key;
+`inspection.non_conformities_report_exported` with row count + filter *names*
++ plan key), wired centrally in `Audit\...\AuditEventSubscriber`. The single
+inspection report deliberately uses the module's org-scoped route shape
+(`/organizations/{organizationId}/inspections/{inspectionId}/report`) rather
+than Intervention's bare `/interventions/{id}/report`: every Inspection read
+query requires the `organizationId` up front, and the resolveAccess-before-
+load ordering depends on it.
 
 ### Checklists
 
@@ -190,6 +232,7 @@ both are bounded and fast enough to answer inline.
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities for one inspection (filters: `severity`, `status`) |
 | GET | `/api/organizations/{organizationId}/non-conformities` | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7 |
 | GET | `/api/organizations/{organizationId}/non-conformities/export` | Streams a bounded CSV export of an organization's non-conformities (filters: `severity`, `status`) — B8 |
+| GET | `/api/organizations/{organizationId}/non-conformities/report` | Streams a PDF report of an organization's non-conformities grouped by severity (filters: `severity`, `status`) — plan-gated, see PDF reports below |
 | PATCH | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status |
 
 **B7 — organization-wide non-conformity collection.**

@@ -30,7 +30,7 @@ services:
     alias: Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter
 
   Compliance\Application\Port\Outbound\ComplianceExportEntitlementPort:
-    alias: Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter
+    alias: Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter
 
   # L2.2: Assistant business-context seam — this module's own adapter,
   # tagged `assistant.context_provider` (priority 30: the org-wide summary

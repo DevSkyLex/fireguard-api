@@ -7,7 +7,7 @@ namespace Inspection\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Inspection\Application\UseCase\Query\ExportNonConformities\ExportNonConformitiesHandler;
-use Inspection\Presentation\Api\Controller\ExportNonConformitiesController;
+use Inspection\Presentation\Api\Controller\{ExportNonConformitiesController, ExportNonConformitiesReportController};
 use Inspection\Presentation\Api\Dto\Input\NonConformity\{AddNonConformityInput, UpdateNonConformityStatusInput};
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Operation\InspectionOperations;
@@ -126,6 +126,41 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.inspection.read'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'The organization is outside the caller\'s scope'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row cap; narrow the filters and retry'),
+        ],
+      ),
+    ),
+    new Get(
+      name: InspectionOperations::EXPORT_NON_CONFORMITIES_REPORT,
+      description: 'Streams a PDF report of an organization\'s non-conformities grouped by severity, using the same filter subset as the CSV export.',
+      uriTemplate: '/{organizationId}/non-conformities/report',
+      controller: ExportNonConformitiesReportController::class,
+      read: false,
+      write: false,
+      deserialize: false,
+      serialize: false,
+      output: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'Export non-conformities report (PDF)',
+        description: 'Streams a PDF report of non-conformities (Content-Disposition: attachment) across every '
+          . 'inspection of the given organization, grouped by severity, using the same severity/status filter '
+          . 'subset as the CSV export. Requires `organization.inspection.read` on the organization, resolved '
+          . 'with the module\'s standard 403/404 split, AND a pro/max plan — the same entitlement gate as the '
+          . 'regulatory safety register export. Bounded to ' . ExportNonConformitiesHandler::MAX_EXPORT_ROWS
+          . ' matching rows — the request is rejected with 422 if the filters match more; narrow the filters '
+          . 'and retry.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Non-conformities report PDF'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing organizationId or an invalid enum filter value'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Missing organization.inspection.read, or plan not entitled (pro/max required)'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'The organization is outside the caller\'s scope'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Report exceeds the row cap; narrow the filters and retry'),
         ],
       ),
     ),

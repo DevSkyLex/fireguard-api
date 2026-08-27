@@ -22,11 +22,11 @@ use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent,
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
+use Equipment\Domain\Event\Export\{EquipmentReportExportedEvent, EquipmentsExportedEvent};
 use Facility\Domain\Event\Export\FacilitiesExportedEvent;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
-use Inspection\Domain\Event\Export\{InspectionsExportedEvent, NonConformitiesExportedEvent};
+use Inspection\Domain\Event\Export\{InspectionReportExportedEvent, InspectionsExportedEvent, NonConformitiesExportedEvent, NonConformitiesReportExportedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Export\InterventionsExportedEvent;
@@ -213,6 +213,9 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'inspection.inspections_exported_event' => 'onInspectionsExported',
       'inspection.non_conformities_exported_event' => 'onNonConformitiesExported',
       'maintenance.maintenance_schedules_exported_event' => 'onMaintenanceSchedulesExported',
+      'inspection.inspection_report_exported_event' => 'onInspectionReportExported',
+      'inspection.non_conformities_report_exported_event' => 'onNonConformitiesReportExported',
+      'equipment.equipment_report_exported_event' => 'onEquipmentReportExported',
     ];
   }
 
@@ -2324,6 +2327,88 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       metadata: [
         'row_count' => $event->rowCount,
         'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onInspectionReportExported.
+   *
+   * Records every export of an inspection's PDF report — a plan-gated
+   * document pull, mirroring {@see self::onSafetyRegisterExported()}'s
+   * "who pulled this document, under which plan" traceability.
+   *
+   * @since 1.7.0
+   *
+   * @param InspectionReportExportedEvent $event the domain event
+   */
+  public function onInspectionReportExported(InspectionReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'inspection',
+      subjectId: $event->inspectionId,
+      metadata: [
+        'plan_key' => $event->planKey,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onNonConformitiesReportExported.
+   *
+   * Records every export of an organization's non-conformities PDF report —
+   * a plan-gated document pull, mirroring
+   * {@see self::onNonConformitiesExported()} for the filter discipline
+   * (names only, never values) and
+   * {@see self::onSafetyRegisterExported()} for the plan traceability.
+   *
+   * @since 1.7.0
+   *
+   * @param NonConformitiesReportExportedEvent $event the domain event
+   */
+  public function onNonConformitiesReportExported(NonConformitiesReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.non_conformities_report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+        'plan_key' => $event->planKey,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onEquipmentReportExported.
+   *
+   * Records every export of an equipment's PDF sheet — a plan-gated
+   * document pull, mirroring {@see self::onSafetyRegisterExported()}'s
+   * "who pulled this document, under which plan" traceability.
+   *
+   * @since 1.7.0
+   *
+   * @param EquipmentReportExportedEvent $event the domain event
+   */
+  public function onEquipmentReportExported(EquipmentReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'equipment',
+      subjectId: $event->equipmentId,
+      metadata: [
+        'plan_key' => $event->planKey,
       ],
       occurredAt: $event->occurredAt,
       actorUserId: $event->actorUserId,

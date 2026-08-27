@@ -135,6 +135,9 @@ final class AuditEventSubscriberTest extends TestCase
       'inspection.inspections_exported_event' => 'onInspectionsExported',
       'inspection.non_conformities_exported_event' => 'onNonConformitiesExported',
       'maintenance.maintenance_schedules_exported_event' => 'onMaintenanceSchedulesExported',
+      'inspection.inspection_report_exported_event' => 'onInspectionReportExported',
+      'inspection.non_conformities_report_exported_event' => 'onNonConformitiesReportExported',
+      'equipment.equipment_report_exported_event' => 'onEquipmentReportExported',
     ], AuditEventSubscriber::getSubscribedEvents());
   }
 

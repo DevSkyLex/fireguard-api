@@ -187,6 +187,22 @@ services:
 
   Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter: ~
 
+  # PDF report renderers (no Doctrine — plain Twig contexts)
+  Inspection\Infrastructure\Pdf\DompdfInspectionReportRenderer: ~
+
+  Inspection\Infrastructure\Pdf\DompdfNonConformityReportRenderer: ~
+
+  Inspection\Application\Port\Outbound\InspectionReportPdfRendererPort:
+    alias: Inspection\Infrastructure\Pdf\DompdfInspectionReportRenderer
+
+  Inspection\Application\Port\Outbound\NonConformityReportPdfRendererPort:
+    alias: Inspection\Infrastructure\Pdf\DompdfNonConformityReportRenderer
+
+  # PDF report entitlement (pro/max — the same Organization-module adapter
+  # as the Compliance safety register, one allow-list for every PDF export)
+  Inspection\Application\Port\Outbound\InspectionReportEntitlementPort:
+    alias: Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter
+
   # Command Handlers
   Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
     arguments:

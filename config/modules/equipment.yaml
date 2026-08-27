@@ -158,6 +158,17 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # PDF equipment sheet renderer (no Doctrine — plain Twig context)
+  Equipment\Infrastructure\Pdf\DompdfEquipmentReportRenderer: ~
+
+  Equipment\Application\Port\Outbound\EquipmentReportPdfRendererPort:
+    alias: Equipment\Infrastructure\Pdf\DompdfEquipmentReportRenderer
+
+  # PDF report entitlement (pro/max — the same Organization-module adapter
+  # as the Compliance safety register, one allow-list for every PDF export)
+  Equipment\Application\Port\Outbound\EquipmentReportEntitlementPort:
+    alias: Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter
+
   # Reads back a published intervention's applied equipment changes so the
   # service-history subscriber below can synthesize maintenance log entries.
   Equipment\Application\Port\Outbound\InterventionServiceReportPort:

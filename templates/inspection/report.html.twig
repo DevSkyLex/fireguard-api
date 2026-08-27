@@ -1,0 +1,124 @@
+{% extends 'pdf/layout.html.twig' %}
+
+{% block title %}{{ 'inspection.title'|trans({}, 'pdf', lang) }}{% endblock %}
+
+{% block headerTitle %}{{ 'inspection.title'|trans({}, 'pdf', lang) }}{% endblock %}
+
+{% block styles %}
+    .severity-critical { color: #b3261e; font-weight: bold; }
+    .severity-high { color: #b3261e; }
+    .severity-medium { color: #9a6700; }
+    .severity-low { color: #52606d; }
+{% endblock %}
+
+{% block content %}
+  <h1>{{ 'inspection.title'|trans({}, 'pdf', lang) }}</h1>
+  <div class="meta">
+    <table>
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.status'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ status }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.result'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ result }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.performedAt'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ performedAt|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.inspector'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ inspectorName|default('—') }}</td>
+      </tr>
+      {% if inspectorOrganizationName is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'inspection.meta.inspectorOrganization'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ inspectorOrganizationName }}</td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.site'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ facilityName|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.equipment'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ equipmentSerialNumber|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.checklist'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ checklistName|default('—') }}</td>
+      </tr>
+      {% if notes is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'inspection.meta.notes'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ notes }}</td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td class="meta-label">{{ 'inspection.meta.signature'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ (hasSignature ? 'common.yes' : 'common.no')|trans({}, 'pdf', lang) }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>{{ 'inspection.responses.heading'|trans({}, 'pdf', lang) }}</h2>
+  {% if responses is empty %}
+    <p class="empty">{{ 'inspection.responses.empty'|trans({}, 'pdf', lang) }}</p>
+  {% else %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ 'inspection.responses.item'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'inspection.responses.answer'|trans({}, 'pdf', lang) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for response in responses %}
+          <tr>
+            <td>{{ response.itemKey }}</td>
+            <td>
+              {%- if response.value in ['yes', 'no'] -%}
+                {{ ('common.' ~ response.value)|trans({}, 'pdf', lang) }}
+              {%- else -%}
+                {{ response.value|default('—') }}
+              {%- endif -%}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h2>{{ 'inspection.nonConformities.heading'|trans({}, 'pdf', lang) }}</h2>
+  {% if nonConformities is empty %}
+    <p class="empty">{{ 'inspection.nonConformities.empty'|trans({}, 'pdf', lang) }}</p>
+  {% else %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ 'inspection.nonConformities.severity'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'inspection.nonConformities.status'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'inspection.nonConformities.description'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'inspection.nonConformities.recorded'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'inspection.nonConformities.due'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'inspection.nonConformities.resolved'|trans({}, 'pdf', lang) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nonConformity in nonConformities %}
+          <tr>
+            <td class="severity-{{ nonConformity.severity }}">{{ ('nonConformities.severity.' ~ nonConformity.severity)|trans({}, 'pdf', lang) }}</td>
+            <td>{{ ('nonConformities.status.' ~ nonConformity.status)|trans({}, 'pdf', lang) }}</td>
+            <td>{{ nonConformity.description }}</td>
+            <td>{{ nonConformity.createdAt|default('—') }}</td>
+            <td>{{ nonConformity.dueAt|default('—') }}</td>
+            <td>{{ nonConformity.resolvedAt|default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <p class="doc-note">{{ 'inspection.note'|trans({}, 'pdf', lang) }}</p>
+{% endblock %}

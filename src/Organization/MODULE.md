@@ -574,8 +574,12 @@ demonstrating that one person can belong to more than one tenant.
   `tagline: null` / `perks: []` — never an error. **`tagline`/`perks` are
   MARKETING copy only and must NEVER be read to decide what a plan grants**:
   entitlement is exclusively `Plan::limitFor()` / `OrganizationQuotaCatalog`
-  (quotas) and, for the Compliance safety-register export, the
-  `ComplianceExportEntitlementPort` allow-list (see `src/Compliance/MODULE.md`).
+  (quotas) and, for the PDF document exports (Compliance safety register,
+  Inspection report + non-conformities report, Equipment sheet), the
+  `pro`/`max` allow-list in `OrganizationExportEntitlementAdapter` — one
+  adapter implementing `ComplianceExportEntitlementPort`,
+  `InspectionReportEntitlementPort` and `EquipmentReportEntitlementPort`
+  (see `src/Compliance/MODULE.md`).
   A plan key present in `PlanPresentationCatalog` with no matching
   entitlement rule elsewhere (or vice versa) is expected and intentional —
   the two catalogs are never meant to stay in lockstep. The Billing module's

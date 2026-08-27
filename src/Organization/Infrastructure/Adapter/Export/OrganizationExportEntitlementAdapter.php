@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Organization\Infrastructure\Adapter\Compliance;
+namespace Organization\Infrastructure\Adapter\Export;
 
 use Compliance\Application\Port\Outbound\ComplianceExportEntitlementPort;
+use Equipment\Application\Port\Outbound\EquipmentReportEntitlementPort;
+use Inspection\Application\Port\Outbound\InspectionReportEntitlementPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Domain\Exception\InvalidValueException;
@@ -14,13 +16,16 @@ use function in_array;
 /**
  * Adapter OrganizationExportEntitlementAdapter.
  *
- * Implements the Compliance module's export entitlement port by resolving
- * the organization's current plan with the SAME logic as
+ * Implements the export entitlement ports of the Compliance, Inspection
+ * and Equipment modules (safety register, inspection report,
+ * non-conformities report, equipment sheet — every PDF document export
+ * shares the SAME `pro`/`max` gate by product decision) by resolving the
+ * organization's current plan with the SAME logic as
  * `OrganizationQuotaService::resolvePlan()` (assigned plan, falling back to
  * the catalog default), then checking the plan key against a small
  * allow-list. Plans are quota-only with no feature-flag concept, so this
  * allow-list is a deliberate policy decision: if plan keys are renamed or
- * added, this adapter must be updated.
+ * added, this adapter must be updated — and it is the ONE place to update.
  *
  * @category Adapter
  *
@@ -28,13 +33,14 @@ use function in_array;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class OrganizationExportEntitlementAdapter implements ComplianceExportEntitlementPort
+final readonly class OrganizationExportEntitlementAdapter implements ComplianceExportEntitlementPort, EquipmentReportEntitlementPort, InspectionReportEntitlementPort
 {
   // #region Constants
   /**
    * Constant ENTITLED_PLAN_KEYS.
    *
-   * Plan keys entitled to the regulatory safety register export.
+   * Plan keys entitled to the PDF document exports (safety register,
+   * inspection report, non-conformities report, equipment sheet).
    *
    * @since 1.0.0
    *

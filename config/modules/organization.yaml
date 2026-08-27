@@ -360,7 +360,7 @@ services:
   Organization\Infrastructure\Adapter\Approval\OrganizationApprovalMemberDirectoryAdapter: ~
 
   # Cross-module read model for the Compliance module (plan-tier export entitlement gate)
-  Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter: ~
+  Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter: ~
 
   # Cross-module read model for the Assistant module (L2.2: business-context
   # `includeBusinessContext` opt-in gate)

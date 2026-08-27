@@ -154,7 +154,7 @@ locales without a catalogue. The layout carries no normative claim
 | `MaintenanceComplianceStatisticsPort` (cross-module) | `Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter` |
 | `InspectionComplianceStatisticsPort` (cross-module) | `Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter` |
 | `EquipmentComplianceStatisticsPort` (cross-module) | `Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter` |
-| `ComplianceExportEntitlementPort` (cross-module) | `Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter` |
+| `ComplianceExportEntitlementPort` (cross-module) | `Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter` |
 | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` *(reused, not owned)* | `Organization\Application\Service\OrganizationAuthorizationService` |
 | `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` *(reused, not owned)* | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` |
 | `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, hosted here)* | `Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter` |

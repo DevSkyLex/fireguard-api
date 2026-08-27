@@ -36,6 +36,7 @@ Main goals:
 | POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
 | GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
 | GET | `/api/organizations/{organizationId}/equipment/export` | Streams a bounded CSV export of every equipment item in the organization — see below |
+| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/report` | Streams a PDF equipment sheet (identity, maintenance history, attachment index) — plan-gated, see below |
 
 Removed 2026-08-20: `GET /api/organizations/{organizationId}/equipment-types` and
 `GET /api/organizations/{organizationId}/equipment-statuses` (unconsumed reference
@@ -138,6 +139,36 @@ A successful export dispatches `EquipmentsExportedEvent`
 its own subscriber to turn that into an `equipment.list_exported` ledger
 entry — not wired here, matching the layering every other module's own
 `*ExportedEvent` follows.
+
+**PDF equipment sheet (plan-gated, added 2026-08-27).**
+`GET .../equipment/{equipmentId}/report` (`EXPORT_EQUIPMENT_REPORT`, on a
+dedicated `EquipmentReportExportResource` for the same route-collision reason
+as the CSV export) streams a synchronous PDF on the shared PDF socle
+(`templates/pdf/layout.html.twig`, translator domain `pdf`,
+`OrganizationDocumentBrandingPort` letterhead + regional date formatting,
+`DompdfEquipmentReportRenderer` with `isRemoteEnabled`/`isPhpEnabled` off and
+canvas `page_text()` pagination). `ExportEquipmentReportController` reuses
+the module's existing read queries only — `GetEquipmentQuery` (identity,
+tags, facility name, maintenance due status), `ListMaintenanceLogsQuery`
+(history, bounded to 100 rows) and `ListEquipmentAttachmentsQuery` (names and
+metadata, never blobs). Linked non-conformities are deliberately absent: no
+per-equipment non-conformity port exists (`NonConformityStatisticsPort` is
+organization-wide only), and creating one would be new business logic.
+
+**Decision — entitlement gate.** The sheet is reserved to the `pro`/`max`
+plans, exactly like the Compliance safety register: the controller checks
+`EquipmentReportEntitlementPort` (aliased to the SAME Organization adapter,
+`OrganizationExportEntitlementAdapter`, one plan allow-list for every PDF
+export) and answers a dedicated **403**
+(`EquipmentReportNotEntitledException::planTooLow`) when the plan is lower.
+This deliberately does **not** mirror the intervention report
+(`GET /api/interventions/{id}/report`), which predates the decision and
+remains ungated — new document exports align on the gated register.
+Authorization first: `resolveAccess()` with `organization.equipment.read`,
+`OUTSIDE_SCOPE` → **404**, `MISSING_PERMISSION` → **403**, entitlement
+checked only after that split. A successful export dispatches
+`EquipmentReportExportedEvent` (equipment, organization, actor, plan key);
+the Audit module's own subscriber records it as `equipment.report_exported`.
 
 **CSV column contract — the import round-trip.** `EquipmentCsvWriter::HEADER`
 is a `public` constant, and its first six columns

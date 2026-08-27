@@ -595,6 +595,13 @@ exactly. `InterventionReportExportResource` (own resource: `read`/`write`/
 `deserialize`/`serialize`/`output` all disabled) wires the invokable
 `ExportInterventionReportController`.
 
+**No plan entitlement gate — a known asymmetry (2026-08-27).** The newer PDF
+reports (Inspection's inspection report and non-conformities report,
+Equipment's equipment sheet) all inherit the Compliance safety register's
+`pro`/`max` entitlement gate (`OrganizationExportEntitlementAdapter`). This
+intervention report predates that decision and remains ungated; new document
+exports align on the gated register, not on this endpoint.
+
 **No phase gate** — the report is available whenever the caller can read the
 intervention, exactly like the attachment download route documented above
 (`GET /intervention-attachments/{id}/download`). Authorization is entirely

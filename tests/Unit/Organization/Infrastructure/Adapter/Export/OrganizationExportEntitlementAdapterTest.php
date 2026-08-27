@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Organization\Infrastructure\Adapter\Compliance;
+namespace Tests\Unit\Organization\Infrastructure\Adapter\Export;
 
 use DateTimeImmutable;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, PlanId, PlanKey};
-use Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter;
+use Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 

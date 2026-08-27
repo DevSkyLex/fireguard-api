@@ -45,4 +45,8 @@ final class InspectionOperations
   public const string EXPORT_INSPECTIONS = 'inspection_export';
 
   public const string EXPORT_NON_CONFORMITIES = 'inspection_export_non_conformities';
+
+  public const string EXPORT_INSPECTION_REPORT = 'inspection_export_report';
+
+  public const string EXPORT_NON_CONFORMITIES_REPORT = 'inspection_export_non_conformities_report';
 }
