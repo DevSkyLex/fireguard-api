@@ -65,7 +65,14 @@ parameters:
   # deployment; a multi-node one must set LOCK_DSN explicitly to a shared store.
   env(LOCK_DSN): 'flock'
 
-  # Assistant (Ollama). The base URL is NOT here — it differs per deployment.
+  # Assistant (Ollama). The base URL IS here now, and the reason is that there is no
+  # ollama service in compose.prod.yaml: production has no host to point at, so the
+  # key had no correct value and blocked every deploy for a module that cannot work
+  # anyway. `OllamaGenerationClientAdapter` autowires it lazily, so an unreachable
+  # address fails on an Assistant request and nowhere else -- the module is inert
+  # rather than the deploy being stuck. Set OLLAMA_BASE_URL explicitly the day a
+  # host exists; until then this default says plainly that none does.
+  env(OLLAMA_BASE_URL): 'http://host.docker.internal:11434'
   env(OLLAMA_DEFAULT_MODEL): 'gemma4:e4b'
   env(OLLAMA_ALLOWED_MODELS): 'gemma4:e4b,qwen3.6:latest'
   env(OLLAMA_HTTP_TIMEOUT): '120'
