@@ -102,6 +102,63 @@ jobs:
       GHCR_USERNAME: ${{ vars.GHCR_USERNAME || github.actor }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
 
+      # ---- Production env file, rendered by ansible/deploy.yml -------------------
+      #
+      # APP_ENV, DEFAULT_URI, REDIS_URL, MERCURE_URL and MERCURE_PUBLIC_URL are absent
+      # on purpose: compose.prod.yaml pins them in its own `environment:` blocks, which
+      # win over `env_file:`. Declaring them here would be a value nothing reads.
+      #
+      # Off unless FIREGUARD_MANAGED_ENV is true, and the playbook refuses to render
+      # while any of these is empty. Scope them to the `production` ENVIRONMENT (this
+      # job declares it above), not to the repository: environment scope is what keeps
+      # a workflow on another branch from reading them.
+      #
+      # Adding a key: `.env.example` and this block, in the same pull request. A key
+      # with a default in config/packages/env_defaults.yaml belongs in NEITHER.
+      FIREGUARD_MANAGED_ENV: ${{ vars.FIREGUARD_MANAGED_ENV || 'false' }}
+
+      # Configuration — readable, diffable, reviewable.
+      ADMIN_EMAIL:                     ${{ vars.ADMIN_EMAIL }}
+      APP_FRONTEND_URL:                ${{ vars.APP_FRONTEND_URL }}
+      COOKIE_SECURE:                   ${{ vars.COOKIE_SECURE }}
+      CORS_ALLOW_ORIGIN:               ${{ vars.CORS_ALLOW_ORIGIN }}
+      DATABASE_STORAGE_TIMEZONE:       ${{ vars.DATABASE_STORAGE_TIMEZONE }}
+      MAILER_FROM:                     ${{ vars.MAILER_FROM }}
+      MERCURE_CORS_ORIGINS:            ${{ vars.MERCURE_CORS_ORIGINS }}
+      MESSENGER_TRANSPORT_DSN:         ${{ vars.MESSENGER_TRANSPORT_DSN }}
+      MFA_ENABLED:                     ${{ vars.MFA_ENABLED }}
+      OAUTH_ISSUER:                    ${{ vars.OAUTH_ISSUER }}
+      OLLAMA_BASE_URL:                 ${{ vars.OLLAMA_BASE_URL }}
+      POSTGRES_AUTH_DB:                ${{ vars.POSTGRES_AUTH_DB }}
+      POSTGRES_AUTH_USER:              ${{ vars.POSTGRES_AUTH_USER }}
+      POSTGRES_MAIN_DB:                ${{ vars.POSTGRES_MAIN_DB }}
+      POSTGRES_MAIN_USER:              ${{ vars.POSTGRES_MAIN_USER }}
+      STORAGE_DSN:                     ${{ vars.STORAGE_DSN }}
+      STRIPE_PRICE_MAX_MONTHLY:        ${{ vars.STRIPE_PRICE_MAX_MONTHLY }}
+      STRIPE_PRICE_MAX_MONTHLY_AMOUNT: ${{ vars.STRIPE_PRICE_MAX_MONTHLY_AMOUNT }}
+      STRIPE_PRICE_MAX_YEARLY:         ${{ vars.STRIPE_PRICE_MAX_YEARLY }}
+      STRIPE_PRICE_MAX_YEARLY_AMOUNT:  ${{ vars.STRIPE_PRICE_MAX_YEARLY_AMOUNT }}
+      STRIPE_PRICE_PRO_MONTHLY:        ${{ vars.STRIPE_PRICE_PRO_MONTHLY }}
+      STRIPE_PRICE_PRO_MONTHLY_AMOUNT: ${{ vars.STRIPE_PRICE_PRO_MONTHLY_AMOUNT }}
+      STRIPE_PRICE_PRO_YEARLY:         ${{ vars.STRIPE_PRICE_PRO_YEARLY }}
+      STRIPE_PRICE_PRO_YEARLY_AMOUNT:  ${{ vars.STRIPE_PRICE_PRO_YEARLY_AMOUNT }}
+
+      # Secrets — write-only. A wrong value here is applied, not rejected:
+      # the playbook feeds AUTH_DATABASE_URL to ALTER USER on the live database.
+      APP_SECRET:                      ${{ secrets.APP_SECRET }}
+      AUTH_DATABASE_URL:               ${{ secrets.AUTH_DATABASE_URL }}
+      MAILER_DSN:                      ${{ secrets.MAILER_DSN }}
+      MAIN_DATABASE_URL:               ${{ secrets.MAIN_DATABASE_URL }}
+      MERCURE_JWT_SECRET:              ${{ secrets.MERCURE_JWT_SECRET }}
+      OAUTH_ENCRYPTION_KEY:            ${{ secrets.OAUTH_ENCRYPTION_KEY }}
+      POSTGRES_AUTH_PASSWORD:          ${{ secrets.POSTGRES_AUTH_PASSWORD }}
+      POSTGRES_MAIN_PASSWORD:          ${{ secrets.POSTGRES_MAIN_PASSWORD }}
+      SECURITY_LOG_PII_SALT:           ${{ secrets.SECURITY_LOG_PII_SALT }}
+      SMS_DSN:                         ${{ secrets.SMS_DSN }}
+      STRIPE_SECRET_KEY:               ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET:           ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      WEBHOOK_ENCRYPTION_KEY:          ${{ secrets.WEBHOOK_ENCRYPTION_KEY }}
+
     steps:
       - name: Checkout deployment files
         uses: actions/checkout@v4

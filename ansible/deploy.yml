@@ -10,6 +10,13 @@
     fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
     fireguard_compose_file: compose.yaml
     fireguard_env_file: "{{ fireguard_app_dir }}/.env"
+    # When true, the deploy RENDERS the production env file from GitHub variables
+    # and secrets instead of trusting whatever is on the VPS. Off by default: the
+    # existing file holds values GitHub does not have yet, and rendering before they
+    # are populated would replace a working secret with an empty string. Turn it on
+    # with the repository variable FIREGUARD_MANAGED_ENV=true once every key listed
+    # by the preflight is set. The file is backed up first, either way.
+    fireguard_managed_env: "{{ lookup('env', 'FIREGUARD_MANAGED_ENV') | default('false', true) | bool }}"
     fireguard_traefik_network: traefik_proxy
     fireguard_healthcheck_retries: 30
     fireguard_healthcheck_delay: 5
@@ -71,6 +78,7 @@
         dest: "{{ fireguard_app_dir }}/{{ fireguard_compose_file }}"
         mode: "0644"
 
+    # Skipped when the file is generated: the template writes FIREGUARD_IMAGE itself.
     - name: Record deployed image in production env file
       ansible.builtin.lineinfile:
         path: "{{ fireguard_env_file }}"
@@ -78,6 +86,7 @@
         line: "FIREGUARD_IMAGE={{ fireguard_image }}"
         create: false
         mode: "0600"
+      when: not fireguard_managed_env
 
     - name: Ensure production env file permissions are private
       ansible.builtin.file:
@@ -98,9 +107,39 @@
         src: "{{ fireguard_env_file }}"
       register: fireguard_env_contents
 
-    - name: Collect the env keys the application declares
+    # Three sources, because the file serves two consumers and one of them also
+    # answers for itself. `.env.example` is the application's declared contract.
+    # `compose.prod.yaml` adds the Postgres identity and the image ref, marking what
+    # it cannot do without as `${VAR:?message}` -- `${VAR:-default}` is optional and
+    # is deliberately not collected. Deriving that list from the compose file rather
+    # than hand-keeping it means POSTGRES_AUTH_PASSWORD cannot quietly drop out.
+    #
+    # And it SUBTRACTS what compose pins itself. Its `environment:` blocks hardcode
+    # APP_ENV, REDIS_URL, MERCURE_URL, MERCURE_PUBLIC_URL and DEFAULT_URI, and
+    # `environment:` wins over `env_file:` -- so those five reach the container
+    # whatever the env file says, including in the `run --rm` deploy steps. Demanding
+    # them was a false positive that would block a deploy over a key that is never
+    # actually missing. Only literal values count: `${FRANKENPHP_CONFIG:-}` is an
+    # interpolation, not a pin.
+    - name: Read the production compose file
       ansible.builtin.set_fact:
-        fireguard_declared_env_keys: "{{ lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)=') }}"
+        fireguard_compose: "{{ lookup('file', playbook_dir + '/../compose.prod.yaml') | from_yaml }}"
+
+    - name: Subtract the keys compose pins in its own environment blocks
+      ansible.builtin.set_fact:
+        fireguard_pinned_env_keys: >-
+          {{ (fireguard_compose.services | dict2items
+              | map(attribute='value.environment', default={})
+              | select('mapping') | map('dict2items') | flatten)
+             | rejectattr('value', 'match', '\$\{')
+             | map(attribute='key') | list }}
+
+    - name: Resolve the keys the production env file must carry
+      ansible.builtin.set_fact:
+        fireguard_declared_env_keys: >-
+          {{ ((lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
+              | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?')))
+             | difference(fireguard_pinned_env_keys) }}
 
     - name: Collect the env keys the production file sets
       ansible.builtin.set_fact:
@@ -115,7 +154,59 @@
           {{ fireguard_declared_env_keys | difference(fireguard_present_env_keys) | join(', ') }}.
           The image carries no .env, so each of these is an EnvNotFoundException at
           runtime. Add them on the VPS and redeploy. Nothing has been changed yet.
-      when: fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length > 0
+      when:
+        - not fireguard_managed_env
+        - fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length > 0
+
+    # ---- Generated env file (opt-in, FIREGUARD_MANAGED_ENV=true) -------------------
+    #
+    # The same check, moved one level earlier: instead of asking whether the VPS file
+    # carries every key, ask whether the WORKFLOW does. A key GitHub does not supply
+    # would render as `KEY=` — and an empty value is not a missing value, it is a
+    # working one that happens to be wrong. On AUTH_DATABASE_URL that is not a failed
+    # boot: `Synchronize auth database role password` below reads that URL and runs
+    # ALTER USER on the live database, so an empty password would be applied.
+    #
+    # Hence: refuse to render at all unless every key has a non-empty value.
+    - name: Collect the keys the workflow failed to supply
+      ansible.builtin.set_fact:
+        fireguard_blank_env_keys: >-
+          {{ fireguard_blank_env_keys | default([])
+             + ([item] if (lookup('env', item) | length == 0) else []) }}
+      loop: "{{ fireguard_declared_env_keys | reject('equalto', 'FIREGUARD_IMAGE') | list }}"
+      loop_control:
+        label: "{{ item }}"
+      when: fireguard_managed_env
+
+    - name: Refuse to generate an env file with blanks in it
+      ansible.builtin.fail:
+        msg: >-
+          FIREGUARD_MANAGED_ENV is on but the workflow supplied no value for
+          {{ fireguard_blank_env_keys | join(', ') }}.
+          Rendering would write those keys empty, which is worse than leaving them
+          missing -- an empty value is not a missing value, it is a working one that
+          happens to be wrong, and an empty AUTH_DATABASE_URL password is applied to
+          the live database by the role-password task below. Set them as GitHub
+          variables or secrets, or turn FIREGUARD_MANAGED_ENV off. Nothing has been
+          changed yet.
+      when:
+        - fireguard_managed_env
+        - fireguard_blank_env_keys | default([]) | length > 0
+
+    - name: Back up the production env file before replacing it
+      ansible.builtin.copy:
+        src: "{{ fireguard_env_file }}"
+        dest: "{{ fireguard_env_file }}.{{ fireguard_deployment_timestamp }}.bak"
+        remote_src: true
+        mode: "0600"
+      when: fireguard_managed_env
+
+    - name: Generate the production env file
+      ansible.builtin.template:
+        src: templates/production.env.j2
+        dest: "{{ fireguard_env_file }}"
+        mode: "0600"
+      when: fireguard_managed_env
 
     - name: Check Traefik Docker network
       ansible.builtin.command: "docker network inspect {{ fireguard_traefik_network }}"
