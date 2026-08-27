@@ -339,14 +339,24 @@
     # under no_log -- and a no_log failure is a wall: the run says only "non-zero
     # return code". It hid the cause twice.
     #
-    # These two probes do the same connection with no secret anywhere in the
-    # command, so their output is safe to print. Between them they distinguish the
-    # cases the silent task cannot: the env file failed to source, the role does
-    # not exist, the database does not exist, the socket refuses the connection.
-    # Postgres ignores POSTGRES_USER and POSTGRES_DB on a volume that is already
-    # initialised, so a name that does not match what initdb created is not a
-    # warning -- it is every subsequent task failing without saying why.
-    - name: Check the auth role and database exist before touching the password
+    # These probes ASK THE VOLUME rather than trusting what it was told. Postgres
+    # ignores POSTGRES_USER and POSTGRES_DB on a data directory that is already
+    # initialised, so those two variables describe an intention, not a fact: the
+    # role and database that exist are whatever initdb created, once. `pg_isready`
+    # does not notice -- it checks that the server answers, not that the role
+    # exists -- which is why `Wait for auth database` passes and everything after
+    # it fails.
+    #
+    # No secret appears in any command here, so the output is safe to print, and
+    # that is the point: the failure has to be legible without SSH to the host.
+    #
+    # Connecting is not enough to pass. The probe connects with whatever candidate
+    # works, then checks the CONFIGURED names against the lists it read back --
+    # measured against a real container: with both names wrong it still connects
+    # as the discovered role, prints the real ones, and exits 78 naming both
+    # mismatches. Exiting 0 on a successful connection alone would have let the
+    # deploy carry on to fail at the ALTER, which is the failure this replaces.
+    - name: Discover what the auth volume actually holds
       ansible.builtin.shell: |
         set -a
         . ./{{ fireguard_env_file | basename }}
@@ -354,14 +364,59 @@
         test -n "$POSTGRES_AUTH_USER" || { echo "POSTGRES_AUTH_USER is empty after sourcing the env file"; exit 78; }
         test -n "$POSTGRES_AUTH_DB" || { echo "POSTGRES_AUTH_DB is empty after sourcing the env file"; exit 78; }
         test -n "$AUTH_DATABASE_URL" || { echo "AUTH_DATABASE_URL is empty after sourcing the env file"; exit 78; }
-        echo "connecting as ${POSTGRES_AUTH_USER} to ${POSTGRES_AUTH_DB}"
-        docker compose -f {{ fireguard_compose_file }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -tAc 'SELECT current_user, current_database()'
+        echo "configured: user=${POSTGRES_AUTH_USER} database=${POSTGRES_AUTH_DB}"
+
+        # template1 always exists, whatever POSTGRES_DB was at init time.
+        connected=''
+        for candidate in "$POSTGRES_AUTH_USER" postgres admin fireguard; do
+          [ -n "$candidate" ] || continue
+          if docker compose -f {{ fireguard_compose_file }} exec -T auth_database \
+               psql -U "$candidate" -d template1 -tAc 'SELECT 1' >/dev/null 2>&1; then
+            connected="$candidate"
+            break
+          fi
+        done
+
+        if [ -z "$connected" ]; then
+          echo "no candidate role could connect to the auth volume"
+          exit 78
+        fi
+
+        echo "connected as: ${connected}"
+        roles=$(docker compose -f {{ fireguard_compose_file }} exec -T auth_database \
+          psql -U "$connected" -d template1 -tAc "SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' ORDER BY rolname")
+        databases=$(docker compose -f {{ fireguard_compose_file }} exec -T auth_database \
+          psql -U "$connected" -d template1 -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY datname")
+        echo "roles present: $(echo "$roles" | tr '\n' ' ')"
+        echo "databases present: $(echo "$databases" | tr '\n' ' ')"
+
+        status=0
+        echo "$roles" | grep -qx "$POSTGRES_AUTH_USER" \
+          || { echo "MISMATCH: the configured role '${POSTGRES_AUTH_USER}' is not one of them"; status=78; }
+        echo "$databases" | grep -qx "$POSTGRES_AUTH_DB" \
+          || { echo "MISMATCH: the configured database '${POSTGRES_AUTH_DB}' is not one of them"; status=78; }
+        exit "$status"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
+      register: fireguard_auth_volume
       changed_when: false
+      failed_when: false
 
-    - name: Check the main role and database exist before touching the password
+    - name: Report what the auth volume holds
+      ansible.builtin.debug:
+        msg: "{{ (fireguard_auth_volume.stdout_lines | default([])) + (fireguard_auth_volume.stderr_lines | default([])) }}"
+
+    - name: Stop if the auth volume does not hold what this deploy was configured with
+      ansible.builtin.fail:
+        msg: >-
+          POSTGRES_AUTH_USER and POSTGRES_AUTH_DB do not match the auth volume. The
+          report above lists the roles and databases that are actually there; set
+          the two GitHub variables to those names. The application is still running
+          and no migration has run.
+      when: fireguard_auth_volume.rc | default(1) != 0
+
+    - name: Discover what the main volume actually holds
       ansible.builtin.shell: |
         set -a
         . ./{{ fireguard_env_file | basename }}
@@ -369,12 +424,57 @@
         test -n "$POSTGRES_MAIN_USER" || { echo "POSTGRES_MAIN_USER is empty after sourcing the env file"; exit 78; }
         test -n "$POSTGRES_MAIN_DB" || { echo "POSTGRES_MAIN_DB is empty after sourcing the env file"; exit 78; }
         test -n "$MAIN_DATABASE_URL" || { echo "MAIN_DATABASE_URL is empty after sourcing the env file"; exit 78; }
-        echo "connecting as ${POSTGRES_MAIN_USER} to ${POSTGRES_MAIN_DB}"
-        docker compose -f {{ fireguard_compose_file }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -tAc 'SELECT current_user, current_database()'
+        echo "configured: user=${POSTGRES_MAIN_USER} database=${POSTGRES_MAIN_DB}"
+
+        # template1 always exists, whatever POSTGRES_DB was at init time.
+        connected=''
+        for candidate in "$POSTGRES_MAIN_USER" postgres main_admin fireguard; do
+          [ -n "$candidate" ] || continue
+          if docker compose -f {{ fireguard_compose_file }} exec -T main_database \
+               psql -U "$candidate" -d template1 -tAc 'SELECT 1' >/dev/null 2>&1; then
+            connected="$candidate"
+            break
+          fi
+        done
+
+        if [ -z "$connected" ]; then
+          echo "no candidate role could connect to the main volume"
+          exit 78
+        fi
+
+        echo "connected as: ${connected}"
+        roles=$(docker compose -f {{ fireguard_compose_file }} exec -T main_database \
+          psql -U "$connected" -d template1 -tAc "SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' ORDER BY rolname")
+        databases=$(docker compose -f {{ fireguard_compose_file }} exec -T main_database \
+          psql -U "$connected" -d template1 -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY datname")
+        echo "roles present: $(echo "$roles" | tr '\n' ' ')"
+        echo "databases present: $(echo "$databases" | tr '\n' ' ')"
+
+        status=0
+        echo "$roles" | grep -qx "$POSTGRES_MAIN_USER" \
+          || { echo "MISMATCH: the configured role '${POSTGRES_MAIN_USER}' is not one of them"; status=78; }
+        echo "$databases" | grep -qx "$POSTGRES_MAIN_DB" \
+          || { echo "MISMATCH: the configured database '${POSTGRES_MAIN_DB}' is not one of them"; status=78; }
+        exit "$status"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
+      register: fireguard_main_volume
       changed_when: false
+      failed_when: false
+
+    - name: Report what the main volume holds
+      ansible.builtin.debug:
+        msg: "{{ (fireguard_main_volume.stdout_lines | default([])) + (fireguard_main_volume.stderr_lines | default([])) }}"
+
+    - name: Stop if the main volume does not hold what this deploy was configured with
+      ansible.builtin.fail:
+        msg: >-
+          POSTGRES_MAIN_USER and POSTGRES_MAIN_DB do not match the main volume. The
+          report above lists the roles and databases that are actually there; set
+          the two GitHub variables to those names. The application is still running
+          and no migration has run.
+      when: fireguard_main_volume.rc | default(1) != 0
 
     - name: Synchronize auth database role password
       ansible.builtin.shell: |
