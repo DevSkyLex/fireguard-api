@@ -161,6 +161,7 @@ final class OrganizationAuditMetadataProjection
 
     // Compliance
     'compliance.register_exported' => ['scope', 'plan_key', 'generated_at'],
+    'compliance.register_snapshot_created' => ['scope', 'plan_key', 'generated_at', 'content_hash', 'size_bytes'],
 
     // Webhooks — 'url_host' belongs to the organization.webhooks.* surface.
     'webhook.subscription_created' => ['event_types'],

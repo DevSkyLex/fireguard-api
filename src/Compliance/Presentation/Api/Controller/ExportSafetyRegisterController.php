@@ -6,27 +6,23 @@ namespace Compliance\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
+use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use Compliance\Domain\Exception\ComplianceExportNotEntitledException;
-use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
 use Compliance\Presentation\Api\Trait\ComplianceExceptionMapperTrait;
 use DateTimeImmutable;
-use Organization\Application\Contract\Document\OrganizationDocumentBranding;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Presentation\Api\Document\DocumentDateFormatter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Throwable;
 
-use function array_map;
-use function is_array;
 use function is_string;
 use function sprintf;
 
@@ -68,7 +64,7 @@ final class ExportSafetyRegisterController extends AbstractController
    * @param OrganizationDocumentBrandingPort $branding the organization document branding port
    * @param ComplianceExportEntitlementPort $entitlement the export entitlement port
    * @param SafetyRegisterPdfRendererPort $renderer the PDF renderer port
-   * @param ComplianceSummaryOutputFactory $outputFactory the summary output factory (row-shaping reuse)
+   * @param SafetyRegisterContextBuilder $contextBuilder the shared register context pipeline
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param Security $security the security service
    */
@@ -78,7 +74,7 @@ final class ExportSafetyRegisterController extends AbstractController
     private readonly OrganizationDocumentBrandingPort $branding,
     private readonly ComplianceExportEntitlementPort $entitlement,
     private readonly SafetyRegisterPdfRendererPort $renderer,
-    private readonly ComplianceSummaryOutputFactory $outputFactory,
+    private readonly SafetyRegisterContextBuilder $contextBuilder,
     private readonly EventDispatcherPort $eventDispatcher,
     private readonly Security $security,
   ) {
@@ -130,7 +126,7 @@ final class ExportSafetyRegisterController extends AbstractController
     $context['planKey'] = $planKey;
 
     $branding = $this->branding->getDocumentBranding($organizationId);
-    $context = $this->localizeContext($context, $branding);
+    $context = $this->contextBuilder->localize($context, $branding);
 
     $pdf = $this->renderer->render($context);
 
@@ -167,24 +163,7 @@ final class ExportSafetyRegisterController extends AbstractController
       throw $this->mapComplianceException($exception);
     }
 
-    $output = $this->outputFactory->fromOrganizationRegister(
-      organizationId: $organizationId,
-      generatedAt: $result->generatedAt,
-      organizationStatus: $result->organizationStatus->value,
-      totals: $result->totals,
-      facilities: $result->facilities,
-    );
-
-    return [
-      [
-        'scope' => 'organization',
-        'generatedAt' => $output->generatedAt,
-        'organizationStatus' => $output->organizationStatus,
-        'totals' => $output->totals,
-        'facilities' => $output->facilities,
-      ],
-      $result->generatedAt,
-    ];
+    return [$this->contextBuilder->buildOrganizationContext($result), $result->generatedAt];
   }
 
   /**
@@ -199,72 +178,8 @@ final class ExportSafetyRegisterController extends AbstractController
       throw $this->mapComplianceException($exception);
     }
 
-    $output = $this->outputFactory->fromFacilityRegister(
-      organizationId: $organizationId,
-      generatedAt: $result->generatedAt,
-      facility: $result->facility,
-    );
-
-    return [
-      [
-        'scope' => 'facility',
-        'generatedAt' => $output->generatedAt,
-        'organizationStatus' => $output->organizationStatus,
-        'totals' => $output->totals,
-        'facilities' => $output->facilities,
-      ],
-      $result->generatedAt,
-    ];
+    return [$this->contextBuilder->buildFacilityContext($result), $result->generatedAt];
   }
 
-  /**
-   * Method localizeContext.
-   *
-   * Enriches the Twig context with the organization document branding (name,
-   * inlined logo, legal identity), the translation language, and dates
-   * reformatted per the organization regional settings (timezone + date
-   * format). Pure presentation shaping — no business decision.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $context the raw Twig context
-   * @param OrganizationDocumentBranding $branding the organization document branding
-   *
-   * @return array<string, mixed> the localized Twig context
-   */
-  private function localizeContext(array $context, OrganizationDocumentBranding $branding): array
-  {
-    $formatter = new DocumentDateFormatter($branding->dateFormat, $branding->timezone);
-
-    $context['org'] = [
-      'name' => $branding->organizationName,
-      'logoDataUri' => $branding->logoDataUri,
-      'legalName' => $branding->legalName,
-      'registrationNumber' => $branding->registrationNumber,
-      'vatNumber' => $branding->vatNumber,
-    ];
-    $context['lang'] = $branding->language();
-
-    $generatedAt = $context['generatedAt'] ?? null;
-    $context['generatedAtFormatted'] = $formatter->formatDateTime(is_string($generatedAt) ? $generatedAt : null);
-
-    if (isset($context['facilities']) && is_array($context['facilities'])) {
-      $context['facilities'] = array_map(
-        static function (mixed $facility) use ($formatter): mixed {
-          if (!is_array($facility)) {
-            return $facility;
-          }
-
-          $lastInspectionAt = $facility['lastInspectionAt'] ?? null;
-          $facility['lastInspectionAt'] = $formatter->formatDate(is_string($lastInspectionAt) ? $lastInspectionAt : null);
-
-          return $facility;
-        },
-        $context['facilities'],
-      );
-    }
-
-    return $context;
-  }
   // #endregion
 }

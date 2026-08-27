@@ -24,4 +24,10 @@ final class ComplianceOperations
   public const string EXPORT_ORGANIZATION_SAFETY_REGISTER = 'exportOrganizationSafetyRegister';
 
   public const string EXPORT_FACILITY_SAFETY_REGISTER = 'exportFacilitySafetyRegister';
+
+  public const string CREATE_SAFETY_REGISTER_SNAPSHOT = 'createSafetyRegisterSnapshot';
+
+  public const string LIST_SAFETY_REGISTER_SNAPSHOTS = 'listSafetyRegisterSnapshots';
+
+  public const string DOWNLOAD_SAFETY_REGISTER_SNAPSHOT = 'downloadSafetyRegisterSnapshot';
 }

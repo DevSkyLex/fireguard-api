@@ -41,6 +41,9 @@ ledger — no dedicated export-log table.
 | GET | `/api/organizations/{organizationId}/facility-tree` | Enriched facility hierarchy (Site/Building/Floor/Zone) — equipment count + compliance verdict/rate per node ("L2.9") | same as above |
 | GET | `/api/organizations/{organizationId}/compliance/export` | Organization "registre de sécurité" PDF | `organization.compliance.export` **and** plan ∈ {pro, max} |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/compliance/export` | Facility "registre de sécurité" PDF | same as above |
+| POST | `/api/organizations/{organizationId}/compliance/register-snapshots` | Archive the register as a dated snapshot (201 + metadata; optional `facilityId` body field scopes it to one facility) | same as export |
+| GET | `/api/organizations/{organizationId}/compliance/register-snapshots` | List archived snapshots (paginated, newest first) | same as export |
+| GET | `/api/organizations/{organizationId}/compliance/register-snapshots/{snapshotId}/download` | Download an archived snapshot PDF | same as export |
 
 Every operation requires `ROLE_USER` at the resource level; fine-grained
 permission checks are enforced in the Application layer (query handlers) and,
@@ -106,7 +109,7 @@ organization's document branding
 (`Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort`:
 display name, logo inlined as a base64 `data:` URI — dompdf keeps remote
 loading off — legal identity, regional settings) and reformat every date
-through `Shared\Presentation\Api\Document\DocumentDateFormatter` (org
+through `Shared\Application\Document\DocumentDateFormatter` (org
 timezone + `dateFormat` pattern) → `SafetyRegisterPdfRendererPort::render()`
 (Twig → dompdf) → dispatch `SafetyRegisterExportedEvent` → stream
 `application/pdf` with a `Content-Disposition: attachment` header.
@@ -342,11 +345,21 @@ allow-list.
 
 ## Persistence
 
-**No new table.** Pure read aggregation; export provenance is captured by
-the existing Audit ledger (`compliance.register_exported`), not a dedicated
-table. Central audit wiring (subscribing `AuditEventSubscriber` to the new
-event name) is applied separately to avoid a concurrent-edit conflict with
-another in-flight lot.
+**One table** on the **main** database: `compliance_register_snapshots`
+(append-only archived register metadata — see "Archived safety register
+snapshots"; the PDF bytes live in file storage, never in the database;
+Doctrine mapping block `Compliance` under the main entity manager, records in
+`Compliance\Infrastructure\Persistence\Doctrine\Record`). The live-export
+provenance itself remains captured by the Audit ledger
+(`compliance.register_exported`), and snapshot creation is recorded as
+`compliance.register_snapshot_created`.
+
+**`generated_at` is deliberately `VARCHAR(64)`, not a native timestamp**: it
+stores the read-model's ISO-8601 string byte-for-byte as printed on the
+archived PDF, and `ORDER BY generated_at DESC` relies on fixed-width ISO-8601
+lexicographic ordering. Do not "fix" it into a timestamp column — a
+half-migrated mix of formats would silently break the newest-first ordering
+and decouple the row from the document it vouches for.
 
 ## Caching
 
@@ -356,6 +369,43 @@ The per-facility aggregate is cached via `CachePort` with a 60s TTL, keyed
 `compliance.facility-tree.<sha256(organizationId)>` — mirrors
 `GetOrganizationDashboardHandler`'s cache-key convention. Cache failures
 never block a fresh read.
+
+## Archived safety register snapshots
+
+The live export (`GET …/compliance/export`) streams a PDF that was never
+retained — past state was unprovable. Snapshots close that gap: `POST
+…/compliance/register-snapshots` renders the register through the **same
+pipeline** as the live export (`SafetyRegisterContextBuilder` — the shared
+context/localization service both the export controller and
+`CreateSafetyRegisterSnapshotHandler` use — plus
+`SafetyRegisterPdfRendererPort`), stores the PDF bytes through the Shared
+`FileStoragePort` under `compliance/registers/<organizationId>/<snapshotId>.pdf`
+(the same storage kernel every module attachment and the organization logo
+use — never a blob in the database), and persists an append-only metadata row
+on the **main** database (`compliance_register_snapshots`): id,
+organizationId, nullable facilityId (null = organization-wide register),
+generatedAt, generatedByUserId, the **SHA-256 `contentHash`** of the stored
+bytes, sizeBytes, and the storage path. The hash is also recorded in the
+tamper-evident audit ledger (`compliance.register_snapshot_created`), so the
+stored document and the ledger corroborate each other.
+
+Gate — identical to the live export on all three operations:
+`resolveAccess` runs **first** (an organization outside the caller's scope
+answers 404, exactly like an unknown id), then the
+`organization.compliance.export` permission (403), then the pro/max plan
+entitlement via `ComplianceExportEntitlementPort` (distinct 403). The
+snapshot lookup itself is organization-scoped in the repository
+(`findForOrganization`), so another organization's snapshot answers 404 on
+download. Only snapshot **creation** is audited — the codebase has no
+audited-download precedent, and downloads of the live export are not audited
+either.
+
+**Assumed limitation: the archive starts at the feature's go-live.** A
+snapshot proves what the register said **from the moment snapshots began
+being taken** — there is no retroactive reconstruction of past state, which
+is the module's already-documented "no historical reconstruction"
+limitation. The live export remains exactly as it was; a snapshot is the
+same document, retained.
 
 ## Known limitations (v1)
 
@@ -376,7 +426,9 @@ never block a fresh read.
 - Template: `templates/compliance/safety_register.html.twig` (extends the
   common `templates/pdf/layout.html.twig`); translations:
   `translations/pdf.{en,fr,es}.yaml` (domain `pdf`)
-- No Doctrine mapping (no table); no messenger routing (synchronous reads/export only)
+- Doctrine mapping: `Compliance` block under the **main** entity manager
+  (`compliance_register_snapshots` only); no messenger routing (synchronous
+  reads/export/archive only)
 
 ## Testing
 
@@ -391,8 +443,17 @@ never block a fresh read.
   `ComplianceRegisterAggregator` with stubbed ports, mirroring
   `GetFacilityTreeHandlerTest`'s pattern — no new DQL is introduced by this
   adapter, so no dedicated integration test was needed)
+- Snapshot coverage: `tests/Unit/Compliance/Application/UseCase/Command/Snapshot/CreateSafetyRegisterSnapshot/CreateSafetyRegisterSnapshotHandlerTest.php`
+  (hash/persist/event happy path + 404/403/not-entitled denials + storage
+  cleanup on a failed save), the two snapshot query handler tests under
+  `tests/Unit/Compliance/Application/UseCase/Query/Snapshot/`,
+  `tests/Integration/Compliance/Infrastructure/Persistence/Doctrine/Repository/SafetyRegisterSnapshotRepositoryTest.php`
+  (org-scoped lookup, newest-first pagination), and
+  `tests/E2E/ComplianceSnapshotFlowTest.php` (201 + metadata, list, download
+  with SHA-256 verification, free-plan 403, cross-organization 404)
 - Functional: `tests/Functional/Api/ComplianceApiTest.php` (includes the
-  facility-tree endpoint auth check), `tests/Functional/Api/SafetyRegisterExportApiTest.php`
+  facility-tree endpoint auth check), `tests/Functional/Api/SafetyRegisterExportApiTest.php`,
+  `tests/Functional/Api/SafetyRegisterSnapshotApiTest.php`
 - Run module tests: `make test tests/Unit/Compliance/`
 ## Error Codes
 

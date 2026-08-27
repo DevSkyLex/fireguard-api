@@ -7,12 +7,12 @@ namespace Tests\Unit\Compliance\Presentation\Api\Controller;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Compliance\Application\Contract\FacilityComplianceView;
 use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
+use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use Compliance\Domain\ValueObject\ComplianceStatus;
 use Compliance\Presentation\Api\Controller\ExportSafetyRegisterController;
-use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
@@ -209,7 +209,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
       branding: $this->brandingPort(),
       entitlement: $this->createStub(ComplianceExportEntitlementPort::class),
       renderer: $renderer,
-      outputFactory: new ComplianceSummaryOutputFactory(),
+      contextBuilder: new SafetyRegisterContextBuilder(),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       security: $security,
     );
@@ -338,7 +338,7 @@ final class ExportSafetyRegisterControllerTest extends TestCase
       branding: $this->brandingPort(),
       entitlement: $entitlement,
       renderer: $renderer,
-      outputFactory: new ComplianceSummaryOutputFactory(),
+      contextBuilder: new SafetyRegisterContextBuilder(),
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
       security: $security,
     );

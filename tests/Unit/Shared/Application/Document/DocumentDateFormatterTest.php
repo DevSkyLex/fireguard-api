@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Shared\Presentation\Api\Document;
+namespace Tests\Unit\Shared\Application\Document;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Presentation\Api\Document\DocumentDateFormatter;
+use Shared\Application\Document\DocumentDateFormatter;
 
 /**
  * Test DocumentDateFormatterTest.

@@ -19,7 +19,7 @@ use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
 use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
-use Compliance\Domain\Event\SafetyRegisterExportedEvent;
+use Compliance\Domain\Event\{SafetyRegisterExportedEvent, SafetyRegisterSnapshotCreatedEvent};
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Domain\Event\Export\{EquipmentReportExportedEvent, EquipmentsExportedEvent};
@@ -199,6 +199,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'import.import_job_completed_event' => 'onImportJobCompleted',
       'import.import_job_failed_event' => 'onImportJobFailed',
       'compliance.safety_register_exported_event' => 'onSafetyRegisterExported',
+      'compliance.safety_register_snapshot_created_event' => 'onSafetyRegisterSnapshotCreated',
       'webhook.webhook_subscription_created_event' => 'onWebhookSubscriptionCreated',
       'webhook.webhook_subscription_deleted_event' => 'onWebhookSubscriptionDeleted',
       'approval.approval_requested_event' => 'onApprovalRequested',
@@ -2159,6 +2160,38 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'scope' => $event->scope,
         'plan_key' => $event->planKey,
         'generated_at' => $event->generatedAt,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onSafetyRegisterSnapshotCreated.
+   *
+   * Records every archived "registre de sécurité" snapshot — a dated,
+   * plan-gated compliance archive whose SHA-256 content hash lands in the
+   * tamper-evident ledger, so the stored PDF and the audit trail
+   * corroborate each other (who archived what scope, when, under which
+   * plan, and exactly which bytes).
+   *
+   * @since 1.6.0
+   *
+   * @param SafetyRegisterSnapshotCreatedEvent $event the domain event
+   */
+  public function onSafetyRegisterSnapshotCreated(SafetyRegisterSnapshotCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'compliance.register_snapshot_created',
+      organizationId: $event->organizationId,
+      subjectType: 'safety_register_snapshot',
+      subjectId: $event->snapshotId,
+      metadata: [
+        'scope' => $event->scope,
+        'plan_key' => $event->planKey,
+        'generated_at' => $event->generatedAt,
+        'content_hash' => $event->contentHash,
+        'size_bytes' => $event->sizeBytes,
       ],
       occurredAt: $event->occurredAt,
       actorUserId: $event->actorUserId,

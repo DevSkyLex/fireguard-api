@@ -648,7 +648,7 @@ renderer adapter through dompdf's canvas `page_text()`
 `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort`;
 dates (planned start, due, activity timestamps, generation date) are
 reformatted per the organization regional settings (timezone + `dateFormat`)
-through `Shared\Presentation\Api\Document\DocumentDateFormatter`. All fixed
+through `Shared\Application\Document\DocumentDateFormatter`. All fixed
 strings go through the Symfony translator, domain `pdf`
 (`translations/pdf.{en,fr,es}.yaml`); the language is the org regional
 `locale`'s language subtag (`fr-FR` → `fr`), falling back to `en`. Dynamic

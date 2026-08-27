@@ -5973,6 +5973,269 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/compliance/register-snapshots": {
+            "get": {
+                "operationId": "listSafetyRegisterSnapshots",
+                "tags": [
+                    "Compliance"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SafetyRegisterSnapshot collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "SafetyRegisterSnapshot.SafetyRegisterSnapshotOutput.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/SafetyRegisterSnapshot.SafetyRegisterSnapshotOutput.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "List archived safety register snapshots",
+                "description": "Organization-scoped snapshot metadata, most recently generated first.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "SafetyRegisterSnapshot identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The collection page number",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "itemsPerPage",
+                        "in": "query",
+                        "description": "The number of items per page",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 30,
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "style": "form",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "createSafetyRegisterSnapshot",
+                "tags": [
+                    "Compliance"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "SafetyRegisterSnapshot resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SafetyRegisterSnapshot.SafetyRegisterSnapshotOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Archive the safety register as a dated snapshot",
+                "description": "Renders the register through the same pipeline as the live export and stores the PDF with its SHA-256 content hash. Pass facilityId for a facility-scoped register; omit it for the organization-wide one.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "SafetyRegisterSnapshot identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new SafetyRegisterSnapshot resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SafetyRegisterSnapshot.CreateSafetyRegisterSnapshotInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/compliance/register-snapshots/{snapshotId}/download": {
+            "get": {
+                "operationId": "downloadSafetyRegisterSnapshot",
+                "tags": [
+                    "Compliance"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "SafetyRegisterSnapshot resource"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "links": {}
+                    }
+                },
+                "summary": "Download an archived safety register snapshot PDF",
+                "description": "Retrieves a SafetyRegisterSnapshot resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "SafetyRegisterSnapshot identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "snapshotId",
+                        "in": "path",
+                        "description": "SafetyRegisterSnapshot identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/compliance": {
             "get": {
                 "operationId": "getOrganizationCompliance",
@@ -52196,6 +52459,83 @@
                 ],
                 "description": "Role-Based Access Control (RBAC) role management. Roles group permissions together."
             },
+            "SafetyRegisterSnapshot.CreateSafetyRegisterSnapshotInput": {
+                "type": "object",
+                "description": "Dated archives of the regulatory \"registre de s\u00e9curit\u00e9\" PDF. Requires organization.compliance.export AND a pro/max plan.",
+                "properties": {
+                    "facilityId": {
+                        "format": "uuid",
+                        "description": "Property facilityId.",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "SafetyRegisterSnapshot.SafetyRegisterSnapshotOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "description": "Property id.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "organizationId": {
+                                "description": "Property organizationId.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "facilityId": {
+                                "description": "Property facilityId.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "scope": {
+                                "description": "Property scope.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "generatedAt": {
+                                "description": "Property generatedAt.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "generatedByUserId": {
+                                "description": "Property generatedByUserId.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "contentHash": {
+                                "description": "Property contentHash.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "sizeBytes": {
+                                "description": "Property sizeBytes.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "createdAt": {
+                                "description": "Property createdAt.",
+                                "default": "",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "Dated archives of the regulatory \"registre de s\u00e9curit\u00e9\" PDF. Requires organization.compliance.export AND a pro/max plan."
+            },
             "Session.RevokeOtherSessionsOutput.jsonld-session.revoke_others": {
                 "allOf": [
                     {
@@ -54112,6 +54452,10 @@
         {
             "name": "SafetyRegisterExport",
             "description": "Regulatory \"registre de s\u00e9curit\u00e9\" PDF export. Requires organization.compliance.export AND a pro/max plan."
+        },
+        {
+            "name": "Compliance",
+            "description": "Dated archives of the regulatory \"registre de s\u00e9curit\u00e9\" PDF. Requires organization.compliance.export AND a pro/max plan."
         },
         {
             "name": "Webhooks",

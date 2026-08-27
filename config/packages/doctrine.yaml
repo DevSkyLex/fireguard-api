@@ -187,6 +187,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Calendar/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Calendar\Infrastructure\Persistence\Doctrine\Record'
             alias: Calendar
+          Compliance:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Compliance/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Compliance\Infrastructure\Persistence\Doctrine\Record'
+            alias: Compliance
     controller_resolver:
       auto_mapping: false
 

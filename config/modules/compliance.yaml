@@ -12,9 +12,17 @@ services:
   # PDF rendering (module-local adapter)
   Compliance\Infrastructure\Pdf\DompdfSafetyRegisterRenderer: ~
 
+  # Snapshot persistence (MAIN database — explicit entity manager, mandatory)
+  Compliance\Infrastructure\Persistence\Doctrine\Repository\SafetyRegisterSnapshotRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Outbound ports
   Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort:
     alias: Compliance\Infrastructure\Pdf\DompdfSafetyRegisterRenderer
+
+  Compliance\Application\Port\Outbound\SafetyRegisterSnapshotRepositoryPort:
+    alias: Compliance\Infrastructure\Persistence\Doctrine\Repository\SafetyRegisterSnapshotRepository
 
   # Cross-module outbound ports (adapters live in the owning module)
   Compliance\Application\Port\Outbound\ComplianceFacilityDirectoryPort:
@@ -49,4 +57,14 @@ services:
     tags: ['messenger.message_handler']
 
   Compliance\Application\UseCase\Query\GetFacilityTree\GetFacilityTreeHandler:
+    tags: ['messenger.message_handler']
+
+  Compliance\Application\UseCase\Query\Snapshot\ListSafetyRegisterSnapshots\ListSafetyRegisterSnapshotsHandler:
+    tags: ['messenger.message_handler']
+
+  Compliance\Application\UseCase\Query\Snapshot\GetSafetyRegisterSnapshotContent\GetSafetyRegisterSnapshotContentHandler:
+    tags: ['messenger.message_handler']
+
+  # Command handlers
+  Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot\CreateSafetyRegisterSnapshotHandler:
     tags: ['messenger.message_handler']

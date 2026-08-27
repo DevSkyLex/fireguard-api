@@ -121,6 +121,7 @@ final class AuditEventSubscriberTest extends TestCase
       'import.import_job_completed_event' => 'onImportJobCompleted',
       'import.import_job_failed_event' => 'onImportJobFailed',
       'compliance.safety_register_exported_event' => 'onSafetyRegisterExported',
+      'compliance.safety_register_snapshot_created_event' => 'onSafetyRegisterSnapshotCreated',
       'webhook.webhook_subscription_created_event' => 'onWebhookSubscriptionCreated',
       'webhook.webhook_subscription_deleted_event' => 'onWebhookSubscriptionDeleted',
       'approval.approval_requested_event' => 'onApprovalRequested',

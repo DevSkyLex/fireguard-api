@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Shared\Presentation\Api\Document;
+namespace Shared\Application\Document;
 
 use DateTimeImmutable;
 use DateTimeZone;
