@@ -132,18 +132,39 @@ services:
     user: "0:0"
     working_dir: /var/www/html
     entrypoint: ["sh", "-lc"]
-    command: >
-      set -eu;
-      mkdir -p config/jwt;
-      if [ ! -s config/jwt/private.key ]; then
-        openssl genrsa -out config/jwt/private.key 4096;
-      fi;
-      if [ ! -s config/jwt/public.key ]; then
-        openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key;
-      fi;
-      chown 1000:1000 config/jwt/private.key config/jwt/public.key;
-      chmod 0400 config/jwt/private.key;
-      chmod 0444 config/jwt/public.key;
+    command: |
+      set -eu
+      mkdir -p config/jwt
+      chmod 0755 config/jwt
+
+      # A private key openssl cannot read is worse than none, because every
+      # guard downstream would keep trusting it. Regenerate the pair instead.
+      if [ ! -s config/jwt/private.key ] || ! openssl rsa -in config/jwt/private.key -noout -check >/dev/null 2>&1; then
+        echo "jwt_init: no usable private key, generating one"
+        rm -f config/jwt/private.key config/jwt/public.key
+        openssl genrsa -out config/jwt/private.key 4096
+      fi
+
+      # The public key is derived, never authoritative. Compare it byte for byte
+      # against what the private key produces and rewrite it on any difference:
+      # missing, truncated, corrupt, or left over from an earlier private key.
+      # The previous guard tested `-s` alone, so a public key that was present
+      # but unusable was kept forever -- which is how production came to serve
+      # `{"keys":[]}` while every route behind the firewall answered 500.
+      if ! openssl rsa -in config/jwt/private.key -pubout 2>/dev/null | cmp -s - config/jwt/public.key; then
+        echo "jwt_init: public key absent or out of step with the private key, deriving it"
+        openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
+      fi
+
+      chown 1000:1000 config/jwt/private.key config/jwt/public.key
+      chmod 0400 config/jwt/private.key
+      chmod 0444 config/jwt/public.key
+
+      # Fail here rather than let the application discover it one request at a
+      # time: the authenticator reads this file in its constructor, so an
+      # unusable key turns every protected route into a 500.
+      openssl rsa -pubin -in config/jwt/public.key -noout
+      ls -l config/jwt
     volumes:
       - jwt_keys:/var/www/html/config/jwt
     labels:
