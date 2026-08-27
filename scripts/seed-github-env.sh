@@ -11,7 +11,10 @@
 #
 #   scp <vps>:/srv/apps/fireguard/production/back/.env ./prod.env
 #   ./scripts/seed-github-env.sh ./prod.env
-#   shred -u ./prod.env          # it holds every production secret
+#   rm ./prod.env                # it holds every production secret
+#
+# (`shred` is GNU coreutils and is absent on macOS and on Git Bash for Windows;
+# on an SSD it does not overwrite in place anyway, so a plain rm is no weaker.)
 #
 # The script pushes what the file has, and REFUSES to finish while a required key
 # is absent from it — those are the ones you must add by hand, and the ones the
