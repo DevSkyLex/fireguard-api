@@ -379,6 +379,26 @@
 
         if [ -z "$connected" ]; then
           echo "no candidate role could connect to the auth volume"
+          # Last resort, and it needs neither a password nor SSH: a custom-format
+          # pg_dump carries the database name in its header and the owning role as
+          # the last field of every TOC entry. `Back up auth database` has written
+          # one on every deploy that got past the sync, so the truth is sitting in
+          # {{ fireguard_app_dir }}/backups/. Fed through stdin, `pg_restore -l`
+          # reads it without touching the server.
+          latest=$(ls -1d backups/*/ 2>/dev/null | sort | tail -1)
+          if [ -n "$latest" ] && [ -r "${latest}auth.dump" ]; then
+            toc=$(cat "${latest}auth.dump" | docker compose -f {{ fireguard_compose_file }} exec -T auth_database pg_restore -l 2>/dev/null)
+            if [ -n "$toc" ]; then
+              echo "reading the most recent backup instead: ${latest}auth.dump"
+              echo "$toc" | grep -m1 'dbname:' | sed 's/^;[[:space:]]*/  /'
+              echo "  owning role(s): $(echo "$toc" | grep -v '^;' | awk 'NF > 1 { print $NF }' | sort -u | tr '\n' ' ')"
+              echo "Set POSTGRES_AUTH_DB and POSTGRES_AUTH_USER to those."
+            else
+              echo "the most recent backup could not be read either"
+            fi
+          else
+            echo "no backup dump found under backups/ to read the names from"
+          fi
           exit 78
         fi
 
@@ -439,6 +459,26 @@
 
         if [ -z "$connected" ]; then
           echo "no candidate role could connect to the main volume"
+          # Last resort, and it needs neither a password nor SSH: a custom-format
+          # pg_dump carries the database name in its header and the owning role as
+          # the last field of every TOC entry. `Back up main database` has written
+          # one on every deploy that got past the sync, so the truth is sitting in
+          # {{ fireguard_app_dir }}/backups/. Fed through stdin, `pg_restore -l`
+          # reads it without touching the server.
+          latest=$(ls -1d backups/*/ 2>/dev/null | sort | tail -1)
+          if [ -n "$latest" ] && [ -r "${latest}main.dump" ]; then
+            toc=$(cat "${latest}main.dump" | docker compose -f {{ fireguard_compose_file }} exec -T main_database pg_restore -l 2>/dev/null)
+            if [ -n "$toc" ]; then
+              echo "reading the most recent backup instead: ${latest}main.dump"
+              echo "$toc" | grep -m1 'dbname:' | sed 's/^;[[:space:]]*/  /'
+              echo "  owning role(s): $(echo "$toc" | grep -v '^;' | awk 'NF > 1 { print $NF }' | sort -u | tr '\n' ' ')"
+              echo "Set POSTGRES_MAIN_DB and POSTGRES_MAIN_USER to those."
+            else
+              echo "the most recent backup could not be read either"
+            fi
+          else
+            echo "no backup dump found under backups/ to read the names from"
+          fi
           exit 78
         fi
 
