@@ -53,10 +53,14 @@ final class DeployEnvContractTest extends TestCase
 {
   // #region Constants
   /**
-   * Supplied by the workflow from the build job's output rather than from a
-   * variable or a secret, so it is never declared in the env block.
+   * Written by the template rather than supplied by the workflow, so none of
+   * these is ever declared in the env block. FIREGUARD_IMAGE comes from the build
+   * job; the two connection URLs are composed from the POSTGRES_* parts so that
+   * the password has one source and cannot disagree with itself.
+   *
+   * @var list<string>
    */
-  private const string COMPUTED_KEY = 'FIREGUARD_IMAGE';
+  private const array COMPUTED_KEYS = ['FIREGUARD_IMAGE', 'AUTH_DATABASE_URL', 'MAIN_DATABASE_URL'];
   // #endregion
 
   // #region Tests
@@ -163,7 +167,7 @@ final class DeployEnvContractTest extends TestCase
 
     $keys = array_unique(array_merge($declared[1], $mandatory[1]));
 
-    return array_values(array_diff($keys, $this->composePinnedKeys($compose), [self::COMPUTED_KEY]));
+    return array_values(array_diff($keys, $this->composePinnedKeys($compose), self::COMPUTED_KEYS));
   }
 
   /**
