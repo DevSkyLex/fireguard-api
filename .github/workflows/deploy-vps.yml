@@ -104,6 +104,10 @@ jobs:
 
       # ---- Production env file, rendered by ansible/deploy.yml -------------------
       #
+      # APP_ENV, DEFAULT_URI, REDIS_URL, MERCURE_URL and MERCURE_PUBLIC_URL are absent
+      # on purpose: compose.prod.yaml pins them in its own `environment:` blocks, which
+      # win over `env_file:`. Declaring them here would be a value nothing reads.
+      #
       # Off unless FIREGUARD_MANAGED_ENV is true, and the playbook refuses to render
       # while any of these is empty. Scope them to the `production` ENVIRONMENT (this
       # job declares it above), not to the repository: environment scope is what keeps
@@ -115,16 +119,12 @@ jobs:
 
       # Configuration — readable, diffable, reviewable.
       ADMIN_EMAIL:                     ${{ vars.ADMIN_EMAIL }}
-      APP_ENV:                         ${{ vars.APP_ENV }}
       APP_FRONTEND_URL:                ${{ vars.APP_FRONTEND_URL }}
       COOKIE_SECURE:                   ${{ vars.COOKIE_SECURE }}
       CORS_ALLOW_ORIGIN:               ${{ vars.CORS_ALLOW_ORIGIN }}
       DATABASE_STORAGE_TIMEZONE:       ${{ vars.DATABASE_STORAGE_TIMEZONE }}
-      DEFAULT_URI:                     ${{ vars.DEFAULT_URI }}
       MAILER_FROM:                     ${{ vars.MAILER_FROM }}
       MERCURE_CORS_ORIGINS:            ${{ vars.MERCURE_CORS_ORIGINS }}
-      MERCURE_PUBLIC_URL:              ${{ vars.MERCURE_PUBLIC_URL }}
-      MERCURE_URL:                     ${{ vars.MERCURE_URL }}
       MESSENGER_TRANSPORT_DSN:         ${{ vars.MESSENGER_TRANSPORT_DSN }}
       MFA_ENABLED:                     ${{ vars.MFA_ENABLED }}
       OAUTH_ISSUER:                    ${{ vars.OAUTH_ISSUER }}
@@ -153,7 +153,6 @@ jobs:
       OAUTH_ENCRYPTION_KEY:            ${{ secrets.OAUTH_ENCRYPTION_KEY }}
       POSTGRES_AUTH_PASSWORD:          ${{ secrets.POSTGRES_AUTH_PASSWORD }}
       POSTGRES_MAIN_PASSWORD:          ${{ secrets.POSTGRES_MAIN_PASSWORD }}
-      REDIS_URL:                       ${{ secrets.REDIS_URL }}
       SECURITY_LOG_PII_SALT:           ${{ secrets.SECURITY_LOG_PII_SALT }}
       SMS_DSN:                         ${{ secrets.SMS_DSN }}
       STRIPE_SECRET_KEY:               ${{ secrets.STRIPE_SECRET_KEY }}

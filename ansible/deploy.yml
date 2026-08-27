@@ -107,18 +107,39 @@
         src: "{{ fireguard_env_file }}"
       register: fireguard_env_contents
 
-    # Two sources, because the file serves two consumers. `.env.example` is the
-    # application's declared contract; `compose.prod.yaml` additionally reads the
-    # Postgres identity and the image ref, and marks what it cannot do without
-    # using the `${VAR:?message}` form -- `${VAR:-default}` is optional and is
-    # deliberately not collected. Deriving the second list from the compose file
-    # rather than hand-keeping it means POSTGRES_AUTH_PASSWORD cannot quietly
-    # drop out of the check the day someone edits that file.
-    - name: Collect the env keys the application declares
+    # Three sources, because the file serves two consumers and one of them also
+    # answers for itself. `.env.example` is the application's declared contract.
+    # `compose.prod.yaml` adds the Postgres identity and the image ref, marking what
+    # it cannot do without as `${VAR:?message}` -- `${VAR:-default}` is optional and
+    # is deliberately not collected. Deriving that list from the compose file rather
+    # than hand-keeping it means POSTGRES_AUTH_PASSWORD cannot quietly drop out.
+    #
+    # And it SUBTRACTS what compose pins itself. Its `environment:` blocks hardcode
+    # APP_ENV, REDIS_URL, MERCURE_URL, MERCURE_PUBLIC_URL and DEFAULT_URI, and
+    # `environment:` wins over `env_file:` -- so those five reach the container
+    # whatever the env file says, including in the `run --rm` deploy steps. Demanding
+    # them was a false positive that would block a deploy over a key that is never
+    # actually missing. Only literal values count: `${FRANKENPHP_CONFIG:-}` is an
+    # interpolation, not a pin.
+    - name: Read the production compose file
+      ansible.builtin.set_fact:
+        fireguard_compose: "{{ lookup('file', playbook_dir + '/../compose.prod.yaml') | from_yaml }}"
+
+    - name: Subtract the keys compose pins in its own environment blocks
+      ansible.builtin.set_fact:
+        fireguard_pinned_env_keys: >-
+          {{ (fireguard_compose.services | dict2items
+              | map(attribute='value.environment', default={})
+              | select('mapping') | map('dict2items') | flatten)
+             | rejectattr('value', 'match', '\$\{')
+             | map(attribute='key') | list }}
+
+    - name: Resolve the keys the production env file must carry
       ansible.builtin.set_fact:
         fireguard_declared_env_keys: >-
-          {{ (lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
-             | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?')) }}
+          {{ ((lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
+              | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?')))
+             | difference(fireguard_pinned_env_keys) }}
 
     - name: Collect the env keys the production file sets
       ansible.builtin.set_fact:
