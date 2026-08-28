@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\{Email, TenantId};
-use User\Domain\Event\{UserCreatedEvent, UserDeactivatedEvent, UserEmailVerifiedEvent};
+use User\Domain\Event\{UserCreatedEvent, UserDeactivatedEvent, UserEmailChangeConfirmedEvent, UserEmailVerifiedEvent};
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
 use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 
@@ -315,6 +315,39 @@ final class User
   public function updateLocale(Locale $locale): void
   {
     $this->locale = $locale;
+  }
+
+  /**
+   * Method changeEmail.
+   *
+   * Changes the user's sign-in email address after the confirmation
+   * token sent to the new address was verified. The new address is
+   * therefore already proven reachable, so it is marked verified.
+   *
+   * @since 1.0.0
+   *
+   * @param Email $newEmail the new sign-in email address
+   * @param EventIdProvider $eventIdProvider the event ID provider
+   *
+   * @return void No return value
+   */
+  public function changeEmail(Email $newEmail, EventIdProvider $eventIdProvider): void
+  {
+    if ($newEmail->value === $this->email->value) {
+      return;
+    }
+
+    $previousEmail = $this->email;
+    $this->email = $newEmail;
+    $this->emailVerified = true;
+
+    $this->recordEvent(event: new UserEmailChangeConfirmedEvent(
+      eventId: $eventIdProvider->nextEventId(),
+      userId: $this->id->value,
+      currentEmail: $previousEmail->value,
+      newEmail: $newEmail->value,
+      occurredAt: new DateTimeImmutable(),
+    ));
   }
 
   /**

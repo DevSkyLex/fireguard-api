@@ -36,4 +36,26 @@ final readonly class UserSerializationGroup
    * @var string
    */
   public const string WRITE = 'user:write';
+
+  /**
+   * Group EMAIL_CHANGE_READ.
+   *
+   * Used for reading email change flow responses.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string EMAIL_CHANGE_READ = 'email_change:read';
+
+  /**
+   * Group EMAIL_CHANGE_WRITE.
+   *
+   * Used for writing email change flow inputs.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string EMAIL_CHANGE_WRITE = 'email_change:write';
 }

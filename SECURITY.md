@@ -70,6 +70,9 @@ Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 - `calendar_feed` (per IP — the public `.ics` member feed endpoint)
 - `invitation_resend` (per user)
 - `invitation_accept` (per user)
+- `email_change_request` (per user, 5/min — every accepted call emails an arbitrary address and answers the same email-taken question as `registration`, so the budgets match)
+- `email_change_request_ip` (per IP, 5/min — second dimension on the same endpoint: the per-user budget scales with the number of accounts an attacker controls, this one does not)
+- `email_change_confirm` (per IP — the confirm endpoint is public, the emailed token is the credential)
 
 Tune limits to match threat models and expected traffic. In test environments, limits may be overridden for determinism.
 

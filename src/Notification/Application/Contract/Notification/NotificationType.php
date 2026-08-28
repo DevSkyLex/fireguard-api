@@ -105,6 +105,17 @@ final class NotificationType
    * Sent to a user when their e-mail address is verified.
    */
   public const string USER_EMAIL_VERIFIED = 'user.email_verified';
+
+  /**
+   * Sent while a sign-in email change is pending: the confirmation
+   * email to the new address, and the alert to the old address.
+   */
+  public const string USER_EMAIL_CHANGE_REQUESTED = 'user.email_change_requested';
+
+  /**
+   * Sent to the old address once a sign-in email change is effective.
+   */
+  public const string USER_EMAIL_CHANGE_CONFIRMED = 'user.email_change_confirmed';
   // #endregion
 
   // #region Facility types
@@ -143,6 +154,8 @@ final class NotificationType
       self::ORGANIZATION_MEMBER_ADDED,
       self::ORGANIZATION_MEMBER_REMOVED,
       self::USER_EMAIL_VERIFIED,
+      self::USER_EMAIL_CHANGE_REQUESTED,
+      self::USER_EMAIL_CHANGE_CONFIRMED,
       self::FACILITY_ARCHIVED,
       self::EQUIPMENT_UNDER_MAINTENANCE,
     ];

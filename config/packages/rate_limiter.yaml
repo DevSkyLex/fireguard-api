@@ -75,6 +75,31 @@ framework:
       limit: 5
       interval: '1 minute'
       lock_factory: null
+    # Keyed by user id: bounds how fast one account can trigger confirmation
+    # emails to arbitrary addresses (spam relay / password oracle otherwise).
+    # Same budget as `registration` on purpose — every accepted call answers
+    # the same email-taken question register does, so a looser budget here
+    # would make this the cheaper enumeration channel.
+    email_change_request:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    # Second dimension on the same endpoint, keyed by client IP: the per-user
+    # limiter scales horizontally with the number of accounts an attacker
+    # controls, this one does not. Same budget as `registration` (per IP).
+    email_change_request_ip:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    # Per IP — the confirm endpoint is public (the emailed token is the
+    # credential), so this deters token spraying like invitation_preview.
+    email_change_confirm:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
     mfa_resend:
       policy: 'sliding_window'
       limit: 5

@@ -95,6 +95,12 @@ security:
     # secret is the credential; unknown/revoked tokens answer a uniform 404)
     - { path: '^/api/calendar/feed/[^/]+\.ics$', roles: PUBLIC_ACCESS, methods: [GET] }
 
+    # Public email change confirmation (POST only — the emailed 256-bit token
+    # is the credential, mirroring the registration email-verification pattern;
+    # the link lands in the new mailbox where no session may exist. Abuse is
+    # bounded by the per-IP `limiter.email_change_confirm` in the processor.)
+    - { path: ^/api/me/email-change/confirm$, roles: PUBLIC_ACCESS, methods: [POST] }
+
     # Stripe webhook (public; signature is verified in the controller)
     - { path: ^/api/billing/webhook$, roles: PUBLIC_ACCESS, methods: [POST] }
 

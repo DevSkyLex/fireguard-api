@@ -68,6 +68,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Throwable;
+use User\Domain\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEvent, UserEmailChangeRequestedEvent};
 use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
 /**
@@ -134,6 +135,9 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'oauth.consent_granted_event' => 'onConsentGranted',
       'otp.totp_enrollment_confirmed_event' => 'onTotpEnrollmentConfirmed',
       'otp.totp_enrollment_disabled_event' => 'onTotpEnrollmentDisabled',
+      'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
+      'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
+      'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',
@@ -577,6 +581,51 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       metadata: $this->withRequestMeta([]),
       occurredAt: $event->occurredAt,
     ));
+  }
+
+  /**
+   * Method onUserEmailChangeRequested.
+   *
+   * Records a sign-in email change request. Both addresses are PII:
+   * they go through the sanitizer like every other email in the
+   * ledger — sanitized display form plus deterministic hash, never
+   * the raw value in the metadata.
+   *
+   * @since 1.0.0
+   *
+   * @param UserEmailChangeRequestedEvent $event the domain event
+   */
+  public function onUserEmailChangeRequested(UserEmailChangeRequestedEvent $event): void
+  {
+    $this->recordEmailChangeAudit('user.email_change_requested', $event->userId, $event->currentEmail, $event->newEmail, $event->occurredAt);
+  }
+
+  /**
+   * Method onUserEmailChangeConfirmed.
+   *
+   * Records an applied sign-in email change (sessions revoked).
+   *
+   * @since 1.0.0
+   *
+   * @param UserEmailChangeConfirmedEvent $event the domain event
+   */
+  public function onUserEmailChangeConfirmed(UserEmailChangeConfirmedEvent $event): void
+  {
+    $this->recordEmailChangeAudit('user.email_change_confirmed', $event->userId, $event->currentEmail, $event->newEmail, $event->occurredAt);
+  }
+
+  /**
+   * Method onUserEmailChangeCancelled.
+   *
+   * Records a cancelled sign-in email change request.
+   *
+   * @since 1.0.0
+   *
+   * @param UserEmailChangeCancelledEvent $event the domain event
+   */
+  public function onUserEmailChangeCancelled(UserEmailChangeCancelledEvent $event): void
+  {
+    $this->recordEmailChangeAudit('user.email_change_cancelled', $event->userId, $event->currentEmail, $event->newEmail, $event->occurredAt);
   }
 
   /**
@@ -2726,6 +2775,49 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'filter_keys' => $event->filterKeys,
       ]),
       occurredAt: $event->occurredAt,
+    ));
+  }
+
+  /**
+   * Method recordEmailChangeAudit.
+   *
+   * Shared shape of the three email-change ledger entries.
+   *
+   * @since 1.0.0
+   *
+   * @param string $action the audit action
+   * @param string $userId the acting user
+   * @param string $currentEmail the current (old) address
+   * @param string $newEmail the requested/applied new address
+   * @param DateTimeImmutable $occurredAt when the event occurred
+   */
+  private function recordEmailChangeAudit(
+    string $action,
+    string $userId,
+    string $currentEmail,
+    string $newEmail,
+    DateTimeImmutable $occurredAt,
+  ): void {
+    $context = $this->requestContext();
+
+    $this->dispatchAuditEvent(new RecordAuditEventCommand(
+      action: $action,
+      actorType: 'user',
+      actorId: $userId,
+      actorEmail: $this->sanitizer->email($currentEmail),
+      actorEmailHash: $this->sanitizer->emailHash($currentEmail),
+      subjectType: 'user',
+      subjectId: $userId,
+      ipAddress: $this->sanitizer->ip($context['ip']),
+      ipHash: $this->sanitizer->ipHash($context['ip']),
+      userAgent: $context['user_agent'],
+      metadata: $this->withRequestMeta([
+        'current_email' => $this->sanitizer->email($currentEmail),
+        'current_email_hash' => $this->sanitizer->emailHash($currentEmail),
+        'new_email' => $this->sanitizer->email($newEmail),
+        'new_email_hash' => $this->sanitizer->emailHash($newEmail),
+      ]),
+      occurredAt: $occurredAt,
     ));
   }
 

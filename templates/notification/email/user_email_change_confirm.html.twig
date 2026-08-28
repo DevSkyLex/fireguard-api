@@ -1,0 +1,19 @@
+{% extends 'notification/email/layout.html.twig' %}
+
+{% set lang = locale|default('en') %}
+
+{% block lang %}{{ lang }}{% endblock %}
+
+{% block content %}
+  <h1>{{ 'emailChange.confirmHeading'|trans({}, 'emails', lang) }}</h1>
+  <p>{{ 'emailChange.confirmIntro'|trans({}, 'emails', lang) }}</p>
+  <div class="btn-wrap">
+    <a href="{{ confirmUrl }}" class="btn">{{ 'emailChange.confirmCta'|trans({}, 'emails', lang) }}</a>
+  </div>
+  <p class="muted">{{ 'emailChange.confirmFallback'|trans({}, 'emails', lang) }}</p>
+  <p class="link-fallback"><a href="{{ confirmUrl }}">{{ confirmUrl }}</a></p>
+  <p class="muted">
+    {{ 'emailChange.confirmExpires'|trans({ '%date%': expiresAt }, 'emails', lang) }}
+  </p>
+  <p class="muted">{{ 'emailChange.confirmIgnore'|trans({}, 'emails', lang) }}</p>
+{% endblock %}

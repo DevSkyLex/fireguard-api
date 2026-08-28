@@ -10,6 +10,19 @@ services:
   User\Application\Port\Outbound\UserDataPurgePort:
     class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter
 
+  # Email change requests live on the auth database; the entity manager is
+  # named explicitly so autowiring can never pick the wrong one.
+  User\Application\Port\Outbound\EmailChangeRequestRepositoryPort:
+    class: User\Infrastructure\Persistence\Doctrine\Repository\UserEmailChangeRequestRepository
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  User\Application\Service\EmailChangeTokenHasher: ~
+
+  User\Application\Service\EmailChangeNotifier:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
+
   # Resolves notification recipient emails from user ids (Notification module port)
   User\Infrastructure\Adapter\Notification\UserRecipientDirectoryAdapter: ~
 
@@ -29,6 +42,15 @@ services:
     tags: ['messenger.message_handler']
 
   User\Application\UseCase\Command\User\UpdateUser\UpdateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\EmailChange\RequestEmailChange\RequestEmailChangeHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\EmailChange\ConfirmEmailChange\ConfirmEmailChangeHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\EmailChange\CancelEmailChange\CancelEmailChangeHandler:
     tags: ['messenger.message_handler']
 
   User\Application\UseCase\Query\User\AuthenticateUser\AuthenticateUserHandler:
@@ -64,6 +86,9 @@ services:
   User\Presentation\Api\Processor\User\UploadCurrentUserAvatarProcessor: ~
   User\Presentation\Api\Processor\User\UploadUserAvatarProcessor: ~
   User\Presentation\Api\Processor\User\VerifyUserEmailProcessor: ~
+  User\Presentation\Api\Processor\EmailChange\RequestEmailChangeProcessor: ~
+  User\Presentation\Api\Processor\EmailChange\ConfirmEmailChangeProcessor: ~
+  User\Presentation\Api\Processor\EmailChange\CancelEmailChangeProcessor: ~
   User\Presentation\Api\Provider\User\UserProvider: ~
   User\Presentation\Api\Provider\User\ListUsersProvider: ~
   User\Presentation\Api\Provider\User\GetCurrentUserProfileProvider: ~
