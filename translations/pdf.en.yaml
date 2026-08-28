@@ -182,3 +182,7 @@ equipment:
     mimeType: "Type"
     uploadedAt: "Uploaded"
   note: "This document is a point-in-time snapshot and is not stored; regenerate it at any time from the live equipment record."
+
+equipmentLabels:
+  title: "Equipment QR labels"
+  serialNumber: "S/N %serial%"

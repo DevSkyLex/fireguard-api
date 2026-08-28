@@ -9,6 +9,7 @@ use Equipment\Domain\Exception\{
   EquipmentAccessDeniedException,
   EquipmentAlreadyDecommissionedException,
   EquipmentExportTooLargeException,
+  EquipmentLabelExportTooLargeException,
   EquipmentNotFoundException,
   EquipmentSerialNumberAlreadyExistsException,
   TagNotFoundException
@@ -217,6 +218,34 @@ trait EquipmentExceptionUnwrapperTrait
       if ($current instanceof HandlerFailedException) {
         foreach ($current->getWrappedExceptions() as $wrappedException) {
           if ($wrappedException instanceof EquipmentExportTooLargeException) {
+            return $wrappedException;
+          }
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return null;
+  }
+
+  /**
+   * Method findEquipmentLabelExportTooLargeException.
+   *
+   * @since 1.0.0
+   */
+  private function findEquipmentLabelExportTooLargeException(Throwable $exception): ?EquipmentLabelExportTooLargeException
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      if ($current instanceof EquipmentLabelExportTooLargeException) {
+        return $current;
+      }
+
+      if ($current instanceof HandlerFailedException) {
+        foreach ($current->getWrappedExceptions() as $wrappedException) {
+          if ($wrappedException instanceof EquipmentLabelExportTooLargeException) {
             return $wrappedException;
           }
         }

@@ -182,3 +182,7 @@ equipment:
     mimeType: "Tipo"
     uploadedAt: "Añadido el"
   note: "Este documento es una instantánea a fecha y no se conserva; regenérelo en cualquier momento desde la ficha del equipo."
+
+equipmentLabels:
+  title: "Etiquetas QR de equipos"
+  serialNumber: "N.º serie %serial%"

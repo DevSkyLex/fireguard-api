@@ -206,5 +206,52 @@ interface EquipmentRepositoryPort
    */
   public function listEquipmentExportCandidates(EquipmentOrganizationId $organizationId): array;
 
+  /**
+   * Method countEquipmentLabelCandidates.
+   *
+   * Counts the published equipment items a QR label sheet selection would
+   * match, before any row is fetched — the cheap pre-check behind the label
+   * cap, mirroring {@see self::countEquipments()} with the sheet's optional
+   * selection narrowing (explicit ids OR one facility).
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?list<string> $equipmentIds the explicit equipment identifiers, if any
+   * @param ?string $facilityId the facility identifier, if any
+   *
+   * @return int the matching equipment count
+   */
+  public function countEquipmentLabelCandidates(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
+  ): int;
+
+  /**
+   * Method listEquipmentLabelCandidates.
+   *
+   * Lists the published equipment items a QR label sheet selection matches,
+   * in the export's stable order (`updatedAt` DESC, `id` ASC), as
+   * lightweight {@see EquipmentExportCandidate} rows. Callers must first
+   * bound the result with {@see self::countEquipmentLabelCandidates()}.
+   * Identifiers outside the organization's scope simply never match — the
+   * organization filter is always applied, so a foreign id silently yields
+   * no label rather than leaking anything.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?list<string> $equipmentIds the explicit equipment identifiers, if any
+   * @param ?string $facilityId the facility identifier, if any
+   *
+   * @return list<EquipmentExportCandidate> the matching equipment rows
+   */
+  public function listEquipmentLabelCandidates(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
+  ): array;
+
   // #endregion
 }

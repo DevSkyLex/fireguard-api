@@ -22,7 +22,7 @@ use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent,
 use Compliance\Domain\Event\{SafetyRegisterExportedEvent, SafetyRegisterSnapshotCreatedEvent};
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Equipment\Domain\Event\Export\{EquipmentReportExportedEvent, EquipmentsExportedEvent};
+use Equipment\Domain\Event\Export\{EquipmentLabelsExportedEvent, EquipmentReportExportedEvent, EquipmentsExportedEvent};
 use Facility\Domain\Event\Export\FacilitiesExportedEvent;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
@@ -223,6 +223,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'inspection.inspection_report_exported_event' => 'onInspectionReportExported',
       'inspection.non_conformities_report_exported_event' => 'onNonConformitiesReportExported',
       'equipment.equipment_report_exported_event' => 'onEquipmentReportExported',
+      'equipment.equipment_labels_exported_event' => 'onEquipmentLabelsExported',
     ];
   }
 
@@ -2546,6 +2547,34 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       subjectId: $event->equipmentId,
       metadata: [
         'plan_key' => $event->planKey,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onEquipmentLabelsExported.
+   *
+   * Records every generation of a printable QR equipment label sheet — the
+   * equipment module auditing its own export action, mirroring
+   * {@see self::onEquipmentsExported()}. Metadata carries the selection
+   * mode name and the label count only, never the selected identifiers.
+   *
+   * @since 1.8.0
+   *
+   * @param EquipmentLabelsExportedEvent $event the domain event
+   */
+  public function onEquipmentLabelsExported(EquipmentLabelsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.labels_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'selection' => $event->selection,
+        'label_count' => $event->labelCount,
       ],
       occurredAt: $event->occurredAt,
       actorUserId: $event->actorUserId,

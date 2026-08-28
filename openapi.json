@@ -8718,6 +8718,84 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/equipment/labels": {
+            "get": {
+                "operationId": "equipment_export_labels",
+                "tags": [
+                    "Equipment"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "QR label sheet PDF"
+                    },
+                    "400": {
+                        "description": "Missing organizationId, both ids[] and facilityId provided, or empty ids[]"
+                    },
+                    "403": {
+                        "description": "Missing organization.equipment.read permission"
+                    },
+                    "404": {
+                        "description": "Organization outside the caller's scope"
+                    },
+                    "422": {
+                        "description": "Selection matches more than 500 labels"
+                    },
+                    "204": {
+                        "description": "EquipmentLabelSheet resource"
+                    }
+                },
+                "summary": "Export a printable QR label sheet as PDF",
+                "description": "Streams an A4 PDF of QR equipment labels laid out on an Avery L7159-compatible grid (63.5 x 33.9 mm, 3 columns x 8 rows, 24 labels per page). Each QR encodes the equipment IRI /api/equipment/{id}, the format the field scan resolves. Selection: ids[] (explicit equipment list) OR facilityId (all equipment of one facility) OR neither (the whole organization park); providing both is a 400. At most 500 labels per request \u2014 422 beyond. Requires organization.equipment.read, resolved with the module's standard 403/404 split. Not plan-gated: labels are operational field material, not a reporting deliverable.",
+                "parameters": [
+                    {
+                        "name": "ids[]",
+                        "in": "query",
+                        "description": "Explicit equipment identifiers to print, one label each. Mutually exclusive with facilityId.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "uuid"
+                            }
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "query",
+                        "description": "Print one label for every equipment item of this facility. Mutually exclusive with ids[].",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "EquipmentLabelSheet identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/equipment/tags": {
             "get": {
                 "operationId": "equipment_list_tags",

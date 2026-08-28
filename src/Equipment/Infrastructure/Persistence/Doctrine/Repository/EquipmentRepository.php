@@ -477,6 +477,104 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   }
 
   /**
+   * Method countEquipmentLabelCandidates.
+   *
+   * @since 1.0.0
+   */
+  public function countEquipmentLabelCandidates(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
+  ): int {
+    $builder = $this->createLabelCandidateQueryBuilder($organizationId, $equipmentIds, $facilityId)
+      ->select('COUNT(e.id)');
+
+    return (int) $builder->getQuery()->getSingleScalarResult();
+  }
+
+  /**
+   * Method listEquipmentLabelCandidates.
+   *
+   * @since 1.0.0
+   *
+   * @return list<EquipmentExportCandidate>
+   */
+  public function listEquipmentLabelCandidates(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
+  ): array {
+    /** @var list<EquipmentRecord> $records */
+    $records = $this->createLabelCandidateQueryBuilder($organizationId, $equipmentIds, $facilityId)
+      ->select('e')
+      ->orderBy('e.updatedAt', 'DESC')
+      ->addOrderBy('e.id', 'ASC')
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      static fn (EquipmentRecord $record): EquipmentExportCandidate => new EquipmentExportCandidate(
+        id: $record->id,
+        type: $record->type,
+        subType: $record->subType,
+        brand: $record->brand,
+        model: $record->model,
+        serialNumber: $record->serialNumber,
+        locationLabel: $record->locationLabel,
+        status: $record->status,
+        facilityId: $record->facilityId,
+        installedAt: $record->installedAt?->format(DateTimeInterface::ATOM),
+        commissionedAt: $record->commissionedAt?->format(DateTimeInterface::ATOM),
+        createdAt: $record->createdAt->format(DateTimeInterface::ATOM),
+        updatedAt: $record->updatedAt->format(DateTimeInterface::ATOM),
+      ),
+      $records,
+    );
+  }
+
+  /**
+   * Method createLabelCandidateQueryBuilder.
+   *
+   * Shared base query for the QR label sheet selection: always scoped to the
+   * organization's published equipment, optionally narrowed to an explicit
+   * id list OR to one facility. The organization filter is never relaxed, so
+   * a foreign identifier simply never matches.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?list<string> $equipmentIds the explicit equipment identifiers, if any
+   * @param ?string $facilityId the facility identifier, if any
+   *
+   * @return QueryBuilder the base query builder
+   */
+  private function createLabelCandidateQueryBuilder(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
+  ): QueryBuilder {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $builder = $this->entityManager->createQueryBuilder()
+      ->from(EquipmentRecord::class, 'e')
+      ->where('e.organization = :organization')
+      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->setParameter('organization', $organization)
+      ->setParameter('publishedRecordStatus', 'published');
+
+    if (null !== $equipmentIds) {
+      $builder->andWhere('e.id IN (:equipmentIds)')->setParameter('equipmentIds', $equipmentIds);
+    }
+
+    if (null !== $facilityId) {
+      $builder->andWhere('e.facilityId = :facilityId')->setParameter('facilityId', $facilityId);
+    }
+
+    return $builder;
+  }
+
+  /**
    * Method createListQueryBuilder.
    *
    * Executes the create list query builder operation.

@@ -169,5 +169,12 @@ final class EquipmentOperations
    * @var string
    */
   public const string EXPORT_EQUIPMENT_REPORT = 'equipment_export_report';
+
+  /**
+   * Constant EXPORT_EQUIPMENT_LABELS.
+   *
+   * @var string
+   */
+  public const string EXPORT_EQUIPMENT_LABELS = 'equipment_export_labels';
   // #endregion
 }
