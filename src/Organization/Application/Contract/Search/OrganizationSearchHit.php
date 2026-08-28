@@ -29,12 +29,14 @@ final readonly class OrganizationSearchHit
    * @param string $title the primary display line
    * @param ?string $subtitle the secondary display line (default: null)
    * @param ?string $extra an optional tertiary hint (default: null)
+   * @param ?string $parentId the owning record's identifier, when the matched record has no page of its own — a non-conformity deep-links to its inspection (default: null)
    */
   public function __construct(
     public string $id,
     public string $title,
     public ?string $subtitle = null,
     public ?string $extra = null,
+    public ?string $parentId = null,
   ) {
   }
   // #endregion

@@ -52229,6 +52229,14 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "parentId": {
+                        "readOnly": true,
+                        "description": "Property parentId.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     }
                 }
             },

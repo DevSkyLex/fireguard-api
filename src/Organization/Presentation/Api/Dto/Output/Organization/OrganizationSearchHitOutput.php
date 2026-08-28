@@ -74,5 +74,16 @@ final class OrganizationSearchHitOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $extra = null;
+
+  /**
+   * Property parentId.
+   *
+   * The owning record's identifier when the matched record has no page of
+   * its own — a non-conformity carries its inspection's id so the client
+   * can deep-link to the inspection detail. Null for every other type.
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $parentId = null;
   // #endregion
 }

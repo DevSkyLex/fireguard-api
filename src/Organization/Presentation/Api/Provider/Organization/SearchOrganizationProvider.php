@@ -163,6 +163,7 @@ final readonly class SearchOrganizationProvider implements ProviderInterface
       $output->title = $hit->title;
       $output->subtitle = $hit->subtitle;
       $output->extra = $hit->extra;
+      $output->parentId = $hit->parentId;
       $outputs[] = $output;
     }
 
