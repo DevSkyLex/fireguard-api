@@ -308,6 +308,14 @@ services:
   Organization\Application\Port\Inbound\OrganizationCallerMembershipPort:
     alias: Organization\Application\Service\OrganizationCallerMembershipService
 
+  # Inbound port reused by the Import module's bulk CSV member import:
+  # provisions invitations through InviteOrganizationMemberHandler (member-cap
+  # quota and conflict rules included).
+  Organization\Application\Service\MemberInvitationProvisioningService: ~
+
+  Organization\Application\Port\Inbound\MemberInvitationProvisioningPort:
+    alias: Organization\Application\Service\MemberInvitationProvisioningService
+
   Organization\Application\Service\TeamDirectoryService: ~
 
   Organization\Application\Service\OrganizationCallerMembershipService: ~

@@ -32,6 +32,7 @@ final class EquipmentRowFactoryTest extends TestCase
       'model' => 'X100',
       'serialNumber' => 'SN-1',
       'locationLabel' => 'Corridor A',
+      'facilityCode' => 'WH-01',
     ]);
 
     self::assertInstanceOf(ProvisionEquipmentRequest::class, $request);
@@ -42,6 +43,17 @@ final class EquipmentRowFactoryTest extends TestCase
     self::assertSame('X100', $request->model);
     self::assertSame('SN-1', $request->serialNumber);
     self::assertSame('Corridor A', $request->locationLabel);
+    self::assertSame('WH-01', $request->facilityCode);
+  }
+
+  #[Test]
+  public function itTreatsABlankOrAbsentFacilityCodeAsNull(): void
+  {
+    $absent = new EquipmentRowFactory()->map(self::ORGANIZATION_ID, ['type' => 'fire_extinguisher']);
+    $blank = new EquipmentRowFactory()->map(self::ORGANIZATION_ID, ['type' => 'fire_extinguisher', 'facilityCode' => '   ']);
+
+    self::assertNull($absent->facilityCode);
+    self::assertNull($blank->facilityCode);
   }
 
   #[Test]

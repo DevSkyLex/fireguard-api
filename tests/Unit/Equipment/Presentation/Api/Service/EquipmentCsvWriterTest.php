@@ -21,11 +21,12 @@ use function trim;
 /**
  * Test EquipmentCsvWriterTest.
  *
- * The first assertion freezes the import round-trip contract: the six
+ * The first assertion freezes the import round-trip contract: the seven
  * columns `Import\Application\Service\EquipmentRowFactory` reads back on
- * reimport must stay first, in that exact order. Cross-reference:
- * `Import\Application\Service\EquipmentRowFactory`'s docblock lists the same
- * six column names as its expected header.
+ * reimport must stay first, in that exact order — the original six plus
+ * `facilityCode`, appended 7th for the reimport-reassignment loop.
+ * Cross-reference: `Import\Application\Service\EquipmentRowFactory`'s
+ * docblock lists the same seven column names as its expected header.
  *
  * @category Service Tests
  *
@@ -38,9 +39,9 @@ final class EquipmentCsvWriterTest extends TestCase
   public function testHeaderBeginsWithTheImportRoundTripContractColumnsInOrder(): void
   {
     self::assertSame(
-      ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel'],
-      array_slice(EquipmentCsvWriter::HEADER, 0, 6),
-      'The first six CSV columns are read back by Import\Application\Service\EquipmentRowFactory on reimport and must never be reordered.',
+      ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'facilityCode'],
+      array_slice(EquipmentCsvWriter::HEADER, 0, 7),
+      'The first seven CSV columns are read back by Import\Application\Service\EquipmentRowFactory on reimport and must never be reordered.',
     );
   }
 
@@ -58,6 +59,7 @@ final class EquipmentCsvWriterTest extends TestCase
       locationLabel: 'Hallway',
       status: 'operational',
       facilityId: 'facility-1',
+      facilityCode: 'WH-01',
       facilityName: 'Main Warehouse',
       installedAt: '2026-01-01T00:00:00+00:00',
       commissionedAt: '2026-01-02T00:00:00+00:00',
@@ -78,6 +80,7 @@ final class EquipmentCsvWriterTest extends TestCase
     self::assertSame(implode(',', EquipmentCsvWriter::HEADER), $lines[0]);
     self::assertStringContainsString('fire_extinguisher', $lines[1]);
     self::assertStringContainsString('Main Warehouse', $lines[1]);
+    self::assertStringContainsString('Hallway,WH-01,', $lines[1], 'facilityCode must be the 7th cell, right after locationLabel.');
   }
 
   #[Test]
@@ -94,6 +97,7 @@ final class EquipmentCsvWriterTest extends TestCase
       locationLabel: null,
       status: 'in_stock',
       facilityId: 'facility-2',
+      facilityCode: null,
       facilityName: null,
       installedAt: null,
       commissionedAt: null,
@@ -110,6 +114,7 @@ final class EquipmentCsvWriterTest extends TestCase
       locationLabel: null,
       status: 'in_stock',
       facilityId: null,
+      facilityCode: null,
       facilityName: null,
       installedAt: null,
       commissionedAt: null,

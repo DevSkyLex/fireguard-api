@@ -107,7 +107,9 @@ final readonly class ExportEquipmentsHandler implements QueryHandler
 
     $candidates = $this->repository->listEquipmentExportCandidates($organizationId);
 
-    $facilityNames = $this->facilityNaming->findNamesByIds($this->uniqueIds($candidates));
+    $facilityIds = $this->uniqueIds($candidates);
+    $facilityNames = $this->facilityNaming->findNamesByIds($facilityIds);
+    $facilityCodes = $this->facilityNaming->findCodesByIds($facilityIds);
 
     $rows = array_map(
       static fn (EquipmentExportCandidate $candidate): EquipmentExportRow => new EquipmentExportRow(
@@ -120,6 +122,7 @@ final readonly class ExportEquipmentsHandler implements QueryHandler
         locationLabel: $candidate->locationLabel,
         status: $candidate->status,
         facilityId: $candidate->facilityId,
+        facilityCode: null === $candidate->facilityId ? null : ($facilityCodes[$candidate->facilityId] ?? null),
         facilityName: null === $candidate->facilityId ? null : ($facilityNames[$candidate->facilityId] ?? null),
         installedAt: $candidate->installedAt,
         commissionedAt: $candidate->commissionedAt,

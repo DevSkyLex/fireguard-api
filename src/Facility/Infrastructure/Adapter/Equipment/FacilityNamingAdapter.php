@@ -74,5 +74,40 @@ final readonly class FacilityNamingAdapter implements FacilityNamingPort
 
     return $names;
   }
+
+  /**
+   * Method findCodesByIds.
+   * {@inheritdoc}
+   *
+   * @since 1.1.0
+   *
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> facility code keyed by facility identifier
+   */
+  public function findCodesByIds(array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    /** @var list<array{id: string, code: ?string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('facility.id AS id', 'facility.code AS code')
+      ->from(FacilityRecord::class, 'facility')
+      ->where('facility.id IN (:facilityIds)')
+      ->setParameter('facilityIds', $facilityIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $codes = [];
+    foreach ($rows as $row) {
+      if (null !== $row['code'] && '' !== $row['code']) {
+        $codes[$row['id']] = $row['code'];
+      }
+    }
+
+    return $codes;
+  }
   // #endregion
 }

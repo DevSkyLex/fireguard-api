@@ -279,6 +279,7 @@ final class ExportEquipmentLabelsControllerTest extends TestCase
       locationLabel: 'Hallway',
       status: 'operational',
       facilityId: '550e8400-e29b-41d4-a716-446655570004',
+      facilityCode: null,
       facilityName: 'Main Warehouse',
       installedAt: '2026-01-01T00:00:00+00:00',
       commissionedAt: '2026-01-02T00:00:00+00:00',

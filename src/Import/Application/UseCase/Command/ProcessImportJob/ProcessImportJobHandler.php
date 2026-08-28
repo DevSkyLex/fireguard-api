@@ -9,12 +9,14 @@ use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome as FacilityProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportJobRepositoryPort};
-use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory};
+use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
 use Import\Application\Support\DryRunProjection;
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Import\Domain\Exception\ImportRowValidationException;
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError};
+use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionOutcome as MemberProvisionOutcome};
+use Organization\Application\Port\Inbound\MemberInvitationProvisioningPort;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, FileStoragePort};
@@ -24,8 +26,9 @@ use Throwable;
  * UseCase ProcessImportJobHandler.
  *
  * The async worker side of a bulk CSV import: claims the job, streams its
- * uploaded CSV row by row and provisions Equipment or Facility resources
- * through the existing Create use cases (quota included), recording a
+ * uploaded CSV row by row and provisions Equipment or Facility resources —
+ * or member invitations (`kind=member`) — through the existing Create/Invite
+ * use cases (quota included), recording a
  * per-row report. A row failure (validation or quota) is non-fatal — the
  * batch still reaches `completed` with a partial success. Only an
  * unreadable/malformed file fails the whole job.
@@ -77,8 +80,10 @@ final readonly class ProcessImportJobHandler implements CommandHandler
    * @param CsvRowStreamerPort $csvStreamer the CSV row streamer port
    * @param EquipmentRowFactory $equipmentRowFactory builds a provisioning request from an equipment CSV row
    * @param FacilityRowFactory $facilityRowFactory builds a provisioning request from a facility CSV row
+   * @param MemberRowFactory $memberRowFactory builds an invitation provisioning request from a member CSV row
    * @param EquipmentProvisioningPort $equipmentProvisioning the cross-module equipment provisioning port
    * @param FacilityProvisioningPort $facilityProvisioning the cross-module facility provisioning port
+   * @param MemberInvitationProvisioningPort $memberInvitationProvisioning the cross-module member invitation provisioning port
    * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    * @param ClockPort $clock the clock port
    * @param LoggerInterface $logger the logger
@@ -89,8 +94,10 @@ final readonly class ProcessImportJobHandler implements CommandHandler
     private CsvRowStreamerPort $csvStreamer,
     private EquipmentRowFactory $equipmentRowFactory,
     private FacilityRowFactory $facilityRowFactory,
+    private MemberRowFactory $memberRowFactory,
     private EquipmentProvisioningPort $equipmentProvisioning,
     private FacilityProvisioningPort $facilityProvisioning,
+    private MemberInvitationProvisioningPort $memberInvitationProvisioning,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private LoggerInterface $logger,
@@ -215,6 +222,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       match ($job->kind()) {
         ImportKind::EQUIPMENT => $this->processEquipmentRow($job, $rowNumber, $row, $projection),
         ImportKind::FACILITY => $this->processFacilityRow($job, $rowNumber, $row, $projection),
+        ImportKind::MEMBER => $this->processMemberRow($job, $rowNumber, $row),
       };
     } catch (ImportRowValidationException $exception) {
       $job->recordRowError(new ImportRowError(
@@ -249,6 +257,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
         model: $request->model,
         serialNumber: $request->serialNumber,
         locationLabel: $request->locationLabel,
+        facilityCode: $request->facilityCode,
         dryRun: true,
         quotaProjectionOffset: $projection->equipmentCount(),
       );
@@ -366,6 +375,93 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       rowNumber: $rowNumber,
       code: 'would_create',
       message: 'Would create this facility.',
+    ));
+  }
+
+  /**
+   * Method processMemberRow.
+   *
+   * Provisions one member invitation through the Organization module's
+   * inbound provisioning port. No dry-run projection state is threaded: the
+   * member dry run validates the email and role names only (no quota
+   * projection — see `MemberInvitationProvisioningService`), so unlike the
+   * equipment/facility kinds there is no running offset to carry.
+   *
+   * @since 1.1.0
+   *
+   * @param ImportJob $job the import job aggregate
+   * @param int $rowNumber the 1-based data row number
+   * @param array<string, string> $row the associative CSV data row
+   */
+  private function processMemberRow(ImportJob $job, int $rowNumber, array $row): void
+  {
+    $request = $this->memberRowFactory->map($job->organizationId(), $job->createdBy(), $row);
+
+    if ($job->isDryRun()) {
+      $request = new ProvisionMemberInvitationRequest(
+        organizationId: $request->organizationId,
+        email: $request->email,
+        invitedByUserId: $request->invitedByUserId,
+        roleNames: $request->roleNames,
+        dryRun: true,
+      );
+    }
+
+    $result = $this->memberInvitationProvisioning->provision($request);
+
+    match ($result->outcome) {
+      MemberProvisionOutcome::CREATED => $this->recordMemberSuccess($job, $rowNumber),
+      MemberProvisionOutcome::QUOTA_EXCEEDED => $job->recordRowError(new ImportRowError(
+        rowNumber: $rowNumber,
+        code: 'quota_exceeded',
+        message: $result->message ?? 'The plan quota for members has been reached.',
+      )),
+      MemberProvisionOutcome::ALREADY_MEMBER => $job->recordRowError(new ImportRowError(
+        rowNumber: $rowNumber,
+        code: 'already_member',
+        message: $result->message ?? 'User is already an active member of this organization.',
+        column: 'email',
+      )),
+      MemberProvisionOutcome::ALREADY_INVITED => $job->recordRowError(new ImportRowError(
+        rowNumber: $rowNumber,
+        code: 'already_invited',
+        message: $result->message ?? 'A pending invitation already exists for this email.',
+        column: 'email',
+      )),
+      MemberProvisionOutcome::UNKNOWN_ROLE => $job->recordRowError(new ImportRowError(
+        rowNumber: $rowNumber,
+        code: 'unknown_role',
+        message: $result->message ?? 'Unknown organization role name.',
+        column: 'roles',
+      )),
+      MemberProvisionOutcome::INVALID => $job->recordRowError(new ImportRowError(
+        rowNumber: $rowNumber,
+        code: 'invalid',
+        message: $result->message ?? 'Invalid member row.',
+      )),
+    };
+  }
+
+  /**
+   * Method recordMemberSuccess.
+   *
+   * @since 1.1.0
+   *
+   * @param ImportJob $job the import job aggregate
+   * @param int $rowNumber the 1-based data row number
+   */
+  private function recordMemberSuccess(ImportJob $job, int $rowNumber): void
+  {
+    if (!$job->isDryRun()) {
+      $job->recordRowSuccess();
+
+      return;
+    }
+
+    $job->recordRowSuccess(new ImportRowError(
+      rowNumber: $rowNumber,
+      code: 'would_create',
+      message: 'Would invite this member.',
     ));
   }
 

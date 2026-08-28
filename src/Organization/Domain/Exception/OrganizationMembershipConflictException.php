@@ -25,6 +25,44 @@ use RuntimeException;
  */
 final class OrganizationMembershipConflictException extends RuntimeException
 {
+  // #region Constants
+  /**
+   * Constant CONFLICT_PENDING_INVITATION.
+   *
+   * Discriminator value: a pending invitation already exists for the email.
+   *
+   * @since 1.1.0
+   *
+   * @var string CONFLICT_PENDING_INVITATION
+   */
+  public const string CONFLICT_PENDING_INVITATION = 'pending_invitation';
+
+  /**
+   * Constant CONFLICT_ACTIVE_MEMBER.
+   *
+   * Discriminator value: the user is already an active member.
+   *
+   * @since 1.1.0
+   *
+   * @var string CONFLICT_ACTIVE_MEMBER
+   */
+  public const string CONFLICT_ACTIVE_MEMBER = 'active_member';
+  // #endregion
+
+  // #region Properties
+  /**
+   * Property conflict.
+   *
+   * Which of the two conflicting states raised the exception — lets a
+   * programmatic caller (the member-invitation provisioning port consumed by
+   * the bulk CSV import) report "already invited" and "already a member" as
+   * distinct outcomes without parsing the message.
+   *
+   * @since 1.1.0
+   */
+  private string $conflict = self::CONFLICT_ACTIVE_MEMBER;
+  // #endregion
+
   // #region Methods
   /**
    * Method pendingInvitationExists.
@@ -35,7 +73,10 @@ final class OrganizationMembershipConflictException extends RuntimeException
    */
   public static function pendingInvitationExists(): self
   {
-    return new self('A pending invitation already exists for this email.');
+    $exception = new self('A pending invitation already exists for this email.');
+    $exception->conflict = self::CONFLICT_PENDING_INVITATION;
+
+    return $exception;
   }
 
   /**
@@ -47,7 +88,22 @@ final class OrganizationMembershipConflictException extends RuntimeException
    */
   public static function alreadyAnActiveMember(): self
   {
-    return new self('User is already an active member of this organization.');
+    $exception = new self('User is already an active member of this organization.');
+    $exception->conflict = self::CONFLICT_ACTIVE_MEMBER;
+
+    return $exception;
+  }
+
+  /**
+   * Method conflict.
+   *
+   * @since 1.1.0
+   *
+   * @return string the conflict discriminator (`pending_invitation`|`active_member`)
+   */
+  public function conflict(): string
+  {
+    return $this->conflict;
   }
   // #endregion
 }

@@ -6,7 +6,9 @@ namespace Tests\Unit\Equipment\Application\Service;
 
 use DateTimeImmutable;
 use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionOutcome};
+use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Application\Service\EquipmentProvisioningService;
+use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\AssignToFacilityCommand;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
@@ -38,7 +40,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
       ->with(self::isInstanceOf(CreateEquipmentCommand::class))
       ->willReturn($this->fakeResult('equipment-1'));
 
-    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $result = $this->service($commandBus)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
     self::assertSame('equipment-1', $result->resourceId);
@@ -52,7 +54,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
       OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT->value, 5),
     );
 
-    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $result = $this->service($commandBus)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::QUOTA_EXCEEDED, $result->outcome);
     self::assertNotNull($result->message);
@@ -65,7 +67,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap($quotaException));
 
-    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $result = $this->service($commandBus)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::QUOTA_EXCEEDED, $result->outcome);
   }
@@ -78,7 +80,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
       EquipmentSerialNumberAlreadyExistsException::withSerialNumber('SN-1'),
     );
 
-    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $result = $this->service($commandBus)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
   }
@@ -91,7 +93,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
       MessengerRuntimeException::wrap(new InvalidArgumentException('Invalid equipment type.')),
     );
 
-    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $result = $this->service($commandBus)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
     self::assertSame('Invalid equipment type.', $result->message);
@@ -106,7 +108,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
 
     $this->expectException(MessengerRuntimeException::class);
 
-    new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $this->service($commandBus)->provision($this->request());
   }
 
   #[Test]
@@ -117,7 +119,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
       MessengerRuntimeException::wrap(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('SN-42')),
     );
 
-    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+    $result = $this->service($commandBus)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
     self::assertStringContainsString('SN-42', (string) $result->message);
@@ -143,18 +145,153 @@ final class EquipmentProvisioningServiceTest extends TestCase
       quotaProjectionOffset: 4,
     );
 
-    new EquipmentProvisioningService($commandBus)->provision($request);
+    $this->service($commandBus)->provision($request);
 
     self::assertInstanceOf(CreateEquipmentCommand::class, $captured);
     self::assertTrue($captured->dryRun);
     self::assertSame(4, $captured->quotaProjectionOffset);
   }
 
-  private function request(): ProvisionEquipmentRequest
+  #[Test]
+  public function itReturnsInvalidWithoutDispatchingWhenTheFacilityCodeIsUnknown(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation->expects(self::once())
+      ->method('resolveIdByCode')
+      ->with(self::ORGANIZATION_ID, 'NOPE-01')
+      ->willReturn(null);
+
+    $result = $this->service($commandBus, $facilityValidation)
+      ->provision($this->request(facilityCode: 'NOPE-01'));
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertStringContainsString('NOPE-01', (string) $result->message);
+  }
+
+  #[Test]
+  public function itAssignsTheCreatedEquipmentWhenTheFacilityCodeResolves(): void
+  {
+    $dispatched = [];
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::exactly(2))
+      ->method('dispatch')
+      ->willReturnCallback(function (object $command) use (&$dispatched): CreateEquipmentResult {
+        $dispatched[] = $command;
+
+        return $this->fakeResult('equipment-9');
+      });
+
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
+    $facilityValidation->method('resolveIdByCode')->willReturn('facility-7');
+
+    $result = $this->service($commandBus, $facilityValidation)
+      ->provision($this->request(facilityCode: 'WH-01'));
+
+    self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
+    self::assertSame('equipment-9', $result->resourceId);
+    self::assertInstanceOf(CreateEquipmentCommand::class, $dispatched[0]);
+    self::assertInstanceOf(AssignToFacilityCommand::class, $dispatched[1]);
+    self::assertSame('equipment-9', $dispatched[1]->equipmentId);
+    self::assertSame('facility-7', $dispatched[1]->facilityId);
+    self::assertSame(self::ORGANIZATION_ID, $dispatched[1]->organizationId);
+  }
+
+  #[Test]
+  public function itReportsInvalidWithTheCreatedIdWhenTheAssignmentFailsAfterCreation(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::exactly(2))
+      ->method('dispatch')
+      ->willReturnCallback(function (object $command): CreateEquipmentResult {
+        if ($command instanceof AssignToFacilityCommand) {
+          throw MessengerRuntimeException::wrap(new InvalidArgumentException('Facility with ID "facility-7" is archived and cannot be used.'));
+        }
+
+        return $this->fakeResult('equipment-9');
+      });
+
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
+    $facilityValidation->method('resolveIdByCode')->willReturn('facility-7');
+
+    $result = $this->service($commandBus, $facilityValidation)
+      ->provision($this->request(facilityCode: 'WH-01'));
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertSame('equipment-9', $result->resourceId, 'The created-but-unassigned equipment id must be reported.');
+    self::assertStringContainsString('created but could not be assigned', (string) $result->message);
+    self::assertStringContainsString('archived', (string) $result->message);
+  }
+
+  #[Test]
+  public function itResolvesTheFacilityCodeButNeverAssignsOnADryRun(): void
+  {
+    $dispatched = [];
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(function (object $command) use (&$dispatched): CreateEquipmentResult {
+        $dispatched[] = $command;
+
+        return $this->fakeResult('equipment-9');
+      });
+
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation->expects(self::once())
+      ->method('resolveIdByCode')
+      ->with(self::ORGANIZATION_ID, 'WH-01')
+      ->willReturn('facility-7');
+
+    $request = new ProvisionEquipmentRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'fire_extinguisher',
+      facilityCode: 'WH-01',
+      dryRun: true,
+    );
+
+    $result = $this->service($commandBus, $facilityValidation)->provision($request);
+
+    self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
+    self::assertInstanceOf(CreateEquipmentCommand::class, $dispatched[0]);
+  }
+
+  #[Test]
+  public function itDetectsAnUnknownFacilityCodeOnADryRunToo(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
+    $facilityValidation->method('resolveIdByCode')->willReturn(null);
+
+    $request = new ProvisionEquipmentRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'fire_extinguisher',
+      facilityCode: 'NOPE-01',
+      dryRun: true,
+    );
+
+    $result = $this->service($commandBus, $facilityValidation)->provision($request);
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+  }
+
+  private function service(CommandBusPort $commandBus, ?FacilityValidationPort $facilityValidation = null): EquipmentProvisioningService
+  {
+    return new EquipmentProvisioningService(
+      $commandBus,
+      $facilityValidation ?? $this->createStub(FacilityValidationPort::class),
+    );
+  }
+
+  private function request(?string $facilityCode = null): ProvisionEquipmentRequest
   {
     return new ProvisionEquipmentRequest(
       organizationId: self::ORGANIZATION_ID,
       type: 'fire_extinguisher',
+      facilityCode: $facilityCode,
     );
   }
 

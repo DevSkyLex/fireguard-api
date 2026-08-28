@@ -58,6 +58,7 @@ final class ExportEquipmentsControllerTest extends TestCase
       locationLabel: 'Hallway',
       status: 'operational',
       facilityId: 'facility-1',
+      facilityCode: 'WH-01',
       facilityName: 'Main Warehouse',
       installedAt: '2026-01-01T00:00:00+00:00',
       commissionedAt: '2026-01-02T00:00:00+00:00',
@@ -82,7 +83,7 @@ final class ExportEquipmentsControllerTest extends TestCase
     $response->sendContent();
     $csv = (string) ob_get_clean();
 
-    self::assertStringContainsString('type,subType,brand,model,serialNumber,locationLabel', $csv);
+    self::assertStringContainsString('type,subType,brand,model,serialNumber,locationLabel,facilityCode', $csv);
     self::assertStringContainsString('fire_extinguisher', $csv);
     self::assertStringContainsString('Main Warehouse', $csv);
   }

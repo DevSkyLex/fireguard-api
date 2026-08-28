@@ -172,16 +172,24 @@ checked only after that split. A successful export dispatches
 the Audit module's own subscriber records it as `equipment.report_exported`.
 
 **CSV column contract — the import round-trip.** `EquipmentCsvWriter::HEADER`
-is a `public` constant, and its first six columns
-(`type`, `subType`, `brand`, `model`, `serialNumber`, `locationLabel`, in that
-exact order) are a published contract: they are the same six columns, in the
-same order, that `Import\Application\Service\EquipmentRowFactory` reads back
-by column *name* (not position — the importer maps by header, so reordering
-is actually safe for the importer itself, but the position is still frozen
-here to keep the two sides human-comparable) on a bulk CSV reimport. Every
-column after the sixth (`id`, `status`, `facilityId`, `facilityName`,
-`installedAt`, `commissionedAt`, `createdAt`, `updatedAt`) is read-only
-metadata the importer ignores. The frozen slice is asserted by
+is a `public` constant, and its first seven columns
+(`type`, `subType`, `brand`, `model`, `serialNumber`, `locationLabel`,
+`facilityCode`, in that exact order) are a published contract: they are the
+same seven columns, in the same order, that
+`Import\Application\Service\EquipmentRowFactory` reads back by column *name*
+(not position — the importer maps by header, so reordering is actually safe
+for the importer itself, but the position is still frozen here to keep the
+two sides human-comparable) on a bulk CSV reimport. `facilityCode` (added
+2026-08-28, appended 7th so the original six stay frozen in place) closes
+the reimport loop for facility assignment: the export resolves each assigned
+facility's organization-scoped unique `code` in one bulk round trip
+(`FacilityNamingPort::findCodesByIds()`), and a reimport resolves it back and
+re-assigns the created item through the existing `AssignToFacilityCommand`
+(see the provisioning port below); a facility with no code exports an empty
+cell, which the importer treats as "no assignment". Every column after the
+seventh (`id`, `status`, `facilityId`, `facilityName`, `installedAt`,
+`commissionedAt`, `createdAt`, `updatedAt`) is read-only metadata the
+importer ignores. The frozen slice is asserted by
 `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
 
 **QR label sheet (added 2026-08-28).** `GET .../equipment/labels`
@@ -630,6 +638,26 @@ Cross-module contracts and lifecycle invariants:
   rethrowing, so a caller processing many rows can continue past a single
   failed one. Mirrors `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort`.
   See `src/Import/MODULE.md`.
+- **Bulk CSV import v3 — `facilityCode` (2026-08-28)**:
+  `ProvisionEquipmentRequest` carries an optional `facilityCode` — the
+  organization-scoped unique code of the facility the created item should be
+  assigned to. `EquipmentProvisioningService` resolves it **before creating
+  anything** through the new
+  `FacilityValidationPort::resolveIdByCode()` (implemented Facility-side in
+  `Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter`,
+  archived facilities excluded, mirroring the Facility module's own
+  `parentCode` resolution); an unknown code answers `INVALID` without
+  dispatching a single command, on a real run and a dry run alike. On a real
+  run with a resolved code the service dispatches `CreateEquipmentCommand`
+  and then the existing `AssignToFacilityCommand` — **two separate
+  synchronous commands, two transactions, deliberately not atomic**:
+  duplicating the creation use case to gain a shared transaction would
+  recreate the parallel business-logic path the port exists to avoid. A
+  failed assignment after a successful creation is answered as `INVALID`
+  carrying the created equipment id and a message naming both facts — the
+  item exists, unassigned, recoverable through the normal assignment
+  endpoint. A dry run resolves the code (so an unknown one is caught) but
+  never dispatches the assignment.
 - **Bulk CSV import v2 — dry-run mode**: `ProvisionEquipmentRequest` carries
   an optional `dryRun` (default `false`) and `quotaProjectionOffset` (default
   `0`), threaded onto `CreateEquipmentCommand`. `CreateEquipmentHandler`

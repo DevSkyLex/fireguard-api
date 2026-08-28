@@ -39,6 +39,7 @@ final readonly class EquipmentExportRow
    * @param ?string $locationLabel the equipment location label, if any
    * @param string $status the equipment status
    * @param ?string $facilityId the assigned facility identifier, if any
+   * @param ?string $facilityCode the facility's organization-scoped unique code, when the facility is set and carries one — the reimport loop's `facilityCode` column
    * @param ?string $facilityName the resolved facility display name, when the facility is set and resolvable
    * @param ?string $installedAt the installation date, ISO 8601, if any
    * @param ?string $commissionedAt the commissioning date, ISO 8601, if any
@@ -55,6 +56,7 @@ final readonly class EquipmentExportRow
     public ?string $locationLabel,
     public string $status,
     public ?string $facilityId,
+    public ?string $facilityCode,
     public ?string $facilityName,
     public ?string $installedAt,
     public ?string $commissionedAt,

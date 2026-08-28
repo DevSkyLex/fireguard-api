@@ -10,8 +10,9 @@ use function array_column;
  * Enum ImportKind.
  *
  * The kind of resource a bulk CSV import provisions. Each kind maps to a
- * dedicated row mapper and inbound provisioning port on the owning module
- * (Equipment, Facility) — no other kinds exist today.
+ * dedicated row factory and inbound provisioning port on the owning module
+ * (Equipment, Facility, Organization for member invitations) — no other
+ * kinds exist today.
  *
  * @category ValueObject
  *
@@ -23,6 +24,7 @@ enum ImportKind: string
 {
   case EQUIPMENT = 'equipment';
   case FACILITY = 'facility';
+  case MEMBER = 'member';
 
   // #region Methods
   /**

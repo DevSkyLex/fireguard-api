@@ -40,8 +40,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Import'],
         summary: 'Upload a bulk CSV import',
-        description: 'Uploads a CSV file to provision Equipment or Facility resources '
-          . 'in bulk; a row failure is reported, not fatal to the batch.',
+        description: 'Uploads a CSV file to provision Equipment or Facility resources, or '
+          . 'member invitations, in bulk; a row failure is reported, not fatal to the batch.',
         requestBody: new RequestBody(
           content: new ArrayObject([
             'multipart/form-data' => [
@@ -49,7 +49,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'type' => 'object',
                 'properties' => [
                   'organization' => ['type' => 'string', 'description' => 'Organization IRI.'],
-                  'kind' => ['type' => 'string', 'enum' => ['equipment', 'facility']],
+                  'kind' => ['type' => 'string', 'enum' => ['equipment', 'facility', 'member']],
                   'file' => ['type' => 'string', 'format' => 'binary'],
                   'dryRun' => [
                     'type' => 'boolean',
@@ -81,7 +81,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
         new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'kind', in: 'query', description: 'Resource kind filter (equipment|facility).', required: false, schema: ['type' => 'string']),
+        new Parameter(name: 'kind', in: 'query', description: 'Resource kind filter (equipment|facility|member).', required: false, schema: ['type' => 'string']),
       ]),
     ),
     new Get(

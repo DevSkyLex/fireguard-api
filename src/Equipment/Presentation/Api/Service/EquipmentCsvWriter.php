@@ -18,12 +18,14 @@ use function fputcsv;
  * by the time it reaches this writer: it formats, it never resolves anything
  * itself.
  *
- * {@see self::HEADER}'s first six columns (`type`, `subType`, `brand`,
- * `model`, `serialNumber`, `locationLabel`) are a published, load-bearing
- * contract: they are, in that exact order, the columns
- * `Import\Application\Service\EquipmentRowFactory` reads back on reimport.
- * Everything after column 6 is read-only metadata the import ignores. Do not
- * reorder the first six without checking `EquipmentRowFactory`'s docblock —
+ * {@see self::HEADER}'s first seven columns (`type`, `subType`, `brand`,
+ * `model`, `serialNumber`, `locationLabel`, `facilityCode`) are a published,
+ * load-bearing contract: they are, in that exact order, the columns
+ * `Import\Application\Service\EquipmentRowFactory` reads back on reimport —
+ * the first six frozen since v1, `facilityCode` appended as the 7th so an
+ * exported file reassigns each item to its facility on reimport.
+ * Everything after column 7 is read-only metadata the import ignores. Do not
+ * reorder the first seven without checking `EquipmentRowFactory`'s docblock —
  * and the frozen slice assertion in
  * `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
  *
@@ -40,7 +42,7 @@ final class EquipmentCsvWriter
    * Constant HEADER.
    *
    * Public on purpose: it is the frozen import round-trip contract, and the
-   * test that locks it down (`array_slice(self::HEADER, 0, 6)`) must be able
+   * test that locks it down (`array_slice(self::HEADER, 0, 7)`) must be able
    * to read it from outside the class.
    *
    * @since 1.0.0
@@ -55,6 +57,7 @@ final class EquipmentCsvWriter
     'model',
     'serialNumber',
     'locationLabel',
+    'facilityCode',
     // Read-only metadata, ignored by the importer.
     'id',
     'status',
@@ -111,6 +114,7 @@ final class EquipmentCsvWriter
       $row->model ?? '',
       $row->serialNumber ?? '',
       $row->locationLabel ?? '',
+      $row->facilityCode ?? '',
       $row->id,
       $row->status,
       $row->facilityId ?? '',

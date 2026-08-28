@@ -59,5 +59,22 @@ interface FacilityValidationPort
    * @return bool true when the facility exists and belongs to that organization
    */
   public function belongsToOrganization(string $facilityId, string $organizationId): bool;
+
+  /**
+   * Method resolveIdByCode.
+   *
+   * Resolves a facility identifier from its organization-scoped unique
+   * `code`. Archived facilities are excluded on purpose: a code that only
+   * matches an archived facility resolves to `null`, exactly as the
+   * Facility module resolves an import row's `parentCode`.
+   *
+   * @since 1.2.0
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $code the facility code to resolve
+   *
+   * @return ?string the facility identifier, or null when no active facility carries that code
+   */
+  public function resolveIdByCode(string $organizationId, string $code): ?string;
   // #endregion
 }

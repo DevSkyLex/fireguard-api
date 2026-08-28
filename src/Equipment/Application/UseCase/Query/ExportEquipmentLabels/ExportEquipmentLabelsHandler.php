@@ -138,6 +138,7 @@ final readonly class ExportEquipmentLabelsHandler implements QueryHandler
         locationLabel: $candidate->locationLabel,
         status: $candidate->status,
         facilityId: $candidate->facilityId,
+        facilityCode: null,
         facilityName: null === $candidate->facilityId ? null : ($facilityNames[$candidate->facilityId] ?? null),
         installedAt: $candidate->installedAt,
         commissionedAt: $candidate->commissionedAt,

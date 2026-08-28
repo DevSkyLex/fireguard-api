@@ -157,6 +157,10 @@ final class ExportEquipmentsHandlerTest extends TestCase
       ->method('findNamesByIds')
       ->with([self::FACILITY_ID, 'unknown-facility'])
       ->willReturn([self::FACILITY_ID => 'Main Warehouse']);
+    $facilityNaming->expects(self::once())
+      ->method('findCodesByIds')
+      ->with([self::FACILITY_ID, 'unknown-facility'])
+      ->willReturn([self::FACILITY_ID => 'WH-01']);
 
     $handler = new ExportEquipmentsHandler(
       repository: $repository,
@@ -171,7 +175,9 @@ final class ExportEquipmentsHandlerTest extends TestCase
     self::assertCount(2, $result->rows);
     self::assertSame(self::FACILITY_ID, $result->rows[0]->facilityId);
     self::assertSame('Main Warehouse', $result->rows[0]->facilityName);
+    self::assertSame('WH-01', $result->rows[0]->facilityCode);
     self::assertSame('unknown-facility', $result->rows[1]->facilityId);
     self::assertNull($result->rows[1]->facilityName, 'An unresolvable facility id must resolve to a null name, not an empty string.');
+    self::assertNull($result->rows[1]->facilityCode, 'An unresolvable facility id must resolve to a null code, not an empty string.');
   }
 }

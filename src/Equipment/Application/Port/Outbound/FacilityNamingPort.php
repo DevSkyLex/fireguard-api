@@ -43,5 +43,24 @@ interface FacilityNamingPort
    * @return array<string, string> display name keyed by facility identifier
    */
   public function findNamesByIds(array $facilityIds): array;
+
+  /**
+   * Method findCodesByIds.
+   *
+   * Resolves the organization-scoped unique `code` of each given facility,
+   * in one round trip — the export-side twin of {@see self::findNamesByIds()},
+   * added for the equipment CSV export's reimport loop (the exported
+   * `facilityCode` column is what `Import` reads back to reassign the item).
+   *
+   * A facility with no code, like an unknown identifier, is simply absent
+   * from the result.
+   *
+   * @since 1.1.0
+   *
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> facility code keyed by facility identifier
+   */
+  public function findCodesByIds(array $facilityIds): array;
   // #endregion
 }

@@ -9,7 +9,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand, ProcessImportJobHandler};
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -439,6 +439,258 @@ final class ImportJobApiTest extends WebTestCase
     $response = $this->uploadFacilityCsv($client, $organizationId);
 
     self::assertSame(403, $response, 'Expected 403 for a member lacking organization.facilities.write.');
+  }
+
+  #[Test]
+  public function testRealMemberImportInvitesThroughTheExistingUseCase(): void
+  {
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $now = new DateTimeImmutable('2026-08-28T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655480400';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480401';
+
+    $organization = $this->seedFullAccessOrganization($entityManager, $organizationId, $ownerUserId, $now);
+    $this->seedNamedRole($entityManager, $organization, 'member', $now);
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+
+    // Row 1: valid, explicit role. Row 2: unknown role name. Row 3: valid,
+    // blank roles cell (default `member` role). Row 4: malformed email.
+    $csv = "email,roles\n"
+      . "alice-import@example.com,member\n"
+      . "bob-import@example.com,ghost-role\n"
+      . "charlie-import@example.com,\n"
+      . "not-an-email,\n";
+
+    $importJobId = $this->uploadCsv($client, $organizationId, 'member', $csv, 'members.csv');
+
+    static::ensureKernelShutdown();
+    static::createClient();
+    /** @var ProcessImportJobHandler $processHandler */
+    $processHandler = static::getContainer()->get(ProcessImportJobHandler::class);
+    $processHandler->__invoke(new ProcessImportJobCommand($importJobId));
+
+    static::ensureKernelShutdown();
+    $readClient = static::createClient();
+    $readClient->loginUser($this->securityUser($ownerUserId), 'api');
+    $readClient->request('GET', '/api/imports/' . $importJobId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $getResponse = $readClient->getResponse();
+    self::assertSame(200, $getResponse->getStatusCode(), 'Response: ' . $getResponse->getContent());
+
+    $body = json_decode($getResponse->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    $jobError = $body['jobError'] ?? null;
+    self::assertSame('completed', $body['status'] ?? null, 'jobError: ' . (is_string($jobError) ? $jobError : 'null'));
+    self::assertSame(2, $body['successfulRows'] ?? null);
+    self::assertSame(2, $body['failedRows'] ?? null);
+
+    $report = $body['errorReport'] ?? [];
+    self::assertIsArray($report);
+    self::assertCount(2, $report, 'A real run reports failures only.');
+    self::assertIsArray($report[0]);
+    self::assertIsArray($report[1]);
+    self::assertSame(2, $report[0]['rowNumber']);
+    self::assertSame('unknown_role', $report[0]['code']);
+    self::assertSame(4, $report[1]['rowNumber']);
+    self::assertSame('invalid', $report[1]['code']);
+
+    /** @var EntityManagerInterface $mainEntityManager */
+    $mainEntityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $invitationCount = $mainEntityManager->createQueryBuilder()
+      ->select('COUNT(i.id)')
+      ->from(OrganizationInvitationRecord::class, 'i')
+      ->where('i.organization = :organizationId')
+      ->setParameter('organizationId', $organizationId)
+      ->getQuery()
+      ->getSingleScalarResult();
+    self::assertSame(2, (int) $invitationCount, 'Exactly the two valid rows must have produced invitations.');
+  }
+
+  #[Test]
+  public function testDryRunMemberImportValidatesWithoutCreatingInvitations(): void
+  {
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $now = new DateTimeImmutable('2026-08-28T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655480410';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480411';
+
+    $organization = $this->seedFullAccessOrganization($entityManager, $organizationId, $ownerUserId, $now);
+    $this->seedNamedRole($entityManager, $organization, 'member', $now);
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+
+    $csv = "email,roles\n"
+      . "alice-dry@example.com,member\n"
+      . "ghost-dry@example.com,ghost-role\n"
+      . "bad-email,\n";
+
+    $importJobId = $this->uploadCsv($client, $organizationId, 'member', $csv, 'members.csv', dryRun: true);
+
+    static::ensureKernelShutdown();
+    static::createClient();
+    /** @var ProcessImportJobHandler $processHandler */
+    $processHandler = static::getContainer()->get(ProcessImportJobHandler::class);
+    $processHandler->__invoke(new ProcessImportJobCommand($importJobId));
+
+    static::ensureKernelShutdown();
+    $readClient = static::createClient();
+    $readClient->loginUser($this->securityUser($ownerUserId), 'api');
+    $readClient->request('GET', '/api/imports/' . $importJobId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $body = json_decode($readClient->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    $jobError = $body['jobError'] ?? null;
+    self::assertSame('completed', $body['status'] ?? null, 'jobError: ' . (is_string($jobError) ? $jobError : 'null'));
+    self::assertTrue($body['dryRun'] ?? null);
+    self::assertSame(1, $body['successfulRows'] ?? null);
+    self::assertSame(2, $body['failedRows'] ?? null);
+
+    $report = $body['errorReport'] ?? [];
+    self::assertIsArray($report);
+    self::assertCount(3, $report, 'A dry run reports every row, would-creates included.');
+    self::assertIsArray($report[0]);
+    self::assertIsArray($report[1]);
+    self::assertIsArray($report[2]);
+    self::assertSame('would_create', $report[0]['code']);
+    self::assertSame('unknown_role', $report[1]['code']);
+    self::assertSame('invalid', $report[2]['code']);
+
+    /** @var EntityManagerInterface $mainEntityManager */
+    $mainEntityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $invitationCount = $mainEntityManager->createQueryBuilder()
+      ->select('COUNT(i.id)')
+      ->from(OrganizationInvitationRecord::class, 'i')
+      ->where('i.organization = :organizationId')
+      ->setParameter('organizationId', $organizationId)
+      ->getQuery()
+      ->getSingleScalarResult();
+    self::assertSame(0, (int) $invitationCount, 'A dry run must never create an invitation.');
+  }
+
+  #[Test]
+  public function testCreateMemberImportJobIsForbiddenWithoutTheMembersManagePermission(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655480420';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655480421';
+    $unentitledUserId = '550e8400-e29b-41d4-a716-446655480422';
+
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $this->seedFullAccessOrganization(
+      $entityManager,
+      $organizationId,
+      $ownerUserId,
+      new DateTimeImmutable('2026-08-28T00:00:00+00:00'),
+    );
+    // A member entitled to read members — but not to manage them.
+    $this->seedMemberWithPermissions(
+      $entityManager,
+      $organizationId,
+      $unentitledUserId,
+      ['organization.members.read'],
+    );
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($unentitledUserId), 'api');
+
+    $path = tempnam(sys_get_temp_dir(), 'import-member-denial-');
+    self::assertIsString($path);
+    file_put_contents($path, "email\ndenied@example.com\n");
+
+    try {
+      $client->request('POST', '/api/imports', [
+        'organization' => $organizationId,
+        'kind' => 'member',
+      ], [
+        'file' => new UploadedFile($path, 'members.csv', 'text/csv', null, true),
+      ], server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ]);
+    } finally {
+      unlink($path);
+    }
+
+    $response = $client->getResponse();
+    self::assertSame(403, $response->getStatusCode(), 'Expected 403 for a member lacking organization.members.manage. Response: ' . $response->getContent());
+  }
+
+  /**
+   * Uploads a CSV of the given kind and returns the accepted job's id.
+   */
+  private function uploadCsv(
+    KernelBrowser $client,
+    string $organizationId,
+    string $kind,
+    string $csv,
+    string $fileName,
+    bool $dryRun = false,
+  ): string {
+    $path = tempnam(sys_get_temp_dir(), 'import-' . $kind . '-');
+    self::assertIsString($path);
+    file_put_contents($path, $csv);
+
+    $parameters = ['organization' => $organizationId, 'kind' => $kind];
+    if ($dryRun) {
+      $parameters['dryRun'] = 'true';
+    }
+
+    try {
+      $client->request('POST', '/api/imports', $parameters, [
+        'file' => new UploadedFile($path, $fileName, 'text/csv', null, true),
+      ], server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ]);
+    } finally {
+      unlink($path);
+    }
+
+    $createResponse = $client->getResponse();
+    self::assertSame(202, $createResponse->getStatusCode(), 'Response: ' . $createResponse->getContent());
+
+    $created = json_decode($createResponse->getContent() ?: '{}', true);
+    self::assertIsArray($created);
+    $importJobId = $created['id'] ?? null;
+    self::assertIsString($importJobId);
+
+    return $importJobId;
+  }
+
+  /**
+   * Seeds an additional, unassigned role with the given name (e.g. the
+   * default `member` role the invitation flow falls back to).
+   */
+  private function seedNamedRole(
+    EntityManagerInterface $entityManager,
+    OrganizationRecord $organization,
+    string $name,
+    DateTimeImmutable $now,
+  ): void {
+    $role = new OrganizationRoleRecord();
+    $role->id = substr($organization->id, 0, 35) . 'c';
+    $role->organization = $organization;
+    $role->name = $name;
+    $role->permissions = [];
+    $role->description = 'Functional-test-only default role.';
+    $role->isSystem = false;
+    $role->createdAt = $now;
+    $entityManager->persist($role);
   }
 
   /**
