@@ -68,6 +68,10 @@ services:
 
   Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
 
+  Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Equipment\Infrastructure\Adapter\Organization\EquipmentTypeCatalogAdapter: ~
 
   # Reports active equipment assigned to a facility (for the facility archival guard)

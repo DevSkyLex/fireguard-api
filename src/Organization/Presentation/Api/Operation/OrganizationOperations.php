@@ -49,6 +49,8 @@ final class OrganizationOperations
 
   public const string GET_ORGANIZATION_NAVIGATION_COUNTERS = 'getOrganizationNavigationCounters';
 
+  public const string SEARCH_ORGANIZATION = 'searchOrganization';
+
   public const string LIST_ORGANIZATION_AUDIT_EVENTS = 'listOrganizationAuditEvents';
 
   public const string EXPORT_ORGANIZATION_AUDIT_EVENTS = 'exportOrganizationAuditEvents';

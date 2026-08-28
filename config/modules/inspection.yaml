@@ -69,6 +69,13 @@ services:
   Inspection\Application\Port\Outbound\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
+  Inspection\Application\Port\Outbound\NonConformityStatisticsGatewayPort:
+    alias: Inspection\Infrastructure\Adapter\Statistics\DoctrineNonConformityStatisticsGatewayAdapter
+
+  Inspection\Infrastructure\Adapter\Statistics\DoctrineNonConformityStatisticsGatewayAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
 
   # Reports in-progress inspections targeting a facility (for the facility archival guard)
@@ -91,6 +98,14 @@ services:
     tags: ['approval.deferred_action_executor']
 
   Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
+
+  Inspection\Infrastructure\Adapter\Organization\InspectionSearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Adapter\Organization\NonConformitySearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Cross-module read model for the Calendar module (unified feed source)
   Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter: ~
@@ -290,6 +305,9 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\NonConformity\GetNonConformityStatistics\GetNonConformityStatisticsHandler:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistHandler:

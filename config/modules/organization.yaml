@@ -197,6 +197,9 @@ services:
   Organization\Application\UseCase\Query\Organization\GetNavigationCounters\GetNavigationCountersHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\SearchOrganization\SearchOrganizationHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\GetCurrentOrganizationMemberProfileHandler:
     tags: ['messenger.message_handler']
 
@@ -364,6 +367,24 @@ services:
 
   Organization\Application\Port\Outbound\MaintenanceStatisticsPort:
     alias: Maintenance\Infrastructure\Adapter\Organization\MaintenanceStatisticsAdapter
+
+  # Global search (GET /organizations/{organizationId}/search): each result
+  # type is owned by another module and reached through its search port,
+  # implemented by an adapter in the owning module (naming/statistics pattern).
+  Organization\Application\Port\Outbound\EquipmentSearchPort:
+    alias: Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter
+
+  Organization\Application\Port\Outbound\FacilitySearchPort:
+    alias: Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter
+
+  Organization\Application\Port\Outbound\InterventionSearchPort:
+    alias: Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter
+
+  Organization\Application\Port\Outbound\InspectionSearchPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\InspectionSearchAdapter
+
+  Organization\Application\Port\Outbound\NonConformitySearchPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\NonConformitySearchAdapter
 
   # R17: Approval module's regulated action-type catalog, hosted in Approval
   Organization\Application\Port\Outbound\ApprovalActionTypeCatalogPort:

@@ -527,6 +527,10 @@ Cross-module contracts and lifecycle invariants:
   guard (recurrence materialization reads it independently of the archival
   check), so an archived facility can still receive newly materialized
   interventions from an existing recurrence — a follow-up candidate.
+- `Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter` implements
+  the Organization module's `FacilitySearchPort` for the organization global
+  search (`GET /organizations/{organizationId}/search`) — bounded org-scoped
+  `LIKE` over name/code/address, published records only.
 - **Equipment plan-position cross-module pair (Phase 4)**: two ports, one in
   each direction, both scoped to this feature only. Outbound —
   `FacilityEquipmentPlanPositionPort::findEquipmentPlacedOnPlan()`, consumed

@@ -485,6 +485,10 @@ Cross-module contracts and lifecycle invariants:
 - `Equipment\Infrastructure\Adapter\Facility\FacilityEquipmentDependencyAdapter`
   implements Facility's archival dependency port (active = published and not
   decommissioned).
+- `Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter` implements
+  the Organization module's `EquipmentSearchPort` for the organization global
+  search (`GET /organizations/{organizationId}/search`) — bounded org-scoped
+  `LIKE` over type/brand/model/serialNumber/locationLabel, published records only.
 - **Plan position cross-module pair (Phase 4)**: outbound —
   `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort`,
   consumed by `SetEquipmentPlanPositionHandler`, implemented by Facility

@@ -43,6 +43,7 @@ frontend's localized typed registries are the source of these values).
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-opened` | Get the non-conformities-opened series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus an optional `metrics` filter (e.g. `metrics=non_conformities_resolved`) that adds the resolved series to the response's `seriesByMetric` map, sharing this call's resolved period/timezone/granularity — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus the same optional `metrics` combining filter (`metrics=non_conformities_opened`) — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`), `openNonConformities` (`open` + `in_progress`) and `submittedInterventions` (status `submitted`, the "to review" badge). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` / `organization.interventions.review` permission — see Notes (L3.11) |
+| GET | `/api/organizations/{organizationId}/search` | Organization-wide global search (`q`, 2..100 chars, 400 otherwise): flat `results` list, at most 5 hits per type in stable order (`equipment`, `facility`, `intervention`, `inspection`, `non_conformity`), each hit `{type, id, title, subtitle?, extra?}` — the frontend builds routes from `type`+`id`. Caller must be an ACTIVE member (404 otherwise); each type is soft-gated on its read permission (`organization.equipment.read` / `organization.facilities.read` / `organization.interventions.read` / `organization.inspection.read` for both inspection types) — a missing permission silently omits the type, never a 403 — see Notes (L3.12) |
 | GET | `/api/organizations/{organizationId}/audit-events` | List the organization's slice of the audit ledger (activity feed), newest first, paginated (filters: `action`, `from`, `to`; `itemsPerPage` capped at 100). Requires `organization.audit.read` (admin-granted — not part of the member system role; admins hold it via `organization.*`). Reduced payload: no actor email, IP, user agent or chain internals, metadata filtered by the Audit module's per-action allowlist, and an actor who is not a member of this organization is never named — see Notes (P2.6) |
 | GET | `/api/organizations/{organizationId}/audit-events/export` | Stream the same slice as CSV, same filters. Requires `organization.audit.export`, **not** `organization.audit.read`: reading keeps the data inside the product, exporting takes a file out, and someone entitled to look is not automatically entitled to walk away with a copy. The organization comes from the URI and is not a filter the caller can widen — unlike the platform `/audit-events/export`, which composes its criteria from the request and is therefore reserved to platform operators. Columns match the read payload exactly: no actor email, IP, user agent or chain internals. Capped at the same 50 000 rows as the platform export, answered as 422 **before** the response starts streaming |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
@@ -893,6 +894,34 @@ demonstrating that one person can belong to more than one tenant.
   everywhere else, including a member with no assigned role (`roles: []`,
   never an error, no role query issued). Read-only aggregation: no schema
   change, no migration.
+
+- **Organization global search (L3.12)**: `GET /organizations/{organizationId}/search?q=…`
+  answers the command-palette / global-search box across five result types,
+  each owned by another module. The Organization module hosts the endpoint
+  (natural aggregator, same reasoning as the dashboard) and reaches every
+  type through a dedicated outbound search port — `EquipmentSearchPort`,
+  `FacilitySearchPort`, `InterventionSearchPort`, `InspectionSearchPort`,
+  `NonConformitySearchPort` — implemented by an adapter inside the owning
+  module (`<Module>\Infrastructure\Adapter\Organization\<Type>SearchAdapter`),
+  the third occurrence of the naming/statistics port pattern. Access mirrors
+  the navigation counters: ACTIVE membership required (a non-member gets
+  404, `SearchOrganizationHandler` checks the organization and the
+  membership directly), then each type is individually soft-gated on its
+  read permission via `OrganizationAuthorizationPort::hasPermission` (the
+  authorization service resolves the permission set once and caches it) —
+  inspections and non-conformities share `organization.inspection.read`.
+  Matching is a simple organization-scoped case-insensitive `LIKE` with a
+  `LIMIT` per adapter (`Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression`,
+  wildcard-safe), ordered by most recent update; equipment, facility and
+  inspection adapters only surface `published` records. Searched fields:
+  equipment type/brand/model/serialNumber/locationLabel; facility
+  name/code/address; intervention name (+ exact number match when the term
+  is all digits); inspection checklist reference code or inspection id;
+  non-conformity description. **Perf note**: no new index ships with this —
+  the `lower(col) LIKE` shape aligns with the existing `gin_trgm_ops`
+  expression indexes where they exist; adding trigram indexes for the
+  not-yet-covered searched columns is a recorded evolution, not part of
+  this change.
 
 - **Sidebar navigation counters (L3.11)**: `GET /organizations/{organizationId}/navigation-counters`
   answers the "does this org have work waiting" badge question for the

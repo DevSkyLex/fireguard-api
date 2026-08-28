@@ -124,6 +124,10 @@ services:
 
   Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter: ~
 
+  Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Cross-module read model for the Compliance module (facility directory)
   Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter: ~
 

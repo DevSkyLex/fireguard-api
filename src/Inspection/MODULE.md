@@ -232,6 +232,7 @@ load ordering depends on it.
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities for one inspection (filters: `severity`, `status`) |
 | GET | `/api/organizations/{organizationId}/non-conformities` | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7 |
 | GET | `/api/organizations/{organizationId}/non-conformities/export` | Streams a bounded CSV export of an organization's non-conformities (filters: `severity`, `status`) — B8 |
+| GET | `/api/organizations/{organizationId}/non-conformities/statistics` | Organization-wide non-conformity KPI snapshot: `bySeverity` (all four severities × `open`/`resolved`, zeros included), `byFacility` (top 10 by open count: `id`, `name`, `open`, `critical`), `byEquipmentType` (top 10 by open count: `type`, `open`), `resolution` (`averageDays`/`medianDays` over `resolvedAt - createdAt`, null when nothing resolved), `slaBreachedOpen`. Optional `from`/`to` window on `createdAt`. Requires `organization.inspection.read` via `resolveAccess` (404 outside scope, 403 unentitled) — B9 |
 | GET | `/api/organizations/{organizationId}/non-conformities/report` | Streams a PDF report of an organization's non-conformities grouped by severity (filters: `severity`, `status`) — plan-gated, see PDF reports below |
 | PATCH | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status |
 
@@ -276,6 +277,30 @@ introduce a "resolved" status; `done` and `waived` are the terminal states.
   change and is out of scope here; the response's existing `id` is the only
   stable per-row identifier today. A future slice that wants a human-facing
   code needs its own migration (see `fg-api-migrations`).
+
+**B9 — organization-wide non-conformity statistics.**
+
+`GET /organizations/{organizationId}/non-conformities/statistics` follows the
+`GET /interventions/statistics` pattern: a dedicated resource
+(`NonConformityStatisticsResource`), a thin provider
+(`GetNonConformityStatisticsProvider` — parses the optional `from`/`to`
+window, maps domain failures to HTTP), and a query handler
+(`GetNonConformityStatisticsHandler`) that resolves access once
+(`OrganizationAuthorizationPort::resolveAccess` on
+`organization.inspection.read`: outside scope → 404, unentitled member →
+403), zero-fills the four severity keys, and resolves facility names through
+`FacilityNamingPort`. The aggregates come from
+`NonConformityStatisticsGatewayPort`
+(`DoctrineNonConformityStatisticsGatewayAdapter`): a bounded number of
+grouped queries (GROUP BY severity×status, GROUP BY facility, GROUP BY
+equipment type through the inspection→equipment join), one scalar for
+`slaBreachedOpen` (unresolved rows with `slaBreachNotifiedAt` stamped, the
+same definition as the SLA sweep), and one native PostgreSQL aggregate for
+`resolution` — `AVG` and `PERCENTILE_CONT(0.5)` over
+`EXTRACT(EPOCH FROM (resolved_at - created_at))/86400`. `medianDays` is
+included rather than omitted because the suite runs on PostgreSQL only,
+where the percentile is one clause; "open" is status `open`/`in_progress`,
+"resolved" is `done`/`waived`, everywhere in the payload.
 
 ### Attachments (R11b)
 
@@ -605,6 +630,12 @@ Cross-module contracts and lifecycle invariants:
   a cancelled inspection is a no-op; deleting a `closed` inspection is refused
   (HTTP 409). Cancellation goes through the DELETE verb: the canonical PATCH does
   not accept `cancelled`.
+- `Inspection\Infrastructure\Adapter\Organization\{InspectionSearchAdapter,NonConformitySearchAdapter}`
+  implement the Organization module's global-search ports
+  (`InspectionSearchPort` / `NonConformitySearchPort`) for
+  `GET /organizations/{organizationId}/search` — bounded org-scoped `LIKE`
+  over the checklist reference code / inspection id, and the non-conformity
+  description respectively.
 - `Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter`
   implements Facility's archival dependency port (in-progress = published
   draft/submitted).
