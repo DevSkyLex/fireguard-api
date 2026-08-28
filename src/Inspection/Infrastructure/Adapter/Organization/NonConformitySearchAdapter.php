@@ -93,7 +93,7 @@ final readonly class NonConformitySearchAdapter implements NonConformitySearchPo
         title: $this->truncate($record->description),
         subtitle: $record->severity,
         extra: $record->status,
-        parentId: $record->inspection->id,
+        parentId: $record->inspection?->id,
       );
     }
 
