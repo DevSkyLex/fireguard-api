@@ -156,6 +156,34 @@ Run the sync, verify a sample of keys resolve (avatar `GET`, a known
 equipment attachment `GET`), then flip `STORAGE_DSN` to `s3://...` and
 restart the app. The sync is idempotent and safe to re-run before cutover.
 
+### Address Geocoding (GEOCODING_BASE_URL)
+
+The Facility module's geocode endpoint
+(`GET /api/organizations/{id}/facilities/geocode?address=…`) proxies address
+lookups server-side through the service configured by the `GEOCODING_BASE_URL`
+env var (`Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter`).
+
+```env
+# Default: the free public Nominatim (OpenStreetMap) instance — no API key.
+GEOCODING_BASE_URL=https://nominatim.openstreetmap.org
+```
+
+Operational notes:
+
+- **No key, no account** — but the public instance's usage policy applies and
+  is enforced by the adapter itself: an identifying `User-Agent`
+  (`FireGuard/1.0 (contact@valentin-fortin.pro)`) and an absolute outbound
+  ceiling of 1 request/second, serialized process-safely through the lock
+  store (`LOCK_DSN`) and the shared cache pool.
+- **Fail-soft**: an unreachable or erroring provider degrades to 404 on the
+  endpoint (3 s timeout); facility management is never blocked by geocoding.
+- Results are cached 24 h per address in the app cache pool, so repeated
+  lookups do not consume the outbound budget.
+- To self-host later (or to point staging at a mock), deploy a Nominatim
+  instance and change only this env var — the API surface is unchanged.
+- The per-user HTTP budget is the `facility_geocode` rate limiter (30/min,
+  `config/packages/rate_limiter.yaml`) — see SECURITY.md.
+
 ### RBAC Permission Sync
 
 When permissions are updated in code (fixtures/catalog), synchronize them to the database:

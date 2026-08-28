@@ -73,6 +73,7 @@ Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 - `email_change_request` (per user, 5/min — every accepted call emails an arbitrary address and answers the same email-taken question as `registration`, so the budgets match)
 - `email_change_request_ip` (per IP, 5/min — second dimension on the same endpoint: the per-user budget scales with the number of accounts an attacker controls, this one does not)
 - `email_change_confirm` (per IP — the confirm endpoint is public, the emailed token is the credential)
+- `facility_geocode` (per user, 30/min — each accepted call is proxied to the external geocoding provider, so the budget protects the shared outbound Nominatim channel and us, not a secret; the adapter additionally serializes the aggregate outbound flow to 1 req/s per Nominatim's usage policy)
 
 Tune limits to match threat models and expected traffic. In test environments, limits may be overridden for determinism.
 

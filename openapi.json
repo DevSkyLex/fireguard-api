@@ -11941,6 +11941,67 @@
                 ]
             }
         },
+        "/api/organizations/{organizationId}/facilities/geocode": {
+            "get": {
+                "operationId": "facility_geocode",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Best-match coordinates for the address",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.GeocodeAddressOutput.jsonld-facility.read"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing, empty, or too-long address"
+                    },
+                    "403": {
+                        "description": "Authenticated but missing organization.facilities.write"
+                    },
+                    "404": {
+                        "description": "No coordinates found for the address (or the organization is outside the caller's scope)"
+                    },
+                    "429": {
+                        "description": "More than 30 geocoding requests in a minute"
+                    }
+                },
+                "summary": "Geocode an address",
+                "description": "Resolves a free-form postal address to WGS 84 coordinates as an aid to facility data entry. The lookup is proxied server-side through the configured geocoding provider (Nominatim by default) \u2014 the browser never calls the provider directly. Requires `organization.facilities.write` on the organization (resolved via resolveAccess): geocoding exists to FILL a facility's coordinates, so it is gated as a write-path aid, not a read. Rate limited to 30 requests per minute per user; the shared outbound channel is additionally throttled server-side to 1 request per second (Nominatim usage policy).",
+                "parameters": [
+                    {
+                        "name": "address",
+                        "in": "query",
+                        "description": "Free-form postal address to resolve (1 to 300 characters).",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 300
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/facilities/{facilityId}": {
             "get": {
                 "operationId": "facility_get",
@@ -47020,6 +47081,37 @@
                                         ]
                                     }
                                 }
+                            }
+                        }
+                    }
+                ],
+                "description": "Generic organizational facilities (site/building/floor/zone/area)."
+            },
+            "LegacyFacility.GeocodeAddressOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "displayName": {
+                                "readOnly": true,
+                                "description": "Property displayName.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "latitude": {
+                                "readOnly": true,
+                                "description": "Property latitude.",
+                                "default": 0,
+                                "type": "number"
+                            },
+                            "longitude": {
+                                "readOnly": true,
+                                "description": "Property longitude.",
+                                "default": 0,
+                                "type": "number"
                             }
                         }
                     }

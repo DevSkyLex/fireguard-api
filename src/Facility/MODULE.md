@@ -19,6 +19,7 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
 | GET | `/api/organizations/{organizationId}/facilities/export` | Streams a bounded CSV export of facilities, same filter subset as the list endpoint plus `search`. Requires `organization.facilities.read`, resolved in `ExportFacilitiesHandler` (not the resource's coarse `ROLE_USER` gate). Bounded to `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) matching rows — 422 past that. |
+| GET | `/api/organizations/{organizationId}/facilities/geocode?address=…` | Server-side geocoding input aid: resolves a free-form address (1–300 chars) to `{ latitude, longitude, displayName }` through `GeocodingPort` (Nominatim behind `GEOCODING_BASE_URL`). Requires `organization.facilities.write` — write, not read: the lookup exists to FILL a facility's coordinates, and only write-entitled members may burn the shared outbound budget. Rate limited 30/min/user (`facility_geocode`); the adapter additionally throttles the aggregate outbound channel to 1 req/s (Nominatim policy). 404 when no coordinates match (plain not-found, no oracle at stake — an address is not a resource). Declared before the `{facilityId}` item route so `geocode` is never read as an id. |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants` | List all descendants for bulk subtree reads |
@@ -699,6 +700,8 @@ disappeared.
 | `FacilitySubtreeTooLargeException` | 422 | Source facility's subtree (including archived nodes) would traverse more than 500 nodes |
 | `Organization\Application\Contract\Quota\OrganizationQuotaExceededException` | 409 | The whole clone count would exceed the organization's `facilities` plan quota |
 | `FacilityHierarchyException` / `InvalidArgumentException` | 400 | Malformed input, or an invalid/out-of-organization target parent |
+| `FacilityAddressNotFoundException` | 404 | Geocode lookup: the provider knows no coordinates for the submitted address (mapped centrally via `api_platform.exception_to_status`, FG-035 — the provider is catch-free) |
+| `FacilityAccessDeniedException` | 403 | Caller is in the organization but lacks the required `organization.facilities.*` permission (now also in `api_platform.exception_to_status` for the catch-free geocode path) |
 
 All other domain exceptions raised by this module map the same way as the
 other Facility endpoints (see the create/archive/move handlers).
@@ -817,6 +820,27 @@ counts and ancestry the write path has no reason to carry).
   `getFacilityCodesByIds()` was added to `FacilityRepositoryPort` /
   `FacilityRepository` for the export's `parentCode` resolution; it reuses the
   already-wired `doctrine.orm.main_entity_manager`, no new alias needed.
+
+- Address geocoding (2026-08-28):
+  - `GEOCODING_BASE_URL` (env, default `https://nominatim.openstreetmap.org`):
+    base URL of the service behind `GeocodingPort`. Free public Nominatim by
+    default — no API key. `.env.test` pins it to an unroutable address so no
+    test can reach the real service. See OPERATIONS.md.
+  - `Facility\Application\Port\Outbound\GeocodingPort` is aliased to
+    `Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter` in
+    `config/modules/facility.yaml`. The adapter names **no** entity manager —
+    it touches no database. It enforces the Nominatim usage policy itself:
+    identifying `User-Agent` (`FireGuard/1.0 (contact@valentin-fortin.pro)`),
+    3 s timeout, and a process-safe 1 req/s outbound throttle (a `LockFactory`
+    lock — the schedulers' pattern — around a last-request timestamp kept in
+    the shared cache pool). Results are cached 24 h per hashed normalized
+    address through Shared's `CachePort`; definitive answers only (matches and
+    provider-confirmed misses), never transport failures. Every failure is
+    fail-soft `null` — geocoding never blocks facility management.
+  - `facility_geocode` rate limiter (`config/packages/rate_limiter.yaml`):
+    sliding window, 30/min, keyed by user id in `GeocodeAddressProvider`.
+  - `GeocodeAddressHandler` is a `messenger.message_handler` like every other
+    query handler; ports-only (`GeocodingPort` + `OrganizationAuthorizationPort`).
 
 ## Testing
 

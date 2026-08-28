@@ -195,6 +195,9 @@ services:
   Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Query\GeocodeAddress\GeocodeAddressHandler:
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Query\Facility\GetFacilityChildren\GetFacilityChildrenHandler:
     tags: ['messenger.message_handler']
 
@@ -226,6 +229,15 @@ services:
 
   Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\ListMetadataFieldsHandler:
     tags: ['messenger.message_handler']
+
+  # Address geocoding (input aid). The adapter needs no entity manager — it
+  # touches no database: HTTP out (base URL from GEOCODING_BASE_URL via
+  # #[Autowire] on the adapter), the shared lock factory for the 1 req/s
+  # outbound throttle, and Shared's CachePort for the 24 h per-address cache.
+  Facility\Application\Port\Outbound\GeocodingPort:
+    alias: Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter
+
+  Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter: ~
 
   # Console Commands use #[AsCommand]
   Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~

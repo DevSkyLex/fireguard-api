@@ -38,6 +38,13 @@ final class FacilityOperations
   public const string EXPORT_FACILITIES = 'facility_export';
 
   /**
+   * Constant GEOCODE_ADDRESS.
+   *
+   * @var string
+   */
+  public const string GEOCODE_ADDRESS = 'facility_geocode';
+
+  /**
    * Constant GET_FACILITY.
    *
    * @var string

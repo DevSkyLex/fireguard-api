@@ -150,6 +150,13 @@ api_platform:
     # exists for 404 or 422 — the referenced organization genuinely does not
     # exist — but that is a contract decision, not a refactor's side effect.
     Facility\Domain\Exception\FacilityOrganizationNotFoundException: 400
+    # Both geocode-endpoint entries are the FG-035 shape: the provider is
+    # catch-free, so these two lines ARE the mapping, not a safety net.
+    # AddressNotFound is a plain 404 with no oracle duty — an address is not
+    # a resource. AccessDenied's 403 matches what every legacy catch site
+    # already answers (see PresentationExceptionStatusTest's baseline).
+    Facility\Domain\Exception\FacilityAddressNotFoundException: 404
+    Facility\Domain\Exception\FacilityAccessDeniedException: 403
     Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
     Facility\Domain\Exception\FacilityMetadataFieldNotFoundException: 404
