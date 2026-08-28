@@ -94,6 +94,15 @@ final class OrganizationNotificationSettingsOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $memberInvited = true;
+
+  /**
+   * Property weeklyDigest.
+   *
+   * @since 1.2.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $weeklyDigest = true;
   // #endregion
 
   // #region Methods
@@ -121,6 +130,7 @@ final class OrganizationNotificationSettingsOutput
     $output->nonConformityOpened = $settings->nonConformityOpened;
     $output->nonConformitySlaBreached = $settings->nonConformitySlaBreached;
     $output->memberInvited = $settings->memberInvited;
+    $output->weeklyDigest = $settings->weeklyDigest;
 
     return $output;
   }

@@ -321,6 +321,22 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->getSingleScalarResult();
   }
 
+  public function countSlaBreachedByOrganizationId(InspectionOrganizationId $organizationId): int
+  {
+    return (int) $this->entityManager->createQueryBuilder()
+      ->select('COUNT(r.id)')
+      ->from(NonConformityRecord::class, 'r')
+      ->innerJoin('r.inspection', 'i')
+      ->innerJoin('i.organization', 'o')
+      ->andWhere('o.id = :organizationId')
+      ->andWhere('r.status IN (:openStatuses)')
+      ->andWhere('r.slaBreachNotifiedAt IS NOT NULL')
+      ->setParameter('organizationId', (string) $organizationId)
+      ->setParameter('openStatuses', ['open', 'in_progress'])
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
   public function countActiveByOrganizationIdAtDate(
     InspectionOrganizationId $organizationId,
     string $at,

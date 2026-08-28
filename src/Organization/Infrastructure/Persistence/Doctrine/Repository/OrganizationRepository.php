@@ -16,6 +16,7 @@ use function addcslashes;
 use function array_map;
 use function is_array;
 use function is_string;
+use function max;
 use function mb_strtolower;
 use function strtoupper;
 
@@ -203,6 +204,36 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       ->select('COUNT(o.id)')
       ->getQuery()
       ->getSingleScalarResult();
+  }
+
+  /**
+   * Method pageActiveIds.
+   *
+   * Pages through the identifiers of every ACTIVE organization, ordered by
+   * identifier for a stable sweep iteration.
+   *
+   * @since 1.0.0
+   *
+   * @param int $limit maximum number of identifiers to return
+   * @param int $offset iteration offset
+   *
+   * @return list<string> the active organization identifiers page
+   */
+  public function pageActiveIds(int $limit, int $offset): array
+  {
+    /** @var list<array{id: string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('o.id')
+      ->from(OrganizationRecord::class, 'o')
+      ->where('o.status = :status')
+      ->setParameter('status', OrganizationStatus::ACTIVE->value)
+      ->orderBy('o.id', 'ASC')
+      ->setMaxResults(max(1, $limit))
+      ->setFirstResult(max(0, $offset))
+      ->getQuery()
+      ->getArrayResult();
+
+    return array_map(static fn (array $row): string => $row['id'], $rows);
   }
 
   /**

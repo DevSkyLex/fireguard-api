@@ -76,6 +76,15 @@ final readonly class OrganizationNotificationSettings
    * @since 1.0.0
    */
   public bool $memberInvited;
+
+  /**
+   * Whether the weekly operational digest email (overdue interventions,
+   * maintenance deadlines, open non-conformities) is sent to the
+   * organization's administrators.
+   *
+   * @since 1.2.0
+   */
+  public bool $weeklyDigest;
   // #endregion
 
   // #region Constructor
@@ -94,6 +103,7 @@ final readonly class OrganizationNotificationSettings
    * @param bool $nonConformityOpened whether opened non-conformities notify
    * @param bool $nonConformitySlaBreached whether SLA-breaching non-conformities notify
    * @param bool $memberInvited whether member invitations notify
+   * @param bool $weeklyDigest whether the weekly digest email is sent
    */
   public function __construct(
     bool $emailEnabled = true,
@@ -104,6 +114,7 @@ final readonly class OrganizationNotificationSettings
     bool $nonConformityOpened = true,
     bool $nonConformitySlaBreached = true,
     bool $memberInvited = true,
+    bool $weeklyDigest = true,
   ) {
     $this->emailEnabled = $emailEnabled;
     $this->inAppEnabled = $inAppEnabled;
@@ -113,6 +124,7 @@ final readonly class OrganizationNotificationSettings
     $this->nonConformityOpened = $nonConformityOpened;
     $this->nonConformitySlaBreached = $nonConformitySlaBreached;
     $this->memberInvited = $memberInvited;
+    $this->weeklyDigest = $weeklyDigest;
   }
   // #endregion
 
@@ -137,6 +149,7 @@ final readonly class OrganizationNotificationSettings
       'non_conformity_opened' => $this->nonConformityOpened,
       'non_conformity_sla_breached' => $this->nonConformitySlaBreached,
       'member_invited' => $this->memberInvited,
+      'weekly_digest' => $this->weeklyDigest,
     ];
   }
 
@@ -165,6 +178,7 @@ final readonly class OrganizationNotificationSettings
       nonConformityOpened: (bool) ($data['non_conformity_opened'] ?? true),
       nonConformitySlaBreached: (bool) ($data['non_conformity_sla_breached'] ?? true),
       memberInvited: (bool) ($data['member_invited'] ?? true),
+      weeklyDigest: (bool) ($data['weekly_digest'] ?? true),
     );
   }
   // #endregion

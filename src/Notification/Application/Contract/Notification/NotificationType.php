@@ -89,6 +89,15 @@ final class NotificationType
    * but new creations stay blocked until usage fits the plan.
    */
   public const string ORGANIZATION_PLAN_OVER_QUOTA = 'organization.plan_over_quota';
+
+  /**
+   * Constant ORGANIZATION_WEEKLY_DIGEST.
+   *
+   * Weekly operational summary sent to an organization's administrators:
+   * overdue interventions, upcoming/overdue maintenance deadlines, and open
+   * non-conformities.
+   */
+  public const string ORGANIZATION_WEEKLY_DIGEST = 'organization.weekly_digest';
   // #endregion
 
   // #region User types
@@ -130,6 +139,7 @@ final class NotificationType
       self::ORGANIZATION_INVITATION_REVOKED,
       self::ORGANIZATION_MEMBER_JOINED,
       self::ORGANIZATION_PLAN_OVER_QUOTA,
+      self::ORGANIZATION_WEEKLY_DIGEST,
       self::ORGANIZATION_MEMBER_ADDED,
       self::ORGANIZATION_MEMBER_REMOVED,
       self::USER_EMAIL_VERIFIED,

@@ -244,6 +244,21 @@ interface NonConformityRepositoryPort
   public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int;
 
   /**
+   * Method countSlaBreachedByOrganizationId.
+   *
+   * Counts an organization's unresolved (`open`/`in_progress`)
+   * non-conformities whose SLA breach has already been signalled
+   * (`sla_breach_notified_at` stamped by the hourly SLA sweep).
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   *
+   * @return int the unresolved SLA-breached non-conformity count
+   */
+  public function countSlaBreachedByOrganizationId(InspectionOrganizationId $organizationId): int;
+
+  /**
    * Method countsOpenByInspectionIds.
    *
    * Counts still-open (`open` or `in_progress`) non-conformities for

@@ -36,11 +36,12 @@ final class NotificationTypeTest extends TestCase
     self::assertContains(NotificationType::ORGANIZATION_MEMBER_ADDED, $all);
     self::assertContains(NotificationType::ORGANIZATION_MEMBER_REMOVED, $all);
     self::assertContains(NotificationType::ORGANIZATION_PLAN_OVER_QUOTA, $all);
+    self::assertContains(NotificationType::ORGANIZATION_WEEKLY_DIGEST, $all);
     self::assertContains(NotificationType::USER_EMAIL_VERIFIED, $all);
     self::assertContains(NotificationType::FACILITY_ARCHIVED, $all);
     self::assertContains(NotificationType::EQUIPMENT_UNDER_MAINTENANCE, $all);
 
-    self::assertCount(12, $all);
+    self::assertCount(13, $all);
     self::assertSame(count($all), count(array_unique($all)));
   }
 
@@ -68,6 +69,7 @@ final class NotificationTypeTest extends TestCase
     yield 'organization member added' => [NotificationType::ORGANIZATION_MEMBER_ADDED];
     yield 'organization member removed' => [NotificationType::ORGANIZATION_MEMBER_REMOVED];
     yield 'organization plan over quota' => [NotificationType::ORGANIZATION_PLAN_OVER_QUOTA];
+    yield 'organization weekly digest' => [NotificationType::ORGANIZATION_WEEKLY_DIGEST];
     yield 'user email verified' => [NotificationType::USER_EMAIL_VERIFIED];
     yield 'facility archived' => [NotificationType::FACILITY_ARCHIVED];
     yield 'equipment under maintenance' => [NotificationType::EQUIPMENT_UNDER_MAINTENANCE];

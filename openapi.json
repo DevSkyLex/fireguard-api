@@ -50429,6 +50429,12 @@
                         "description": "Property memberInvited.",
                         "default": true,
                         "type": "boolean"
+                    },
+                    "weeklyDigest": {
+                        "readOnly": true,
+                        "description": "Property weeklyDigest.",
+                        "default": true,
+                        "type": "boolean"
                     }
                 }
             },
@@ -53548,6 +53554,13 @@
                     },
                     "memberInvited": {
                         "description": "Notify when a member is invited",
+                        "type": [
+                            "boolean",
+                            "null"
+                        ]
+                    },
+                    "weeklyDigest": {
+                        "description": "Send the weekly operational digest email to organization administrators",
                         "type": [
                             "boolean",
                             "null"

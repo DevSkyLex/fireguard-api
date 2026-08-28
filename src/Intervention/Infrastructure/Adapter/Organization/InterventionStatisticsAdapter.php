@@ -86,6 +86,46 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
   /**
    * {@inheritDoc}
    */
+  public function findOverdueInterventions(string $organizationId, DateTimeImmutable $now, int $limit): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+
+    /** @var list<InterventionRecord> $records */
+    $records = $this->entityManager->createQueryBuilder()
+      ->select('intervention')
+      ->from(InterventionRecord::class, 'intervention')
+      ->where('intervention.organization = :organization')
+      ->andWhere('intervention.status NOT IN (:closed)')
+      ->andWhere('intervention.dueAt IS NOT NULL')
+      ->andWhere('intervention.dueAt < :now')
+      ->setParameter('organization', $organization)
+      ->setParameter('closed', self::CLOSED_STATUSES)
+      ->setParameter('now', $now)
+      ->orderBy('intervention.dueAt', 'ASC')
+      ->setMaxResults(max(1, $limit))
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      static fn (InterventionRecord $record): RecentInterventionSummary => new RecentInterventionSummary(
+        id: $record->id,
+        number: $record->number,
+        name: $record->name,
+        status: $record->status,
+        priority: $record->priority,
+        siteId: $record->siteId,
+        responsibleMemberId: $record->responsibleId,
+        dueAt: $record->dueAt,
+        updatedAt: $record->updatedAt,
+      ),
+      $records,
+    );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
   public function countOverview(string $organizationId, DateTimeImmutable $now): array
   {
     /** @var OrganizationRecord $organization */

@@ -506,9 +506,10 @@ php bin/console debug:config framework rate_limiter
 
 **Purpose**: asynchronous commands (intervention publication, maintenance
 sweeps, recurrence materialization, automation rules) and the recurring
-schedules provided by the `Maintenance`, `Intervention` and `Approval`
-modules (`#[AsSchedule('maintenance')]`, `#[AsSchedule('intervention')]`,
-`#[AsSchedule('approval')]`).
+schedules provided by the `Maintenance`, `Intervention`, `Approval`,
+`Inspection` and `Organization` modules (`#[AsSchedule('maintenance')]`,
+`#[AsSchedule('intervention')]`, `#[AsSchedule('approval')]`,
+`#[AsSchedule('inspection')]`, `#[AsSchedule('organization')]`).
 
 **The `assistant` transport now has its own container**, `assistant_worker`, in
 both `compose.yaml` and `compose.prod.yaml` — separate from the general worker
@@ -523,7 +524,7 @@ cancel endpoint and no server-side deadline to settle it.
 php bin/console messenger:consume \
   async webhook assistant \
   scheduler_maintenance scheduler_intervention scheduler_approval \
-  scheduler_inspection \
+  scheduler_inspection scheduler_organization \
   --time-limit=3600
 ```
 
@@ -541,6 +542,7 @@ work" and produces no log line to investigate. Concretely, per transport:
 | `scheduler_intervention` | Recurring interventions are never materialized |
 | `scheduler_approval` | Pending four-eyes approval requests never expire; they accumulate until manually decided |
 | `scheduler_inspection` | Non-conformity SLA breaches are never escalated; the per-severity SLAs configured in the organization compliance settings stay decorative |
+| `scheduler_organization` | The weekly organization digest email is never sent; the `weeklyDigest` toggle in the organization notification settings stays decorative |
 
 The `webhook` and `assistant` transports are deliberately isolated from `async`
 so a slow or unreachable third party (or a cold model load) cannot starve
@@ -559,6 +561,16 @@ Notes:
   production** (e.g. `pgsql+advisory://…` on the main database). The dev
   default `flock` only protects a single host.
 - List schedules and next run dates: `php bin/console debug:scheduler`.
+- The `organization` schedule is weekly, not hourly: `SendWeeklyDigestsCommand`
+  fires every **Monday at 06:00 UTC** (an anchored 1-week periodical
+  trigger). Per organization it
+  aggregates overdue interventions, maintenance deadlines (next 7 days +
+  overdue) and unresolved non-conformities, and emails the digest to the
+  members holding `organization.settings.write`. An organization whose
+  counters are all zero receives **no email at all** — silence is deliberate,
+  not a delivery failure. The org-level `weeklyDigest` and `emailEnabled`
+  toggles and each recipient's own `organization`-category email preference
+  all suppress delivery.
 
 ### Data Cleanup
 

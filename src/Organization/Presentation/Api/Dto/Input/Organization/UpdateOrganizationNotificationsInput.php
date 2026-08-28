@@ -103,5 +103,15 @@ final class UpdateOrganizationNotificationsInput
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Notify when a member is invited', required: false)]
   public ?bool $memberInvited = null;
+
+  /**
+   * Property weeklyDigest.
+   *
+   * @since 1.2.0
+   */
+  #[Assert\Type('bool')]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Send the weekly operational digest email to organization administrators', required: false)]
+  public ?bool $weeklyDigest = null;
   // #endregion
 }

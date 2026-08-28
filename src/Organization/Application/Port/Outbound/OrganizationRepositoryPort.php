@@ -101,6 +101,22 @@ interface OrganizationRepositoryPort
   public function countByIds(array $ids, ?string $status = null, ?string $search = null): int;
 
   /**
+   * Method pageActiveIds.
+   *
+   * Pages through the identifiers of every ACTIVE organization, ordered by
+   * identifier for a stable sweep iteration. Backs recurring organization-wide
+   * sweeps (e.g. the weekly digest) with bounded memory.
+   *
+   * @since 1.0.0
+   *
+   * @param int $limit maximum number of identifiers to return
+   * @param int $offset iteration offset
+   *
+   * @return list<string> the active organization identifiers page
+   */
+  public function pageActiveIds(int $limit, int $offset): array;
+
+  /**
    * Method delete.
    *
    * Deletes an organization by identifier.

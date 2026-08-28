@@ -6,6 +6,9 @@ services:
   Organization\Presentation\:
     resource: '../../src/Organization/Presentation'
 
+  Organization\Infrastructure\Scheduler\:
+    resource: '../../src/Organization/Infrastructure/Scheduler'
+
   organization.main_transaction_manager:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
@@ -23,6 +26,9 @@ services:
   Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler:
@@ -312,6 +318,12 @@ services:
     arguments:
       $frontendUrl: '%app.frontend_url%'
 
+  Organization\Application\Service\OrganizationWeeklyDigestRecipientResolver: ~
+
+  Organization\Application\Service\OrganizationWeeklyDigestNotifier:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
+
   Organization\Application\Service\OrganizationCacheInvalidator: ~
 
   Organization\Application\Service\OrganizationAuthorizationService: ~
@@ -341,6 +353,9 @@ services:
 
   Organization\Application\Port\Outbound\InterventionStatisticsPort:
     alias: Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter
+
+  Organization\Application\Port\Outbound\MaintenanceStatisticsPort:
+    alias: Maintenance\Infrastructure\Adapter\Organization\MaintenanceStatisticsAdapter
 
   # R17: Approval module's regulated action-type catalog, hosted in Approval
   Organization\Application\Port\Outbound\ApprovalActionTypeCatalogPort:

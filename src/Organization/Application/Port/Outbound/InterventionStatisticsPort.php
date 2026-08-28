@@ -73,5 +73,22 @@ interface InterventionStatisticsPort
    * @return int the number of submitted interventions
    */
   public function countSubmitted(string $organizationId): int;
+
+  /**
+   * Method findOverdueInterventions.
+   *
+   * Lists the organization's overdue field interventions — a due date in the
+   * past on a non-terminal status — most overdue first. Backs the weekly
+   * digest detail lines.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param DateTimeImmutable $now the current instant
+   * @param int $limit maximum number of summaries to return
+   *
+   * @return list<RecentInterventionSummary> the overdue intervention summaries
+   */
+  public function findOverdueInterventions(string $organizationId, DateTimeImmutable $now, int $limit): array;
   // #endregion
 }

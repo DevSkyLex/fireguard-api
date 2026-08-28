@@ -255,6 +255,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
       'non_conformity_opened' => $input->nonConformityOpened,
       'non_conformity_sla_breached' => $input->nonConformitySlaBreached,
       'member_invited' => $input->memberInvited,
+      'weekly_digest' => $input->weeklyDigest,
     ];
   }
 

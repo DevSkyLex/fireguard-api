@@ -31,6 +31,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
     self::assertTrue($settings->nonConformityOpened);
     self::assertTrue($settings->nonConformitySlaBreached);
     self::assertTrue($settings->memberInvited);
+    self::assertTrue($settings->weeklyDigest);
   }
 
   #[Test]
@@ -47,6 +48,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
       'non_conformity_opened' => true,
       'non_conformity_sla_breached' => true,
       'member_invited' => true,
+      'weekly_digest' => true,
     ], $settings->toArray());
   }
 
@@ -71,6 +73,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
       nonConformityOpened: true,
       nonConformitySlaBreached: false,
       memberInvited: false,
+      weeklyDigest: false,
     );
 
     $restored = OrganizationNotificationSettings::fromArray($original->toArray());

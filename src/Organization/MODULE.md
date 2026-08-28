@@ -93,6 +93,59 @@ Cross-module dependencies, and the contract each goes through:
 | published | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` | `…\Contract\Authorization\OrganizationAccessDecision` | the permission check every other module's org-scoped endpoint runs |
 | published | `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` | `…\Contract\Document\OrganizationDocumentBranding` | document (PDF) branding for Compliance and Intervention exports: display name, stored logo inlined as a base64 `data:` URI (implemented by `Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` reading `FileStoragePort`), legal identity (legal name, registration number, VAT), regional settings (timezone, locale, `dateFormat`). Never throws: a missing organization or logo degrades to defaults |
 
+### Weekly digest (recurring email recap)
+
+The weekly digest lives **in this module on purpose**: it is a cross-module
+aggregate (interventions, maintenance, non-conformities) whose subject is the
+*organization* — the same shape as the organization dashboard, which already
+pulls those numbers through this module's outbound statistics ports. Housing it
+in any producing module would privilege one section over the others and force
+that module to learn about the two siblings; Organization already owns the
+member directory, the authorization service, and the notification policy the
+digest needs.
+
+- **Schedule**: `Infrastructure\Scheduler\OrganizationScheduleProvider`
+  (`#[AsSchedule('organization')]`, transport `scheduler_organization`) fires
+  `SendWeeklyDigestsCommand` every **Monday 06:00 UTC** (an anchored 1-week
+  periodical trigger — the cron-expression package is not a dependency),
+  stateful + lock-guarded like the other sweep schedules. See `OPERATIONS.md`.
+- **Use case**: `Application\UseCase\Command\Sweep\SendWeeklyDigests` pages
+  through active organizations (`OrganizationRepositoryPort::pageActiveIds`)
+  and aggregates, per organization: overdue interventions
+  (`InterventionStatisticsPort::countOverview` + `findOverdueInterventions`),
+  maintenance deadlines due within 7 days plus overdue ones
+  (`MaintenanceStatisticsPort`, adapter in the Maintenance module), and
+  unresolved non-conformities incl. SLA-breached ones
+  (`NonConformityStatisticsPort::countNonConformitiesByStatus`,
+  `countSlaBreachedNonConformities`, `findOpenNonConformities`). Detail lines
+  are capped at 5 per section; the email says "and N more".
+- **Silence at zero**: an organization whose counters are all zero gets **no
+  email**. This is deliberate — the digest reports what needs attention, not
+  that nothing does.
+- **Toggles**: the org-level `weeklyDigest` category toggle (new flag on
+  `OrganizationNotificationSettings`, PATCH `/api/organizations/{id}` →
+  `notifications.weeklyDigest`) and the org-level `emailEnabled` channel toggle
+  both gate the sweep before any data is read. Each recipient's own per-channel
+  preference for the `organization` category is then enforced by the
+  Notification module (the type is `organization.weekly_digest`).
+- **Recipients**: `OrganizationWeeklyDigestRecipientResolver` — the active
+  members whose effective permissions grant `organization.settings.write`
+  (directly or through a wildcard), i.e. the people who administer the
+  organization and can turn the digest off. Mirrors the resolver pattern of the
+  maintenance-reminder and NC-SLA sweeps, adapted to the administration
+  permission.
+- **Delivery**: email only, by design — a periodic summary is not a real-time
+  event, so no Mercure/in-app duplicate. `OrganizationWeeklyDigestNotifier`
+  localizes per recipient (en/fr/es, clamped like the invitation email),
+  renders `templates/notification/email/organization_weekly_digest.html.twig`
+  (keys under `digest.` in `translations/emails.*.yaml`), and deep-links to
+  `{frontend}/organizations/{id}` (the org dashboard). Best-effort per
+  recipient and per organization; failures log and never fail the sweep.
+- **No domain/audit event**: sending a digest changes no business state — it is
+  a notification fan-out, exactly like the NC-SLA and maintenance-reminder
+  sweeps, which dispatch none either. The Notification module persists each
+  sent notification, which is the delivery trace.
+
 ### `OrganizationAuthorizationPort` — three ways to ask
 
 | Method | Answers | Use when |

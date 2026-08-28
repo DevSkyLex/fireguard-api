@@ -55,6 +55,7 @@ framework:
             'Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand': async
             'Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesCommand': async
             'Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\EscalateNonConformitySlaBreachesCommand': async
+            'Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsCommand': async
             'Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand': async
             'Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobCommand': async
             'Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\ExpireStaleApprovalRequestsCommand': async

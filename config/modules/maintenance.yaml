@@ -59,6 +59,11 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # Cross-module read model for the Organization module (weekly digest deadlines)
+  Maintenance\Infrastructure\Adapter\Organization\MaintenanceStatisticsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # L2.2: Assistant business-context seam — this module's own adapter,
   # tagged `assistant.context_provider` (priority 10: rendered last, after
   # Compliance's org-wide summary and Inspection's open non-conformities).
