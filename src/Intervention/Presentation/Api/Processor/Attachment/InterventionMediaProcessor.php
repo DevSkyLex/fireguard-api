@@ -11,17 +11,19 @@ use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentResult};
 use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment\DeleteInterventionAttachmentCommand;
 use Intervention\Domain\Exception\InterventionAttachmentNotFoundException;
+use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionAttachmentRecord;
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
 use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Shared\Presentation\Api\Http\{ResourceIriParser, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
 
 use function is_string;
@@ -103,9 +105,34 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     }
 
     $user = $this->user();
-    $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
-    $workItem = $this->currentRequest()->request->get('workItemId');
-    $kind = $this->currentRequest()->request->get('kind');
+    $request = $this->currentRequest();
+    $clientId = $request->request->get('clientId');
+    if (null !== $clientId && !is_string($clientId)) {
+      throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.');
+    }
+    if (is_string($clientId) && '' !== $clientId) {
+      try {
+        $clientId = (string) InterventionAttachmentId::fromString($clientId);
+      } catch (InvalidValueException $exception) {
+        throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.', $exception);
+      }
+      $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);
+      if ($existing instanceof InterventionAttachmentRecord) {
+        if ($existing->intervention?->id !== $interventionId) {
+          throw new ConflictHttpException('Attachment client UUID is already assigned to another intervention.');
+        }
+
+        return InterventionMediaProvider::output($existing);
+      }
+    }
+
+    // MIME/size validation happens LAST, only once the clientId dedup
+    // short-circuit above has ruled out a retry — a retry never needs the
+    // file re-read or re-checked. Same ordering as
+    // `Equipment\Presentation\Api\Processor\Media\MediaProcessor`.
+    $uploaded = $this->attachmentGuard->fromRequest($request);
+    $workItem = $request->request->get('workItemId');
+    $kind = $request->request->get('kind');
 
     try {
       $workItemId = is_string($workItem) && '' !== $workItem
@@ -121,6 +148,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
         mimeType: $uploaded->mimeType,
         size: $uploaded->size,
         label: $uploaded->label,
+        attachmentId: is_string($clientId) && '' !== $clientId ? $clientId : null,
         workItemId: $workItemId,
         kind: is_string($kind) && '' !== $kind ? $kind : 'file',
       ));

@@ -384,7 +384,7 @@ with intervention planning edits not being audited today.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId` and `kind` (`file`\|`signature`, default `file`) multipart fields) |
+| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId`, `kind` (`file`\|`signature`, default `file`) and `clientId` (idempotency UUID) multipart fields) |
 | GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments (filter: `workItem` *(optional, IRI or bare id)*) |
 | GET | `/intervention-attachments/{id}` | Get one attachment |
 | GET | `/intervention-attachments/{id}/download` | Download an attachment's stored file bytes (Phase 4b) |
@@ -440,6 +440,26 @@ returns for a MIME-type or size violation — the processor performs no mapping
 of its own. A retry carrying a client-supplied
 `attachmentId` that already exists overwrites its own row and is exempt from
 the cap.
+
+**Offline replay idempotency (`clientId`)** — `POST /interventions/{interventionId}/attachments`
+accepts an optional `clientId` multipart field, the exact mechanism
+`Equipment\Presentation\Api\Processor\Media\MediaProcessor` already carries:
+a client-generated attachment UUID that lets the frontend's offline queue
+replay an upload without duplicating the row when a crash lands between the
+server's success and the local dequeue. `InterventionMediaProcessor` validates
+it (`InterventionAttachmentId::fromString`, 400 on a malformed value) and
+looks the id up BEFORE the shared MIME/size guard reads the file — a replay
+never needs the file re-read or re-checked:
+
+- id unknown → the value is forwarded to `AddInterventionAttachmentCommand.attachmentId`
+  and becomes the attachment's id (deterministic, `clientId` = `attachmentId`);
+- id already stored on the SAME intervention → the existing attachment is
+  returned as-is, no command dispatched, no duplicate;
+- id already stored on ANOTHER intervention → **409 Conflict**
+  (`Attachment client UUID is already assigned to another intervention.`).
+
+Without `clientId` the behaviour is unchanged: the handler generates the
+attachment id server-side.
 
 **Per-work-item evidence (Phase 5d.1)** — `work_item_id` on
 `intervention_attachments` (see Persistence) is an optional per-work-item

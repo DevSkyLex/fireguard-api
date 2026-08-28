@@ -18788,6 +18788,11 @@
                                             "signature"
                                         ],
                                         "description": "Attachment kind. Defaults to \"file\"; \"signature\" is the typed completion signature (at most one per intervention, image MIME only)."
+                                    },
+                                    "clientId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "description": "Optional client-generated attachment UUID (idempotency key for offline replay). Replaying the same clientId returns the already-stored attachment instead of creating a duplicate; a clientId owned by another intervention is rejected with 409."
                                     }
                                 },
                                 "required": [
@@ -35697,6 +35702,231 @@
                 ]
             }
         },
+        "/api/me/email-change": {
+            "post": {
+                "operationId": "user_email_change_request",
+                "tags": [
+                    "Users"
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Confirmation link sent to the new address",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailChange.RequestEmailChangeOutput.jsonld-email_change.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid request - missing or malformed fields",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "409": {
+                        "description": "This email address cannot be used"
+                    },
+                    "422": {
+                        "description": "Current password is incorrect",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "429": {
+                        "description": "Too many email change requests"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Request email change",
+                "description": "Verifies the current password, then sends a confirmation link (1 h validity) to the new address and an alert to the current address. A new request replaces any pending one.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new EmailChange resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmailChange.RequestEmailChangeInput-email_change.write"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "user_email_change_cancel",
+                "tags": [
+                    "Users"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Pending request cancelled (or nothing was pending)"
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "links": {}
+                    }
+                },
+                "summary": "Cancel pending email change",
+                "description": "Cancels the pending email change request of the authenticated user. Idempotent: answers 204 whether or not a request was pending.",
+                "parameters": [],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/me/email-change/confirm": {
+            "post": {
+                "operationId": "user_email_change_confirm",
+                "tags": [
+                    "Users"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Email changed \u2014 all sessions have been revoked, sign in again with the new address",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailChange.ConfirmEmailChangeOutput.jsonld-email_change.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid, expired or already-used token",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "409": {
+                        "description": "This email address cannot be used"
+                    },
+                    "429": {
+                        "description": "Too many confirmation attempts"
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Confirm email change",
+                "description": "Public. Validates the confirmation token received at the new address, applies the change, and revokes every session and OAuth token of the user (the sign-in identifier changed). The token is single-use and expires after 1 hour.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new EmailChange resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmailChange.ConfirmEmailChangeInput-email_change.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/me/password/confirm": {
             "post": {
                 "operationId": "confirm_password_change",
@@ -41076,6 +41306,105 @@
                         "nullable": true
                     }
                 }
+            },
+            "EmailChange.ConfirmEmailChangeInput-email_change.write": {
+                "type": "object",
+                "description": "Sign-in email address change operations (email confirmation protected)",
+                "required": [
+                    "token"
+                ],
+                "properties": {
+                    "token": {
+                        "maxLength": 128,
+                        "writeOnly": true,
+                        "description": "Confirmation token from the email sent to the new address",
+                        "example": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                        "type": "string"
+                    }
+                }
+            },
+            "EmailChange.ConfirmEmailChangeOutput.jsonld-email_change.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "description": "Whether the email address was changed successfully",
+                                "example": true,
+                                "type": "boolean"
+                            },
+                            "message": {
+                                "description": "Informational message",
+                                "example": "Your email address has been changed. Please sign in again with the new address.",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "Sign-in email address change operations (email confirmation protected)"
+            },
+            "EmailChange.RequestEmailChangeInput-email_change.write": {
+                "type": "object",
+                "description": "Sign-in email address change operations (email confirmation protected)",
+                "required": [
+                    "newEmail",
+                    "currentPassword"
+                ],
+                "properties": {
+                    "newEmail": {
+                        "format": "email",
+                        "maxLength": 320,
+                        "writeOnly": true,
+                        "description": "The new sign-in email address; a confirmation link is sent to it",
+                        "externalDocs": {
+                            "url": "https://schema.org/email"
+                        },
+                        "example": "new-address@example.com",
+                        "type": "string"
+                    },
+                    "currentPassword": {
+                        "writeOnly": true,
+                        "description": "Current password, verified before the confirmation email is sent",
+                        "example": "CurrentP@ssw0rd!",
+                        "type": "string",
+                        "format": "password"
+                    }
+                }
+            },
+            "EmailChange.RequestEmailChangeOutput.jsonld-email_change.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "description": "Whether the email change request was accepted",
+                                "example": true,
+                                "type": "boolean"
+                            },
+                            "message": {
+                                "description": "Informational message",
+                                "example": "A confirmation link has been sent to the new email address.",
+                                "type": "string"
+                            },
+                            "expiresAt": {
+                                "description": "When the confirmation token expires",
+                                "example": "2026-08-28T11:00:00+00:00",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            }
+                        }
+                    }
+                ],
+                "description": "Sign-in email address change operations (email confirmation protected)"
             },
             "Equipment.CreateEquipmentInput": {
                 "type": "object",
