@@ -179,11 +179,11 @@ final readonly class SendWeeklyDigestsHandler implements CommandHandler
     $now = $this->clock->now();
     $windowEnd = $now->modify(self::DUE_SOON_WINDOW);
 
-    $overdueInterventionsCount = $this->interventionStatistics->countOverview($organizationId, $now)['overdue'] ?? 0;
+    $overdueInterventionsCount = $this->interventionStatistics->countOverview($organizationId, $now)['overdue'];
 
     $maintenanceOverview = $this->maintenanceStatistics->countDueOverview($organizationId, $now, $windowEnd);
-    $maintenanceDueSoonCount = $maintenanceOverview['due_soon'] ?? 0;
-    $maintenanceOverdueCount = $maintenanceOverview['overdue'] ?? 0;
+    $maintenanceDueSoonCount = $maintenanceOverview['due_soon'];
+    $maintenanceOverdueCount = $maintenanceOverview['overdue'];
 
     $nonConformityCounts = $this->nonConformityStatistics->countNonConformitiesByStatus($organizationId);
     $openNonConformitiesCount = (int) ($nonConformityCounts['open'] ?? 0) + (int) ($nonConformityCounts['in_progress'] ?? 0);

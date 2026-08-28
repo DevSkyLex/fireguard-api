@@ -130,6 +130,7 @@ final class PresentationExceptionStatusTest extends TestCase
     'AttachmentNotFoundException' => 'NotFoundHttpException',
     'CalendarEventNotFoundException' => 'NotFoundHttpException',
     'CalendarEventValidationException' => 'UnprocessableEntityHttpException',
+    'CalendarFeedTokenNotFoundException' => 'NotFoundHttpException',
     'ChecklistArchivedException' => 'ConflictHttpException',
     'ChecklistInUseException' => 'ConflictHttpException',
     'ChecklistNotFoundException' => 'NotFoundHttpException',

@@ -18,7 +18,7 @@ use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent, UserLoggedOu
 use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
-use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent, CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
 use Compliance\Domain\Event\{SafetyRegisterExportedEvent, SafetyRegisterSnapshotCreatedEvent};
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
@@ -188,6 +188,8 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
       'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
       'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
+      'calendar.calendar_feed_token_created_event' => 'onCalendarFeedTokenCreated',
+      'calendar.calendar_feed_token_revoked_event' => 'onCalendarFeedTokenRevoked',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -1871,6 +1873,59 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       subjectType: 'calendar_event',
       subjectId: $event->eventId,
       metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarFeedTokenCreated.
+   *
+   * Records the creation (or rotation) of a member iCal feed token.
+   * Identifiers only — the metadata never carries the secret nor its hash:
+   * the ledger must not hold anything that shortens a brute-force of the
+   * feed URL.
+   *
+   * @since 1.5.0
+   *
+   * @param CalendarFeedTokenCreatedEvent $event the domain event
+   */
+  public function onCalendarFeedTokenCreated(CalendarFeedTokenCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.feed_token_created',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_feed_token',
+      subjectId: $event->tokenId,
+      metadata: [
+        'rotated' => $event->rotated,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarFeedTokenRevoked.
+   *
+   * Records the revocation of a member iCal feed token, whether explicit
+   * (DELETE) or implicit (rotation). Mirrors `onCalendarFeedTokenCreated`'s
+   * no-secret rule.
+   *
+   * @since 1.5.0
+   *
+   * @param CalendarFeedTokenRevokedEvent $event the domain event
+   */
+  public function onCalendarFeedTokenRevoked(CalendarFeedTokenRevokedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.feed_token_revoked',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_feed_token',
+      subjectId: $event->tokenId,
+      metadata: [
+        'reason' => $event->reason,
+      ],
       occurredAt: $event->occurredAt,
       actorUserId: $event->actorUserId,
     );

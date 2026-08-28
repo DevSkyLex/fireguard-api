@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Presentation\Api\Trait;
 
-use Calendar\Domain\Exception\{CalendarEventNotFoundException, CalendarEventValidationException};
+use Calendar\Domain\Exception\{CalendarEventNotFoundException, CalendarEventValidationException, CalendarFeedTokenNotFoundException};
 use InvalidArgumentException;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -45,6 +45,7 @@ trait CalendarExceptionMapperTrait
       $mapped = match (true) {
         $current instanceof OrganizationAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
         $current instanceof CalendarEventNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
+        $current instanceof CalendarFeedTokenNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
         $current instanceof CalendarEventValidationException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
         $current instanceof InvalidArgumentException => new BadRequestHttpException($current->getMessage(), $exception),
         default => null,

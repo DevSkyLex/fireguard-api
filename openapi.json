@@ -3428,6 +3428,41 @@
                 ]
             }
         },
+        "/api/calendar/feed/{token}.ics": {
+            "get": {
+                "operationId": "getCalendarFeedIcs",
+                "tags": [
+                    "Calendar"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "iCalendar feed (text/calendar)"
+                    },
+                    "404": {
+                        "description": "Unknown or revoked token"
+                    },
+                    "204": {
+                        "description": "CalendarFeedIcs resource"
+                    }
+                },
+                "summary": "Subscribe to a member calendar feed (iCalendar)",
+                "description": "Unauthenticated by design: the URL-embedded token secret is the credential. Returns the token member's unified feed (events, inspections, interventions, maintenance due dates) for a fixed window of 30 days back / 180 days ahead as an RFC 5545 text/calendar document. Unknown and revoked tokens both answer a plain 404.",
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "description": "CalendarFeedIcs identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/calendar/events": {
             "post": {
                 "operationId": "createCalendarEvent",
@@ -3860,6 +3895,180 @@
                         "name": "organizationId",
                         "in": "path",
                         "description": "CalendarFeed identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/calendar/feed-token": {
+            "get": {
+                "operationId": "getCalendarFeedToken",
+                "tags": [
+                    "Calendar"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Token metadata",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CalendarFeedToken.CalendarFeedTokenOutput.jsonld-Calendar.read"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No active token for this member"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Get the member calendar feed token metadata",
+                "description": "Metadata without the secret: creation date and last recorded use (persisted at most once per hour). 404 when the member has no active token.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "CalendarFeedToken identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "createCalendarFeedToken",
+                "tags": [
+                    "Calendar"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Token created; the secret is shown this one time",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CalendarFeedToken.CalendarFeedTokenSecretOutput.jsonld-Calendar.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Create or regenerate the member calendar feed token",
+                "description": "Creates the acting member's iCal feed token, revoking any previously active one. The response is the ONLY time the raw secret (and the complete feed URL) is returned \u2014 the backend stores its SHA-256 hash. Requires organization.events.read.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "CalendarFeedToken identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "delete": {
+                "operationId": "deleteCalendarFeedToken",
+                "tags": [
+                    "Calendar"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Token revoked"
+                    },
+                    "404": {
+                        "description": "No active token for this member"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "links": {}
+                    }
+                },
+                "summary": "Revoke the member calendar feed token",
+                "description": "Immediately invalidates the feed URL. 404 when the member has no active token.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "CalendarFeedToken identifier",
                         "required": true,
                         "deprecated": false,
                         "schema": {
@@ -38875,6 +39084,70 @@
                     }
                 }
             },
+            "CalendarFeedToken.CalendarFeedTokenOutput.jsonld-Calendar.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "createdAt": {
+                                "readOnly": true,
+                                "description": "Property createdAt.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "lastUsedAt": {
+                                "readOnly": true,
+                                "description": "Property lastUsedAt.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Member-scoped iCal calendar feed subscription token."
+            },
+            "CalendarFeedToken.CalendarFeedTokenSecretOutput.jsonld-Calendar.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "secret": {
+                                "readOnly": true,
+                                "description": "Property secret.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "feedUrl": {
+                                "readOnly": true,
+                                "description": "Property feedUrl.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "createdAt": {
+                                "readOnly": true,
+                                "description": "Property createdAt.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "rotated": {
+                                "readOnly": true,
+                                "description": "Property rotated.",
+                                "default": false,
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ],
+                "description": "Member-scoped iCal calendar feed subscription token."
+            },
             "Challenge.ChallengeOutput.jsonld": {
                 "allOf": [
                     {
@@ -54484,7 +54757,7 @@
         },
         {
             "name": "Calendar",
-            "description": "Unified organization calendar feed (standalone events, inspections, interventions, preventive-maintenance due dates)."
+            "description": "Member-scoped iCal calendar feed subscription token."
         },
         {
             "name": "Authentication",

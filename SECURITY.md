@@ -67,6 +67,7 @@ Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 - `otp_challenge_create`
 - `otp_challenge_verify`
 - `invitation_preview` (per IP — the endpoint is public)
+- `calendar_feed` (per IP — the public `.ics` member feed endpoint)
 - `invitation_resend` (per user)
 - `invitation_accept` (per user)
 

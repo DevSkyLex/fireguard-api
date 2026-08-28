@@ -105,6 +105,13 @@ framework:
       limit: 30
       interval: '1 minute'
       lock_factory: null
+    # Per IP — the .ics feed endpoint is public (secret-URL authenticated),
+    # so this deters token enumeration the same way invitation_preview does.
+    calendar_feed:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
     invitation_resend:
       policy: 'sliding_window'
       limit: 5

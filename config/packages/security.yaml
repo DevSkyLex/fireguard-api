@@ -91,6 +91,10 @@ security:
     # organization/inviter before signing in or creating an account)
     - { path: '^/api/organizations/invitations/[^/]+/preview$', roles: PUBLIC_ACCESS, methods: [GET] }
 
+    # Public member iCal subscription feed (GET only — the URL-embedded token
+    # secret is the credential; unknown/revoked tokens answer a uniform 404)
+    - { path: '^/api/calendar/feed/[^/]+\.ics$', roles: PUBLIC_ACCESS, methods: [GET] }
+
     # Stripe webhook (public; signature is verified in the controller)
     - { path: ^/api/billing/webhook$, roles: PUBLIC_ACCESS, methods: [POST] }
 

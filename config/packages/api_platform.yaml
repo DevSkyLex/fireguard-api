@@ -112,6 +112,7 @@ api_platform:
     Assistant\Domain\Exception\AssistantValidationException: 422
     Calendar\Domain\Exception\CalendarEventNotFoundException: 404
     Calendar\Domain\Exception\CalendarEventValidationException: 422
+    Calendar\Domain\Exception\CalendarFeedTokenNotFoundException: 404
     Compliance\Domain\Exception\ComplianceAccessDeniedException: 403
     Compliance\Domain\Exception\ComplianceExportNotEntitledException: 403
     Compliance\Domain\Exception\ComplianceNotFoundException: 404

@@ -110,6 +110,8 @@ final class AuditEventSubscriberTest extends TestCase
       'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
       'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
       'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
+      'calendar.calendar_feed_token_created_event' => 'onCalendarFeedTokenCreated',
+      'calendar.calendar_feed_token_revoked_event' => 'onCalendarFeedTokenRevoked',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
