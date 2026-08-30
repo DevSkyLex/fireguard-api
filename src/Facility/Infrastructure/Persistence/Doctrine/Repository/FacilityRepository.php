@@ -23,6 +23,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
 use function count;
+use function implode;
 use function is_numeric;
 use function json_decode;
 use function mb_strtolower;
@@ -819,6 +820,215 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     }
 
     return $zones;
+  }
+
+  /**
+   * Method findBuildingFloors.
+   *
+   * Lists the direct children of a building that are floors — published,
+   * ordered by their stacking level, then creation, then identifier — each
+   * carrying its own plan geometry (if any) and the attachment identity of
+   * its primary floor plan (if any). Raw rows only: no contour cascade, no
+   * leaf filtering — the 3D building view use case applies those rules.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $buildingId the building facility identifier
+   *
+   * @return list<array{
+   *   facilityId: string,
+   *   name: string,
+   *   status: string,
+   *   levelIndex: ?int,
+   *   planGeometry: ?array{attachmentId: string, points: list<array{0: float, 1: float}>},
+   *   primaryPlanAttachmentId: ?string,
+   *   primaryPlanImageWidth: ?int,
+   *   primaryPlanImageHeight: ?int,
+   * }> the building's floors, in render order
+   */
+  public function findBuildingFloors(
+    FacilityOrganizationId $organizationId,
+    FacilityId $buildingId,
+  ): array {
+    $sql = <<<'SQL'
+      SELECT
+          floor.id,
+          floor.name,
+          floor.status,
+          floor.level_index,
+          floor.plan_geometry,
+          plan.id AS primary_plan_attachment_id,
+          plan.image_width AS primary_plan_image_width,
+          plan.image_height AS primary_plan_image_height
+      FROM facilities floor
+      LEFT JOIN facility_attachments plan
+          ON plan.facility_id = floor.id
+          AND plan.kind = 'floor_plan'
+          AND plan.is_primary_plan
+      WHERE floor.parent_facility_id = :buildingId
+        AND floor.organization_id = :organizationId
+        AND floor.type = 'floor'
+        AND floor.record_status = :published
+      ORDER BY floor.level_index ASC NULLS LAST, floor.created_at ASC, floor.id ASC
+      SQL;
+
+    /**
+     * @var list<array{
+     *   id: string,
+     *   name: string,
+     *   status: string,
+     *   level_index: ?string,
+     *   plan_geometry: ?string,
+     *   primary_plan_attachment_id: ?string,
+     *   primary_plan_image_width: ?string,
+     *   primary_plan_image_height: ?string,
+     * }> $rows
+     */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'buildingId' => (string) $buildingId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+    ])->fetchAllAssociative();
+
+    $floors = [];
+    foreach ($rows as $row) {
+      $planGeometry = null;
+      if (null !== $row['plan_geometry']) {
+        /** @var array{attachmentId: string, points: list<array{0: float, 1: float}>} $planGeometry */
+        $planGeometry = json_decode($row['plan_geometry'], true, 512, JSON_THROW_ON_ERROR);
+      }
+
+      $floors[] = [
+        'facilityId' => $row['id'],
+        'name' => $row['name'],
+        'status' => $row['status'],
+        'levelIndex' => null !== $row['level_index'] ? (int) $row['level_index'] : null,
+        'planGeometry' => $planGeometry,
+        'primaryPlanAttachmentId' => $row['primary_plan_attachment_id'],
+        'primaryPlanImageWidth' => null !== $row['primary_plan_image_width'] ? (int) $row['primary_plan_image_width'] : null,
+        'primaryPlanImageHeight' => null !== $row['primary_plan_image_height'] ? (int) $row['primary_plan_image_height'] : null,
+      ];
+    }
+
+    return $floors;
+  }
+
+  /**
+   * Method findRoomsForFloors.
+   *
+   * For each given (floor, its primary plan attachment) pair, lists the
+   * strict descendants of that floor which are zones or areas bound to that
+   * same plan attachment — a single recursive CTE seeded from all the
+   * bindings at once, never one query per floor. Raw rows only: leaf
+   * filtering by `parentFacilityId` is the use case's job.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<array{floorId: string, attachmentId: string}> $floorPlanBindings the floors and their primary plan attachment identifiers
+   *
+   * @return list<array{
+   *   floorId: string,
+   *   facilityId: string,
+   *   parentFacilityId: ?string,
+   *   name: string,
+   *   type: string,
+   *   status: string,
+   *   points: list<array{0: float, 1: float}>,
+   * }> the matching rooms, unordered
+   */
+  public function findRoomsForFloors(
+    FacilityOrganizationId $organizationId,
+    array $floorPlanBindings,
+  ): array {
+    if ([] === $floorPlanBindings) {
+      return [];
+    }
+
+    $seedRows = [];
+    $params = [
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+    ];
+    foreach ($floorPlanBindings as $index => $binding) {
+      $seedRows[] = "(:floorId{$index}, :attachmentId{$index})";
+      $params["floorId{$index}"] = $binding['floorId'];
+      $params["attachmentId{$index}"] = $binding['attachmentId'];
+    }
+    $valuesList = implode(', ', $seedRows);
+
+    $sql = <<<SQL
+      WITH RECURSIVE bindings (floor_id, attachment_id) AS (
+          VALUES {$valuesList}
+      ),
+      subtree AS (
+          SELECT
+              floor.id,
+              floor.parent_facility_id,
+              floor.type,
+              floor.name,
+              floor.status,
+              floor.plan_geometry,
+              bindings.floor_id,
+              bindings.attachment_id
+          FROM facilities floor
+          INNER JOIN bindings ON floor.id = bindings.floor_id
+          WHERE floor.organization_id = :organizationId
+            AND floor.record_status = :published
+          UNION ALL
+          SELECT
+              child.id,
+              child.parent_facility_id,
+              child.type,
+              child.name,
+              child.status,
+              child.plan_geometry,
+              subtree.floor_id,
+              subtree.attachment_id
+          FROM facilities child
+          INNER JOIN subtree ON child.parent_facility_id = subtree.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT floor_id, id, parent_facility_id, name, type, status, plan_geometry
+      FROM subtree
+      WHERE id <> floor_id
+        AND type IN ('zone', 'area')
+        AND plan_geometry IS NOT NULL
+        AND plan_geometry ->> 'attachmentId' = attachment_id
+      SQL;
+
+    /**
+     * @var list<array{
+     *   floor_id: string,
+     *   id: string,
+     *   parent_facility_id: ?string,
+     *   name: string,
+     *   type: string,
+     *   status: string,
+     *   plan_geometry: string,
+     * }> $rows
+     */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $params)->fetchAllAssociative();
+
+    $rooms = [];
+    foreach ($rows as $row) {
+      /** @var array{attachmentId: string, points: list<array{0: float, 1: float}>} $geometry */
+      $geometry = json_decode($row['plan_geometry'], true, 512, JSON_THROW_ON_ERROR);
+
+      $rooms[] = [
+        'floorId' => $row['floor_id'],
+        'facilityId' => $row['id'],
+        'parentFacilityId' => $row['parent_facility_id'],
+        'name' => $row['name'],
+        'type' => $row['type'],
+        'status' => $row['status'],
+        'points' => $geometry['points'],
+      ];
+    }
+
+    return $rooms;
   }
 
   /**

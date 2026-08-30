@@ -83,6 +83,12 @@ services:
   Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\GetFacilityPlanOverlayHandler:
     tags: ['messenger.message_handler']
 
+  # A2: 3D building model — read-only assembly over FacilityRepositoryPort,
+  # no new port needed (findBuildingFloors/findRoomsForFloors already carry
+  # everything the handler needs, including primary-plan dimensions).
+  Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel\GetFacilityBuildingModelHandler:
+    tags: ['messenger.message_handler']
+
   # R11b follow-up: the download endpoint serving attachment bytes, gated the
   # same way as FacilityMediaProvider/FacilityMediaProcessor.
   Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:

@@ -567,6 +567,21 @@ Cross-module contracts and lifecycle invariants:
   `Application\Contract\`, staying inside the cross-module boundary rule.
   Facility's own `FacilityAttachmentNotAncestorException` (Domain) is caught
   in the adapter and translated to the contract type at the boundary.
+- **3D building model (A2, query only — no endpoint yet, that is A3)**:
+  `Application/UseCase/Query/Facility/GetFacilityBuildingModel/GetFacilityBuildingModelHandler`
+  assembles a building's ordered floor stack for a 3D viewer to extrude,
+  entirely from `FacilityRepositoryPort::findBuildingFloors()` /
+  `::findRoomsForFloors()` — both raw-row reads, no new port. Refuses a
+  non-`building` facility with `FacilityNotBuildingException` (409). Two
+  rules live in the handler, not the repository: a **geometric-leaf**
+  filter drops any room that is another same-floor room's declared parent
+  (an `area` nested in a `zone` would otherwise double-render), and an
+  **outline cascade** per floor — the floor's own `planGeometry` only when
+  expressed in its own primary-plan coordinate space, else the bounding box
+  of its retained rooms, else the unit image rectangle when a primary plan
+  exists, else `null`. `GetFacilityBuildingModelResult::$floors[]['rooms']`
+  is byte-for-byte `GetFacilityPlanOverlayResult::$zones`'s shape on purpose
+  — the frontend reuses the same models for both.
 - Canonical DELETE = archive — the only REVERSIBLE retirement state (restore is
   refused while the parent is archived). Idempotent: a repeat DELETE is a no-op.
 - The descendants listing and the archival probe (`hasActiveDescendants`) run on
@@ -1051,6 +1066,7 @@ counts and ancestry the write path has no reason to carry).
 | `FacilityRevisionMismatchException` | 412 | `If-Match` lost the race between the scope read on the query bus and the mutation's own transaction |
 | `FacilityAccessDeniedException` | 403 | Export endpoint: caller is inside the organization's scope but lacks `organization.facilities.read` |
 | `FacilityExportTooLargeException` | 422 | Export endpoint: the filters match more than `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) facilities |
+| `FacilityNotBuildingException` | 409 | 3D building model query: the requested facility's `type` is not `building`, mapped centrally in `api_platform.exception_to_status` (mirrors `FacilityAttachmentNotFloorPlanException`'s 409) |
 
 Every other domain exception in this module (facility hierarchy, archival
 dependents, code conflicts, …) is mapped locally by its processor/provider,
