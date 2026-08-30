@@ -103,6 +103,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $existing->longitude = $record->longitude;
       $existing->metadata = $record->metadata;
       $existing->planGeometry = $record->planGeometry;
+      $existing->levelIndex = $record->levelIndex;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);

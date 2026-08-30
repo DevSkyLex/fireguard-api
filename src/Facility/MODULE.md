@@ -519,6 +519,16 @@ Main fields:
   "Spatial zone geometry" section above)
 - `createdAt`, `updatedAt`
 
+> **Adding a scalar column here takes two edits, not one.** `FacilityRepository::save()` writes
+> a new row through `FacilityMapper::toRecord()`, but for an **existing** row it copies the
+> aggregate field by field onto the managed record. A field added to the mapper and forgotten in
+> that copy block persists on create and is **silently dropped on every update** — the PATCH
+> still echoes the value, because the response serializes the in-memory Result, so only a read
+> *after* a write exposes it. `levelIndex` shipped with exactly that hole; the regression test is
+> `FacilityApiTest::testPatchingLevelIndexSurvivesTheNextDetailRead`, which does POST → PATCH →
+> GET rather than trusting the PATCH body. The canonical surface is unaffected: it goes through
+> `CanonicalFacilityMapper::applyTo()`, a separate copy list.
+
 Aggregate:
 
 - `FacilityMetadataField` — an organization-defined typed metadata field

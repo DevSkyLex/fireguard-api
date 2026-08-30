@@ -266,6 +266,72 @@ final class FacilityApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testPatchingLevelIndexSurvivesTheNextDetailRead(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities',
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode(['type' => 'floor', 'name' => 'Mezzanine']),
+    );
+    self::assertSame(201, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $created = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($created);
+    self::assertIsString($created['id']);
+    $facilityId = $created['id'];
+
+    // Set it on an existing record: the create path writes a fresh row through
+    // the mapper, the update path copies field by field onto the managed one.
+    // Only a read AFTER a write can tell the two apart.
+    static::ensureKernelShutdown();
+    $patchClient = static::createClient();
+    $this->loginAs($patchClient, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $patchClient->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . $facilityId,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode(['levelIndex' => 4]),
+    );
+    self::assertSame(200, $patchClient->getResponse()->getStatusCode(), (string) $patchClient->getResponse()->getContent());
+    $patched = json_decode((string) $patchClient->getResponse()->getContent(), true);
+    self::assertIsArray($patched);
+    self::assertSame(4, $patched['levelIndex']);
+
+    static::ensureKernelShutdown();
+    $readClient = static::createClient();
+    $this->loginAs($readClient, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $readClient->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . $facilityId);
+    self::assertSame(200, $readClient->getResponse()->getStatusCode());
+    $reread = json_decode((string) $readClient->getResponse()->getContent(), true);
+    self::assertIsArray($reread);
+    self::assertSame(4, $reread['levelIndex'], 'A patched level index must survive persistence, not just echo back in the response.');
+
+    // And clearing it must reach the row too, not merely echo an omission.
+    static::ensureKernelShutdown();
+    $clearClient = static::createClient();
+    $this->loginAs($clearClient, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $clearClient->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . $facilityId,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode(['levelIndex' => null]),
+    );
+    self::assertSame(200, $clearClient->getResponse()->getStatusCode(), (string) $clearClient->getResponse()->getContent());
+
+    static::ensureKernelShutdown();
+    $finalClient = static::createClient();
+    $this->loginAs($finalClient, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $finalClient->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . $facilityId);
+    $cleared = json_decode((string) $finalClient->getResponse()->getContent(), true);
+    self::assertIsArray($cleared);
+    self::assertArrayNotHasKey('levelIndex', $cleared, 'A cleared level index is null, and API Platform omits a null DTO property.');
+  }
+
+  #[Test]
   public function testCreateFacilityPersistsLevelIndexAndReturnsItOnTheDetailAndInTheCollection(): void
   {
     $client = static::createClient();
