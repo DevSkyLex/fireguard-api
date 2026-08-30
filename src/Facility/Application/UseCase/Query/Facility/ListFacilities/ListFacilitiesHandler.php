@@ -120,6 +120,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
         latitude: $facility->coordinates()?->latitude(),
         longitude: $facility->coordinates()?->longitude(),
         equipmentCount: $equipmentCounts[(string) $facility->id()] ?? 0,
+        levelIndex: $facility->levelIndex(),
       );
     }
 

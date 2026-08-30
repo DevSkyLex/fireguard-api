@@ -132,6 +132,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
         address: $command->address,
         metadata: $command->metadata,
         coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
+        levelIndex: $command->levelIndex,
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
@@ -219,6 +220,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
       updatedAt: $facility->updatedAt(),
       latitude: $facility->coordinates()?->latitude(),
       longitude: $facility->coordinates()?->longitude(),
+      levelIndex: $facility->levelIndex(),
     );
   }
 

@@ -256,6 +256,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $output->latitude = $record->latitude;
     $output->longitude = $record->longitude;
     $output->metadata = $record->metadata;
+    $output->levelIndex = $record->levelIndex;
     if ($includeGeometry) {
       $output->planGeometry = $record->planGeometry;
     }

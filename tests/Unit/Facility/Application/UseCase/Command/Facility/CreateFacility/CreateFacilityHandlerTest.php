@@ -202,6 +202,81 @@ final class CreateFacilityHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeReturnsResultWithLevelIndex(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-4466554419f1');
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419f2';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($generatedId);
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'floor',
+      name: 'First Basement',
+      levelIndex: -1,
+    ));
+
+    self::assertSame(-1, $result->levelIndex);
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithNullLevelIndexWhenOmitted(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-4466554419f3');
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419f4';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($generatedId);
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'HQ Without Level Index',
+    ));
+
+    self::assertNull($result->levelIndex);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenLevelIndexIsOutOfRange(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419f5'));
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419f6',
+      type: 'floor',
+      name: 'Too Deep',
+      levelIndex: -101,
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenMetadataFailsTheOrganizationSchema(): void
   {
     /** @var FacilityRepositoryPort&MockObject $repository */

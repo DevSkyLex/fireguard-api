@@ -97,6 +97,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     $previousAddress = $facility->address();
     $previousCoordinates = $facility->coordinates();
     $previousMetadata = $facility->metadata();
+    $previousLevelIndex = $facility->levelIndex();
 
     try {
       if ($command->hasType) {
@@ -129,6 +130,10 @@ final readonly class UpdateFacilityHandler implements CommandHandler
 
       if ($command->hasMetadata) {
         $facility->changeMetadata($command->metadata ?? []);
+      }
+
+      if ($command->hasLevelIndex) {
+        $facility->changeLevelIndex($command->levelIndex);
       }
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
@@ -171,6 +176,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       $previousAddress,
       $previousCoordinates,
       $previousMetadata,
+      $previousLevelIndex,
     );
     if ([] !== $changedFields) {
       $this->eventDispatcher->dispatch(new FacilityUpdatedEvent(
@@ -194,6 +200,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       updatedAt: $facility->updatedAt(),
       latitude: $facility->coordinates()?->latitude(),
       longitude: $facility->coordinates()?->longitude(),
+      levelIndex: $facility->levelIndex(),
     );
   }
 
@@ -245,6 +252,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
    * @param ?string $previousAddress the address before mutation
    * @param ?FacilityCoordinates $previousCoordinates the coordinates before mutation
    * @param array<string, mixed> $previousMetadata the metadata before mutation
+   * @param ?int $previousLevelIndex the level index before mutation
    *
    * @return list<string> the changed field names
    */
@@ -256,6 +264,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     ?string $previousAddress,
     ?FacilityCoordinates $previousCoordinates,
     array $previousMetadata,
+    ?int $previousLevelIndex,
   ): array {
     $changed = [];
 
@@ -281,6 +290,10 @@ final readonly class UpdateFacilityHandler implements CommandHandler
 
     if ($previousMetadata !== $facility->metadata()) {
       $changed[] = 'metadata';
+    }
+
+    if ($previousLevelIndex !== $facility->levelIndex()) {
+      $changed[] = 'levelIndex';
     }
 
     return $changed;

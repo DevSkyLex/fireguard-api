@@ -28,6 +28,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_facility_organization_status_type', columns: ['organization_id', 'status', 'type'])]
 #[ORM\Index(name: 'idx_facility_organization_created_at', columns: ['organization_id', 'created_at'])]
 #[ORM\Index(name: 'idx_facility_intervention_record_status', columns: ['intervention_id', 'record_status'])]
+#[ORM\Index(name: 'idx_facility_parent_level', columns: ['parent_facility_id', 'level_index'])]
 #[ORM\UniqueConstraint(name: 'uniq_facility_organization_code', columns: ['organization_id', 'code'])]
 class FacilityRecord
 {
@@ -154,6 +155,14 @@ class FacilityRecord
    */
   #[ORM\Column(name: 'longitude', type: 'float', nullable: true)]
   public ?float $longitude = null;
+
+  /**
+   * Property levelIndex.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'level_index', type: 'integer', nullable: true)]
+  public ?int $levelIndex = null;
 
   /**
    * Property metadata.

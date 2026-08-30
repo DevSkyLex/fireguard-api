@@ -16,8 +16,9 @@ use Facility\Domain\ValueObject\{
   FacilityStatus,
   FacilityType
 };
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CanonicalFacilityTest.
@@ -331,6 +332,105 @@ final class CanonicalFacilityTest extends TestCase
 
     $this->facility()->applyPatch(new CanonicalFacilityPatch(hasType: true, type: 'nonsense'));
   }
+
+  /**
+   * Method testLevelIndexIsReportedAsItsOwnChangedFieldNotMergedWithCoordinates.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testLevelIndexIsReportedAsItsOwnChangedFieldNotMergedWithCoordinates(): void
+  {
+    $facility = $this->facility(levelIndex: 0);
+
+    $change = $facility->applyPatch(new CanonicalFacilityPatch(hasLevelIndex: true, levelIndex: 2));
+
+    self::assertSame(2, $facility->levelIndex());
+    self::assertSame(['levelIndex'], $change->changedFields);
+  }
+
+  /**
+   * Method testAnAbsentLevelIndexKeyLeavesItUnchanged.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnAbsentLevelIndexKeyLeavesItUnchanged(): void
+  {
+    $facility = $this->facility(levelIndex: 4);
+
+    $change = $facility->applyPatch(new CanonicalFacilityPatch(hasName: true, name: 'Renamed'));
+
+    self::assertSame(4, $facility->levelIndex());
+    self::assertSame(['name'], $change->changedFields);
+  }
+
+  /**
+   * Method testAnExplicitNullLevelIndexErasesIt.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnExplicitNullLevelIndexErasesIt(): void
+  {
+    $facility = $this->facility(levelIndex: 4);
+
+    $change = $facility->applyPatch(new CanonicalFacilityPatch(hasLevelIndex: true, levelIndex: null));
+
+    self::assertNull($facility->levelIndex());
+    self::assertSame(['levelIndex'], $change->changedFields);
+  }
+
+  /**
+   * Method testApplyPatchAcceptsLevelIndexAtTheBoundaries.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  #[DataProvider('provideBoundaryLevelIndexes')]
+  public function testApplyPatchAcceptsLevelIndexAtTheBoundaries(int $levelIndex): void
+  {
+    $facility = $this->facility();
+
+    $facility->applyPatch(new CanonicalFacilityPatch(hasLevelIndex: true, levelIndex: $levelIndex));
+
+    self::assertSame($levelIndex, $facility->levelIndex());
+  }
+
+  /**
+   * @return iterable<string, array{int}>
+   */
+  public static function provideBoundaryLevelIndexes(): iterable
+  {
+    yield 'lower bound' => [-100];
+    yield 'upper bound' => [200];
+  }
+
+  /**
+   * Method testApplyPatchRejectsLevelIndexOutOfRangeTheSameAsCreate.
+   *
+   * The PATCH path must not be able to bypass the domain bound.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  #[DataProvider('provideOutOfRangeLevelIndexes')]
+  public function testApplyPatchRejectsLevelIndexOutOfRangeTheSameAsCreate(int $levelIndex): void
+  {
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    $this->facility()->applyPatch(new CanonicalFacilityPatch(hasLevelIndex: true, levelIndex: $levelIndex));
+  }
+
+  /**
+   * @return iterable<string, array{int}>
+   */
+  public static function provideOutOfRangeLevelIndexes(): iterable
+  {
+    yield 'below lower bound' => [-101];
+    yield 'above upper bound' => [201];
+  }
   // #endregion
 
   // #region Tests — archive and revision
@@ -416,6 +516,7 @@ final class CanonicalFacilityTest extends TestCase
     ?string $address = null,
     ?float $latitude = null,
     ?float $longitude = null,
+    ?int $levelIndex = null,
   ): CanonicalFacility {
     return CanonicalFacility::reconstitute(
       id: FacilityId::fromString(self::FACILITY_ID),
@@ -433,6 +534,7 @@ final class CanonicalFacilityTest extends TestCase
       status: $status,
       revision: 3,
       updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      levelIndex: $levelIndex,
     );
   }
   // #endregion

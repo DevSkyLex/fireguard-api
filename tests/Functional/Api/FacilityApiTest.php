@@ -265,6 +265,83 @@ final class FacilityApiTest extends WebTestCase
     self::assertSame(201, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
   }
 
+  #[Test]
+  public function testCreateFacilityPersistsLevelIndexAndReturnsItOnTheDetailAndInTheCollection(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities',
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode([
+        'type' => 'floor',
+        'name' => 'First Basement',
+        'levelIndex' => -1,
+      ]),
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(201, $response->getStatusCode(), (string) $response->getContent());
+    $created = json_decode((string) $response->getContent(), true);
+    self::assertIsArray($created);
+    self::assertSame(-1, $created['levelIndex']);
+    self::assertIsString($created['id']);
+    $facilityId = $created['id'];
+
+    static::ensureKernelShutdown();
+    $detailClient = static::createClient();
+    $this->loginAs($detailClient, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $detailClient->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities/' . $facilityId);
+
+    self::assertSame(200, $detailClient->getResponse()->getStatusCode());
+    $detail = json_decode((string) $detailClient->getResponse()->getContent(), true);
+    self::assertIsArray($detail);
+    self::assertSame(-1, $detail['levelIndex'], 'The field must not be dropped on the detail read.');
+
+    static::ensureKernelShutdown();
+    $listClient = static::createClient();
+    $this->loginAs($listClient, self::ADMIN_USER_ID, 'facility-admin@example.com');
+    $listClient->request('GET', '/api/organizations/' . self::ORGANIZATION_ID . '/facilities?type=floor');
+
+    $members = $this->decodeCollection($listClient);
+    $match = null;
+    foreach ($members as $item) {
+      self::assertIsArray($item);
+      if ($facilityId === ($item['id'] ?? null)) {
+        $match = $item;
+      }
+    }
+
+    self::assertNotNull($match, 'The created facility must appear in the collection.');
+    self::assertSame(-1, $match['levelIndex'], 'The field must not be absent in the collection read.');
+  }
+
+  #[Test]
+  public function testCreateFacilityRejectsLevelIndexOutOfRange(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-admin@example.com');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . self::ORGANIZATION_ID . '/facilities',
+      server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode([
+        'type' => 'floor',
+        'name' => 'Too Deep',
+        'levelIndex' => -101,
+      ]),
+    );
+
+    self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+  }
+
   // #endregion
 
   // #region 403 — authenticated but not entitled

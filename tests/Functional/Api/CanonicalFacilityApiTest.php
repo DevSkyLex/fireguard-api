@@ -161,6 +161,78 @@ final class CanonicalFacilityApiTest extends WebTestCase
   }
 
   /**
+   * Method testPatchSetsLevelIndexAndReportsItInResponse.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testPatchSetsLevelIndexAndReportsItInResponse(): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'admin@example.com');
+
+    $client->request(
+      'PATCH',
+      '/api/facilities/' . self::CHILD_ID,
+      server: $this->headers(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"']),
+      content: (string) json_encode(['levelIndex' => -1]),
+    );
+
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $payload = $this->payload($client);
+    self::assertSame(-1, $payload['levelIndex']);
+    self::assertSame(2, $payload['revision']);
+  }
+
+  /**
+   * Method testPatchErasesALevelIndexSentAsNullAndKeepsAnAbsentField.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testPatchErasesALevelIndexSentAsNullAndKeepsAnAbsentField(): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'admin@example.com');
+
+    $client->request(
+      'PATCH',
+      '/api/facilities/' . self::CHILD_ID,
+      server: $this->headers(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"']),
+      content: (string) json_encode(['code' => null]),
+    );
+
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $payload = $this->payload($client);
+    self::assertNull($payload['code']);
+    self::assertNull($payload['levelIndex'], 'levelIndex was never sent — it must stay absent, not be erased alongside code.');
+  }
+
+  /**
+   * Method testALevelIndexOutOfRangeIsUnprocessable.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testALevelIndexOutOfRangeIsUnprocessable(): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'admin@example.com');
+
+    $client->request(
+      'PATCH',
+      '/api/facilities/' . self::CHILD_ID,
+      server: $this->headers(['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"']),
+      content: (string) json_encode(['levelIndex' => 201]),
+    );
+
+    self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+  }
+
+  /**
    * Method testAParentThatIsADescendantIsUnprocessable.
    *
    * @return void no return value

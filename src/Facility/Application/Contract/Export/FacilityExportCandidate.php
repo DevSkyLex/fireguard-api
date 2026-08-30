@@ -39,6 +39,7 @@ final readonly class FacilityExportCandidate
    * @param string $status the facility status
    * @param string $createdAt the creation date, ISO 8601
    * @param string $updatedAt the last update date, ISO 8601
+   * @param ?int $levelIndex the stacking order of the floor, if any (ground floor = 0, first basement = -1)
    */
   public function __construct(
     public string $id,
@@ -52,6 +53,7 @@ final readonly class FacilityExportCandidate
     public string $status,
     public string $createdAt,
     public string $updatedAt,
+    public ?int $levelIndex = null,
   ) {
   }
   // #endregion

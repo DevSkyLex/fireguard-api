@@ -91,8 +91,10 @@ bulk-import CSV back with this same header, so a file exported here can be
 re-imported unchanged. `parentCode` is the parent facility's own `code`, never
 its id, because the import side resolves a parent by `code`. Latitude/longitude
 are written as plain decimal strings (no locale formatting). Every column past
-`parentCode` (`id`, `status`, `createdAt`, `updatedAt`) is read-only export
-metadata the import side ignores.
+`parentCode` (`id`, `status`, `createdAt`, `updatedAt`, `levelIndex`) is read-only
+export metadata the import side ignores — which is why `levelIndex` was appended at
+the very end rather than slotted among the descriptive columns: inserting it into the
+first seven would silently break the bulk import round trip.
 `tests/Unit/Facility/Presentation/Api/Service/FacilityCsvWriterTest.php` freezes
 the first-seven-columns ordering.
 
@@ -444,6 +446,16 @@ Main fields:
 - `address` (optional)
 - `latitude` (optional, decimal degrees, range [-90, 90]; required together with `longitude`)
 - `longitude` (optional, decimal degrees, range [-180, 180]; required together with `latitude`)
+- `levelIndex` (optional, signed integer, range [-100, 200]) — stacking order of a floor
+  within its parent building: ground floor `0`, basement `-1`. Semantically meaningful on
+  `type: floor`, but accepted on every type: the hierarchy is homogeneous everywhere else and
+  this is not the place to introduce the first type-dependent constraint. **Duplicates between
+  sibling floors are tolerated** — no unique index, because a subtree move would produce
+  transient collisions; consumers order by `level_index ASC NULLS LAST, created_at ASC, id ASC`,
+  so unset levels stack after the ordered ones in creation order. The range is enforced in the
+  **domain** (`Facility::normalizeLevelIndex`, `CanonicalFacility::applyPatch`), not only by the
+  DTO's `Assert\Range` — the canonical PATCH surface cannot bypass it. Unlike `planGeometry`, it
+  is exposed on collections as well as on the detail read.
 - `metadata` (JSON object)
 - `planGeometry` (optional, `{attachmentId, points}`, Phase 4 — see the
   "Spatial zone geometry" section above)
@@ -467,6 +479,12 @@ Aggregate:
   physical column is `JSONB` (indexable, used by the plan-overlay CTE's
   `->>'attachmentId'` filter) while the ORM mapping stays the same `json`
   DBAL type as `metadata`.
+- Migration (level index): `migrations/main/Version20260830141438.php` —
+  `level_index INT NULL` plus the composite index `idx_facility_parent_level
+  (parent_facility_id, level_index)`, which the floor ordering reads. The index is not
+  Doctrine-diffable, so it is hand-written in the migration **and** declared as an
+  `#[ORM\Index]` on `FacilityRecord`; without the attribute `doctrine:schema:validate`
+  reports it as untracked drift forever.
 - Repository: `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository`
 - Table: `facility_attachments` (main database) — `facility_id` FK `ON DELETE
   CASCADE`, unique `storage_path`, `revision` (ETag optimistic concurrency,

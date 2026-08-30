@@ -163,6 +163,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
         longitude: $data->longitude,
         metadata: $data->metadata,
         resourceId: $resourceId,
+        levelIndex: $data->levelIndex,
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
@@ -211,6 +212,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->latitude = $result->latitude;
     $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
+    $output->levelIndex = $result->levelIndex;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
     $assignment = $this->attachToIntervention($result->facilityId, $organizationId, $data->intervention, $data->clientId);

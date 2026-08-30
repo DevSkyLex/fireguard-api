@@ -88,4 +88,12 @@ final class PatchCanonicalFacilityInput
    * @since 1.0.0
    */
   public ?string $parent = null;
+
+  /**
+   * Property levelIndex.
+   *
+   * @since 1.3.0
+   */
+  #[Assert\Range(min: -100, max: 200)]
+  public ?int $levelIndex = null;
 }
