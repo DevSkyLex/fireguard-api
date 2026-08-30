@@ -16,7 +16,7 @@ use Facility\Presentation\Api\Dto\Input\Facility\{
   SetFacilityPlanGeometryInput,
   UpdateFacilityInput
 };
-use Facility\Presentation\Api\Dto\Output\Facility\{FacilityOutput, FacilityPlanOverlayOutput, GeocodeAddressOutput};
+use Facility\Presentation\Api\Dto\Output\Facility\{FacilityBuildingModelOutput, FacilityOutput, FacilityPlanOverlayOutput, GeocodeAddressOutput};
 use Facility\Presentation\Api\Operation\FacilityOperations;
 use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
@@ -28,6 +28,7 @@ use Facility\Presentation\Api\Processor\Facility\{
   UpdateFacilityProcessor
 };
 use Facility\Presentation\Api\Provider\Facility\{
+  FacilityBuildingModelProvider,
   FacilityPlanOverlayProvider,
   GeocodeAddressProvider,
   GetFacilityProvider,
@@ -497,6 +498,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::GET_FACILITY_BUILDING_MODEL,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/building-model',
+      output: FacilityBuildingModelOutput::class,
+      provider: FacilityBuildingModelProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Get facility 3D building model',
+        description: 'Assembles, for a `building` facility, the ordered stack of floors a 3D viewer extrudes — each floor\'s outline and its rooms. A building with no floors, a floor with no primary plan, or a floor with no room are all valid "200" shapes, never errors.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Building model retrieved'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Facility is not a building'),
         ],
       ),
     ),

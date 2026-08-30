@@ -11,6 +11,7 @@ use Facility\Domain\ValueObject\{
   CanonicalFacilityParent,
   CanonicalFacilityPatch,
   FacilityId,
+  FacilityLevelIndex,
   FacilityOrganizationId,
   FacilityRecordStatus,
   FacilityStatus,
@@ -49,22 +50,6 @@ use function trim;
  */
 final class CanonicalFacility
 {
-  // #region Constants
-  /**
-   * The lowest legal stacking order for a floor.
-   *
-   * @since 1.0.0
-   */
-  private const int MIN_LEVEL_INDEX = -100;
-
-  /**
-   * The highest legal stacking order for a floor.
-   *
-   * @since 1.0.0
-   */
-  private const int MAX_LEVEL_INDEX = 200;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.
@@ -570,8 +555,9 @@ final class CanonicalFacility
   /**
    * Method normalizeLevelIndex.
    *
-   * Enforces the -100..200 stacking-order bound in the domain — the PATCH
-   * path must not be able to bypass it.
+   * Delegates to {@see FacilityLevelIndex::normalize()} so the flat PATCH
+   * surface enforces exactly the bound `Facility` enforces, from one
+   * declaration rather than a copy that could drift.
    *
    * @since 1.0.0
    *
@@ -579,15 +565,7 @@ final class CanonicalFacility
    */
   private static function normalizeLevelIndex(?int $levelIndex): ?int
   {
-    if (null === $levelIndex) {
-      return null;
-    }
-
-    if ($levelIndex < self::MIN_LEVEL_INDEX || $levelIndex > self::MAX_LEVEL_INDEX) {
-      throw InvalidValueException::because('Facility level index must be between -100 and 200.');
-    }
-
-    return $levelIndex;
+    return FacilityLevelIndex::normalize($levelIndex);
   }
   // #endregion
 }

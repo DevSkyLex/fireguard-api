@@ -28,6 +28,7 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
 | PUT | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry` | Set or clear this facility's plan geometry (Phase 4) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan, every self-or-descendant zone bound to it, and every equipment item pinned on it (Phase 4, equipment additive — see Equipment's MODULE.md) |
+| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/building-model` | Read the ordered stack of floors (outline + rooms) a 3D viewer extrudes for a `building` facility (A3) |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/duplicate` | Duplicate a facility and its full subtree into a new branch |
 | GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
 | GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
@@ -317,6 +318,63 @@ the port, Equipment's Infrastructure supplies the data). See
 `EquipmentFloorPlanValidationPort` this module implements in the other
 direction.
 
+**Read — `GET /organizations/{organizationId}/facilities/{facilityId}/building-model`
+(A3).** For a `building` facility, assembles the ordered stack of floors a 3D
+viewer extrudes: `{buildingId, buildingName, floors: [{facilityId, name,
+levelIndex, status, plan, outline, rooms}]}`. `FacilityNotFoundException`
+(unknown facility, or one belonging to another organization — same message,
+no oracle) is **404**; `FacilityNotBuildingException` (the target facility's
+`type` is not `building`) is **409**. Both are mapped centrally
+(`config/packages/api_platform.yaml`); `FacilityBuildingModelProvider` holds
+no try/catch — it only resolves the `organization.facilities.read` gate
+through `OrganizationAuthorizationPort::resolveAccess()`, dispatches
+`GetFacilityBuildingModelQuery`, and maps the Result.
+
+Nothing beyond 403/404/409 is an error. A building with no floors answers
+`200` with `floors: []`; a floor with no primary plan answers `plan: null`;
+a floor with no room answers `rooms: []`.
+
+Each floor's `outline` follows a strict cascade, recorded in `source`:
+
+1. `plan_geometry` — the floor's own `planGeometry`, only when it is
+   expressed in the floor's own primary-plan coordinate space (an
+   ancestor's plan is a different frame and unusable here);
+2. `rooms_bbox` — the axis-aligned bounding box of the floor's retained
+   rooms;
+3. `image_rect` — the unit rectangle `[[0,0],[1,0],[1,1],[0,1]]`, only when
+   the floor has a primary plan but no room to bound it;
+4. `null` — none of the above applies.
+
+`rooms` keeps geometric leaves only: among a floor's rooms, one nested
+inside another room on the *same floor* (an `area` inside a `zone`) is
+dropped, so a 3D view never receives two overlapping volumes. The kept
+shape is byte-for-byte `GetFacilityPlanOverlayResult::$zones`
+(`facilityId, name, type, status, points`) — the frontend reuses the same
+TypeScript models for both endpoints. All of this lives in
+`GetFacilityBuildingModelHandler`, over `FacilityRepositoryPort`'s
+`findBuildingFloors()`/`findRoomsForFloors()`; no new port was needed.
+
+**Two costs of the plain-array output, both deliberate.** `floors` is a single
+array-typed property on `FacilityBuildingModelOutput`, mirroring how
+`FacilityPlanOverlayOutput` carries `zones`/`equipment`, rather than a list of
+nested DTOs. That choice buys symmetry between the two endpoints and pays for
+it twice:
+
+- **The generated OpenAPI describes `floors` as an opaque array of objects.**
+  Field names, the `outline.source` enum, and the `plan`/`rooms` sub-shapes are
+  absent from the published schema — a codegen client gets no types here. The
+  frontend hand-writes its mirrors under `models/` and `/fg-contract-check`
+  guards the drift, so the practical cost is low; but this is now the second
+  endpoint paying it, and a third would read as settled precedent. Revisit with
+  real sub-DTOs if either payload gains a consumer that reads only the schema.
+- **Nested nulls are emitted, not omitted.** API Platform drops a null *DTO
+  property* — which is why `FacilityOutput.planGeometry` arrives `undefined` on
+  a collection read — but that rule does not reach inside an array-typed
+  property. `plan: null`, `outline: null` and `levelIndex: null` therefore ship
+  explicitly. Preferable for a client that would otherwise have to tell an
+  absent key from a null one, and worth knowing before assuming the omission
+  convention holds everywhere.
+
 ### Metadata schema (organization-defined typed fields)
 
 | Method | Path | Description |
@@ -567,7 +625,7 @@ Cross-module contracts and lifecycle invariants:
   `Application\Contract\`, staying inside the cross-module boundary rule.
   Facility's own `FacilityAttachmentNotAncestorException` (Domain) is caught
   in the adapter and translated to the contract type at the boundary.
-- **3D building model (A2, query only — no endpoint yet, that is A3)**:
+- **3D building model**:
   `Application/UseCase/Query/Facility/GetFacilityBuildingModel/GetFacilityBuildingModelHandler`
   assembles a building's ordered floor stack for a 3D viewer to extrude,
   entirely from `FacilityRepositoryPort::findBuildingFloors()` /
