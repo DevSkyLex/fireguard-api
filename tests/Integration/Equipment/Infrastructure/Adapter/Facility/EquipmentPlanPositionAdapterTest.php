@@ -117,7 +117,12 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
 
     self::assertCount(1, $items);
     self::assertSame('771e8400-e29b-41d4-a716-4466552b0010', $items[0]['equipmentId']);
-    self::assertSame('fire_extinguisher (SN-1)', $items[0]['name']);
+    // The identity travels in parts, never as a label composed here: the raw
+    // enum is untranslatable once it reaches a client, which is exactly what
+    // the composed form used to force on it.
+    self::assertSame('fire_extinguisher', $items[0]['type']);
+    self::assertSame('SN-1', $items[0]['serialNumber']);
+    self::assertArrayNotHasKey('name', $items[0]);
     self::assertSame('operational', $items[0]['status']);
     self::assertSame(0.42, $items[0]['x']);
     self::assertSame(0.17, $items[0]['y']);
@@ -130,7 +135,7 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
   }
 
   #[Test]
-  public function testFindEquipmentPlacedOnPlanFallsBackToTypeWhenNoSerialNumber(): void
+  public function testFindEquipmentPlacedOnPlanReportsANullSerialNumberRatherThanOmittingIt(): void
   {
     $this->createEquipment(
       '771e8400-e29b-41d4-a716-4466552b0020',
@@ -147,7 +152,8 @@ final class EquipmentPlanPositionAdapterTest extends KernelTestCase
     $items = $this->adapter->findEquipmentPlacedOnPlan(self::ORGANIZATION_ID, self::ATTACHMENT_ID);
 
     self::assertCount(1, $items);
-    self::assertSame('hydrant', $items[0]['name']);
+    self::assertSame('hydrant', $items[0]['type']);
+    self::assertNull($items[0]['serialNumber']);
   }
 
   private function createOrganization(string $id, string $name, string $slug): void

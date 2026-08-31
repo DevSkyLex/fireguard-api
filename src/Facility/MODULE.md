@@ -305,14 +305,21 @@ recursive CTE joined with a `plan_geometry ->> 'attachmentId'` filter
 (`FacilityRepositoryPort::findZonesForPlanAttachment()`), never a
 descendants query followed by N geometry reads. An explicit `attachmentId`
 still goes through the same kind and ancestry checks as the write path. The
-Output DTO additionally carries `equipment: [{equipmentId, name, status, x,
-y}]` — every equipment item, scoped to the organization, whose
+Output DTO additionally carries `equipment: [{equipmentId, type, serialNumber,
+locationLabel, status, x, y}]` — every equipment item, scoped to the
+organization, whose
 `Equipment\Domain\ValueObject\PlanPosition` references the same attachment,
 resolved cross-module through
 `Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort`
 (implemented by `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter`,
 mirroring `FacilityEquipmentDependencyPort`'s direction — Facility declares
-the port, Equipment's Infrastructure supplies the data). See
+the port, Equipment's Infrastructure supplies the data). **The identity travels in parts, not as a label.** Equipment has no name
+field, so this endpoint used to compose one and sent
+`"gas_detector (SEED-GAS-003)"` — a raw enum value a client can only print
+verbatim, in English, underscore included. Naming the thing belongs to the
+client: it owns the translated type catalogue and it alone knows the user's
+locale. `locationLabel` is the operator's own words for where the item sits
+and is usually the best label of the three. See
 `src/Equipment/MODULE.md` for the write side
 (`PUT .../equipment/{id}/plan-position`) and the
 `EquipmentFloorPlanValidationPort` this module implements in the other

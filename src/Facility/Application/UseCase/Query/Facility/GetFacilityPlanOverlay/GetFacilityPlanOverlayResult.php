@@ -28,7 +28,7 @@ final readonly class GetFacilityPlanOverlayResult implements ResultMessage
    * @since 1.0.0
    *
    * @param list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}> $zones the matching zones
-   * @param list<array{equipmentId: string, name: string, status: string, x: float, y: float}> $equipment the equipment pinned on this plan
+   * @param list<array{equipmentId: string, type: string, serialNumber: string|null, locationLabel: string|null, status: string, x: float, y: float}> $equipment the equipment pinned on this plan
    */
   public function __construct(
     public string $attachmentId,
