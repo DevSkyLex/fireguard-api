@@ -979,6 +979,22 @@ weigh nothing, and their `width`/`height` attributes are exactly what
 document seeds, whose bytes nothing reads and which therefore keep a
 placeholder path and no file at all.
 
+**Seed from inside the container when the bytes matter.** `compose.yaml` mounts
+`app_var` — a *named volume* — over `/var/www/html/var`, so the host's `var/`
+and the container's are two different filesystems. `make seed-fixtures` runs on
+the host, which is fine for rows but writes the plan images somewhere the API
+will never look: the download endpoint answers **404** and the plan viewer
+spins forever on an image that exists, on the wrong disk. Seed the files where
+the app reads them:
+
+```bash
+make seed-fixtures-docker
+```
+
+The symptom is worth recognizing because it looks like a frontend fault: the
+attachment row is right there in the database, its dimensions are right, and
+the viewer still shows nothing.
+
 **A fixture that another fixture depends on cannot take a constructor
 argument.** Doctrine's `Loader::addFixture()` resolves each declared dependency
 through `createFixture()`, a bare `new $class()`, and it does so *before*
