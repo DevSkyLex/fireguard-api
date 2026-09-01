@@ -73,6 +73,7 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
         updatedAt: $child->updatedAt(),
         hasChildren: ($childCounts[(string) $child->id()] ?? 0) > 0,
         equipmentCount: $equipmentCounts[(string) $child->id()] ?? 0,
+        levelIndex: $child->levelIndex(),
       );
     }
 

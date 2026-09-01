@@ -63,6 +63,7 @@ final class FacilityMapper
         ? new FacilityCoordinates($record->latitude, $record->longitude)
         : null,
       planGeometry: null !== $record->planGeometry ? PlanGeometry::fromArray($record->planGeometry) : null,
+      levelIndex: $record->levelIndex,
     );
   }
 
@@ -90,6 +91,7 @@ final class FacilityMapper
     $record->longitude = $facility->coordinates()?->longitude();
     $record->metadata = $facility->metadata();
     $record->planGeometry = $facility->planGeometry()?->toArray();
+    $record->levelIndex = $facility->levelIndex();
     $record->createdAt = $facility->createdAt();
     $record->updatedAt = $facility->updatedAt();
 

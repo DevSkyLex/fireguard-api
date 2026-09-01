@@ -58,6 +58,7 @@ final class FacilityCsvWriter
     'status',
     'createdAt',
     'updatedAt',
+    'levelIndex',
   ];
   // #endregion
 
@@ -109,6 +110,7 @@ final class FacilityCsvWriter
       $row->status,
       $row->createdAt,
       $row->updatedAt,
+      null === $row->levelIndex ? '' : (string) $row->levelIndex,
     ];
   }
   // #endregion

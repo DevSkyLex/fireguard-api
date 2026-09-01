@@ -332,6 +332,8 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
       status: $command->status,
       hasParent: $command->hasParent,
       parentFacilityId: $command->parentFacilityId,
+      hasLevelIndex: $command->hasLevelIndex,
+      levelIndex: $command->levelIndex,
     );
   }
 

@@ -16,6 +16,7 @@ use Facility\Domain\ValueObject\{
   FacilityStatus,
   FacilityType
 };
+use Shared\Domain\Exception\InvalidValueException;
 
 use function trim;
 
@@ -48,6 +49,22 @@ use function trim;
  */
 final class CanonicalFacility
 {
+  // #region Constants
+  /**
+   * The lowest legal stacking order for a floor.
+   *
+   * @since 1.0.0
+   */
+  private const int MIN_LEVEL_INDEX = -100;
+
+  /**
+   * The highest legal stacking order for a floor.
+   *
+   * @since 1.0.0
+   */
+  private const int MAX_LEVEL_INDEX = 200;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -69,6 +86,7 @@ final class CanonicalFacility
    * @param FacilityStatus $status the facility lifecycle status
    * @param int $revision the optimistic-concurrency revision
    * @param DateTimeImmutable $updatedAt the last mutation timestamp
+   * @param ?int $levelIndex the stacking order of the floor (ground floor = 0, first basement = -1)
    */
   private function __construct(
     private FacilityId $id,
@@ -86,6 +104,7 @@ final class CanonicalFacility
     private FacilityStatus $status,
     private int $revision,
     private DateTimeImmutable $updatedAt,
+    private ?int $levelIndex = null,
   ) {
   }
   // #endregion
@@ -115,6 +134,7 @@ final class CanonicalFacility
    * @param FacilityStatus $status the facility lifecycle status
    * @param int $revision the optimistic-concurrency revision
    * @param DateTimeImmutable $updatedAt the last mutation timestamp
+   * @param ?int $levelIndex the stacking order of the floor (ground floor = 0, first basement = -1)
    *
    * @return self the reconstituted canonical facility
    */
@@ -134,6 +154,7 @@ final class CanonicalFacility
     FacilityStatus $status,
     int $revision,
     DateTimeImmutable $updatedAt,
+    ?int $levelIndex = null,
   ): self {
     return new self(
       id: $id,
@@ -151,6 +172,7 @@ final class CanonicalFacility
       status: $status,
       revision: $revision,
       updatedAt: $updatedAt,
+      levelIndex: self::normalizeLevelIndex($levelIndex),
     );
   }
 
@@ -184,6 +206,7 @@ final class CanonicalFacility
       'latitude' => $this->latitude,
       'longitude' => $this->longitude,
       'metadata' => $this->metadata,
+      'levelIndex' => $this->levelIndex,
     ];
 
     if ($patch->hasType && null !== $patch->type) {
@@ -210,6 +233,10 @@ final class CanonicalFacility
 
     if ($patch->hasMetadata) {
       $this->metadata = $patch->metadata ?? [];
+    }
+
+    if ($patch->hasLevelIndex) {
+      $this->levelIndex = self::normalizeLevelIndex($patch->levelIndex);
     }
 
     if ($patch->hasStatus && null !== $patch->status) {
@@ -245,7 +272,7 @@ final class CanonicalFacility
     }
 
     $changedFields = [];
-    foreach (['type', 'name', 'code', 'address'] as $field) {
+    foreach (['type', 'name', 'code', 'address', 'levelIndex'] as $field) {
       if ($previous[$field] !== $this->{$field}) {
         $changedFields[] = $field;
       }
@@ -501,6 +528,16 @@ final class CanonicalFacility
   }
 
   /**
+   * Method levelIndex.
+   *
+   * @since 1.0.0
+   */
+  public function levelIndex(): ?int
+  {
+    return $this->levelIndex;
+  }
+
+  /**
    * Method status.
    *
    * @since 1.0.0
@@ -528,6 +565,29 @@ final class CanonicalFacility
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  /**
+   * Method normalizeLevelIndex.
+   *
+   * Enforces the -100..200 stacking-order bound in the domain — the PATCH
+   * path must not be able to bypass it.
+   *
+   * @since 1.0.0
+   *
+   * @throws InvalidValueException when the level index is out of range
+   */
+  private static function normalizeLevelIndex(?int $levelIndex): ?int
+  {
+    if (null === $levelIndex) {
+      return null;
+    }
+
+    if ($levelIndex < self::MIN_LEVEL_INDEX || $levelIndex > self::MAX_LEVEL_INDEX) {
+      throw InvalidValueException::because('Facility level index must be between -100 and 200.');
+    }
+
+    return $levelIndex;
   }
   // #endregion
 }

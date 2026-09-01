@@ -168,6 +168,19 @@ final class FacilityOutput
   public array $metadata = [];
 
   /**
+   * Property levelIndex.
+   *
+   * Stacking order of the floor (ground floor = 0, first basement = -1).
+   * Nullable, optional everywhere, duplicates tolerated. Readable on both the
+   * detail and collection reads, unlike {@see FacilityOutput::$planGeometry}.
+   *
+   * @since 1.3.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Optional stacking order of the floor (ground floor = 0, first basement = -1)')]
+  public ?int $levelIndex = null;
+
+  /**
    * Property planGeometry.
    *
    * Optional spatial geometry `{attachmentId, points}` binding this facility

@@ -61,6 +61,8 @@ final readonly class CanonicalFacilityPatch
    * @param ?string $status the requested status
    * @param bool $hasParent whether the `parent` key was present
    * @param ?string $parentFacilityId the resolved parent identifier, null detaching it
+   * @param bool $hasLevelIndex whether the `levelIndex` key was present
+   * @param ?int $levelIndex the requested stacking order, null erasing it
    */
   public function __construct(
     public bool $hasType = false,
@@ -81,6 +83,8 @@ final readonly class CanonicalFacilityPatch
     public ?string $status = null,
     public bool $hasParent = false,
     public ?string $parentFacilityId = null,
+    public bool $hasLevelIndex = false,
+    public ?int $levelIndex = null,
   ) {
   }
   // #endregion

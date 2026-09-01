@@ -86,4 +86,60 @@ final class FacilityCsvWriterTest extends TestCase
     self::assertStringContainsString('building,"Main Building",BLD-1,"1 Rue de Paris",48.8566,2.3522,SITE-1', $csv);
     self::assertStringContainsString('site,"Main Site",,,,,,facility-2,active', $csv);
   }
+
+  #[Test]
+  public function testHeaderEndsWithLevelIndexAfterTheFrozenImportContract(): void
+  {
+    self::assertSame(
+      ['parentCode', 'id', 'status', 'createdAt', 'updatedAt', 'levelIndex'],
+      array_slice(FacilityCsvWriter::HEADER, 6),
+      'levelIndex is a new trailing column — it must never be inserted before the frozen import prefix.',
+    );
+  }
+
+  #[Test]
+  public function testWriteFormatsLevelIndexAsAPlainIntegerStringAndFallsBackToEmptyForNull(): void
+  {
+    $writer = new FacilityCsvWriter();
+
+    $rowWithLevelIndex = new FacilityExportRow(
+      id: 'facility-3',
+      type: 'floor',
+      name: 'First Basement',
+      code: null,
+      address: null,
+      latitude: null,
+      longitude: null,
+      parentCode: null,
+      status: 'active',
+      createdAt: '2026-08-01T00:00:00+00:00',
+      updatedAt: '2026-08-02T00:00:00+00:00',
+      levelIndex: -1,
+    );
+    $rowWithoutLevelIndex = new FacilityExportRow(
+      id: 'facility-4',
+      type: 'site',
+      name: 'Ground Site',
+      code: null,
+      address: null,
+      latitude: null,
+      longitude: null,
+      parentCode: null,
+      status: 'active',
+      createdAt: '2026-08-01T00:00:00+00:00',
+      updatedAt: '2026-08-02T00:00:00+00:00',
+      levelIndex: null,
+    );
+
+    $handle = fopen('php://memory', 'w+');
+    self::assertNotFalse($handle);
+
+    $writer->write([$rowWithLevelIndex, $rowWithoutLevelIndex], $handle);
+    rewind($handle);
+    $csv = (string) stream_get_contents($handle);
+    fclose($handle);
+
+    self::assertStringContainsString('facility-3,active,2026-08-01T00:00:00+00:00,2026-08-02T00:00:00+00:00,-1', $csv);
+    self::assertStringContainsString('facility-4,active,2026-08-01T00:00:00+00:00,2026-08-02T00:00:00+00:00,' . "\n", $csv);
+  }
 }

@@ -8,9 +8,10 @@ use DateTimeImmutable;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function str_repeat;
 
@@ -343,6 +344,109 @@ final class FacilityTest extends TestCase
 
     self::assertSame([], $normalize->invoke(null, 'not-an-array'));
     self::assertSame([], $normalize->invoke(null, null));
+  }
+
+  #[Test]
+  public function testCreateAcceptsNullLevelIndex(): void
+  {
+    $facility = $this->makeActiveFacility();
+
+    self::assertNull($facility->levelIndex());
+  }
+
+  #[Test]
+  #[DataProvider('provideBoundaryLevelIndexes')]
+  public function testCreateAcceptsLevelIndexAtTheBoundaries(int $levelIndex): void
+  {
+    $facility = Facility::create(
+      id: $this->id,
+      organizationId: $this->organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor'),
+      levelIndex: $levelIndex,
+    );
+
+    self::assertSame($levelIndex, $facility->levelIndex());
+  }
+
+  /**
+   * @return iterable<string, array{int}>
+   */
+  public static function provideBoundaryLevelIndexes(): iterable
+  {
+    yield 'lower bound' => [-100];
+    yield 'upper bound' => [200];
+    yield 'ground floor' => [0];
+    yield 'first basement' => [-1];
+  }
+
+  #[Test]
+  #[DataProvider('provideOutOfRangeLevelIndexes')]
+  public function testCreateRejectsLevelIndexOutOfRange(int $levelIndex): void
+  {
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    Facility::create(
+      id: $this->id,
+      organizationId: $this->organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor'),
+      levelIndex: $levelIndex,
+    );
+  }
+
+  /**
+   * @return iterable<string, array{int}>
+   */
+  public static function provideOutOfRangeLevelIndexes(): iterable
+  {
+    yield 'below lower bound' => [-101];
+    yield 'above upper bound' => [201];
+  }
+
+  #[Test]
+  public function testReconstituteRejectsLevelIndexOutOfRange(): void
+  {
+    $now = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    Facility::reconstitute(
+      id: $this->id,
+      organizationId: $this->organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor'),
+      status: FacilityStatus::ACTIVE,
+      createdAt: $now,
+      updatedAt: $now,
+      levelIndex: -101,
+    );
+  }
+
+  #[Test]
+  public function testChangeLevelIndexUpdatesValue(): void
+  {
+    $facility = $this->makeActiveFacility();
+
+    $facility->changeLevelIndex(3);
+    self::assertSame(3, $facility->levelIndex());
+
+    $facility->changeLevelIndex(null);
+    self::assertNull($facility->levelIndex());
+  }
+
+  #[Test]
+  #[DataProvider('provideOutOfRangeLevelIndexes')]
+  public function testChangeLevelIndexRejectsOutOfRangeValue(int $levelIndex): void
+  {
+    $facility = $this->makeActiveFacility();
+
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    $facility->changeLevelIndex($levelIndex);
   }
 
   private function makeActiveFacility(): Facility

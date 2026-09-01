@@ -217,6 +217,63 @@ final class CreateFacilityProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessPassesLevelIndexThroughToCommandAndOutput(): void
+  {
+    $input = new CreateFacilityInput();
+    $input->type = 'floor';
+    $input->name = 'First Basement';
+    $input->levelIndex = -1;
+
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655442010');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (CreateFacilityCommand $command): bool => -1 === $command->levelIndex))
+      ->willReturn(new CreateFacilityResult(
+        facilityId: '550e8400-e29b-41d4-a716-446655442011',
+        organizationId: '550e8400-e29b-41d4-a716-446655442012',
+        parentFacilityId: null,
+        type: 'floor',
+        name: 'First Basement',
+        code: null,
+        status: 'active',
+        address: null,
+        metadata: [],
+        createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
+        levelIndex: -1,
+      ));
+
+    $processor = new CreateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655442012'],
+    );
+
+    self::assertInstanceOf(FacilityOutput::class, $output);
+    self::assertSame(-1, $output->levelIndex);
+  }
+
+  #[Test]
   public function testProcessThrowsWhenNotAuthenticated(): void
   {
     $security = $this->createStub(Security::class);

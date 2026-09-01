@@ -52,6 +52,8 @@ final readonly class PatchCanonicalFacilityCommand implements CommandMessage
     public ?string $status = null,
     public bool $hasParent = false,
     public ?string $parentFacilityId = null,
+    public bool $hasLevelIndex = false,
+    public ?int $levelIndex = null,
   ) {
   }
   // #endregion

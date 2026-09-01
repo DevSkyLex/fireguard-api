@@ -34,6 +34,7 @@ final readonly class GetFacilityResult implements ResultMessage
    * @param ?array{attachmentId: string, points: list<array{0: float, 1: float}>} $planGeometry the optional spatial
    *                                                                                            geometry, populated
    *                                                                                            on detail reads only
+   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    */
   public function __construct(
     public string $facilityId,
@@ -53,6 +54,7 @@ final readonly class GetFacilityResult implements ResultMessage
     public int $equipmentCount = 0,
     public array $path = [],
     public ?array $planGeometry = null,
+    public ?int $levelIndex = null,
   ) {
   }
   // #endregion

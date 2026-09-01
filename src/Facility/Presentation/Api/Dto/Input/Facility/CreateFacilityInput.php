@@ -136,5 +136,15 @@ final class CreateFacilityInput
   #[Groups([FacilitySerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional free-form metadata', required: false, example: ['country' => 'FR', 'timezone' => 'Europe/Paris'])]
   public array $metadata = [];
+
+  /**
+   * Property levelIndex.
+   *
+   * @since 1.3.0
+   */
+  #[Assert\Range(min: -100, max: 200)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional stacking order of the floor (ground floor = 0, first basement = -1)', required: false, example: 0)]
+  public ?int $levelIndex = null;
   // #endregion
 }

@@ -166,6 +166,7 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
       status: $facility->status()->value,
       createdAt: $facility->createdAt()->format('c'),
       updatedAt: $facility->updatedAt()->format('c'),
+      levelIndex: $facility->levelIndex(),
     ), $facilities);
 
     $parentIds = $this->uniqueIds($candidates, static fn (FacilityExportCandidate $candidate): ?string => $candidate->parentFacilityId);
@@ -184,6 +185,7 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
         status: $candidate->status,
         createdAt: $candidate->createdAt,
         updatedAt: $candidate->updatedAt,
+        levelIndex: $candidate->levelIndex,
       ),
       $candidates,
     );

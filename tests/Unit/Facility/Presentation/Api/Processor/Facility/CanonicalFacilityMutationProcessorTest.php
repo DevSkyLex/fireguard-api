@@ -353,6 +353,74 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   }
 
   /**
+   * Method testAnAbsentLevelIndexKeyAndAnExplicitNullAreNotTheSameCommand.
+   *
+   * Mirrors {@see self::testAnAbsentKeyAndAnExplicitNullAreNotTheSameCommand}
+   * for `levelIndex`: this processor's sentinel is `PATCHABLE_FIELDS` plus
+   * `MergePatchFields`, a distinct mechanism from `UpdateFacilityProcessor`'s
+   * `array_key_exists`.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnAbsentLevelIndexKeyAndAnExplicitNullAreNotTheSameCommand(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+
+    $this->processor($this->request('PATCH', '{"levelIndex":null}'), commandBus: $commandBus)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalFacilityCommand::class, $command);
+    self::assertTrue($command->hasLevelIndex);
+    self::assertNull($command->levelIndex);
+    self::assertFalse($command->hasName);
+    self::assertFalse($command->hasCode);
+  }
+
+  /**
+   * Method testAnAbsentLevelIndexKeyIsNotForwarded.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnAbsentLevelIndexKeyIsNotForwarded(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->name = 'Renamed site';
+
+    $this->processor($this->request('PATCH', '{"name":"Renamed site"}'), commandBus: $commandBus)
+      ->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalFacilityCommand::class, $command);
+    self::assertFalse($command->hasLevelIndex);
+  }
+
+  /**
+   * Method testPatchForwardsTheSubmittedLevelIndex.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testPatchForwardsTheSubmittedLevelIndex(): void
+  {
+    $commandBus = $this->recordingCommandBus();
+    $input = new PatchCanonicalFacilityInput();
+    $input->levelIndex = -1;
+
+    $this->processor($this->request('PATCH', '{"levelIndex":-1}'), commandBus: $commandBus)
+      ->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    $command = $commandBus->dispatched[0];
+    self::assertInstanceOf(PatchCanonicalFacilityCommand::class, $command);
+    self::assertTrue($command->hasLevelIndex);
+    self::assertSame(-1, $command->levelIndex);
+  }
+
+  /**
    * Method testPatchForwardsTheSubmittedValuesAndTheStoredRevision.
    *
    * @return void no return value
