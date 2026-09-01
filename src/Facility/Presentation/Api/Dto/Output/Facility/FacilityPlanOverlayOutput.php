@@ -67,9 +67,16 @@ final class FacilityPlanOverlayOutput
    * Every equipment item pinned on this plan attachment, resolved
    * cross-module through the Equipment module.
    *
-   * @since 1.1.0
+   * Carries the item's identity in **parts** — `type` as its raw enum value,
+   * plus the optional `serialNumber` and `locationLabel` — rather than a
+   * label composed here. Equipment has no name field, so this endpoint used
+   * to send `"gas_detector (SEED-GAS-003)"`, an untranslated enum the client
+   * could only print verbatim. Composing a label is the client's job: it owns
+   * the translated type catalogue, and it alone knows the user's locale.
    *
-   * @var list<array{equipmentId: string, name: string, status: string, x: float, y: float}>
+   * @since 1.2.0
+   *
+   * @var list<array{equipmentId: string, type: string, serialNumber: string|null, locationLabel: string|null, status: string, x: float, y: float}>
    */
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]

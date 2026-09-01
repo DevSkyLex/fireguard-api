@@ -30,7 +30,7 @@ interface FacilityEquipmentPlanPositionPort
    * @param string $organizationId the organization identifier
    * @param string $attachmentId the floor plan attachment identifier
    *
-   * @return list<array{equipmentId: string, name: string, status: string, x: float, y: float}> the equipment pinned on this plan
+   * @return list<array{equipmentId: string, type: string, serialNumber: string|null, locationLabel: string|null, status: string, x: float, y: float}> the equipment pinned on this plan
    */
   public function findEquipmentPlacedOnPlan(string $organizationId, string $attachmentId): array;
   // #endregion

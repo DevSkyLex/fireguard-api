@@ -8,7 +8,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort;
 
 use function json_decode;
-use function sprintf;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -52,7 +51,7 @@ final readonly class EquipmentPlanPositionAdapter implements FacilityEquipmentPl
   public function findEquipmentPlacedOnPlan(string $organizationId, string $attachmentId): array
   {
     $sql = <<<'SQL'
-      SELECT id, type, serial_number, status, plan_position
+      SELECT id, type, serial_number, location_label, status, plan_position
       FROM equipment
       WHERE organization_id = :organizationId
         AND record_status = :published
@@ -60,7 +59,7 @@ final readonly class EquipmentPlanPositionAdapter implements FacilityEquipmentPl
         AND plan_position ->> 'attachmentId' = :attachmentId
       SQL;
 
-    /** @var list<array{id: string, type: string, serial_number: ?string, status: string, plan_position: string}> $rows */
+    /** @var list<array{id: string, type: string, serial_number: ?string, location_label: ?string, status: string, plan_position: string}> $rows */
     $rows = $this->entityManager->getConnection()->executeQuery($sql, [
       'organizationId' => $organizationId,
       'published' => 'published',
@@ -74,7 +73,9 @@ final readonly class EquipmentPlanPositionAdapter implements FacilityEquipmentPl
 
       $items[] = [
         'equipmentId' => $row['id'],
-        'name' => self::label($row['type'], $row['serial_number']),
+        'type' => $row['type'],
+        'serialNumber' => $row['serial_number'],
+        'locationLabel' => $row['location_label'],
         'status' => $row['status'],
         'x' => (float) $position['x'],
         'y' => (float) $position['y'],
@@ -84,27 +85,5 @@ final readonly class EquipmentPlanPositionAdapter implements FacilityEquipmentPl
     return $items;
   }
 
-  /**
-   * Method label.
-   *
-   * Builds a display label from the equipment's type and serial number,
-   * mirroring `EquipmentMessagingSubjectResolverAdapter::label()` — Equipment
-   * has no dedicated "name" field.
-   *
-   * @static
-   *
-   * @since 1.0.0
-   *
-   * @param string $type the equipment type
-   * @param ?string $serialNumber the optional serial number
-   *
-   * @return string the display label
-   */
-  private static function label(string $type, ?string $serialNumber): string
-  {
-    return null !== $serialNumber && '' !== $serialNumber
-      ? sprintf('%s (%s)', $type, $serialNumber)
-      : $type;
-  }
   // #endregion
 }
