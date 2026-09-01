@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentQuery, GetEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Provider\Equipment\GetEquipmentProvider;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -69,6 +70,7 @@ final class GetEquipmentProviderTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $provider = new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -130,6 +132,7 @@ final class GetEquipmentProviderTest extends TestCase
       ));
 
     $provider = new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -163,6 +166,7 @@ final class GetEquipmentProviderTest extends TestCase
     $security->method('getUser')->willReturn(null);
 
     $provider = new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -183,6 +187,7 @@ final class GetEquipmentProviderTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
 
     $provider = new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -203,6 +208,7 @@ final class GetEquipmentProviderTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $provider = new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
@@ -226,6 +232,7 @@ final class GetEquipmentProviderTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
     $provider = new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
@@ -307,6 +314,7 @@ final class GetEquipmentProviderTest extends TestCase
     $queryBus->method('ask')->willThrowException($exception);
 
     return new GetEquipmentProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,

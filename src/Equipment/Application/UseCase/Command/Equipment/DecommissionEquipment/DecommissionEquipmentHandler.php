@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -29,6 +30,7 @@ final readonly class DecommissionEquipmentHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
+    private FacilityNamingPort $facilityNaming,
     private EventDispatcherPort $eventDispatcher,
   ) {
   }
@@ -101,7 +103,28 @@ final readonly class DecommissionEquipmentHandler implements CommandHandler
       ),
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
+      facilityName: $this->resolveFacilityName($equipment),
     );
+  }
+
+  /**
+   * Method resolveFacilityName.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate
+   *
+   * @return ?string the assigned facility's display name, or null when unassigned or unresolved
+   */
+  private function resolveFacilityName(Equipment $equipment): ?string
+  {
+    $facilityId = $equipment->facilityId()?->__toString();
+
+    if (null === $facilityId) {
+      return null;
+    }
+
+    return $this->facilityNaming->findNamesByIds([$facilityId])[$facilityId] ?? null;
   }
   // #endregion
 }

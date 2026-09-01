@@ -355,10 +355,18 @@ Aggregates and entities:
 - `brand`, `model`, `serialNumber` (serialNumber is unique per organization)
 - `locationLabel` (optional free-text — the spot *inside* a facility, not the facility)
 - `facilityName` (read-only display name of the assigned facility). The module stores only
-  `facilityId`; the name is resolved through `FacilityNamingPort`, batched once per listing.
-  Deliberately separate from `FacilityValidationPort`: that contract throws, and a label
-  lookup must not go through something whose job is to reject writes. Null when unassigned
-  or unresolvable — an unresolved name is not a blank name.
+  `facilityId`; the name is resolved through `FacilityNamingPort` — batched into ONE lookup
+  per collection page (both the main path and the due-status filtered path), and resolved
+  per item on the detail read and on **every action response** (create, update, assign,
+  unassign, commission, maintenance, decommission): an action answers with the same
+  equipment payload the detail read would give, so the UI never has to re-fetch to keep its
+  facility badge. All of those payloads go through the single
+  `Presentation/Api/Factory/EquipmentOutputFactory` (2026-09-01 — the per-processor mapping
+  copies are gone; that duplication is how the field went missing from the action responses
+  in the first place). Deliberately separate from `FacilityValidationPort`: that contract
+  throws, and a label lookup must not go through something whose job is to reject writes.
+  Null when unassigned or unresolvable — an unresolved name is not a blank name, and a null
+  is omitted from the JSON entirely (API Platform skips null fields).
 - `installedAt`, `commissionedAt` (optional)
 - `planPosition` (optional, `{attachmentId, x, y}`, Phase 4 — see "Plan
   position" below). Exposed on the **detail** read

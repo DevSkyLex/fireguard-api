@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Provider\Equipment\ListEquipmentsProvider;
 use InvalidArgumentException;
 use LogicException;
@@ -64,6 +65,7 @@ final class ListEquipmentsProviderTest extends TestCase
     $requestStack = $this->buildRequestStack();
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -151,6 +153,7 @@ final class ListEquipmentsProviderTest extends TestCase
     $requestStack = $this->buildRequestStack();
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -180,6 +183,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -210,6 +214,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
@@ -240,6 +245,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
@@ -262,6 +268,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn($user);
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -325,6 +332,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ));
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -372,6 +380,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn(new PaginatedResult(items: [], total: 0, limit: 20, offset: 20));
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -431,6 +440,7 @@ final class ListEquipmentsProviderTest extends TestCase
     $requestStack->push($request);
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -478,6 +488,7 @@ final class ListEquipmentsProviderTest extends TestCase
     $requestStack->push($request);
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -527,6 +538,7 @@ final class ListEquipmentsProviderTest extends TestCase
     ));
 
     $provider = new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
@@ -596,6 +608,7 @@ final class ListEquipmentsProviderTest extends TestCase
     $queryBus->method('ask')->willThrowException($exception);
 
     return new ListEquipmentsProvider(
+      outputFactory: new EquipmentOutputFactory(),
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
@@ -38,12 +38,14 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param FacilityNamingPort $facilityNaming the facility display-name lookup port
    */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private UuidFactory $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
+    private FacilityNamingPort $facilityNaming,
   ) {
   }
   // #endregion
@@ -136,7 +138,28 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       tags: [],
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
+      facilityName: $this->resolveFacilityName($equipment),
     );
+  }
+
+  /**
+   * Method resolveFacilityName.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate
+   *
+   * @return ?string the assigned facility's display name, or null when unassigned or unresolved
+   */
+  private function resolveFacilityName(Equipment $equipment): ?string
+  {
+    $facilityId = $equipment->facilityId()?->__toString();
+
+    if (null === $facilityId) {
+      return null;
+    }
+
+    return $this->facilityNaming->findNamesByIds([$facilityId])[$facilityId] ?? null;
   }
 
   // #endregion

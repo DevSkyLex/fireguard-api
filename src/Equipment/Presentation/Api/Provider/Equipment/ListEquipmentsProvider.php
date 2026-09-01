@@ -11,7 +11,8 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
-use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
+use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -24,7 +25,6 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
-use function array_map;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -50,6 +50,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
+    private EquipmentOutputFactory $outputFactory,
   ) {
   }
   // #endregion
@@ -130,7 +131,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
 
     $outputs = [];
     foreach ($result->items as $equipment) {
-      $outputs[] = $this->mapResult($equipment);
+      $outputs[] = $this->outputFactory->fromView($equipment);
     }
 
     return new TraversablePaginator(
@@ -139,35 +140,6 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
       itemsPerPage: (float) $itemsPerPage,
       totalItems: (float) $result->total,
     );
-  }
-
-  /**
-   * Method mapResult.
-   *
-   * @since 1.0.0
-   */
-  private function mapResult(GetEquipmentResult $result): EquipmentOutput
-  {
-    $output = new EquipmentOutput();
-    $output->id = $result->equipmentId;
-    $output->organizationId = $result->organizationId;
-    $output->facilityId = $result->facilityId;
-    $output->type = $result->type;
-    $output->subType = $result->subType;
-    $output->brand = $result->brand;
-    $output->model = $result->model;
-    $output->serialNumber = $result->serialNumber;
-    $output->locationLabel = $result->locationLabel;
-    $output->facilityName = $result->facilityName;
-    $output->status = $result->status;
-    $output->installedAt = $result->installedAt;
-    $output->commissionedAt = $result->commissionedAt;
-    $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-    $output->maintenanceDueStatus = $result->maintenanceDueStatus;
-
-    return $output;
   }
 
   // #endregion

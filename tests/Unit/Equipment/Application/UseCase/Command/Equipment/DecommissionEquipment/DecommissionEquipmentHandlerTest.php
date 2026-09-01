@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentHandler, DecommissionEquipmentResult};
 use Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent;
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
@@ -57,6 +57,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
       }));
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -90,6 +91,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -125,6 +127,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -162,6 +165,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -201,6 +205,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -264,6 +269,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
       }));
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $maintenanceLogRepository,
@@ -290,6 +296,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new DecommissionEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -303,5 +310,50 @@ final class DecommissionEquipmentHandlerTest extends TestCase
       equipmentId: 'also-not-a-uuid',
     ));
   }
+
+  #[Test]
+  public function testInvokeResolvesTheAssignedFacilityName(): void
+  {
+    $facilityId = '550e8400-e29b-41d4-a716-446655441003';
+
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(
+      EquipmentFacilityId::fromString($facilityId),
+      new DateTimeImmutable(),
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findPublishedById')->willReturn($equipment);
+
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::once())
+      ->method('findNamesByIds')
+      ->with([$facilityId])
+      ->willReturn([$facilityId => 'Main Building']);
+
+    $handler = new DecommissionEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
+      facilityNaming: $facilityNaming,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $result = $handler->__invoke(new DecommissionEquipmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertSame('Main Building', $result->facilityName);
+  }
+
   // #endregion
 }

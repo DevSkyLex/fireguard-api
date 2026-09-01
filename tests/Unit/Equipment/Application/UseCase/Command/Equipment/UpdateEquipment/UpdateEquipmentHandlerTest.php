@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use DateTimeImmutable;
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\{UpdateEquipmentCommand, UpdateEquipmentHandler, UpdateEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentSerialNumberAlreadyExistsException};
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,7 +30,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository, facilityNaming: $this->createStub(FacilityNamingPort::class));
 
     $this->expectException(EquipmentNotFoundException::class);
     $this->expectExceptionMessage('Equipment with ID "550e8400-e29b-41d4-a716-446655440999" not found.');
@@ -64,7 +65,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository, facilityNaming: $this->createStub(FacilityNamingPort::class));
 
     $this->expectException(EquipmentSerialNumberAlreadyExistsException::class);
     $this->expectExceptionMessage('Serial number "EXT-DUPLICATE" already exists in this organization.');
@@ -99,7 +100,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
-    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository, facilityNaming: $this->createStub(FacilityNamingPort::class));
 
     $result = $handler->__invoke(new UpdateEquipmentCommand(
       organizationId: $organizationId,
@@ -144,7 +145,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository, facilityNaming: $this->createStub(FacilityNamingPort::class));
 
     $this->expectException(InvalidValueException::class);
 
@@ -163,6 +164,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
     $repository->expects(self::never())->method('findById');
 
     $handler = new UpdateEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $repository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
     );
@@ -174,5 +176,43 @@ final class UpdateEquipmentHandlerTest extends TestCase
       equipmentId: 'also-not-a-uuid',
       type: 'fire_extinguisher',
     ));
+  }
+
+  #[Test]
+  public function testInvokeResolvesTheAssignedFacilityName(): void
+  {
+    $equipmentId = '550e8400-e29b-41d4-a716-446655440910';
+    $organizationId = '550e8400-e29b-41d4-a716-446655440911';
+    $facilityId = '550e8400-e29b-41d4-a716-446655440912';
+
+    $equipment = Equipment::create(
+      id: new EquipmentId($equipmentId),
+      organizationId: new EquipmentOrganizationId($organizationId),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(EquipmentFacilityId::fromString($facilityId), new DateTimeImmutable());
+
+    $repository = $this->createStub(EquipmentRepositoryPort::class);
+    $repository->method('findById')->willReturn($equipment);
+
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::once())
+      ->method('findNamesByIds')
+      ->with([$facilityId])
+      ->willReturn([$facilityId => 'Main Building']);
+
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository, facilityNaming: $facilityNaming);
+
+    $result = $handler->__invoke(new UpdateEquipmentCommand(
+      organizationId: $organizationId,
+      equipmentId: $equipmentId,
+      type: 'fire_extinguisher',
+    ));
+
+    self::assertSame('Main Building', $result->facilityName);
   }
 }

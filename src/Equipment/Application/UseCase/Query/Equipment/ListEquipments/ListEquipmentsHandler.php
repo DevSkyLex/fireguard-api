@@ -123,12 +123,16 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       array_map(static fn (EquipmentId $id): string => (string) $id, $equipmentIds),
     );
 
+    $facilityNames = $this->resolveFacilityNames($equipments);
+
     $results = [];
     foreach ($equipments as $equipment) {
+      $facilityId = $equipment->facilityId()?->__toString();
       $results[] = $this->toResult(
         $equipment,
         $tagsByEquipmentId[(string) $equipment->id()] ?? [],
         $dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled',
+        null !== $facilityId ? ($facilityNames[$facilityId] ?? null) : null,
       );
     }
 
@@ -196,15 +200,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $page,
     ));
 
-    $facilityIds = [];
-    foreach ($page as $equipment) {
-      $facilityId = $equipment->facilityId()?->__toString();
-      if (null !== $facilityId) {
-        $facilityIds[$facilityId] = true;
-      }
-    }
-
-    $facilityNames = $this->facilityNaming->findNamesByIds(array_keys($facilityIds));
+    $facilityNames = $this->resolveFacilityNames($page);
 
     $results = [];
     foreach ($page as $equipment) {
@@ -223,6 +219,36 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
     );
+  }
+
+  /**
+   * Method resolveFacilityNames.
+   *
+   * Resolves the display names of every facility assigned to the given page
+   * of equipment in ONE batch call — one query per collection page, never one
+   * per row.
+   *
+   * @since 1.0.0
+   *
+   * @param list<Equipment> $equipments the page of equipment to resolve names for
+   *
+   * @return array<string, string> display name keyed by facility identifier
+   */
+  private function resolveFacilityNames(array $equipments): array
+  {
+    $facilityIds = [];
+    foreach ($equipments as $equipment) {
+      $facilityId = $equipment->facilityId()?->__toString();
+      if (null !== $facilityId) {
+        $facilityIds[$facilityId] = true;
+      }
+    }
+
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    return $this->facilityNaming->findNamesByIds(array_keys($facilityIds));
   }
 
   /**
