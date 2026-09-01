@@ -348,5 +348,64 @@ interface FacilityRepositoryPort
     string $attachmentId,
   ): array;
 
+  /**
+   * Method findBuildingFloors.
+   *
+   * Lists the direct children of a building that are floors — published,
+   * ordered by their stacking level, then creation, then identifier — each
+   * carrying its own plan geometry (if any) and the attachment identity of
+   * its primary floor plan (if any). Raw rows only: no contour cascade, no
+   * leaf filtering — the 3D building view use case applies those rules.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $buildingId the building facility identifier
+   *
+   * @return list<array{
+   *   facilityId: string,
+   *   name: string,
+   *   status: string,
+   *   levelIndex: ?int,
+   *   planGeometry: ?array{attachmentId: string, points: list<array{0: float, 1: float}>},
+   *   primaryPlanAttachmentId: ?string,
+   *   primaryPlanImageWidth: ?int,
+   *   primaryPlanImageHeight: ?int,
+   * }> the building's floors, in render order
+   */
+  public function findBuildingFloors(
+    FacilityOrganizationId $organizationId,
+    FacilityId $buildingId,
+  ): array;
+
+  /**
+   * Method findRoomsForFloors.
+   *
+   * For each given (floor, its primary plan attachment) pair, lists the
+   * strict descendants of that floor which are zones or areas bound to that
+   * same plan attachment — a single recursive CTE seeded from all the
+   * bindings at once, never one query per floor. Raw rows only: leaf
+   * filtering by `parentFacilityId` is the use case's job.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<array{floorId: string, attachmentId: string}> $floorPlanBindings the floors and their primary plan attachment identifiers
+   *
+   * @return list<array{
+   *   floorId: string,
+   *   facilityId: string,
+   *   parentFacilityId: ?string,
+   *   name: string,
+   *   type: string,
+   *   status: string,
+   *   points: list<array{0: float, 1: float}>,
+   * }> the matching rooms, unordered
+   */
+  public function findRoomsForFloors(
+    FacilityOrganizationId $organizationId,
+    array $floorPlanBindings,
+  ): array;
+
   // #endregion
 }

@@ -144,6 +144,10 @@ api_platform:
     Facility\Domain\Exception\FacilityAttachmentNotFoundException: 404
     Facility\Domain\Exception\FacilityCodeAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityHierarchyException: 400
+    # A2: the 3D building model was requested for a facility whose type is
+    # not `building` — the request conflicts with the facility's own type,
+    # mirroring FacilityAttachmentNotFloorPlanException's 409.
+    Facility\Domain\Exception\FacilityNotBuildingException: 409
     # 400 because that is what it already answers: the class extends
     # `InvalidArgumentException`, so every processor catch already maps it. The
     # entry is the safety net for a path with no catch, not a change. A case
