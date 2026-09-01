@@ -442,11 +442,23 @@ final class InterventionFacilityContractApiTest extends WebTestCase
   }
 
   #[Test]
-  public function testCreateEquipmentReturns404WhenOrganizationIsTheCallersOwnButInterventionBelongsToAnotherOrganization(): void
+  #[DataProvider('crossOrganizationInterventionStatusProvider')]
+  public function testCreateEquipmentReturns404WhenOrganizationIsTheCallersOwnButInterventionBelongsToAnotherOrganization(string $interventionStatus): void
   {
     $client = static::createClient();
     $this->seedOrganization();
-    $interventionId = $this->seedInterventionWithStatus('draft', self::ORGANIZATION_ID, '9a0e8400-e29b-41d4-a716-446655480030');
+    $interventionId = $this->seedInterventionWithStatus(
+      $interventionStatus,
+      self::ORGANIZATION_ID,
+      '9a0e8400-e29b-41d4-a716-446655480' . match ($interventionStatus) {
+        'draft' => '030',
+        'planned' => '031',
+        'in_progress' => '032',
+        'submitted' => '033',
+        'published' => '034',
+        default => '035',
+      },
+    );
 
     $this->loginAs($client, self::OUTSIDER_USER_ID, self::OUTSIDER_EMAIL);
     $client->request(
@@ -464,16 +476,28 @@ final class InterventionFacilityContractApiTest extends WebTestCase
       404,
       $client->getResponse()->getStatusCode(),
       'POST /api/equipment must answer 404, not 403 or 409, for an intervention id belonging to another '
-        . 'organization. Response: ' . $client->getResponse()->getContent(),
+        . 'organization regardless of its workflow status ("' . $interventionStatus . '"). Response: ' . $client->getResponse()->getContent(),
     );
   }
 
   #[Test]
-  public function testCreateInspectionReturns404WhenOrganizationIsTheCallersOwnButInterventionBelongsToAnotherOrganization(): void
+  #[DataProvider('crossOrganizationInterventionStatusProvider')]
+  public function testCreateInspectionReturns404WhenOrganizationIsTheCallersOwnButInterventionBelongsToAnotherOrganization(string $interventionStatus): void
   {
     $client = static::createClient();
     $this->seedOrganization();
-    $interventionId = $this->seedInterventionWithStatus('draft', self::ORGANIZATION_ID, '9a0e8400-e29b-41d4-a716-446655480031');
+    $interventionId = $this->seedInterventionWithStatus(
+      $interventionStatus,
+      self::ORGANIZATION_ID,
+      '9a0e8400-e29b-41d4-a716-446655480' . match ($interventionStatus) {
+        'draft' => '040',
+        'planned' => '041',
+        'in_progress' => '042',
+        'submitted' => '043',
+        'published' => '044',
+        default => '045',
+      },
+    );
 
     $this->loginAs($client, self::OUTSIDER_USER_ID, self::OUTSIDER_EMAIL);
     $client->request(
@@ -495,7 +519,7 @@ final class InterventionFacilityContractApiTest extends WebTestCase
       404,
       $client->getResponse()->getStatusCode(),
       'POST /api/inspections must answer 404, not 403 or 409, for an intervention id belonging to another '
-        . 'organization. Response: ' . $client->getResponse()->getContent(),
+        . 'organization regardless of its workflow status ("' . $interventionStatus . '"). Response: ' . $client->getResponse()->getContent(),
     );
   }
 

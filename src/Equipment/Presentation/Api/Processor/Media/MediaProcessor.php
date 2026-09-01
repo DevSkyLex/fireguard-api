@@ -219,6 +219,20 @@ final readonly class MediaProcessor implements ProcessorInterface
    *
    * Executes the assert write operation.
    *
+   * `intervention` on the upload path (see {@see self::upload()}) is read
+   * straight off the multipart request body — an attacker-controlled value,
+   * independent of the `equipment` field's own organization. Resolving
+   * `mutationPermission()` FIRST, with `$equipment->organization->id` passed
+   * as `$expectedOrganizationId`, gates a cross-organization intervention id
+   * on the module-wide 404 (`InterventionNotFoundException`) before the
+   * `interventionContext()`-based checks below are ever reached — those used
+   * to answer first and, being a 409 (`InterventionConflictException`), told
+   * an outside caller both that the intervention exists and that it belongs
+   * to another organization. They stay in place as defense in depth for a
+   * same-organization caller: `resourceInInterventionScope()` still refuses
+   * an intervention that legitimately belongs to the caller's own
+   * organization but not to this equipment's assignment.
+   *
    * @since 1.0.0
    *
    * @param EquipmentRecord $equipment the equipment value
@@ -233,6 +247,7 @@ final readonly class MediaProcessor implements ProcessorInterface
 
     try {
       if (null !== $interventionId) {
+        $permission = $this->interventionResourceManager->mutationPermission($interventionId, $user->getId(), $equipment->organization->id);
         $intervention = $this->interventionResourceManager->interventionContext($interventionId);
         if (null === $intervention || $intervention->organizationId !== $equipment->organization->id) {
           throw new InterventionConflictException('Intervention and equipment must belong to the same organization.');
@@ -247,7 +262,6 @@ final readonly class MediaProcessor implements ProcessorInterface
         ) {
           throw new InterventionConflictException('Equipment is outside the intervention scope.');
         }
-        $permission = $this->interventionResourceManager->mutationPermission($interventionId, $user->getId());
       } else {
         $permission = 'organization.equipment.write';
       }

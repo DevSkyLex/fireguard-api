@@ -98,6 +98,29 @@ image+document MIME allow-list: `image/jpeg`, `image/png`, `image/webp`,
   guard performs internally), since this validation runs before the command
   bus dispatch and is never bus-wrapped.
 
+**Cross-organization `intervention` oracle on `MediaProcessor::upload()`, closed
+2026-09-01.** The multipart `intervention` field is read straight off the
+request body (`$request->request->get('intervention')`) — attacker-controlled,
+independent of the `equipment` field's own organization. `assertWrite()` used
+to resolve `interventionResourceManager->interventionContext($interventionId)`
+FIRST and answer its own **409** (`InterventionConflictException`, "must
+belong to the same organization") on a mismatch, which told a caller outside
+the intervention's organization both that it exists and that it belongs to
+another organization. `assertWrite()` now calls
+`InterventionResourceManager::mutationPermission($interventionId, $userId,
+$equipment->organization->id)` FIRST — its own `$expectedOrganizationId` gate
+(see `Intervention\MODULE.md`, 2026-09-01 entry, and the identical fix already
+applied to `Create{Facility,Equipment,Inspection}Processor` and
+`InspectionResponseProcessor::assertWrite()`) — so a cross-organization
+intervention id now answers a uniform **404** (`InterventionNotFoundException`)
+before the `interventionContext()`/`resourceInInterventionScope()` checks are
+ever reached. Those checks stay in place as defense in depth for a
+same-organization caller. Regression coverage:
+`EquipmentAttachmentApiTest::testUploadMediaReturns404WhenInterventionMultipartFieldBelongsToAnotherOrganization`
+and the equipment/inspection mirrors in
+`InterventionFacilityContractApiTest`, now data-provider-driven across all six
+intervention workflow statuses (`crossOrganizationInterventionStatusProvider`).
+
 **Wire-shape decision.** `AddAttachmentInput` (`fileName`/`content` base64/
 `mimeType`/`label`) was deliberately KEPT rather than aligned to the
 multipart shape used by every sibling module: `fireguard-sso-web`'s

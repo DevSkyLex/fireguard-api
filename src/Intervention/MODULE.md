@@ -939,7 +939,18 @@ case. `CreateInspectionProcessor` was additionally moved from the flat
 `hasPermission()` boolean to `resolveAccess()`, matching its Facility/Equipment
 siblings — `hasPermission()` cannot express `OUTSIDE_SCOPE` and was answering
 a bare `403` to a non-member instead of the module-wide `404`.
-Regression coverage: `tests/Functional/Api/InterventionFacilityContractApiTest.php`.
+Regression coverage: `tests/Functional/Api/InterventionFacilityContractApiTest.php`
+(the equipment/inspection cross-organization cases are data-provider-driven
+across all six statuses via `crossOrganizationInterventionStatusProvider`).
+
+**Same gate extended to `Equipment\...\MediaProcessor::upload()` (2026-09-01).**
+The multipart `POST /media` route carries the identical shape: `intervention`
+is read straight off the request body, independent of `equipment`'s own
+organization. `assertWrite()` now resolves `mutationPermission($interventionId,
+$userId, $equipment->organization->id)` before its own
+`interventionContext()`-based same-organization check, closing the same 409
+oracle for this route too. See `src/Equipment/MODULE.md`. Regression coverage:
+`EquipmentAttachmentApiTest::testUploadMediaReturns404WhenInterventionMultipartFieldBelongsToAnotherOrganization`.
 
 `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest` is the
 ratchet that keeps new handlers on this path.
