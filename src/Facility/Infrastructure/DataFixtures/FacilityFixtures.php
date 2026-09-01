@@ -8,13 +8,22 @@ use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use Facility\Domain\ValueObject\{FacilityStatus, FacilityType};
+use Facility\Domain\ValueObject\{AttachmentKind, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Domain\Attachment\StoragePathScheme;
 use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
+use function dirname;
+use function file_get_contents;
+use function file_put_contents;
+use function is_string;
+use function mkdir;
 use function sprintf;
+use function str_starts_with;
+use function strlen;
+use function substr;
 
 final class FacilityFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
@@ -38,6 +47,19 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   public const string FLOOR_ONE_REFERENCE = 'facility-seed-floor-one';
 
   public const string FLOOR_TWO_REFERENCE = 'facility-seed-floor-two';
+
+  /**
+   * Floor 1's primary floor plan. Named as a constant because the floor and
+   * every room drawn on it must point at the *same* attachment: the building
+   * model only accepts a floor's own outline when it is expressed in that
+   * floor's primary-plan coordinate space.
+   */
+  public const string FLOOR_ONE_PLAN_ID = 'cf54f1c7-fc3c-4082-87c2-c4b061f5ebb4';
+
+  /**
+   * Floor 2's primary floor plan. See {@see FLOOR_ONE_PLAN_ID}.
+   */
+  public const string FLOOR_TWO_PLAN_ID = 'b7d1f0a5-5c3e-4a19-9f26-1d0c4e88a730';
 
   public const string ZONE_REFERENCE = 'facility-seed-zone';
 
@@ -191,10 +213,16 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   ];
 
   /**
-   * Documents pinned to a facility.
+   * Documents and floor plans pinned to a facility.
    *
    * Site plans and certificates are what the facility detail page's document
    * tab shows; with none seeded the tab renders permanently empty.
+   *
+   * A seed carrying `assetFile` is a **floor plan**: its bytes are written to
+   * storage from `assets/`, it becomes its facility's primary plan, and it
+   * carries the pixel dimensions every normalized polygon is relative to.
+   * Without at least one, the plan viewer, the outline editor and the 3D
+   * building view have nothing to render at all.
    *
    * @var list<array{
    *   id: string,
@@ -203,19 +231,23 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    *   mimeType: string,
    *   size: int,
    *   label: string,
-   *   uploadedAt: string
+   *   uploadedAt: string,
+   *   assetFile: string|null,
+   *   imageWidth: int|null,
+   *   imageHeight: int|null
    * }>
    */
   private const array ATTACHMENT_SEEDS = [
-    ['id' => '12ecfe97-2aa2-4abf-95e1-e2e5a896523a', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-site-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 1_248_576, 'label' => 'Site plan', 'uploadedAt' => '2026-03-03T09:00:00+00:00'],
-    ['id' => '39ef47f3-cfd1-469c-9bd5-4f38633f2554', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-fire-safety-certificate.pdf', 'mimeType' => 'application/pdf', 'size' => 312_480, 'label' => 'Fire safety certificate 2026', 'uploadedAt' => '2026-03-03T09:10:00+00:00'],
-    ['id' => 'e55da023-82f1-4b2c-b337-916986abfc22', 'facilityReference' => self::BUILDING_REFERENCE, 'fileName' => 'main-building-evacuation-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 856_320, 'label' => 'Evacuation plan', 'uploadedAt' => '2026-03-08T09:00:00+00:00'],
-    ['id' => 'cf54f1c7-fc3c-4082-87c2-c4b061f5ebb4', 'facilityReference' => self::FLOOR_ONE_REFERENCE, 'fileName' => 'floor-1-layout.png', 'mimeType' => 'image/png', 'size' => 2_097_152, 'label' => 'Floor 1 layout', 'uploadedAt' => '2026-03-12T09:00:00+00:00'],
-    ['id' => '45834581-2392-4d22-8699-a41eb5411b32', 'facilityReference' => self::AREA_REFERENCE, 'fileName' => 'server-room-suppression-spec.pdf', 'mimeType' => 'application/pdf', 'size' => 421_888, 'label' => 'Suppression system specification', 'uploadedAt' => '2026-03-29T09:00:00+00:00'],
-    ['id' => 'dfebc35b-f432-4fec-82b7-b09409335d57', 'facilityReference' => self::LYON_SITE_REFERENCE, 'fileName' => 'lyon-site-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 987_136, 'label' => 'Site plan', 'uploadedAt' => '2026-03-09T09:00:00+00:00'],
-    ['id' => '7c4091fb-0fb7-4ab0-b279-54dd686e9a66', 'facilityReference' => self::MARSEILLE_SITE_REFERENCE, 'fileName' => 'marseille-port-permit.pdf', 'mimeType' => 'application/pdf', 'size' => 204_800, 'label' => 'Port authority permit', 'uploadedAt' => '2026-03-10T09:00:00+00:00'],
-    ['id' => '6e57d89f-b049-4ceb-b931-43c1aa038277', 'facilityReference' => self::BORDEAUX_SITE_REFERENCE, 'fileName' => 'bordeaux-training-programme.pdf', 'mimeType' => 'application/pdf', 'size' => 158_720, 'label' => 'Annual training programme', 'uploadedAt' => '2026-03-11T09:00:00+00:00'],
-    ['id' => '512b75e9-79dd-4beb-b228-f08a63b30584', 'facilityReference' => self::LILLE_SITE_REFERENCE, 'fileName' => 'lille-sprinkler-as-built.pdf', 'mimeType' => 'application/pdf', 'size' => 1_572_864, 'label' => 'Sprinkler as-built drawings', 'uploadedAt' => '2026-03-12T09:00:00+00:00'],
+    ['id' => '12ecfe97-2aa2-4abf-95e1-e2e5a896523a', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-site-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 1_248_576, 'label' => 'Site plan', 'uploadedAt' => '2026-03-03T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '39ef47f3-cfd1-469c-9bd5-4f38633f2554', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-fire-safety-certificate.pdf', 'mimeType' => 'application/pdf', 'size' => 312_480, 'label' => 'Fire safety certificate 2026', 'uploadedAt' => '2026-03-03T09:10:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => 'e55da023-82f1-4b2c-b337-916986abfc22', 'facilityReference' => self::BUILDING_REFERENCE, 'fileName' => 'main-building-evacuation-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 856_320, 'label' => 'Evacuation plan', 'uploadedAt' => '2026-03-08T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => self::FLOOR_ONE_PLAN_ID, 'facilityReference' => self::FLOOR_ONE_REFERENCE, 'fileName' => 'floor-1-layout.svg', 'mimeType' => 'image/svg+xml', 'size' => 0, 'label' => 'Floor 1 layout', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => 'floor-1-layout.svg', 'imageWidth' => 2400, 'imageHeight' => 1600],
+    ['id' => self::FLOOR_TWO_PLAN_ID, 'facilityReference' => self::FLOOR_TWO_REFERENCE, 'fileName' => 'floor-2-layout.svg', 'mimeType' => 'image/svg+xml', 'size' => 0, 'label' => 'Floor 2 layout', 'uploadedAt' => '2026-03-16T09:00:00+00:00', 'assetFile' => 'floor-2-layout.svg', 'imageWidth' => 2400, 'imageHeight' => 1600],
+    ['id' => '45834581-2392-4d22-8699-a41eb5411b32', 'facilityReference' => self::AREA_REFERENCE, 'fileName' => 'server-room-suppression-spec.pdf', 'mimeType' => 'application/pdf', 'size' => 421_888, 'label' => 'Suppression system specification', 'uploadedAt' => '2026-03-29T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => 'dfebc35b-f432-4fec-82b7-b09409335d57', 'facilityReference' => self::LYON_SITE_REFERENCE, 'fileName' => 'lyon-site-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 987_136, 'label' => 'Site plan', 'uploadedAt' => '2026-03-09T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '7c4091fb-0fb7-4ab0-b279-54dd686e9a66', 'facilityReference' => self::MARSEILLE_SITE_REFERENCE, 'fileName' => 'marseille-port-permit.pdf', 'mimeType' => 'application/pdf', 'size' => 204_800, 'label' => 'Port authority permit', 'uploadedAt' => '2026-03-10T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '6e57d89f-b049-4ceb-b931-43c1aa038277', 'facilityReference' => self::BORDEAUX_SITE_REFERENCE, 'fileName' => 'bordeaux-training-programme.pdf', 'mimeType' => 'application/pdf', 'size' => 158_720, 'label' => 'Annual training programme', 'uploadedAt' => '2026-03-11T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '512b75e9-79dd-4beb-b228-f08a63b30584', 'facilityReference' => self::LILLE_SITE_REFERENCE, 'fileName' => 'lille-sprinkler-as-built.pdf', 'mimeType' => 'application/pdf', 'size' => 1_572_864, 'label' => 'Sprinkler as-built drawings', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
   ];
 
   public static function getGroups(): array
@@ -277,6 +309,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       metadata: ['level' => '1', 'city' => 'Paris'],
       latitude: 48.8572,
       longitude: 2.3531,
+      levelIndex: 0,
+      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.05, 0.08], [0.95, 0.08], [0.95, 0.92], [0.05, 0.92]]],
     );
     $this->addReference(self::FLOOR_ONE_REFERENCE, $floorOne);
     $manager->persist($floorOne);
@@ -293,6 +327,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       metadata: ['level' => '2', 'city' => 'Paris'],
       latitude: 48.8574,
       longitude: 2.3535,
+      levelIndex: 1,
+      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.08, 0.10], [0.92, 0.10], [0.92, 0.90], [0.08, 0.90]]],
     );
     $this->addReference(self::FLOOR_TWO_REFERENCE, $floorTwo);
     $manager->persist($floorTwo);
@@ -309,6 +345,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       metadata: ['sector' => 'north', 'city' => 'Paris'],
       latitude: 48.8576,
       longitude: 2.3539,
+      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.10, 0.14], [0.46, 0.14], [0.46, 0.55], [0.10, 0.55]]],
     );
     $this->addReference(self::ZONE_REFERENCE, $zone);
     $manager->persist($zone);
@@ -325,6 +362,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       metadata: ['restricted' => true, 'city' => 'Paris'],
       latitude: 48.8578,
       longitude: 2.3543,
+      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.14, 0.20], [0.40, 0.20], [0.40, 0.48], [0.14, 0.48]]],
     );
     $this->addReference(self::AREA_REFERENCE, $area);
     $manager->persist($area);
@@ -341,6 +379,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       metadata: ['sector' => 'south', 'city' => 'Paris'],
       latitude: 48.8580,
       longitude: 2.3547,
+      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.52, 0.16], [0.88, 0.16], [0.88, 0.60], [0.52, 0.60]]],
     );
     $this->addReference(self::ZONE_B_REFERENCE, $zoneB);
     $manager->persist($zoneB);
@@ -357,6 +396,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       metadata: ['restricted' => false, 'city' => 'Paris'],
       latitude: 48.8582,
       longitude: 2.3551,
+      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.56, 0.22], [0.82, 0.22], [0.82, 0.54], [0.56, 0.54]]],
     );
     $this->addReference(self::STORAGE_ROOM_REFERENCE, $storageRoom);
     $manager->persist($storageRoom);
@@ -435,15 +475,41 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $facilitiesByReference[self::ARCHIVED_ANNEX_REFERENCE] = $archivedAnnex;
 
     foreach (self::ATTACHMENT_SEEDS as $seed) {
+      $facility = $facilitiesByReference[$seed['facilityReference']];
+
       $attachment = new FacilityAttachmentRecord();
       $attachment->id = $seed['id'];
-      $attachment->facility = $facilitiesByReference[$seed['facilityReference']];
+      $attachment->facility = $facility;
       $attachment->fileName = $seed['fileName'];
-      $attachment->storagePath = sprintf('/fixtures/facility/%s/%s', $seed['facilityReference'], $seed['fileName']);
       $attachment->mimeType = $seed['mimeType'];
-      $attachment->size = $seed['size'];
       $attachment->label = $seed['label'];
       $attachment->uploadedAt = SeedTimeline::at($seed['uploadedAt']);
+
+      $assetFile = $seed['assetFile'];
+
+      if (null === $assetFile) {
+        // A document seed: nothing reads its bytes, so it keeps a placeholder
+        // path and no file is written. Only floor plans are actually fetched
+        // by the UI, and only those are worth the disk.
+        $attachment->storagePath = sprintf('/fixtures/facility/%s/%s', $seed['facilityReference'], $seed['fileName']);
+        $attachment->size = $seed['size'];
+        $manager->persist($attachment);
+
+        continue;
+      }
+
+      // A floor plan: the viewer downloads it, so it needs real bytes at the
+      // real path the download responder resolves — not the placeholder above.
+      $contents = (string) file_get_contents(dirname(__DIR__) . '/DataFixtures/assets/' . $assetFile);
+      $storagePath = StoragePathScheme::build('facility', $facility->id, $attachment->id, $seed['fileName']);
+      $this->writeSeedFile($storagePath, $contents);
+
+      $attachment->storagePath = $storagePath;
+      $attachment->size = strlen($contents);
+      $attachment->kind = AttachmentKind::FLOOR_PLAN->value;
+      $attachment->isPrimaryPlan = true;
+      $attachment->imageWidth = $seed['imageWidth'];
+      $attachment->imageHeight = $seed['imageHeight'];
       $manager->persist($attachment);
     }
 
@@ -451,7 +517,43 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   }
 
   /**
+   * Method writeSeedFile.
+   *
+   * Writes a seeded attachment's bytes straight onto the local storage disk.
+   *
+   * Deliberately not `FileStoragePort`: Doctrine's fixture `Loader` resolves a
+   * declared dependency with a bare `new $class()` (`Loader::createFixture`),
+   * so a fixture that any other fixture depends on can never take a
+   * constructor argument — it would be a fatal error the moment the loader
+   * reaches it. Reading the same `STORAGE_DSN` the Flysystem factory reads
+   * keeps the two in step without a container.
+   *
+   * Only the `local://` scheme is handled, which is the only one seeding ever
+   * runs against; anything else is left alone rather than guessed at.
+   *
+   * @since 1.0.0
+   *
+   * @param string $storagePath the key the download responder will resolve
+   * @param string $contents the file's bytes
+   */
+  private function writeSeedFile(string $storagePath, string $contents): void
+  {
+    $dsn = $_ENV['STORAGE_DSN'] ?? '';
+
+    if (!is_string($dsn) || !str_starts_with($dsn, 'local://')) {
+      return;
+    }
+
+    $root = dirname(__DIR__, 4) . '/' . substr($dsn, strlen('local://'));
+    $target = $root . '/' . $storagePath;
+
+    @mkdir(dirname($target), 0o775, true);
+    file_put_contents($target, $contents);
+  }
+
+  /**
    * @param array<string, mixed> $metadata
+   * @param array{attachmentId: string, points: list<array{float, float}>}|null $planGeometry
    */
   private function createFacility(
     string $id,
@@ -466,6 +568,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     ?float $latitude = null,
     ?float $longitude = null,
     string $status = FacilityStatus::ACTIVE->value,
+    ?int $levelIndex = null,
+    ?array $planGeometry = null,
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
@@ -479,6 +583,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $facility->latitude = $latitude;
     $facility->longitude = $longitude;
     $facility->metadata = $metadata;
+    $facility->levelIndex = $levelIndex;
+    $facility->planGeometry = $planGeometry;
     $facility->createdAt = $createdAt;
     $facility->updatedAt = $createdAt;
 

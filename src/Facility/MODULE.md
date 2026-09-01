@@ -949,6 +949,63 @@ counts and ancestry the write path has no reason to carry).
 
 ## Testing
 
+### Seeded floor plans
+
+`make seed-fixtures` produces one building whose plan pipeline is fully
+exercisable end to end, because until 2026-08-30 it produced none at all:
+`facility_attachments` held zero `floor_plan` rows and no facility had a
+`plan_geometry`, so the plan viewer, the outline editor, the equipment pin
+layer and the 3D building view were all unverifiable locally without seeding
+the database by hand.
+
+`Main Building` now carries:
+
+- **two ordered floors** — `Floor 1` (`levelIndex` 0) and `Floor 2` (1) — each
+  with its own primary `floor_plan` attachment, 2400×1600;
+- a `plan_geometry` on each floor pointing at **its own** primary plan, which
+  is what makes the building model answer `outline.source: plan_geometry`
+  rather than falling through to a bounding box;
+- an `area` nested inside a `zone` on both floors (`Server Room` in `Zone A`,
+  `Storage Room` in `Zone B`), both with outlines — this is what exercises the
+  **geometric-leaf rule**: the building model must return the inner `area` and
+  drop the enclosing `zone`;
+- two equipment items pinned inside `Server Room` via `plan_position`.
+
+The plan images live in `src/Facility/Infrastructure/DataFixtures/assets/` as
+hand-written SVGs rather than raster blobs: they are reviewable in a diff, they
+weigh nothing, and their `width`/`height` attributes are exactly what
+`ImageDimensions` probes. Their bytes are written at the real
+`StoragePathScheme` path, because the viewer downloads them — unlike the
+document seeds, whose bytes nothing reads and which therefore keep a
+placeholder path and no file at all.
+
+**Seed from inside the container when the bytes matter.** `compose.yaml` mounts
+`app_var` — a *named volume* — over `/var/www/html/var`, so the host's `var/`
+and the container's are two different filesystems. `make seed-fixtures` runs on
+the host, which is fine for rows but writes the plan images somewhere the API
+will never look: the download endpoint answers **404** and the plan viewer
+spins forever on an image that exists, on the wrong disk. Seed the files where
+the app reads them:
+
+```bash
+make seed-fixtures-docker
+```
+
+The symptom is worth recognizing because it looks like a frontend fault: the
+attachment row is right there in the database, its dimensions are right, and
+the viewer still shows nothing.
+
+**A fixture that another fixture depends on cannot take a constructor
+argument.** Doctrine's `Loader::addFixture()` resolves each declared dependency
+through `createFixture()`, a bare `new $class()`, and it does so *before*
+checking whether that class is already registered — so the container's
+carefully autowired instance is beside the point, and a required argument is a
+fatal error. That is why `FacilityFixtures` writes its bytes with plain
+filesystem calls against the `STORAGE_DSN` it reads itself, rather than through
+`FileStoragePort`. Only `local://` is handled, the only scheme seeding runs
+against. Worth knowing before adding a service dependency to any fixture in
+this repo.
+
 - Unit: `tests/Unit/Facility`
   - `Application/UseCase/Query/ExportFacilities/ExportFacilitiesHandlerTest` —
     403 without `organization.facilities.read`, 404 outside the organization's
