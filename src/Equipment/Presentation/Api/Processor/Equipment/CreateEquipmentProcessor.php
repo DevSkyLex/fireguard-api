@@ -140,7 +140,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $permission = $this->interventionPermission($data->intervention, $user->getId()) ?? 'organization.equipment.write';
+    $permission = $this->interventionPermission($data->intervention, $user->getId(), $organizationId) ?? 'organization.equipment.write';
     $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
     if ($decision->isOutsideScope()) {
       throw new NotFoundHttpException('Organization not found.');
@@ -241,17 +241,20 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
    *
    * @param ?string $intervention the intervention value
    * @param string $userId the current user id value
+   * @param string $organizationId the organization id the caller claims the equipment
+   *                               belongs to — required to belong to the same organization as the intervention,
+   *                               checked inside mutationPermission() before any status-derived branch
    *
    * @return ?string the intervention permission result
    */
-  private function interventionPermission(?string $intervention, string $userId): ?string
+  private function interventionPermission(?string $intervention, string $userId, string $organizationId): ?string
   {
     if (null === $intervention || null === $this->interventionResourceManager) {
       return null;
     }
 
     try {
-      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId);
+      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId, $organizationId);
     } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InterventionConflictException $exception) {

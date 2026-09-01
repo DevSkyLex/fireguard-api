@@ -912,6 +912,35 @@ payload) rather than from a looked-up record, the out-of-scope response is
 `InterventionNotFoundException::forOrganizationScope()`, which is the same
 404 for the same reason applied to organization identifiers.
 
+**`mutationPermission()`'s own `$expectedOrganizationId` gate (2026-09-01).**
+`Facility\...\CreateFacilityProcessor`, `Equipment\...\CreateEquipmentProcessor`
+and `Inspection\...\CreateInspectionProcessor` all accept, on the same create
+request, an `organization` IRI the caller genuinely belongs to AND an
+independent `intervention` IRI naming a row that may belong to ANY
+organization — the two are never cross-checked before this fix. A caller who
+named their own organization and a victim intervention id got the victim
+intervention's real workflow status leaked through the HTTP response: `409`
+("immutable") for `submitted`/`published`/`abandoned`, `403` for
+`planned`/`in_progress`/`changes_requested` (a `InterventionMemberPolicy`
+denial), `409` ("must belong to the same organization", from `attach()`) for
+`draft`. `InterventionResourceManager::mutationPermission()` now takes an
+optional third `$expectedOrganizationId` parameter, compared against the
+intervention's actual `organizationId` **before** the immutable-state branch
+and before `InterventionMemberPolicy` is ever consulted — a mismatch raises
+`InterventionNotFoundException` immediately, collapsing all six statuses to a
+uniform 404. All three `Create…Processor`s pass their resolved
+`organizationId` through; `InspectionResponseProcessor::assertWrite()` does
+the same on its `create()` path, where `organizationId`/`interventionId` are
+likewise both attacker-suppliable request fields (its `update`/`delete` path
+reads both from the targeted row instead, so they already agree and the
+parameter there is a no-op by construction). `attach()`'s own
+same-organization check is unchanged as defense in depth for the `draft`
+case. `CreateInspectionProcessor` was additionally moved from the flat
+`hasPermission()` boolean to `resolveAccess()`, matching its Facility/Equipment
+siblings — `hasPermission()` cannot express `OUTSIDE_SCOPE` and was answering
+a bare `403` to a non-member instead of the module-wide `404`.
+Regression coverage: `tests/Functional/Api/InterventionFacilityContractApiTest.php`.
+
 `tests/Architecture/Unit/InterventionAuthorizationEnforcementTest` is the
 ratchet that keeps new handlers on this path.
 
