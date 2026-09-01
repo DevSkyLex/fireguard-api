@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
+  FacilityLevelIndex,
   FacilityName,
   FacilityOrganizationId,
   FacilityStatus,
@@ -33,22 +34,6 @@ use function trim;
  */
 final class Facility
 {
-  // #region Constants
-  /**
-   * The lowest legal stacking order for a floor.
-   *
-   * @since 1.0.0
-   */
-  private const int MIN_LEVEL_INDEX = -100;
-
-  /**
-   * The highest legal stacking order for a floor.
-   *
-   * @since 1.0.0
-   */
-  private const int MAX_LEVEL_INDEX = 200;
-  // #endregion
-
   // #region Constructor
   /**
    * Constructor.
@@ -556,8 +541,9 @@ final class Facility
   /**
    * Method normalizeLevelIndex.
    *
-   * Enforces the -100..200 stacking-order bound in the domain, not only in
-   * the presentation DTOs.
+   * Delegates to {@see FacilityLevelIndex::normalize()} so the bound has one
+   * home — `CanonicalFacility` enforces the same rule on the flat PATCH
+   * surface and must not drift from it.
    *
    * @since 1.0.0
    *
@@ -565,15 +551,7 @@ final class Facility
    */
   private static function normalizeLevelIndex(?int $levelIndex): ?int
   {
-    if (null === $levelIndex) {
-      return null;
-    }
-
-    if ($levelIndex < self::MIN_LEVEL_INDEX || $levelIndex > self::MAX_LEVEL_INDEX) {
-      throw InvalidValueException::because('Facility level index must be between -100 and 200.');
-    }
-
-    return $levelIndex;
+    return FacilityLevelIndex::normalize($levelIndex);
   }
 
   /**

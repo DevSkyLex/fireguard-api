@@ -89,6 +89,11 @@ services:
   Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel\GetFacilityBuildingModelHandler:
     tags: ['messenger.message_handler']
 
+  # A3: FacilityBuildingModelProvider dispatches through the bus only — no
+  # Doctrine touch, so it needs no explicit entry here (autoconfigured via
+  # the `Facility\Presentation\:` resource above), matching
+  # FacilityPlanOverlayProvider.
+
   # R11b follow-up: the download endpoint serving attachment bytes, gated the
   # same way as FacilityMediaProvider/FacilityMediaProcessor.
   Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:

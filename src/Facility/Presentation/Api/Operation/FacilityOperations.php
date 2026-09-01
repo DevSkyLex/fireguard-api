@@ -108,6 +108,13 @@ final class FacilityOperations
   public const string GET_FACILITY_PLAN_OVERLAY = 'facility_plan_overlay_get';
 
   /**
+   * Constant GET_FACILITY_BUILDING_MODEL.
+   *
+   * @var string
+   */
+  public const string GET_FACILITY_BUILDING_MODEL = 'facility_building_model_get';
+
+  /**
    * Constant SET_PRIMARY_FACILITY_ATTACHMENT.
    *
    * @var string
