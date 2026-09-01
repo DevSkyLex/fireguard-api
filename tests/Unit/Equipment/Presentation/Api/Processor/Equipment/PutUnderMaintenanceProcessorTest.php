@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\{PutUnderMaintenanceCommand, PutUnderMaintenanceResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\PutUnderMaintenanceProcessor;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -57,6 +58,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -86,6 +88,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -126,6 +129,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -161,6 +165,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -208,6 +213,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     ));
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -234,6 +240,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -256,6 +263,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $this->maintenanceSecurity(),
@@ -360,6 +368,7 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new PutUnderMaintenanceProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->maintenanceSecurity(),

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\ValueObject\EquipmentId;
@@ -99,6 +99,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655440903', $result->equipmentId);
     self::assertSame('fire_extinguisher', $result->type);
     self::assertSame('Sicli', $result->brand);
+    self::assertNull($result->facilityName);
     self::assertSame('in_stock', $result->status);
   }
 
@@ -236,6 +237,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     );
 
     return new CreateEquipmentHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $repository,
       uuidFactory: $uuidFactory,
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility\{UnassignFromFacilityCommand, UnassignFromFacilityHandler, UnassignFromFacilityResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -50,6 +50,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new UnassignFromFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -76,6 +77,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UnassignFromFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -106,6 +108,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UnassignFromFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -158,6 +161,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
       ->with(self::identicalTo($openLog));
 
     $handler = new UnassignFromFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceLogRepository: $maintenanceLogRepository,
@@ -180,6 +184,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
     $equipmentRepository->expects(self::never())->method('findById');
 
     $handler = new UnassignFromFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
@@ -192,5 +197,44 @@ final class UnassignFromFacilityHandlerTest extends TestCase
       equipmentId: 'also-not-a-uuid',
     ));
   }
+
+  #[Test]
+  public function testInvokeReturnsANullFacilityNameOnceUnassigned(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(
+      EquipmentFacilityId::fromString(self::FACILITY_ID),
+      new DateTimeImmutable(),
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::never())->method('findNamesByIds');
+
+    $handler = new UnassignFromFacilityHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
+      facilityNaming: $facilityNaming,
+    );
+
+    $result = $handler->__invoke(new UnassignFromFacilityCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertNull($result->facilityName);
+  }
+
   // #endregion
 }

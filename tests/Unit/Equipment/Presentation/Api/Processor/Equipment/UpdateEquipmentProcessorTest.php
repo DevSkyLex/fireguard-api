@@ -11,6 +11,7 @@ use Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\{UpdateEquip
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentSerialNumberAlreadyExistsException};
 use Equipment\Presentation\Api\Dto\Input\Equipment\UpdateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\UpdateEquipmentProcessor;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -58,6 +59,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -87,6 +89,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -127,6 +130,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -162,6 +166,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -212,6 +217,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
     $input->brand = 'Sicli';
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -239,6 +245,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -265,6 +272,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $this->updateSecurity(),
@@ -385,6 +393,7 @@ final class UpdateEquipmentProcessorTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new UpdateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->updateSecurity(),
