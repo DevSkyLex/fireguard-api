@@ -12266,6 +12266,63 @@
                 "deprecated": true
             }
         },
+        "/api/organizations/{organizationId}/facilities/{facilityId}/building-model": {
+            "get": {
+                "operationId": "facility_building_model_get",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Building model retrieved",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.FacilityBuildingModelOutput.jsonld-facility.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Facility not found"
+                    },
+                    "409": {
+                        "description": "Facility is not a building"
+                    }
+                },
+                "summary": "Get facility 3D building model",
+                "description": "Assembles, for a `building` facility, the ordered stack of floors a 3D viewer extrudes \u2014 each floor's outline and its rooms. A building with no floors, a floor with no primary plan, or a floor with no room are all valid \"200\" shapes, never errors.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "facilityId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/organizations/{organizationId}/facilities/{facilityId}/children": {
             "get": {
                 "operationId": "facility_list_children",
@@ -42533,6 +42590,16 @@
                                 "null"
                             ]
                         }
+                    },
+                    "levelIndex": {
+                        "minimum": -100,
+                        "maximum": 200,
+                        "description": "Optional stacking order of the floor (ground floor = 0, first basement = -1)",
+                        "example": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -42657,6 +42724,14 @@
                                         "null"
                                     ]
                                 }
+                            },
+                            "levelIndex": {
+                                "readOnly": true,
+                                "description": "Optional stacking order of the floor (ground floor = 0, first basement = -1)",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "planGeometry": {
                                 "readOnly": true,
@@ -42799,6 +42874,15 @@
                         "description": "Property parent.",
                         "type": [
                             "string",
+                            "null"
+                        ]
+                    },
+                    "levelIndex": {
+                        "minimum": -100,
+                        "maximum": 200,
+                        "description": "Property levelIndex.",
+                        "type": [
+                            "integer",
                             "null"
                         ]
                     }
@@ -46962,6 +47046,16 @@
                                 "null"
                             ]
                         }
+                    },
+                    "levelIndex": {
+                        "minimum": -100,
+                        "maximum": 200,
+                        "description": "Optional stacking order of the floor (ground floor = 0, first basement = -1)",
+                        "example": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 },
                 "required": [
@@ -46996,6 +47090,109 @@
                         ]
                     }
                 }
+            },
+            "LegacyFacility.FacilityBuildingModelOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "buildingId": {
+                                "readOnly": true,
+                                "description": "Property buildingId.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "buildingName": {
+                                "readOnly": true,
+                                "description": "Property buildingName.",
+                                "default": "",
+                                "type": "string"
+                            },
+                            "floors": {
+                                "readOnly": true,
+                                "description": "Property floors.",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "object",
+                                                "additionalProperties": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "integer"
+                                                        },
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "null"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "type": "object",
+                                                "additionalProperties": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "number"
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "string"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "type": "integer"
+                                            },
+                                            {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "anyOf": [
+                                                            {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": "number"
+                                                                    }
+                                                                }
+                                                            },
+                                                            {
+                                                                "type": "string"
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            },
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Generic organizational facilities (site/building/floor/zone/area)."
             },
             "LegacyFacility.FacilityOutput.jsonld-facility.read": {
                 "allOf": [
@@ -47114,6 +47311,14 @@
                                         "null"
                                     ]
                                 }
+                            },
+                            "levelIndex": {
+                                "readOnly": true,
+                                "description": "Optional stacking order of the floor (ground floor = 0, first basement = -1)",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
                             },
                             "planGeometry": {
                                 "readOnly": true,
@@ -47234,6 +47439,9 @@
                                             },
                                             {
                                                 "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
                                             }
                                         ]
                                     }
@@ -47425,6 +47633,16 @@
                                 "null"
                             ]
                         }
+                    },
+                    "levelIndex": {
+                        "minimum": -100,
+                        "maximum": 200,
+                        "description": "Optional stacking order of the floor (partial update)",
+                        "example": -1,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
                     }
                 }
             },
