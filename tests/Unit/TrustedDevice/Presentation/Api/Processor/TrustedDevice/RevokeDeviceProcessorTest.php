@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\TrustedDevice\Presentation\Api\Processor\TrustedDevice;
 
 use ApiPlatform\Metadata\Delete;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -12,7 +13,6 @@ use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\Security\Core\User\UserInterface;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice\RevokeDeviceCommand;
 use TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException;
 use TrustedDevice\Presentation\Api\Processor\TrustedDevice\RevokeDeviceProcessor;
@@ -66,7 +66,7 @@ final class RevokeDeviceProcessorTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
       ->method('getUser')
-      ->willReturn($this->createStub(UserInterface::class));
+      ->willReturn(new SecurityUser(id: 'user-123', email: 'user@example.com', password: 'hashed-password', roles: ['ROLE_USER'], scopes: [], isActive: true));
 
     $processor = new RevokeDeviceProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
@@ -191,12 +191,16 @@ final class RevokeDeviceProcessorTest extends TestCase
     );
   }
 
-  private function createUserMock(string $userId): UserInterface
+  private function createUserMock(string $userId): SecurityUser
   {
-    $user = $this->createMock(UserInterface::class);
-    $user->expects(self::once())
-      ->method('getUserIdentifier')
-      ->willReturn($userId);
+    $user = new SecurityUser(
+      id: $userId,
+      email: 'user@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
 
     return $user;
   }

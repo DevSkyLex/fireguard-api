@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\TrustedDevice\Presentation\Api\Provider\TrustedDevice;
 
 use ApiPlatform\Metadata\GetCollection;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -13,7 +14,6 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\Security\Core\User\UserInterface;
 use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesQuery, TrustedDeviceItemResult};
 use TrustedDevice\Presentation\Api\Provider\TrustedDevice\ListTrustedDevicesProvider;
 
@@ -79,10 +79,14 @@ final class ListTrustedDevicesProviderTest extends TestCase
       ->with(self::isInstanceOf(ListTrustedDevicesQuery::class))
       ->willReturn(new PaginatedResult(items: [$item], total: 1, limit: 1, offset: 0));
 
-    $user = $this->createMock(UserInterface::class);
-    $user->expects(self::once())
-      ->method('getUserIdentifier')
-      ->willReturn('user-123');
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
