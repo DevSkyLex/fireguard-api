@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Session\Presentation\Api\Provider\Session;
 
 use ApiPlatform\Metadata\GetCollection;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -15,7 +16,6 @@ use Session\Presentation\Api\Provider\Session\ListUserSessionsProvider;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\Security\Core\User\UserInterface;
 
 use function iterator_to_array;
 
@@ -98,10 +98,14 @@ final class ListUserSessionsProviderTest extends TestCase
       ->with(self::isInstanceOf(ListUserSessionsQuery::class))
       ->willReturn($result);
 
-    $user = $this->createMock(UserInterface::class);
-    $user->expects(self::once())
-      ->method('getUserIdentifier')
-      ->willReturn('user-123');
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
