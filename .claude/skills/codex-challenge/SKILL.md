@@ -70,20 +70,42 @@ Codex starts cold. It reads the repo but knows nothing of your session. Both rep
 `AGENTS.md` at their root, which Codex picks up on its own; name the deeper authority
 explicitly anyway — `ARCHITECTURE.md`, the touched `MODULE.md` / `FEATURE.md`, `SECURITY.md`.
 
-Give it, in this order:
+### State your conclusion, or withhold it — the question decides
+
+**Measured, 2026-09-03.** The same model was asked twice whether one class sat in the right
+layer. Asked cold, it answered **"No"** with a cited section. Asked with the reviewer's own
+"it is correctly placed" stated first, it answered **`VERDICT: agree`** and found nothing.
+Same model, same file, same day, opposite verdicts. Stating your conclusion on a binary
+question does not invite contradiction — it supplies the answer.
+
+So split by the shape of what you are asking:
+
+- **A binary or single-point question** — is this in the right layer, is this rule sound, is
+  this the right shape? **Ask it cold.** Give the scope and the standard, withhold your answer,
+  and compare its verdict with yours afterwards. An independent answer that happens to match
+  is worth something; an agreement you fed it is worth nothing.
+- **A list of findings, or a design with a rejected alternative** — **state it in full.** Here
+  you want triage, and triage needs the list: which of these are false positives, what is
+  missing. The anchoring risk is the point of the exercise, not a flaw in it.
+
+When in doubt, ask cold. It costs the same and cannot be faked.
+
+### The order
 
 1. **The role and the standard** — "You are reviewing a Symfony 7.4 hexagonal backend. The
    authority is `ARCHITECTURE.md` and `src/<Module>/MODULE.md`. Read them first."
 2. **The exact scope** — the file paths you touched or reviewed, and the branch or diff
    (`git diff develop...HEAD`) if there is one.
-3. **Your own conclusion, stated plainly** — the findings you are about to report, or the design
-   you chose and the alternative you rejected.
-4. **The question, adversarial** — "Which of my findings are false positives? What did I miss?
-   Cite `file:line`. If you agree with everything, say so in one line and stop."
-5. **The shape of the answer** — a verdict line, then disagreements only, most severe first.
+3. **Your own conclusion** — only for a list or a design choice, per the split above. Omit it
+   entirely on a binary question.
+4. **The question, adversarial** — with a list: "Which of my findings are false positives?
+   What did I miss? Cite `file:line`." Cold: "Answer the question on the evidence, cite
+   `file:line`, and say plainly if the answer is no."
+5. **The shape of the answer** — a verdict line, then the defects only, most severe first.
 
 Do not paste large file contents into the prompt; Codex can read them itself and you pay for the
-tokens twice.
+tokens twice. Keep the scope to one question and no repository sweep: a broad prompt is what
+pushes a run toward the timeout.
 
 ## Treating the answer
 
