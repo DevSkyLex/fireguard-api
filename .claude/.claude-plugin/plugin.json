@@ -1,6 +1,9 @@
 {
   "name": "fireguard-api",
-  "version": "1.7.3",
+  "version": "1.9.2",
   "description": "FireGuard API tooling — hexagonal builders, reviewers, quality gate, and guard/format hooks for the Symfony backend. Plugin root is the app's .claude/, so agents/, commands/, skills/, and hooks/hooks.json are auto-discovered; installing this plugin from the monorepo root makes the backend tooling available there under the fireguard-api: namespace.",
-  "author": { "name": "Valentin FORTIN", "email": "contact@valentin-fortin.pro" }
+  "author": {
+    "name": "Valentin FORTIN",
+    "email": "contact@valentin-fortin.pro"
+  }
 }

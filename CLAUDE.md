@@ -3,8 +3,13 @@
 > **Source of truth.** This file is the entry point. The normative rules live in the
 > documents imported below — read them, do not paraphrase from memory.
 
+@AGENTS.md
 @ARCHITECTURE.md
 @SECURITY.md
+
+`AGENTS.md` states the architectural rules in vendor-neutral form — any assistant working in
+this repository follows it. This file adds what is specific to Claude Code: the tooling, and
+the operational digest below.
 
 ## TL;DR for every task
 
