@@ -46,7 +46,7 @@ command -v codex >/dev/null 2>&1
 **Always, before you report:**
 
 - any read-only reviewer or auditor — architecture, contract, security, a11y, workflow, contract-sync.
-  The challenge belongs *after* you have your own findings, never before: you want disagreement,
+  The challenge belongs _after_ you have your own findings, never before: you want disagreement,
   not anchoring.
 
 **Yes, for a builder, when the change is substantive:**
