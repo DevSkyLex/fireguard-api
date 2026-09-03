@@ -1722,5 +1722,5 @@ own message rather than falling through to `InvalidArgumentException`'s 400)
 and mapped to **422 Unprocessable Entity** — thrown by
 `ExportInterventionsHandler` when the `/interventions/export` filters match
 more than `MAX_EXPORT_ROWS` (50 000) interventions, mirroring
-`Audit\Domain\Exception\AuditExportTooLargeException`.
+`Audit\Application\Contract\AuditExportTooLargeException`.
 
