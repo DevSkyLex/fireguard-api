@@ -89,3 +89,13 @@ services:
   Otp\Presentation\Api\Provider\Challenge\GetChallengeStatusProvider: ~
   Otp\Presentation\Api\Provider\Config\ListPurposesProvider: ~
   Otp\Presentation\Api\Provider\Config\ListChannelsProvider: ~
+
+  Otp\Application\Port\Inbound\Challenge\EmailOwnershipChallengePort:
+    alias: Otp\Application\Service\EmailOwnershipChallengeService
+  Otp\Application\Service\EmailOwnershipChallengeService:
+    arguments:
+      $transaction: '@otp.email_ownership_transaction'
+  otp.email_ownership_transaction:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'

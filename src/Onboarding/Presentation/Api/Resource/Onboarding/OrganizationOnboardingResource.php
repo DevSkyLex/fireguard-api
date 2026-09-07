@@ -10,6 +10,7 @@ use Onboarding\Presentation\Api\Dto\Input\Onboarding\{
   ExecuteOrganizationOnboardingStepInput,
   StartOrganizationOnboardingInput
 };
+use Onboarding\Presentation\Api\Dto\Input\Onboarding\PrepareOrganizationSetupInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Operation\OnboardingOperations;
 use Onboarding\Presentation\Api\Processor\Onboarding\{
@@ -20,6 +21,7 @@ use Onboarding\Presentation\Api\Processor\Onboarding\{
   SkipOrganizationOnboardingStepProcessor,
   StartOrganizationOnboardingProcessor
 };
+use Onboarding\Presentation\Api\Processor\Onboarding\PrepareOrganizationSetupProcessor;
 use Onboarding\Presentation\Api\Provider\Onboarding\OrganizationOnboardingProvider;
 use Onboarding\Presentation\Api\Serialization\OnboardingSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -38,6 +40,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   routePrefix: '/onboarding',
   description: 'Organization onboarding orchestration endpoints.',
   operations: [
+    new Post(
+      name: OnboardingOperations::PREPARE_ORGANIZATION_SETUP,
+      uriTemplate: '/organization/setup-operations',
+      status: HttpResponse::HTTP_OK,
+      read: false,
+      input: PrepareOrganizationSetupInput::class,
+      output: OrganizationOnboardingOutput::class,
+      processor: PrepareOrganizationSetupProcessor::class,
+      denormalizationContext: ['groups' => [OnboardingSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(tags: ['Onboarding'], summary: 'Prepare a durable setup batch', description: 'Persists up to five item inputs for the current creator step. Repeating a key requires identical input. Owner resource POSTs consume the returned session and item keys atomically.', responses: [200 => new Response(description: 'Batch prepared or already prepared'), 401 => new Response(description: 'Authentication required'), 409 => new Response(description: 'Session, step, item or payload conflict')]),
+    ),
     new Get(
       name: OnboardingOperations::GET_ORGANIZATION_ONBOARDING,
       uriTemplate: '/organization',

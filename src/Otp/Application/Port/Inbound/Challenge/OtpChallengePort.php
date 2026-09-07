@@ -74,5 +74,24 @@ interface OtpChallengePort
   ): ChallengeInfo;
 
   public function verify(string $challengeToken, string $code): VerificationInfo;
+
+  /**
+   * Verifies a challenge only for its expected owner and purpose.
+   *
+   * @param string $challengeToken the public challenge token
+   * @param string $code the submitted one-time code
+   * @param string $userId the expected challenge owner
+   * @param OtpPurpose $purpose the expected challenge purpose
+   * @param string|null $recipient optional current mailbox binding
+   *
+   * @return VerificationInfo the neutral verification result
+   */
+  public function verifyFor(
+    string $challengeToken,
+    string $code,
+    string $userId,
+    OtpPurpose $purpose,
+    ?string $recipient = null,
+  ): VerificationInfo;
   // #endregion
 }

@@ -17,6 +17,13 @@ The Auth module is responsible for interactive user authentication. It issues ac
 
 ## API Endpoints
 
+| Mailbox proof endpoint | Method | Authentication |
+| --- | --- | --- |
+| `/api/auth/email-ownership` | GET | ROLE_USER |
+| `/api/auth/email-ownership/start` | POST | ROLE_USER + per-user rate limit |
+| `/api/auth/email-ownership/confirm` | POST | ROLE_USER + per-user rate limit |
+
+
 ### Authentication
 
 #### POST `/api/auth/login`
@@ -223,6 +230,19 @@ Core endpoints:
 - `/api/.well-known/openid-configuration`
 - `/api/.well-known/jwks.json`
 
+### Organization-discovery email proof
+
+`GET /api/auth/email-ownership` returns `{verified}` for the authenticated account.
+`POST /api/auth/email-ownership/start` sends a code to its current email and returns
+`{challengeToken, canResendIn}`. `POST /api/auth/email-ownership/confirm` accepts
+`{challengeToken, code}` and returns `{verified: true}`. No user ID or email is accepted
+from the browser. All three require `ROLE_USER`; start is limited to one request per
+minute per user, confirmation to ten requests per minute. The dedicated challenge expires
+after ten minutes and permits five code attempts. A rejected challenge returns
+`email_ownership_invalid_challenge` (400), without revealing token, code or mailbox.
+An inactive account or concurrent address change returns `email_ownership_unavailable` (403).
+This proof is independent of OAuth provider claims and does not bypass Fireguard MFA.
+
 ## Flows
 
 ### Login with MFA
@@ -360,9 +380,42 @@ Service wiring:
 - Integration: `tests/Integration/Auth`
 - End-to-end: `tests/E2E` (auth flows)
 
+## Federated authentication
+
+Federated presentation errors keep one status per typed exception:
+FederatedAuthException maps to 400, FederatedConflictException to 409, and
+FederatedUnauthorizedException to 401. Their stable public error codes remain
+the frontend branching contract.
+
+Google and Microsoft sign-in belongs to Auth and uses Authorization Code with PKCE S256. Auth stores
+only a hashed one-time state and an encrypted PKCE verifier for ten minutes. Provider access tokens
+exist only while the callback request exchanges them for a Fireguard session. Microsoft uses the
+`common` authority so personal, work and school accounts share one configured application.
+
+An unknown provider subject may provision an active, email-verified User without a password. A
+provider email that already belongs to an unlinked User returns `account_exists`; email equality never
+links accounts. Linking is an authenticated flow from `/account/security`, and unlinking preserves at
+least one usable method. Federated login calls `SessionIssuer`, the same application service as
+password login, so MFA, trusted devices, refresh cookies, session tracking and login auditing keep the
+same behavior.
+
+Configuration uses `GOOGLE_OIDC_*` and `MICROSOFT_OIDC_*`. The backend derives login and link callback
+URLs from `APP_FRONTEND_URL`; the browser cannot supply a redirect URI. Provider availability is
+public, while connection and password-setup endpoints require an authenticated user.
+
 ## Error Codes
 
 - `AuthenticationException` -> invalid credentials or user state
 - `AuthorizationException` -> unauthorized access
 - `MfaChallengeException` -> invalid or expired MFA challenge
 - `TokenRevocationException` -> token revocation failed
+- `unknown_provider`, `provider_unavailable` -> unsupported or disabled provider
+- `invalid_flow` -> expired, consumed or replayed state
+- `account_exists` -> provider email belongs to an existing unlinked account
+- `identity_linked`, `provider_already_linked` -> provider identity conflict
+- `email_unverified`, `account_unavailable` -> provider or account cannot authenticate
+- `last_sign_in_method` -> disconnect would remove the final usable credential
+
+`Auth\Application\Contract\User\AuthenticatedUser` exposes the stable user identifier
+to authenticated presentation code in other modules. `SecurityUser` implements this
+contract; new consumers depend on the contract rather than Auth infrastructure.

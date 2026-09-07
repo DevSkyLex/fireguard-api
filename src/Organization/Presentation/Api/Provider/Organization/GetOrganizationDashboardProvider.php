@@ -211,7 +211,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     );
 
     try {
-      /** @var GetOrganizationDashboardResult $result */
+      /**
+       * @var GetOrganizationDashboardResult $result
+       */
       $result = $this->queryBus->ask(new GetOrganizationDashboardQuery(
         organizationId: $organizationId,
         userId: $user->getId(),
@@ -942,7 +944,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   private function findUser(string $userId): ?GetUserResult
   {
     try {
-      /** @var GetUserResult $result */
+      /**
+       * @var GetUserResult $result
+       */
       $result = $this->queryBus->ask(new GetUserQuery($userId));
     } catch (Throwable) {
       return null;

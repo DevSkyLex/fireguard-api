@@ -14,6 +14,22 @@ It is isolated from authentication storage and persisted in the dedicated main d
 - Assign roles to members
 - Evaluate Organization permissions (`Organization.*`, `Organization.members.*`, `Organization.roles.*`)
 
+## Verified-domain organization access
+
+Organization owns access policies, DNS proofs, discovery, join requests and memberships in `main`. Identity/address possession is consumed through User's published `EmailOwnershipPort`; no cross-database joins or browser-supplied email/domain are accepted. Historical and OAuth-only verification does not establish this capability.
+
+All organizations default to `invitation_only`. `approval_required` permits a request and `automatic` grants only the configured organization role after rechecking that its effective permissions are included in the system Member role. Configuring access requires both `organization.settings.write` and `organization.members.manage`; reviewing requests requires the latter plus the existing role-grant ceiling. The proposed default role in the settings projection does not activate or persist a policy. Used automatic roles cannot be deleted or expanded beyond the ceiling.
+
+Each exact normalized professional domain has a separate random TXT challenge per organization (`_fireguard-verification.<domain>`). Several organizations may verify the same domain independently. Public suffixes, common consumer mail and maintained disposable-domain lists are rejected. The daily Organization scheduler rechecks proofs: missing TXT suspends immediately; DNS failure permits the last successful proof for at most 48 hours. Removal, suspension or disabled discovery never removes existing members. Archived organizations cannot be discovered or joined.
+
+The authenticated `/api/organizations/join-options` projection contains only matching organization identities/actions and recipient invitation identifiers, never invitation tokens or member directories. Invitations take priority. Request lists use `member`, `totalItems` and, for reviewers, permission-filtered `assignableRoles`. Request detail exposes `applicantEmail` only to an authorized reviewer. A missing email proof still permits reading one's requests. API actions are eligibility projections; every mutation rechecks its own authorization.
+
+Organization-scoped `/access-policy`, `/domains`, `/join` and `/join-requests` operations implement policy/domain administration, immediate join and request creation/review. Account-scoped `/organizations/join-requests` and its `/{requestId}/cancel` operation support tracking. `/organizations/invitations/{invitationId}/accept` requires authenticated recipient proof and preserves invitation roles; existing token links remain supported.
+
+Requests are tied to the address ownership generation: a newer Fireguard proof invalidates an earlier request even if the address later changes back. There is one pending request per user/organization, with a 30-day expiry and a seven-day retry delay after refusal. Requests reserve no seats. Invitation acceptance closes the corresponding pending request. Removed members cannot use immediate join; approved or invited readmission replaces retained old roles with the explicitly granted set. Invitation acceptance, resend and revoke reread the current invitation under the shared organization lock; repository reads inside transactions additionally lock the invitation row, including delivery-failure invalidation. A recipient may cancel their own pending request even after its organization is archived or suspended. An expired invitation acceptance never saves its unlocked snapshot, and recipient matching precedes terminal-state errors. Delivery failure revokes only the exact token generation whose notification failed, preserving a newer resend. Organization advisory locks, partial uniqueness and the shared transactional member quota protect concurrent writes. Domain/policy changes suspend new approvals but do not retrospectively approve pending requests.
+
+Join changes emit ID-only audit events after commit and send localized email/realtime notifications as best-effort delivery. Public failures carry stable `organization_join_*` codes with a neutral localized description. Start/mutation and domain verification use dedicated rate limiters. Deploy the additive `main` migration before activating access, keep the scheduler running, and maintain the bundled domain lists documented in `Infrastructure/Resources/README.md`.
+
 ## API Endpoints
 
 | Method | Path | Description |
@@ -1090,3 +1106,12 @@ aggregate; its `role` field is a free-form label (e.g. `"lead"`),
 
 
 
+
+
+## Durable onboarding setup
+
+Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.
+
+## Automatic creation slugs
+
+When creation omits the slug, the server derives a valid normalized base from the organization name, uses a fallback for short names or when normalization produces no usable characters. It allocates a unique suffix inside the creation transaction under the shared slug namespace lock. Homonymous organizations are supported, including concurrent creation. Explicitly supplied slugs keep their existing validation and uniqueness conflict behavior.

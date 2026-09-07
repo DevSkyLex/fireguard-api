@@ -14,6 +14,7 @@ use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent,
 use DateTimeImmutable;
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
+use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
@@ -59,6 +60,7 @@ final class AuditEventSubscriberTest extends TestCase
       'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
       'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
       'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
+      OrganizationJoinChangedEvent::class => 'onOrganizationJoinChanged',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',
@@ -768,6 +770,28 @@ final class AuditEventSubscriberTest extends TestCase
       toStatus: 'changes_requested',
       reviewNote: 'Please redo the panel check.',
     ));
+  }
+
+  #[Test]
+  public function testJoinChangeRecordsTheActorAndScopeWithoutProofOrEmail(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')
+      ->with(self::callback(
+        static fn (RecordAuditEventCommand $command): bool => 'organization.join_approve' === $command->action
+        && 'reviewer' === $command->actorId
+        && 'request' === $command->subjectId
+        && ['organization_id' => 'organization'] === $command->metadata,
+      ))
+      ->willReturn(new RecordAuditEventResult(eventId: 'audit'));
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+    $subscriber->onOrganizationJoinChanged(new OrganizationJoinChangedEvent('organization', 'reviewer', 'approve', 'request'));
   }
 
   // #region Helpers

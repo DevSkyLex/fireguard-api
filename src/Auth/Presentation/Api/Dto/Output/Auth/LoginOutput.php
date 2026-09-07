@@ -33,10 +33,10 @@ final class LoginOutput
   #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
   #[SerializedName('access_token')]
   #[ApiProperty(
-    description: 'JWT access token for API authentication',
+    description: 'JWT access token for API authentication; absent while MFA is required',
     readable: true,
     writable: false,
-    required: true,
+    required: false,
     identifier: false,
     example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
     openapiContext: [
@@ -63,10 +63,10 @@ final class LoginOutput
   #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
   #[SerializedName('token_type')]
   #[ApiProperty(
-    description: 'Token type (always Bearer)',
+    description: 'Token type; absent while MFA is required',
     readable: true,
     writable: false,
-    required: true,
+    required: false,
     identifier: false,
     example: 'Bearer',
     openapiContext: [
@@ -80,7 +80,7 @@ final class LoginOutput
       'default' => 'Bearer',
     ],
   )]
-  public string $tokenType = 'Bearer';
+  public ?string $tokenType = null;
 
   /**
    * Property expiresIn.
@@ -95,10 +95,10 @@ final class LoginOutput
   #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
   #[SerializedName('expires_in')]
   #[ApiProperty(
-    description: 'Token lifetime in seconds',
+    description: 'Token lifetime in seconds; absent while MFA is required',
     readable: true,
     writable: false,
-    required: true,
+    required: false,
     identifier: false,
     example: 3600,
     openapiContext: [
@@ -299,6 +299,20 @@ final class LoginOutput
   )]
   #[SerializedName('mfa_resend_in')]
   public ?int $mfaResendIn = null;
+
+  /**
+   * Validated local destination returned by a federated login.
+   */
+  #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
+  #[SerializedName('return_url')]
+  public ?string $returnUrl = null;
+
+  /**
+   * Whether a federated login provisioned the Fireguard account.
+   */
+  #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
+  #[SerializedName('new_account')]
+  public ?bool $newAccount = null;
 
   // #endregion
 }

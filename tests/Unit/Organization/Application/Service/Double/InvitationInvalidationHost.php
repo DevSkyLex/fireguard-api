@@ -30,8 +30,8 @@ final class InvitationInvalidationHost
   /**
    * Invalidates an invitation through the trait helper.
    */
-  public function invalidate(OrganizationInvitationId $invitationId, string $revokedByUserId): ?OrganizationInvitation
+  public function invalidate(OrganizationInvitationId $invitationId, string $revokedByUserId, string $expectedTokenHash = 'hashed-token'): ?OrganizationInvitation
   {
-    return $this->invalidateInvitation($invitationId, $revokedByUserId);
+    return $this->invalidateInvitation($invitationId, $revokedByUserId, $expectedTokenHash);
   }
 }

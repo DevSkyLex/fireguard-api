@@ -322,6 +322,130 @@ final class AddOrganizationMemberHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testReadmissionReplacesRetainedAdministrativeRolesWithApprovedRoles(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440810';
+    $memberId = '550e8400-e29b-41d4-a716-446655440811';
+    $userId = '550e8400-e29b-41d4-a716-446655440812';
+    $roleId = '550e8400-e29b-41d4-a716-446655440813';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Paris'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $inactiveMember = OrganizationMember::reconstitute(
+      id: new OrganizationMemberId($memberId),
+      organizationId: new OrganizationId($organizationId),
+      userId: $userId,
+      isActive: false,
+      joinedAt: new DateTimeImmutable('-5 days'),
+    );
+
+    $role = OrganizationRole::reconstitute(
+      id: new OrganizationRoleId($roleId),
+      organizationId: new OrganizationId($organizationId),
+      name: new OrganizationRoleName('technician'),
+      permissions: ['organization.read'],
+      isSystem: false,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($organization);
+
+    /** @var UserRepositoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserRepositoryPort::class);
+    $userRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn(UserTestFactory::createActive($userId));
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('findByOrganizationAndUser')
+      ->willReturn($inactiveMember);
+    $memberRepository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(static fn (OrganizationMember $member): bool => $member->isActive()));
+    $memberRepository->expects(self::once())
+      ->method('assignRole')
+      ->with(
+        self::callback(static fn (OrganizationMemberId $id): bool => $memberId === (string) $id),
+        self::callback(static fn (OrganizationRoleId $id): bool => $roleId === (string) $id),
+      );
+    $memberRepository->expects(self::exactly(2))
+      ->method('findRoleIdsForMember')
+      ->willReturnOnConsecutiveCalls(['550e8400-e29b-41d4-a716-446655440899'], [$roleId]);
+    $memberRepository->expects(self::once())->method('unassignRole')
+      ->with(self::isInstanceOf(OrganizationMemberId::class), self::callback(static fn (OrganizationRoleId $id): bool => '550e8400-e29b-41d4-a716-446655440899' === (string) $id));
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findByOrganizationAndName');
+    $roleRepository->expects(self::once())
+      ->method('findByIdsInOrganization')
+      ->willReturn([$role]);
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::once())
+      ->method('transactional')
+      ->with(self::isCallable())
+      ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::never())->method('warning');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event) use ($organizationId, $memberId, $userId): bool {
+        return $event instanceof OrganizationMemberAddedEvent
+          && $organizationId === $event->organizationId
+          && $memberId === $event->memberId
+          && $userId === $event->userId;
+      }));
+
+    $handler = new AddOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      userRepository: $userRepository,
+      notificationPort: $notificationPort,
+      logger: $logger,
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: $organizationId,
+      userId: $userId,
+      roleIds: [$roleId],
+      sendMemberNotification: false,
+      replaceInactiveRoles: true,
+    ));
+
+    self::assertTrue($result->isActive);
+    self::assertSame($userId, $result->userId);
+    self::assertSame([$roleId], $result->roleIds);
+  }
+
+  #[Test]
   public function testInvokeDeduplicatesRoleIdsBeforeLookupAndAssignment(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655440500';

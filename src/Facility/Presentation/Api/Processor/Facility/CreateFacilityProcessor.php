@@ -26,6 +26,7 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
@@ -153,6 +154,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     try {
       /** @var CreateFacilityResult $result */
       $result = $this->commandBus->dispatch(new CreateFacilityCommand(
+        setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
         organizationId: $organizationId,
         type: $data->type,
         name: $data->name,

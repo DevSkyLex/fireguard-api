@@ -7,6 +7,8 @@ namespace Organization\Application\Service;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\OrganizationInvitationId;
 
+use function hash_equals;
+
 /**
  * Trait InvitationInvalidationTrait.
  *
@@ -35,20 +37,23 @@ trait InvitationInvalidationTrait
    *
    * @param OrganizationInvitationId $invitationId the invitation identifier
    * @param string $revokedByUserId the revoker user identifier
+   * @param string $expectedTokenHash the generation whose delivery failed
    *
    * @return OrganizationInvitation|null the invalidated invitation, or null
    */
   private function invalidateInvitation(
     OrganizationInvitationId $invitationId,
     string $revokedByUserId,
+    string $expectedTokenHash,
   ): ?OrganizationInvitation {
     /** @var OrganizationInvitation|null $invalidated */
     $invalidated = $this->transactionManager->transactional(function () use (
       $invitationId,
       $revokedByUserId,
+      $expectedTokenHash,
     ): ?OrganizationInvitation {
       $invitation = $this->invitationRepository->findById($invitationId);
-      if (null === $invitation || !$invitation->status()->isPending()) {
+      if (null === $invitation || !$invitation->status()->isPending() || !hash_equals($expectedTokenHash, $invitation->tokenHash())) {
         return null;
       }
 

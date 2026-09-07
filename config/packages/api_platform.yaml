@@ -63,6 +63,10 @@ api_platform:
   # The prescribed fix for a handler that wants a status is a DOMAIN exception,
   # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
+    Organization\Domain\Exception\OrganizationJoinException: 409
+    Organization\Domain\Exception\OrganizationJoinInputException: 422
+    Auth\Domain\Exception\EmailOwnershipException: 400
+    User\Domain\Exception\EmailOwnershipUnavailableException: 403
     # The three that predate FG-035. They already worked because all three are
     # raised BEFORE the command bus wraps anything — which is precisely the
     # limitation step 1 removes.
@@ -160,6 +164,7 @@ api_platform:
     # a resource. AccessDenied's 403 matches what every legacy catch site
     # already answers (see PresentationExceptionStatusTest's baseline).
     Facility\Domain\Exception\FacilityAddressNotFoundException: 404
+    Facility\Domain\Exception\FacilityAddressSuggestionsUnavailableException: 503
     Facility\Domain\Exception\FacilityAccessDeniedException: 403
     Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
@@ -225,6 +230,7 @@ api_platform:
     # completed yet"; changing it is a contract decision, not a side effect of
     # this refactor.
     Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
+    Onboarding\Application\Contract\Setup\OrganizationSetupConflict: 409
     Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400
     # Organization's domain conditions. The conflict family answers 409 as of
     # 2026-08-26, arbitrated rather than inherited: each of these is a

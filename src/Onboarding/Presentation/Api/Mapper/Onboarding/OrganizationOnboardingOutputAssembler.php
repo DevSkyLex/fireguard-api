@@ -51,6 +51,18 @@ final class OrganizationOnboardingOutputAssembler
   {
     $output = new OrganizationOnboardingOutput();
     $output->flow = $state->flow;
+    $output->sessionId = $state->sessionId;
+    $output->setupOperations = array_map(static function (\Onboarding\Application\Contract\Setup\OrganizationSetupOperation $operation): \Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationSetupOperationOutput {
+      $dto = new \Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationSetupOperationOutput();
+      $dto->stepKey = $operation->stepKey;
+      $dto->itemKey = $operation->itemKey;
+      $dto->payload = $operation->payload;
+      $dto->resourceId = $operation->resourceId;
+      $dto->status = null === $operation->resourceId ? 'prepared' : 'completed';
+
+      return $dto;
+    }, $state->setupOperations);
+    $output->accessibleOrganizationId = $state->accessibleOrganizationId;
     $output->state = $state->state;
     $output->nextStep = $state->nextStep;
     $output->blockedReason = $state->blockedReason;

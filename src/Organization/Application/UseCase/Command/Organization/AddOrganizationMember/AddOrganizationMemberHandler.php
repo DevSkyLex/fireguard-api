@@ -102,10 +102,14 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       throw OrganizationUserNotFoundException::create();
     }
 
-    /** @var list<string> $roleIds */
+    /**
+     * @var list<string> $roleIds
+     */
     $roleIds = $this->resolveRoleIds($organizationId, $command->roleIds);
 
-    /** @var list<OrganizationRoleId> $roleIdsAsVo */
+    /**
+     * @var list<OrganizationRoleId> $roleIdsAsVo
+     */
     $roleIdsAsVo = array_map(
       static fn (string $id): OrganizationRoleId => OrganizationRoleId::fromString($id),
       $roleIds,
@@ -120,7 +124,9 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     $shouldNotifyMember = false;
     $previousRoleIds = [];
 
-    /** @var AddOrganizationMemberResult $result */
+    /**
+     * @var AddOrganizationMemberResult $result
+     */
     $result = $this->transactionManager->transactional(function () use (
       $organizationId,
       $command,
@@ -139,7 +145,9 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       $member = $this->memberRepository->findByOrganizationAndUser($organizationId, $command->userId);
 
       if (null === $member) {
-        /** @var OrganizationMemberId $memberId */
+        /**
+         * @var OrganizationMemberId $memberId
+         */
         $memberId = $this->uuidFactory->create(OrganizationMemberId::class);
         $member = OrganizationMember::join(
           id: $memberId,
@@ -149,6 +157,11 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         $this->memberRepository->save($member);
         $shouldNotifyMember = true;
       } elseif (!$member->isActive()) {
+        if ($command->replaceInactiveRoles) {
+          foreach ($this->memberRepository->findRoleIdsForMember($member->id()) as $previousRoleId) {
+            $this->memberRepository->unassignRole($member->id(), OrganizationRoleId::fromString($previousRoleId));
+          }
+        }
         $member->activate();
         $this->memberRepository->save($member);
         $shouldNotifyMember = true;
@@ -253,7 +266,9 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
    */
   private function resolveRoleIds(OrganizationId $organizationId, array $requestedRoleIds): array
   {
-    /** @var list<string> $roleIds */
+    /**
+     * @var list<string> $roleIds
+     */
     $roleIds = array_values(array_unique($requestedRoleIds));
 
     if ([] !== $roleIds) {

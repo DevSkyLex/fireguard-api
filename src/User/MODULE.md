@@ -62,6 +62,15 @@ sequenceDiagram
   Bus-->>API: Result
 ```
 
+### Mailbox ownership
+
+`EmailOwnershipPort` exposes the current active account email and an explicit Fireguard
+mailbox-possession state. `emailOwnershipVerifiedAt` is independent of `emailVerified`:
+legacy, administrative verification and external identity claims do not establish it.
+Registration OTP confirmation and confirmed email changes establish proof of the exact
+current address. The authenticated confirmation path uses an atomic current-email and
+active-status comparison on the auth database; a concurrent email change fails closed.
+
 ## Architecture
 
 - Presentation: Api Platform resources, processors, providers, DTOs.
@@ -228,7 +237,20 @@ Decisions, recorded:
 - Unit: `tests/Unit/User`
 - Run module tests: `make test tests/Unit/User`
 
+## Federated user provisioning
+
+Auth consumes `FederatedUserPort`; User remains the owner of account creation and password mutation.
+`User::registerFederated` creates an active, email-verified account with a nullable password, maps the
+provider's given and family names with a local-part fallback, and never imports the remote avatar.
+Existing email addresses return no user so Auth can require explicit authenticated linking.
+
+Password authentication fails through the same neutral invalid-credentials path when the password is
+absent. A federated-only account can set its first local password exactly once after Auth verifies the
+email OTP. Persistence keeps legacy passwords unchanged while allowing `users.password` to be null.
+
 ## Error Codes
+
+- `EmailOwnershipUnavailableException` -> inactive/missing account or changed address (403, `email_ownership_unavailable`)
 
 - `UserAlreadyExistsException` -> user already exists
 - `UserNotFoundException` -> user not found
@@ -236,3 +258,5 @@ Decisions, recorded:
 - `InvalidPasswordException` -> password mismatch
 - `EmailChangeNotAllowedException` -> neutral "this address cannot be used" (409)
 - `EmailChangeRequestNotFoundException` -> invalid/expired/reused confirmation token (400)
+
+The user record persists the primary method only after a complete session, including MFA, so account security reports the last method exactly.

@@ -87,7 +87,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
       ->method('save');
 
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
+    $queryBus->expects(self::exactly(2))
       ->method('ask')
       ->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
@@ -98,12 +98,15 @@ final class OrganizationOnboardingProviderTest extends TestCase
       ->method('generateRaw')
       ->willReturn('550e8400-e29b-41d4-a716-446655441699');
 
+    $transactions = $this->createStub(TransactionManagerPort::class);
+    $transactions->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
+
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository,
       queryBus: $queryBus,
       commandBus: $commandBus,
       uuidFactory: $uuidFactory,
-      transactionManager: $this->createStub(TransactionManagerPort::class),
+      transactionManager: $transactions,
       eventDispatcher: $this->createStub(EventDispatcherInterface::class),
     );
   }

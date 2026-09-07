@@ -60,7 +60,9 @@ final readonly class TeamRepository implements TeamRepositoryPort
   public function save(Team $team): void
   {
     $record = TeamMapper::toRecord($team);
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $team->organizationId());
     $record->organization = $organization;
     $existing = $this->repository->find($record->id);
@@ -100,7 +102,9 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function findByOrganizationAndName(OrganizationId $organizationId, TeamName $name): ?Team
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->repository->findOneBy([
       'organization' => $organization,
@@ -116,7 +120,9 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function findByOrganizationId(OrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $records = $this->repository->findBy([
       'organization' => $organization,
@@ -132,9 +138,13 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function addMember(TeamId $teamId, OrganizationMemberId $memberId, ?string $role = null): void
   {
-    /** @var TeamRecord|null $teamRecord */
+    /**
+     * @var TeamRecord|null $teamRecord
+     */
     $teamRecord = $this->repository->find((string) $teamId);
-    /** @var OrganizationMemberRecord|null $memberRecord */
+    /**
+     * @var OrganizationMemberRecord|null $memberRecord
+     */
     $memberRecord = $this->entityManager->getRepository(OrganizationMemberRecord::class)->find((string) $memberId);
 
     if (!$teamRecord instanceof TeamRecord || !$memberRecord instanceof OrganizationMemberRecord) {
@@ -162,9 +172,13 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function removeMember(TeamId $teamId, OrganizationMemberId $memberId): void
   {
-    /** @var TeamRecord|null $teamRecord */
+    /**
+     * @var TeamRecord|null $teamRecord
+     */
     $teamRecord = $this->repository->find((string) $teamId);
-    /** @var OrganizationMemberRecord|null $memberRecord */
+    /**
+     * @var OrganizationMemberRecord|null $memberRecord
+     */
     $memberRecord = $this->entityManager->getRepository(OrganizationMemberRecord::class)->find((string) $memberId);
 
     if (!$teamRecord instanceof TeamRecord || !$memberRecord instanceof OrganizationMemberRecord) {
@@ -186,14 +200,18 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function findMemberIds(TeamId $teamId): array
   {
-    /** @var TeamRecord|null $teamRecord */
+    /**
+     * @var TeamRecord|null $teamRecord
+     */
     $teamRecord = $this->repository->find((string) $teamId);
 
     if (!$teamRecord instanceof TeamRecord) {
       return [];
     }
 
-    /** @var list<TeamMemberRecord> $memberships */
+    /**
+     * @var list<TeamMemberRecord> $memberships
+     */
     $memberships = $this->membershipRepository->findBy(['team' => $teamRecord]);
 
     return array_map(
@@ -232,7 +250,9 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function countMembers(TeamId $teamId): int
   {
-    /** @var TeamRecord|null $teamRecord */
+    /**
+     * @var TeamRecord|null $teamRecord
+     */
     $teamRecord = $this->repository->find((string) $teamId);
 
     if (!$teamRecord instanceof TeamRecord) {
@@ -244,14 +264,18 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function findMemberships(TeamId $teamId): array
   {
-    /** @var TeamRecord|null $teamRecord */
+    /**
+     * @var TeamRecord|null $teamRecord
+     */
     $teamRecord = $this->repository->find((string) $teamId);
 
     if (!$teamRecord instanceof TeamRecord) {
       return [];
     }
 
-    /** @var list<TeamMemberRecord> $memberships */
+    /**
+     * @var list<TeamMemberRecord> $memberships
+     */
     $memberships = $this->membershipRepository->findBy(['team' => $teamRecord]);
 
     return array_map(
@@ -266,14 +290,18 @@ final readonly class TeamRepository implements TeamRepositoryPort
 
   public function deleteMembershipsForMember(OrganizationMemberId $memberId): void
   {
-    /** @var OrganizationMemberRecord|null $memberRecord */
+    /**
+     * @var OrganizationMemberRecord|null $memberRecord
+     */
     $memberRecord = $this->entityManager->getRepository(OrganizationMemberRecord::class)->find((string) $memberId);
 
     if (!$memberRecord instanceof OrganizationMemberRecord) {
       return;
     }
 
-    /** @var list<TeamMemberRecord> $memberships */
+    /**
+     * @var list<TeamMemberRecord> $memberships
+     */
     $memberships = $this->membershipRepository->findBy(['member' => $memberRecord]);
 
     foreach ($memberships as $membership) {

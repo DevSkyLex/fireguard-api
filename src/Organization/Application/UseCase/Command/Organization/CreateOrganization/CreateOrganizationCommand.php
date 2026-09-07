@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\CreateOrganization;
 
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -34,6 +35,7 @@ final readonly class CreateOrganizationCommand implements CommandMessage
     public string $name,
     public string $ownerUserId,
     public ?string $slug = null,
+    public ?OrganizationSetupContext $setupContext = null,
   ) {
   }
   // #endregion

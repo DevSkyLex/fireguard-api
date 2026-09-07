@@ -7,12 +7,16 @@ namespace Tests\Unit\Auth\Application\UseCase\Command\Mfa\MfaVerify;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort};
 use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
 use Auth\Application\UseCase\Command\Mfa\MfaVerify\{MfaVerifyCommand, MfaVerifyHandler, MfaVerifyResult};
+use Auth\Domain\Event\Session\UserLoggedInEvent;
+use Auth\Domain\Event\Token\TokenIssuedEvent;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
+use User\Application\Port\Inbound\FederatedUserPort;
 
 /**
  * Test MfaVerifyHandlerTest.
@@ -42,6 +46,8 @@ final class MfaVerifyHandlerTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $this->expectException(AuthorizationException::class);
@@ -64,6 +70,8 @@ final class MfaVerifyHandlerTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $this->expectException(AuthorizationException::class);
@@ -103,6 +111,8 @@ final class MfaVerifyHandlerTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
@@ -128,6 +138,7 @@ final class MfaVerifyHandlerTest extends TestCase
         'email' => 'user@example.com',
         'scopes' => ['READ', 123, 'WRITE'],
         'remember_me' => true,
+        'grant_type' => 'federated_google',
       ]);
     $jwt->expects(self::once())
       ->method('generateTokens')
@@ -162,10 +173,26 @@ final class MfaVerifyHandlerTest extends TestCase
         true,
       );
 
+    $events = [];
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::exactly(2))
+      ->method('dispatch')
+      ->willReturnCallback(static function (object $event) use (&$events): void {
+        $events[] = $event;
+      });
+
+    $users = $this->createMock(FederatedUserPort::class);
+    $users->expects(self::once())
+      ->method('recordSignInMethod')
+      ->with('user-123', 'google')
+      ->willReturn(true);
+
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $eventDispatcher,
+      users: $users,
     );
 
     $command = new MfaVerifyCommand(
@@ -181,6 +208,9 @@ final class MfaVerifyHandlerTest extends TestCase
     $this->assertSame('access', $result->accessToken);
     $this->assertSame('refresh', $result->refreshToken);
     $this->assertSame(['READ', 'WRITE'], $result->scopes);
+    $this->assertInstanceOf(UserLoggedInEvent::class, $events[0]);
+    $this->assertInstanceOf(TokenIssuedEvent::class, $events[1]);
+    $this->assertSame('federated_google', $events[1]->grantType);
   }
 
   #[Test]
@@ -219,6 +249,8 @@ final class MfaVerifyHandlerTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
@@ -279,6 +311,8 @@ final class MfaVerifyHandlerTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
@@ -315,16 +349,34 @@ final class MfaVerifyHandlerTest extends TestCase
       ->method('verify')
       ->willReturn(new MfaVerifyResult(success: true, attemptsRemaining: 1));
 
+    $methodRecorded = false;
+    /** @var FederatedUserPort&MockObject $users */
+    $users = $this->createMock(FederatedUserPort::class);
+    $users->expects(self::once())
+      ->method('recordSignInMethod')
+      ->with('user-123', 'password')
+      ->willReturnCallback(static function () use (&$methodRecorded): bool {
+        $methodRecorded = true;
+
+        return true;
+      });
+
     /** @var SessionTrackingPort&MockObject $sessionTracking */
     $sessionTracking = $this->createMock(SessionTrackingPort::class);
     $sessionTracking->expects(self::once())
       ->method('recordSession')
-      ->willThrowException(new RuntimeException('session store unavailable'));
+      ->willReturnCallback(static function () use (&$methodRecorded): never {
+        self::assertTrue($methodRecorded, 'The sign-in method must be persisted before best-effort tracking.');
+
+        throw new RuntimeException('session store unavailable');
+      });
 
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $users,
     );
 
     $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));

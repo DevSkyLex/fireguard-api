@@ -35,6 +35,7 @@ final class OrganizationOnboardingSessionState
    * @param ?string $updatedAt the session last-updated timestamp (ISO 8601)
    * @param bool $canRollback whether a rollback action is available
    * @param ?string $lastRollbackableStep the step key that can be rolled back, or null
+   * @param list<\Onboarding\Application\Contract\Setup\OrganizationSetupOperation> $setupOperations durable setup inputs/results
    * @param bool $dismissed whether the user voluntarily hid the activation flow
    * @param ?string $dismissedAt the dismissal timestamp (ISO 8601), or null
    */
@@ -53,6 +54,9 @@ final class OrganizationOnboardingSessionState
     public readonly ?string $lastRollbackableStep,
     public readonly bool $dismissed = false,
     public readonly ?string $dismissedAt = null,
+    public readonly ?string $accessibleOrganizationId = null,
+    public readonly ?string $sessionId = null,
+    public readonly array $setupOperations = [],
   ) {
   }
   // #endregion

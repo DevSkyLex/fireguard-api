@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Console;
 
+use Auth\Infrastructure\Persistence\Doctrine\Record\FederatedAuthFlowRecord;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\{AccessTokenRecord, AuthCodeRecord, ConsentRecord, RefreshTokenRecord};
@@ -86,8 +87,15 @@ final class CleanupAuthDataCommand extends Command
     $cutoff = new DateTimeImmutable(sprintf('-%d days', $retentionDays));
     $dryRun = (bool) $input->getOption('dry-run');
 
-    /** @var list<array{label: string, entity: class-string, alias: string, where: string}> $rules */
+    /** @var list<array{label: string, entity: class-string, alias: string, where: string, cutoff?: DateTimeImmutable}> $rules */
     $rules = [
+      [
+        'label' => 'federated_flows',
+        'entity' => FederatedAuthFlowRecord::class,
+        'alias' => 'ff',
+        'where' => 'ff.expiresAt < :cutoff OR ff.consumedAt IS NOT NULL',
+        'cutoff' => new DateTimeImmutable(),
+      ],
       [
         'label' => 'sessions',
         'entity' => SessionRecord::class,
@@ -144,8 +152,8 @@ final class CleanupAuthDataCommand extends Command
       $entityClass = $rule['entity'];
 
       $count = $dryRun
-        ? $this->countWhere($entityClass, $rule['alias'], $rule['where'], $cutoff)
-        : $this->deleteWhere($entityClass, $rule['alias'], $rule['where'], $cutoff);
+        ? $this->countWhere($entityClass, $rule['alias'], $rule['where'], $rule['cutoff'] ?? $cutoff)
+        : $this->deleteWhere($entityClass, $rule['alias'], $rule['where'], $rule['cutoff'] ?? $cutoff);
 
       $total += $count;
       $rows[] = [$rule['label'], (string) $count];

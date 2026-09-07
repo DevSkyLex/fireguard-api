@@ -7,6 +7,7 @@ namespace Tests\Unit\Auth\Application\UseCase\Command\Session\Login;
 use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort, UserAuthenticationPort};
 use Auth\Application\Port\Outbound\Mfa\{ChallengeGeneratorPort, TotpEnrollmentCheckPort};
+use Auth\Application\Service\Federation\SessionIssuer;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeResult};
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginHandler, LoginResult};
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
@@ -15,9 +16,11 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, RateLimiterPort};
 use Shared\Domain\ValueObject\RateLimitResult;
+use User\Application\Port\Inbound\FederatedUserPort;
 
 /**
  * Test LoginHandlerTest.
@@ -50,7 +53,7 @@ final class LoginHandlerTest extends TestCase
       ->method('dispatch')
       ->with(self::isInstanceOf(LoginFailedEvent::class));
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $this->createStub(UserAuthenticationPort::class),
       tokenService: $this->createStub(JwtTokenServicePort::class),
       challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
@@ -97,7 +100,7 @@ final class LoginHandlerTest extends TestCase
       ->method('dispatch')
       ->with(self::isInstanceOf(LoginFailedEvent::class));
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $this->createStub(JwtTokenServicePort::class),
       challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
@@ -155,7 +158,7 @@ final class LoginHandlerTest extends TestCase
       ->willReturn('pre-auth');
     $jwt->expects(self::never())->method('generateTokens');
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $generator,
@@ -223,7 +226,7 @@ final class LoginHandlerTest extends TestCase
       ->with('user-123')
       ->willReturn(true);
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $generator,
@@ -309,7 +312,7 @@ final class LoginHandlerTest extends TestCase
         ++$callIndex;
       });
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
@@ -345,13 +348,21 @@ final class LoginHandlerTest extends TestCase
       ->method('authenticate')
       ->willThrowException(new RuntimeException('boom'));
 
+    /** @var LoggerInterface&MockObject $logger */
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::once())
+      ->method('critical')
+      ->with('Password authentication failed unexpectedly.', [
+        'exception_class' => RuntimeException::class,
+      ]);
+
     /** @var EventDispatcherPort&MockObject $dispatcher */
     $dispatcher = $this->createMock(EventDispatcherPort::class);
     $dispatcher->expects(self::once())
       ->method('dispatch')
       ->with(self::isInstanceOf(LoginFailedEvent::class));
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $this->createStub(JwtTokenServicePort::class),
       challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
@@ -361,6 +372,7 @@ final class LoginHandlerTest extends TestCase
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
+      logger: $logger,
     );
 
     $result = $handler->__invoke($command);
@@ -407,13 +419,29 @@ final class LoginHandlerTest extends TestCase
         'refresh_token_id' => 'refresh-id',
       ]);
 
+    $methodRecorded = false;
+    /** @var FederatedUserPort&MockObject $users */
+    $users = $this->createMock(FederatedUserPort::class);
+    $users->expects(self::once())
+      ->method('recordSignInMethod')
+      ->with('user-123', 'password')
+      ->willReturnCallback(static function () use (&$methodRecorded): bool {
+        $methodRecorded = true;
+
+        return true;
+      });
+
     /** @var SessionTrackingPort&MockObject $sessionTracking */
     $sessionTracking = $this->createMock(SessionTrackingPort::class);
     $sessionTracking->expects(self::once())
       ->method('recordSession')
-      ->willThrowException(new RuntimeException('tracking failed'));
+      ->willReturnCallback(static function () use (&$methodRecorded): never {
+        self::assertTrue($methodRecorded, 'The sign-in method must be persisted before best-effort tracking.');
 
-    $handler = new LoginHandler(
+        throw new RuntimeException('tracking failed');
+      });
+
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
@@ -423,6 +451,7 @@ final class LoginHandlerTest extends TestCase
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
+      users: $users,
     );
 
     $result = $handler->__invoke($command);
@@ -473,7 +502,7 @@ final class LoginHandlerTest extends TestCase
         'refresh_token_id' => 'refresh-id',
       ]);
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
@@ -544,7 +573,7 @@ final class LoginHandlerTest extends TestCase
       ->willReturn('pre-auth');
     $jwt->expects(self::never())->method('generateTokens');
 
-    $handler = new LoginHandler(
+    $handler = $this->handler(
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $generator,
@@ -560,6 +589,42 @@ final class LoginHandlerTest extends TestCase
 
     $this->assertTrue($result->mfaRequired);
     $this->assertSame('email', $result->mfaMethod);
+  }
+
+  /**
+   * Preserves the pre-extraction test setup while constructing the shared issuer.
+   *
+   * @since 1.0.0
+   */
+  private function handler(
+    UserAuthenticationPort $userAuthentication,
+    JwtTokenServicePort $tokenService,
+    ChallengeGeneratorPort $challengeGenerator,
+    SessionTrackingPort $sessionTracking,
+    EventDispatcherPort $eventDispatcher,
+    RateLimiterPort $rateLimiter,
+    TrustedDeviceCheckPort $trustedDeviceCheck,
+    TotpEnrollmentCheckPort $totpEnrollmentCheck,
+    bool $mfaEnabled,
+    ?LoggerInterface $logger = null,
+    ?FederatedUserPort $users = null,
+  ): LoginHandler {
+    return new LoginHandler(
+      userAuthentication: $userAuthentication,
+      eventDispatcher: $eventDispatcher,
+      rateLimiter: $rateLimiter,
+      sessionIssuer: new SessionIssuer(
+        tokenService: $tokenService,
+        challengeGenerator: $challengeGenerator,
+        sessionTracking: $sessionTracking,
+        eventDispatcher: $eventDispatcher,
+        trustedDeviceCheck: $trustedDeviceCheck,
+        totpEnrollmentCheck: $totpEnrollmentCheck,
+        users: $users ?? $this->createStub(FederatedUserPort::class),
+        mfaEnabled: $mfaEnabled,
+      ),
+      logger: $logger ?? $this->createStub(LoggerInterface::class),
+    );
   }
   // #endregion
 }

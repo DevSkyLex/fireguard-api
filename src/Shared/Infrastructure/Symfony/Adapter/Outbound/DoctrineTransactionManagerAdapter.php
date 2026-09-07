@@ -47,11 +47,13 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
    *
    * @since 1.0.0
    *
-   * @param callable $operation the operation to execute within a transaction
+   * @template T
+   *
+   * @param callable():T $operation the operation to execute within a transaction
    *
    * @throws TransactionExecutionException if an exception occurs during the transaction
    *
-   * @return mixed the result of the operation
+   * @return T the result of the operation
    */
   public function transactional(callable $operation): mixed
   {

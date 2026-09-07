@@ -118,7 +118,7 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
     $userId = new UserId($otp->userId());
     $user = $this->userRepository->findById($userId);
 
-    if (null === $user) {
+    if (null === $user || $otp->recipient() !== $user->email()->value) {
       return ConfirmRegistrationResult::failed(
         message: 'User not found.',
         errorCode: ConfirmRegistrationResult::ERROR_INVALID_TOKEN,
@@ -127,6 +127,7 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
 
     // Activate the account (pending_verification -> active) and publish events.
     $user->verifyEmail(eventIdProvider: $this->eventIdProvider);
+    $user->confirmEmailOwnership($user->email());
     $this->userRepository->save($user);
 
     foreach ($user->releaseEvents() as $event) {

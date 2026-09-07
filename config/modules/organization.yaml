@@ -429,3 +429,29 @@ services:
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~
   Organization\Infrastructure\Console\AddOrganizationAdminConsoleCommand: ~
 
+
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationJoinRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+  Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationJoinRepository
+  Organization\Infrastructure\Adapter\Native\OrganizationDomainProofAdapter: ~
+  Organization\Application\Port\Outbound\OrganizationDomainProofPort:
+    alias: Organization\Infrastructure\Adapter\Native\OrganizationDomainProofAdapter
+  Organization\Application\Service\OrganizationJoinAccessService: ~
+  Organization\Application\Port\Inbound\OrganizationJoinAccessPort:
+    alias: Organization\Application\Service\OrganizationJoinAccessService
+  Organization\Application\UseCase\Command\Join\ManageOrganizationJoin\ManageOrganizationJoinHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+  Organization\Application\UseCase\Query\Join\ReadOrganizationJoin\ReadOrganizationJoinHandler:
+    tags: ['messenger.message_handler']
+  Organization\Application\UseCase\Command\Sweep\VerifyOrganizationDomains\VerifyOrganizationDomainsHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Infrastructure\Adapter\Symfony\OrganizationJoinNotificationAdapter: ~
+  Organization\Application\Port\Outbound\OrganizationJoinNotificationPort:
+    alias: Organization\Infrastructure\Adapter\Symfony\OrganizationJoinNotificationAdapter

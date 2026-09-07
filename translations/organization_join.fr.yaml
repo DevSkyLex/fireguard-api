@@ -1,0 +1,8 @@
+request_failed: "Nous n’avons pas pu terminer cette demande d’accès. Réessayez."
+subject: "Demande d’accès à une organisation"
+status:
+  pending: "Une demande d’accès à votre organisation attend votre validation."
+  approved: "Votre demande a été acceptée. Vous pouvez ouvrir l’organisation dans Fireguard."
+  rejected: "Votre demande a été refusée. Contactez votre administrateur pour recevoir une invitation."
+  cancelled: "La demande d’accès à l’organisation a été annulée."
+  expired: "La demande d’accès à l’organisation a expiré."

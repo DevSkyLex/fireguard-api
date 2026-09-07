@@ -17,6 +17,15 @@ final class FacilityOperations
 {
   // #region Constants
   /**
+   * Constant SUGGEST_ADDRESSES.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string SUGGEST_ADDRESSES = 'facility_suggest_addresses';
+
+  /**
    * Constant CREATE_FACILITY.
    *
    * @var string

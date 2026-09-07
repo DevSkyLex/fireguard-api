@@ -6,6 +6,8 @@ namespace Organization\Application\UseCase\Command\Organization\CreateOrganizati
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
+use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Event\Organization\OrganizationCreatedEvent;
@@ -63,6 +65,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private ?OrganizationSetupPort $setup = null,
   ) {
   }
   // #endregion
@@ -81,6 +84,9 @@ final readonly class CreateOrganizationHandler implements CommandHandler
    */
   public function __invoke(CreateOrganizationCommand $command): CreateOrganizationResult
   {
+    if (null !== $command->setupContext && null === $this->setup) {
+      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+    }
     // Validate the owner account before creating organization data.
     $ownerUserId = new UserId($command->ownerUserId);
     $ownerUser = $this->userRepository->findById($ownerUserId);
@@ -146,6 +152,8 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       userId: $command->ownerUserId,
     );
 
+    $replayed = false;
+
     try {
       /** @var CreateOrganizationResult $result */
       $result = $this->transactionManager->transactional(function () use (
@@ -156,12 +164,51 @@ final readonly class CreateOrganizationHandler implements CommandHandler
         $ownerMemberId,
         $ownerRoleId,
         $organizationId,
+        $normalizedSlug,
+        $command,
+        &$replayed,
       ): CreateOrganizationResult {
+        if (null !== $command->setupContext) {
+          $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug]);
+          if (null !== $operation->resourceId) {
+            $existing = $this->organizationRepository->findById(OrganizationId::fromString($operation->resourceId));
+            if (null === $existing || $existing->ownerUserId() !== $command->ownerUserId) {
+              throw OrganizationSetupConflict::because('The created organization is no longer available.');
+            }
+            $replayed = true;
+
+            return new CreateOrganizationResult(
+              organizationId: $operation->resourceId,
+              ownerMemberId: $operation->resultIds['ownerMemberId'],
+              ownerRoleId: $operation->resultIds['ownerRoleId'],
+              name: (string) $existing->name(),
+              slug: (string) $existing->slug(),
+              ownerUserId: $existing->ownerUserId(),
+              createdByUserId: $existing->createdByUserId(),
+              status: $existing->status()->value,
+              createdAt: $existing->createdAt(),
+              updatedAt: $existing->updatedAt(),
+            );
+          }
+        }
+        if (null === $normalizedSlug) {
+          $this->organizationRepository->lockSlugNamespace();
+          $base = $organization->slug();
+          $candidate = $base;
+          $ordinal = 2;
+          while ($this->organizationRepository->slugExists($candidate)) {
+            $candidate = $base->withSuffix($ordinal++);
+          }
+          $organization->changeSlug($candidate);
+        }
         $this->organizationRepository->save($organization);
         $this->roleRepository->save($ownerRole);
         $this->roleRepository->save($memberRole);
         $this->memberRepository->save($ownerMember);
         $this->memberRepository->assignRole($ownerMemberId, $ownerRoleId);
+        if (null !== $command->setupContext) {
+          ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_organization', (string) $organizationId, ['ownerMemberId' => (string) $ownerMemberId, 'ownerRoleId' => (string) $ownerRoleId]);
+        }
 
         return new CreateOrganizationResult(
           organizationId: (string) $organizationId,
@@ -182,6 +229,10 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       }
 
       throw $exception;
+    }
+
+    if ($replayed) {
+      return $result;
     }
 
     $this->eventDispatcher->dispatch(new OrganizationCreatedEvent(

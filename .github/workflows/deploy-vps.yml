@@ -123,10 +123,15 @@ jobs:
       COOKIE_SECURE:                   ${{ vars.COOKIE_SECURE }}
       CORS_ALLOW_ORIGIN:               ${{ vars.CORS_ALLOW_ORIGIN }}
       DATABASE_STORAGE_TIMEZONE:       ${{ vars.DATABASE_STORAGE_TIMEZONE }}
+      GOOGLE_OIDC_CLIENT_ID:           ${{ vars.GOOGLE_OIDC_CLIENT_ID }}
+      GOOGLE_OIDC_ENABLED:             ${{ vars.GOOGLE_OIDC_ENABLED }}
       MAILER_FROM:                     ${{ vars.MAILER_FROM }}
       MERCURE_CORS_ORIGINS:            ${{ vars.MERCURE_CORS_ORIGINS }}
       MESSENGER_TRANSPORT_DSN:         ${{ vars.MESSENGER_TRANSPORT_DSN }}
+      MICROSOFT_OIDC_CLIENT_ID:        ${{ vars.MICROSOFT_OIDC_CLIENT_ID }}
+      MICROSOFT_OIDC_ENABLED:          ${{ vars.MICROSOFT_OIDC_ENABLED }}
       OAUTH_ISSUER:                    ${{ vars.OAUTH_ISSUER }}
+      PHOTON_BASE_URL:                 ${{ vars.PHOTON_BASE_URL }}
       POSTGRES_AUTH_DB:                ${{ vars.POSTGRES_AUTH_DB }}
       POSTGRES_AUTH_USER:              ${{ vars.POSTGRES_AUTH_USER }}
       POSTGRES_MAIN_DB:                ${{ vars.POSTGRES_MAIN_DB }}
@@ -147,8 +152,10 @@ jobs:
       # purpose — the template composes them from the parts, so the password has
       # exactly one source and cannot disagree with itself.
       APP_SECRET:                      ${{ secrets.APP_SECRET }}
+      GOOGLE_OIDC_CLIENT_SECRET:       ${{ secrets.GOOGLE_OIDC_CLIENT_SECRET }}
       MAILER_DSN:                      ${{ secrets.MAILER_DSN }}
       MERCURE_JWT_SECRET:              ${{ secrets.MERCURE_JWT_SECRET }}
+      MICROSOFT_OIDC_CLIENT_SECRET:    ${{ secrets.MICROSOFT_OIDC_CLIENT_SECRET }}
       OAUTH_ENCRYPTION_KEY:            ${{ secrets.OAUTH_ENCRYPTION_KEY }}
       POSTGRES_AUTH_PASSWORD:          ${{ secrets.POSTGRES_AUTH_PASSWORD }}
       POSTGRES_MAIN_PASSWORD:          ${{ secrets.POSTGRES_MAIN_PASSWORD }}

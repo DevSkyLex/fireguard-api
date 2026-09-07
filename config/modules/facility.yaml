@@ -256,3 +256,11 @@ services:
 
   # Console Commands use #[AsCommand]
   Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~
+
+  Facility\Application\UseCase\Query\SuggestAddresses\SuggestAddressesHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\Port\Outbound\AddressSuggestionsPort:
+    alias: Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter
+
+  Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter: ~

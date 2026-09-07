@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace User\Domain\Model\User;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\{Email, TenantId};
 use User\Domain\Event\{UserCreatedEvent, UserDeactivatedEvent, UserEmailChangeConfirmedEvent, UserEmailVerifiedEvent};
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
 use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
+
+use function in_array;
 
 /**
  * Aggregate User.
@@ -55,7 +58,7 @@ final class User
    * @param UserId $id the user ID
    * @param Username $username the username
    * @param Email $email the user email
-   * @param HashedPassword $password the hashed password
+   * @param HashedPassword|null $password the hashed password, or null for a federated-only account
    * @param UserProfile $profile the user profile
    * @param UserStatus $status the user status
    * @param bool $emailVerified whether the email is verified
@@ -64,12 +67,14 @@ final class User
    * @param DateTimeImmutable|null $lastLoginAt when the user last logged in
    * @param int $failedLoginAttempts number of failed login attempts
    * @param Locale $locale the preferred display language (defaults to following the browser)
+   * @param string|null $lastSignInMethod the last completed primary sign-in method
+   * @param DateTimeImmutable|null $emailOwnershipVerifiedAt explicit Fireguard mailbox proof
    */
   private function __construct(
     private UserId $id,
     private Username $username,
     private Email $email,
-    private HashedPassword $password,
+    private ?HashedPassword $password,
     private UserProfile $profile,
     private UserStatus $status,
     private bool $emailVerified,
@@ -78,6 +83,8 @@ final class User
     private ?DateTimeImmutable $lastLoginAt = null,
     private int $failedLoginAttempts = 0,
     private Locale $locale = Locale::SYSTEM,
+    private ?string $lastSignInMethod = null,
+    private ?DateTimeImmutable $emailOwnershipVerifiedAt = null,
   ) {
   }
   // #endregion
@@ -135,6 +142,54 @@ final class User
   }
 
   /**
+   * Method registerFederated.
+   *
+   * Creates an active user whose email was verified by an external identity
+   * provider and who does not yet have a local password.
+   *
+   * @since 1.1.0
+   *
+   * @param UserId $id the user ID
+   * @param Username $username the username
+   * @param Email $email the verified email
+   * @param UserProfile $profile the user profile
+   * @param EventIdProvider $eventIdProvider the event ID provider
+   * @param TenantId|null $tenantId the tenant ID
+   *
+   * @return self the new user instance
+   */
+  public static function registerFederated(
+    UserId $id,
+    Username $username,
+    Email $email,
+    UserProfile $profile,
+    EventIdProvider $eventIdProvider,
+    ?TenantId $tenantId = null,
+  ): self {
+    $user = new self(
+      id: $id,
+      username: $username,
+      email: $email,
+      password: null,
+      profile: $profile,
+      status: UserStatus::ACTIVE,
+      emailVerified: true,
+      tenantId: $tenantId,
+      createdAt: new DateTimeImmutable(),
+    );
+
+    $user->recordEvent(new UserCreatedEvent(
+      eventId: $eventIdProvider->nextEventId(),
+      userId: $id->value,
+      username: $username->value,
+      email: $email->value,
+      occurredAt: new DateTimeImmutable(),
+    ));
+
+    return $user;
+  }
+
+  /**
    * Method verifyEmail.
    *
    * Marks the user's email as verified and activates the account.
@@ -162,6 +217,33 @@ final class User
       email: $this->email->value,
       occurredAt: new DateTimeImmutable(),
     ));
+  }
+
+  /**
+   * Records a Fireguard challenge proven against the current mailbox.
+   *
+   * @since 1.1.0
+   *
+   * @param Email $email the address actually challenged
+   */
+  public function confirmEmailOwnership(Email $email): void
+  {
+    if (!$this->canLogin() || $email->value !== $this->email->value) {
+      throw \User\Domain\Exception\EmailOwnershipUnavailableException::unavailable();
+    }
+    $this->emailOwnershipVerifiedAt = new DateTimeImmutable();
+  }
+
+  /**
+   * Returns proof for the current address, never inferred from external claims.
+   *
+   * @since 1.1.0
+   *
+   * @return DateTimeImmutable|null the recorded Fireguard proof time
+   */
+  public function emailOwnershipVerifiedAt(): ?DateTimeImmutable
+  {
+    return $this->emailOwnershipVerifiedAt;
   }
 
   /**
@@ -224,7 +306,7 @@ final class User
       );
     }
 
-    if (!$this->password->verify(plain: $plainPassword)) {
+    if (null === $this->password || !$this->password->verify(plain: $plainPassword)) {
       $this->recordFailedLogin();
 
       throw InvalidPasswordException::incorrect();
@@ -249,6 +331,32 @@ final class User
   {
     $this->lastLoginAt = new DateTimeImmutable();
     $this->failedLoginAttempts = 0;
+  }
+
+  /**
+   * Records the primary method after a complete sign-in, including MFA.
+   *
+   * @since 1.1.0
+   *
+   * @param string $method the stable password or provider method
+   */
+  public function recordSignInMethod(string $method): void
+  {
+    if (!in_array($method, ['password', 'google', 'microsoft'], true)) {
+      throw new InvalidArgumentException('Unsupported sign-in method.');
+    }
+
+    $this->lastSignInMethod = $method;
+  }
+
+  /**
+   * Returns the primary method used for the last completed sign-in.
+   *
+   * @since 1.1.0
+   */
+  public function lastSignInMethod(): ?string
+  {
+    return $this->lastSignInMethod;
   }
 
   /**
@@ -340,6 +448,7 @@ final class User
     $previousEmail = $this->email;
     $this->email = $newEmail;
     $this->emailVerified = true;
+    $this->emailOwnershipVerifiedAt = new DateTimeImmutable();
 
     $this->recordEvent(event: new UserEmailChangeConfirmedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -364,6 +473,20 @@ final class User
   public function changePassword(HashedPassword $newPassword): void
   {
     $this->password = $newPassword;
+  }
+
+  /**
+   * Method hasPassword.
+   *
+   * Reports whether this account can use local password authentication.
+   *
+   * @since 1.1.0
+   *
+   * @return bool true when a local password exists
+   */
+  public function hasPassword(): bool
+  {
+    return null !== $this->password;
   }
 
   /**

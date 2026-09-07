@@ -422,6 +422,9 @@ final class Otp
    */
   public function verify(string $inputCode): bool
   {
+    if ($this->isVerified()) {
+      return false;
+    }
     if ($this->isExpired()) {
       throw OtpExpiredException::create(
         id: $this->id,
@@ -478,6 +481,9 @@ final class Otp
    */
   public function verifyExternal(bool $isValid): bool
   {
+    if ($this->isVerified()) {
+      return false;
+    }
     if ($this->isExpired()) {
       throw OtpExpiredException::create(
         id: $this->id,

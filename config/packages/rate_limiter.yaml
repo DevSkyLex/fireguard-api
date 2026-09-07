@@ -10,6 +10,16 @@ framework:
       limit: 5
       interval: '1 minute'
       lock_factory: null
+    federated_start:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+      lock_factory: null
+    federated_complete:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+      lock_factory: null
     mfa_verify:
       policy: 'sliding_window'
       limit: 5
@@ -71,6 +81,16 @@ framework:
       interval: '1 minute'
       lock_factory: null
     password_change_confirm:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    password_setup:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    password_setup_confirm:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
@@ -154,6 +174,15 @@ framework:
     # one account can burn the shared outbound geocoding budget (the adapter
     # additionally throttles the aggregate to 1 req/s per Nominatim's policy):
     # this limiter protects the external provider and us, not a secret.
+    facility_address_suggestions:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+    # Shared non-blocking budget bounds public-demo traffic across workers.
+    facility_address_suggestions_provider:
+      policy: 'token_bucket'
+      limit: 1
+      rate: { interval: '1 second', amount: 1 }
     facility_geocode:
       policy: 'sliding_window'
       limit: 30
@@ -163,4 +192,24 @@ framework:
       policy: 'sliding_window'
       limit: 6
       interval: '1 minute'
+      lock_factory: null
+    email_ownership_start:
+      policy: 'sliding_window'
+      limit: 1
+      interval: '1 minute'
+      lock_factory: null
+    email_ownership_confirm:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+      lock_factory: null
+    organization_join:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
+    organization_domain_verify:
+      policy: 'sliding_window'
+      limit: 6
+      interval: '1 hour'
       lock_factory: null

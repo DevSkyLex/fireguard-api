@@ -968,3 +968,8 @@ Domain ones: they live under `Application/Contract/FloorPlan/` because they
 are the typed `@throws` surface of `EquipmentFloorPlanValidationPort`, thrown
 by Facility's adapter across the module boundary — and cross-module access is
 restricted to `Application\Port\` and `Application\Contract\` types.
+
+
+## Durable onboarding setup
+
+Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.

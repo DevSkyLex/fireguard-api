@@ -17,6 +17,11 @@ final class OnboardingOperations
 {
   // #region Constants
   /**
+   * @since 1.2.0
+   */
+  public const string PREPARE_ORGANIZATION_SETUP = 'prepareOrganizationSetup';
+
+  /**
    * Constant GET_ORGANIZATION_ONBOARDING.
    *
    * @since 1.0.0

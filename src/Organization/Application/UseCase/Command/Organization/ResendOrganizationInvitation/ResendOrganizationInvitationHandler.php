@@ -7,6 +7,7 @@ namespace Organization\Application\UseCase\Command\Organization\ResendOrganizati
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\NotificationChannel;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort;
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
 use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException, OrganizationNotFoundException};
@@ -45,6 +46,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
    * @param OrganizationInvitationNotifier $invitationNotifier the invitation token/link/notification helper
    * @param LoggerPort $logger the logger port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param ?OrganizationJoinRepositoryPort $joinRepository serialized organization admission state
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
@@ -55,6 +57,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private ?OrganizationJoinRepositoryPort $joinRepository = null,
   ) {
   }
   // #endregion
@@ -103,6 +106,15 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
       $now,
       $acceptUrl,
     ): ResendOrganizationInvitationResult {
+      $this->joinRepository?->lock((string) $invitation->organizationId());
+      $currentInvitation = $this->invitationRepository->findById($invitation->id());
+      if (null === $currentInvitation || (string) $currentInvitation->organizationId() !== (string) $invitation->organizationId()) {
+        throw OrganizationInvitationNotFoundException::withId((string) $invitation->id());
+      }
+      if (!$currentInvitation->status()->isPending() && 'expired' !== $currentInvitation->status()->value) {
+        throw \Organization\Domain\Exception\OrganizationInvitationNotPendingException::noLongerPending();
+      }
+      $invitation = $currentInvitation;
       $invitation->renew($tokenHash, $expiresAt, $now);
       $this->invitationRepository->save($invitation);
 
@@ -154,16 +166,19 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
     }
 
     if (!($notification?->isDelivered(NotificationChannel::EMAIL) ?? false)) {
-      $this->invalidateInvitation(
+      $invalidated = $this->invalidateInvitation(
         invitationId: $invitation->id(),
         revokedByUserId: $command->resentByUserId,
+        expectedTokenHash: $tokenHash,
       );
 
-      $this->logger->warning('Resent invitation was revoked because its notification email could not be delivered.', [
-        'organizationId' => (string) $invitation->organizationId(),
-        'invitationId' => (string) $invitation->id(),
-        'recipientEmail' => (string) $invitation->email(),
-      ]);
+      if (null !== $invalidated) {
+        $this->logger->warning('Resent invitation was revoked because its notification email could not be delivered.', [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'recipientEmail' => (string) $invitation->email(),
+        ]);
+      }
 
       throw OrganizationInvitationNotificationFailedException::withId((string) $invitation->id());
     }

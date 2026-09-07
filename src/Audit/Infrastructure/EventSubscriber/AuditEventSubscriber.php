@@ -54,6 +54,7 @@ use Messaging\Domain\Event\Message\{MessagingMessageModeratedEvent, MessagingMes
 use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
+use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
 use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
 use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
@@ -138,6 +139,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
       'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
       'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
+      OrganizationJoinChangedEvent::class => 'onOrganizationJoinChanged',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',
@@ -715,6 +717,28 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       subjectId: $event->organizationId,
       metadata: [],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onOrganizationJoinChanged.
+   *
+   * Records committed access changes without DNS proofs or raw applicant emails.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationJoinChangedEvent $event the committed domain event
+   */
+  public function onOrganizationJoinChanged(OrganizationJoinChangedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'organization.join_' . $event->operation,
+      organizationId: $event->organizationId,
+      subjectType: 'organization_access',
+      subjectId: $event->resourceId ?? $event->organizationId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 

@@ -25,6 +25,15 @@ services:
   Auth\Application\Port\Outbound\TrustedDeviceCheckPort:
     alias: TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter
 
+  Auth\Application\Port\Outbound\Federation\FederatedProviderClientPort:
+    alias: Auth\Infrastructure\Adapter\Federation\LeagueFederatedProviderAdapter
+
+  Auth\Application\Port\Outbound\Federation\FederatedIdentityRepositoryPort:
+    alias: Auth\Infrastructure\Persistence\Doctrine\Repository\FederatedIdentityRepository
+
+  Auth\Application\Port\Outbound\Federation\FederatedFlowRepositoryPort:
+    alias: Auth\Infrastructure\Persistence\Doctrine\Repository\FederatedFlowRepository
+
   # Cross-module: implemented by the Otp module (delegates to its TOTP status inbound port)
   Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort:
     alias: Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter
@@ -35,6 +44,20 @@ services:
   Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter: ~
   Auth\Infrastructure\Adapter\Session\SessionStatusAdapter: ~
   Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter: ~
+  Auth\Infrastructure\Adapter\Federation\LeagueFederatedProviderAdapter: ~
+
+  Auth\Infrastructure\Persistence\Doctrine\Repository\FederatedIdentityRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Auth\Infrastructure\Persistence\Doctrine\Repository\FederatedFlowRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  auth.federated_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   # JWT Token Adapter (uses #[Autowire] attributes)
   Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter: ~
@@ -43,6 +66,12 @@ services:
   Auth\Infrastructure\Logging\SecurityLogSanitizer: ~
 
   Auth\Application\Service\SecurityUserCacheInvalidator: ~
+
+  Auth\Application\Service\Federation\SessionIssuer: ~
+  Auth\Application\Service\Federation\FederatedAuthenticationService:
+    arguments:
+      $transaction: '@auth.federated_transaction_manager'
+  Auth\Application\Service\Federation\InitialPasswordService: ~
 
   # Use Case Command Handlers
   Auth\Application\UseCase\Command\Session\Login\LoginHandler:
@@ -86,6 +115,7 @@ services:
 
   # Refresh Token Cookie Service
   Auth\Presentation\Api\Service\RefreshTokenCookieService: ~
+  Auth\Presentation\Api\Service\FederatedFlowCookieService: ~
 
   # Auth Processors
   Auth\Presentation\Api\Processor\Auth\LoginProcessor: ~
@@ -93,6 +123,14 @@ services:
   Auth\Presentation\Api\Processor\Auth\LogoutProcessor: ~
   Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor: ~
   Auth\Presentation\Api\Processor\Auth\MfaResendProcessor: ~
+
+  Auth\Presentation\Api\Provider\Federation\FederatedProvidersProvider: ~
+  Auth\Presentation\Api\Provider\Federation\FederatedConnectionsProvider: ~
+  Auth\Presentation\Api\Processor\Federation\FederatedStartProcessor: ~
+  Auth\Presentation\Api\Processor\Federation\FederatedCompleteProcessor: ~
+  Auth\Presentation\Api\Processor\Federation\FederatedDisconnectProcessor: ~
+  Auth\Presentation\Api\Processor\Federation\RequestPasswordSetupProcessor: ~
+  Auth\Presentation\Api\Processor\Federation\ConfirmPasswordSetupProcessor: ~
 
   # Password Reset Processors
   Auth\Presentation\Api\Processor\PasswordReset\RequestPasswordResetProcessor: ~
@@ -110,6 +148,7 @@ services:
 
   # Event Subscribers
   Auth\Infrastructure\EventSubscriber\RefreshTokenCookieSubscriber: ~
+  Auth\Infrastructure\EventSubscriber\FederatedFlowCookieSubscriber: ~
   Auth\Infrastructure\EventSubscriber\EventLogSubscriber: ~
 
   # Symfony Security
@@ -126,3 +165,13 @@ services:
   # Console Commands
   Auth\Infrastructure\Console\CleanupAuthDataCommand: ~
 
+  Auth\Presentation\Api\Service\EmailOwnershipActor: ~
+  Auth\Application\UseCase\Query\EmailOwnership\GetEmailOwnership\GetEmailOwnershipHandler:
+    tags: ['messenger.message_handler']
+  Auth\Presentation\Api\Provider\EmailOwnership\GetEmailOwnershipProvider: ~
+  Auth\Application\UseCase\Command\EmailOwnership\StartEmailOwnership\StartEmailOwnershipHandler:
+    tags: ['messenger.message_handler']
+  Auth\Presentation\Api\Processor\EmailOwnership\StartEmailOwnershipProcessor: ~
+  Auth\Application\UseCase\Command\EmailOwnership\ConfirmEmailOwnership\ConfirmEmailOwnershipHandler:
+    tags: ['messenger.message_handler']
+  Auth\Presentation\Api\Processor\EmailOwnership\ConfirmEmailOwnershipProcessor: ~

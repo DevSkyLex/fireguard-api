@@ -7,6 +7,7 @@ namespace Organization\Infrastructure\Scheduler;
 use DateTimeImmutable;
 use DateTimeZone;
 use Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsCommand;
+use Organization\Application\UseCase\Command\Sweep\VerifyOrganizationDomains\VerifyOrganizationDomainsCommand;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\{RecurringMessage, Schedule, ScheduleProviderInterface};
@@ -71,6 +72,7 @@ final readonly class OrganizationScheduleProvider implements ScheduleProviderInt
   public function getSchedule(): Schedule
   {
     return new Schedule()
+      ->add(RecurringMessage::every('1 day', new VerifyOrganizationDomainsCommand()))
       ->add(RecurringMessage::every(
         '1 week',
         new SendWeeklyDigestsCommand(),

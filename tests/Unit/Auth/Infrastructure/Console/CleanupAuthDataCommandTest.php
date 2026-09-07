@@ -44,7 +44,7 @@ final class CleanupAuthDataCommandTest extends TestCase
   #[Test]
   public function testExecuteDryRunCounts(): void
   {
-    $entityManager = $this->createEntityManagerWithQueryBuilders(countResult: 3, deleteResult: 2, expectedCalls: 7);
+    $entityManager = $this->createEntityManagerWithQueryBuilders(countResult: 3, deleteResult: 2, expectedCalls: 8);
 
     $command = new CleanupAuthDataCommand(
       entityManager: $entityManager,
@@ -55,13 +55,14 @@ final class CleanupAuthDataCommandTest extends TestCase
     $tester->execute(['--dry-run' => true, '--days' => 7]);
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-    self::assertStringContainsString('Found', $tester->getDisplay());
+    self::assertStringContainsString('federated_flows', $tester->getDisplay());
+    self::assertStringContainsString('Found 24 records.', $tester->getDisplay());
   }
 
   #[Test]
   public function testExecuteDeletesWhenNotDryRun(): void
   {
-    $entityManager = $this->createEntityManagerWithQueryBuilders(countResult: 3, deleteResult: 2, expectedCalls: 7);
+    $entityManager = $this->createEntityManagerWithQueryBuilders(countResult: 3, deleteResult: 2, expectedCalls: 8);
 
     $command = new CleanupAuthDataCommand(
       entityManager: $entityManager,
@@ -72,7 +73,8 @@ final class CleanupAuthDataCommandTest extends TestCase
     $tester->execute(['--days' => 7]);
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-    self::assertStringContainsString('Deleted', $tester->getDisplay());
+    self::assertStringContainsString('federated_flows', $tester->getDisplay());
+    self::assertStringContainsString('Deleted 16 records.', $tester->getDisplay());
   }
 
   private function createEntityManagerWithQueryBuilders(int $countResult, int $deleteResult, int $expectedCalls): EntityManagerInterface

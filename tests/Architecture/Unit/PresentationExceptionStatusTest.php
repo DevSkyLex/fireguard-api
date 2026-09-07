@@ -161,6 +161,9 @@ final class PresentationExceptionStatusTest extends TestCase
     'FacilityMetadataFieldLimitExceededException' => 'UnprocessableEntityHttpException',
     'FacilityMetadataFieldNotFoundException' => 'NotFoundHttpException',
     'FacilityNotFoundException' => 'NotFoundHttpException',
+    'FederatedAuthException' => 'BadRequestHttpException',
+    'FederatedConflictException' => 'ConflictHttpException',
+    'FederatedUnauthorizedException' => 'UnauthorizedHttpException',
     'FacilitySubtreeSourceArchivedException' => 'ConflictHttpException',
     'FacilitySubtreeTooLargeException' => 'UnprocessableEntityHttpException',
     'FloorPlanAttachmentNotFoundException' => 'NotFoundHttpException',
@@ -603,6 +606,7 @@ final class PresentationExceptionStatusTest extends TestCase
       if (
         1 === preg_match('/throw new (\w*HttpException)\(\$' . $variable . '\b/', $line, $thrown)
         || 1 === preg_match('/throw new (\w*HttpException)\(\$\w+->getMessage\(\)/', $line, $thrown)
+        || 1 === preg_match('/throw new (UnauthorizedHttpException)\\([^,]+,\\s*\\$' . $variable . '\\b/', $line, $thrown)
       ) {
         return $thrown[1];
       }

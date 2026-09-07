@@ -375,12 +375,17 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     ?TransactionManagerPort $transactionManager = null,
     ?EventDispatcherInterface $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
+    if (null === $transactionManager) {
+      $transactionManager = $this->createStub(TransactionManagerPort::class);
+      $transactionManager->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
+    }
+
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
       commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
     );
   }
