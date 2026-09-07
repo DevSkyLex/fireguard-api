@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound;
 
+use Auth\Domain\ValueObject\Security\SignInGrantType;
+
 /**
  * Interface JwtTokenServicePort.
  *
@@ -38,6 +40,7 @@ interface JwtTokenServicePort
    * @param array<string> $scopes the granted scopes
    * @param int $ttl lifetime in seconds (default 300)
    * @param bool $rememberMe whether the session is persistent
+   * @param SignInGrantType $grantType the primary authentication method
    *
    * @return string the valid JWT token
    */
@@ -48,6 +51,7 @@ interface JwtTokenServicePort
     array $scopes = [],
     int $ttl = 300,
     bool $rememberMe = false,
+    SignInGrantType $grantType = SignInGrantType::PASSWORD,
   ): string;
 
   /**

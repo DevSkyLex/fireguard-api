@@ -43,7 +43,7 @@ interface OrganizationOnboardingServicePort
    *
    * @return OrganizationOnboardingSessionState the current flow state after start
    */
-  public function start(string $userId, bool $reset = false): OrganizationOnboardingSessionState;
+  public function start(string $userId, bool $reset = false, ?string $intent = null): OrganizationOnboardingSessionState;
 
   /**
    * Method executeStep.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
@@ -80,7 +81,9 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
   public function save(OrganizationInvitation $invitation): void
   {
     $record = OrganizationInvitationMapper::toRecord($invitation);
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $invitation->organizationId());
     $record->organization = $organization;
     $existing = $this->invitationRepository->find($record->id);
@@ -124,6 +127,8 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
       return null;
     }
 
+    $this->entityManager->refresh($record, $this->entityManager->getConnection()->isTransactionActive() ? LockMode::PESSIMISTIC_WRITE : null);
+
     return OrganizationInvitationMapper::toDomain($record);
   }
 
@@ -148,6 +153,8 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
       return null;
     }
 
+    $this->entityManager->refresh($record);
+
     return OrganizationInvitationMapper::toDomain($record);
   }
 
@@ -165,7 +172,9 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findPendingByOrganizationAndEmail(OrganizationId $organizationId, Email $email): ?OrganizationInvitation
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->invitationRepository->findOneBy([
       'organization' => $organization,
@@ -178,6 +187,8 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
     if (!$record instanceof OrganizationInvitationRecord) {
       return null;
     }
+
+    $this->entityManager->refresh($record);
 
     return OrganizationInvitationMapper::toDomain($record);
   }
@@ -195,7 +206,9 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findByOrganizationId(OrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $records = $this->invitationRepository->findBy([
       'organization' => $organization,
@@ -221,14 +234,18 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function replaceRoleIds(OrganizationInvitationId $invitationId, array $roleIds): void
   {
-    /** @var OrganizationInvitationRecord|null $invitationRecord */
+    /**
+     * @var OrganizationInvitationRecord|null $invitationRecord
+     */
     $invitationRecord = $this->invitationRepository->find((string) $invitationId);
 
     if (!$invitationRecord instanceof OrganizationInvitationRecord) {
       throw new InvalidArgumentException('Invitation not found for role assignment.');
     }
 
-    /** @var list<OrganizationInvitationRoleRecord> $assignments */
+    /**
+     * @var list<OrganizationInvitationRoleRecord> $assignments
+     */
     $assignments = $this->invitationRoleRepository->findBy([
       'invitation' => $invitationRecord,
     ]);
@@ -256,7 +273,9 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
         continue;
       }
 
-      /** @var OrganizationRoleRecord|null $roleRecord */
+      /**
+       * @var OrganizationRoleRecord|null $roleRecord
+       */
       $roleRecord = $this->roleRepository->find($roleId);
       if (!$roleRecord instanceof OrganizationRoleRecord) {
         throw new InvalidArgumentException('Role not found for invitation role assignment.');
@@ -286,14 +305,18 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findRoleIdsForInvitation(OrganizationInvitationId $invitationId): array
   {
-    /** @var OrganizationInvitationRecord|null $invitationRecord */
+    /**
+     * @var OrganizationInvitationRecord|null $invitationRecord
+     */
     $invitationRecord = $this->invitationRepository->find((string) $invitationId);
 
     if (!$invitationRecord instanceof OrganizationInvitationRecord) {
       return [];
     }
 
-    /** @var list<OrganizationInvitationRoleRecord> $assignments */
+    /**
+     * @var list<OrganizationInvitationRoleRecord> $assignments
+     */
     $assignments = $this->invitationRoleRepository->findBy([
       'invitation' => $invitationRecord,
     ]);
@@ -324,7 +347,9 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
 
   public function countByOrganizationId(OrganizationId $organizationId): int
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return (int) $this->invitationRepository->count([
@@ -334,7 +359,9 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
 
   public function countByStatusForOrganizationId(OrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $now = new DateTimeImmutable();
 

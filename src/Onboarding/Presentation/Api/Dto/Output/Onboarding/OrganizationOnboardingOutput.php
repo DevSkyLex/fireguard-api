@@ -21,6 +21,26 @@ final class OrganizationOnboardingOutput
 {
   // #region Properties
   /**
+   * @since 1.2.0 Creation-session receipt for durable setup operations.
+   */
+  #[Groups([OnboardingSerializationGroup::READ])]
+  public ?string $sessionId = null;
+
+  /**
+   * @since 1.2.0
+   *
+   * @var list<OrganizationSetupOperationOutput>
+   */
+  #[Groups([OnboardingSerializationGroup::READ])]
+  public array $setupOperations = [];
+
+  /**
+   * @since 1.1.0 Accessible membership independent of an unfinished creation.
+   */
+  #[Groups([OnboardingSerializationGroup::READ])]
+  public ?string $accessibleOrganizationId = null;
+
+  /**
    * Property flow.
    *
    * @since 1.0.0

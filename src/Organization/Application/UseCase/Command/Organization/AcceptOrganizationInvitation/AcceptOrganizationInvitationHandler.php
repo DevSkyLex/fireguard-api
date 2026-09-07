@@ -10,12 +10,13 @@ use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort;
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
@@ -61,6 +62,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     private TransactionManagerPort $transactionManager,
     private OrganizationInvitationTokenHasher $tokenHasher,
     private EventDispatcherPort $eventDispatcher,
+    private ?OrganizationJoinRepositoryPort $joinRepository = null,
   ) {
   }
   // #endregion
@@ -80,29 +82,16 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
   public function __invoke(AcceptOrganizationInvitationCommand $command): AcceptOrganizationInvitationResult
   {
     $token = trim($command->token);
-    if ('' === $token) {
+    if ('' === $token && null === $command->invitationId) {
       throw InvalidValueException::because('Invitation token is required.');
     }
 
-    $invitation = $this->invitationRepository->findByTokenHash(
-      tokenHash: $this->tokenHasher->hash($token),
-    );
+    $invitation = null !== $command->invitationId
+      ? $this->invitationRepository->findById(OrganizationInvitationId::fromString($command->invitationId))
+      : $this->invitationRepository->findByTokenHash(tokenHash: $this->tokenHasher->hash($token));
 
-    if (null === $invitation) {
+    if (null === $invitation || (null === $command->invitationId && $invitation->tokenHash() !== $this->tokenHasher->hash($token))) {
       throw OrganizationInvitationNotFoundException::withToken();
-    }
-
-    $now = new DateTimeImmutable();
-
-    if ($invitation->isExpired($now) && $invitation->status()->isPending()) {
-      $invitation->expire($now);
-      $this->invitationRepository->save($invitation);
-
-      throw OrganizationInvitationNotPendingException::expired();
-    }
-
-    if (!$invitation->status()->isPending()) {
-      throw OrganizationInvitationNotPendingException::noLongerPending();
     }
 
     $invitedEmail = strtolower(trim((string) $invitation->email()));
@@ -116,9 +105,22 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       throw OrganizationInvitationNotFoundException::withToken();
     }
 
+    $now = new DateTimeImmutable();
+    if ($invitation->isExpired($now) && $invitation->status()->isPending()) {
+      // Expiration is already derived by the read/count projections. Never save
+      // this unlocked snapshot: a concurrent resend may have renewed its token.
+      throw OrganizationInvitationNotPendingException::expired();
+    }
+
+    if (!$invitation->status()->isPending()) {
+      throw OrganizationInvitationNotPendingException::noLongerPending();
+    }
+
     $memberWasAdded = false;
 
-    /** @var AcceptOrganizationInvitationResult $result */
+    /**
+     * @var AcceptOrganizationInvitationResult $result
+     */
     $result = $this->transactionManager->transactional(function () use (
       $invitation,
       $command,
@@ -129,7 +131,21 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       // and invite processors gate on active members + pending invitations, but
       // an invitee reaching this handler would otherwise bypass the quota (e.g.
       // after a plan downgrade left the organization already at its cap).
+      $this->joinRepository?->lock((string) $invitation->organizationId());
       $this->quota->assertCanAcceptMember((string) $invitation->organizationId());
+      $currentInvitation = $this->invitationRepository->findById($invitation->id());
+      if (null === $currentInvitation || !$currentInvitation->status()->isPending() || $currentInvitation->isExpired(new DateTimeImmutable())) {
+        throw OrganizationInvitationNotPendingException::noLongerPending();
+      }
+      if (null === $command->invitationId && $currentInvitation->tokenHash() !== $this->tokenHasher->hash(trim($command->token))) {
+        throw OrganizationInvitationNotFoundException::withToken();
+      }
+      $invitation = $currentInvitation;
+      $organization = $this->organizationRepository->findById($currentInvitation->organizationId());
+      if (null === $organization || !$organization->status()->isActive()) {
+        throw OrganizationInvitationNotFoundException::withToken();
+      }
+
 
       $roleIds = $this->invitationRepository->findRoleIdsForInvitation($invitation->id());
 
@@ -146,11 +162,19 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
         // yet, or a rollback of the outer accept would leave a phantom
         // member_added ledger row. This handler dispatches post-commit below.
         emitMemberAddedEvent: false,
+        replaceInactiveRoles: true,
       ));
       $memberWasAdded = $memberResult->wasCreatedOrReactivated;
 
       $invitation->accept($command->userId, $now);
       $this->invitationRepository->save($invitation);
+      foreach ($this->joinRepository?->requests($command->userId, (string) $invitation->organizationId()) ?? [] as $pendingRequest) {
+        if ('pending' === $pendingRequest->state($now)) {
+          $pendingRequest->decide('approved', $now);
+          $this->joinRepository?->saveRequest($pendingRequest);
+        }
+      }
+
 
       return new AcceptOrganizationInvitationResult(
         invitationId: (string) $invitation->id(),

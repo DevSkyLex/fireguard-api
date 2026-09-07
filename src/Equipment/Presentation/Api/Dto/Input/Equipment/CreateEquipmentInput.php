@@ -19,6 +19,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[Assert\Expression('this.onboardingSessionId === null or (this.intervention === null and this.clientId === null)', message: 'Onboarding setup cannot target an intervention or offline resource.')]
 final class CreateEquipmentInput
 {
   /**
@@ -62,6 +63,20 @@ final class CreateEquipmentInput
   public ?string $facility = null;
 
   // #region Properties
+  /**
+   * @since 1.2.0 Optional prepared onboarding receipt; both fields travel together.
+   */
+  #[Assert\Uuid]
+  #[Groups([EquipmentSerializationGroup::WRITE])]
+  public ?string $onboardingSessionId = null;
+
+  /**
+   * @since 1.2.0 Stable item identity from the preparation response.
+   */
+  #[Assert\Regex('/^[a-zA-Z0-9_-]{1,80}$/D')]
+  #[Groups([EquipmentSerializationGroup::WRITE])]
+  public ?string $onboardingItemKey = null;
+
   /**
    * Property type.
    *

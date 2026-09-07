@@ -16,7 +16,7 @@ use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, Orga
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus, OrganizationName};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -63,7 +63,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
-    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
+    $invitationRepository->expects(self::exactly(2))->method('findById')->willReturn($invitation);
     $invitationRepository->expects(self::once())
       ->method('save')
       ->with(self::callback(static fn (OrganizationInvitation $updated): bool => 'pending' === $updated->status()->value
@@ -260,7 +260,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
-    $invitationRepository->expects(self::exactly(2))->method('findById')->willReturn($invitation);
+    $invitationRepository->expects(self::exactly(3))->method('findById')->willReturn($invitation);
     $invitationRepository->expects(self::exactly(2))
       ->method('save')
       ->with(self::isInstanceOf(OrganizationInvitation::class));
@@ -394,7 +394,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeRevokesInvitationWhenNotificationDispatchThrows(): void
+  #[DataProvider('deliveryGenerations')]
+  public function testInvokeRevokesOnlyTheFailedDeliveryGeneration(bool $newerDelivery): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655443340';
     $invitationId = '550e8400-e29b-41d4-a716-446655443341';
@@ -423,8 +424,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
-    $invitationRepository->expects(self::exactly(2))->method('findById')->willReturn($invitation);
-    $invitationRepository->expects(self::exactly(2))->method('save')->with(self::isInstanceOf(OrganizationInvitation::class));
+    $invitationRepository->expects(self::exactly(3))->method('findById')->willReturn($invitation);
+    $invitationRepository->expects(self::exactly($newerDelivery ? 1 : 2))->method('save')->with(self::isInstanceOf(OrganizationInvitation::class));
     $invitationRepository->expects(self::once())->method('findRoleIdsForInvitation')->willReturn([]);
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -439,13 +440,19 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')
-      ->willThrowException(new RuntimeException('Mailer unavailable.'));
+      ->willReturnCallback(static function () use ($invitation, $newerDelivery): never {
+        if ($newerDelivery) {
+          $invitation->renew('newer-delivered-token-hash', new DateTimeImmutable('+7 days'), new DateTimeImmutable());
+        }
+
+        throw new RuntimeException('Mailer unavailable.');
+      });
 
     $loggedMessages = [];
 
     /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
-    $logger->expects(self::exactly(2))
+    $logger->expects(self::exactly($newerDelivery ? 1 : 2))
       ->method('warning')
       ->willReturnCallback(static function (string $message, array $context) use (&$loggedMessages): void {
         $loggedMessages[] = [$message, $context];
@@ -491,16 +498,32 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       // Expected: the resent invitation is invalidated when it cannot be mailed.
     }
 
-    self::assertCount(2, $loggedMessages);
+    self::assertCount($newerDelivery ? 1 : 2, $loggedMessages);
     self::assertSame('Invitation resend notification dispatch failed.', $loggedMessages[0][0]);
     self::assertSame($organizationId, $loggedMessages[0][1]['organizationId'] ?? null);
     self::assertSame($invitationId, $loggedMessages[0][1]['invitationId'] ?? null);
     self::assertSame($email, $loggedMessages[0][1]['recipientEmail'] ?? null);
     self::assertSame('Mailer unavailable.', $loggedMessages[0][1]['error'] ?? null);
+    if ($newerDelivery) {
+      self::assertSame(OrganizationInvitationStatus::PENDING, $invitation->status());
+      self::assertSame('newer-delivered-token-hash', $invitation->tokenHash());
+
+      return;
+    }
+    self::assertSame(OrganizationInvitationStatus::REVOKED, $invitation->status());
     self::assertSame(
       'Resent invitation was revoked because its notification email could not be delivered.',
       $loggedMessages[1][0],
     );
+  }
+
+  /**
+   * @return iterable<string, array{bool}> whether another resend completed before the failed delivery
+   */
+  public static function deliveryGenerations(): iterable
+  {
+    yield 'current generation fails' => [false];
+    yield 'older generation fails after a newer resend' => [true];
   }
 
   /**

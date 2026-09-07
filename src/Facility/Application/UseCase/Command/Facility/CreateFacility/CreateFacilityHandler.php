@@ -26,6 +26,8 @@ use Facility\Domain\ValueObject\{
   FacilityOrganizationId,
   FacilityType
 };
+use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
+use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Shared\Application\Factory\UuidFactory;
@@ -75,6 +77,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     private FacilityMetadataSchemaGuard $metadataSchemaGuard,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
+    private ?OrganizationSetupPort $setup = null,
   ) {
   }
   // #endregion
@@ -93,6 +96,14 @@ final readonly class CreateFacilityHandler implements CommandHandler
    */
   public function __invoke(CreateFacilityCommand $command): CreateFacilityResult
   {
+    if (null !== $command->setupContext && null === $this->setup) {
+      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+    }
+
+    if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
+      throw OrganizationSetupConflict::because('Setup receipts cannot be combined with another creation protocol.');
+    }
+
     try {
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
       $parentId = $this->resolveParentId($command->parentFacilityId);
@@ -162,11 +173,31 @@ final readonly class CreateFacilityHandler implements CommandHandler
     // Enforce the plan quota and persist in one transaction: assertCanAdd takes a
     // transaction-scoped advisory lock so two concurrent creates at the cap cannot
     // both pass the count and both insert (see OrganizationQuotaPort::assertCanAdd).
-    $this->transactionManager->transactional(function () use ($command, $facility, $parentId): void {
+    $replayed = false;
+    $facility = $this->transactionManager->transactional(function () use ($command, $facility, $parentId, &$replayed): Facility {
+      if (null !== $command->setupContext) {
+        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_first_facility', $command->organizationId, [
+          'type' => $command->type, 'name' => $command->name, 'address' => $command->address,
+          'latitude' => $command->latitude, 'longitude' => $command->longitude, 'parentFacilityId' => $command->parentFacilityId,
+          'code' => $command->code, 'metadata' => $command->metadata, 'levelIndex' => $command->levelIndex,
+        ]);
+        if (null !== $operation->resourceId) {
+          $existing = $this->facilityRepository->findById(FacilityId::fromString($operation->resourceId));
+          if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
+            throw OrganizationSetupConflict::because('The created facility is no longer available.');
+          }
+          $replayed = true;
+
+          return $existing;
+        }
+      }
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
 
       try {
         $this->facilityRepository->save($facility);
+        if (null !== $command->setupContext) {
+          ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_first_facility', (string) $facility->id());
+        }
       } catch (Throwable $exception) {
         if ($this->isDuplicateCodeConstraintViolation($exception)) {
           throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
@@ -182,7 +213,13 @@ final readonly class CreateFacilityHandler implements CommandHandler
 
         throw $exception;
       }
+
+      return $facility;
     });
+
+    if ($replayed) {
+      return $this->toResult($facility);
+    }
 
     // Emitted after the durable save so a failed persistence leaves no
     // ledger row. Both the resource-scoped POST and the canonical PUT

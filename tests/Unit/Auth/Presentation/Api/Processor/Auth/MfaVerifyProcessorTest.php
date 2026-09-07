@@ -15,10 +15,12 @@ use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
+use User\Application\Port\Inbound\FederatedUserPort;
 
 use function hash;
 use function sprintf;
@@ -51,6 +53,8 @@ final class MfaVerifyProcessorTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
@@ -74,6 +78,8 @@ final class MfaVerifyProcessorTest extends TestCase
       jwtService: $this->createStub(JwtTokenServicePort::class),
       challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
@@ -118,6 +124,8 @@ final class MfaVerifyProcessorTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
@@ -191,6 +199,8 @@ final class MfaVerifyProcessorTest extends TestCase
       jwtService: $jwt,
       challengeVerifier: $verifier,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $request = new Request();
@@ -244,6 +254,8 @@ final class MfaVerifyProcessorTest extends TestCase
       jwtService: $this->createStub(JwtTokenServicePort::class),
       challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
       sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      users: $this->createStub(FederatedUserPort::class),
     );
 
     $processor = new MfaVerifyProcessor(

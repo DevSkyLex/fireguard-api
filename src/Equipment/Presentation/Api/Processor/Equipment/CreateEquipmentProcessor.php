@@ -25,6 +25,7 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
@@ -153,6 +154,8 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     try {
       /** @var CreateEquipmentResult $result */
       $result = $this->commandBus->dispatch(new CreateEquipmentCommand(
+        setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
+        facilityId: null !== $data->onboardingSessionId && null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
         organizationId: $organizationId,
         type: $data->type,
         subType: $data->subType,
@@ -186,7 +189,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     }
 
     $output = $this->outputFactory->fromView($result);
-    if (null !== $data->facility) {
+    if (null !== $data->facility && null === $data->onboardingSessionId) {
       /** @var AssignToFacilityResult $assigned */
       $assigned = $this->commandBus->dispatch(new AssignToFacilityCommand(
         organizationId: $organizationId,

@@ -7,7 +7,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationSlug, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -57,6 +57,35 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
 
   // #region Methods
   /**
+   * Method lockSlugNamespace.
+   *
+   * @since 1.1.0
+   */
+  public function lockSlugNamespace(): void
+  {
+    $this->entityManager->getConnection()->executeQuery(
+      "SELECT pg_advisory_xact_lock(hashtextextended('organization.slug', 0))",
+    );
+  }
+
+  /**
+   * Method slugExists.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationSlug $slug the candidate slug
+   *
+   * @return bool whether the slug is assigned
+   */
+  public function slugExists(OrganizationSlug $slug): bool
+  {
+    return false !== $this->entityManager->getConnection()->fetchOne(
+      'SELECT id FROM organizations WHERE slug = :slug',
+      ['slug' => (string) $slug],
+    );
+  }
+
+  /**
    * Method save.
    *
    * Persists the organization aggregate.
@@ -67,6 +96,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
    */
   public function save(Organization $organization): void
   {
+    $this->lockSlugNamespace();
     $record = OrganizationMapper::toRecord($organization);
     $existing = $this->repository->find($record->id);
 
@@ -221,7 +251,9 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
    */
   public function pageActiveIds(int $limit, int $offset): array
   {
-    /** @var list<array{id: string}> $rows */
+    /**
+     * @var list<array{id: string}> $rows
+     */
     $rows = $this->entityManager->createQueryBuilder()
       ->select('o.id')
       ->from(OrganizationRecord::class, 'o')

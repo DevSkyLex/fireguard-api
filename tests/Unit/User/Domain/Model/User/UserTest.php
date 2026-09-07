@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use User\Domain\Event\UserEmailVerifiedEvent;
+use User\Domain\Exception\InvalidPasswordException;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 
@@ -137,6 +138,48 @@ final class UserTest extends TestCase
     $this->assertCount(1, $events);
     $this->assertInstanceOf(UserEmailVerifiedEvent::class, $events[0]);
     $this->assertSame($user->id()->value, $events[0]->aggregateId());
+  }
+
+  /**
+   * Verifies that provider-created users are immediately usable without a local password.
+   *
+   * @since 1.1.0
+   */
+  #[Test]
+  public function testRegisterFederatedCreatesActiveVerifiedPasswordlessUser(): void
+  {
+    $user = User::registerFederated(
+      id: new UserId('550e8400-e29b-41d4-a716-4466554400f1'),
+      username: new Username('federated-user'),
+      email: new Email('federated@example.com'),
+      profile: new UserProfile('Federated', 'User'),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+
+    self::assertSame(UserStatus::ACTIVE, $user->status());
+    self::assertTrue($user->isEmailVerified());
+    self::assertTrue($user->canLogin());
+    self::assertFalse($user->hasPassword());
+  }
+
+  /**
+   * Verifies that a passwordless account follows the neutral invalid-password path.
+   *
+   * @since 1.1.0
+   */
+  #[Test]
+  public function testPasswordlessFederatedUserRejectsPasswordAuthentication(): void
+  {
+    $user = User::registerFederated(
+      id: new UserId('550e8400-e29b-41d4-a716-4466554400f2'),
+      username: new Username('federated-user'),
+      email: new Email('federated@example.com'),
+      profile: new UserProfile('Federated', 'User'),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+
+    $this->expectException(InvalidPasswordException::class);
+    $user->authenticate('irrelevant-password');
   }
 
   /**

@@ -39,6 +39,9 @@ enum OtpPurpose: string
    */
   case EMAIL_VERIFICATION = 'email_verification';
 
+  /** Fireguard mailbox possession for organization discovery. @since 1.1.0 */
+  case EMAIL_OWNERSHIP = 'email_ownership';
+
   /**
    * Case PHONE_VERIFICATION.
    *

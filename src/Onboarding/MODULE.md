@@ -16,6 +16,7 @@ Current flow:
 | --- | --- | --- |
 | GET | `/api/onboarding/organization` | Get persisted organization onboarding status and actionable steps |
 | POST | `/api/onboarding/organization/start` | Start or reset organization onboarding session |
+| POST | `/api/onboarding/organization/setup-operations` | Prepare a durable bounded creation batch and return its resumable item receipts |
 | POST | `/api/onboarding/organization/steps/{stepKey}/execute` | Confirm the current onboarding step |
 | POST | `/api/onboarding/organization/steps/{stepKey}/skip` | Skip an optional onboarding step |
 | POST | `/api/onboarding/organization/rollback` | Rollback the last rollbackable onboarding step |
@@ -28,7 +29,7 @@ Organization onboarding is stateful and contains five sequential steps:
 
 1. `create_organization` — user first creates an org via `POST /api/organizations`, then confirms
    the step via `POST /api/onboarding/organization/steps/create_organization/execute` (empty payload).
-   **Required.** Rollbackable (deletes the created organization).
+   **Required.** Rollbackable (archives the organization created by this session).
 2. `select_plan` — user reviews the available plans (subscribing to a paid plan happens out-of-band
    through Billing; a new org already defaults to the free plan), then confirms via
    `POST /api/onboarding/organization/steps/select_plan/execute` (empty payload), or skips via
@@ -65,7 +66,7 @@ Step execution is sequential:
 
 Rollback uses LIFO semantics:
 
-- rollback of `create_organization` deletes the created organization (and all cascaded data)
+- rollback of `create_organization` archives the created organization through its owning module and clears setup receipts; it does not permanently delete domain data
 - no destructive rollback is supported for facility or equipment steps in the current version
 
 ## Target Organization Pinning
@@ -74,7 +75,7 @@ Once a target organization is selected during onboarding, it is pinned in the se
 If the pinned organization is deleted externally, the flow resets to `create_organization`
 and does NOT silently switch to another organization the user may belong to.
 
-Only an organization created during the session is adopted as the pinned target. A
+Only an organization created during the session by the current user, who remains its owner, is adopted as the pinned target. The destructive rollback independently rechecks those ownership and creation-time conditions. A
 pre-existing one is never pinned, because `rollback` of `create_organization` deletes
 the organization it pinned — adopting a production organization would put it within
 reach of that deletion.
@@ -92,7 +93,7 @@ frontend's `onboardingRequiredGuard` holds any non-completed record on the wizar
 they never reach a single page of the product — the whole seeded staff was locked out
 this way.
 
-Only a session that never pinned an organization qualifies. A pinned organization that
+Only a session that never pinned an organization and has no explicit creation intent qualifies. A pinned organization that
 disappeared keeps resetting the flow, as described above.
 
 ## Architecture
@@ -110,3 +111,26 @@ disappeared keeps resetting the flow, as described above.
 
 - Onboarding should remain orchestration-only.
 - Business writes stay in the owning modules (`Organization`, `Facility`, etc.).
+
+## Workspace resolution and explicit creation
+
+The frontend workspace choice does not call `start`. `POST /api/onboarding/organization/start` accepts optional `intent: "create"` only after the user explicitly chooses creation. This starts a new creation from a completed flow, preserves an unfinished pinned creation, and records `creation_intent` so existing external memberships cannot complete the creator wizard implicitly.
+
+Every state projection includes nullable `accessibleOrganizationId`, independently of the pinned `organizationId`. An active membership elsewhere can therefore open a workspace while an unfinished creator flow remains resumable. A joined organization is never adopted into the creator rollback stack. The five creation steps remain organization, plan, invitations, first facility and first equipment. Auth/User retain address possession and MFA; Organization retains discovery, invitations, requests and admission. Onboarding only resolves and orchestrates these boundaries.
+
+
+## Durable setup recovery
+
+`POST /api/onboarding/organization/setup-operations` prepares `{sessionId, stepKey, items:[{itemKey,payload}]}` and returns the onboarding state. `sessionId` and `setupOperations` are returned by every flow projection; operations carry `stepKey`, `itemKey`, the bounded whitelisted payload, nullable `resourceId`, and `prepared` / `completed` status. Inputs contain no tokens. This authenticated projection is not an SSR transfer payload.
+
+Preparation replaces omitted pending items of the current step, preserves completed results, and refuses changed payloads for existing keys. It permits one organization/equipment and up to five invitations/facilities per session step. Reset starts a different session, invalidating previous receipts. Preparing a batch alone creates no domain resource and consumes no quota.
+
+Owner resource POSTs consume the session/item receipt. The session row is locked in `main`; resource insertion and journal completion commit together. A repeat returns the existing resource without another creation, quota charge, domain event, or invitation email. Equipment placement commits with the creation. Invitations still send after commit; delivery failure retains the existing revoked invitation as the operation result, and requires explicit resend rather than creating a duplicate. Confirmation refuses an unfinished prepared batch and is idempotent after successful execution. Reload exposes partial successes and remaining inputs.
+
+Onboarding only owns the operation journal. Domain invariants, authorization and resource results stay in Organization / Facility / Equipment. Joined organizations cannot be targeted by a creator operation or destructive rollback. Deploy the additive `main` setup journal migration before dependent clients. `OrganizationSetupRepository` is explicitly wired to the main entity manager.
+
+Error: `onboarding_setup_conflict` (409) covers stale/foreign sessions, unavailable steps, missing preparation, reused keys, changed payloads and batch limits. Existing resource authorization denies first, including on replay. The new operation's API metadata is the OpenAPI source.
+
+When a setup journal exists, only its completed `create_organization.resourceId` may pin the creator flow and become its rollback target. A pending item cannot adopt a different creation. If the recorded organization is absent, inactive or no longer owned by the creator, recovery returns `onboarding_setup_conflict` without discarding the receipt; an explicit session reset is required. Date-based legacy adoption is limited to sessions without a journal.
+
+The existing JSON journal column retains a versioned envelope after its items are cleared, so rollback cannot re-enable legacy adoption on the next read. Existing array journals remain readable. This internal marker does not change the API payload or require another migration.

@@ -19,6 +19,7 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
 | GET | `/api/organizations/{organizationId}/facilities/export` | Streams a bounded CSV export of facilities, same filter subset as the list endpoint plus `search`. Requires `organization.facilities.read`, resolved in `ExportFacilitiesHandler` (not the resource's coarse `ROLE_USER` gate). Bounded to `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) matching rows — 422 past that. |
+| GET | `/api/organizations/{organizationId}/facilities/address-suggestions?q=…` | Address suggestions (3–250 characters), `organization.facilities.write`; up to five `member` entries (canonical label, coordinates, street, city, region, postal code, country and ISO country code) and `totalItems`; 400/403/404/429/503 |
 | GET | `/api/organizations/{organizationId}/facilities/geocode?address=…` | Server-side geocoding input aid: resolves a free-form address (1–300 chars) to `{ latitude, longitude, displayName }` through `GeocodingPort` (Nominatim behind `GEOCODING_BASE_URL`). Requires `organization.facilities.write` — write, not read: the lookup exists to FILL a facility's coordinates, and only write-entitled members may burn the shared outbound budget. Rate limited 30/min/user (`facility_geocode`); the adapter additionally throttles the aggregate outbound channel to 1 req/s (Nominatim policy). 404 when no coordinates match (plain not-found, no oracle at stake — an address is not a resource). Declared before the `{facilityId}` item route so `geocode` is never read as an id. |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
@@ -1203,3 +1204,20 @@ this repo.
 Every other domain exception in this module (facility hierarchy, archival
 dependents, code conflicts, …) is mapped locally by its processor/provider,
 following the module's existing convention.
+
+### Address suggestions
+
+`AddressSuggestionsPort` isolates Photon from the application. Searches require the same
+organization scope and write permission as geocoding. Only street-and-city matches with
+valid WGS 84 coordinates are selectable; house numbers remain optional. Successful
+empty results differ from temporary failures (503). Requests are limited to 30/minute
+per user and one uncached outbound request per second across workers, without waiting.
+Successful responses, including empty results, are cached for 24 hours; provider failures
+are never cached. HTTP duration is bounded to three seconds. `PHOTON_BASE_URL` is
+operator configuration, defaults to the public demo, and should point to a private
+instance for sustained traffic. This read-only capability does not persist in either database.
+
+
+## Durable onboarding setup
+
+Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.

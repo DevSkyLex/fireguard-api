@@ -165,7 +165,9 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     );
 
     try {
-      /** @var GetOrganizationDashboardTrendResult $result */
+      /**
+       * @var GetOrganizationDashboardTrendResult $result
+       */
       $result = $this->queryBus->ask(new GetOrganizationDashboardTrendQuery(
         organizationId: $organizationId,
         userId: $user->getId(),

@@ -109,7 +109,7 @@ final class OtpNotification extends Notification implements SmsNotificationInter
     return match ($this->otp->purpose()) {
       OtpPurpose::LOGIN => 'Your login verification code',
       OtpPurpose::PASSWORD_RESET => 'Your password reset code',
-      OtpPurpose::EMAIL_VERIFICATION => 'Verify your email address',
+      OtpPurpose::EMAIL_VERIFICATION, OtpPurpose::EMAIL_OWNERSHIP => 'Verify your email address',
       OtpPurpose::PHONE_VERIFICATION => 'Verify your phone number',
       OtpPurpose::SENSITIVE_OPERATION => 'Confirm your action',
       OtpPurpose::TRANSACTION_APPROVAL => 'Approve your transaction',

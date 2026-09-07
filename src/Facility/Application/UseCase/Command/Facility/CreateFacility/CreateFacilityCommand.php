@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\CreateFacility;
 
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -51,6 +52,7 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public bool $dryRun = false,
     public int $quotaProjectionOffset = 0,
     public ?int $levelIndex = null,
+    public ?OrganizationSetupContext $setupContext = null,
   ) {
   }
   // #endregion

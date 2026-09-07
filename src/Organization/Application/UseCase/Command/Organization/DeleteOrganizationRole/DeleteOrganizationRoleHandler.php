@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole;
 
-use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
@@ -44,6 +44,7 @@ final readonly class DeleteOrganizationRoleHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private OrganizationLastAdminGuardPort $lastAdminGuard,
     private TransactionManagerPort $transactionManager,
+    private ?OrganizationJoinAccessPort $joinAccess = null,
   ) {
   }
   // #endregion
@@ -75,9 +76,12 @@ final readonly class DeleteOrganizationRoleHandler implements CommandHandler
     // Deleting the only admin-granting role locks everyone out just as surely as
     // removing the last administrator, so the check and the delete share one
     // transaction and the guard's advisory lock (see the guard port contract).
-    /** @var string $roleName */
+    /**
+     * @var string $roleName
+     */
     $roleName = $this->transactionManager->transactional(
       function () use ($command, $organizationId, $roleId): string {
+        $this->joinAccess?->assertRoleChange($command->organizationId, $command->roleId, null);
         $this->lastAdminGuard->assertCanDeleteRole($command->organizationId, $command->roleId);
 
         $role = $this->roleRepository->findById($roleId);

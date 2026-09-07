@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
@@ -113,6 +114,7 @@ final readonly class InviteOrganizationMemberProcessor implements ProcessorInter
 
       /** @var InviteOrganizationMemberResult $result */
       $result = $this->commandBus->dispatch(new InviteOrganizationMemberCommand(
+        setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
         organizationId: $organizationId,
         email: $data->email,
         invitedByUserId: $user->getId(),

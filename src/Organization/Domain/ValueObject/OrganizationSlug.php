@@ -11,7 +11,10 @@ use function iconv;
 use function mb_strlen;
 use function preg_match;
 use function preg_replace;
+use function rtrim;
+use function strlen;
 use function strtolower;
+use function substr;
 use function trim;
 
 /**
@@ -101,7 +104,7 @@ final readonly class OrganizationSlug implements Stringable
     $normalized = preg_replace('/[^a-z0-9]+/', '-', $normalized) ?? '';
     $normalized = trim($normalized, '-');
 
-    if ('' === $normalized) {
+    if (mb_strlen($normalized) < self::MIN_LENGTH) {
       $normalized = 'organization';
     }
 
@@ -110,6 +113,24 @@ final readonly class OrganizationSlug implements Stringable
     }
 
     return new self($normalized);
+  }
+
+  /**
+   * Method withSuffix.
+   *
+   * Creates a collision-safe candidate without exceeding the slug length limit.
+   *
+   * @since 1.1.0
+   *
+   * @param int $ordinal the positive collision ordinal
+   *
+   * @return self the suffixed candidate
+   */
+  public function withSuffix(int $ordinal): self
+  {
+    $suffix = '-' . $ordinal;
+
+    return new self(rtrim(substr($this->value, 0, self::MAX_LENGTH - strlen($suffix)), '-') . $suffix);
   }
 
   /**

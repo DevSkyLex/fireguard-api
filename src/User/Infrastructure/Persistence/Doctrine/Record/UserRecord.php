@@ -69,8 +69,8 @@ class UserRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(type: 'string', length: 255)]
-  public string $password;
+  #[ORM\Column(type: 'string', length: 255, nullable: true)]
+  public ?string $password = null;
 
   /**
    * Property firstName.
@@ -123,6 +123,14 @@ class UserRecord
   public bool $emailVerified = false;
 
   /**
+   * Explicit Fireguard proof of possession of the current email; legacy and OAuth accounts start unknown.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $emailOwnershipVerifiedAt = null;
+
+  /**
    * Property tenantId.
    *
    * The tenant ID.
@@ -151,6 +159,16 @@ class UserRecord
    */
   #[ORM\Column(type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $lastLoginAt = null;
+
+  /**
+   * Property lastSignInMethod.
+   *
+   * The primary method used for the last completed sign-in.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'string', length: 20, nullable: true)]
+  public ?string $lastSignInMethod = null;
 
   /**
    * Property failedLoginAttempts.

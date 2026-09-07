@@ -118,6 +118,7 @@ final class OtpChallengeServiceTest extends TestCase
     self::assertInstanceOf(VerificationInfo::class, $result);
     self::assertFalse($result->success);
     self::assertSame('Challenge not found.', $result->error);
+    self::assertSame('invalid_token', $result->errorCode);
     self::assertSame(0, $result->attemptsRemaining);
   }
 
@@ -166,6 +167,45 @@ final class OtpChallengeServiceTest extends TestCase
     self::assertTrue($result->success);
     self::assertSame(0, $result->attemptsRemaining);
     self::assertNull($result->error);
+  }
+
+  #[Test]
+  public function testVerifyForRejectsAnotherOwnerWithoutConsumingChallenge(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('550e8400-e29b-41d4-a716-446655440011'),
+      userId: 'user-2',
+      purpose: DomainOtpPurpose::SENSITIVE_OPERATION,
+      channel: \Otp\Domain\ValueObject\OtpChannel::EMAIL,
+      recipient: 'user@example.com',
+    );
+
+    $repository = $this->createMock(OtpRepositoryPort::class);
+    $repository->method('findByChallengeToken')->willReturn($otp);
+    $repository->expects(self::never())->method('save');
+
+    $service = new OtpChallengeService(
+      generateHandler: new GenerateOtpHandler(
+        otpRepository: $this->createStub(OtpRepositoryPort::class),
+        otpNotifier: $this->createStub(OtpNotifierPort::class),
+        uuidFactory: $this->createStub(UuidFactory::class),
+      ),
+      verifyHandler: new VerifyOtpHandler(
+        otpRepository: $repository,
+        totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
+        totpService: $this->createStub(TotpServicePort::class),
+      ),
+    );
+
+    $result = $service->verifyFor(
+      challengeToken: $otp->challengeToken()->value,
+      code: $otp->code()->plain(),
+      userId: 'different-user',
+      purpose: OtpPurpose::SENSITIVE_OPERATION,
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame('invalid_token', $result->errorCode);
   }
   // #endregion
 }

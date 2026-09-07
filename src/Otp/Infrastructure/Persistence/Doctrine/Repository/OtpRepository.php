@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Otp\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Domain\Model\Otp;
@@ -94,8 +95,16 @@ final readonly class OtpRepository implements OtpRepositoryPort
   {
     $repository = $this->entityManager->getRepository(OtpRecord::class);
 
+    $query = $repository->createQueryBuilder('o')
+      ->where('o.challengeToken = :token')
+      ->setParameter('token', $token->value)
+      ->getQuery();
+    if ($this->entityManager->getConnection()->isTransactionActive()) {
+      $query->setLockMode(LockMode::PESSIMISTIC_WRITE);
+      $query->setHint(\Doctrine\ORM\Query::HINT_REFRESH, true);
+    }
     /** @var OtpRecord|null $record */
-    $record = $repository->findOneBy(['challengeToken' => $token->value]);
+    $record = $query->getOneOrNullResult();
 
     if (null === $record) {
       return null;

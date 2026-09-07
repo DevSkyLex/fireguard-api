@@ -7,6 +7,7 @@ namespace Auth\Application\UseCase\Command\Mfa\MfaResend;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
+use Auth\Domain\ValueObject\Security\SignInGrantType;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
@@ -97,6 +98,9 @@ final readonly class MfaResendHandler implements CommandHandler
     if (is_bool($rememberClaim)) {
       $rememberMe = $rememberClaim;
     }
+    $grantClaim = $tokenClaims['grant_type'] ?? null;
+    $grantType = is_string($grantClaim) ? SignInGrantType::tryFrom($grantClaim) : null;
+    $grantType ??= SignInGrantType::PASSWORD;
 
     $otp = $this->otpRepository->findByChallengeToken(
       token: ChallengeToken::fromString($challengeToken),
@@ -144,6 +148,7 @@ final readonly class MfaResendHandler implements CommandHandler
       email: is_string($email) ? $email : '',
       scopes: $scopes,
       rememberMe: $rememberMe,
+      grantType: $grantType,
     );
 
     return MfaResendResult::success(

@@ -10,6 +10,11 @@ services:
   User\Application\Port\Outbound\UserDataPurgePort:
     class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter
 
+  User\Application\Port\Inbound\FederatedUserPort:
+    alias: User\Application\Service\FederatedUserService
+
+  User\Application\Service\FederatedUserService: ~
+
   # Email change requests live on the auth database; the entity manager is
   # named explicitly so autowiring can never pick the wrong one.
   User\Application\Port\Outbound\EmailChangeRequestRepositoryPort:
@@ -100,3 +105,10 @@ services:
   User\Infrastructure\Console\DeleteUserConsoleCommand: ~
   User\Infrastructure\Console\ListUsersCommand: ~
 
+  User\Application\Port\Inbound\EmailOwnershipPort:
+    alias: User\Application\Service\EmailOwnershipService
+  User\Application\Service\EmailOwnershipService: ~
+  User\Application\Port\Outbound\EmailOwnershipRepositoryPort:
+    class: User\Infrastructure\Persistence\Doctrine\Repository\EmailOwnershipRepository
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'

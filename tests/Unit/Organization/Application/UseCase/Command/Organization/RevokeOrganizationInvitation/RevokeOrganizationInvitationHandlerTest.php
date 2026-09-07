@@ -53,7 +53,7 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
-    $invitationRepository->expects(self::once())
+    $invitationRepository->expects(self::exactly(2))
       ->method('findById')
       ->with(self::callback(static fn (OrganizationInvitationId $id): bool => $invitationId === (string) $id))
       ->willReturn($invitation);
@@ -173,7 +173,7 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
-    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
+    $invitationRepository->expects(self::exactly(2))->method('findById')->willReturn($invitation);
     $invitationRepository->expects(self::once())->method('save')->with(self::isInstanceOf(OrganizationInvitation::class));
     $invitationRepository->expects(self::once())->method('findRoleIdsForInvitation')->willReturn([]);
 

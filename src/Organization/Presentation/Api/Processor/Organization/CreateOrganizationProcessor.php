@@ -7,6 +7,7 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationResult};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
@@ -70,6 +71,7 @@ final readonly class CreateOrganizationProcessor implements ProcessorInterface
 
     /** @var CreateOrganizationResult $result */
     $result = $this->commandBus->dispatch(new CreateOrganizationCommand(
+      setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
       name: $data->name,
       ownerUserId: $user->getId(),
       slug: $data->slug,

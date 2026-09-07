@@ -80,6 +80,20 @@ final class InvitationInvalidationTraitTest extends TestCase
     self::assertNull($saveCalls);
   }
 
+  #[Test]
+  public function testFailedEarlierDeliveryCannotRevokeANewerResend(): void
+  {
+    $invitation = $this->invitation(OrganizationInvitationStatus::PENDING);
+    $invitation->renew('new-delivered-token-hash', new DateTimeImmutable('+7 days'), new DateTimeImmutable());
+    $repository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->willReturn($invitation);
+    $repository->expects(self::never())->method('save');
+
+    self::assertNull($this->host($repository)->invalidate(new OrganizationInvitationId(self::INVITATION_ID), 'revoker-1', 'hashed-token'));
+    self::assertSame(OrganizationInvitationStatus::PENDING, $invitation->status());
+    self::assertSame('new-delivered-token-hash', $invitation->tokenHash());
+  }
+
   /**
    * Builds a trait host wired to the given repository and a pass-through transaction manager.
    */

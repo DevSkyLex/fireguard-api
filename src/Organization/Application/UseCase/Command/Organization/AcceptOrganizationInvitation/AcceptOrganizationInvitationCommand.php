@@ -28,11 +28,13 @@ final readonly class AcceptOrganizationInvitationCommand implements CommandMessa
    * @param string $token the invitation token
    * @param string $userId the authenticated user identifier
    * @param string $userEmail the authenticated user email
+   * @param ?string $invitationId internal recipient-authenticated acceptance; never a token replacement from the token endpoint
    */
   public function __construct(
     public string $token,
     public string $userId,
     public string $userEmail,
+    public ?string $invitationId = null,
   ) {
   }
   // #endregion

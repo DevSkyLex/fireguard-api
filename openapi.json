@@ -1367,6 +1367,587 @@
                 ]
             }
         },
+        "/api/auth/federated/connections": {
+            "get": {
+                "operationId": "federated_connections",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FederatedAuth.FederatedConnectionsOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "List sign-in methods",
+                "description": "Retrieves a FederatedAuth resource.",
+                "parameters": []
+            }
+        },
+        "/api/auth/federated/connections/{provider}": {
+            "delete": {
+                "operationId": "federated_disconnect",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth resource deleted"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Disconnect a sign-in provider",
+                "description": "Removes the FederatedAuth resource.",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "description": "FederatedAuth identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/auth/federated/connections/{provider}/complete": {
+            "post": {
+                "operationId": "federated_link_complete",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FederatedAuth.FederatedConnectionsOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Complete linking a sign-in provider",
+                "description": "Creates a FederatedAuth resource.",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "description": "FederatedAuth identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new FederatedAuth resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FederatedAuth.FederatedCompleteInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/auth/federated/connections/{provider}/start": {
+            "post": {
+                "operationId": "federated_link_start",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FederatedAuth.FederatedStartOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Start linking a sign-in provider",
+                "description": "Creates a FederatedAuth resource.",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "description": "FederatedAuth identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new FederatedAuth resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FederatedAuth.FederatedStartInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/auth/federated/providers": {
+            "get": {
+                "operationId": "federated_providers",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth collection",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "description": "FederatedAuth.FederatedProviderOutput.jsonld collection.",
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/HydraCollectionBaseSchema"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "member"
+                                            ],
+                                            "properties": {
+                                                "member": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/FederatedAuth.FederatedProviderOutput.jsonld"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "summary": "List enabled sign-in providers",
+                "description": "Retrieves the collection of FederatedAuth resources.",
+                "parameters": []
+            }
+        },
+        "/api/auth/federated/{provider}/complete": {
+            "post": {
+                "operationId": "federated_login_complete",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FederatedAuth.LoginOutput.jsonld-token.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Complete federated sign-in",
+                "description": "Creates a FederatedAuth resource.",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "description": "FederatedAuth identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new FederatedAuth resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FederatedAuth.FederatedCompleteInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/auth/federated/{provider}/start": {
+            "post": {
+                "operationId": "federated_login_start",
+                "tags": [
+                    "Authentication"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "FederatedAuth resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FederatedAuth.FederatedStartOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Start federated sign-in",
+                "description": "Creates a FederatedAuth resource.",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "description": "FederatedAuth identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new FederatedAuth resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FederatedAuth.FederatedStartInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/auth/login": {
             "post": {
                 "operationId": "login",
@@ -7717,6 +8298,256 @@
                 }
             }
         },
+        "/api/auth/email-ownership": {
+            "get": {
+                "operationId": "auth_email_ownership_get",
+                "tags": [
+                    "EmailOwnership"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "EmailOwnership resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailOwnership.EmailOwnershipOutput.jsonld-email_ownership.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Read explicit Fireguard mailbox ownership proof",
+                "description": "Retrieves a EmailOwnership resource.",
+                "parameters": []
+            }
+        },
+        "/api/auth/email-ownership/confirm": {
+            "post": {
+                "operationId": "auth_email_ownership_confirm",
+                "tags": [
+                    "EmailOwnership"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "EmailOwnership resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailOwnership.EmailOwnershipOutput.jsonld-email_ownership.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Confirm current mailbox possession with a single-use email code",
+                "description": "Creates a EmailOwnership resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new EmailOwnership resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmailOwnership.ConfirmEmailOwnershipInput-email_ownership.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/auth/email-ownership/start": {
+            "post": {
+                "operationId": "auth_email_ownership_start",
+                "tags": [
+                    "EmailOwnership"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "EmailOwnership resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EmailOwnership.StartEmailOwnershipOutput.jsonld-email_ownership.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Send a code to the authenticated account current email",
+                "description": "Creates a EmailOwnership resource.",
+                "parameters": []
+            }
+        },
         "/api/equipment": {
             "get": {
                 "operationId": "api_equipment_get_collection",
@@ -11780,6 +12611,71 @@
                     },
                     "required": true
                 }
+            }
+        },
+        "/api/organizations/{organizationId}/facilities/address-suggestions": {
+            "get": {
+                "operationId": "facility_suggest_addresses",
+                "tags": [
+                    "Facility"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Address matches in member with totalItems",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegacyFacility.SuggestAddressesOutput.jsonld-facility.read"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid search text"
+                    },
+                    "403": {
+                        "description": "Missing organization.facilities.write"
+                    },
+                    "404": {
+                        "description": "Organization outside caller scope"
+                    },
+                    "429": {
+                        "description": "User search budget exceeded"
+                    },
+                    "503": {
+                        "description": "Address provider unavailable"
+                    }
+                },
+                "summary": "Suggest postal addresses",
+                "description": "Returns up to five concrete international addresses. Requires organization.facilities.write. Thirty requests per minute per user; remote failures return 503, an empty member list means no match.",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 250
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "LegacyFacility identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
             }
         },
         "/api/organizations/{organizationId}/facilities/export": {
@@ -27379,6 +28275,110 @@
                 "parameters": []
             }
         },
+        "/api/onboarding/organization/setup-operations": {
+            "post": {
+                "operationId": "prepareOrganizationSetup",
+                "tags": [
+                    "Onboarding"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Batch prepared or already prepared",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationOnboarding.OrganizationOnboardingOutput.jsonld-onboarding.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "401": {
+                        "description": "Authentication required"
+                    },
+                    "409": {
+                        "description": "Session, step, item or payload conflict"
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Prepare a durable setup batch",
+                "description": "Persists up to five item inputs for the current creator step. Repeating a key requires identical input. Owner resource POSTs consume the returned session and item keys atomically.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new OrganizationOnboarding resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganizationOnboarding.PrepareOrganizationSetupInput-onboarding.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/onboarding/organization/start": {
             "post": {
                 "operationId": "startOrganizationOnboarding",
@@ -32536,6 +33536,1361 @@
                 }
             }
         },
+        "/api/organizations/invitations/{invitationId}/accept": {
+            "post": {
+                "operationId": "organization_join_accept_invitation_by_id",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinCompletedOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "accept invitation by id",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "invitationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/join-options": {
+            "get": {
+                "operationId": "organization_join_join_options",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinOptionsOutput.jsonld-Organization.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "join options",
+                "description": "Retrieves a OrganizationJoin resource.",
+                "parameters": []
+            }
+        },
+        "/api/organizations/join-requests": {
+            "get": {
+                "operationId": "organization_join_my_requests",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinRequestsOutput.jsonld-Organization.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "my requests",
+                "description": "Retrieves a OrganizationJoin resource.",
+                "parameters": []
+            }
+        },
+        "/api/organizations/join-requests/{requestId}/cancel": {
+            "post": {
+                "operationId": "organization_join_cancel_request",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinRequestOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "cancel request",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/access-policy": {
+            "get": {
+                "operationId": "organization_join_access_policy",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationAccessPolicyOutput.jsonld-Organization.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "access policy",
+                "description": "Retrieves a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "organization_join_update_access_policy",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationAccessPolicyOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "update access policy",
+                "description": "Updates the OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated OrganizationJoin resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganizationJoin.OrganizationAccessPolicyInput-Organization.write.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/domains": {
+            "post": {
+                "operationId": "organization_join_add_domain",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationDomainOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "add domain",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new OrganizationJoin resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganizationJoin.OrganizationDomainInput-Organization.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/domains/{domainId}": {
+            "delete": {
+                "operationId": "organization_join_remove_domain",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource deleted"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "remove domain",
+                "description": "Removes the OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "domainId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/domains/{domainId}/verify": {
+            "post": {
+                "operationId": "organization_join_verify_domain",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationDomainOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "verify domain",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "domainId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/join": {
+            "post": {
+                "operationId": "organization_join_join",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinCompletedOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "join",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/join-requests": {
+            "get": {
+                "operationId": "organization_join_organization_requests",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinRequestsOutput.jsonld-Organization.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "organization requests",
+                "description": "Retrieves a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "organization_join_request",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinRequestOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "request",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/join-requests/{requestId}/approve": {
+            "post": {
+                "operationId": "organization_join_approve_request",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinRequestOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "approve request",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new OrganizationJoin resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrganizationJoin.ApproveOrganizationJoinRequestInput-Organization.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/join-requests/{requestId}/reject": {
+            "post": {
+                "operationId": "organization_join_reject_request",
+                "tags": [
+                    "Organization access"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OrganizationJoin resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrganizationJoin.OrganizationJoinRequestOutput.jsonld-Organization.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "reject request",
+                "description": "Creates a OrganizationJoin resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "description": "OrganizationJoin identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/auth/password/reset/confirm": {
             "post": {
                 "operationId": "confirm_password_reset",
@@ -32790,6 +35145,191 @@
                         "application/ld+json": {
                             "schema": {
                                 "$ref": "#/components/schemas/PasswordReset.ResendPasswordResetInput-password_reset.write"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/auth/password/setup": {
+            "post": {
+                "operationId": "request_initial_password",
+                "tags": [
+                    "PasswordSetup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PasswordSetup resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordSetup.RequestPasswordChangeOutput.jsonld-token.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a PasswordSetup resource.",
+                "description": "Creates a PasswordSetup resource.",
+                "parameters": []
+            }
+        },
+        "/api/auth/password/setup/confirm": {
+            "post": {
+                "operationId": "confirm_initial_password",
+                "tags": [
+                    "PasswordSetup"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PasswordSetup resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PasswordSetup.ConfirmPasswordChangeOutput.jsonld-token.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a PasswordSetup resource.",
+                "description": "Creates a PasswordSetup resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The new PasswordSetup resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PasswordSetup.ConfirmPasswordChangeInput-password_change.write"
                             }
                         }
                     },
@@ -38445,6 +40985,47 @@
     },
     "components": {
         "schemas": {
+            "AddressSuggestionOutput.jsonld-facility.read": {
+                "type": "object",
+                "properties": {
+                    "displayName": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    },
+                    "latitude": {
+                        "description": "Constructor.",
+                        "type": "number"
+                    },
+                    "longitude": {
+                        "description": "Constructor.",
+                        "type": "number"
+                    },
+                    "street": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    },
+                    "city": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    },
+                    "region": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    },
+                    "postalCode": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    },
+                    "country": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    },
+                    "countryCode": {
+                        "description": "Constructor.",
+                        "type": "string"
+                    }
+                }
+            },
             "ApprovalActionType.ApprovalActionTypeOutput.jsonld-Approval.read": {
                 "allOf": [
                     {
@@ -39168,31 +41749,26 @@
                     },
                     {
                         "type": "object",
-                        "required": [
-                            "access_token",
-                            "token_type",
-                            "expires_in"
-                        ],
                         "properties": {
                             "access_token": {
                                 "readOnly": true,
-                                "description": "JWT access token for API authentication",
+                                "description": "JWT access token for API authentication; absent while MFA is required",
                                 "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
                                 "type": "string"
                             },
                             "token_type": {
                                 "readOnly": true,
-                                "description": "Token type (always Bearer)",
-                                "default": "Bearer",
+                                "description": "Token type; absent while MFA is required",
                                 "example": "Bearer",
                                 "type": "string",
                                 "enum": [
                                     "Bearer"
-                                ]
+                                ],
+                                "default": "Bearer"
                             },
                             "expires_in": {
                                 "readOnly": true,
-                                "description": "Token lifetime in seconds",
+                                "description": "Token lifetime in seconds; absent while MFA is required",
                                 "example": 3600,
                                 "type": "integer",
                                 "minimum": 1
@@ -39250,6 +41826,20 @@
                                 "example": 60,
                                 "type": "integer",
                                 "nullable": true
+                            },
+                            "return_url": {
+                                "description": "Validated local destination returned by a federated login.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "new_account": {
+                                "description": "Whether a federated login provisioned the Fireguard account.",
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
                             }
                         }
                     }
@@ -41759,6 +44349,62 @@
                 ],
                 "description": "Sign-in email address change operations (email confirmation protected)"
             },
+            "EmailOwnership.ConfirmEmailOwnershipInput-email_ownership.write": {
+                "type": "object",
+                "description": "Resource EmailOwnershipResource.",
+                "required": [
+                    "challengeToken",
+                    "code"
+                ],
+                "properties": {
+                    "challengeToken": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "code": {
+                        "default": "",
+                        "type": "string"
+                    }
+                }
+            },
+            "EmailOwnership.EmailOwnershipOutput.jsonld-email_ownership.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "verified": {
+                                "description": "current mailbox ownership proof",
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource EmailOwnershipResource."
+            },
+            "EmailOwnership.StartEmailOwnershipOutput.jsonld-email_ownership.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "challengeToken": {
+                                "description": "single-use email challenge token",
+                                "type": "string"
+                            },
+                            "canResendIn": {
+                                "description": "seconds until resend",
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource EmailOwnershipResource."
+            },
             "Equipment.CreateEquipmentInput": {
                 "type": "object",
                 "description": "Resource CanonicalEquipmentResource.",
@@ -41793,6 +44439,22 @@
                     "facility": {
                         "pattern": "^(/api/facilities/[0-9a-fA-F-]{36})$",
                         "description": "Optional facility IRI",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingSessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingItemKey": {
                         "type": [
                             "string",
                             "null"
@@ -42501,6 +45163,22 @@
                     "intervention": {
                         "pattern": "^(/api/interventions/[0-9a-fA-F-]{36})$",
                         "description": "Optional field intervention IRI",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingSessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingItemKey": {
                         "type": [
                             "string",
                             "null"
@@ -43241,6 +45919,231 @@
                     }
                 ],
                 "description": "Enriched facility hierarchy (Site/Building/Floor/Zone) with per-node equipment count and compliance verdict/rate, batched by facility-id list. Requires organization.compliance.read."
+            },
+            "FederatedAuth.FederatedCompleteInput": {
+                "type": "object",
+                "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API.",
+                "properties": {
+                    "code": {
+                        "maxLength": 4096,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "error": {
+                        "maxLength": 128,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "state": {
+                        "maxLength": 256,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "state"
+                ]
+            },
+            "FederatedAuth.FederatedConnectionsOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "password_configured": {
+                                "type": "boolean"
+                            },
+                            "last_sign_in_method": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "connections": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/FederatedConnectionOutput.jsonld"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API."
+            },
+            "FederatedAuth.FederatedProviderOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "provider": {
+                                "type": "string"
+                            },
+                            "enabled": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API."
+            },
+            "FederatedAuth.FederatedStartInput": {
+                "type": "object",
+                "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API.",
+                "properties": {
+                    "return_url": {
+                        "maxLength": 500,
+                        "default": "/",
+                        "type": "string"
+                    }
+                }
+            },
+            "FederatedAuth.FederatedStartOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "authorization_url": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API."
+            },
+            "FederatedAuth.LoginOutput.jsonld-token.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "access_token": {
+                                "readOnly": true,
+                                "description": "JWT access token for API authentication; absent while MFA is required",
+                                "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+                                "type": "string"
+                            },
+                            "token_type": {
+                                "readOnly": true,
+                                "description": "Token type; absent while MFA is required",
+                                "example": "Bearer",
+                                "type": "string",
+                                "enum": [
+                                    "Bearer"
+                                ],
+                                "default": "Bearer"
+                            },
+                            "expires_in": {
+                                "readOnly": true,
+                                "description": "Token lifetime in seconds; absent while MFA is required",
+                                "example": 3600,
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "scope": {
+                                "readOnly": true,
+                                "description": "Space-separated list of granted scopes",
+                                "example": "openid profile email",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "mfa_required": {
+                                "readOnly": true,
+                                "description": "If true, authentication is incomplete. Use mfa_token to verify code.",
+                                "example": true,
+                                "type": "boolean",
+                                "nullable": true
+                            },
+                            "mfa_token": {
+                                "readOnly": true,
+                                "description": "Temporary Pre-Auth Token (JWT) covering the partial authentication state.",
+                                "example": "eyJ...",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "challenge_token": {
+                                "readOnly": true,
+                                "description": "The OTP challenge token (reference).",
+                                "example": "abc...",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "mfa_method": {
+                                "readOnly": true,
+                                "description": "The delivery method for the MFA code (email, sms, totp).",
+                                "example": "email",
+                                "type": "string",
+                                "enum": [
+                                    "email",
+                                    "sms",
+                                    "totp"
+                                ],
+                                "nullable": true
+                            },
+                            "mfa_destination": {
+                                "readOnly": true,
+                                "description": "The masked destination where the code was sent (e.g., \"j***e@e****e.com\" or \"+336****5678\").",
+                                "example": "j***e@e****e.com",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "mfa_resend_in": {
+                                "readOnly": true,
+                                "description": "Seconds until MFA code can be resent",
+                                "example": 60,
+                                "type": "integer",
+                                "nullable": true
+                            },
+                            "return_url": {
+                                "description": "Validated local destination returned by a federated login.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "new_account": {
+                                "description": "Whether a federated login provisioned the Fireguard account.",
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API."
+            },
+            "FederatedConnectionOutput.jsonld": {
+                "type": "object",
+                "properties": {
+                    "provider": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "connected_at": {
+                        "type": "string"
+                    },
+                    "last_used_at": {
+                        "type": "string"
+                    }
+                }
             },
             "Health.HealthOutput.jsonld-health.read_health.read.details": {
                 "allOf": [
@@ -46578,6 +49481,22 @@
                             "null"
                         ]
                     },
+                    "onboardingSessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingItemKey": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "type": {
                         "enum": [
                             "fire_extinguisher",
@@ -46957,6 +49876,22 @@
                     "intervention": {
                         "pattern": "^(/api/interventions/[0-9a-fA-F-]{36})$",
                         "description": "Optional field intervention IRI",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingSessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingItemKey": {
                         "type": [
                             "string",
                             "null"
@@ -47553,6 +50488,30 @@
                         }
                     }
                 }
+            },
+            "LegacyFacility.SuggestAddressesOutput.jsonld-facility.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "member": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/AddressSuggestionOutput.jsonld-facility.read"
+                                }
+                            },
+                            "totalItems": {
+                                "description": "Property totalItems.",
+                                "default": 0,
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "description": "Generic organizational facilities (site/building/floor/zone/area)."
             },
             "LegacyFacility.UpdateFacilityInput-facility.write.jsonMergePatch": {
                 "type": "object",
@@ -49743,10 +52702,23 @@
             "Organization.CreateOrganizationInput-Organization.write": {
                 "type": "object",
                 "description": "Organization management and membership entry points.",
-                "required": [
-                    "name"
-                ],
                 "properties": {
+                    "onboardingSessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingItemKey": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "name": {
                         "minLength": 2,
                         "maxLength": 120,
@@ -49766,7 +52738,10 @@
                             "null"
                         ]
                     }
-                }
+                },
+                "required": [
+                    "name"
+                ]
             },
             "Organization.OrganizationOutput.jsonld-Organization.read": {
                 "allOf": [
@@ -51060,10 +54035,23 @@
             "OrganizationInvitation.InviteOrganizationMemberInput-Organization.write": {
                 "type": "object",
                 "description": "Organization invitation management.",
-                "required": [
-                    "email"
-                ],
                 "properties": {
+                    "onboardingSessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "onboardingItemKey": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "email": {
                         "format": "email",
                         "description": "Email to invite in Organization",
@@ -51087,7 +54075,10 @@
                             ]
                         }
                     }
-                }
+                },
+                "required": [
+                    "email"
+                ]
             },
             "OrganizationInvitation.OrganizationInvitationOutput.jsonld-Organization.read": {
                 "allOf": [
@@ -51368,6 +54359,318 @@
                     }
                 ],
                 "description": "Organization invitation management."
+            },
+            "OrganizationJoin.ApproveOrganizationJoinRequestInput-Organization.write": {
+                "type": "object",
+                "description": "Resource OrganizationJoinResource.",
+                "properties": {
+                    "roleIds": {
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "OrganizationJoin.OrganizationAccessPolicyInput-Organization.write.jsonMergePatch": {
+                "type": "object",
+                "description": "Resource OrganizationJoinResource.",
+                "properties": {
+                    "mode": {
+                        "enum": [
+                            "invitation_only",
+                            "approval_required",
+                            "automatic"
+                        ],
+                        "default": "invitation_only",
+                        "type": "string"
+                    },
+                    "roleId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "OrganizationJoin.OrganizationAccessPolicyOutput.jsonld-Organization.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "mode": {
+                                "default": "invitation_only",
+                                "type": "string"
+                            },
+                            "roleId": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "roleLabel": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "domains": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "eligibleRoles": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource OrganizationJoinResource."
+            },
+            "OrganizationJoin.OrganizationDomainInput-Organization.write": {
+                "type": "object",
+                "description": "Resource OrganizationJoinResource.",
+                "required": [
+                    "domain"
+                ],
+                "properties": {
+                    "domain": {
+                        "maxLength": 253,
+                        "default": "",
+                        "type": "string"
+                    }
+                }
+            },
+            "OrganizationJoin.OrganizationDomainOutput.jsonld-Organization.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "domain": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "status": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "dnsName": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "dnsValue": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "verifiedAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "lastCheckedAt": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource OrganizationJoinResource."
+            },
+            "OrganizationJoin.OrganizationJoinCompletedOutput.jsonld-Organization.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "organizationId": {
+                                "default": "",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource OrganizationJoinResource."
+            },
+            "OrganizationJoin.OrganizationJoinOptionsOutput.jsonld-Organization.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "emailProofRequired": {
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "invitations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "organizations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "anyOf": [
+                                            {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            {
+                                                "type": "string"
+                                            },
+                                            {
+                                                "type": "null"
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            "requests": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource OrganizationJoinResource."
+            },
+            "OrganizationJoin.OrganizationJoinRequestOutput.jsonld-Organization.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "applicantEmail": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "id": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "organizationId": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "organizationName": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "status": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "createdAt": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "expiresAt": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "actions": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource OrganizationJoinResource."
+            },
+            "OrganizationJoin.OrganizationJoinRequestsOutput.jsonld-Organization.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "totalItems": {
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "member": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                }
+                            },
+                            "assignableRoles": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource OrganizationJoinResource."
             },
             "OrganizationLegalType.OrganizationLegalTypeOptionOutput.jsonld-Organization.read": {
                 "allOf": [
@@ -51693,6 +54996,24 @@
                     {
                         "type": "object",
                         "properties": {
+                            "sessionId": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "setupOperations": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/OrganizationSetupOperationOutput.jsonld-onboarding.read"
+                                }
+                            },
+                            "accessibleOrganizationId": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "flow": {
                                 "readOnly": true,
                                 "description": "Property flow.",
@@ -51824,10 +55145,70 @@
                 ],
                 "description": "Organization onboarding orchestration endpoints."
             },
+            "OrganizationOnboarding.PrepareOrganizationSetupInput-onboarding.write": {
+                "type": "object",
+                "description": "Organization onboarding orchestration endpoints.",
+                "required": [
+                    "sessionId"
+                ],
+                "properties": {
+                    "sessionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "stepKey": {
+                        "enum": [
+                            "create_organization",
+                            "invite_members",
+                            "create_first_facility",
+                            "create_first_equipment"
+                        ],
+                        "default": "",
+                        "type": "string"
+                    },
+                    "items": {
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "type": "array",
+                        "description": "One organization/equipment item or up to five invitation/facility items. Inputs are exact owner-resource wire payloads; omitted pending keys are replaced while completed keys remain durable.",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "itemKey",
+                                "payload"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                                "itemKey": {
+                                    "type": "string",
+                                    "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+                                },
+                                "payload": {
+                                    "type": "object",
+                                    "description": "Creation fields belonging to stepKey, excluding organization and setup context. Canonical defaults are returned in setupOperations."
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "OrganizationOnboarding.StartOrganizationOnboardingInput-onboarding.write": {
                 "type": "object",
                 "description": "Organization onboarding orchestration endpoints.",
                 "properties": {
+                    "intent": {
+                        "enum": [
+                            "create"
+                        ],
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "reset": {
                         "description": "When true, resets the persisted onboarding session for the authenticated user.",
                         "default": false,
@@ -52481,6 +55862,42 @@
                     }
                 }
             },
+            "OrganizationSetupOperationOutput.jsonld-onboarding.read": {
+                "type": "object",
+                "properties": {
+                    "stepKey": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "itemKey": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "payload": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    "resourceId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "status": {
+                        "default": "prepared",
+                        "type": "string",
+                        "enum": [
+                            "prepared",
+                            "completed"
+                        ]
+                    }
+                }
+            },
             "OtpConfig.ChannelOutput.jsonld": {
                 "allOf": [
                     {
@@ -52871,6 +56288,129 @@
                         "maxLength": 255
                     }
                 }
+            },
+            "PasswordSetup.ConfirmPasswordChangeInput-password_change.write": {
+                "type": "object",
+                "description": "Resource PasswordSetupResource.\n\nDeclares OTP-protected first password setup for federated-only users.",
+                "required": [
+                    "token",
+                    "code",
+                    "newPassword"
+                ],
+                "properties": {
+                    "token": {
+                        "writeOnly": true,
+                        "description": "Challenge token from the password change request",
+                        "example": "abc123def456",
+                        "type": "string",
+                        "minLength": 16,
+                        "maxLength": 255
+                    },
+                    "code": {
+                        "minLength": 4,
+                        "maxLength": 10,
+                        "writeOnly": true,
+                        "description": "OTP verification code received by email",
+                        "example": "123456",
+                        "type": "string"
+                    },
+                    "newPassword": {
+                        "minLength": 8,
+                        "maxLength": 128,
+                        "pattern": "^((?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#].*)$",
+                        "writeOnly": true,
+                        "description": "New password (must meet security requirements)",
+                        "example": "SecureP@ssw0rd!",
+                        "type": "string",
+                        "format": "password"
+                    }
+                }
+            },
+            "PasswordSetup.ConfirmPasswordChangeOutput.jsonld-token.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "description": "Whether the password was changed successfully",
+                                "example": true,
+                                "type": "boolean"
+                            },
+                            "message": {
+                                "description": "Informational or error message",
+                                "example": "Password has been changed successfully.",
+                                "type": "string"
+                            },
+                            "errorCode": {
+                                "description": "Error code when the operation failed",
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    "invalid_code",
+                                    "expired",
+                                    "max_attempts_exceeded",
+                                    "invalid_token"
+                                ]
+                            },
+                            "attemptsRemaining": {
+                                "description": "Number of verification attempts remaining",
+                                "example": 0,
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource PasswordSetupResource.\n\nDeclares OTP-protected first password setup for federated-only users."
+            },
+            "PasswordSetup.RequestPasswordChangeOutput.jsonld-token.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "success": {
+                                "description": "Whether the request was processed successfully",
+                                "example": true,
+                                "type": "boolean"
+                            },
+                            "message": {
+                                "description": "Informational message",
+                                "example": "A verification code has been sent to your email address.",
+                                "type": "string"
+                            },
+                            "challengeToken": {
+                                "description": "OTP challenge token for the confirm step",
+                                "example": "abc123def456",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "maskedRecipient": {
+                                "description": "Masked email address the code was sent to",
+                                "example": "j***e@example.com",
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "expiresAt": {
+                                "description": "Expiration timestamp of the verification code",
+                                "type": "string",
+                                "format": "date-time",
+                                "nullable": true
+                            },
+                            "maxAttempts": {
+                                "description": "Maximum number of verification attempts",
+                                "example": 5,
+                                "type": "integer",
+                                "nullable": true
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource PasswordSetupResource.\n\nDeclares OTP-protected first password setup for federated-only users."
             },
             "Permission.PermissionInput-permission.update.jsonMergePatch": {
                 "type": "object",
@@ -53383,31 +56923,26 @@
                     },
                     {
                         "type": "object",
-                        "required": [
-                            "access_token",
-                            "token_type",
-                            "expires_in"
-                        ],
                         "properties": {
                             "access_token": {
                                 "readOnly": true,
-                                "description": "JWT access token for API authentication",
+                                "description": "JWT access token for API authentication; absent while MFA is required",
                                 "example": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
                                 "type": "string"
                             },
                             "token_type": {
                                 "readOnly": true,
-                                "description": "Token type (always Bearer)",
-                                "default": "Bearer",
+                                "description": "Token type; absent while MFA is required",
                                 "example": "Bearer",
                                 "type": "string",
                                 "enum": [
                                     "Bearer"
-                                ]
+                                ],
+                                "default": "Bearer"
                             },
                             "expires_in": {
                                 "readOnly": true,
-                                "description": "Token lifetime in seconds",
+                                "description": "Token lifetime in seconds; absent while MFA is required",
                                 "example": 3600,
                                 "type": "integer",
                                 "minimum": 1
@@ -53465,6 +57000,20 @@
                                 "example": 60,
                                 "type": "integer",
                                 "nullable": true
+                            },
+                            "return_url": {
+                                "description": "Validated local destination returned by a federated login.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "new_account": {
+                                "description": "Whether a federated login provisioned the Fireguard account.",
+                                "type": [
+                                    "boolean",
+                                    "null"
+                                ]
                             }
                         }
                     }
@@ -55611,6 +59160,10 @@
             "description": "Organization invitation management."
         },
         {
+            "name": "Organization access",
+            "description": "Resource OrganizationJoinResource."
+        },
+        {
             "name": "Organization Permissions",
             "description": "Organization-scoped permission catalog (read-only)."
         },
@@ -55804,7 +59357,11 @@
         },
         {
             "name": "Authentication",
-            "description": "User authentication operations"
+            "description": "Resource FederatedAuthResource.\n\nDeclares the Google and Microsoft sign-in, callback and connection API."
+        },
+        {
+            "name": "EmailOwnership",
+            "description": "Resource EmailOwnershipResource."
         },
         {
             "name": "Users",
@@ -55813,6 +59370,10 @@
         {
             "name": "Password Reset",
             "description": "Password reset operations"
+        },
+        {
+            "name": "PasswordSetup",
+            "description": "Resource PasswordSetupResource.\n\nDeclares OTP-protected first password setup for federated-only users."
         },
         {
             "name": "Registration",

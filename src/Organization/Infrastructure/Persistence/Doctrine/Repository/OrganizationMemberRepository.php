@@ -95,7 +95,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   public function save(OrganizationMember $member): void
   {
     $record = OrganizationMemberMapper::toRecord($member);
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $member->organizationId());
     $record->organization = $organization;
     $existing = $this->memberRepository->find($record->id);
@@ -148,7 +150,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function findByOrganizationAndUser(OrganizationId $organizationId, string $userId): ?OrganizationMember
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->memberRepository->findOneBy([
       'organization' => $organization,
@@ -182,7 +186,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function hasActiveMembership(OrganizationId $organizationId, string $userId): bool
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return $this->memberRepository->count([
@@ -308,9 +314,13 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function assignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void
   {
-    /** @var OrganizationMemberRecord|null $memberRecord */
+    /**
+     * @var OrganizationMemberRecord|null $memberRecord
+     */
     $memberRecord = $this->memberRepository->find((string) $memberId);
-    /** @var OrganizationRoleRecord|null $roleRecord */
+    /**
+     * @var OrganizationRoleRecord|null $roleRecord
+     */
     $roleRecord = $this->roleRepository->find((string) $roleId);
 
     if (!$memberRecord instanceof OrganizationMemberRecord || !$roleRecord instanceof OrganizationRoleRecord) {
@@ -349,14 +359,18 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function findRoleIdsForMember(OrganizationMemberId $memberId): array
   {
-    /** @var OrganizationMemberRecord|null $memberRecord */
+    /**
+     * @var OrganizationMemberRecord|null $memberRecord
+     */
     $memberRecord = $this->memberRepository->find((string) $memberId);
 
     if (!$memberRecord instanceof OrganizationMemberRecord) {
       return [];
     }
 
-    /** @var list<OrganizationMemberRoleRecord> $assignments */
+    /**
+     * @var list<OrganizationMemberRoleRecord> $assignments
+     */
     $assignments = $this->memberRoleRepository->findBy([
       'member' => $memberRecord,
     ]);
@@ -381,9 +395,13 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function unassignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void
   {
-    /** @var OrganizationMemberRecord|null $memberRecord */
+    /**
+     * @var OrganizationMemberRecord|null $memberRecord
+     */
     $memberRecord = $this->memberRepository->find((string) $memberId);
-    /** @var OrganizationRoleRecord|null $roleRecord */
+    /**
+     * @var OrganizationRoleRecord|null $roleRecord
+     */
     $roleRecord = $this->roleRepository->find((string) $roleId);
 
     if (!$memberRecord instanceof OrganizationMemberRecord || !$roleRecord instanceof OrganizationRoleRecord) {
@@ -455,7 +473,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $organizations = array_map(
       function (OrganizationId $organizationId): OrganizationRecord {
-        /** @var OrganizationRecord $reference */
+        /**
+         * @var OrganizationRecord $reference
+         */
         $reference = $this->entityManager->getReference(
           OrganizationRecord::class,
           (string) $organizationId,
@@ -466,7 +486,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       $organizationIds,
     );
 
-    /** @var list<array{organizationId: string|null, memberCount: int|string|null}> $rows */
+    /**
+     * @var list<array{organizationId: string|null, memberCount: int|string|null}> $rows
+     */
     $rows = $this->memberRepository
       ->createQueryBuilder('organizationMember')
       ->select('IDENTITY(organizationMember.organization) AS organizationId')
@@ -492,7 +514,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
   public function countActiveByOrganizationId(OrganizationId $organizationId): int
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return (int) $this->memberRepository->count([
@@ -503,7 +527,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
   public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return (int) $this->memberRepository
@@ -559,7 +585,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       'joinedAtTo' => $this->normalizeTimestampForStorageTimeZone($to, $storageTimeZone),
     ];
 
-    /** @var list<array{bucket: string, member_count: int|string}> $rows */
+    /**
+     * @var list<array{bucket: string, member_count: int|string}> $rows
+     */
     $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
 
     $counts = [];
@@ -589,10 +617,14 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       return [];
     }
 
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
-    /** @var list<array{id: string, userId: string}> $rows */
+    /**
+     * @var list<array{id: string, userId: string}> $rows
+     */
     $rows = $this->memberRepository
       ->createQueryBuilder('organizationMember')
       ->select('organizationMember.id AS id, organizationMember.userId AS userId')
@@ -625,7 +657,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function getPermissionNamesForUserInOrganization(string $userId, OrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $memberRecord = $this->memberRepository->findOneBy([
       'organization' => $organization,
@@ -637,7 +671,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       return [];
     }
 
-    /** @var list<OrganizationMemberRoleRecord> $assignments */
+    /**
+     * @var list<OrganizationMemberRoleRecord> $assignments
+     */
     $assignments = $this->memberRoleRepository->findBy([
       'member' => $memberRecord,
     ]);
@@ -681,10 +717,14 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function countActiveMembersGroupedByRoleId(OrganizationId $organizationId): array
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
-    /** @var list<array{roleId: string|null, memberCount: int|string|null}> $rows */
+    /**
+     * @var list<array{roleId: string|null, memberCount: int|string|null}> $rows
+     */
     $rows = $this->memberRoleRepository
       ->createQueryBuilder('memberRole')
       ->select('IDENTITY(memberRole.role) AS roleId')
@@ -765,7 +805,9 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   private function getOrganizationReference(OrganizationId $organizationId): OrganizationRecord
   {
-    /** @var OrganizationRecord $organization */
+    /**
+     * @var OrganizationRecord $organization
+     */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return $organization;

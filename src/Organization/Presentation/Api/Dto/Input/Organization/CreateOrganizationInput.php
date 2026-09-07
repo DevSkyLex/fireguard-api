@@ -22,6 +22,20 @@ final class CreateOrganizationInput
 {
   // #region Properties
   /**
+   * @since 1.2.0 Optional prepared onboarding receipt; both fields travel together.
+   */
+  #[Assert\Uuid]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  public ?string $onboardingSessionId = null;
+
+  /**
+   * @since 1.2.0 Stable item identity from the preparation response.
+   */
+  #[Assert\Regex('/^[a-zA-Z0-9_-]{1,80}$/D')]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  public ?string $onboardingItemKey = null;
+
+  /**
    * Property name.
    *
    * @since 1.0.0

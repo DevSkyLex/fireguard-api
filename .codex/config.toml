@@ -1,0 +1,14 @@
+# FireGuard Codex — checkout-local paths; adapt on clone/move/worktree.
+# Preserve the user model, sandbox, approvals and project trust.
+
+[mcp_servers."context7"]
+command = "npx"
+args = ["-y","@upstash/context7-mcp"]
+cwd = "G:/Projets/fireguard/fireguard-sso-api"
+startup_timeout_sec = 60
+
+[mcp_servers."serena-api"]
+command = "serena"
+args = ["start-mcp-server","--context","ide","--project","G:/Projets/fireguard/fireguard-sso-api"]
+cwd = "G:/Projets/fireguard/fireguard-sso-api"
+startup_timeout_sec = 120

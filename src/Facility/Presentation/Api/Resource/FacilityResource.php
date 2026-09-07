@@ -16,7 +16,7 @@ use Facility\Presentation\Api\Dto\Input\Facility\{
   SetFacilityPlanGeometryInput,
   UpdateFacilityInput
 };
-use Facility\Presentation\Api\Dto\Output\Facility\{FacilityBuildingModelOutput, FacilityOutput, FacilityPlanOverlayOutput, GeocodeAddressOutput};
+use Facility\Presentation\Api\Dto\Output\Facility\{FacilityBuildingModelOutput, FacilityOutput, FacilityPlanOverlayOutput, GeocodeAddressOutput, SuggestAddressesOutput};
 use Facility\Presentation\Api\Operation\FacilityOperations;
 use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
@@ -34,7 +34,8 @@ use Facility\Presentation\Api\Provider\Facility\{
   GetFacilityProvider,
   ListFacilitiesProvider,
   ListFacilityChildrenProvider,
-  ListFacilityDescendantsProvider
+  ListFacilityDescendantsProvider,
+  SuggestAddressesProvider
 };
 use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -280,6 +281,30 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.facilities.write'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'No coordinates found for the address (or the organization is outside the caller\'s scope)'),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(description: 'More than 30 geocoding requests in a minute'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::SUGGEST_ADDRESSES,
+      uriTemplate: '/{organizationId}/facilities/address-suggestions',
+      input: false,
+      output: SuggestAddressesOutput::class,
+      provider: SuggestAddressesProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Suggest postal addresses',
+        description: 'Returns up to five concrete international addresses. Requires organization.facilities.write. '
+          . 'Thirty requests per minute per user; remote failures return 503, an empty member list means no match.',
+        parameters: [new Parameter(name: 'q', in: 'query', required: true, schema: ['type' => 'string', 'minLength' => 3, 'maxLength' => 250])],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Address matches in member with totalItems'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing or invalid search text'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Missing organization.facilities.write'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization outside caller scope'),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(description: 'User search budget exceeded'),
+          HttpResponse::HTTP_SERVICE_UNAVAILABLE => new Response(description: 'Address provider unavailable'),
         ],
       ),
     ),

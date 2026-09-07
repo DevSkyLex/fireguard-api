@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Otp\Application\Service;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose, VerificationInfo};
 use Otp\Application\Exception\OtpNotFoundException;
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
@@ -90,18 +91,38 @@ final readonly class OtpChallengeService implements OtpChallengePort
 
   public function verify(string $challengeToken, string $code): VerificationInfo
   {
-    $command = new VerifyOtpCommand(
+    return $this->verifyCommand(new VerifyOtpCommand(
       code: $code,
       challengeToken: $challengeToken,
-    );
+    ));
+  }
 
+  public function verifyFor(
+    string $challengeToken,
+    string $code,
+    string $userId,
+    OtpPurpose $purpose,
+    ?string $recipient = null,
+  ): VerificationInfo {
+    return $this->verifyCommand(new VerifyOtpCommand(
+      code: $code,
+      challengeToken: $challengeToken,
+      expectedUserId: $userId,
+      expectedPurpose: DomainOtpPurpose::from($purpose->value),
+      expectedRecipient: $recipient,
+    ));
+  }
+
+  private function verifyCommand(VerifyOtpCommand $command): VerificationInfo
+  {
     try {
       $result = $this->verifyHandler->__invoke($command);
-    } catch (OtpNotFoundException) {
+    } catch (OtpNotFoundException|InvalidArgumentException) {
       return new VerificationInfo(
         success: false,
         attemptsRemaining: 0,
         error: 'Challenge not found.',
+        errorCode: 'invalid_token',
       );
     }
 
@@ -109,6 +130,12 @@ final readonly class OtpChallengeService implements OtpChallengePort
       success: $result->success,
       attemptsRemaining: $result->attemptsRemaining,
       error: $result->error,
+      errorCode: match ($result->error) {
+        null => null,
+        'OTP has expired.' => 'expired',
+        'Maximum verification attempts exceeded.' => 'max_attempts_exceeded',
+        default => 'invalid_code',
+      },
     );
   }
   // #endregion

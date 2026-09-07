@@ -233,6 +233,90 @@ final class AuthApiTest extends WebTestCase
   }
 
   /**
+   * Provider discovery remains public so the login page can render only
+   * configured choices before a session exists.
+   *
+   * @since 1.1.0
+   */
+  public function testFederatedProvidersArePublic(): void
+  {
+    $this->client?->request(
+      method: 'GET',
+      uri: '/api/auth/federated/providers',
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+
+    $body = json_decode((string) $response->getContent(), true);
+    self::assertIsArray($body);
+    self::assertArrayHasKey('member', $body);
+  }
+
+  /**
+   * Connected identities expose account security information and therefore
+   * require the same authenticated boundary as the Security page.
+   *
+   * @since 1.1.0
+   */
+  public function testFederatedConnectionsRequireAuthentication(): void
+  {
+    $this->client?->request(
+      method: 'GET',
+      uri: '/api/auth/federated/connections',
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  /**
+   * Provider linking must never create an anonymous flow that could later be
+   * attached to an unrelated account.
+   *
+   * @since 1.1.0
+   */
+  public function testFederatedLinkStartRequiresAuthentication(): void
+  {
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/auth/federated/connections/google/start',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode(['return_url' => '/account/security']) ?: '',
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  /**
+   * First-password setup is available only inside an existing authenticated
+   * federated session.
+   *
+   * @since 1.1.0
+   */
+  public function testPasswordSetupRequiresAuthentication(): void
+  {
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/auth/password/setup',
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  /**
    * The MFA resend endpoint carries its own pre-auth token in the body, so it must
    * stay reachable without an Authorization header — the caller has no access token
    * yet at that point in the login flow.

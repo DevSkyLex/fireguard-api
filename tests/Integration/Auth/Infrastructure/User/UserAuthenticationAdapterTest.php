@@ -7,6 +7,7 @@ namespace Tests\Integration\Auth\Infrastructure\User;
 use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Psr\Log\NullLogger;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -35,7 +36,7 @@ final class UserAuthenticationAdapterTest extends KernelTestCase
 
     /** @var QueryBusPort $queryBus */
     $queryBus = $container->get(QueryBusPort::class);
-    $this->adapter = new UserAuthenticationAdapter(queryBus: $queryBus);
+    $this->adapter = new UserAuthenticationAdapter(queryBus: $queryBus, logger: new NullLogger());
   }
 
   protected function tearDown(): void

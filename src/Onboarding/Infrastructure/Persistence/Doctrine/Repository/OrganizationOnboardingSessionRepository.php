@@ -96,10 +96,18 @@ final readonly class OrganizationOnboardingSessionRepository implements Organiza
    */
   public function findByUserId(string $userId): ?OrganizationOnboardingSession
   {
+    $connection = $this->entityManager->getConnection();
+    if ($connection->isTransactionActive()) {
+      $connection->executeQuery('SELECT id FROM organization_onboarding_sessions WHERE user_id = ? FOR UPDATE', [$userId])->free();
+    }
     $record = $this->repository->findOneBy(['userId' => $userId]);
 
     if (!$record instanceof OrganizationOnboardingSessionRecord) {
       return null;
+    }
+
+    if ($connection->isTransactionActive()) {
+      $this->entityManager->refresh($record);
     }
 
     return OrganizationOnboardingSessionMapper::toDomain($record);
@@ -145,6 +153,7 @@ final readonly class OrganizationOnboardingSessionRepository implements Organiza
     $existing->rollbackStack = $record->rollbackStack;
     $existing->stepHistory = $record->stepHistory;
     $existing->updatedAt = $record->updatedAt;
+    $existing->creationIntent = $record->creationIntent;
   }
   // #endregion
 }

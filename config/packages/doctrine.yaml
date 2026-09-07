@@ -35,6 +35,12 @@ doctrine:
             class: Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter
             enabled: false
         mappings:
+          Auth:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Auth/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Auth\Infrastructure\Persistence\Doctrine\Record'
+            alias: Auth
           OAuth:
             is_bundle: false
             type: attribute

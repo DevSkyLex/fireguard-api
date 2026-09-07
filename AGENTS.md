@@ -1,11 +1,24 @@
 # Agent Instructions
 
+## Codex tooling
+
+For Codex, read [.codex/workflow.md](.codex/workflow.md) and the matching entries in
+[.codex/rules.md](.codex/rules.md) before editing. Skills are self-contained in
+`.agents/skills/`; native subagents live in `.codex/agents/`. Setup and validation
+are documented in [.codex/README.md](.codex/README.md).
+
+Do not read or write secret environment files (except `.env.example`/`.env.dist`),
+API `config/jwt/`, or web `src/environments/environment*.ts`. Do not hand-edit
+generated/dependency trees. Preserve user changes and the existing Claude setup.
+Do not run automatic nested `codex exec` challenges from shared agent prompts.
+
+
 These instructions are mandatory for AI agents working in this repository. They are
 imported by [CLAUDE.md](CLAUDE.md) and apply to any assistant, not one vendor's.
 
-This file states the **architectural rules**. The Claude Code **tooling** — agents,
-commands, skills, MCP servers, hooks — is documented in
-[.claude/README.md](.claude/README.md).
+This file states the **architectural rules**. Codex tooling — agents, skills, MCP
+servers, hooks, setup and validation — is documented in
+[.codex/README.md](.codex/README.md).
 
 ## First Read
 

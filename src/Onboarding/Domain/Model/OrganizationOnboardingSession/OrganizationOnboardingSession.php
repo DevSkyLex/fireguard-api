@@ -66,11 +66,30 @@ final class OrganizationOnboardingSession
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
     private ?DateTimeImmutable $dismissedAt = null,
+    private bool $creationIntent = false,
   ) {
   }
   // #endregion
 
   // #region Methods
+  /**
+   * @since 1.1.0
+   *
+   * @return bool explicit create choice, never implied by a GET
+   */
+  public function creationIntent(): bool
+  {
+    return $this->creationIntent;
+  }
+
+  /**
+   * @since 1.1.0
+   */
+  public function chooseCreation(): void
+  {
+    $this->creationIntent = true;
+  }
+
   /**
    * Method start.
    *
@@ -143,6 +162,7 @@ final class OrganizationOnboardingSession
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
     ?DateTimeImmutable $dismissedAt = null,
+    bool $creationIntent = false,
   ): self {
     $normalizedCompletedSteps = array_values(array_filter(
       $completedSteps,
@@ -170,6 +190,7 @@ final class OrganizationOnboardingSession
       createdAt: $createdAt,
       updatedAt: $updatedAt,
       dismissedAt: $dismissedAt,
+      creationIntent: $creationIntent,
     );
   }
 

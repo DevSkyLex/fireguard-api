@@ -59,6 +59,7 @@ final readonly class VerifyOtpHandler implements CommandHandler
    * @param VerifyOtpCommand $command the command
    *
    * @throws OtpNotFoundException if OTP not found
+   * @throws InvalidArgumentException if a challenge token is malformed
    *
    * @return VerifyOtpResult the result
    */
@@ -72,8 +73,13 @@ final readonly class VerifyOtpHandler implements CommandHandler
       default => throw new InvalidArgumentException('Either OTP ID or Challenge Token must be provided.'),
     };
 
-    if (null === $otp) {
-      throw OtpNotFoundException::forIdentifier($command->otpId ?? $command->challengeToken ?? 'unknown');
+    if (
+      null === $otp
+      || (null !== $command->expectedUserId && $otp->userId() !== $command->expectedUserId)
+      || (null !== $command->expectedPurpose && $otp->purpose() !== $command->expectedPurpose)
+      || (null !== $command->expectedRecipient && $otp->recipient() !== $command->expectedRecipient)
+    ) {
+      throw OtpNotFoundException::forIdentifier($command->otpId ?? 'challenge');
     }
 
     try {

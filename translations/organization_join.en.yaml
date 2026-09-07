@@ -1,0 +1,8 @@
+request_failed: "We couldn't complete this organization access request. Try again."
+subject: "Organization access request"
+status:
+  pending: "An organization access request is waiting for your review."
+  approved: "Your request was approved. You can now open the organization in Fireguard."
+  rejected: "Your request to join the organization was declined. Contact your administrator for an invitation."
+  cancelled: "The organization access request was cancelled."
+  expired: "The organization access request expired."

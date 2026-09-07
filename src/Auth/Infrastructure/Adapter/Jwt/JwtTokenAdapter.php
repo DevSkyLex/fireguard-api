@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Adapter\Jwt;
 
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
+use Auth\Domain\ValueObject\Security\SignInGrantType;
 use Authorization\Application\Service\AuthorizationService;
 use DateInterval;
 use DateTimeImmutable;
@@ -217,6 +218,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     array $scopes = [],
     int $ttl = 300,
     bool $rememberMe = false,
+    SignInGrantType $grantType = SignInGrantType::PASSWORD,
   ): string {
     if ('' === $userId) {
       throw new InvalidArgumentException('User ID cannot be empty');
@@ -238,6 +240,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       ->withClaim('scopes', $scopes)
       ->withClaim('challenge_token', $challengeToken)
       ->withClaim('remember_me', $rememberMe)
+      ->withClaim('grant_type', $grantType->value)
       ->getToken($this->jwtConfig->signer(), $this->jwtConfig->signingKey());
 
     return $token->toString();

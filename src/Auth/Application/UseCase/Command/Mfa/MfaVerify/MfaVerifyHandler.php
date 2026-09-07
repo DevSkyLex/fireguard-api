@@ -6,10 +6,15 @@ namespace Auth\Application\UseCase\Command\Mfa\MfaVerify;
 
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort};
 use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
+use Auth\Domain\Event\Session\UserLoggedInEvent;
+use Auth\Domain\Event\Token\TokenIssuedEvent;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
+use Auth\Domain\ValueObject\Security\SignInGrantType;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
+use User\Application\Port\Inbound\FederatedUserPort;
 
 use function array_filter;
 use function array_key_exists;
@@ -46,6 +51,8 @@ final readonly class MfaVerifyHandler implements CommandHandler
     private readonly JwtTokenServicePort $jwtService,
     private readonly ChallengeVerifierPort $challengeVerifier,
     private readonly SessionTrackingPort $sessionTracking,
+    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly FederatedUserPort $users,
   ) {
   }
   // #endregion
@@ -95,6 +102,9 @@ final readonly class MfaVerifyHandler implements CommandHandler
     if (is_bool($rememberClaim)) {
       $rememberMe = $rememberClaim;
     }
+    $grantClaim = $tokenClaims['grant_type'] ?? null;
+    $grantType = is_string($grantClaim) ? SignInGrantType::tryFrom($grantClaim) : null;
+    $grantType ??= SignInGrantType::PASSWORD;
 
     // 2. Verify OTP via port
     $verificationResult = $this->challengeVerifier->verify($challengeToken, $command->code);
@@ -115,7 +125,19 @@ final readonly class MfaVerifyHandler implements CommandHandler
       rememberMe: $rememberMe,
     );
 
+    $this->users->recordSignInMethod($userId, $grantType->method());
     $this->recordSession($command, $userId, $tokens, $rememberMe);
+    $normalizedEmail = is_string($email) ? $email : '';
+    $this->eventDispatcher->dispatch(new UserLoggedInEvent($userId, $normalizedEmail, $command->ipAddress));
+    $this->eventDispatcher->dispatch(new TokenIssuedEvent(
+      tokenId: $tokens['access_token'],
+      grantType: $grantType->value,
+      clientId: 'user_session',
+      userId: $userId,
+      scopes: $scopes,
+      expiresIn: $tokens['expires_in'],
+      ipAddress: $command->ipAddress,
+    ));
 
     return new MfaVerifyResult(
       success: true,
