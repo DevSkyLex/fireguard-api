@@ -14,6 +14,7 @@ use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent,
 use DateTimeImmutable;
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
+use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
@@ -56,6 +57,10 @@ final class AuditEventSubscriberTest extends TestCase
       'oauth.consent_granted_event' => 'onConsentGranted',
       'otp.totp_enrollment_confirmed_event' => 'onTotpEnrollmentConfirmed',
       'otp.totp_enrollment_disabled_event' => 'onTotpEnrollmentDisabled',
+      'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
+      'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
+      'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
+      OrganizationJoinChangedEvent::class => 'onOrganizationJoinChanged',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',
@@ -110,6 +115,8 @@ final class AuditEventSubscriberTest extends TestCase
       'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
       'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
       'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
+      'calendar.calendar_feed_token_created_event' => 'onCalendarFeedTokenCreated',
+      'calendar.calendar_feed_token_revoked_event' => 'onCalendarFeedTokenRevoked',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -121,6 +128,7 @@ final class AuditEventSubscriberTest extends TestCase
       'import.import_job_completed_event' => 'onImportJobCompleted',
       'import.import_job_failed_event' => 'onImportJobFailed',
       'compliance.safety_register_exported_event' => 'onSafetyRegisterExported',
+      'compliance.safety_register_snapshot_created_event' => 'onSafetyRegisterSnapshotCreated',
       'webhook.webhook_subscription_created_event' => 'onWebhookSubscriptionCreated',
       'webhook.webhook_subscription_deleted_event' => 'onWebhookSubscriptionDeleted',
       'approval.approval_requested_event' => 'onApprovalRequested',
@@ -130,6 +138,15 @@ final class AuditEventSubscriberTest extends TestCase
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
       'intervention.interventions_exported_event' => 'onInterventionsExported',
+      'equipment.equipments_exported_event' => 'onEquipmentsExported',
+      'facility.facilities_exported_event' => 'onFacilitiesExported',
+      'inspection.inspections_exported_event' => 'onInspectionsExported',
+      'inspection.non_conformities_exported_event' => 'onNonConformitiesExported',
+      'maintenance.maintenance_schedules_exported_event' => 'onMaintenanceSchedulesExported',
+      'inspection.inspection_report_exported_event' => 'onInspectionReportExported',
+      'inspection.non_conformities_report_exported_event' => 'onNonConformitiesReportExported',
+      'equipment.equipment_report_exported_event' => 'onEquipmentReportExported',
+      'equipment.equipment_labels_exported_event' => 'onEquipmentLabelsExported',
     ], AuditEventSubscriber::getSubscribedEvents());
   }
 
@@ -753,6 +770,28 @@ final class AuditEventSubscriberTest extends TestCase
       toStatus: 'changes_requested',
       reviewNote: 'Please redo the panel check.',
     ));
+  }
+
+  #[Test]
+  public function testJoinChangeRecordsTheActorAndScopeWithoutProofOrEmail(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())->method('dispatch')
+      ->with(self::callback(
+        static fn (RecordAuditEventCommand $command): bool => 'organization.join_approve' === $command->action
+        && 'reviewer' === $command->actorId
+        && 'request' === $command->subjectId
+        && ['organization_id' => 'organization'] === $command->metadata,
+      ))
+      ->willReturn(new RecordAuditEventResult(eventId: 'audit'));
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+    $subscriber->onOrganizationJoinChanged(new OrganizationJoinChangedEvent('organization', 'reviewer', 'approve', 'request'));
   }
 
   // #region Helpers

@@ -39,6 +39,7 @@ final readonly class AddOrganizationMemberCommand implements CommandMessage
     public bool $sendMemberNotification = true,
     public bool $enforceQuota = true,
     public bool $emitMemberAddedEvent = true,
+    public bool $replaceInactiveRoles = false,
   ) {
   }
   // #endregion

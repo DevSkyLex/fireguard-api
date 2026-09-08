@@ -10,6 +10,9 @@ use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
 use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
 use DateTimeImmutable;
+use Equipment\Domain\Event\Export\EquipmentsExportedEvent;
+use Facility\Domain\Event\Export\FacilitiesExportedEvent;
+use Inspection\Domain\Event\Export\{InspectionsExportedEvent, NonConformitiesExportedEvent};
 use Intervention\Domain\Event\Export\InterventionsExportedEvent;
 use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceCreatedEvent,
@@ -18,6 +21,7 @@ use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceUpdatedEvent
 };
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
 use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Organization\Domain\Event\Team\{TeamDeletedEvent, TeamMemberRemovedEvent, TeamUpdatedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -109,6 +113,57 @@ final class OperationsAuditWiringTest extends TestCase
 
     $expected = [
       'intervention.list_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 42, 'filter_keys' => ['status', 'type'], 'organization_id' => self::ORGANIZATION_ID]],
+    ];
+
+    $this->assertEventsProduce($events, $expected);
+  }
+
+  #[Test]
+  public function testModuleCsvExportEventsProduceTheirAuditRecords(): void
+  {
+    $events = [
+      'equipment.list_exported' => new EquipmentsExportedEvent(
+        organizationId: self::ORGANIZATION_ID,
+        actorUserId: self::ACTOR_USER_ID,
+        format: 'csv',
+        rowCount: 7,
+      ),
+      'facility.list_exported' => new FacilitiesExportedEvent(
+        organizationId: self::ORGANIZATION_ID,
+        actorUserId: self::ACTOR_USER_ID,
+        format: 'csv',
+        rowCount: 3,
+        filterKeys: ['type'],
+      ),
+      'inspection.list_exported' => new InspectionsExportedEvent(
+        organizationId: self::ORGANIZATION_ID,
+        actorUserId: self::ACTOR_USER_ID,
+        format: 'csv',
+        rowCount: 11,
+        filterKeys: ['status'],
+      ),
+      'inspection.non_conformities_exported' => new NonConformitiesExportedEvent(
+        organizationId: self::ORGANIZATION_ID,
+        actorUserId: self::ACTOR_USER_ID,
+        format: 'csv',
+        rowCount: 5,
+        filterKeys: [],
+      ),
+      'maintenance.schedules_exported' => new MaintenanceSchedulesExportedEvent(
+        organizationId: self::ORGANIZATION_ID,
+        actorUserId: self::ACTOR_USER_ID,
+        format: 'csv',
+        rowCount: 9,
+        filterKeys: ['dueStatus'],
+      ),
+    ];
+
+    $expected = [
+      'equipment.list_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 7, 'organization_id' => self::ORGANIZATION_ID]],
+      'facility.list_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 3, 'filter_keys' => ['type'], 'organization_id' => self::ORGANIZATION_ID]],
+      'inspection.list_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 11, 'filter_keys' => ['status'], 'organization_id' => self::ORGANIZATION_ID]],
+      'inspection.non_conformities_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 5, 'filter_keys' => [], 'organization_id' => self::ORGANIZATION_ID]],
+      'maintenance.schedules_exported' => ['organization', self::ORGANIZATION_ID, ['row_count' => 9, 'filter_keys' => ['dueStatus'], 'organization_id' => self::ORGANIZATION_ID]],
     ];
 
     $this->assertEventsProduce($events, $expected);

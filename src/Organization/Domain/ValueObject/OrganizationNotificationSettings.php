@@ -63,11 +63,28 @@ final readonly class OrganizationNotificationSettings
   public bool $nonConformityOpened;
 
   /**
+   * Whether a non-conformity breaching its resolution SLA generates a
+   * notification.
+   *
+   * @since 1.1.0
+   */
+  public bool $nonConformitySlaBreached;
+
+  /**
    * Whether inviting a new member generates a notification.
    *
    * @since 1.0.0
    */
   public bool $memberInvited;
+
+  /**
+   * Whether the weekly operational digest email (overdue interventions,
+   * maintenance deadlines, open non-conformities) is sent to the
+   * organization's administrators.
+   *
+   * @since 1.2.0
+   */
+  public bool $weeklyDigest;
   // #endregion
 
   // #region Constructor
@@ -84,7 +101,9 @@ final readonly class OrganizationNotificationSettings
    * @param bool $interventionAssigned whether intervention assignment notifies
    * @param bool $inspectionDue whether due inspections notify
    * @param bool $nonConformityOpened whether opened non-conformities notify
+   * @param bool $nonConformitySlaBreached whether SLA-breaching non-conformities notify
    * @param bool $memberInvited whether member invitations notify
+   * @param bool $weeklyDigest whether the weekly digest email is sent
    */
   public function __construct(
     bool $emailEnabled = true,
@@ -93,7 +112,9 @@ final readonly class OrganizationNotificationSettings
     bool $interventionAssigned = true,
     bool $inspectionDue = true,
     bool $nonConformityOpened = true,
+    bool $nonConformitySlaBreached = true,
     bool $memberInvited = true,
+    bool $weeklyDigest = true,
   ) {
     $this->emailEnabled = $emailEnabled;
     $this->inAppEnabled = $inAppEnabled;
@@ -101,7 +122,9 @@ final readonly class OrganizationNotificationSettings
     $this->interventionAssigned = $interventionAssigned;
     $this->inspectionDue = $inspectionDue;
     $this->nonConformityOpened = $nonConformityOpened;
+    $this->nonConformitySlaBreached = $nonConformitySlaBreached;
     $this->memberInvited = $memberInvited;
+    $this->weeklyDigest = $weeklyDigest;
   }
   // #endregion
 
@@ -124,7 +147,9 @@ final readonly class OrganizationNotificationSettings
       'intervention_assigned' => $this->interventionAssigned,
       'inspection_due' => $this->inspectionDue,
       'non_conformity_opened' => $this->nonConformityOpened,
+      'non_conformity_sla_breached' => $this->nonConformitySlaBreached,
       'member_invited' => $this->memberInvited,
+      'weekly_digest' => $this->weeklyDigest,
     ];
   }
 
@@ -151,7 +176,9 @@ final readonly class OrganizationNotificationSettings
       interventionAssigned: (bool) ($data['intervention_assigned'] ?? true),
       inspectionDue: (bool) ($data['inspection_due'] ?? true),
       nonConformityOpened: (bool) ($data['non_conformity_opened'] ?? true),
+      nonConformitySlaBreached: (bool) ($data['non_conformity_sla_breached'] ?? true),
       memberInvited: (bool) ($data['member_invited'] ?? true),
+      weeklyDigest: (bool) ($data['weekly_digest'] ?? true),
     );
   }
   // #endregion

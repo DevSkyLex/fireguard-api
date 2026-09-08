@@ -73,6 +73,24 @@ final class OrganizationSlugTest extends TestCase
   }
 
   #[Test]
+  public function testShortAndNonLatinNamesGenerateAValidFallback(): void
+  {
+    foreach (['A', 'AB', '公司', '!!!'] as $name) {
+      self::assertSame('organization', (string) OrganizationSlug::fromName($name));
+    }
+  }
+
+  #[Test]
+  public function testCollisionSuffixPreservesMaximumLengthAndOriginalValue(): void
+  {
+    $base = new OrganizationSlug(str_repeat('a', 120));
+    $candidate = $base->withSuffix(234);
+    self::assertSame(str_repeat('a', 116) . '-234', (string) $candidate);
+    self::assertSame(str_repeat('a', 120), (string) $base);
+    self::assertSame('acme-2', (string) new OrganizationSlug('acme')->withSuffix(2));
+  }
+
+  #[Test]
   public function testEqualsComparesNormalizedValue(): void
   {
     $left = new OrganizationSlug('acme');

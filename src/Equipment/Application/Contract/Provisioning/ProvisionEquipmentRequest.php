@@ -41,6 +41,7 @@ final readonly class ProvisionEquipmentRequest
    * @param ?string $model the optional model
    * @param ?string $serialNumber the optional serial number
    * @param ?string $locationLabel the optional location label
+   * @param ?string $facilityCode the optional organization-scoped facility code to assign the created equipment to
    * @param bool $dryRun when true, validates and projects the quota without persisting
    * @param int $quotaProjectionOffset equipment already provisionally counted earlier in the same dry run
    */
@@ -52,6 +53,7 @@ final readonly class ProvisionEquipmentRequest
     public ?string $model = null,
     public ?string $serialNumber = null,
     public ?string $locationLabel = null,
+    public ?string $facilityCode = null,
     public bool $dryRun = false,
     public int $quotaProjectionOffset = 0,
   ) {

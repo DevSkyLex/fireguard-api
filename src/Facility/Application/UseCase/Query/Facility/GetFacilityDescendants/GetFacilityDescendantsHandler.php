@@ -67,6 +67,7 @@ final readonly class GetFacilityDescendantsHandler implements QueryHandler
         updatedAt: $facility->updatedAt(),
         hasChildren: ($childCounts[(string) $facility->id()] ?? 0) > 0,
         equipmentCount: $equipmentCounts[(string) $facility->id()] ?? 0,
+        levelIndex: $facility->levelIndex(),
       );
     }
 

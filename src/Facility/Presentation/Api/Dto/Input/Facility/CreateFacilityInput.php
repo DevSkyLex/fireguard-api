@@ -19,6 +19,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[Assert\Expression('this.onboardingSessionId === null or (this.intervention === null and this.clientId === null)', message: 'Onboarding setup cannot target an intervention or offline resource.')]
 final class CreateFacilityInput
 {
   /**
@@ -52,6 +53,20 @@ final class CreateFacilityInput
   public ?string $intervention = null;
 
   // #region Properties
+  /**
+   * @since 1.2.0 Optional prepared onboarding receipt; both fields travel together.
+   */
+  #[Assert\Uuid]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  public ?string $onboardingSessionId = null;
+
+  /**
+   * @since 1.2.0 Stable item identity from the preparation response.
+   */
+  #[Assert\Regex('/^[a-zA-Z0-9_-]{1,80}$/D')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  public ?string $onboardingItemKey = null;
+
   /**
    * Property type.
    *
@@ -136,5 +151,15 @@ final class CreateFacilityInput
   #[Groups([FacilitySerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional free-form metadata', required: false, example: ['country' => 'FR', 'timezone' => 'Europe/Paris'])]
   public array $metadata = [];
+
+  /**
+   * Property levelIndex.
+   *
+   * @since 1.3.0
+   */
+  #[Assert\Range(min: -100, max: 200)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional stacking order of the floor (ground floor = 0, first basement = -1)', required: false, example: 0)]
+  public ?int $levelIndex = null;
   // #endregion
 }

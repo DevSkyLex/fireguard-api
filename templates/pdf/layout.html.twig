@@ -1,0 +1,106 @@
+{# Common PDF layout for generated documents (dompdf, A4 portrait).
+
+   Expects in context:
+   - org: { name, logoDataUri?, legalName?, registrationNumber?, vatNumber? }
+   - lang: two-letter translation language (catalog domain "pdf", fallback "en")
+   - generatedAtFormatted: generation date/time already formatted per the
+     organization regional settings (timezone + date format)
+
+   Page numbering ("X / Y") is stamped by the renderer adapters through
+   dompdf's canvas `page_text()` ({PAGE_NUM}/{PAGE_COUNT} substitution) at
+   the bottom right — adapter-side API, no inline PHP (`isPhpEnabled` stays
+   off). CSS `counter(pages)` was measured to render 0 in dompdf 3.x, hence
+   the canvas technique. The logo, when present, is a base64 data URI:
+   remote loading (`isRemoteEnabled`) also stays off. #}
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{% endblock %}</title>
+  <style>
+    @page { margin: 96px 48px 88px 48px; }
+    * { margin: 0; padding: 0; }
+    body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #1f2933; }
+
+    .pdf-header {
+      position: fixed;
+      top: -66px;
+      left: 0;
+      right: 0;
+      height: 48px;
+      border-bottom: 2px solid #1f2933;
+      padding-bottom: 6px;
+    }
+    .pdf-header table { width: 100%; border-collapse: collapse; }
+    .pdf-header td { border: none; padding: 0; vertical-align: middle; }
+    .pdf-header .logo-cell { width: 56px; }
+    .pdf-header .logo-cell img { max-height: 40px; max-width: 48px; }
+    .pdf-header .org-name { font-size: 13px; font-weight: bold; }
+    .pdf-header .doc-title { text-align: right; font-size: 10px; color: #52606d; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .pdf-footer {
+      position: fixed;
+      bottom: -64px;
+      left: 0;
+      right: 0;
+      border-top: 1px solid #cbd2d9;
+      padding-top: 5px;
+      font-size: 8px;
+      color: #7b8794;
+    }
+    .pdf-footer table { width: 100%; border-collapse: collapse; }
+    .pdf-footer td { border: none; padding: 0; vertical-align: top; }
+
+    h1 { font-size: 16px; margin-bottom: 4px; }
+    h2 { font-size: 12px; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #cbd2d9; padding-bottom: 3px; text-transform: uppercase; letter-spacing: 0.04em; color: #323f4b; }
+    .meta { color: #52606d; margin-bottom: 12px; margin-top: 6px; }
+    .meta table { border-collapse: collapse; }
+    .meta td { border: none; padding: 1px 0; }
+    .meta td.meta-label { padding-right: 12px; color: #7b8794; }
+    table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table.data th, table.data td { border: 1px solid #cbd2d9; padding: 4px 6px; text-align: left; }
+    table.data th { background-color: #f5f7fa; text-transform: uppercase; font-size: 8px; letter-spacing: 0.04em; color: #52606d; }
+    .doc-note { margin-top: 16px; font-size: 8px; color: #7b8794; }
+    .empty { color: #7b8794; font-style: italic; }
+    {% block styles %}{% endblock %}
+  </style>
+</head>
+<body>
+  <div class="pdf-header">
+    <table>
+      <tr>
+        {% if org.logoDataUri is defined and org.logoDataUri is not empty %}
+          <td class="logo-cell"><img src="{{ org.logoDataUri }}" alt=""></td>
+        {% endif %}
+        <td class="org-name">{{ org.name }}</td>
+        <td class="doc-title">{% block headerTitle %}{% endblock %}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="pdf-footer">
+    <table>
+      <tr>
+        <td>
+          {%- set legalParts = [] -%}
+          {%- if org.legalName is defined and org.legalName is not empty -%}
+            {%- set legalParts = legalParts|merge([org.legalName]) -%}
+          {%- endif -%}
+          {%- if org.registrationNumber is defined and org.registrationNumber is not empty -%}
+            {%- set legalParts = legalParts|merge(['layout.registrationNumber'|trans({ '%number%': org.registrationNumber }, 'pdf', lang)]) -%}
+          {%- endif -%}
+          {%- if org.vatNumber is defined and org.vatNumber is not empty -%}
+            {%- set legalParts = legalParts|merge(['layout.vatNumber'|trans({ '%number%': org.vatNumber }, 'pdf', lang)]) -%}
+          {%- endif -%}
+          {%- if legalParts is not empty -%}
+            <div>{{ legalParts|join(' · ') }}</div>
+          {%- endif -%}
+          <div>{{ 'layout.generatedAt'|trans({ '%date%': generatedAtFormatted }, 'pdf', lang) }}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  {% block content %}{% endblock %}
+</body>
+</html>

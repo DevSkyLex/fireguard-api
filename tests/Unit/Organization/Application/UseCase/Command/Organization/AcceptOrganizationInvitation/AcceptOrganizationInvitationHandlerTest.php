@@ -67,6 +67,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       ->method('findByTokenHash')
       ->with(hash('sha256', $token))
       ->willReturn($invitation);
+    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
     $invitationRepository->expects(self::once())
       ->method('findRoleIdsForInvitation')
       ->willReturn([$roleId]);
@@ -80,7 +81,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::exactly(2))
+    $organizationRepository->expects(self::exactly(3))
       ->method('findById')
       ->willReturn(Organization::reconstitute(
         id: new OrganizationId($organizationId),
@@ -302,6 +303,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       ->method('findByTokenHash')
       ->with(hash('sha256', $token))
       ->willReturn($invitation);
+    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
     $invitationRepository->expects(self::once())
       ->method('findRoleIdsForInvitation')
       ->willReturn([$roleId]);
@@ -321,7 +323,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::exactly(2))
+    $organizationRepository->expects(self::exactly(3))
       ->method('findById')
       ->willReturn($organization);
 
@@ -502,6 +504,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
     $invitationRepository->expects(self::once())->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
     $invitationRepository->expects(self::once())->method('findRoleIdsForInvitation')->willReturn([$roleId]);
     $invitationRepository->expects(self::once())->method('save')->with(self::isInstanceOf(OrganizationInvitation::class));
 
@@ -517,7 +520,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::exactly(2))->method('findById')->willReturn($organization);
+    $organizationRepository->expects(self::exactly(3))->method('findById')->willReturn($organization);
 
     /** @var UserRepositoryPort&MockObject $userRepository */
     $userRepository = $this->createMock(UserRepositoryPort::class);
@@ -677,9 +680,8 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       ->method('findByTokenHash')
       ->with(hash('sha256', $token))
       ->willReturn($invitation);
-    $invitationRepository->expects(self::once())
-      ->method('save')
-      ->with(self::callback(static fn (OrganizationInvitation $updatedInvitation): bool => 'expired' === $updatedInvitation->status()->value));
+    // An expired snapshot must never overwrite a concurrently renewed invitation.
+    $invitationRepository->expects(self::never())->method('save');
     $invitationRepository->expects(self::never())
       ->method('findRoleIdsForInvitation');
 
@@ -841,6 +843,54 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-446655442183',
       userEmail: 'someone-else@example.com',
     ));
+  }
+
+  #[Test]
+  public function testExpiredInvitationOfAnotherRecipientHasTheSameNeutralDenial(): void
+  {
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655442190'),
+      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655442191'),
+      email: new Email('recipient@example.com'),
+      tokenHash: 'expired-token-hash',
+      invitedByUserId: '550e8400-e29b-41d4-a716-446655442192',
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('-1 hour'),
+      createdAt: new DateTimeImmutable('-8 days'),
+      updatedAt: new DateTimeImmutable('-8 days'),
+    );
+    $repository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->willReturn($invitation);
+    $repository->expects(self::never())->method('save');
+    $handler = $this->createHandler($repository);
+
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+    $this->expectExceptionMessage('Organization invitation token is invalid or no longer available.');
+    $handler(new AcceptOrganizationInvitationCommand('', 'outsider', 'outsider@example.com', (string) $invitation->id()));
+  }
+
+  #[Test]
+  public function testTokenRenewedDuringInitialLookupCannotAcceptAnOlderLink(): void
+  {
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655442194'),
+      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655442195'),
+      email: new Email('recipient@example.com'),
+      tokenHash: hash('sha256', 'new-link'),
+      invitedByUserId: '550e8400-e29b-41d4-a716-446655442196',
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('+7 days'),
+      createdAt: new DateTimeImmutable('-1 day'),
+      updatedAt: new DateTimeImmutable(),
+    );
+    $repository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    // The SELECT matched the old hash, then Doctrine's refresh saw a newer resend.
+    $repository->expects(self::once())->method('findByTokenHash')->with(hash('sha256', 'old-link'))->willReturn($invitation);
+    $repository->expects(self::never())->method('save');
+    $handler = $this->createHandler($repository);
+
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+    $handler(new AcceptOrganizationInvitationCommand('old-link', 'recipient', 'recipient@example.com'));
   }
 
   /**

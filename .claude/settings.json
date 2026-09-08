@@ -32,7 +32,9 @@
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
-      "mcp__serena-api"
+      "mcp__serena-api",
+      "Bash(codex exec:*)",
+      "Bash(command -v codex)"
     ],
     "deny": [
       "Read(./.env)",

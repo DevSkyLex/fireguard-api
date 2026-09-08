@@ -15,11 +15,12 @@ use function array_values;
 /**
  * Service InterventionRecurrenceRecipientResolver.
  *
- * Resolves the fallback recipients of a recurrence materialization failure
- * notification when the recurrence carries no responsible member override:
- * the organization's active administrators, i.e. members whose effective
- * permissions grant `organization.interventions.plan` directly or through a
- * wildcard. Mirrors the administrator-detection rule
+ * Resolves the organization's planning administrators — active members whose
+ * effective permissions grant `organization.interventions.plan` directly or
+ * through a wildcard. Two call sites rely on it: the fallback recipients of a
+ * recurrence materialization failure notification (when the recurrence
+ * carries no responsible member override), and the administrator escalation
+ * of `intervention.overdue` reminders. Mirrors the administrator-detection rule
  * {@see \Maintenance\Application\Service\MaintenanceReminderRecipientResolver}
  * uses for `organization.maintenance.manage`, adapted to the planning
  * permission that governs intervention recurrences.

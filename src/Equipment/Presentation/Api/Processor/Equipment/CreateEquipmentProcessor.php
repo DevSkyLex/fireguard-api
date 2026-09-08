@@ -12,7 +12,8 @@ use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFa
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
-use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
+use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Service\InterventionResourceManager;
@@ -24,6 +25,7 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
@@ -39,7 +41,6 @@ use Symfony\Component\HttpKernel\Exception\{
   NotFoundHttpException
 };
 
-use function array_map;
 use function is_string;
 
 /**
@@ -69,6 +70,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
    * @param CommandBusPort $commandBus the command bus value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
+   * @param EquipmentOutputFactory $outputFactory the shared Result -> EquipmentOutput mapper
    * @param ?InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
    * @param ?EntityManagerInterface $entityManager the entity manager value
@@ -77,6 +79,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private EquipmentOutputFactory $outputFactory,
     private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
     private ?EntityManagerInterface $entityManager = null,
@@ -151,6 +154,8 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     try {
       /** @var CreateEquipmentResult $result */
       $result = $this->commandBus->dispatch(new CreateEquipmentCommand(
+        setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
+        facilityId: null !== $data->onboardingSessionId && null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
         organizationId: $organizationId,
         type: $data->type,
         subType: $data->subType,
@@ -183,8 +188,8 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    $output = $this->mapResult($result);
-    if (null !== $data->facility) {
+    $output = $this->outputFactory->fromView($result);
+    if (null !== $data->facility && null === $data->onboardingSessionId) {
       /** @var AssignToFacilityResult $assigned */
       $assigned = $this->commandBus->dispatch(new AssignToFacilityCommand(
         organizationId: $organizationId,
@@ -192,6 +197,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         facilityId: ResourceIriParser::id($data->facility, 'facilities'),
       ));
       $output->facilityId = $assigned->facilityId;
+      $output->facilityName = $assigned->facilityName;
       $output->installedAt = $assigned->installedAt;
       $output->updatedAt = $assigned->updatedAt->format('c');
     }
@@ -295,31 +301,5 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     }
   }
 
-  /**
-   * Method mapResult.
-   *
-   * @since 1.0.0
-   */
-  private function mapResult(CreateEquipmentResult $result): EquipmentOutput
-  {
-    $output = new EquipmentOutput();
-    $output->id = $result->equipmentId;
-    $output->organizationId = $result->organizationId;
-    $output->facilityId = $result->facilityId;
-    $output->type = $result->type;
-    $output->subType = $result->subType;
-    $output->brand = $result->brand;
-    $output->model = $result->model;
-    $output->serialNumber = $result->serialNumber;
-    $output->locationLabel = $result->locationLabel;
-    $output->status = $result->status;
-    $output->installedAt = $result->installedAt;
-    $output->commissionedAt = $result->commissionedAt;
-    $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
-  }
   // #endregion
 }

@@ -56,6 +56,17 @@ final class CreateOrganizationHandlerTest extends TestCase
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $slugLocked = false;
+    $organizationRepository->expects(self::once())->method('lockSlugNamespace')
+      ->willReturnCallback(static function () use (&$slugLocked): void { $slugLocked = true; });
+    $candidates = [];
+    $organizationRepository->expects(self::exactly(3))->method('slugExists')
+      ->willReturnCallback(static function (\Organization\Domain\ValueObject\OrganizationSlug $candidate) use (&$slugLocked, &$candidates): bool {
+        self::assertTrue($slugLocked, 'Slug candidates must be read under the transaction lock.');
+        $candidates[] = (string) $candidate;
+
+        return 'fireguard-lyon-3' !== (string) $candidate;
+      });
     $organizationRepository->expects(self::once())
       ->method('save')
       ->with(self::callback(static function (Organization $organization) use ($organizationId, $ownerUserId): bool {
@@ -136,6 +147,8 @@ final class CreateOrganizationHandlerTest extends TestCase
 
     self::assertInstanceOf(CreateOrganizationResult::class, $result);
     self::assertSame($organizationId, $result->organizationId);
+    self::assertSame('fireguard-lyon-3', $result->slug);
+    self::assertSame(['fireguard-lyon', 'fireguard-lyon-2', 'fireguard-lyon-3'], $candidates);
     self::assertSame($ownerMemberId, $result->ownerMemberId);
     self::assertSame($ownerRoleId, $result->ownerRoleId);
 

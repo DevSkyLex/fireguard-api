@@ -1,0 +1,188 @@
+layout:
+  generatedAt: "Generado el %date%"
+  registrationNumber: "N.º de registro %number%"
+  vatNumber: "IVA %number%"
+
+common:
+  "yes": "Sí"
+  "no": "No"
+
+compliance:
+  title: "Registro de seguridad"
+  scope:
+    organization: "Informe de organización"
+    facility: "Informe de establecimiento"
+  meta:
+    generatedAt: "Generado el"
+    organization: "Organización"
+    facility: "Establecimiento"
+    plan: "Plan"
+    overallStatus: "Estado global"
+  status:
+    compliant: "Conforme"
+    at_risk: "En riesgo"
+    non_compliant: "No conforme"
+    not_applicable: "No aplicable"
+  totals:
+    heading: "Totales"
+    equipmentTotal: "Equipos (total)"
+    upToDate: "Al día"
+    dueSoon: "Vencimiento próximo"
+    overdue: "Atrasados"
+    unscheduled: "Sin planificar"
+    openNonConformities: "NC abiertas (baja/media/alta/crítica)"
+  facilities:
+    heading: "Establecimientos"
+    facility: "Establecimiento"
+    type: "Tipo"
+    status: "Estado"
+    equipment: "Equipos (al día / vencimiento próximo / atrasados / sin planificar)"
+    openNonConformities: "NC abiertas (baja/media/alta/crítica)"
+    lastInspection: "Última inspección"
+  note: "Datos a %date%. El estado de vencimiento de los equipos se actualiza con el barrido de mantenimiento horario y puede tener hasta una hora de desfase. Este documento es una instantánea puntual: no se conserva y puede regenerarse en cualquier momento desde el registro en vivo."
+
+intervention:
+  title: "Informe de intervención — FG-%number%"
+  meta:
+    name: "Nombre"
+    type: "Tipo"
+    status: "Estado"
+    priority: "Prioridad"
+    site: "Sitio"
+    responsible: "Responsable"
+    participants: "Participantes"
+    plannedStart: "Inicio previsto"
+    due: "Vencimiento"
+    reviewNote: "Nota de revisión"
+    signature: "Firma de cierre recogida"
+    labels: "Etiquetas"
+    generatedAt: "Generado el"
+  workItems:
+    heading: "Tareas"
+    empty: "Sin tareas."
+    action: "Acción"
+    target: "Objetivo"
+    assignee: "Asignado"
+    status: "Estado"
+    required: "Obligatoria"
+    skipReason: "Motivo de omisión"
+    evidence: "Evidencias"
+  issues:
+    heading: "Problemas"
+    empty: "Sin problemas."
+    severity: "Severidad"
+    message: "Mensaje"
+  severity:
+    blocker: "Bloqueante"
+    warning: "Advertencia"
+    recommendation: "Recomendación"
+  changes:
+    heading: "Cambios"
+    proposed: "Propuestos"
+    applied: "Aplicados"
+    rejected: "Rechazados"
+  attachments:
+    heading: "Adjuntos"
+    empty: "Sin adjuntos."
+    fileName: "Nombre del archivo"
+    kind: "Naturaleza"
+  activities:
+    heading: "Actividad destacada"
+    empty: "Sin actividad registrada."
+    date: "Fecha"
+    kind: "Naturaleza"
+    event: "Evento"
+    actor: "Actor"
+    comment: "Comentario"
+  note: "Este documento es una instantánea puntual: no se conserva y puede regenerarse en cualquier momento desde el expediente de intervención en vivo."
+
+inspection:
+  title: "Informe de inspección"
+  meta:
+    status: "Estado"
+    result: "Resultado"
+    performedAt: "Realizada el"
+    inspector: "Inspector"
+    inspectorOrganization: "Organismo inspector"
+    site: "Sitio"
+    equipment: "Equipo (n.º de serie)"
+    checklist: "Lista de control"
+    notes: "Notas"
+    signature: "Firma registrada"
+  responses:
+    heading: "Respuestas de la lista de control"
+    empty: "Sin respuestas registradas."
+    item: "Punto de control"
+    answer: "Respuesta"
+  nonConformities:
+    heading: "No conformidades"
+    empty: "Sin no conformidades."
+    severity: "Severidad"
+    status: "Estado"
+    description: "Descripción"
+    recorded: "Registrada el"
+    due: "Vencimiento"
+    resolved: "Resuelta el"
+  note: "Este documento es una instantánea a fecha y no se conserva; regenérelo en cualquier momento desde la ficha de inspección."
+
+nonConformities:
+  title: "Informe de no conformidades"
+  meta:
+    total: "Total de no conformidades"
+    severityFilter: "Filtro de severidad"
+    statusFilter: "Filtro de estado"
+  severity:
+    low: "Baja"
+    medium: "Media"
+    high: "Alta"
+    critical: "Crítica"
+  status:
+    open: "Abierta"
+    in_progress: "En curso"
+    done: "Tratada"
+    waived: "Exonerada"
+  table:
+    empty: "Ninguna."
+    status: "Estado"
+    age: "Antigüedad (días)"
+    site: "Sitio"
+    equipment: "Equipo"
+    createdAt: "Registrada el"
+    resolvedAt: "Resuelta el"
+  note: "Este documento es una instantánea a fecha y no se conserva; regenérelo en cualquier momento desde la lista de no conformidades."
+
+equipment:
+  title: "Ficha de equipo"
+  meta:
+    type: "Tipo"
+    brand: "Marca"
+    model: "Modelo"
+    serialNumber: "N.º de serie"
+    status: "Estado"
+    site: "Sitio"
+    location: "Ubicación"
+    installedAt: "Instalado el"
+    commissionedAt: "Puesto en servicio el"
+    maintenanceDueStatus: "Estado de vencimiento de mantenimiento"
+    tags: "Etiquetas"
+  maintenance:
+    heading: "Historial de mantenimiento"
+    empty: "Sin mantenimiento registrado."
+    startedAt: "Iniciado"
+    completedAt: "Finalizado"
+    source: "Origen"
+    intervention: "Intervención"
+    action: "Acción"
+    summary: "Resumen"
+  attachments:
+    heading: "Adjuntos"
+    empty: "Sin adjuntos."
+    fileName: "Nombre del archivo"
+    label: "Etiqueta"
+    mimeType: "Tipo"
+    uploadedAt: "Añadido el"
+  note: "Este documento es una instantánea a fecha y no se conserva; regenérelo en cualquier momento desde la ficha del equipo."
+
+equipmentLabels:
+  title: "Etiquetas QR de equipos"
+  serialNumber: "N.º serie %serial%"

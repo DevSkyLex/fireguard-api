@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\CreateFacility;
 
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -35,6 +36,7 @@ final readonly class CreateFacilityCommand implements CommandMessage
    * @param ?string $resourceId the resource id value
    * @param bool $dryRun when true, validates and projects the quota without persisting
    * @param int $quotaProjectionOffset facilities already provisionally counted earlier in the same dry run
+   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    */
   public function __construct(
     public string $organizationId,
@@ -49,6 +51,8 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public ?string $resourceId = null,
     public bool $dryRun = false,
     public int $quotaProjectionOffset = 0,
+    public ?int $levelIndex = null,
+    public ?OrganizationSetupContext $setupContext = null,
   ) {
   }
   // #endregion

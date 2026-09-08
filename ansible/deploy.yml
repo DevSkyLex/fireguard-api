@@ -152,6 +152,17 @@
               | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?')))
              | difference(fireguard_pinned_env_keys) }}
 
+    - name: Resolve optional keys that have application defaults
+      ansible.builtin.set_fact:
+        fireguard_optional_env_keys: >-
+          {{ lookup('file', playbook_dir + '/../config/packages/env_defaults.yaml')
+             | regex_findall('env\\(([A-Z][A-Z0-9_]*)\\):') }}
+
+    - name: Resolve required production env keys
+      ansible.builtin.set_fact:
+        fireguard_required_env_keys: >-
+          {{ fireguard_declared_env_keys | difference(fireguard_optional_env_keys) }}
+
     - name: Collect the env keys the production file sets
       ansible.builtin.set_fact:
         fireguard_present_env_keys: "{{ fireguard_env_contents.content | b64decode | regex_findall('(?m)^([A-Z][A-Z0-9_]*)=') }}"
@@ -160,15 +171,15 @@
       ansible.builtin.fail:
         msg: >-
           {{ fireguard_env_file }} is missing
-          {{ fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length }}
+          {{ fireguard_required_env_keys | difference(fireguard_present_env_keys) | length }}
           key(s) that .env.example declares:
-          {{ fireguard_declared_env_keys | difference(fireguard_present_env_keys) | join(', ') }}.
+          {{ fireguard_required_env_keys | difference(fireguard_present_env_keys) | join(', ') }}.
           The image carries no .env, so each of these is an EnvNotFoundException at
           runtime. Add them on the VPS and redeploy. The application is still running
           and no migration has run.
       when:
         - not fireguard_managed_env
-        - fireguard_declared_env_keys | difference(fireguard_present_env_keys) | length > 0
+        - fireguard_required_env_keys | difference(fireguard_present_env_keys) | length > 0
 
     # ---- Generated env file (opt-in, FIREGUARD_MANAGED_ENV=true) -------------------
     #
@@ -185,7 +196,7 @@
         fireguard_blank_env_keys: >-
           {{ fireguard_blank_env_keys | default([])
              + ([item] if (lookup('env', item) | length == 0) else []) }}
-      loop: "{{ fireguard_declared_env_keys | difference(fireguard_computed_env_keys) | list }}"
+      loop: "{{ fireguard_required_env_keys | difference(fireguard_computed_env_keys) | list }}"
       loop_control:
         label: "{{ item }}"
       when: fireguard_managed_env
@@ -225,7 +236,7 @@
              + ([item] if (lookup('env', item) is search('[\r\n\x27]')
                            or lookup('env', item) != (lookup('env', item) | trim))
                 else []) }}
-      loop: "{{ fireguard_declared_env_keys | difference(fireguard_computed_env_keys) | list }}"
+      loop: "{{ fireguard_required_env_keys | difference(fireguard_computed_env_keys) | list }}"
       loop_control:
         label: "{{ item }}"
       when: fireguard_managed_env

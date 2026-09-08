@@ -67,7 +67,8 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {
-    /** @var ExecuteOrganizationOnboardingStepInput $data */
+    /**
+     * @var ExecuteOrganizationOnboardingStepInput $data */
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');

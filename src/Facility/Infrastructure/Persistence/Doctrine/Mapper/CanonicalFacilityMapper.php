@@ -58,13 +58,14 @@ final class CanonicalFacilityMapper
       status: FacilityStatus::from($record->status),
       revision: $record->revision,
       updatedAt: $record->updatedAt,
+      levelIndex: $record->levelIndex,
     );
   }
 
   /**
    * Method applyTo.
    *
-   * Writes back the ten columns the canonical surface may change.
+   * Writes back the eleven columns the canonical surface may change.
    *
    * The `parentFacility` ASSOCIATION is NOT set here: only the repository
    * holds an entity manager, and only it can turn an identifier into a
@@ -86,6 +87,7 @@ final class CanonicalFacilityMapper
     $record->latitude = $facility->latitude();
     $record->longitude = $facility->longitude();
     $record->metadata = $facility->metadata();
+    $record->levelIndex = $facility->levelIndex();
     $record->status = $facility->status()->value;
     $record->revision = $facility->revision();
     $record->updatedAt = $facility->updatedAt();

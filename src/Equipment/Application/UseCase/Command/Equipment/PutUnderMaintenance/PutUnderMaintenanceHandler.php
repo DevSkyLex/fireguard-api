@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, MaintenanceLogId};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
@@ -38,6 +39,7 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
+    private FacilityNamingPort $facilityNaming,
     private OrganizationRepositoryPort $organizationRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
@@ -151,7 +153,28 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
       ),
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
+      facilityName: $this->resolveFacilityName($equipment),
     );
+  }
+
+  /**
+   * Method resolveFacilityName.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate
+   *
+   * @return ?string the assigned facility's display name, or null when unassigned or unresolved
+   */
+  private function resolveFacilityName(Equipment $equipment): ?string
+  {
+    $facilityId = $equipment->facilityId()?->__toString();
+
+    if (null === $facilityId) {
+      return null;
+    }
+
+    return $this->facilityNaming->findNamesByIds([$facilityId])[$facilityId] ?? null;
   }
   // #endregion
 }

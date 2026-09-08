@@ -1,0 +1,127 @@
+{% extends 'pdf/layout.html.twig' %}
+
+{% block title %}{{ 'equipment.title'|trans({}, 'pdf', lang) }}{% endblock %}
+
+{% block headerTitle %}{{ 'equipment.title'|trans({}, 'pdf', lang) }}{% endblock %}
+
+{% block styles %}
+    .tag-chip { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 3px; border: 1px solid #cbd2d9; font-size: 8px; }
+{% endblock %}
+
+{% block content %}
+  <h1>{{ 'equipment.title'|trans({}, 'pdf', lang) }}</h1>
+  <div class="meta">
+    <table>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.type'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ type }}{% if subType is not empty %} — {{ subType }}{% endif %}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.brand'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ brand|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.model'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ model|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.serialNumber'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ serialNumber|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.status'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ status }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.site'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ facilityName|default('—') }}</td>
+      </tr>
+      {% if locationLabel is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'equipment.meta.location'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ locationLabel }}</td>
+        </tr>
+      {% endif %}
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.installedAt'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ installedAt|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.commissionedAt'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ commissionedAt|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'equipment.meta.maintenanceDueStatus'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ maintenanceDueStatus }}</td>
+      </tr>
+      {% if tags is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'equipment.meta.tags'|trans({}, 'pdf', lang) }}</td>
+          <td>
+            {% for tag in tags %}
+              <span class="tag-chip">{{ tag }}</span>
+            {% endfor %}
+          </td>
+        </tr>
+      {% endif %}
+    </table>
+  </div>
+
+  <h2>{{ 'equipment.maintenance.heading'|trans({}, 'pdf', lang) }}</h2>
+  {% if maintenanceLogs is empty %}
+    <p class="empty">{{ 'equipment.maintenance.empty'|trans({}, 'pdf', lang) }}</p>
+  {% else %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ 'equipment.maintenance.startedAt'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.maintenance.completedAt'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.maintenance.source'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.maintenance.intervention'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.maintenance.action'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.maintenance.summary'|trans({}, 'pdf', lang) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in maintenanceLogs %}
+          <tr>
+            <td>{{ log.startedAt|default('—') }}</td>
+            <td>{{ log.completedAt|default('—') }}</td>
+            <td>{{ log.source|default('—') }}</td>
+            <td>{% if log.interventionNumber is not empty %}FG-{{ log.interventionNumber }}{% else %}—{% endif %}</td>
+            <td>{{ log.workItemAction|default('—') }}</td>
+            <td>{{ log.summary|default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h2>{{ 'equipment.attachments.heading'|trans({}, 'pdf', lang) }}</h2>
+  {% if attachments is empty %}
+    <p class="empty">{{ 'equipment.attachments.empty'|trans({}, 'pdf', lang) }}</p>
+  {% else %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ 'equipment.attachments.fileName'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.attachments.label'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.attachments.mimeType'|trans({}, 'pdf', lang) }}</th>
+          <th>{{ 'equipment.attachments.uploadedAt'|trans({}, 'pdf', lang) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for attachment in attachments %}
+          <tr>
+            <td>{{ attachment.fileName }}</td>
+            <td>{{ attachment.label|default('—') }}</td>
+            <td>{{ attachment.mimeType }}</td>
+            <td>{{ attachment.uploadedAt|default('—') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <p class="doc-note">{{ 'equipment.note'|trans({}, 'pdf', lang) }}</p>
+{% endblock %}

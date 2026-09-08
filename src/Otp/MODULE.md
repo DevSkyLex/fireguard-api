@@ -98,6 +98,16 @@ the PENDING secret and leaves any existing ACTIVE secret usable for login
 until the new one is confirmed. The client never supplies the secret back to
 the server for confirm/disable — only the current authenticator code.
 
+### Mailbox possession
+
+The `email_ownership` purpose is separate from registration and sensitive operations.
+`EmailOwnershipChallengePort` verifies the account, purpose and current recipient under
+an explicit auth transaction with a pessimistic row lock. Failed attempts are committed;
+success consumes the code once. The bound recipient is checked before code consumption,
+so codes sent to an old address cannot prove the current address. Both email and external
+verification reject an already-consumed challenge. No proof is granted by the generic
+OTP HTTP endpoints; Auth must confirm it through the User capability.
+
 ## Architecture
 
 - Hexagonal module with strict layer boundaries.

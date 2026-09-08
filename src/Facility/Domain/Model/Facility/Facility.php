@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
+  FacilityLevelIndex,
   FacilityName,
   FacilityOrganizationId,
   FacilityStatus,
@@ -15,6 +16,7 @@ use Facility\Domain\ValueObject\{
   PlanGeometry
 };
 use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function is_array;
 use function is_string;
@@ -53,6 +55,7 @@ final class Facility
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
+   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    */
   private function __construct(
     private FacilityId $id,
@@ -68,6 +71,7 @@ final class Facility
     private array $metadata = [],
     private ?FacilityCoordinates $coordinates = null,
     private ?PlanGeometry $planGeometry = null,
+    private ?int $levelIndex = null,
   ) {
   }
   // #endregion
@@ -89,6 +93,7 @@ final class Facility
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
+   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    *
    * @return self the created facility aggregate
    */
@@ -102,6 +107,7 @@ final class Facility
     ?string $address = null,
     array $metadata = [],
     ?FacilityCoordinates $coordinates = null,
+    ?int $levelIndex = null,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -119,6 +125,7 @@ final class Facility
       metadata: self::normalizeMetadata($metadata),
       coordinates: $coordinates,
       planGeometry: null,
+      levelIndex: self::normalizeLevelIndex($levelIndex),
     );
   }
 
@@ -142,6 +149,7 @@ final class Facility
    * @param array<string, mixed> $metadata the optional metadata
    * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
+   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    *
    * @return self the reconstituted facility aggregate
    */
@@ -159,6 +167,7 @@ final class Facility
     array $metadata = [],
     ?FacilityCoordinates $coordinates = null,
     ?PlanGeometry $planGeometry = null,
+    ?int $levelIndex = null,
   ): self {
     return new self(
       id: $id,
@@ -174,6 +183,7 @@ final class Facility
       metadata: self::normalizeMetadata($metadata),
       coordinates: $coordinates,
       planGeometry: $planGeometry,
+      levelIndex: self::normalizeLevelIndex($levelIndex),
     );
   }
 
@@ -240,6 +250,19 @@ final class Facility
   public function changeCoordinates(?FacilityCoordinates $coordinates): void
   {
     $this->coordinates = $coordinates;
+    $this->touch();
+  }
+
+  /**
+   * Method changeLevelIndex.
+   *
+   * @since 1.0.0
+   *
+   * @param ?int $levelIndex the new stacking order of the floor, null clearing it
+   */
+  public function changeLevelIndex(?int $levelIndex): void
+  {
+    $this->levelIndex = self::normalizeLevelIndex($levelIndex);
     $this->touch();
   }
 
@@ -416,6 +439,16 @@ final class Facility
   }
 
   /**
+   * Method levelIndex.
+   *
+   * @since 1.0.0
+   */
+  public function levelIndex(): ?int
+  {
+    return $this->levelIndex;
+  }
+
+  /**
    * Method metadata.
    *
    * @since 1.0.0
@@ -503,6 +536,22 @@ final class Facility
     }
 
     return $normalized;
+  }
+
+  /**
+   * Method normalizeLevelIndex.
+   *
+   * Delegates to {@see FacilityLevelIndex::normalize()} so the bound has one
+   * home — `CanonicalFacility` enforces the same rule on the flat PATCH
+   * surface and must not drift from it.
+   *
+   * @since 1.0.0
+   *
+   * @throws InvalidValueException when the level index is out of range
+   */
+  private static function normalizeLevelIndex(?int $levelIndex): ?int
+  {
+    return FacilityLevelIndex::normalize($levelIndex);
   }
 
   /**

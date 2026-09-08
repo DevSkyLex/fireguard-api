@@ -6,6 +6,7 @@ namespace Session\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use Session\Application\UseCase\Command\Session\RevokeOtherUserSessions\{RevokeOtherUserSessionsCommand, RevokeOtherUserSessionsResult};
 use Session\Presentation\Api\Dto\Output\Session\RevokeOtherSessionsOutput;
 use Session\Presentation\Api\Support\ResolvesCurrentSessionId;
@@ -62,8 +63,12 @@ final readonly class RevokeOtherSessionsProcessor implements ProcessorInterface
       throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
     }
 
+    if (!$user instanceof SecurityUser) {
+      throw new UnauthorizedHttpException('Bearer', 'Authenticated user type is not supported.');
+    }
+
     $command = new RevokeOtherUserSessionsCommand(
-      userId: $user->getUserIdentifier(),
+      userId: $user->getId(),
       currentSessionId: $this->resolveCurrentSessionId(context: $context),
       reason: 'User requested logout from other devices',
     );

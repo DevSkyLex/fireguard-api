@@ -6,6 +6,7 @@ namespace Auth\Infrastructure\Adapter\User;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Application\Port\Outbound\UserAuthenticationPort;
+use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
 use User\Application\UseCase\Query\User\AuthenticateUser\{AuthenticateUserQuery, AuthenticateUserResult};
@@ -30,9 +31,11 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
+   * @param LoggerInterface $logger the structured application logger
    */
   public function __construct(
     private QueryBusPort $queryBus,
+    private LoggerInterface $logger,
   ) {
   }
   // #endregion
@@ -55,7 +58,11 @@ final readonly class UserAuthenticationAdapter implements UserAuthenticationPort
         userId: $result->userId,
         email: $result->email,
       );
-    } catch (Throwable) {
+    } catch (Throwable $exception) {
+      $this->logger->critical('Password credential verification failed unexpectedly.', [
+        'exception_class' => $exception::class,
+      ]);
+
       return UserAuthenticationResult::failed();
     }
   }

@@ -81,7 +81,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    *
    * @var list<string>
    */
-  private const array PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'latitude', 'longitude', 'metadata', 'status'];
+  private const array PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'latitude', 'longitude', 'metadata', 'status', 'levelIndex'];
   // #endregion
 
   // #region Constructor
@@ -178,6 +178,8 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
       metadata: $data->metadata,
       hasStatus: $present['status'],
       status: $data->status,
+      hasLevelIndex: $present['levelIndex'],
+      levelIndex: $data->levelIndex,
       hasParent: $hasParent,
       parentFacilityId: $hasParent && null !== $data->parent
         ? ResourceIriParser::id($data->parent, 'facilities')

@@ -159,6 +159,7 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     $output->latitude = $facility->latitude;
     $output->longitude = $facility->longitude;
     $output->metadata = $facility->metadata;
+    $output->levelIndex = $facility->levelIndex;
     $output->createdAt = $facility->createdAt->format('c');
     $output->updatedAt = $facility->updatedAt->format('c');
 

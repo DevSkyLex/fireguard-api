@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\AssignToFacility;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityValidationPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFacilityCommand, AssignToFacilityHandler, AssignToFacilityResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -52,6 +52,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $facilityValidation,
       tagRepository: $tagRepository,
@@ -84,6 +85,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $facilityValidation,
       tagRepository: $tagRepository,
@@ -121,6 +123,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $facilityValidation,
       tagRepository: $tagRepository,
@@ -160,6 +163,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $facilityValidation,
       tagRepository: $tagRepository,
@@ -199,6 +203,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $facilityValidation,
       tagRepository: $tagRepository,
@@ -217,6 +222,7 @@ final class AssignToFacilityHandlerTest extends TestCase
   public function testInvokeRejectsAMalformedEquipmentId(): void
   {
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),
       tagRepository: $this->createStub(TagRepositoryPort::class),
@@ -241,6 +247,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $this->createStub(FacilityValidationPort::class),
       tagRepository: $tagRepository,
@@ -264,6 +271,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($this->equipment());
 
     $handler = new AssignToFacilityHandler(
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
       equipmentRepository: $equipmentRepository,
       facilityValidation: $this->createStub(FacilityValidationPort::class),
       tagRepository: $this->createStub(TagRepositoryPort::class),
@@ -280,6 +288,38 @@ final class AssignToFacilityHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeResolvesTheAssignedFacilityName(): void
+  {
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($this->equipment());
+
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::once())
+      ->method('findNamesByIds')
+      ->with([self::FACILITY_ID])
+      ->willReturn([self::FACILITY_ID => 'Main Building']);
+
+    $handler = new AssignToFacilityHandler(
+      equipmentRepository: $equipmentRepository,
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      tagRepository: $tagRepository,
+      facilityNaming: $facilityNaming,
+    );
+
+    $result = $handler->__invoke(new AssignToFacilityCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      facilityId: self::FACILITY_ID,
+    ));
+
+    self::assertSame('Main Building', $result->facilityName);
+  }
+
   private function equipment(): Equipment
   {
     return Equipment::create(
@@ -288,5 +328,6 @@ final class AssignToFacilityHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
   }
+
   // #endregion
 }

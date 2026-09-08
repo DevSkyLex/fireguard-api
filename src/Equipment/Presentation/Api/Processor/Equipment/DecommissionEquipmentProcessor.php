@@ -12,7 +12,8 @@ use Approval\Application\Port\Inbound\ApprovalGatePort;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
-use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
+use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -22,7 +23,6 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response as HttpResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
-use function array_map;
 use function is_string;
 
 /**
@@ -46,6 +46,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
     private OrganizationAuthorizationPort $authorization,
     private ApprovalGatePort $approvalGate,
     private Security $security,
+    private EquipmentOutputFactory $outputFactory,
   ) {
   }
   // #endregion
@@ -124,24 +125,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
       throw $exception;
     }
 
-    $output = new EquipmentOutput();
-    $output->id = $result->equipmentId;
-    $output->organizationId = $result->organizationId;
-    $output->facilityId = $result->facilityId;
-    $output->type = $result->type;
-    $output->subType = $result->subType;
-    $output->brand = $result->brand;
-    $output->model = $result->model;
-    $output->serialNumber = $result->serialNumber;
-    $output->locationLabel = $result->locationLabel;
-    $output->status = $result->status;
-    $output->installedAt = $result->installedAt;
-    $output->commissionedAt = $result->commissionedAt;
-    $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->outputFactory->fromView($result);
   }
 
   /**

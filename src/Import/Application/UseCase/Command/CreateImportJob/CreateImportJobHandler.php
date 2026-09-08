@@ -23,9 +23,10 @@ use function trim;
  * UseCase CreateImportJobHandler.
  *
  * Persists a `pending` import job and enqueues its async processing. The
- * required permission is the same one `CreateEquipmentHandler` /
- * `CreateFacilityHandler` enforce for the job's kind
- * (`organization.equipment.write` | `organization.facilities.write`) — no
+ * required permission is the same one the kind's own write surface
+ * enforces (`organization.equipment.write` | `organization.facilities.write`
+ * | `organization.members.manage`, the last being what
+ * `InviteOrganizationMemberProcessor` requires to invite) — no
  * new permission is introduced, and the check is self-enforced here per the
  * codebase invariant that handlers, not processors, own authorization.
  *
@@ -148,6 +149,7 @@ final readonly class CreateImportJobHandler implements CommandHandler
     return match ($kind) {
       ImportKind::EQUIPMENT => 'organization.equipment.write',
       ImportKind::FACILITY => 'organization.facilities.write',
+      ImportKind::MEMBER => 'organization.members.manage',
     };
   }
   // #endregion

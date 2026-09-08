@@ -9,7 +9,8 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentQuery, GetEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
-use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
+use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -18,7 +19,6 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
-use function array_map;
 use function is_string;
 
 /**
@@ -41,6 +41,7 @@ final readonly class GetEquipmentProvider implements ProviderInterface
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private EquipmentOutputFactory $outputFactory,
   ) {
   }
   // #endregion
@@ -101,27 +102,7 @@ final readonly class GetEquipmentProvider implements ProviderInterface
       throw $exception;
     }
 
-    $output = new EquipmentOutput();
-    $output->id = $result->equipmentId;
-    $output->organizationId = $result->organizationId;
-    $output->facilityId = $result->facilityId;
-    $output->type = $result->type;
-    $output->subType = $result->subType;
-    $output->brand = $result->brand;
-    $output->model = $result->model;
-    $output->serialNumber = $result->serialNumber;
-    $output->locationLabel = $result->locationLabel;
-    $output->facilityName = $result->facilityName;
-    $output->status = $result->status;
-    $output->installedAt = $result->installedAt;
-    $output->commissionedAt = $result->commissionedAt;
-    $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-    $output->maintenanceDueStatus = $result->maintenanceDueStatus;
-    $output->planPosition = $result->planPosition;
-
-    return $output;
+    return $this->outputFactory->fromView($result);
   }
 
   // #endregion

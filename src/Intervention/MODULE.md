@@ -291,6 +291,13 @@ and processes every candidate page-wise, mirroring
    toggle, mirroring `submitted()`); a candidate member id is re-validated as
    active and in-organization before delivery, the same check `mentioned()`
    applies to a member id sourced outside the mutation that owns it.
+   `overdue()` **additionally escalates to the organization's
+   administrators** — active members granted `organization.interventions.plan`
+   directly or through a wildcard, resolved by
+   `InterventionRecurrenceRecipientResolver` — deduplicated against the users
+   already notified as responsible/participant: an overdue intervention is a
+   compliance signal the planners must see even when they are not assigned.
+   `dueSoon()` deliberately does not escalate.
 3. Immediately stamps the anti-spam guard
    (`InterventionReminderPort::markDueSoonNotified` /
    `markOverdueNotified`) — **one notification per threshold per
@@ -377,7 +384,7 @@ with intervention planning edits not being audited today.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId` and `kind` (`file`\|`signature`, default `file`) multipart fields) |
+| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId`, `kind` (`file`\|`signature`, default `file`) and `clientId` (idempotency UUID) multipart fields) |
 | GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments (filter: `workItem` *(optional, IRI or bare id)*) |
 | GET | `/intervention-attachments/{id}` | Get one attachment |
 | GET | `/intervention-attachments/{id}/download` | Download an attachment's stored file bytes (Phase 4b) |
@@ -433,6 +440,26 @@ returns for a MIME-type or size violation — the processor performs no mapping
 of its own. A retry carrying a client-supplied
 `attachmentId` that already exists overwrites its own row and is exempt from
 the cap.
+
+**Offline replay idempotency (`clientId`)** — `POST /interventions/{interventionId}/attachments`
+accepts an optional `clientId` multipart field, the exact mechanism
+`Equipment\Presentation\Api\Processor\Media\MediaProcessor` already carries:
+a client-generated attachment UUID that lets the frontend's offline queue
+replay an upload without duplicating the row when a crash lands between the
+server's success and the local dequeue. `InterventionMediaProcessor` validates
+it (`InterventionAttachmentId::fromString`, 400 on a malformed value) and
+looks the id up BEFORE the shared MIME/size guard reads the file — a replay
+never needs the file re-read or re-checked:
+
+- id unknown → the value is forwarded to `AddInterventionAttachmentCommand.attachmentId`
+  and becomes the attachment's id (deterministic, `clientId` = `attachmentId`);
+- id already stored on the SAME intervention → the existing attachment is
+  returned as-is, no command dispatched, no duplicate;
+- id already stored on ANOTHER intervention → **409 Conflict**
+  (`Attachment client UUID is already assigned to another intervention.`).
+
+Without `clientId` the behaviour is unchanged: the handler generates the
+attachment id server-side.
 
 **Per-work-item evidence (Phase 5d.1)** — `work_item_id` on
 `intervention_attachments` (see Persistence) is an optional per-work-item
@@ -588,6 +615,13 @@ exactly. `InterventionReportExportResource` (own resource: `read`/`write`/
 `deserialize`/`serialize`/`output` all disabled) wires the invokable
 `ExportInterventionReportController`.
 
+**No plan entitlement gate — a known asymmetry (2026-08-27).** The newer PDF
+reports (Inspection's inspection report and non-conformities report,
+Equipment's equipment sheet) all inherit the Compliance safety register's
+`pro`/`max` entitlement gate (`OrganizationExportEntitlementAdapter`). This
+intervention report predates that decision and remains ungated; new document
+exports align on the gated register, not on this endpoint.
+
 **No phase gate** — the report is available whenever the caller can read the
 intervention, exactly like the attachment download route documented above
 (`GET /intervention-attachments/{id}/download`). Authorization is entirely
@@ -622,9 +656,25 @@ issues list (severity, message); applied/proposed/rejected change counts; the
 attachments list (file name + kind only); and activity highlights
 (timestamp, kind, event, actor name where cheap, comment body).
 
-**English only** — like the safety register, this is a backend-rendered PDF
-and is not localized; translate the template only if the module ever grows a
-locale-aware rendering path.
+**Localized and branded** — like the safety register, the report extends the
+common `templates/pdf/layout.html.twig` socle: fixed header (organization
+logo inlined as a base64 `data:` URI when stored — dompdf keeps remote
+loading off — plus display name), fixed footer with the legal identity block
+(legal name, registration number, VAT — only the filled fields), the
+formatted generation date, and `X / Y` page numbering stamped by the
+renderer adapter through dompdf's canvas `page_text()`
+(`{PAGE_NUM}`/`{PAGE_COUNT}` substitution — adapter-side API, no
+`isPhpEnabled`; CSS `counter(pages)` renders 0 in dompdf 3.x). The branding comes from
+`Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort`;
+dates (planned start, due, activity timestamps, generation date) are
+reformatted per the organization regional settings (timezone + `dateFormat`)
+through `Shared\Application\Document\DocumentDateFormatter`. All fixed
+strings go through the Symfony translator, domain `pdf`
+(`translations/pdf.{en,fr,es}.yaml`); the language is the org regional
+`locale`'s language subtag (`fr-FR` → `fr`), falling back to `en`. Dynamic
+enum-ish values coming from the workflow data (`type`/`status`/`priority`,
+work-item statuses) stay raw; the fixed issue severities are translated. The
+layout carries no normative claim by product decision.
 
 **Audit** — `InterventionReportExportedEvent` (intervention id, organization
 id, actor user id) is dispatched by the controller after a successful render,
@@ -952,10 +1002,12 @@ bug waiting for the backend to change underneath it:
 | `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
 | `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
 | `InterventionReportPdfRendererPort` | `DompdfInterventionReportRenderer` — backs `/interventions/{id}/report`; module-local, mirrors `Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort`. No `$entityManager` — query-bus only, no direct Doctrine access |
+| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` *(reused, not owned)* | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` — document branding (name, inlined logo, legal identity, regional settings) for the report's header/footer and date formatting |
 | `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves; also backs the `/interventions/export` `facility` column |
 | `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` — also backs the `/interventions/export` `assignee` column |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
 | `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
+| `Organization\Application\Port\Outbound\InterventionSearchPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter` — organization global search (`GET /organizations/{organizationId}/search`): `LIKE` on the name, exact number match for an all-digit term |
 | `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
 | `Organization\Application\Port\Inbound\TeamDirectoryPort` *(cross-module, consumed BY Intervention)* | `Organization\Application\Service\TeamDirectoryService` — R9 team-assignment; consumed directly, no Intervention-side wrapper port, exactly like `OrganizationAuthorizationPort` |
 | `Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort` *(cross-module, consumed by Calendar)* | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter` |
@@ -1670,5 +1722,5 @@ own message rather than falling through to `InvalidArgumentException`'s 400)
 and mapped to **422 Unprocessable Entity** — thrown by
 `ExportInterventionsHandler` when the `/interventions/export` filters match
 more than `MAX_EXPORT_ROWS` (50 000) interventions, mirroring
-`Audit\Domain\Exception\AuditExportTooLargeException`.
+`Audit\Application\Contract\AuditExportTooLargeException`.
 

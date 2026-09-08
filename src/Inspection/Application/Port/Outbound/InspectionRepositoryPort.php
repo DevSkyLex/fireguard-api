@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\Port\Outbound;
 
+use Inspection\Application\Contract\Export\InspectionExportCandidate;
 use Inspection\Application\Contract\Inspection\InspectionScope;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
@@ -244,5 +245,76 @@ interface InspectionRepositoryPort
    * @return ?InspectionScope the scope when the inspection exists
    */
   public function findScope(InspectionId $id): ?InspectionScope;
+
+  /**
+   * Method countExportCandidates.
+   *
+   * Counts inspections matching the given organization and filter subset —
+   * the same subset {@see self::findByOrganizationId()} accepts, minus
+   * `inspectorType` and free-text `search` (documented as the CSV export's
+   * filter surface) — without fetching a single row. Backs the CSV export's
+   * row cap, mirroring `InterventionWorkflowGatewayPort::countInterventions()`.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $equipmentId optional equipment filter
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $result optional result filter
+   * @param ?string $status optional status filter
+   * @param ?string $performedAtFrom optional lower bound for performedAt
+   * @param ?string $performedAtTo optional upper bound for performedAt
+   * @param ?string $inspectorUserId optional inspector user filter
+   * @param ?string $checklistId optional checklist filter
+   *
+   * @return int the matching inspection count
+   */
+  public function countExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $equipmentId = null,
+    ?string $facilityId = null,
+    ?string $result = null,
+    ?string $status = null,
+    ?string $performedAtFrom = null,
+    ?string $performedAtTo = null,
+    ?string $inspectorUserId = null,
+    ?string $checklistId = null,
+  ): int;
+
+  /**
+   * Method listExportCandidates.
+   *
+   * Lists every inspection matching the given organization and filters, in
+   * the CSV export's stable order (`updatedAt` DESC, `id` ASC), as
+   * lightweight {@see InspectionExportCandidate} rows — never the full
+   * {@see Inspection} aggregate the read
+   * endpoints hydrate. Callers must first bound the result with
+   * {@see self::countExportCandidates()}.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $equipmentId optional equipment filter
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $result optional result filter
+   * @param ?string $status optional status filter
+   * @param ?string $performedAtFrom optional lower bound for performedAt
+   * @param ?string $performedAtTo optional upper bound for performedAt
+   * @param ?string $inspectorUserId optional inspector user filter
+   * @param ?string $checklistId optional checklist filter
+   *
+   * @return list<InspectionExportCandidate> the matching inspection rows
+   */
+  public function listExportCandidates(
+    InspectionOrganizationId $organizationId,
+    ?string $equipmentId = null,
+    ?string $facilityId = null,
+    ?string $result = null,
+    ?string $status = null,
+    ?string $performedAtFrom = null,
+    ?string $performedAtTo = null,
+    ?string $inspectorUserId = null,
+    ?string $checklistId = null,
+  ): array;
   // #endregion
 }

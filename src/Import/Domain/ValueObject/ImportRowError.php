@@ -35,7 +35,7 @@ final readonly class ImportRowError
    * @since 1.0.0
    *
    * @param int $rowNumber the 1-based data row number (header excluded)
-   * @param string $code the machine-readable outcome code (`quota_exceeded`|`invalid`|`missing_required`|`would_create`)
+   * @param string $code the machine-readable outcome code (`quota_exceeded`|`invalid`|`missing_required`|`already_member`|`already_invited`|`unknown_role`|`would_create`)
    * @param string $message the human-readable reason
    * @param ?string $column the offending column name, when known
    */

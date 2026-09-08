@@ -42,6 +42,10 @@ inspections, interventions, and preventive-maintenance due dates.
 | PATCH | `/organizations/{organizationId}/calendar/events/{eventId}` | `updateCalendarEvent` | `organization.events.write` |
 | DELETE | `/organizations/{organizationId}/calendar/events/{eventId}` | `deleteCalendarEvent` | `organization.events.write` |
 | GET | `/organizations/{organizationId}/calendar/feed?from=...&to=...` | `getCalendarFeed` | `organization.events.read` |
+| POST | `/organizations/{organizationId}/calendar/feed-token` | `createCalendarFeedToken` | `organization.events.read` |
+| GET | `/organizations/{organizationId}/calendar/feed-token` | `getCalendarFeedToken` | membership (own token only) |
+| DELETE | `/organizations/{organizationId}/calendar/feed-token` | `deleteCalendarFeedToken` | membership (own token only) |
+| GET | `/calendar/feed/{token}.ics` | `getCalendarFeedIcs` | **none — public**, the URL-embedded secret is the credential |
 
 The original `PATCH` implementation treated an omitted (`null`) property as
 corresponding field unchanged, mirroring
@@ -84,6 +88,70 @@ detail (e.g. to populate an edit form).
   `overdue`, `closed`, `draft`), never a translated label — the frontend
   owns labels/colors via its own per-domain tag registries.
 
+### Member iCal subscription (`feed-token` + `GET /calendar/feed/{token}.ics`)
+
+Phase 10a. Lets Outlook/Google/Apple Calendar subscribe to a member's
+unified feed **without a session**: the member creates a personal token
+(`POST .../calendar/feed-token`, requires `organization.events.read`), and
+the returned URL — the **only** response ever carrying the raw secret — is
+pasted into the calendar client.
+
+- **One active token per (organization, member).** `POST` creates *or*
+  regenerates: any previously active token is revoked first (`rotated: true`
+  in the response). `GET` returns metadata only (`createdAt`, `lastUsedAt` —
+  never the secret nor its hash); `DELETE` revokes (204). Both answer 404
+  when the member has no active token.
+- **The secret**: 32 bytes CSPRNG, base64url (43 chars, URL-safe) —
+  `CalendarFeedTokenSecretFactory`. Only its SHA-256 hex hash is persisted
+  (`member_calendar_feed_tokens.token_hash`, unique); the raw value lives in
+  `RotateCalendarFeedTokenResult` for the duration of one response.
+- **The `.ics` endpoint is public** (`PUBLIC_ACCESS` in
+  `config/packages/security.yaml`, GET only — same mechanism as the public
+  invitation preview) and rate limited per IP (`limiter.calendar_feed`,
+  30/min sliding window). Lookup is by hash; an unknown token, a revoked
+  token, and a token whose member lost `organization.events.read` all answer
+  the **same plain 404** — no oracle.
+- **The member's permissions apply.** The controller resolves the token
+  (`ResolveCalendarFeedTokenQuery`) then dispatches the exact same
+  `GetCalendarFeedQuery` the interactive feed runs, with the token member's
+  `userId` — so `GetCalendarFeedHandler`'s `organization.events.read` check
+  and the aggregator's visibility rules are reused unchanged.
+- **Window**: fixed, now−30 days → now+180 days (computed in
+  `ResolveCalendarFeedTokenHandler`, well under the feed's 366-day cap).
+- **`lastUsedAt` is throttled**: persisted at most once per hour
+  (`CalendarFeedToken::shouldRecordUsage()`), so polling clients do not turn
+  every fetch into a write.
+- **Format**: hand-written RFC 5545 (`CalendarFeedIcalWriter`, no Composer
+  dependency): VCALENDAR/VEVENT, stable `UID` (`<sourceKey>-<id>@fireguard`),
+  `DTSTART`/`DTEND` (`VALUE=DATE` + non-inclusive end for all-day items, UTC
+  datetimes otherwise), type-prefixed `SUMMARY` (`[Inspection] …`), short
+  `DESCRIPTION` (≤300 chars), `X-FIREGUARD-STATUS` with the raw status, and
+  a deep `URL` into the frontend calendar page
+  (`{APP_FRONTEND_URL}/organizations/{orgId}/calendar?target=…&id=…`).
+  TEXT escaping (backslash/semicolon/comma/newline) and 75-octet line
+  folding on UTF-8 boundaries per RFC 5545 §3.1.
+- **Response headers**: `Content-Type: text/calendar; charset=utf-8`,
+  `Cache-Control: private, max-age=300`, `X-Robots-Tag: noindex`.
+- **Audit**: `calendar.feed_token_created` (metadata: `rotated`) and
+  `calendar.feed_token_revoked` (metadata: `reason` = `revoked`|`rotated`)
+  via `CalendarFeedTokenCreatedEvent`/`CalendarFeedTokenRevokedEvent` —
+  identifiers only, never the secret nor its hash.
+- **Known residual**: the secret sits in the URL path, so it can surface in
+  intermediary/proxy access logs and browser history. Inside the app there
+  is no access-log middleware and the domain-event security log carries
+  event names only; the one in-app path that can echo the URL is Symfony's
+  `request`-channel "Matched route" line — in **prod** it stays inside the
+  `fingers_crossed` buffer and is flushed only when a 5xx occurs during the
+  request (404s are `excluded_http_codes`), in **dev** it lands in the debug
+  log like every route. The response is `Cache-Control: private`, and
+  rotation/revocation are one call away.
+- **Known residual**: the per-fetch `organization.events.read` re-check goes
+  through `OrganizationAuthorizationService`'s shared permission cache
+  (30-second TTL), so a member removed from the organization can keep
+  fetching the feed for up to ~30 seconds. Bounded, platform-wide behavior of
+  the authorization cache — not specific to this endpoint; the token itself
+  is revocable immediately.
+
 ## Domain Model
 
 - `Domain/Model/Event/CalendarEvent` — mutable aggregate (`create()` /
@@ -102,6 +170,18 @@ detail (e.g. to populate an edit form).
   omission (calendar writes left no audit trail), not by design.
 - `Domain\Exception\CalendarEventNotFoundException` → 404,
   `CalendarEventValidationException` → 422.
+- `Domain/Model/FeedToken/CalendarFeedToken` — mutable aggregate for the
+  member iCal token (`create()`/`reconstitute()`), holding only the SHA-256
+  hash. Owns the revocation idempotency and the one-write-per-hour
+  `lastUsedAt` throttle (`shouldRecordUsage()`).
+- `Domain\ValueObject\CalendarFeedTokenId` — UUID value object.
+- `Domain\Event\CalendarFeedTokenCreatedEvent` / `CalendarFeedTokenRevokedEvent`
+  — consumed by `AuditEventSubscriber` (actions `calendar.feed_token_created`
+  / `calendar.feed_token_revoked`); identifiers only, never secret material.
+- `Domain\Exception\CalendarFeedTokenNotFoundException` → 404 (declared in
+  `api_platform.exception_to_status`); deliberately one exception for
+  unknown *and* revoked *and* permission-lost, so the public endpoint leaks
+  nothing.
 
 ## Application Layer
 
@@ -193,7 +273,16 @@ Infrastructure, or a concrete Adapter class.
 
 ## Persistence
 
-Table (**main** database), created by `Version20260718124213`:
+Tables (**main** database). `member_calendar_feed_tokens` was created by
+`Version20260828010000`:
+
+- `member_calendar_feed_tokens` — id, `organization_id`, `user_id`,
+  `token_hash` (SHA-256 hex, **unique**), `created_at`, `last_used_at`
+  (nullable), `revoked_at` (nullable). Index `(organization_id, user_id)`.
+  Plain identifier columns, no foreign keys — `user_id` points at the
+  **auth** database and no key may cross that line.
+
+`calendar_events` was created by `Version20260718124213`:
 
 - `calendar_events` — id, `organization_id`, `title`, `description`
   (nullable), `starts_at`, `ends_at` (nullable), `all_day` (default false),
@@ -232,16 +321,25 @@ granted explicitly).
 
 ## Configuration
 
-- Service wiring: `config/modules/calendar.yaml` — repository (main entity
-  manager), the four port aliases above, `CalendarFeedAggregator`, and the
-  five command/query handler `messenger.message_handler` tags.
+- Service wiring: `config/modules/calendar.yaml` — the two repositories
+  (main entity manager), the four cross-module port aliases above,
+  `CalendarFeedTokenRepositoryPort`, `CalendarFeedAggregator`,
+  `CalendarFeedTokenSecretFactory`, `CalendarFeedIcalWriter`
+  (`$frontendUrl: '%app.frontend_url%'`), and the nine command/query handler
+  `messenger.message_handler` tags.
 - Cross-module adapter registrations: `config/modules/organization.yaml`,
   `config/modules/inspection.yaml`, `config/modules/intervention.yaml`,
   `config/modules/maintenance.yaml` (see the table above).
-- Security: no dedicated `access_control` rule — resource-level
-  `security: "is_granted('ROLE_USER')"` plus the fine-grained
+- Security: the event and feed-token management resources carry
+  resource-level `security: "is_granted('ROLE_USER')"` plus the fine-grained
   `organization.events.*` permission checks inside the handlers, mirroring
-  every other organization-scoped resource in this repo (e.g. Webhook).
+  every other organization-scoped resource in this repo (e.g. Webhook). The
+  public `.ics` route has an explicit `access_control` rule
+  (`^/api/calendar/feed/[^/]+\.ics$` → `PUBLIC_ACCESS`, GET only) in
+  `config/packages/security.yaml`.
+- Rate limiting: `limiter.calendar_feed` (per IP, 30/min sliding window) in
+  `config/packages/rate_limiter.yaml`, enforced in
+  `GetCalendarFeedIcsController`.
 - Doctrine mapping / import: `config/packages/doctrine.yaml` /
   `config/packages/modules.yaml` (unchanged since L2.0).
 
@@ -264,8 +362,31 @@ granted explicitly).
   - `tests/Integration/Intervention/Infrastructure/Adapter/Calendar/InterventionCalendarFeedAdapterTest.php`
     (the `OR`/`COALESCE` occurrence-date query)
   - `tests/Integration/Maintenance/Infrastructure/Adapter/Calendar/MaintenanceCalendarFeedAdapterTest.php`
-- Functional: `tests/Functional/Api/CalendarApiTest.php` (endpoint existence +
-  authentication-required, mirroring `WebhookSubscriptionApiTest`).
+  - `tests/Unit/Calendar/Domain/Model/FeedToken/CalendarFeedTokenTest.php`
+    (revocation idempotency, hourly usage throttle)
+  - `tests/Unit/Calendar/Application/Service/CalendarFeedTokenSecretFactoryTest.php`
+    (43-char base64url secret, SHA-256)
+  - `tests/Unit/Calendar/Application/UseCase/Command/FeedToken/…` —
+    `RotateCalendarFeedTokenHandlerTest` (permission gate, only the hash is
+    persisted, rotation revokes + audits both sides) and
+    `RevokeCalendarFeedTokenHandlerTest` (404 with no active token, no event
+    on the failure path)
+  - `tests/Unit/Calendar/Application/UseCase/Query/FeedToken/…` —
+    `GetCalendarFeedTokenMetadataHandlerTest` (structural no-secret pin) and
+    `ResolveCalendarFeedTokenHandlerTest` (hash lookup, uniform not-found,
+    −30/+180 window, throttled `lastUsedAt` writes)
+  - `tests/Unit/Calendar/Presentation/Api/Ical/CalendarFeedIcalWriterTest.php`
+    — structural RFC 5545 lint: framing, CRLF, TEXT escaping, stable UID,
+    all-day `VALUE=DATE` with non-inclusive end, 75-octet folding on UTF-8
+    boundaries.
+- Functional: `tests/Functional/Api/CalendarApiTest.php` and
+  `tests/Functional/Api/CalendarFeedTokenApiTest.php` (endpoint existence +
+  authentication-required, and the public `.ics` route answering a uniform
+  404 — never 401 — for an unknown token).
+- E2E: `tests/E2E/CalendarFeedTokenFlowTest.php` — the full lifecycle:
+  201 with the secret shown once, metadata without secret, unauthenticated
+  `.ics` 200 with the member's entries, `lastUsedAt` recorded, rotation
+  killing the old secret, revocation, and the uniform 404 afterwards.
 
 **Uncovered by tests**: nothing engine-specific. The module's DQL uses only
 plain comparisons and `COALESCE`, and the suite runs on PostgreSQL — the same

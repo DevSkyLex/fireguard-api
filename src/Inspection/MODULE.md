@@ -29,6 +29,116 @@ localized typed registries are the source of these values).
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}` | Get inspection |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/submit` | Submit inspection (`draft → submitted`) |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/close` | Close inspection (`submitted → closed`) |
+| GET | `/api/organizations/{organizationId}/inspections/export` | Streams a bounded CSV export of inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) — B8 |
+| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/report` | Streams a PDF report of one inspection (identity, checklist responses, non-conformities) — plan-gated, see PDF reports below |
+
+**B8 — synchronous CSV exports (inspections and non-conformities).**
+
+Two streamed, synchronous CSV export endpoints — `GET .../inspections/export` and
+`GET .../non-conformities/export` — mirroring the canonical pattern
+`Intervention\...\ExportInterventionsController` established: an invokable API
+Platform controller (`read`/`write`/`serialize`/`deserialize`/`output` all
+disabled on the `Get` operation), a query-bus round trip to a dedicated export
+handler, and a `StreamedResponse` with `Content-Type: text/csv; charset=utf-8`,
+`Content-Disposition: attachment`, and `X-Accel-Buffering: no`. No 202+poll —
+both are bounded and fast enough to answer inline.
+
+- **Row cap**: `ExportInspectionsHandler::MAX_EXPORT_ROWS` /
+  `ExportNonConformitiesHandler::MAX_EXPORT_ROWS` — 50 000. A cheap `COUNT`
+  runs before a single row is fetched; exceeding the cap answers **422**
+  (`InspectionExportTooLargeException`) without ever hydrating the matched
+  rows. Narrow the filters and retry.
+- **Authorization**: both use `OrganizationAuthorizationPort::resolveAccess()`
+  with `organization.inspection.read` — the same permission the list
+  endpoints require — and, unlike those list endpoints'
+  `hasPermission()`-only gate, separate `OUTSIDE_SCOPE` (**404**, same as an
+  absent organization) from `MISSING_PERMISSION` (**403**). The resource-level
+  `is_granted('ROLE_USER')` is only the coarse gate.
+- **Filters**: each export reuses the *cheap* subset of its list endpoint's
+  filters only — equality/range predicates the existing indexed query
+  builders already serve. The inspection export **excludes** `inspectorType`
+  (never exposed by the list provider) and free-text `search` (trigram,
+  deliberately left out of the export's cost budget). The non-conformity
+  export reuses the organization-wide list's full filter set (`severity`,
+  `status`) since that list carries no free-text search either.
+- **Bulk resolution, never per-row**: one `COUNT`, one bounded `SELECT`, then
+  every display name and counter in a fixed number of additional round trips —
+  `FacilityNamingPort::findNamesByIds()`, `EquipmentNamingPort::findSerialNumbersByIds()`,
+  `ChecklistRepositoryPort::findNamesByIds()` (inspections only), and the two
+  non-conformity counters via `NonConformityRepositoryPort::countsByInspectionIds()`
+  (existing) and the new `countsOpenByInspectionIds()` (open/in-progress
+  only). A name that cannot be resolved renders as the raw identifier in the
+  CSV, never as a blank cell mistaken for "no value".
+- **New port methods**, mirroring `InterventionWorkflowGatewayPort::countInterventions()`/`listInterventionExportCandidates()`:
+  `InspectionRepositoryPort::countExportCandidates()`/`listExportCandidates()`
+  (lightweight `InspectionExportCandidate` rows — never the full `Inspection`
+  aggregate) and `NonConformityRepositoryPort::countExportCandidates()`/`listExportCandidates()`/`countsOpenByInspectionIds()`.
+  The non-conformity `listExportCandidates()` resolves the owning
+  inspection's `facilityId`/`equipmentId` in the *same* query (a mixed
+  entity + scalar select against the existing `createOrganizationListQueryBuilder()`
+  join), never a second round trip per row.
+- **`ageInDays`** (non-conformity export only) is computed in the handler
+  against `ClockPort::now()`, never in the CSV writer — the writer only
+  formats, per the Presentation-layer rule.
+- **CSV columns**, in order:
+  - Inspections (`InspectionCsvWriter::HEADER`): `id, status, result, facility,
+    equipment, checklist, performed_at, non_conformities_open,
+    non_conformities_total, created_at, updated_at`.
+  - Non-conformities (`NonConformityCsvWriter::HEADER`): `id, severity, status,
+    age_in_days, facility, equipment, inspection_id, created_at, resolved_at`.
+- **Audit**: each controller dispatches its own domain event after a
+  successful export — `Inspection\Domain\Event\Export\InspectionsExportedEvent`
+  / `NonConformitiesExportedEvent` — carrying `organizationId`, `actorUserId`,
+  `format` (`csv`), `rowCount`, and `filterKeys` (names only, never values).
+  Centralized audit wiring (`Audit\...\AuditEventSubscriber`) is untouched by
+  this change; only the events are created and dispatched here.
+- **Route disambiguation**: `/inspections/export` sits at the same path depth
+  as `/inspections/{inspectionId}`, so `GET_INSPECTION`/`EDIT_INSPECTION`/`CANCEL_INSPECTION`
+  gained an explicit UUID `requirements` constraint on `{inspectionId}` —
+  mirrors `InterventionResource::UUID_PATTERN`'s `{id}` disambiguation against
+  `/interventions/export`. `/non-conformities/export` needed no such
+  constraint: no sibling route shares its path shape.
+
+**PDF reports — inspection report and non-conformities report (plan-gated).**
+
+Two synchronous PDF exports on the shared PDF socle (`templates/pdf/layout.html.twig`,
+translator domain `pdf`, `OrganizationDocumentBrandingPort` for letterhead +
+regional date formatting, dompdf renderer adapters with `isRemoteEnabled`/
+`isPhpEnabled` off and canvas `page_text()` pagination):
+
+- `GET .../inspections/{inspectionId}/report` —
+  `ExportInspectionReportController`, reusing `GetInspectionQuery`,
+  `ListInspectionResponsesQuery` (scoped by `inspectionId`, `published`
+  records by default) and `ListNonConformitiesQuery`. No new business logic.
+- `GET .../non-conformities/report` —
+  `ExportNonConformitiesReportController`, reusing the CSV export's
+  `NonConformityExportCriteriaFactory` (same `severity`/`status` filters) and
+  `ExportNonConformitiesQuery` (same handler: row cap, bulk naming,
+  `ageInDays`), then grouping rows by severity (critical → low) as pure
+  presentation shaping. Inherits the CSV export's 422 row cap.
+
+**Decision — entitlement gate.** Both reports are reserved to the `pro`/`max`
+plans, exactly like the Compliance safety register: the controllers check
+`InspectionReportEntitlementPort` (aliased to the SAME Organization adapter,
+`OrganizationExportEntitlementAdapter`, so the plan allow-list lives in one
+place) and answer a dedicated **403** (`InspectionReportNotEntitledException::planTooLow`)
+when the plan is lower. This deliberately does **not** mirror the intervention
+report (`GET /api/interventions/{id}/report`), which predates the decision and
+remains ungated — the asymmetry is known and accepted; new document exports
+align on the gated register, not on it.
+
+Authorization mirrors the CSV exports: `resolveAccess()` with
+`organization.inspection.read`, `OUTSIDE_SCOPE` → **404**,
+`MISSING_PERMISSION` → **403**, entitlement checked only after that split so
+an outsider never learns the route exists. Each export dispatches its audit
+event (`inspection.report_exported` with the plan key;
+`inspection.non_conformities_report_exported` with row count + filter *names*
++ plan key), wired centrally in `Audit\...\AuditEventSubscriber`. The single
+inspection report deliberately uses the module's org-scoped route shape
+(`/organizations/{organizationId}/inspections/{inspectionId}/report`) rather
+than Intervention's bare `/interventions/{id}/report`: every Inspection read
+query requires the `organizationId` up front, and the resolveAccess-before-
+load ordering depends on it.
 
 ### Checklists
 
@@ -121,6 +231,9 @@ localized typed registries are the source of these values).
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | Record a deficiency |
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities for one inspection (filters: `severity`, `status`) |
 | GET | `/api/organizations/{organizationId}/non-conformities` | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7 |
+| GET | `/api/organizations/{organizationId}/non-conformities/export` | Streams a bounded CSV export of an organization's non-conformities (filters: `severity`, `status`) — B8 |
+| GET | `/api/organizations/{organizationId}/non-conformities/statistics` | Organization-wide non-conformity KPI snapshot: `bySeverity` (all four severities × `open`/`resolved`, zeros included), `byFacility` (top 10 by open count: `id`, `name`, `open`, `critical`), `byEquipmentType` (top 10 by open count: `type`, `open`), `resolution` (`averageDays`/`medianDays` over `resolvedAt - createdAt`, null when nothing resolved), `slaBreachedOpen`. Optional `from`/`to` window on `createdAt`. Requires `organization.inspection.read` via `resolveAccess` (404 outside scope, 403 unentitled) — B9 |
+| GET | `/api/organizations/{organizationId}/non-conformities/report` | Streams a PDF report of an organization's non-conformities grouped by severity (filters: `severity`, `status`) — plan-gated, see PDF reports below |
 | PATCH | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status |
 
 **B7 — organization-wide non-conformity collection.**
@@ -164,6 +277,30 @@ introduce a "resolved" status; `done` and `waived` are the terminal states.
   change and is out of scope here; the response's existing `id` is the only
   stable per-row identifier today. A future slice that wants a human-facing
   code needs its own migration (see `fg-api-migrations`).
+
+**B9 — organization-wide non-conformity statistics.**
+
+`GET /organizations/{organizationId}/non-conformities/statistics` follows the
+`GET /interventions/statistics` pattern: a dedicated resource
+(`NonConformityStatisticsResource`), a thin provider
+(`GetNonConformityStatisticsProvider` — parses the optional `from`/`to`
+window, maps domain failures to HTTP), and a query handler
+(`GetNonConformityStatisticsHandler`) that resolves access once
+(`OrganizationAuthorizationPort::resolveAccess` on
+`organization.inspection.read`: outside scope → 404, unentitled member →
+403), zero-fills the four severity keys, and resolves facility names through
+`FacilityNamingPort`. The aggregates come from
+`NonConformityStatisticsGatewayPort`
+(`DoctrineNonConformityStatisticsGatewayAdapter`): a bounded number of
+grouped queries (GROUP BY severity×status, GROUP BY facility, GROUP BY
+equipment type through the inspection→equipment join), one scalar for
+`slaBreachedOpen` (unresolved rows with `slaBreachNotifiedAt` stamped, the
+same definition as the SLA sweep), and one native PostgreSQL aggregate for
+`resolution` — `AVG` and `PERCENTILE_CONT(0.5)` over
+`EXTRACT(EPOCH FROM (resolved_at - created_at))/86400`. `medianDays` is
+included rather than omitted because the suite runs on PostgreSQL only,
+where the percentile is one clause; "open" is status `open`/`in_progress`,
+"resolved" is `done`/`waived`, everywhere in the payload.
 
 ### Attachments (R11b)
 
@@ -296,6 +433,56 @@ sequenceDiagram
   UC-->>Bus: ListInspectionsResult
 ```
 
+### Non-conformity SLA escalation sweep (hourly)
+
+`Infrastructure/Scheduler/InspectionScheduleProvider` (`#[AsSchedule('inspection')]`)
+triggers `EscalateNonConformitySlaBreachesCommand` hourly on the
+`scheduler_inspection` transport (DSN `schedule://inspection`); run
+`messenger:consume scheduler_inspection` alongside the existing workers. The
+schedule is stateful and lock-guarded (`inspection.nc_sla_sweep`), mirroring
+the Maintenance module's sweep exactly.
+
+`EscalateNonConformitySlaBreachesHandler` is idempotent and processes every
+candidate page-wise:
+
+1. Pages through unresolved non-conformities (`open`, `in_progress`) not yet
+   signalled (`sla_breach_notified_at IS NULL`) through
+   `NonConformitySlaPort::pageOpenUnnotified` — the owning organization is
+   resolved through the join to the inspection record, never from input.
+2. Resolves the owning organization's per-severity resolution SLA through
+   `NonConformitySlaPolicyPort` (adapter
+   `Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter`,
+   reading `OrganizationComplianceSettings::effectiveNonConformitySlaDays()` —
+   the first consumer of the org compliance `nonConformitySlaDays` setting),
+   cached per organization for the run. A breach is
+   `createdAt + slaDays < now`; a severity with no SLA never breaches.
+3. Escalates each breach through
+   `Application/Service/NonConformitySlaNotifier` as a
+   **`non_conformity.sla_breached`** notification to the organization's
+   administrators — active members granted `organization.inspection.write`
+   directly or through a wildcard
+   (`Application/Service/NonConformitySlaRecipientResolver`, mirroring
+   `MaintenanceReminderRecipientResolver`) — honoring the organization's
+   `nonConformitySlaBreached` category toggle and the
+   `inAppEnabled`/`emailEnabled` channel toggles. Best-effort: a delivery
+   failure never fails the sweep.
+4. Immediately stamps the anti-duplicate guard
+   (`NonConformitySlaPort::markSlaBreachNotified`,
+   `non_conformities.sla_breach_notified_at`) — **one escalation per breach
+   per non-conformity**: a candidate is only selected while its stamp is
+   `null`, so a repeat tick never re-announces a breach that stays
+   unresolved.
+
+Resolving the non-conformity (`done`/`waived`) removes it from the sweep
+entirely. **Reopening a resolved non-conformity clears the stamp** at the
+source (`NonConformityRepository::save()` detects the resolved→unresolved
+transition), so a still-breached reopened non-conformity is deliberately
+escalated again — mirroring how an intervention reschedule re-arms its
+due-date reminders. Today `NonConformity::updateStatus()` rejects reopening
+(`NonConformityAlreadyResolvedException`), so the re-arm is a persistence-level
+guard for the day a reopen path exists; the documented choice stands either
+way: re-notifying after a reopen is correct behavior, not a duplicate.
+
 ## Domain Model
 
 Aggregates and entities:
@@ -402,6 +589,9 @@ Status transitions:
 ## Persistence
 
 - Tables: `inspections`, `checklists`, `checklist_items`, `non_conformities` (main database)
+- `non_conformities.sla_breach_notified_at` (nullable, migration
+  `migrations/main/Version20260827100000.php`) is the SLA escalation sweep's
+  anti-duplicate stamp — see the sweep section above.
 - Doctrine mapping: `src/Inspection/Infrastructure/Persistence/Doctrine/Record`
 - Repository implementations: `Inspection\Infrastructure\Persistence\Doctrine\Repository`
 - Table: `inspection_attachments` (main database, R11b) — `inspection_id` FK
@@ -440,6 +630,12 @@ Cross-module contracts and lifecycle invariants:
   a cancelled inspection is a no-op; deleting a `closed` inspection is refused
   (HTTP 409). Cancellation goes through the DELETE verb: the canonical PATCH does
   not accept `cancelled`.
+- `Inspection\Infrastructure\Adapter\Organization\{InspectionSearchAdapter,NonConformitySearchAdapter}`
+  implement the Organization module's global-search ports
+  (`InspectionSearchPort` / `NonConformitySearchPort`) for
+  `GET /organizations/{organizationId}/search` — bounded org-scoped `LIKE`
+  over the checklist reference code / inspection id, and the non-conformity
+  description respectively.
 - `Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter`
   implements Facility's archival dependency port (in-progress = published
   draft/submitted).
@@ -525,6 +721,17 @@ gate reporting refusal through its own `Application/Contract/` type instead
 of a foreign domain exception — then this baseline shrinks back. The other
 two imports are `OrganizationQuotaResource` / `OrganizationQuotaExceededException`
 on the inspection-creation quota path.
+
+Refreshed 2026-08-27: after the quota-contract migration shrank the baseline
+to 1, it was raised 1 -> 2 for
+`Application/Service/NonConformitySlaRecipientResolver` importing
+`Organization\Domain\ValueObject\OrganizationId` — forced by
+`OrganizationMemberRepositoryPort::findByOrganizationId()`, whose signature is
+typed with that value object. The identical import for the identical reason
+already exists in `MaintenanceReminderRecipientResolver`,
+`InterventionReviewerRecipientResolver` and
+`InterventionRecurrenceRecipientResolver`; it shrinks back the day the member
+port is retyped with an `Application/Contract` identifier.
 
 ### A foreign organization answers 404, never 403
 
@@ -827,6 +1034,15 @@ and reachable on its own; only which of the two failures wins moved.
   serve both.
 - `PatchCanonicalInspectionHandler` and `DeleteCanonicalInspectionHandler` name
   `@inspection.main_transaction_manager`, same reason as the response handlers.
+- `Inspection\Application\Port\Outbound\NonConformitySlaPort` is aliased to
+  `DoctrineNonConformitySlaAdapter`, wired to `main` explicitly;
+  `Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort`
+  is aliased to the Organization-owned
+  `OrganizationNonConformitySlaPolicyAdapter` (registered in
+  `config/modules/organization.yaml`) — the port is declared by the consumer,
+  the adapter belongs to the owner, mirroring `MaintenanceCompliancePolicyPort`.
+- The SLA escalation sweep runs on the `scheduler_inspection` transport the
+  Scheduler component registers for `InspectionScheduleProvider`.
 
 ## Testing
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Session\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Post;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -13,7 +14,6 @@ use Session\Presentation\Api\Processor\Session\RevokeAllSessionsProcessor;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
-use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * Test RevokeAllSessionsProcessorTest.
@@ -47,10 +47,14 @@ final class RevokeAllSessionsProcessorTest extends TestCase
   #[Test]
   public function testProcessDispatchesCommand(): void
   {
-    $user = $this->createMock(UserInterface::class);
-    $user->expects(self::once())
-      ->method('getUserIdentifier')
-      ->willReturn('user-1');
+    $user = new SecurityUser(
+      id: 'user-1',
+      email: 'user@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())

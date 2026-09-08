@@ -37,7 +37,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   #[Test]
   public function testNotificationSentWithEmailAndMercureWhenUserEmailResolved(): void
   {
-    /** @var NotificationPort&MockObject $notificationPort */
+    /**
+     * @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')
@@ -68,7 +69,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   #[Test]
   public function testEmailChannelIsDroppedWhenOrganizationDisablesEmail(): void
   {
-    /** @var NotificationPort&MockObject $notificationPort */
+    /**
+     * @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')
@@ -116,7 +118,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   #[Test]
   public function testNotificationSentWithMercureOnlyWhenUserEmailIsNull(): void
   {
-    /** @var NotificationPort&MockObject $notificationPort */
+    /**
+     * @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')
@@ -144,7 +147,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   #[Test]
   public function testNotificationSentWithMercureOnlyWhenUserQueryFails(): void
   {
-    /** @var NotificationPort&MockObject $notificationPort */
+    /**
+     * @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')
@@ -158,7 +162,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
     $queryBus->method('ask')
       ->willThrowException(new RuntimeException('User not found'));
 
-    /** @var LoggerInterface&MockObject $logger */
+    /**
+     * @var LoggerInterface&MockObject $logger */
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())->method('warning');
 
@@ -183,7 +188,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
     $queryBus->method('ask')
       ->willReturn(new GetUserResult($this->buildUserView()));
 
-    /** @var LoggerInterface&MockObject $logger */
+    /**
+     * @var LoggerInterface&MockObject $logger */
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())
       ->method('error')
@@ -203,7 +209,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   #[Test]
   public function testNotificationPayloadContainsSessionAndOrganizationId(): void
   {
-    /** @var NotificationPort&MockObject $notificationPort */
+    /**
+     * @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')

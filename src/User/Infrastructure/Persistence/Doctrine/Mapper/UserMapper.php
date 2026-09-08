@@ -47,9 +47,11 @@ final class UserMapper
     $record->avatarUrl = $user->profile()->avatarUrl;
     $record->status = $user->status()->value;
     $record->emailVerified = $user->isEmailVerified();
+    $record->emailOwnershipVerifiedAt = $user->emailOwnershipVerifiedAt();
     $record->tenantId = $user->tenantId()?->__toString();
     $record->createdAt = $user->createdAt();
     $record->lastLoginAt = $user->lastLoginAt();
+    $record->lastSignInMethod = $user->lastSignInMethod();
     $record->locale = $user->locale()->value;
 
     // Access private password property via reflection
@@ -57,7 +59,7 @@ final class UserMapper
     $passwordProperty = $reflection->getProperty('password');
     $passwordProperty->setAccessible(true);
     $password = $passwordProperty->getValue($user);
-    $record->password = ($password instanceof HashedPassword) ? $password->value : '';
+    $record->password = ($password instanceof HashedPassword) ? $password->value : null;
 
     // Access private failedLoginAttempts property via reflection
     $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
@@ -88,8 +90,10 @@ final class UserMapper
     $record->avatarUrl = $user->profile()->avatarUrl;
     $record->status = $user->status()->value;
     $record->emailVerified = $user->isEmailVerified();
+    $record->emailOwnershipVerifiedAt = $user->emailOwnershipVerifiedAt();
     $record->tenantId = $user->tenantId()?->__toString();
     $record->lastLoginAt = $user->lastLoginAt();
+    $record->lastSignInMethod = $user->lastSignInMethod();
     $record->locale = $user->locale()->value;
 
     // Access private password property via reflection
@@ -97,7 +101,7 @@ final class UserMapper
     $passwordProperty = $reflection->getProperty('password');
     $passwordProperty->setAccessible(true);
     $password = $passwordProperty->getValue($user);
-    $record->password = ($password instanceof HashedPassword) ? $password->value : '';
+    $record->password = ($password instanceof HashedPassword) ? $password->value : null;
 
     // Access private failedLoginAttempts property via reflection
     $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
@@ -128,7 +132,11 @@ final class UserMapper
     $this->setProperty($user, 'id', new UserId($record->id));
     $this->setProperty($user, 'username', new Username($record->username));
     $this->setProperty($user, 'email', new Email($record->email));
-    $this->setProperty($user, 'password', new HashedPassword($record->password));
+    $this->setProperty(
+      $user,
+      'password',
+      null === $record->password ? null : new HashedPassword($record->password),
+    );
     $this->setProperty($user, 'profile', new UserProfile(
       firstName: $record->firstName,
       lastName: $record->lastName,
@@ -136,9 +144,11 @@ final class UserMapper
     ));
     $this->setProperty($user, 'status', UserStatus::from($record->status));
     $this->setProperty($user, 'emailVerified', $record->emailVerified);
+    $this->setProperty($user, 'emailOwnershipVerifiedAt', $record->emailOwnershipVerifiedAt);
     $this->setProperty($user, 'tenantId', $record->tenantId ? TenantId::fromString($record->tenantId) : null);
     $this->setProperty($user, 'createdAt', $record->createdAt);
     $this->setProperty($user, 'lastLoginAt', $record->lastLoginAt);
+    $this->setProperty($user, 'lastSignInMethod', $record->lastSignInMethod);
     $this->setProperty($user, 'failedLoginAttempts', $record->failedLoginAttempts);
     $this->setProperty($user, 'locale', Locale::from($record->locale));
 

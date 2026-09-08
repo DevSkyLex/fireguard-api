@@ -475,4 +475,109 @@ final class ListEquipmentsHandlerTest extends TestCase
     self::assertSame($facilityId, $result->items[0]->facilityId);
     self::assertSame('Building A', $result->items[0]->facilityName);
   }
+
+  #[Test]
+  public function testInvokeResolvesFacilityNamesOnTheMainListPath(): void
+  {
+    $facilityId = '550e8400-e29b-41d4-a716-446655448011';
+
+    $assigned = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID_1),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $assigned->assignToFacility(
+      EquipmentFacilityId::fromString($facilityId),
+      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
+
+    $unassigned = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID_2),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::SMOKE_DETECTOR,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->willReturn([$assigned, $unassigned]);
+    $equipmentRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->willReturn(2);
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::once())->method('findTagsByEquipmentIds')->willReturn([]);
+
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([]);
+
+    // ONE batch lookup for the whole page — the regression this guards was the
+    // main path calling toResult() without the facilityName argument at all.
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::once())
+      ->method('findNamesByIds')
+      ->with([$facilityId])
+      ->willReturn([$facilityId => 'Building A']);
+
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $facilityNaming,
+    );
+
+    $result = $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(limit: 10, offset: 0),
+    ));
+
+    self::assertCount(2, $result->items);
+    self::assertSame('Building A', $result->items[0]->facilityName);
+    self::assertNull($result->items[1]->facilityName);
+  }
+
+  #[Test]
+  public function testInvokeSkipsTheNamingLookupWhenNoEquipmentIsAssigned(): void
+  {
+    $unassigned = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID_1),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findByOrganizationId')->willReturn([$unassigned]);
+    $equipmentRepository->method('countByOrganizationId')->willReturn(1);
+
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
+    $tagRepository->method('findTagsByEquipmentIds')->willReturn([]);
+
+    $maintenanceDueStatusPort = $this->createStub(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->method('dueStatusesForEquipment')->willReturn([]);
+
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::never())->method('findNamesByIds');
+
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $facilityNaming,
+    );
+
+    $result = $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(limit: 10, offset: 0),
+    ));
+
+    self::assertCount(1, $result->items);
+    self::assertNull($result->items[0]->facilityName);
+  }
 }

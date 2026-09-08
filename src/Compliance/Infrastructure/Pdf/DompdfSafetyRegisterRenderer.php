@@ -66,6 +66,21 @@ final readonly class DompdfSafetyRegisterRenderer implements SafetyRegisterPdfRe
     $dompdf->setPaper(self::PAPER_SIZE, self::PAPER_ORIENTATION);
     $dompdf->render();
 
+    // Page numbering ("X / Y", language-neutral): dompdf's canvas substitutes
+    // {PAGE_NUM} and {PAGE_COUNT} in page_text(). This is an adapter-side API
+    // call, NOT inline PHP in the document — isPhpEnabled stays off. The CSS
+    // counter(pages) alternative renders 0 in dompdf 3.x, so this is the only
+    // dompdf-compatible way to print the total page count.
+    $canvas = $dompdf->getCanvas();
+    $canvas->page_text(
+      $canvas->get_width() - 76.0,
+      $canvas->get_height() - 46.0,
+      '{PAGE_NUM} / {PAGE_COUNT}',
+      $dompdf->getFontMetrics()->getFont('DejaVu Sans') ?? '',
+      7.0,
+      [0.48, 0.55, 0.59],
+    );
+
     return (string) $dompdf->output();
   }
   // #endregion

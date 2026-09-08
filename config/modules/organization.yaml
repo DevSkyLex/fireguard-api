@@ -6,6 +6,9 @@ services:
   Organization\Presentation\:
     resource: '../../src/Organization/Presentation'
 
+  Organization\Infrastructure\Scheduler\:
+    resource: '../../src/Organization/Infrastructure/Scheduler'
+
   organization.main_transaction_manager:
     class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
     arguments:
@@ -23,6 +26,9 @@ services:
   Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler:
@@ -191,6 +197,9 @@ services:
   Organization\Application\UseCase\Query\Organization\GetNavigationCounters\GetNavigationCountersHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\SearchOrganization\SearchOrganizationHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\GetCurrentOrganizationMemberProfileHandler:
     tags: ['messenger.message_handler']
 
@@ -274,7 +283,13 @@ services:
   Organization\Application\Port\Outbound\OrganizationQuotaLockPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Lock\PostgresOrganizationQuotaLockAdapter
 
+  # Document branding (logo inlined as data URI, legal identity, regional settings)
+  Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter: ~
+
   # Inbound ports
+  Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort:
+    alias: Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter
+
   Organization\Application\Port\Inbound\OrganizationAuthorizationPort:
     alias: Organization\Application\Service\OrganizationAuthorizationService
 
@@ -296,6 +311,14 @@ services:
   Organization\Application\Port\Inbound\OrganizationCallerMembershipPort:
     alias: Organization\Application\Service\OrganizationCallerMembershipService
 
+  # Inbound port reused by the Import module's bulk CSV member import:
+  # provisions invitations through InviteOrganizationMemberHandler (member-cap
+  # quota and conflict rules included).
+  Organization\Application\Service\MemberInvitationProvisioningService: ~
+
+  Organization\Application\Port\Inbound\MemberInvitationProvisioningPort:
+    alias: Organization\Application\Service\MemberInvitationProvisioningService
+
   Organization\Application\Service\TeamDirectoryService: ~
 
   Organization\Application\Service\OrganizationCallerMembershipService: ~
@@ -303,6 +326,12 @@ services:
   Organization\Application\Service\OrganizationInvitationTokenHasher: ~
 
   Organization\Application\Service\OrganizationInvitationNotifier:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
+
+  Organization\Application\Service\OrganizationWeeklyDigestRecipientResolver: ~
+
+  Organization\Application\Service\OrganizationWeeklyDigestNotifier:
     arguments:
       $frontendUrl: '%app.frontend_url%'
 
@@ -336,12 +365,36 @@ services:
   Organization\Application\Port\Outbound\InterventionStatisticsPort:
     alias: Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter
 
+  Organization\Application\Port\Outbound\MaintenanceStatisticsPort:
+    alias: Maintenance\Infrastructure\Adapter\Organization\MaintenanceStatisticsAdapter
+
+  # Global search (GET /organizations/{organizationId}/search): each result
+  # type is owned by another module and reached through its search port,
+  # implemented by an adapter in the owning module (naming/statistics pattern).
+  Organization\Application\Port\Outbound\EquipmentSearchPort:
+    alias: Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter
+
+  Organization\Application\Port\Outbound\FacilitySearchPort:
+    alias: Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter
+
+  Organization\Application\Port\Outbound\InterventionSearchPort:
+    alias: Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter
+
+  Organization\Application\Port\Outbound\InspectionSearchPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\InspectionSearchAdapter
+
+  Organization\Application\Port\Outbound\NonConformitySearchPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\NonConformitySearchAdapter
+
   # R17: Approval module's regulated action-type catalog, hosted in Approval
   Organization\Application\Port\Outbound\ApprovalActionTypeCatalogPort:
     alias: Approval\Infrastructure\Adapter\Organization\ApprovalActionTypeCatalogAdapter
 
   # Cross-module read model for the Maintenance module (compliance policy)
   Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter: ~
+
+  # Cross-module read model for the Inspection module (non-conformity SLA policy)
+  Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter: ~
 
   # Cross-module read model for the Automation module (automation policy)
   Organization\Infrastructure\Adapter\Automation\OrganizationAutomationPolicyAdapter: ~
@@ -351,7 +404,7 @@ services:
   Organization\Infrastructure\Adapter\Approval\OrganizationApprovalMemberDirectoryAdapter: ~
 
   # Cross-module read model for the Compliance module (plan-tier export entitlement gate)
-  Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter: ~
+  Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter: ~
 
   # Cross-module read model for the Assistant module (L2.2: business-context
   # `includeBusinessContext` opt-in gate)
@@ -376,3 +429,29 @@ services:
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~
   Organization\Infrastructure\Console\AddOrganizationAdminConsoleCommand: ~
 
+
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationJoinRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+  Organization\Application\Port\Outbound\OrganizationJoinRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationJoinRepository
+  Organization\Infrastructure\Adapter\Native\OrganizationDomainProofAdapter: ~
+  Organization\Application\Port\Outbound\OrganizationDomainProofPort:
+    alias: Organization\Infrastructure\Adapter\Native\OrganizationDomainProofAdapter
+  Organization\Application\Service\OrganizationJoinAccessService: ~
+  Organization\Application\Port\Inbound\OrganizationJoinAccessPort:
+    alias: Organization\Application\Service\OrganizationJoinAccessService
+  Organization\Application\UseCase\Command\Join\ManageOrganizationJoin\ManageOrganizationJoinHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+  Organization\Application\UseCase\Query\Join\ReadOrganizationJoin\ReadOrganizationJoinHandler:
+    tags: ['messenger.message_handler']
+  Organization\Application\UseCase\Command\Sweep\VerifyOrganizationDomains\VerifyOrganizationDomainsHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Infrastructure\Adapter\Symfony\OrganizationJoinNotificationAdapter: ~
+  Organization\Application\Port\Outbound\OrganizationJoinNotificationPort:
+    alias: Organization\Infrastructure\Adapter\Symfony\OrganizationJoinNotificationAdapter

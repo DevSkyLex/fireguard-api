@@ -30,7 +30,7 @@ security:
     # stay authenticated — a firewall matches before access_control runs, so a
     # prefix match here silently voids their ROLE_USER rules below.
     oauth2_public:
-      pattern: ^/api/(oauth2/token$|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/mfa/resend|auth/password/reset|auth/register)
+      pattern: ^/api/(oauth2/token$|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/mfa/resend|auth/password/reset|auth/register|auth/federated/providers$|auth/federated/[^/]+/(start|complete)$)
       security: false
 
     # Stripe webhook (public; Stripe signature is verified in the controller)
@@ -76,6 +76,8 @@ security:
     - { path: ^/api/auth/mfa/resend$, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/password/reset, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/federated/providers$, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/federated/[^/]+/(start|complete)$, roles: PUBLIC_ACCESS }
     # Protected endpoints requiring authentication
     - { path: ^/api/oauth2/userinfo$, roles: ROLE_USER }
     - { path: ^/api/oauth2/token/revoke$, roles: ROLE_USER }
@@ -90,6 +92,16 @@ security:
     # Public invitation preview by token (GET only — lets an invitee see the
     # organization/inviter before signing in or creating an account)
     - { path: '^/api/organizations/invitations/[^/]+/preview$', roles: PUBLIC_ACCESS, methods: [GET] }
+
+    # Public member iCal subscription feed (GET only — the URL-embedded token
+    # secret is the credential; unknown/revoked tokens answer a uniform 404)
+    - { path: '^/api/calendar/feed/[^/]+\.ics$', roles: PUBLIC_ACCESS, methods: [GET] }
+
+    # Public email change confirmation (POST only — the emailed 256-bit token
+    # is the credential, mirroring the registration email-verification pattern;
+    # the link lands in the new mailbox where no session may exist. Abuse is
+    # bounded by the per-IP `limiter.email_change_confirm` in the processor.)
+    - { path: ^/api/me/email-change/confirm$, roles: PUBLIC_ACCESS, methods: [POST] }
 
     # Stripe webhook (public; signature is verified in the controller)
     - { path: ^/api/billing/webhook$, roles: PUBLIC_ACCESS, methods: [POST] }

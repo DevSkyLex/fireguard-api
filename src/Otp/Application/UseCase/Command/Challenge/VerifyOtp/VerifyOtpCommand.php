@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Application\UseCase\Command\Challenge\VerifyOtp;
 
+use Otp\Domain\ValueObject\OtpPurpose;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -28,11 +29,17 @@ final readonly class VerifyOtpCommand implements CommandMessage
    *
    * @param string $otpId the OTP ID
    * @param string $code the verification code
+   * @param string|null $expectedUserId the required challenge owner
+   * @param OtpPurpose|null $expectedPurpose the required challenge purpose
+   * @param string|null $expectedRecipient the current mailbox when possession is required
    */
   public function __construct(
     public readonly string $code,
     public readonly ?string $otpId = null,
     public readonly ?string $challengeToken = null,
+    public readonly ?string $expectedUserId = null,
+    public readonly ?OtpPurpose $expectedPurpose = null,
+    public readonly ?string $expectedRecipient = null,
   ) {
   }
   // #endregion

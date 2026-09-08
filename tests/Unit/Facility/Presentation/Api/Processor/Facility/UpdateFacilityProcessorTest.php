@@ -225,6 +225,74 @@ final class UpdateFacilityProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessDispatchesCommandWithLevelIndexPresenceFlag(): void
+  {
+    $input = new UpdateFacilityInput();
+    $input->levelIndex = -1;
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655442110'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $request = new Request(
+      server: ['CONTENT_TYPE' => 'application/json'],
+      content: '{"levelIndex":-1}',
+    );
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (UpdateFacilityCommand $command): bool {
+        return $command->hasLevelIndex
+          && !$command->hasName
+          && -1 === $command->levelIndex;
+      }))
+      ->willReturn(new UpdateFacilityResult(
+        facilityId: '550e8400-e29b-41d4-a716-446655442112',
+        organizationId: '550e8400-e29b-41d4-a716-446655442111',
+        parentFacilityId: null,
+        type: 'floor',
+        name: 'Basement',
+        code: null,
+        status: 'active',
+        address: null,
+        metadata: [],
+        createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-12T11:00:00+00:00'),
+        levelIndex: -1,
+      ));
+
+    $processor = new UpdateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Patch(),
+      uriVariables: [
+        'organizationId' => '550e8400-e29b-41d4-a716-446655442111',
+        'facilityId' => '550e8400-e29b-41d4-a716-446655442112',
+      ],
+    );
+
+    self::assertInstanceOf(FacilityOutput::class, $output);
+    self::assertSame(-1, $output->levelIndex);
+  }
+
+  #[Test]
   public function testProcessRequiresAnAuthenticatedSecurityUser(): void
   {
     $security = $this->createStub(Security::class);

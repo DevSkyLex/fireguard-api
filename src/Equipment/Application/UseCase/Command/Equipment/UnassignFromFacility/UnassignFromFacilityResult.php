@@ -42,6 +42,7 @@ final readonly class UnassignFromFacilityResult implements ResultMessage
     public array $tags,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public ?string $facilityName = null,
   ) {
   }
   // #endregion

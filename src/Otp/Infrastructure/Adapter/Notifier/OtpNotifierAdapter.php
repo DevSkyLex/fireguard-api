@@ -147,7 +147,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     return match ($otp->purpose()) {
       OtpPurpose::LOGIN => '[FireGuard] Your login verification code',
       OtpPurpose::PASSWORD_RESET => '[FireGuard] Your password reset code',
-      OtpPurpose::EMAIL_VERIFICATION => '[FireGuard] Verify your email address',
+      OtpPurpose::EMAIL_VERIFICATION, OtpPurpose::EMAIL_OWNERSHIP => '[FireGuard] Verify your email address',
       OtpPurpose::PHONE_VERIFICATION => '[FireGuard] Verify your phone number',
       OtpPurpose::SENSITIVE_OPERATION => '[FireGuard] Confirm your action',
       OtpPurpose::TRANSACTION_APPROVAL => '[FireGuard] Approve your transaction',
@@ -198,7 +198,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     return match ($otp->purpose()) {
       OtpPurpose::LOGIN => 'Use the code below to complete your sign-in.',
       OtpPurpose::PASSWORD_RESET => 'Use the code below to reset your password.',
-      OtpPurpose::EMAIL_VERIFICATION => 'Use the code below to verify your email address.',
+      OtpPurpose::EMAIL_VERIFICATION, OtpPurpose::EMAIL_OWNERSHIP => 'Use the code below to verify your email address.',
       OtpPurpose::PHONE_VERIFICATION => 'Use the code below to verify your phone number.',
       OtpPurpose::SENSITIVE_OPERATION => 'Use the code below to confirm this sensitive action.',
       OtpPurpose::TRANSACTION_APPROVAL => 'Use the code below to approve this transaction.',

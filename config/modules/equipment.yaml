@@ -68,6 +68,10 @@ services:
 
   Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
 
+  Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Equipment\Infrastructure\Adapter\Organization\EquipmentTypeCatalogAdapter: ~
 
   # Reports active equipment assigned to a facility (for the facility archival guard)
@@ -91,6 +95,11 @@ services:
 
   # Cross-module read model for the Maintenance sweep (trackable equipment directory)
   Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module equipment naming for the Maintenance module's schedule CSV export
+  Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -152,6 +161,22 @@ services:
   Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # PDF equipment sheet renderer (no Doctrine — plain Twig context)
+  Equipment\Infrastructure\Pdf\DompdfEquipmentReportRenderer: ~
+
+  Equipment\Infrastructure\Pdf\DompdfEquipmentLabelSheetRenderer: ~
+
+  Equipment\Application\Port\Outbound\EquipmentReportPdfRendererPort:
+    alias: Equipment\Infrastructure\Pdf\DompdfEquipmentReportRenderer
+
+  Equipment\Application\Port\Outbound\EquipmentLabelSheetPdfRendererPort:
+    alias: Equipment\Infrastructure\Pdf\DompdfEquipmentLabelSheetRenderer
+
+  # PDF report entitlement (pro/max — the same Organization-module adapter
+  # as the Compliance safety register, one allow-list for every PDF export)
+  Equipment\Application\Port\Outbound\EquipmentReportEntitlementPort:
+    alias: Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter
 
   # Reads back a published intervention's applied equipment changes so the
   # service-history subscriber below can synthesize maintenance log entries.
@@ -247,5 +272,11 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Tag\ListTags\ListTagsHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\ExportEquipmentLabels\ExportEquipmentLabelsHandler:
     tags: ['messenger.message_handler']
 

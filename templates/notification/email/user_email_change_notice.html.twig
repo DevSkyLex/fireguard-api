@@ -1,0 +1,11 @@
+{% extends 'notification/email/layout.html.twig' %}
+
+{% set lang = locale|default('en') %}
+
+{% block lang %}{{ lang }}{% endblock %}
+
+{% block content %}
+  <h1>{{ headingKey|trans({}, 'emails', lang) }}</h1>
+  <p>{{ bodyKey|trans({}, 'emails', lang) }}</p>
+  <p class="muted">{{ 'emailChange.noticeSupport'|trans({}, 'emails', lang) }}</p>
+{% endblock %}

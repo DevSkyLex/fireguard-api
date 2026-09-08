@@ -39,6 +39,8 @@ final readonly class UpdateFacilityCommand implements CommandMessage
    * @param bool $hasLatitude whether latitude was provided
    * @param bool $hasLongitude whether longitude was provided
    * @param bool $hasMetadata whether metadata was provided
+   * @param ?int $levelIndex the optional stacking order of the floor when provided
+   * @param bool $hasLevelIndex whether levelIndex was provided
    */
   public function __construct(
     public string $organizationId,
@@ -57,6 +59,8 @@ final readonly class UpdateFacilityCommand implements CommandMessage
     public bool $hasLatitude = false,
     public bool $hasLongitude = false,
     public bool $hasMetadata = false,
+    public ?int $levelIndex = null,
+    public bool $hasLevelIndex = false,
   ) {
   }
   // #endregion

@@ -20,8 +20,9 @@ use function max;
  * UseCase ListImportJobsHandler.
  *
  * Org-scoped listing. When a `kind` filter is given, the matching kind's
- * read permission is required; otherwise either `organization.equipment.read`
- * or `organization.facilities.read` grants visibility over the mixed list.
+ * read permission is required; otherwise any of `organization.equipment.read`,
+ * `organization.facilities.read` or `organization.members.read` grants
+ * visibility over the mixed list.
  *
  * The caller names the organization in the query, so the check separates
  * "not a member of that organization" (404, the same answer an unknown
@@ -125,18 +126,19 @@ final readonly class ListImportJobsHandler implements QueryHandler
       return;
     }
 
-    // The unfiltered list is granted by EITHER read permission, so scope has
-    // to be gated on its own before the two are OR'd — resolveAccess() can
-    // only answer about one permission at a time, and a member holding
-    // neither must still be told 403 rather than 404.
+    // The unfiltered list is granted by ANY of the kinds' read permissions,
+    // so scope has to be gated on its own before they are OR'd —
+    // resolveAccess() can only answer about one permission at a time, and a
+    // member holding none must still be told 403 rather than 404.
     if (!$this->authorization->isMemberOf($userId, $organizationId)) {
       throw ImportJobNotFoundException::forOrganizationScope($organizationId);
     }
 
     $hasEquipmentRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.equipment.read');
     $hasFacilityRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.facilities.read');
+    $hasMemberRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.members.read');
 
-    if (!$hasEquipmentRead && !$hasFacilityRead) {
+    if (!$hasEquipmentRead && !$hasFacilityRead && !$hasMemberRead) {
       throw ImportAccessDeniedException::missingPermission('organization.equipment.read');
     }
   }
@@ -155,6 +157,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
     return match ($kind) {
       ImportKind::EQUIPMENT => 'organization.equipment.read',
       ImportKind::FACILITY => 'organization.facilities.read',
+      ImportKind::MEMBER => 'organization.members.read',
     };
   }
   // #endregion

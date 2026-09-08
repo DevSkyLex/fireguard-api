@@ -394,7 +394,12 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
     $equipmentEntry = $equipmentList[0];
     self::assertIsArray($equipmentEntry);
     self::assertSame($equipmentId, $equipmentEntry['equipmentId'] ?? null);
-    self::assertSame('fire_extinguisher (SN-OVERLAY-1)', $equipmentEntry['name'] ?? null);
+    // The identity ships in parts. A label composed here could only be the raw
+    // enum, which a client would print verbatim in the wrong language — so the
+    // endpoint sends the pieces and lets the client name the thing.
+    self::assertSame('fire_extinguisher', $equipmentEntry['type'] ?? null);
+    self::assertSame('SN-OVERLAY-1', $equipmentEntry['serialNumber'] ?? null);
+    self::assertArrayNotHasKey('name', $equipmentEntry);
     self::assertSame('operational', $equipmentEntry['status'] ?? null);
     self::assertSame(0.5, $equipmentEntry['x'] ?? null);
     self::assertSame(0.25, $equipmentEntry['y'] ?? null);

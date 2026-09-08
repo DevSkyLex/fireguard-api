@@ -27,9 +27,11 @@ interface TransactionManagerPort
    *
    * @since 1.0.0
    *
-   * @param callable():mixed $operation the operation to execute
+   * @template T
    *
-   * @return mixed the result of the operation
+   * @param callable():T $operation the operation to execute
+   *
+   * @return T the result of the operation
    */
   public function transactional(callable $operation): mixed;
   // #endregion

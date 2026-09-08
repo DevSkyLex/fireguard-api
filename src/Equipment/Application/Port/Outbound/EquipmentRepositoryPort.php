@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\Port\Outbound;
 
+use Equipment\Application\Contract\Export\EquipmentExportCandidate;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -169,6 +170,87 @@ interface EquipmentRepositoryPort
     ?string $timeZone = null,
     ?string $type = null,
     ?string $status = null,
+  ): array;
+
+  /**
+   * Method countEquipments.
+   *
+   * Counts every published equipment item for an organization, with no
+   * filters — backs the CSV export's row cap, mirroring
+   * `Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort::countInterventions()`.
+   * Deliberately unfiltered: the export scopes to the whole organization, not
+   * to the list endpoint's current filter selection.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return int the matching equipment count
+   */
+  public function countEquipments(EquipmentOrganizationId $organizationId): int;
+
+  /**
+   * Method listEquipmentExportCandidates.
+   *
+   * Lists every published equipment item for an organization, in the CSV
+   * export's stable order (`updatedAt` DESC, `id` ASC), as lightweight
+   * {@see EquipmentExportCandidate} rows. Callers must first bound the result
+   * with {@see self::countEquipments()}. Mirrors
+   * `Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort::listInterventionExportCandidates()`.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return list<EquipmentExportCandidate> the matching equipment rows
+   */
+  public function listEquipmentExportCandidates(EquipmentOrganizationId $organizationId): array;
+
+  /**
+   * Method countEquipmentLabelCandidates.
+   *
+   * Counts the published equipment items a QR label sheet selection would
+   * match, before any row is fetched — the cheap pre-check behind the label
+   * cap, mirroring {@see self::countEquipments()} with the sheet's optional
+   * selection narrowing (explicit ids OR one facility).
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?list<string> $equipmentIds the explicit equipment identifiers, if any
+   * @param ?string $facilityId the facility identifier, if any
+   *
+   * @return int the matching equipment count
+   */
+  public function countEquipmentLabelCandidates(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
+  ): int;
+
+  /**
+   * Method listEquipmentLabelCandidates.
+   *
+   * Lists the published equipment items a QR label sheet selection matches,
+   * in the export's stable order (`updatedAt` DESC, `id` ASC), as
+   * lightweight {@see EquipmentExportCandidate} rows. Callers must first
+   * bound the result with {@see self::countEquipmentLabelCandidates()}.
+   * Identifiers outside the organization's scope simply never match — the
+   * organization filter is always applied, so a foreign id silently yields
+   * no label rather than leaking anything.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?list<string> $equipmentIds the explicit equipment identifiers, if any
+   * @param ?string $facilityId the facility identifier, if any
+   *
+   * @return list<EquipmentExportCandidate> the matching equipment rows
+   */
+  public function listEquipmentLabelCandidates(
+    EquipmentOrganizationId $organizationId,
+    ?array $equipmentIds,
+    ?string $facilityId,
   ): array;
 
   // #endregion

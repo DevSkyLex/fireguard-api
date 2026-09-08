@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\Service;
 
 use DateTimeImmutable;
-use Intervention\Application\Service\{InterventionNotificationService, InterventionReviewerRecipientResolver};
+use Intervention\Application\Service\{InterventionNotificationService, InterventionRecurrenceRecipientResolver, InterventionReviewerRecipientResolver};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
@@ -44,7 +44,7 @@ final class InterventionNotificationServiceTest extends TestCase
         && self::ORGANIZATION_ID === $request->organizationId))
       ->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
   }
 
@@ -56,7 +56,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(interventionAssigned: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(interventionAssigned: false), $this->reviewers(), $this->admins())
       ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -70,7 +70,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false), $this->reviewers(), $this->admins())
       ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -84,7 +84,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -98,7 +98,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -118,7 +118,7 @@ final class InterventionNotificationServiceTest extends TestCase
         && self::ORGANIZATION_ID === $request->organizationId))
       ->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
   }
 
@@ -133,7 +133,7 @@ final class InterventionNotificationServiceTest extends TestCase
       ->with(self::callback(static fn (SendNotificationRequest $request): bool => [NotificationChannel::MERCURE] === $request->channels))
       ->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members, $this->policy(emailEnabled: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(emailEnabled: false), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
   }
 
@@ -145,7 +145,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', '018f0b68-6758-7a12-8a1d-3f0d97f63c99', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -159,7 +159,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->changesRequested('intervention-1', 'Annual inventory', null);
 
     self::addToAssertionCount(1);
@@ -183,7 +183,7 @@ final class InterventionNotificationServiceTest extends TestCase
     // The changes-requested event has no dedicated policy toggle: it falls
     // through the category map's default arm and is delivered even when both
     // intervention categories are switched off.
-    new InterventionNotificationService($notifications, $members, $this->policy(interventionAssigned: false, interventionPublished: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(interventionAssigned: false, interventionPublished: false), $this->reviewers(), $this->admins())
       ->changesRequested('intervention-9', 'Annual inventory', self::MEMBER_ID);
   }
 
@@ -201,7 +201,7 @@ final class InterventionNotificationServiceTest extends TestCase
       ->willReturn($this->sent());
 
     // The duplicate member id must collapse to a single notification.
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->published('intervention-1', 'Annual inventory', [self::MEMBER_ID, self::MEMBER_ID, self::OTHER_MEMBER_ID]);
   }
 
@@ -213,7 +213,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(interventionPublished: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(interventionPublished: false), $this->reviewers(), $this->admins())
       ->published('intervention-1', 'Annual inventory', [self::MEMBER_ID]);
 
     self::addToAssertionCount(1);
@@ -227,7 +227,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -241,7 +241,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -255,7 +255,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -269,7 +269,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -283,7 +283,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false), $this->reviewers(), $this->admins())
       ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
 
     self::addToAssertionCount(1);
@@ -308,7 +308,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService($notifications, $this->createStub(OrganizationMemberRepositoryPort::class), $this->policy(), $this->reviewers(
       ['user-reviewer-1' => ['organization.interventions.review'], 'user-reviewer-2' => ['organization.*']],
-    ))->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
+    ), $this->admins())->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
 
     self::assertSame(['user-reviewer-1', 'user-reviewer-2'], $recipients);
   }
@@ -324,7 +324,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService($notifications, $this->createStub(OrganizationMemberRepositoryPort::class), $this->policy(), $this->reviewers(
       ['user-reviewer-1' => ['organization.interventions.review'], 'user-reviewer-2' => ['organization.interventions.review']],
-    ))->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-reviewer-1');
+    ), $this->admins())->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-reviewer-1');
   }
 
   #[Test]
@@ -338,7 +338,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService($notifications, $this->createStub(OrganizationMemberRepositoryPort::class), $this->policy(emailEnabled: false), $this->reviewers(
       ['user-reviewer-1' => ['organization.interventions.review']],
-    ))->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
+    ), $this->admins())->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
   }
 
   #[Test]
@@ -349,7 +349,7 @@ final class InterventionNotificationServiceTest extends TestCase
 
     new InterventionNotificationService($notifications, $this->createStub(OrganizationMemberRepositoryPort::class), $this->policy(inAppEnabled: false, emailEnabled: false), $this->reviewers(
       ['user-reviewer-1' => ['organization.interventions.review']],
-    ))->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
+    ), $this->admins())->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
 
     self::addToAssertionCount(1);
   }
@@ -366,7 +366,7 @@ final class InterventionNotificationServiceTest extends TestCase
     // submission itself never bubbles the delivery error.
     new InterventionNotificationService($notifications, $this->createStub(OrganizationMemberRepositoryPort::class), $this->policy(), $this->reviewers(
       ['user-reviewer-1' => ['organization.interventions.review'], 'user-reviewer-2' => ['organization.interventions.review']],
-    ))->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
+    ), $this->admins())->submitted('intervention-7', 'Annual inventory', self::ORGANIZATION_ID, 'user-submitter');
 
     self::addToAssertionCount(1);
   }
@@ -386,7 +386,7 @@ final class InterventionNotificationServiceTest extends TestCase
         && self::ORGANIZATION_ID === $request->organizationId))
       ->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable('2026-01-11T00:00:00+00:00'), [self::MEMBER_ID]);
   }
 
@@ -403,8 +403,47 @@ final class InterventionNotificationServiceTest extends TestCase
         && self::USER_ID === $request->recipientUserId))
       ->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->overdue('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable('2026-01-09T00:00:00+00:00'), [self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itEscalatesAnOverdueReminderToTheOrganizationAdministrators(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+
+    $recipients = [];
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::exactly(2))
+      ->method('send')
+      ->with(self::callback(static function (SendNotificationRequest $request) use (&$recipients): bool {
+        $recipients[] = $request->recipientUserId;
+
+        return 'intervention.overdue' === $request->type;
+      }))
+      ->willReturn($this->sent());
+
+    // self::USER_ID is already notified as the responsible member: the admin
+    // escalation must add user-admin-1 and never double-send to USER_ID.
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins(
+      [self::USER_ID => ['organization.interventions.plan'], 'user-admin-1' => ['organization.*']],
+    ))->overdue('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable('2026-01-09T00:00:00+00:00'), [self::MEMBER_ID]);
+
+    self::assertSame([self::USER_ID, 'user-admin-1'], $recipients);
+  }
+
+  #[Test]
+  public function itNeverEscalatesADueSoonReminderToTheAdministrators(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())->method('send')->willReturn($this->sent());
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins(
+      ['user-admin-1' => ['organization.interventions.plan']],
+    ))->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
   }
 
   #[Test]
@@ -415,7 +454,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::once())->method('send')->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID, self::MEMBER_ID]);
   }
 
@@ -427,7 +466,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->dueSoon('intervention-1', 12, 'Annual inventory', '018f0b68-6758-7a12-8a1d-3f0d97f63c99', new DateTimeImmutable(), [self::MEMBER_ID]);
   }
 
@@ -439,7 +478,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->overdue('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
   }
 
@@ -451,7 +490,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
 
-    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false), $this->reviewers(), $this->admins())
       ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
   }
 
@@ -463,7 +502,7 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
 
-    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers(), $this->admins())
       ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
 
     self::addToAssertionCount(1);
@@ -509,6 +548,34 @@ final class InterventionNotificationServiceTest extends TestCase
     );
 
     return new InterventionReviewerRecipientResolver($members, $authorization);
+  }
+
+  /**
+   * @param array<string, list<string>> $permissionsByUserId
+   */
+  private function admins(array $permissionsByUserId = []): InterventionRecurrenceRecipientResolver
+  {
+    $organizationMembers = [];
+    $suffix = 0x60;
+    foreach (array_keys($permissionsByUserId) as $userId) {
+      $organizationMembers[] = OrganizationMember::reconstitute(
+        OrganizationMemberId::fromString(sprintf('018f0b68-6758-7a12-8a1d-3f0d97f63d%02x', ++$suffix)),
+        OrganizationId::fromString(self::ORGANIZATION_ID),
+        $userId,
+        true,
+        new DateTimeImmutable(),
+      );
+    }
+
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findByOrganizationId')->willReturn($organizationMembers);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('getUserPermissions')->willReturnCallback(
+      static fn (string $userId): array => $permissionsByUserId[$userId] ?? [],
+    );
+
+    return new InterventionRecurrenceRecipientResolver($members, $authorization);
   }
 
   private function policy(bool $inAppEnabled = true, bool $interventionAssigned = true, bool $emailEnabled = true, bool $interventionPublished = true): OrganizationNotificationPolicyPort

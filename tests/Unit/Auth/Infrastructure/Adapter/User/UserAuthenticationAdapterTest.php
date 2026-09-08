@@ -7,6 +7,7 @@ namespace Tests\Unit\Auth\Infrastructure\Adapter\User;
 use Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Psr\Log\{LoggerInterface, NullLogger};
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
@@ -34,7 +35,7 @@ final class UserAuthenticationAdapterTest extends TestCase
         email: 'user@example.com',
       ));
 
-    $adapter = new UserAuthenticationAdapter($queryBus);
+    $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger());
 
     $result = $adapter->authenticate('user@example.com', 'password');
 
@@ -51,7 +52,7 @@ final class UserAuthenticationAdapterTest extends TestCase
       ->method('ask')
       ->willReturn(new AuthenticateUserResult(authenticated: false));
 
-    $adapter = new UserAuthenticationAdapter($queryBus);
+    $adapter = new UserAuthenticationAdapter($queryBus, new NullLogger());
 
     $result = $adapter->authenticate('user@example.com', 'password');
 
@@ -62,12 +63,20 @@ final class UserAuthenticationAdapterTest extends TestCase
   public function testAuthenticateReturnsFailedOnException(): void
   {
     $queryBus = $this->createMock(QueryBusPort::class);
+    $exception = new class ('fail') extends RuntimeException implements Throwable {
+    };
     $queryBus->expects(self::once())
       ->method('ask')
-      ->willThrowException(new class ('fail') extends RuntimeException implements Throwable {
-      });
+      ->willThrowException($exception);
 
-    $adapter = new UserAuthenticationAdapter($queryBus);
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::once())
+      ->method('critical')
+      ->with('Password credential verification failed unexpectedly.', [
+        'exception_class' => $exception::class,
+      ]);
+
+    $adapter = new UserAuthenticationAdapter($queryBus, $logger);
 
     $result = $adapter->authenticate('user@example.com', 'password');
 

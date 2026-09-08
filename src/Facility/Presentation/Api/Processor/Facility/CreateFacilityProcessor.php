@@ -26,6 +26,7 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
@@ -153,6 +154,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     try {
       /** @var CreateFacilityResult $result */
       $result = $this->commandBus->dispatch(new CreateFacilityCommand(
+        setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
         organizationId: $organizationId,
         type: $data->type,
         name: $data->name,
@@ -163,6 +165,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
         longitude: $data->longitude,
         metadata: $data->metadata,
         resourceId: $resourceId,
+        levelIndex: $data->levelIndex,
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
@@ -211,6 +214,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->latitude = $result->latitude;
     $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
+    $output->levelIndex = $result->levelIndex;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
     $assignment = $this->attachToIntervention($result->facilityId, $organizationId, $data->intervention, $data->clientId);

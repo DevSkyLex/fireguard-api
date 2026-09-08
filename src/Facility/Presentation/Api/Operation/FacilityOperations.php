@@ -17,6 +17,15 @@ final class FacilityOperations
 {
   // #region Constants
   /**
+   * Constant SUGGEST_ADDRESSES.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string SUGGEST_ADDRESSES = 'facility_suggest_addresses';
+
+  /**
    * Constant CREATE_FACILITY.
    *
    * @var string
@@ -29,6 +38,20 @@ final class FacilityOperations
    * @var string
    */
   public const string LIST_FACILITIES = 'facility_list';
+
+  /**
+   * Constant EXPORT_FACILITIES.
+   *
+   * @var string
+   */
+  public const string EXPORT_FACILITIES = 'facility_export';
+
+  /**
+   * Constant GEOCODE_ADDRESS.
+   *
+   * @var string
+   */
+  public const string GEOCODE_ADDRESS = 'facility_geocode';
 
   /**
    * Constant GET_FACILITY.
@@ -92,6 +115,13 @@ final class FacilityOperations
    * @var string
    */
   public const string GET_FACILITY_PLAN_OVERLAY = 'facility_plan_overlay_get';
+
+  /**
+   * Constant GET_FACILITY_BUILDING_MODEL.
+   *
+   * @var string
+   */
+  public const string GET_FACILITY_BUILDING_MODEL = 'facility_building_model_get';
 
   /**
    * Constant SET_PRIMARY_FACILITY_ATTACHMENT.

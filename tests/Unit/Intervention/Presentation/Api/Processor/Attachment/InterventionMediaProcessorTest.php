@@ -53,6 +53,8 @@ final class InterventionMediaProcessorTest extends TestCase
 
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440001';
 
+  private const string CLIENT_ID = '550e8400-e29b-41d4-a716-446655440004';
+
   private const string MINIMAL_GIF_BASE64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7';
 
   #[Test]
@@ -71,7 +73,8 @@ final class InterventionMediaProcessorTest extends TestCase
         ->method('dispatch')
         ->with(self::callback(
           static fn (AddInterventionAttachmentCommand $command): bool => self::USER_ID === $command->userId
-            && self::INTERVENTION_ID === $command->interventionId,
+            && self::INTERVENTION_ID === $command->interventionId
+            && null === $command->attachmentId,
         ))
         ->willReturn(new AddInterventionAttachmentResult(
           $attachment->id,
@@ -137,6 +140,153 @@ final class InterventionMediaProcessorTest extends TestCase
       )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
 
       self::assertSame($attachment->id, $result?->id);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  #[Test]
+  public function testUploadRejectsANonStringClientId(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Multipart field "clientId" must be a UUID.');
+
+    new InterventionMediaProcessor(
+      $this->wrappingEntityManager(),
+      $commandBus,
+      $this->userSecurity(),
+      $this->requestStackWithoutFile(['clientId' => 42]),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadRejectsAMalformedClientId(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Multipart field "clientId" must be a UUID.');
+
+    new InterventionMediaProcessor(
+      $this->wrappingEntityManager(),
+      $commandBus,
+      $this->userSecurity(),
+      $this->requestStackWithoutFile(['clientId' => 'not-a-uuid']),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+  }
+
+  /**
+   * A replayed clientId is answered from the already-stored row: no command
+   * is dispatched (no duplicate), and the multipart file is not even
+   * required — the dedup short-circuit runs BEFORE the shared MIME/size
+   * guard, so a retry never re-reads the file.
+   */
+  #[Test]
+  public function testUploadReplaysAnAlreadyStoredClientIdWithoutDispatching(): void
+  {
+    $attachment = $this->attachmentRecord();
+    $attachment->id = self::CLIENT_ID;
+
+    $entityManager = $this->wrappingEntityManager();
+    $entityManager->method('find')->willReturn($attachment);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $result = new InterventionMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $this->userSecurity(),
+      $this->requestStackWithoutFile(['clientId' => self::CLIENT_ID]),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+
+    self::assertSame(self::CLIENT_ID, $result?->id);
+  }
+
+  #[Test]
+  public function testUploadRejectsAClientIdOwnedByAnotherIntervention(): void
+  {
+    $attachment = $this->attachmentRecord();
+    $attachment->id = self::CLIENT_ID;
+    self::assertNotNull($attachment->intervention);
+    $attachment->intervention->id = '660e8400-e29b-41d4-a716-4466554400ff';
+
+    $entityManager = $this->wrappingEntityManager();
+    $entityManager->method('find')->willReturn($attachment);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(ConflictHttpException::class);
+    $this->expectExceptionMessage('Attachment client UUID is already assigned to another intervention.');
+
+    new InterventionMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $this->userSecurity(),
+      $this->requestStackWithoutFile(['clientId' => self::CLIENT_ID]),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadForwardsAFreshClientIdToTheCommandAsAttachmentId(): void
+  {
+    $path = $this->tempImage();
+
+    try {
+      $attachment = $this->attachmentRecord();
+      $attachment->id = self::CLIENT_ID;
+
+      // First find (dedup lookup) misses; second find (post-dispatch reload)
+      // returns the stored row.
+      $findCalls = 0;
+      $entityManager = $this->wrappingEntityManager();
+      $entityManager->method('find')->willReturnCallback(
+        static function () use (&$findCalls, $attachment): ?InterventionAttachmentRecord {
+          ++$findCalls;
+
+          return 1 === $findCalls ? null : $attachment;
+        },
+      );
+
+      $commandBus = $this->createMock(CommandBusPort::class);
+      $commandBus->expects(self::once())
+        ->method('dispatch')
+        ->with(self::callback(
+          static fn (AddInterventionAttachmentCommand $command): bool => self::CLIENT_ID === $command->attachmentId,
+        ))
+        ->willReturn(new AddInterventionAttachmentResult(
+          $attachment->id,
+          self::INTERVENTION_ID,
+          $attachment->fileName,
+          $attachment->mimeType,
+          $attachment->size,
+          null,
+          $attachment->uploadedAt,
+        ));
+
+      $result = new InterventionMediaProcessor(
+        $entityManager,
+        $commandBus,
+        $this->userSecurity(),
+        $this->requestStackWithUpload($path, ['clientId' => self::CLIENT_ID]),
+        new MultipartAttachmentGuard(),
+        new RevisionGuard(new RequestStack()),
+      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+
+      self::assertSame(self::CLIENT_ID, $result?->id);
     } finally {
       unlink($path);
     }
@@ -506,6 +656,21 @@ final class InterventionMediaProcessorTest extends TestCase
       $parameters,
       [],
       ['file' => new UploadedFile($path, 'photo.gif', 'image/gif', null, true)],
+    ));
+
+    return $requestStack;
+  }
+
+  /**
+   * @param array<string, mixed> $parameters
+   */
+  private function requestStackWithoutFile(array $parameters): RequestStack
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      'POST',
+      $parameters,
     ));
 
     return $requestStack;

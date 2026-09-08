@@ -23,12 +23,13 @@ final class ImportKindTest extends TestCase
   {
     self::assertSame('equipment', ImportKind::EQUIPMENT->value);
     self::assertSame('facility', ImportKind::FACILITY->value);
+    self::assertSame('member', ImportKind::MEMBER->value);
   }
 
   #[Test]
   public function itReturnsAllSupportedValues(): void
   {
-    self::assertSame(['equipment', 'facility'], ImportKind::values());
+    self::assertSame(['equipment', 'facility', 'member'], ImportKind::values());
   }
 
   #[Test]

@@ -14,7 +14,11 @@ use function trim;
  *
  * Builds a {@see ProvisionEquipmentRequest} from one associative CSV data
  * row. Expected header: `type` (required), `subType`, `brand`, `model`,
- * `serialNumber`, `locationLabel`. Unknown columns are ignored. Only
+ * `serialNumber`, `locationLabel`, `facilityCode` (optional — the
+ * organization-scoped unique code of the facility the created item should
+ * be assigned to; resolution and the unknown-code `INVALID` outcome happen
+ * in `EquipmentProvisioningService`, never here). Unknown columns are
+ * ignored. Only
  * structural validation happens here (required columns present); `type`
  * enum membership is left to `CreateEquipmentHandler` (via
  * `EquipmentProvisioningPort`), which already reports an invalid value as a
@@ -58,6 +62,7 @@ final readonly class EquipmentRowFactory
       model: $this->optionalString($row, 'model'),
       serialNumber: $this->optionalString($row, 'serialNumber'),
       locationLabel: $this->optionalString($row, 'locationLabel'),
+      facilityCode: $this->optionalString($row, 'facilityCode'),
     );
   }
 

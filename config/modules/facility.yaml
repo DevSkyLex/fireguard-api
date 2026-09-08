@@ -83,6 +83,17 @@ services:
   Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay\GetFacilityPlanOverlayHandler:
     tags: ['messenger.message_handler']
 
+  # A2: 3D building model — read-only assembly over FacilityRepositoryPort,
+  # no new port needed (findBuildingFloors/findRoomsForFloors already carry
+  # everything the handler needs, including primary-plan dimensions).
+  Facility\Application\UseCase\Query\Facility\GetFacilityBuildingModel\GetFacilityBuildingModelHandler:
+    tags: ['messenger.message_handler']
+
+  # A3: FacilityBuildingModelProvider dispatches through the bus only — no
+  # Doctrine touch, so it needs no explicit entry here (autoconfigured via
+  # the `Facility\Presentation\:` resource above), matching
+  # FacilityPlanOverlayProvider.
+
   # R11b follow-up: the download endpoint serving attachment bytes, gated the
   # same way as FacilityMediaProvider/FacilityMediaProcessor.
   Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:
@@ -124,6 +135,10 @@ services:
 
   Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter: ~
 
+  Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Cross-module read model for the Compliance module (facility directory)
   Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter: ~
 
@@ -135,6 +150,11 @@ services:
   # Cross-module site naming for the Intervention module's `/interventions/statistics`
   # bySite breakdown — mirrors Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter.
   Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module facility naming for the Maintenance module's schedule CSV export
+  Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -187,6 +207,12 @@ services:
   Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\GeocodeAddress\GeocodeAddressHandler:
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Query\Facility\GetFacilityChildren\GetFacilityChildrenHandler:
     tags: ['messenger.message_handler']
 
@@ -219,5 +245,22 @@ services:
   Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\ListMetadataFieldsHandler:
     tags: ['messenger.message_handler']
 
+  # Address geocoding (input aid). The adapter needs no entity manager — it
+  # touches no database: HTTP out (base URL from GEOCODING_BASE_URL via
+  # #[Autowire] on the adapter), the shared lock factory for the 1 req/s
+  # outbound throttle, and Shared's CachePort for the 24 h per-address cache.
+  Facility\Application\Port\Outbound\GeocodingPort:
+    alias: Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter
+
+  Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter: ~
+
   # Console Commands use #[AsCommand]
   Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~
+
+  Facility\Application\UseCase\Query\SuggestAddresses\SuggestAddressesHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\Port\Outbound\AddressSuggestionsPort:
+    alias: Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter
+
+  Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter: ~

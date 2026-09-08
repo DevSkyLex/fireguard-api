@@ -1,0 +1,83 @@
+{# Printable QR label sheet — Avery L7159-compatible grid (A4, 24 labels of
+   63.5 x 33.9 mm in 3 columns x 8 rows).
+
+   Deliberately DOES NOT extend `pdf/layout.html.twig`: the common layout
+   paints a fixed organization header and legal footer inside the page body,
+   which would print across the top and bottom sticker rows. A label sheet
+   must map the physical die-cut grid exactly, so this template owns its own
+   skeleton and the @page margins ARE the sheet margins.
+
+   Geometry (Avery L7159 / J8159): label 63.5 x 33.9 mm, horizontal pitch
+   66 mm (2.5 mm gutter between columns), vertical pitch 33.9 mm (no gap
+   between rows), side margins (210 - 3*63.5 - 2*2.5) / 2 = 7.25 mm,
+   top/bottom margins (297 - 8*33.9) / 2 = 12.9 mm.
+
+   Expects in context:
+   - lang: two-letter translation language (catalog domain "pdf")
+   - labels: list of { qrDataUri, type, subType?, serialNumber?, facilityName?, locationLabel? }
+     (`qrDataUri` is injected by the renderer adapter from each row's `qrValue`) #}
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <title>{{ 'equipmentLabels.title'|trans({}, 'pdf', lang) }}</title>
+  <style>
+    @page { margin: 12.9mm 7.25mm; }
+    * { margin: 0; padding: 0; }
+    body { font-family: DejaVu Sans, sans-serif; color: #1f2933; }
+
+    table.sheet { border-collapse: collapse; table-layout: fixed; width: 195.5mm; }
+    table.sheet td { border: none; padding: 0; vertical-align: top; }
+    td.label { width: 63.5mm; height: 33.9mm; overflow: hidden; }
+    td.gutter { width: 2.5mm; }
+    .page-break { page-break-after: always; }
+
+    table.label-inner { border-collapse: collapse; table-layout: fixed; width: 63.5mm; }
+    table.label-inner td { border: none; vertical-align: middle; }
+    td.qr-cell { width: 27.9mm; padding: 3mm 0.9mm 3mm 3mm; }
+    td.qr-cell img { width: 24mm; height: 24mm; }
+    td.text-cell { padding: 3mm 2mm 3mm 1mm; }
+    .label-name { font-size: 7.5pt; font-weight: bold; line-height: 1.25; }
+    .label-line { font-size: 6.5pt; color: #3e4c59; line-height: 1.3; }
+    .label-site { font-size: 6pt; color: #52606d; line-height: 1.3; }
+  </style>
+</head>
+<body>
+  {% for page in labels|batch(24) %}
+    <table class="sheet{% if not loop.last %} page-break{% endif %}">
+      {% for row in page|batch(3) %}
+        <tr>
+          {% for label in row %}
+            {% if not loop.first %}<td class="gutter"></td>{% endif %}
+            <td class="label">
+              <table class="label-inner">
+                <tr>
+                  <td class="qr-cell"><img src="{{ label.qrDataUri }}" alt=""></td>
+                  <td class="text-cell">
+                    <div class="label-name">{{ label.type }}{% if label.subType is not empty %} — {{ label.subType }}{% endif %}</div>
+                    {% if label.serialNumber is not empty %}
+                      <div class="label-line">{{ 'equipmentLabels.serialNumber'|trans({ '%serial%': label.serialNumber }, 'pdf', lang) }}</div>
+                    {% endif %}
+                    {% if label.facilityName is not empty %}
+                      <div class="label-site">{{ label.facilityName }}</div>
+                    {% endif %}
+                    {% if label.locationLabel is not empty %}
+                      <div class="label-site">{{ label.locationLabel }}</div>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          {% endfor %}
+          {% if row|length < 3 %}
+            {% for filler in range(1, 3 - row|length) %}
+              <td class="gutter"></td>
+              <td class="label"></td>
+            {% endfor %}
+          {% endif %}
+        </tr>
+      {% endfor %}
+    </table>
+  {% endfor %}
+</body>
+</html>

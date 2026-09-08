@@ -24,4 +24,12 @@ final class CalendarOperations
   public const string DELETE_CALENDAR_EVENT = 'deleteCalendarEvent';
 
   public const string GET_CALENDAR_FEED = 'getCalendarFeed';
+
+  public const string CREATE_CALENDAR_FEED_TOKEN = 'createCalendarFeedToken';
+
+  public const string GET_CALENDAR_FEED_TOKEN = 'getCalendarFeedToken';
+
+  public const string DELETE_CALENDAR_FEED_TOKEN = 'deleteCalendarFeedToken';
+
+  public const string GET_CALENDAR_FEED_ICS = 'getCalendarFeedIcs';
 }

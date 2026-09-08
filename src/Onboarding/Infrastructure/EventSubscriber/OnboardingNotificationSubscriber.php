@@ -164,7 +164,8 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
   private function resolveUserEmail(string $userId): ?string
   {
     try {
-      /** @var GetUserResult $result */
+      /**
+       * @var GetUserResult $result */
       $result = $this->queryBus->ask(new GetUserQuery(id: $userId));
 
       return $result->user instanceof UserView ? $result->user->email : null;

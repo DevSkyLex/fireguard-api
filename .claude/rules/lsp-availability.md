@@ -67,9 +67,11 @@ file.
 ### Also sweep `*.md` — Serena is blind to prose, and prose rots
 
 The only genuine defect the whole exercise surfaced was in documentation:
-`src/Intervention/MODULE.md:1664` cited `Audit\Domain\Exception\AuditExportTooLargeException`,
-a namespace that no longer exists (the class lives at `Audit\Application\Contract\`). No symbol
-index can find that. **Add `Grep -w "<Symbol>" --include="*.md"` to any rename** — it is cheap
+`src/Intervention/MODULE.md` cited `Audit\Domain\Exception\AuditExportTooLargeException`, a
+namespace that no longer exists (the class lives at `Audit\Application\Contract\`). No symbol
+index can find that. **Fixed 2026-09-03** — and note that the citation carried a line number
+which had already drifted from 1664 to 1725 before anyone corrected the namespace itself, which
+is the second lesson: a line number in prose rots faster than the prose around it. **Add `Grep -w "<Symbol>" --include="*.md"` to any rename** — it is cheap
 and it is the one thing Serena structurally cannot answer.
 
 ### `Glob` and `Grep` do not agree on scope

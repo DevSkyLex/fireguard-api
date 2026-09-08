@@ -51,6 +51,7 @@ use Symfony\Component\HttpFoundation\Response;
                   'label' => ['type' => 'string', 'description' => 'Optional display label.'],
                   'workItemId' => ['type' => 'string', 'description' => 'Optional owning work item IRI or bare id — scopes the attachment to that work item.'],
                   'kind' => ['type' => 'string', 'enum' => ['file', 'signature'], 'description' => 'Attachment kind. Defaults to "file"; "signature" is the typed completion signature (at most one per intervention, image MIME only).'],
+                  'clientId' => ['type' => 'string', 'format' => 'uuid', 'description' => 'Optional client-generated attachment UUID (idempotency key for offline replay). Replaying the same clientId returns the already-stored attachment instead of creating a duplicate; a clientId owned by another intervention is rejected with 409.'],
                 ],
                 'required' => ['file'],
               ],

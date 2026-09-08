@@ -6,6 +6,9 @@ namespace Facility\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
+use Facility\Application\UseCase\Query\ExportFacilities\ExportFacilitiesHandler;
+use Facility\Application\UseCase\Query\GeocodeAddress\GeocodeAddressHandler;
+use Facility\Presentation\Api\Controller\ExportFacilitiesController;
 use Facility\Presentation\Api\Dto\Input\Facility\{
   CreateFacilityInput,
   DuplicateFacilitySubtreeInput,
@@ -13,7 +16,7 @@ use Facility\Presentation\Api\Dto\Input\Facility\{
   SetFacilityPlanGeometryInput,
   UpdateFacilityInput
 };
-use Facility\Presentation\Api\Dto\Output\Facility\{FacilityOutput, FacilityPlanOverlayOutput};
+use Facility\Presentation\Api\Dto\Output\Facility\{FacilityBuildingModelOutput, FacilityOutput, FacilityPlanOverlayOutput, GeocodeAddressOutput, SuggestAddressesOutput};
 use Facility\Presentation\Api\Operation\FacilityOperations;
 use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
@@ -25,11 +28,14 @@ use Facility\Presentation\Api\Processor\Facility\{
   UpdateFacilityProcessor
 };
 use Facility\Presentation\Api\Provider\Facility\{
+  FacilityBuildingModelProvider,
   FacilityPlanOverlayProvider,
+  GeocodeAddressProvider,
   GetFacilityProvider,
   ListFacilitiesProvider,
   ListFacilityChildrenProvider,
-  ListFacilityDescendantsProvider
+  ListFacilityDescendantsProvider,
+  SuggestAddressesProvider
 };
 use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -145,6 +151,160 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Facilities retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::EXPORT_FACILITIES,
+      description: 'Streams a bounded CSV export of facilities using the same filter subset as the list endpoint.',
+      uriTemplate: '/{organizationId}/facilities/export',
+      controller: ExportFacilitiesController::class,
+      read: false,
+      write: false,
+      deserialize: false,
+      serialize: false,
+      output: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Export facilities (CSV)',
+        description: 'Streams a CSV export of facilities (Content-Disposition: attachment) for the given '
+          . 'organization, using the same filter subset as the list endpoint. Requires '
+          . '`organization.facilities.read` on the organization, resolved the same way the list endpoint '
+          . 'resolves it — a resource-level ROLE_USER check alone does not grant access. Bounded to '
+          . ExportFacilitiesHandler::MAX_EXPORT_ROWS . ' matching rows — the request is rejected with 422 if '
+          . 'the filters match more; narrow with a more specific filter and retry. The first seven CSV columns '
+          . '(type, name, code, address, latitude, longitude, parentCode) are the round-trip contract read back '
+          . 'by the bulk CSV import.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(
+            name: 'includeArchived',
+            in: 'query',
+            required: false,
+            description: 'When true, archived facilities are included. Default: false.',
+            schema: ['type' => 'boolean', 'default' => false],
+          ),
+          new Parameter(
+            name: 'type',
+            in: 'query',
+            required: false,
+            description: 'Filter by facility type.',
+            schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
+          ),
+          new Parameter(
+            name: 'status',
+            in: 'query',
+            required: false,
+            description: 'Filter by facility status.',
+            schema: ['type' => 'string', 'enum' => ['active', 'archived']],
+          ),
+          new Parameter(
+            name: 'parentFacilityId',
+            in: 'query',
+            required: false,
+            description: 'Filter by direct parent facility identifier.',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+          new Parameter(
+            name: 'rootsOnly',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+            schema: ['type' => 'boolean', 'default' => false],
+          ),
+          new Parameter(
+            name: 'code',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact facility code.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'search',
+            in: 'query',
+            required: false,
+            description: 'Text search across facility name/code.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'hasCoordinates',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+            schema: ['type' => 'boolean'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'CSV export streamed successfully'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier or an invalid enum filter value'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.facilities.read'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'The organization is outside the caller\'s scope'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Export exceeds the row cap; narrow the filters and retry'),
+        ],
+      ),
+    ),
+    // Declared BEFORE GET_FACILITY on purpose: `/facilities/geocode` and
+    // `/facilities/{facilityId}` share a prefix, and the router matches in
+    // declaration order — after the item route, "geocode" would be read as a
+    // facilityId (same reason the export operation sits above too).
+    new Get(
+      name: FacilityOperations::GEOCODE_ADDRESS,
+      uriTemplate: '/{organizationId}/facilities/geocode',
+      input: false,
+      output: GeocodeAddressOutput::class,
+      provider: GeocodeAddressProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Geocode an address',
+        description: 'Resolves a free-form postal address to WGS 84 coordinates as an aid to facility data '
+          . 'entry. The lookup is proxied server-side through the configured geocoding provider (Nominatim '
+          . 'by default) — the browser never calls the provider directly. Requires '
+          . '`organization.facilities.write` on the organization (resolved via resolveAccess): geocoding '
+          . 'exists to FILL a facility\'s coordinates, so it is gated as a write-path aid, not a read. '
+          . 'Rate limited to 30 requests per minute per user; the shared outbound channel is additionally '
+          . 'throttled server-side to 1 request per second (Nominatim usage policy).',
+        parameters: [
+          new Parameter(
+            name: 'address',
+            in: 'query',
+            required: true,
+            description: 'Free-form postal address to resolve (1 to ' . GeocodeAddressHandler::MAX_ADDRESS_LENGTH . ' characters).',
+            schema: ['type' => 'string', 'maxLength' => GeocodeAddressHandler::MAX_ADDRESS_LENGTH],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Best-match coordinates for the address'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing, empty, or too-long address'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Authenticated but missing organization.facilities.write'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'No coordinates found for the address (or the organization is outside the caller\'s scope)'),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(description: 'More than 30 geocoding requests in a minute'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::SUGGEST_ADDRESSES,
+      uriTemplate: '/{organizationId}/facilities/address-suggestions',
+      input: false,
+      output: SuggestAddressesOutput::class,
+      provider: SuggestAddressesProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Suggest postal addresses',
+        description: 'Returns up to five concrete international addresses. Requires organization.facilities.write. '
+          . 'Thirty requests per minute per user; remote failures return 503, an empty member list means no match.',
+        parameters: [new Parameter(name: 'q', in: 'query', required: true, schema: ['type' => 'string', 'minLength' => 3, 'maxLength' => 250])],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Address matches in member with totalItems'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing or invalid search text'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Missing organization.facilities.write'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization outside caller scope'),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(description: 'User search budget exceeded'),
+          HttpResponse::HTTP_SERVICE_UNAVAILABLE => new Response(description: 'Address provider unavailable'),
         ],
       ),
     ),
@@ -363,6 +523,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::GET_FACILITY_BUILDING_MODEL,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/building-model',
+      output: FacilityBuildingModelOutput::class,
+      provider: FacilityBuildingModelProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Get facility 3D building model',
+        description: 'Assembles, for a `building` facility, the ordered stack of floors a 3D viewer extrudes — each floor\'s outline and its rooms. A building with no floors, a floor with no primary plan, or a floor with no room are all valid "200" shapes, never errors.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Building model retrieved'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Facility is not a building'),
         ],
       ),
     ),

@@ -18,6 +18,9 @@ Main goals:
 | --- | --- | --- |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
+| GET | `/api/organizations/{organizationId}/facilities/export` | Streams a bounded CSV export of facilities, same filter subset as the list endpoint plus `search`. Requires `organization.facilities.read`, resolved in `ExportFacilitiesHandler` (not the resource's coarse `ROLE_USER` gate). Bounded to `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) matching rows — 422 past that. |
+| GET | `/api/organizations/{organizationId}/facilities/address-suggestions?q=…` | Address suggestions (3–250 characters), `organization.facilities.write`; up to five `member` entries (canonical label, coordinates, street, city, region, postal code, country and ISO country code) and `totalItems`; 400/403/404/429/503 |
+| GET | `/api/organizations/{organizationId}/facilities/geocode?address=…` | Server-side geocoding input aid: resolves a free-form address (1–300 chars) to `{ latitude, longitude, displayName }` through `GeocodingPort` (Nominatim behind `GEOCODING_BASE_URL`). Requires `organization.facilities.write` — write, not read: the lookup exists to FILL a facility's coordinates, and only write-entitled members may burn the shared outbound budget. Rate limited 30/min/user (`facility_geocode`); the adapter additionally throttles the aggregate outbound channel to 1 req/s (Nominatim policy). 404 when no coordinates match (plain not-found, no oracle at stake — an address is not a resource). Declared before the `{facilityId}` item route so `geocode` is never read as an id. |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants` | List all descendants for bulk subtree reads |
@@ -26,6 +29,7 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
 | PUT | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry` | Set or clear this facility's plan geometry (Phase 4) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan, every self-or-descendant zone bound to it, and every equipment item pinned on it (Phase 4, equipment additive — see Equipment's MODULE.md) |
+| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/building-model` | Read the ordered stack of floors (outline + rooms) a 3D viewer extrudes for a `building` facility (A3) |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/duplicate` | Duplicate a facility and its full subtree into a new branch |
 | GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
 | GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
@@ -60,6 +64,46 @@ default empty array — populating it per row would be an N+1 ancestor lookup pe
 page. `FacilitySerializationGroup::READ` is shared across every operation (there
 is no detail-only serialization group in this module today), so the split is
 enforced by the providers, not by the wire contract.
+
+### CSV export and the Import round-trip contract
+
+`GET /api/organizations/{organizationId}/facilities/export` streams a synchronous
+CSV (no 202+poll), mirroring `Intervention\...\ExportInterventionsController`'s
+pattern: `ExportFacilitiesController` authenticates, resolves the same filter
+subset the list endpoint accepts (plus `search`), and dispatches
+`ExportFacilitiesQuery`. `ExportFacilitiesHandler` resolves
+`organization.facilities.read` through `OrganizationAuthorizationPort` itself —
+the resource's `is_granted('ROLE_USER')` is only the coarse gate — counts the
+match before fetching a single row, and rejects with 422
+(`FacilityExportTooLargeException`) past `MAX_EXPORT_ROWS` (50 000). Under the
+cap, `FacilityRepositoryPort::findByOrganizationId()` is reused directly (no
+intermediate "candidate" projection: unlike Intervention's cross-context
+workflow gateway, this port already returns the full `Facility` aggregate in
+one query), and every row's parent facility `code` is resolved in one bulk
+call to `FacilityRepositoryPort::getFacilityCodesByIds()`.
+
+`FacilityCsvWriter::HEADER`'s **first seven columns are a stable contract**:
+
+```
+type, name, code, address, latitude, longitude, parentCode
+```
+
+in that exact order — `Import\Application\Service\FacilityRowFactory` reads a
+bulk-import CSV back with this same header, so a file exported here can be
+re-imported unchanged. `parentCode` is the parent facility's own `code`, never
+its id, because the import side resolves a parent by `code`. Latitude/longitude
+are written as plain decimal strings (no locale formatting). Every column past
+`parentCode` (`id`, `status`, `createdAt`, `updatedAt`, `levelIndex`) is read-only
+export metadata the import side ignores — which is why `levelIndex` was appended at
+the very end rather than slotted among the descriptive columns: inserting it into the
+first seven would silently break the bulk import round trip.
+`tests/Unit/Facility/Presentation/Api/Service/FacilityCsvWriterTest.php` freezes
+the first-seven-columns ordering.
+
+A `FacilitiesExportedEvent` is dispatched after a successful export, carrying
+only the applied filter **names** (`filterKeys`), never their raw values. The
+Audit module wires it centrally to the `facility.list_exported` action — this
+module never writes to the audit ledger directly.
 
 ### Attachments (R11b, floor plans Phase 3)
 
@@ -262,18 +306,82 @@ recursive CTE joined with a `plan_geometry ->> 'attachmentId'` filter
 (`FacilityRepositoryPort::findZonesForPlanAttachment()`), never a
 descendants query followed by N geometry reads. An explicit `attachmentId`
 still goes through the same kind and ancestry checks as the write path. The
-Output DTO additionally carries `equipment: [{equipmentId, name, status, x,
-y}]` — every equipment item, scoped to the organization, whose
+Output DTO additionally carries `equipment: [{equipmentId, type, serialNumber,
+locationLabel, status, x, y}]` — every equipment item, scoped to the
+organization, whose
 `Equipment\Domain\ValueObject\PlanPosition` references the same attachment,
 resolved cross-module through
 `Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort`
 (implemented by `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter`,
 mirroring `FacilityEquipmentDependencyPort`'s direction — Facility declares
-the port, Equipment's Infrastructure supplies the data). See
+the port, Equipment's Infrastructure supplies the data). **The identity travels in parts, not as a label.** Equipment has no name
+field, so this endpoint used to compose one and sent
+`"gas_detector (SEED-GAS-003)"` — a raw enum value a client can only print
+verbatim, in English, underscore included. Naming the thing belongs to the
+client: it owns the translated type catalogue and it alone knows the user's
+locale. `locationLabel` is the operator's own words for where the item sits
+and is usually the best label of the three. See
 `src/Equipment/MODULE.md` for the write side
 (`PUT .../equipment/{id}/plan-position`) and the
 `EquipmentFloorPlanValidationPort` this module implements in the other
 direction.
+
+**Read — `GET /organizations/{organizationId}/facilities/{facilityId}/building-model`
+(A3).** For a `building` facility, assembles the ordered stack of floors a 3D
+viewer extrudes: `{buildingId, buildingName, floors: [{facilityId, name,
+levelIndex, status, plan, outline, rooms}]}`. `FacilityNotFoundException`
+(unknown facility, or one belonging to another organization — same message,
+no oracle) is **404**; `FacilityNotBuildingException` (the target facility's
+`type` is not `building`) is **409**. Both are mapped centrally
+(`config/packages/api_platform.yaml`); `FacilityBuildingModelProvider` holds
+no try/catch — it only resolves the `organization.facilities.read` gate
+through `OrganizationAuthorizationPort::resolveAccess()`, dispatches
+`GetFacilityBuildingModelQuery`, and maps the Result.
+
+Nothing beyond 403/404/409 is an error. A building with no floors answers
+`200` with `floors: []`; a floor with no primary plan answers `plan: null`;
+a floor with no room answers `rooms: []`.
+
+Each floor's `outline` follows a strict cascade, recorded in `source`:
+
+1. `plan_geometry` — the floor's own `planGeometry`, only when it is
+   expressed in the floor's own primary-plan coordinate space (an
+   ancestor's plan is a different frame and unusable here);
+2. `rooms_bbox` — the axis-aligned bounding box of the floor's retained
+   rooms;
+3. `image_rect` — the unit rectangle `[[0,0],[1,0],[1,1],[0,1]]`, only when
+   the floor has a primary plan but no room to bound it;
+4. `null` — none of the above applies.
+
+`rooms` keeps geometric leaves only: among a floor's rooms, one nested
+inside another room on the *same floor* (an `area` inside a `zone`) is
+dropped, so a 3D view never receives two overlapping volumes. The kept
+shape is byte-for-byte `GetFacilityPlanOverlayResult::$zones`
+(`facilityId, name, type, status, points`) — the frontend reuses the same
+TypeScript models for both endpoints. All of this lives in
+`GetFacilityBuildingModelHandler`, over `FacilityRepositoryPort`'s
+`findBuildingFloors()`/`findRoomsForFloors()`; no new port was needed.
+
+**Two costs of the plain-array output, both deliberate.** `floors` is a single
+array-typed property on `FacilityBuildingModelOutput`, mirroring how
+`FacilityPlanOverlayOutput` carries `zones`/`equipment`, rather than a list of
+nested DTOs. That choice buys symmetry between the two endpoints and pays for
+it twice:
+
+- **The generated OpenAPI describes `floors` as an opaque array of objects.**
+  Field names, the `outline.source` enum, and the `plan`/`rooms` sub-shapes are
+  absent from the published schema — a codegen client gets no types here. The
+  frontend hand-writes its mirrors under `models/` and `/fg-contract-check`
+  guards the drift, so the practical cost is low; but this is now the second
+  endpoint paying it, and a third would read as settled precedent. Revisit with
+  real sub-DTOs if either payload gains a consumer that reads only the schema.
+- **Nested nulls are emitted, not omitted.** API Platform drops a null *DTO
+  property* — which is why `FacilityOutput.planGeometry` arrives `undefined` on
+  a collection read — but that rule does not reach inside an array-typed
+  property. `plan: null`, `outline: null` and `levelIndex: null` therefore ship
+  explicitly. Preferable for a client that would otherwise have to tell an
+  absent key from a null one, and worth knowing before assuming the omission
+  convention holds everywhere.
 
 ### Metadata schema (organization-defined typed fields)
 
@@ -404,10 +512,30 @@ Main fields:
 - `address` (optional)
 - `latitude` (optional, decimal degrees, range [-90, 90]; required together with `longitude`)
 - `longitude` (optional, decimal degrees, range [-180, 180]; required together with `latitude`)
+- `levelIndex` (optional, signed integer, range [-100, 200]) — stacking order of a floor
+  within its parent building: ground floor `0`, basement `-1`. Semantically meaningful on
+  `type: floor`, but accepted on every type: the hierarchy is homogeneous everywhere else and
+  this is not the place to introduce the first type-dependent constraint. **Duplicates between
+  sibling floors are tolerated** — no unique index, because a subtree move would produce
+  transient collisions; consumers order by `level_index ASC NULLS LAST, created_at ASC, id ASC`,
+  so unset levels stack after the ordered ones in creation order. The range is enforced in the
+  **domain** (`Facility::normalizeLevelIndex`, `CanonicalFacility::applyPatch`), not only by the
+  DTO's `Assert\Range` — the canonical PATCH surface cannot bypass it. Unlike `planGeometry`, it
+  is exposed on collections as well as on the detail read.
 - `metadata` (JSON object)
 - `planGeometry` (optional, `{attachmentId, points}`, Phase 4 — see the
   "Spatial zone geometry" section above)
 - `createdAt`, `updatedAt`
+
+> **Adding a scalar column here takes two edits, not one.** `FacilityRepository::save()` writes
+> a new row through `FacilityMapper::toRecord()`, but for an **existing** row it copies the
+> aggregate field by field onto the managed record. A field added to the mapper and forgotten in
+> that copy block persists on create and is **silently dropped on every update** — the PATCH
+> still echoes the value, because the response serializes the in-memory Result, so only a read
+> *after* a write exposes it. `levelIndex` shipped with exactly that hole; the regression test is
+> `FacilityApiTest::testPatchingLevelIndexSurvivesTheNextDetailRead`, which does POST → PATCH →
+> GET rather than trusting the PATCH body. The canonical surface is unaffected: it goes through
+> `CanonicalFacilityMapper::applyTo()`, a separate copy list.
 
 Aggregate:
 
@@ -427,6 +555,12 @@ Aggregate:
   physical column is `JSONB` (indexable, used by the plan-overlay CTE's
   `->>'attachmentId'` filter) while the ORM mapping stays the same `json`
   DBAL type as `metadata`.
+- Migration (level index): `migrations/main/Version20260830141438.php` —
+  `level_index INT NULL` plus the composite index `idx_facility_parent_level
+  (parent_facility_id, level_index)`, which the floor ordering reads. The index is not
+  Doctrine-diffable, so it is hand-written in the migration **and** declared as an
+  `#[ORM\Index]` on `FacilityRecord`; without the attribute `doctrine:schema:validate`
+  reports it as untracked drift forever.
 - Repository: `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository`
 - Table: `facility_attachments` (main database) — `facility_id` FK `ON DELETE
   CASCADE`, unique `storage_path`, `revision` (ETag optimistic concurrency,
@@ -487,6 +621,10 @@ Cross-module contracts and lifecycle invariants:
   guard (recurrence materialization reads it independently of the archival
   check), so an archived facility can still receive newly materialized
   interventions from an existing recurrence — a follow-up candidate.
+- `Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter` implements
+  the Organization module's `FacilitySearchPort` for the organization global
+  search (`GET /organizations/{organizationId}/search`) — bounded org-scoped
+  `LIKE` over name/code/address, published records only.
 - **Equipment plan-position cross-module pair (Phase 4)**: two ports, one in
   each direction, both scoped to this feature only. Outbound —
   `FacilityEquipmentPlanPositionPort::findEquipmentPlacedOnPlan()`, consumed
@@ -505,6 +643,21 @@ Cross-module contracts and lifecycle invariants:
   `Application\Contract\`, staying inside the cross-module boundary rule.
   Facility's own `FacilityAttachmentNotAncestorException` (Domain) is caught
   in the adapter and translated to the contract type at the boundary.
+- **3D building model**:
+  `Application/UseCase/Query/Facility/GetFacilityBuildingModel/GetFacilityBuildingModelHandler`
+  assembles a building's ordered floor stack for a 3D viewer to extrude,
+  entirely from `FacilityRepositoryPort::findBuildingFloors()` /
+  `::findRoomsForFloors()` — both raw-row reads, no new port. Refuses a
+  non-`building` facility with `FacilityNotBuildingException` (409). Two
+  rules live in the handler, not the repository: a **geometric-leaf**
+  filter drops any room that is another same-floor room's declared parent
+  (an `area` nested in a `zone` would otherwise double-render), and an
+  **outline cascade** per floor — the floor's own `planGeometry` only when
+  expressed in its own primary-plan coordinate space, else the bounding box
+  of its retained rooms, else the unit image rectangle when a primary plan
+  exists, else `null`. `GetFacilityBuildingModelResult::$floors[]['rooms']`
+  is byte-for-byte `GetFacilityPlanOverlayResult::$zones`'s shape on purpose
+  — the frontend reuses the same models for both.
 - Canonical DELETE = archive — the only REVERSIBLE retirement state (restore is
   refused while the parent is archived). Idempotent: a repeat DELETE is a no-op.
 - The descendants listing and the archival probe (`hasActiveDescendants`) run on
@@ -660,6 +813,8 @@ disappeared.
 | `FacilitySubtreeTooLargeException` | 422 | Source facility's subtree (including archived nodes) would traverse more than 500 nodes |
 | `Organization\Application\Contract\Quota\OrganizationQuotaExceededException` | 409 | The whole clone count would exceed the organization's `facilities` plan quota |
 | `FacilityHierarchyException` / `InvalidArgumentException` | 400 | Malformed input, or an invalid/out-of-organization target parent |
+| `FacilityAddressNotFoundException` | 404 | Geocode lookup: the provider knows no coordinates for the submitted address (mapped centrally via `api_platform.exception_to_status`, FG-035 — the provider is catch-free) |
+| `FacilityAccessDeniedException` | 403 | Caller is in the organization but lacks the required `organization.facilities.*` permission (now also in `api_platform.exception_to_status` for the catch-free geocode path) |
 
 All other domain exceptions raised by this module map the same way as the
 other Facility endpoints (see the create/archive/move handlers).
@@ -768,10 +923,113 @@ counts and ancestry the write path has no reason to carry).
   and `Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort`
   are wired with `$entityManager: '@doctrine.orm.main_entity_manager'`, same
   as every other Facility repository.
+- `ExportFacilitiesHandler` is registered with the `messenger.message_handler`
+  tag, same as every other query handler; it touches Doctrine only through
+  `FacilityRepositoryPort`, so it names no `$entityManager` itself.
+  `ExportFacilitiesController`, `FacilityCsvWriter`, and
+  `FacilityExportCriteriaFactory` are plain autowired Presentation services
+  under the `Facility\Presentation\` resource scan — none of them touch
+  Doctrine directly, so none needs an `$entityManager` argument either.
+  `getFacilityCodesByIds()` was added to `FacilityRepositoryPort` /
+  `FacilityRepository` for the export's `parentCode` resolution; it reuses the
+  already-wired `doctrine.orm.main_entity_manager`, no new alias needed.
+
+- Address geocoding (2026-08-28):
+  - `GEOCODING_BASE_URL` (env, default `https://nominatim.openstreetmap.org`):
+    base URL of the service behind `GeocodingPort`. Free public Nominatim by
+    default — no API key. `.env.test` pins it to an unroutable address so no
+    test can reach the real service. See OPERATIONS.md.
+  - `Facility\Application\Port\Outbound\GeocodingPort` is aliased to
+    `Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter` in
+    `config/modules/facility.yaml`. The adapter names **no** entity manager —
+    it touches no database. It enforces the Nominatim usage policy itself:
+    identifying `User-Agent` (`FireGuard/1.0 (contact@valentin-fortin.pro)`),
+    3 s timeout, and a process-safe 1 req/s outbound throttle (a `LockFactory`
+    lock — the schedulers' pattern — around a last-request timestamp kept in
+    the shared cache pool). Results are cached 24 h per hashed normalized
+    address through Shared's `CachePort`; definitive answers only (matches and
+    provider-confirmed misses), never transport failures. Every failure is
+    fail-soft `null` — geocoding never blocks facility management.
+  - `facility_geocode` rate limiter (`config/packages/rate_limiter.yaml`):
+    sliding window, 30/min, keyed by user id in `GeocodeAddressProvider`.
+  - `GeocodeAddressHandler` is a `messenger.message_handler` like every other
+    query handler; ports-only (`GeocodingPort` + `OrganizationAuthorizationPort`).
 
 ## Testing
 
+### Seeded floor plans
+
+`make seed-fixtures` produces one building whose plan pipeline is fully
+exercisable end to end, because until 2026-08-30 it produced none at all:
+`facility_attachments` held zero `floor_plan` rows and no facility had a
+`plan_geometry`, so the plan viewer, the outline editor, the equipment pin
+layer and the 3D building view were all unverifiable locally without seeding
+the database by hand.
+
+`Main Building` now carries:
+
+- **two ordered floors** — `Floor 1` (`levelIndex` 0) and `Floor 2` (1) — each
+  with its own primary `floor_plan` attachment, 2400×1600;
+- a `plan_geometry` on each floor pointing at **its own** primary plan, which
+  is what makes the building model answer `outline.source: plan_geometry`
+  rather than falling through to a bounding box;
+- an `area` nested inside a `zone` on both floors (`Server Room` in `Zone A`,
+  `Storage Room` in `Zone B`), both with outlines — this is what exercises the
+  **geometric-leaf rule**: the building model must return the inner `area` and
+  drop the enclosing `zone`;
+- two equipment items pinned inside `Server Room` via `plan_position`.
+
+The plan images live in `src/Facility/Infrastructure/DataFixtures/assets/` as
+hand-written SVGs rather than raster blobs: they are reviewable in a diff, they
+weigh nothing, and their `width`/`height` attributes are exactly what
+`ImageDimensions` probes. Their bytes are written at the real
+`StoragePathScheme` path, because the viewer downloads them — unlike the
+document seeds, whose bytes nothing reads and which therefore keep a
+placeholder path and no file at all.
+
+**Seed from inside the container when the bytes matter.** `compose.yaml` mounts
+`app_var` — a *named volume* — over `/var/www/html/var`, so the host's `var/`
+and the container's are two different filesystems. `make seed-fixtures` runs on
+the host, which is fine for rows but writes the plan images somewhere the API
+will never look: the download endpoint answers **404** and the plan viewer
+spins forever on an image that exists, on the wrong disk. Seed the files where
+the app reads them:
+
+```bash
+make seed-fixtures-docker
+```
+
+The symptom is worth recognizing because it looks like a frontend fault: the
+attachment row is right there in the database, its dimensions are right, and
+the viewer still shows nothing.
+
+**A fixture that another fixture depends on cannot take a constructor
+argument.** Doctrine's `Loader::addFixture()` resolves each declared dependency
+through `createFixture()`, a bare `new $class()`, and it does so *before*
+checking whether that class is already registered — so the container's
+carefully autowired instance is beside the point, and a required argument is a
+fatal error. That is why `FacilityFixtures` writes its bytes with plain
+filesystem calls against the `STORAGE_DSN` it reads itself, rather than through
+`FileStoragePort`. Only `local://` is handled, the only scheme seeding runs
+against. Worth knowing before adding a service dependency to any fixture in
+this repo.
+
 - Unit: `tests/Unit/Facility`
+  - `Application/UseCase/Query/ExportFacilities/ExportFacilitiesHandlerTest` —
+    403 without `organization.facilities.read`, 404 outside the organization's
+    scope, 422 past `MAX_EXPORT_ROWS`, and the success path resolving a
+    child's `parentCode` in one bulk call while an unresolvable parent id
+    falls back to `null` rather than an empty string.
+  - `Presentation/Api/Controller/ExportFacilitiesControllerTest` — the
+    streamed CSV shape (content type, `Content-Disposition: attachment`,
+    header row, `parentCode` in a data row), the 400 for a missing
+    `organizationId`, the audited filter *names* only, 401 unauthenticated,
+    and the bus-wrapped 403/422 domain exceptions unwrapped by
+    `FacilityExportExceptionMapperTrait`.
+  - `Presentation/Api/Service/FacilityCsvWriterTest` — freezes
+    `FacilityCsvWriter::HEADER`'s first seven columns as the
+    `Import\Application\Service\FacilityRowFactory` round-trip contract, and
+    the plain-decimal coordinate formatting.
   - `Domain/Model/Facility/CanonicalFacilityTest` — the canonical rules with
     no container and no mocks: the changed-field list reporting what DIFFERS
     rather than what the body carried, trimming, explicit-null erasure versus
@@ -844,6 +1102,15 @@ counts and ancestry the write path has no reason to carry).
   `path` mapping, collection left empty);
   `tests/Integration/Facility/Infrastructure/Adapter/Intervention/FacilityInterventionResourceAdapterApplyTest`
   (includes the metadata-schema-rejection case on the offline apply() path).
+- Functional: `tests/Functional/Api/FacilityExportApiTest.php` — 200 with CSV
+  content type, attachment disposition, the header row, and a seeded child
+  facility's row carrying its parent's resolved `code`; 400 on an unknown
+  `type` filter value; 401 unauthenticated; 403 for a member without
+  `organization.facilities.read`; 404 for a member of another organization
+  (deliberately not 403 — that would confirm the organization exists). The
+  422 row-cap path is covered by `ExportFacilitiesHandlerTest` instead, since
+  `MAX_EXPORT_ROWS` is a class constant and exercising it end-to-end would
+  require seeding 50 001 facilities.
 - Functional: `tests/Functional/Api/{FacilityAttachmentApiTest,FacilityMetadataFieldApiTest}.php`,
   plus the typed-metadata create cases added to `FacilityApiTest.php` — floor
   plan upload (happy path + wrong-MIME 422), `?kind=` list filter, the
@@ -930,7 +1197,27 @@ counts and ancestry the write path has no reason to carry).
 | `CanonicalFacilityValidationException` | 422 | The canonical surface's refusals: a non-nullable field sent as null, an unsupported enum value, a half-supplied coordinate pair, an invalid/foreign/archived parent, a cycle, a depth-cap breach, and a restore under an archived parent. **Note the depth case: `FacilityHierarchyException` is 400, but the canonical surface wrapped its MESSAGE in a 422 rather than letting the exception surface — so this class answers 422 for it too.** |
 | `CanonicalFacilityConflictException` | 409 | Hard-deleting a draft scratchpad row that still has child facilities |
 | `FacilityRevisionMismatchException` | 412 | `If-Match` lost the race between the scope read on the query bus and the mutation's own transaction |
+| `FacilityAccessDeniedException` | 403 | Export endpoint: caller is inside the organization's scope but lacks `organization.facilities.read` |
+| `FacilityExportTooLargeException` | 422 | Export endpoint: the filters match more than `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) facilities |
+| `FacilityNotBuildingException` | 409 | 3D building model query: the requested facility's `type` is not `building`, mapped centrally in `api_platform.exception_to_status` (mirrors `FacilityAttachmentNotFloorPlanException`'s 409) |
 
 Every other domain exception in this module (facility hierarchy, archival
 dependents, code conflicts, …) is mapped locally by its processor/provider,
 following the module's existing convention.
+
+### Address suggestions
+
+`AddressSuggestionsPort` isolates Photon from the application. Searches require the same
+organization scope and write permission as geocoding. Only street-and-city matches with
+valid WGS 84 coordinates are selectable; house numbers remain optional. Successful
+empty results differ from temporary failures (503). Requests are limited to 30/minute
+per user and one uncached outbound request per second across workers, without waiting.
+Successful responses, including empty results, are cached for 24 hours; provider failures
+are never cached. HTTP duration is bounded to three seconds. `PHOTON_BASE_URL` is
+operator configuration, defaults to the public demo, and should point to a private
+instance for sustained traffic. This read-only capability does not persist in either database.
+
+
+## Durable onboarding setup
+
+Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.

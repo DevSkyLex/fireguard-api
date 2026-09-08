@@ -55,6 +55,7 @@ final class OrganizationOnboardingSessionMapper
     $record->createdAt = $session->createdAt();
     $record->updatedAt = $session->updatedAt();
     $record->dismissedAt = $session->dismissedAt();
+    $record->creationIntent = $session->creationIntent();
 
     return $record;
   }
@@ -96,6 +97,7 @@ final class OrganizationOnboardingSessionMapper
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
       dismissedAt: $record->dismissedAt,
+      creationIntent: $record->creationIntent,
     );
   }
   // #endregion

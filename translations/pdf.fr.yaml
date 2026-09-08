@@ -1,0 +1,188 @@
+layout:
+  generatedAt: "Généré le %date%"
+  registrationNumber: "N° d'enregistrement %number%"
+  vatNumber: "TVA %number%"
+
+common:
+  "yes": "Oui"
+  "no": "Non"
+
+compliance:
+  title: "Registre de sécurité"
+  scope:
+    organization: "Rapport d'organisation"
+    facility: "Rapport d'établissement"
+  meta:
+    generatedAt: "Généré le"
+    organization: "Organisation"
+    facility: "Établissement"
+    plan: "Offre"
+    overallStatus: "Statut global"
+  status:
+    compliant: "Conforme"
+    at_risk: "À risque"
+    non_compliant: "Non conforme"
+    not_applicable: "Non applicable"
+  totals:
+    heading: "Totaux"
+    equipmentTotal: "Équipements (total)"
+    upToDate: "À jour"
+    dueSoon: "Échéance proche"
+    overdue: "En retard"
+    unscheduled: "Non planifiés"
+    openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
+  facilities:
+    heading: "Établissements"
+    facility: "Établissement"
+    type: "Type"
+    status: "Statut"
+    equipment: "Équipements (à jour / échéance proche / en retard / non planifiés)"
+    openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
+    lastInspection: "Dernière inspection"
+  note: "Données au %date%. Le statut d'échéance des équipements est rafraîchi par le balayage de maintenance horaire et peut avoir jusqu'à une heure de retard. Ce document est un instantané à date : il n'est pas conservé et peut être régénéré à tout moment depuis le registre en direct."
+
+intervention:
+  title: "Rapport d'intervention — FG-%number%"
+  meta:
+    name: "Nom"
+    type: "Type"
+    status: "Statut"
+    priority: "Priorité"
+    site: "Site"
+    responsible: "Responsable"
+    participants: "Participants"
+    plannedStart: "Début prévu"
+    due: "Échéance"
+    reviewNote: "Note de revue"
+    signature: "Signature de clôture recueillie"
+    labels: "Étiquettes"
+    generatedAt: "Généré le"
+  workItems:
+    heading: "Tâches"
+    empty: "Aucune tâche."
+    action: "Action"
+    target: "Cible"
+    assignee: "Assigné"
+    status: "Statut"
+    required: "Obligatoire"
+    skipReason: "Motif d'omission"
+    evidence: "Preuves"
+  issues:
+    heading: "Problèmes"
+    empty: "Aucun problème."
+    severity: "Sévérité"
+    message: "Message"
+  severity:
+    blocker: "Bloquant"
+    warning: "Avertissement"
+    recommendation: "Recommandation"
+  changes:
+    heading: "Modifications"
+    proposed: "Proposées"
+    applied: "Appliquées"
+    rejected: "Rejetées"
+  attachments:
+    heading: "Pièces jointes"
+    empty: "Aucune pièce jointe."
+    fileName: "Nom du fichier"
+    kind: "Nature"
+  activities:
+    heading: "Faits marquants"
+    empty: "Aucune activité enregistrée."
+    date: "Date"
+    kind: "Nature"
+    event: "Événement"
+    actor: "Acteur"
+    comment: "Commentaire"
+  note: "Ce document est un instantané à date : il n'est pas conservé et peut être régénéré à tout moment depuis le dossier d'intervention en direct."
+
+inspection:
+  title: "Rapport d'inspection"
+  meta:
+    status: "Statut"
+    result: "Résultat"
+    performedAt: "Réalisée le"
+    inspector: "Inspecteur"
+    inspectorOrganization: "Organisme inspecteur"
+    site: "Site"
+    equipment: "Équipement (n° de série)"
+    checklist: "Checklist"
+    notes: "Notes"
+    signature: "Signature enregistrée"
+  responses:
+    heading: "Réponses de la checklist"
+    empty: "Aucune réponse enregistrée."
+    item: "Point de contrôle"
+    answer: "Réponse"
+  nonConformities:
+    heading: "Non-conformités"
+    empty: "Aucune non-conformité."
+    severity: "Sévérité"
+    status: "Statut"
+    description: "Description"
+    recorded: "Relevée le"
+    due: "Échéance"
+    resolved: "Résolue le"
+  note: "Ce document est un instantané à date et n'est pas conservé ; régénérez-le à tout moment depuis la fiche d'inspection."
+
+nonConformities:
+  title: "Rapport de non-conformités"
+  meta:
+    total: "Total des non-conformités"
+    severityFilter: "Filtre de sévérité"
+    statusFilter: "Filtre de statut"
+  severity:
+    low: "Faible"
+    medium: "Moyenne"
+    high: "Élevée"
+    critical: "Critique"
+  status:
+    open: "Ouverte"
+    in_progress: "En cours"
+    done: "Traitée"
+    waived: "Dérogée"
+  table:
+    empty: "Aucune."
+    status: "Statut"
+    age: "Âge (jours)"
+    site: "Site"
+    equipment: "Équipement"
+    createdAt: "Relevée le"
+    resolvedAt: "Résolue le"
+  note: "Ce document est un instantané à date et n'est pas conservé ; régénérez-le à tout moment depuis la liste des non-conformités."
+
+equipment:
+  title: "Fiche équipement"
+  meta:
+    type: "Type"
+    brand: "Marque"
+    model: "Modèle"
+    serialNumber: "N° de série"
+    status: "Statut"
+    site: "Site"
+    location: "Emplacement"
+    installedAt: "Installé le"
+    commissionedAt: "Mis en service le"
+    maintenanceDueStatus: "Statut d'échéance de maintenance"
+    tags: "Étiquettes"
+  maintenance:
+    heading: "Historique de maintenance"
+    empty: "Aucune maintenance enregistrée."
+    startedAt: "Débutée"
+    completedAt: "Terminée"
+    source: "Source"
+    intervention: "Intervention"
+    action: "Action"
+    summary: "Résumé"
+  attachments:
+    heading: "Pièces jointes"
+    empty: "Aucune pièce jointe."
+    fileName: "Nom du fichier"
+    label: "Libellé"
+    mimeType: "Type"
+    uploadedAt: "Ajoutée le"
+  note: "Ce document est un instantané à date et n'est pas conservé ; régénérez-le à tout moment depuis la fiche équipement."
+
+equipmentLabels:
+  title: "Étiquettes QR équipements"
+  serialNumber: "N° série %serial%"

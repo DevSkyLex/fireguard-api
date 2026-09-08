@@ -42,6 +42,7 @@ final class UserMapperTest extends TestCase
 
     $user->verifyEmail($eventProvider);
     $user->recordSuccessfulLogin();
+    $user->recordSignInMethod('google');
     $user->recordFailedLogin();
 
     $mapper = new UserMapper();
@@ -58,6 +59,7 @@ final class UserMapperTest extends TestCase
     self::assertSame((string) $tenantId, $record->tenantId);
     self::assertInstanceOf(DateTimeImmutable::class, $record->createdAt);
     self::assertInstanceOf(DateTimeImmutable::class, $record->lastLoginAt);
+    self::assertSame('google', $record->lastSignInMethod);
     self::assertSame($hashedPassword->value, $record->password);
     self::assertSame(1, $record->failedLoginAttempts);
   }
@@ -121,6 +123,7 @@ final class UserMapperTest extends TestCase
     $record->tenantId = '123e4567-e89b-12d3-a456-426614174999';
     $record->createdAt = new DateTimeImmutable('2024-01-01 00:00:00');
     $record->lastLoginAt = new DateTimeImmutable('2024-01-02 00:00:00');
+    $record->lastSignInMethod = 'microsoft';
     $record->failedLoginAttempts = 2;
 
     $mapper = new UserMapper();
@@ -133,6 +136,7 @@ final class UserMapperTest extends TestCase
     self::assertTrue($user->isEmailVerified());
     self::assertEquals($record->createdAt, $user->createdAt());
     self::assertEquals($record->lastLoginAt, $user->lastLoginAt());
+    self::assertSame('microsoft', $user->lastSignInMethod());
     self::assertSame($record->failedLoginAttempts, $user->failedLoginAttempts());
   }
   // #endregion

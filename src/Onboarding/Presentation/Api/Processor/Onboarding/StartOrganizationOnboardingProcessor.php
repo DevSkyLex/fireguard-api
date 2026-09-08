@@ -48,7 +48,9 @@ final readonly class StartOrganizationOnboardingProcessor implements ProcessorIn
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): OrganizationOnboardingOutput
   {
-    /** @var StartOrganizationOnboardingInput $data */
+    /**
+     * @var StartOrganizationOnboardingInput $data
+     */
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
@@ -58,6 +60,7 @@ final readonly class StartOrganizationOnboardingProcessor implements ProcessorIn
       $this->flowService->start(
         userId: $user->getId(),
         reset: $data->reset,
+        intent: $data->intent,
       ),
     );
   }

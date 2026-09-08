@@ -39,6 +39,9 @@ enum OtpPurpose: string
    */
   case EMAIL_VERIFICATION = 'email_verification';
 
+  /** Fireguard mailbox possession for organization discovery. @since 1.1.0 */
+  case EMAIL_OWNERSHIP = 'email_ownership';
+
   /**
    * Case PHONE_VERIFICATION.
    *
@@ -74,6 +77,7 @@ enum OtpPurpose: string
   public function getDefaultTtlSeconds(): int
   {
     return match ($this) {
+      self::EMAIL_OWNERSHIP => 600,
       self::LOGIN => 300,                    // 5 minutes
       self::PASSWORD_RESET => 900,           // 15 minutes
       self::EMAIL_VERIFICATION => 3600,      // 1 hour
@@ -95,6 +99,7 @@ enum OtpPurpose: string
   public function getDefaultMaxAttempts(): int
   {
     return match ($this) {
+      self::EMAIL_OWNERSHIP => 5,
       self::LOGIN => 5,
       self::PASSWORD_RESET => 5,
       self::EMAIL_VERIFICATION => 10,
@@ -116,6 +121,7 @@ enum OtpPurpose: string
   public function getLabel(): string
   {
     return match ($this) {
+      self::EMAIL_OWNERSHIP => 'Email Ownership',
       self::LOGIN => 'Login 2FA',
       self::PASSWORD_RESET => 'Password Reset',
       self::EMAIL_VERIFICATION => 'Email Verification',

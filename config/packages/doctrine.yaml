@@ -35,6 +35,12 @@ doctrine:
             class: Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter
             enabled: false
         mappings:
+          Auth:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Auth/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Auth\Infrastructure\Persistence\Doctrine\Record'
+            alias: Auth
           OAuth:
             is_bundle: false
             type: attribute
@@ -187,6 +193,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Calendar/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Calendar\Infrastructure\Persistence\Doctrine\Record'
             alias: Calendar
+          Compliance:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Compliance/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Compliance\Infrastructure\Persistence\Doctrine\Record'
+            alias: Compliance
     controller_resolver:
       auto_mapping: false
 

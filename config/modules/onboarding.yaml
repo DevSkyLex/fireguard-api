@@ -27,3 +27,19 @@ services:
 
   Onboarding\Infrastructure\EventSubscriber\OnboardingNotificationSubscriber: ~
 
+  Onboarding\Infrastructure\Persistence\Doctrine\Repository\OrganizationSetupRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Onboarding\Application\Port\Outbound\OrganizationSetupRepositoryPort:
+    alias: Onboarding\Infrastructure\Persistence\Doctrine\Repository\OrganizationSetupRepository
+
+  Onboarding\Application\Service\OrganizationSetupService:
+    arguments:
+      $transactionManager: '@onboarding.main_transaction_manager'
+
+  Onboarding\Application\UseCase\Command\Setup\PrepareOrganizationSetup\PrepareOrganizationSetupHandler:
+    tags: ['messenger.message_handler']
+
+  Onboarding\Application\Port\Inbound\OrganizationSetupPort:
+    alias: Onboarding\Application\Service\OrganizationSetupService

@@ -4,10 +4,12 @@
 
 Import lets an organization onboard a real fire-safety estate in bulk instead
 of one-by-one entry: upload a CSV → a persisted async `ImportJob` streams the
-file row by row and provisions Equipment or Facility resources **through the
-existing Create use cases** (`CreateEquipmentHandler` / `CreateFacilityHandler`),
-so every domain invariant and the organization's plan quota apply exactly as
-they do for the HTTP API — there is no parallel creation path.
+file row by row and provisions Equipment or Facility resources — or, since
+v3, member invitations (`kind=member`) — **through the existing use cases**
+(`CreateEquipmentHandler` / `CreateFacilityHandler` /
+`InviteOrganizationMemberHandler`), so every domain invariant and the
+organization's plan quota apply exactly as they do for the HTTP API — there
+is no parallel creation path.
 
 Main goals:
 
@@ -31,8 +33,8 @@ Main goals:
 
 | Method | Path | Description | Permission |
 | --- | --- | --- | --- |
-| POST | `/api/imports` | Multipart upload (`organization`, `kind`, `file`, optional `dryRun`); `202 {id, status: "pending", dryRun, ...}` | `organization.equipment.write` (kind=equipment) or `organization.facilities.write` (kind=facility) |
-| GET | `/api/imports` | Org-scoped list (filters: `organization` *(required)*, `kind`; 30/page, client page size) | `organization.equipment.read` or `organization.facilities.read` (whichever matches the job's kind; either grants visibility over an unfiltered list) |
+| POST | `/api/imports` | Multipart upload (`organization`, `kind`, `file`, optional `dryRun`); `202 {id, status: "pending", dryRun, ...}` | `organization.equipment.write` (kind=equipment), `organization.facilities.write` (kind=facility) or `organization.members.manage` (kind=member — the same permission `InviteOrganizationMemberProcessor` requires to invite) |
+| GET | `/api/imports` | Org-scoped list (filters: `organization` *(required)*, `kind`; 30/page, client page size) | `organization.equipment.read`, `organization.facilities.read` or `organization.members.read` (whichever matches the job's kind; any of the three grants visibility over an unfiltered list) |
 | GET | `/api/imports/{id}` | Status + counters + per-row report (`errorReport`, including `would_create` entries for a dry-run job) | matching read permission for the job's own kind |
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
@@ -54,16 +56,29 @@ All three handlers decide access through
 - **member of the organization but lacking the permission** → **403**
   (`ImportAccessDeniedException`).
 
-The unfiltered list is granted by *either* read permission, so it gates scope
-first with `isMemberOf()` and only then ORs the two `hasPermission()` calls —
-`resolveAccess()` answers about one permission at a time, and a member
-holding neither must still get 403 rather than 404.
+The unfiltered list is granted by *any* of the three read permissions, so it
+gates scope first with `isMemberOf()` and only then ORs the `hasPermission()`
+calls — `resolveAccess()` answers about one permission at a time, and a
+member holding none must still get 403 rather than 404.
 
 ## CSV format
 
 - **Equipment** (`kind=equipment`) header: `type` (required, must be a valid
   `EquipmentType` value), `subType`, `brand`, `model`, `serialNumber`,
-  `locationLabel`.
+  `locationLabel`, `facilityCode` (optional — the organization-scoped unique
+  `code` of the facility the created item should be assigned to.
+  `EquipmentProvisioningService` resolves it **before creating anything**
+  via `FacilityValidationPort::resolveIdByCode()` (archived facilities
+  excluded); an unknown code is a non-fatal `INVALID` row outcome — caught
+  by a dry run too — and never fails the job. On a real run the created item
+  is then assigned through the existing `AssignToFacilityCommand`: create
+  and assign are two separate synchronous commands, deliberately not atomic
+  — a failed assignment after a successful creation is reported `INVALID`
+  with a message naming the created-but-unassigned item rather than
+  duplicating the creation use case into a shared transaction. The equipment
+  CSV export emits this same `facilityCode` as its 7th column, closing the
+  export→reimport loop — see `src/Equipment/MODULE.md`, "CSV column
+  contract").
 - **Facility** (`kind=facility`) header: `type` (required, `FacilityType`),
   `name` (required), `code`, `address`, `latitude`, `longitude` (both
   optional, but required together — a row with only one is `INVALID`; each
@@ -80,6 +95,18 @@ holding neither must still get 403 rather than 404.
   responsibility. A **dry-run** additionally resolves `parentCode` against
   the rows already reported `would_create` earlier in the same file — see
   "Dry-run mode" below).
+- **Member** (`kind=member`) header: `email` (required), `roles` (optional —
+  organization role *names* separated by `|`, e.g. `admin|manager`; blank or
+  absent falls back to the organization's default `member` role, the same
+  fallback `InviteOrganizationMemberHandler` applies). Each row dispatches
+  the existing invitation use case through
+  `Organization\Application\Port\Inbound\MemberInvitationProvisioningPort`,
+  so the member-cap quota (a pending invitation reserves a slot, checked
+  inside the use case's transaction) and every conflict rule apply exactly
+  as on `POST .../members/invite` — and each accepted row sends the normal
+  invitation email. Failures are per-row and non-fatal, each with its own
+  code: `invalid` (malformed email), `already_member`, `already_invited`,
+  `unknown_role`, `quota_exceeded`.
 - Unknown columns are ignored. Delimiter is sniffed (comma, or semicolon for
   the French-Excel convention); a UTF-8 BOM is stripped. Max 5000 data rows
   (`CsvRowStreamer::DEFAULT_MAX_ROWS`, enforced in `CsvRowStreamer::rows()`;
@@ -89,8 +116,11 @@ holding neither must still get 403 rather than 404.
 - `type` enum membership is **not** validated by Import's own row factories —
   it is left to `CreateEquipmentHandler`/`CreateFacilityHandler` (via the
   provisioning ports below), which already report an invalid value as a
-  non-fatal `INVALID` row outcome. This keeps the row factories free of any
-  dependency on Equipment/Facility's Domain types.
+  non-fatal `INVALID` row outcome. Likewise `MemberRowFactory` checks only
+  that `email` is present — syntax, role existence, conflicts and quota are
+  the provisioning service's and use case's answers. This keeps the row
+  factories free of any dependency on Equipment/Facility/Organization's
+  Domain types.
 
 ## Dry-run mode
 
@@ -142,11 +172,21 @@ nothing:
   (`would_create` counts as success); `status` still reaches `completed` —
   never a distinct "dry-run-completed" status — since the batch ran to
   completion exactly as a real one would.
+- **Member dry run is deliberately lighter.** For `kind=member`,
+  `MemberInvitationProvisioningService` handles `dryRun` itself and never
+  reaches the invitation use case: the email is validated structurally and
+  every role name is resolved (`unknown_role` is caught), then the row is
+  reported `would_create` — nothing persisted, no email sent, **no quota
+  projection and no pending-invitation/active-member lookup**. An invitation
+  is cheap to re-attempt and the conflict/quota answer would be stale by the
+  time a real run followed; the real run still enforces both. Consequently
+  `DryRunProjection` carries no member state at all.
 
 ## Domain Model
 
 `ImportJob` (`Domain/Model/ImportJob`) — a real aggregate (not a record-level
-entity): `id`, `organizationId`, `kind` (`ImportKind`: `equipment`|`facility`),
+entity): `id`, `organizationId`, `kind` (`ImportKind`:
+`equipment`|`facility`|`member`),
 `status` (`ImportStatus`: `pending`|`processing`|`completed`|`failed`),
 `storagePath`, `originalFilename`, `dryRun` (`bool`, default `false` —
 `isDryRun()`), `totalRows` (`?int`, set once counted),
@@ -161,7 +201,9 @@ both flavors of run report through, per "Dry-run mode" above.
 
 `ImportRowError` (`Domain/ValueObject`) — one reported row outcome:
 `rowNumber`, `code` (`quota_exceeded`|`invalid`|`missing_required`|
-`would_create`, the last dry-run only), `message`, optional `column`.
+`already_member`|`already_invited`|`unknown_role` (the member kind's three
+distinct failures)|`would_create` (dry-run only)), `message`, optional
+`column`.
 
 ## Flows
 
@@ -193,25 +235,26 @@ sequenceDiagram
   participant CSV as CsvRowStreamerPort
   participant EQ as EquipmentProvisioningPort
   participant FAC as FacilityProvisioningPort
+  participant MEM as MemberInvitationProvisioningPort
   W->>R: claim(jobId) -- raw-DBAL conditional UPDATE
   Note over W,R: pending OR processing -> processing; completed/failed -> false (no-op)
   R-->>W: false => return (already terminal)
   W->>FS: read(storagePath)
   W->>CSV: countDataRows() -> job.setTotalRows() + save()
   loop each data row (skip rowNumber <= processedRows on resume)
-    W->>W: kind==equipment ? EquipmentRowFactory : FacilityRowFactory
+    W->>W: row factory for kind (Equipment | Facility | Member)
     alt factory throws ImportRowValidationException
       W->>W: job.recordRowError(code, column, message)
     else
       Note over W: job.isDryRun()? rebuild request with dryRun:true,<br/>quotaProjectionOffset, knownPendingCodes (facility)
-      W->>EQ: provision(request) / W->>FAC: provision(request)
+      W->>EQ: provision(request) / W->>FAC: provision(request) / W->>MEM: provision(request)
       alt CREATED
         alt job.isDryRun()
           W->>W: DryRunProjection.record*WouldCreate() + job.recordRowSuccess(would_create)
         else
           W->>W: job.recordRowSuccess()
         end
-      else QUOTA_EXCEEDED / INVALID
+      else QUOTA_EXCEEDED / INVALID / ALREADY_MEMBER / ALREADY_INVITED / UNKNOWN_ROLE (member)
         W->>W: job.recordRowError(...)
       end
     end
@@ -240,7 +283,8 @@ rethrowing would only trigger pointless Messenger retries).
 - **Application** (`src/Import/Application`): use cases (`CreateImportJob`,
   `ProcessImportJob`, `GetImportJob`, `ListImportJobs`), outbound ports
   (`ImportJobRepositoryPort`, `ImportJobQueuePort`, `CsvRowStreamerPort`), the
-  two row factories (`EquipmentRowFactory`, `FacilityRowFactory` — named
+  three row factories (`EquipmentRowFactory`, `FacilityRowFactory`,
+  `MemberRowFactory` — named
   "Factory", not "Mapper": that suffix is reserved for
   `Infrastructure/Persistence/` Doctrine record mappers in this codebase),
   and `Support/DryRunProjection` — the running "would-create" counts (per
@@ -266,6 +310,7 @@ rethrowing would only trigger pointless Messenger retries).
 | `CsvRowStreamerPort` (outbound) | `CsvRowStreamer` |
 | `Equipment\Application\Port\Inbound\EquipmentProvisioningPort` *(cross-module, consumed here)* | `Equipment\Application\Service\EquipmentProvisioningService` |
 | `Facility\Application\Port\Inbound\FacilityProvisioningPort` *(cross-module, consumed here)* | `Facility\Application\Service\FacilityProvisioningService` |
+| `Organization\Application\Port\Inbound\MemberInvitationProvisioningPort` *(cross-module, consumed here)* | `Organization\Application\Service\MemberInvitationProvisioningService` |
 
 **`ImportJobQueuePort` is deliberately NOT `CommandBusPort`**: it mirrors
 `Intervention\Application\Port\Outbound\PublicationQueuePort` — a
@@ -299,9 +344,21 @@ self-contained enum in each of Equipment's and Facility's own `Contract`
 namespaces (rather than shared) so the two sibling modules never depend on
 each other.
 
-Import depends **only** on these two inbound ports and their `Contract`
-types — never on `CreateEquipmentCommand`/`CreateFacilityCommand` or any
-Equipment/Facility Domain type directly.
+**Member invitations follow the same pattern (v3)**:
+`Organization\Application\Port\Inbound\MemberInvitationProvisioningPort`,
+hosted in Organization with its `Contract/Provisioning` types, dispatches the
+existing `InviteOrganizationMemberCommand` after resolving the CSV's role
+*names* to identifiers inside the Organization module. Its `ProvisionOutcome`
+is again a self-contained enum, extended with the three member-specific
+failures (`ALREADY_MEMBER`|`ALREADY_INVITED`|`UNKNOWN_ROLE`) so the row loop
+can report them distinctly; the two conflicts are told apart via
+`OrganizationMembershipConflictException::conflict()`, a discriminator added
+for exactly this. See `src/Organization/MODULE.md`.
+
+Import depends **only** on these three inbound ports and their `Contract`
+types — never on `CreateEquipmentCommand`/`CreateFacilityCommand`/
+`InviteOrganizationMemberCommand` or any Equipment/Facility/Organization
+Domain type directly.
 
 **Dry-run threading**: `ProvisionFacilityRequest`/`ProvisionEquipmentRequest`
 (and, downstream, `CreateFacilityCommand`/`CreateEquipmentCommand`) now carry
@@ -316,9 +373,12 @@ validate the aggregate, skip the transactional save, project the quota via
 
 ## Permissions
 
-Reuses `organization.equipment.write` / `organization.facilities.write` (to
-create an import job) and `organization.equipment.read` /
-`organization.facilities.read` (to read status/list) — no catalog change, no
+Reuses `organization.equipment.write` / `organization.facilities.write` /
+`organization.members.manage` (to create an import job of the matching kind
+— `organization.members.manage` is the exact permission
+`InviteOrganizationMemberProcessor` enforces to invite) and
+`organization.equipment.read` / `organization.facilities.read` /
+`organization.members.read` (to read status/list) — no catalog change, no
 `app:authz:sync-permissions` run needed.
 
 ## Persistence
@@ -355,7 +415,8 @@ create an import job) and `organization.equipment.read` /
 - Module import: `config/packages/modules.yaml`
 - Autoload: `composer.json` (`Import\\` → `src/Import/`)
 - Cross-module wiring (additive): `config/modules/equipment.yaml`,
-  `config/modules/facility.yaml`
+  `config/modules/facility.yaml`, `config/modules/organization.yaml`
+  (`MemberInvitationProvisioningPort` → `MemberInvitationProvisioningService`)
 
 ## Testing
 
@@ -371,10 +432,21 @@ create an import job) and `organization.equipment.read` /
   `CreateEquipmentHandlerTest.php` (no repository write — the negative
   assertion is the point — and the quota-projection throw), and
   `OrganizationQuotaServiceTest.php` for `assertProjectedCanAdd()`.
+- Unit, v3: `tests/Unit/Import/MemberRowFactoryTest.php`, the member cases in
+  `ProcessImportJobHandlerTest.php` (distinct outcome codes, dry run),
+  `tests/Unit/Organization/Application/Service/MemberInvitationProvisioningServiceTest.php`
+  (role-name resolution, conflict discrimination, dry-run non-dispatch), the
+  `facilityCode` cases in `EquipmentRowFactoryTest.php` and
+  `EquipmentProvisioningServiceTest.php` (resolve-then-assign, unknown code,
+  created-but-unassigned reporting, dry-run non-assignment), and the frozen
+  export↔reimport column slice in
+  `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
 - Functional: `tests/Functional/Api/ImportJobApiTest.php` — a dry-run facility
   import (valid + invalid + intra-file-parent rows) asserting the full report
-  and that nothing was persisted, and a real-run regression asserting a
-  facility is actually created.
+  and that nothing was persisted, a real-run regression asserting a facility
+  is actually created, a real member import (invitations persisted, distinct
+  failure codes), a member dry run (nothing persisted), and the
+  `organization.members.manage` denial path.
 - Run module tests: `make test tests/Unit/Import/`
 
 ## Error Codes
@@ -392,7 +464,8 @@ the Organization port raises it directly, though no Import handler throws it
 anymore.
 
 Row-level outcomes (`quota_exceeded`, `invalid`, `missing_required`,
-`would_create`) never surface as HTTP errors — they are recorded in the
+`already_member`, `already_invited`, `unknown_role`, `would_create`) never
+surface as HTTP errors — they are recorded in the
 job's `errorReport` and the request that created the job already returned
 `202`.
 
@@ -409,8 +482,15 @@ state read back from `GET /api/imports/{id}`.
 
 ## Out of scope (documented follow-ons)
 
-- Facility assignment of imported equipment (an `AssignToFacility` step
-  driven by a `facilityCode` column).
+- ~~Facility assignment of imported equipment (an `AssignToFacility` step
+  driven by a `facilityCode` column).~~ **Done (v3, 2026-08-28)** — see the
+  equipment header above and `src/Equipment/MODULE.md`. What remains out of
+  scope from it: atomicity of the create+assign pair (two transactions by
+  design, the failure is reported per row).
+- **Member dry-run conflict/quota preview**: the member dry run reports
+  `would_create` for a row whose real run would answer `already_member`,
+  `already_invited` or `quota_exceeded` — it validates structure, email and
+  role names only, on purpose (see "Dry-run mode").
 - Strict exactly-once provisioning via a per-row reservation table
   (`import_job_rows`, unique `(import_job_id, row_number)`) — today's
   crash-resume bound is "at most one in-flight batch of duplicate creates,"

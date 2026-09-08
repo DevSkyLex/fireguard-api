@@ -342,6 +342,72 @@ final class UpdateFacilityHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeSetsLevelIndexWhenProvided(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    $result = $this->handler($repository)->__invoke($this->command(levelIndex: -1, hasLevelIndex: true));
+
+    self::assertSame(-1, $result->levelIndex);
+  }
+
+  #[Test]
+  public function testInvokeLeavesLevelIndexUnchangedWhenAbsent(): void
+  {
+    $facility = $this->facility();
+    $facility->changeLevelIndex(3);
+    $repository = $this->repositoryReturningFacility($facility);
+
+    $result = $this->handler($repository)->__invoke($this->command(name: 'Renamed', hasName: true));
+
+    self::assertSame(3, $result->levelIndex);
+  }
+
+  #[Test]
+  public function testInvokeClearsLevelIndexWhenSentAsNull(): void
+  {
+    $facility = $this->facility();
+    $facility->changeLevelIndex(3);
+    $repository = $this->repositoryReturningFacility($facility);
+
+    $result = $this->handler($repository)->__invoke($this->command(levelIndex: null, hasLevelIndex: true));
+
+    self::assertNull($result->levelIndex);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenLevelIndexIsOutOfRange(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    $this->handler($repository)->__invoke($this->command(levelIndex: 201, hasLevelIndex: true));
+  }
+
+  #[Test]
+  public function testInvokeReportsLevelIndexInChangedFields(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        self::assertInstanceOf(FacilityUpdatedEvent::class, $event);
+        self::assertSame(['levelIndex'], $event->changedFields);
+
+        return true;
+      }));
+
+    $handler = $this->handler($repository, $eventDispatcher);
+
+    $handler->__invoke($this->command(levelIndex: 5, hasLevelIndex: true));
+  }
+
+  #[Test]
   public function testInvokeMapsDuplicateCodeConstraintViolationToDomainException(): void
   {
     $repository = $this->repositoryFailingWith(new UniqueConstraintViolationException(
@@ -487,6 +553,8 @@ final class UpdateFacilityHandlerTest extends TestCase
     bool $hasCode = false,
     ?string $address = null,
     bool $hasAddress = false,
+    ?int $levelIndex = null,
+    bool $hasLevelIndex = false,
   ): UpdateFacilityCommand {
     return new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440991',
@@ -497,6 +565,8 @@ final class UpdateFacilityHandlerTest extends TestCase
       hasName: $hasName,
       hasCode: $hasCode,
       hasAddress: $hasAddress,
+      levelIndex: $levelIndex,
+      hasLevelIndex: $hasLevelIndex,
     );
   }
 

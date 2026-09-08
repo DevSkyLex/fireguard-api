@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Compliance\Presentation\Api\Factory;
 
 use Compliance\Application\Contract\FacilityComplianceView;
+use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Presentation\Api\Dto\Output\ComplianceSummaryOutput;
 
 use function array_map;
@@ -68,20 +69,7 @@ final class ComplianceSummaryOutputFactory
     $output->facilityId = $facility->facilityId;
     $output->generatedAt = $generatedAt;
     $output->organizationStatus = $facility->status->value;
-    $output->totals = [
-      'totalEquipmentCount' => $facility->totalEquipmentCount,
-      'activeEquipmentCount' => $facility->activeEquipmentCount,
-      'upToDateEquipmentCount' => $facility->upToDateEquipmentCount,
-      'dueSoonEquipmentCount' => $facility->dueSoonEquipmentCount,
-      'overdueEquipmentCount' => $facility->overdueEquipmentCount,
-      'unscheduledEquipmentCount' => $facility->unscheduledEquipmentCount,
-      'trackedEquipmentCount' => $facility->trackedEquipmentCount(),
-      'complianceRate' => $facility->complianceRate(),
-      'openLowNonConformityCount' => $facility->openLowNonConformityCount,
-      'openMediumNonConformityCount' => $facility->openMediumNonConformityCount,
-      'openHighNonConformityCount' => $facility->openHighNonConformityCount,
-      'openCriticalNonConformityCount' => $facility->openCriticalNonConformityCount,
-    ];
+    $output->totals = SafetyRegisterContextBuilder::facilityTotals($facility);
     $output->facilities = [$this->facilityRow($facility)];
 
     return $output;
@@ -118,27 +106,7 @@ final class ComplianceSummaryOutputFactory
    */
   private function facilityRow(FacilityComplianceView $facility): array
   {
-    return [
-      'facilityId' => $facility->facilityId,
-      'name' => $facility->name,
-      'type' => $facility->type,
-      'parentFacilityId' => $facility->parentFacilityId,
-      'path' => $facility->path,
-      'status' => $facility->status->value,
-      'totalEquipmentCount' => $facility->totalEquipmentCount,
-      'activeEquipmentCount' => $facility->activeEquipmentCount,
-      'upToDateEquipmentCount' => $facility->upToDateEquipmentCount,
-      'dueSoonEquipmentCount' => $facility->dueSoonEquipmentCount,
-      'overdueEquipmentCount' => $facility->overdueEquipmentCount,
-      'unscheduledEquipmentCount' => $facility->unscheduledEquipmentCount,
-      'trackedEquipmentCount' => $facility->trackedEquipmentCount(),
-      'complianceRate' => $facility->complianceRate(),
-      'openLowNonConformityCount' => $facility->openLowNonConformityCount,
-      'openMediumNonConformityCount' => $facility->openMediumNonConformityCount,
-      'openHighNonConformityCount' => $facility->openHighNonConformityCount,
-      'openCriticalNonConformityCount' => $facility->openCriticalNonConformityCount,
-      'lastInspectionAt' => $facility->lastInspectionAt,
-    ];
+    return SafetyRegisterContextBuilder::facilityRow($facility);
   }
   // #endregion
 }

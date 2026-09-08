@@ -78,6 +78,15 @@ final class OrganizationNotificationSettingsOutput
   public bool $nonConformityOpened = true;
 
   /**
+   * Property nonConformitySlaBreached.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $nonConformitySlaBreached = true;
+
+  /**
    * Property memberInvited.
    *
    * @since 1.0.0
@@ -85,6 +94,15 @@ final class OrganizationNotificationSettingsOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $memberInvited = true;
+
+  /**
+   * Property weeklyDigest.
+   *
+   * @since 1.2.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $weeklyDigest = true;
   // #endregion
 
   // #region Methods
@@ -110,7 +128,9 @@ final class OrganizationNotificationSettingsOutput
     $output->interventionAssigned = $settings->interventionAssigned;
     $output->inspectionDue = $settings->inspectionDue;
     $output->nonConformityOpened = $settings->nonConformityOpened;
+    $output->nonConformitySlaBreached = $settings->nonConformitySlaBreached;
     $output->memberInvited = $settings->memberInvited;
+    $output->weeklyDigest = $settings->weeklyDigest;
 
     return $output;
   }

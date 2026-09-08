@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
 use Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsQuery;
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
@@ -71,7 +72,11 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    $userId = $user->getUserIdentifier();
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authenticated user type is not supported');
+    }
+
+    $userId = $user->getId();
 
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */

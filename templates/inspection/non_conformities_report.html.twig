@@ -1,0 +1,70 @@
+{% extends 'pdf/layout.html.twig' %}
+
+{% block title %}{{ 'nonConformities.title'|trans({}, 'pdf', lang) }}{% endblock %}
+
+{% block headerTitle %}{{ 'nonConformities.title'|trans({}, 'pdf', lang) }}{% endblock %}
+
+{% block styles %}
+    .severity-critical h2, .severity-critical .group-count { color: #b3261e; }
+    .group-count { font-weight: bold; }
+{% endblock %}
+
+{% block content %}
+  <h1>{{ 'nonConformities.title'|trans({}, 'pdf', lang) }}</h1>
+  <div class="meta">
+    <table>
+      <tr>
+        <td class="meta-label">{{ 'nonConformities.meta.total'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ total }}</td>
+      </tr>
+      {% if severityFilter is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'nonConformities.meta.severityFilter'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ ('nonConformities.severity.' ~ severityFilter)|trans({}, 'pdf', lang) }}</td>
+        </tr>
+      {% endif %}
+      {% if statusFilter is not empty %}
+        <tr>
+          <td class="meta-label">{{ 'nonConformities.meta.statusFilter'|trans({}, 'pdf', lang) }}</td>
+          <td>{{ ('nonConformities.status.' ~ statusFilter)|trans({}, 'pdf', lang) }}</td>
+        </tr>
+      {% endif %}
+    </table>
+  </div>
+
+  {% for group in severityGroups %}
+    <div class="severity-{{ group.severity }}">
+      <h2>{{ ('nonConformities.severity.' ~ group.severity)|trans({}, 'pdf', lang) }} <span class="group-count">({{ group.count }})</span></h2>
+    </div>
+    {% if group.rows is empty %}
+      <p class="empty">{{ 'nonConformities.table.empty'|trans({}, 'pdf', lang) }}</p>
+    {% else %}
+      <table class="data">
+        <thead>
+          <tr>
+            <th>{{ 'nonConformities.table.status'|trans({}, 'pdf', lang) }}</th>
+            <th>{{ 'nonConformities.table.age'|trans({}, 'pdf', lang) }}</th>
+            <th>{{ 'nonConformities.table.site'|trans({}, 'pdf', lang) }}</th>
+            <th>{{ 'nonConformities.table.equipment'|trans({}, 'pdf', lang) }}</th>
+            <th>{{ 'nonConformities.table.createdAt'|trans({}, 'pdf', lang) }}</th>
+            <th>{{ 'nonConformities.table.resolvedAt'|trans({}, 'pdf', lang) }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in group.rows %}
+            <tr>
+              <td>{{ ('nonConformities.status.' ~ row.status)|trans({}, 'pdf', lang) }}</td>
+              <td>{{ row.ageInDays }}</td>
+              <td>{{ row.facilityName|default('—') }}</td>
+              <td>{{ row.equipmentSerialNumber|default('—') }}</td>
+              <td>{{ row.createdAt|default('—') }}</td>
+              <td>{{ row.resolvedAt|default('—') }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  {% endfor %}
+
+  <p class="doc-note">{{ 'nonConformities.note'|trans({}, 'pdf', lang) }}</p>
+{% endblock %}

@@ -10,6 +10,16 @@ framework:
       limit: 5
       interval: '1 minute'
       lock_factory: null
+    federated_start:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+      lock_factory: null
+    federated_complete:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+      lock_factory: null
     mfa_verify:
       policy: 'sliding_window'
       limit: 5
@@ -75,6 +85,41 @@ framework:
       limit: 5
       interval: '1 minute'
       lock_factory: null
+    password_setup:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    password_setup_confirm:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    # Keyed by user id: bounds how fast one account can trigger confirmation
+    # emails to arbitrary addresses (spam relay / password oracle otherwise).
+    # Same budget as `registration` on purpose — every accepted call answers
+    # the same email-taken question register does, so a looser budget here
+    # would make this the cheaper enumeration channel.
+    email_change_request:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    # Second dimension on the same endpoint, keyed by client IP: the per-user
+    # limiter scales horizontally with the number of accounts an attacker
+    # controls, this one does not. Same budget as `registration` (per IP).
+    email_change_request_ip:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    # Per IP — the confirm endpoint is public (the emailed token is the
+    # credential), so this deters token spraying like invitation_preview.
+    email_change_confirm:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
     mfa_resend:
       policy: 'sliding_window'
       limit: 5
@@ -105,6 +150,13 @@ framework:
       limit: 30
       interval: '1 minute'
       lock_factory: null
+    # Per IP — the .ics feed endpoint is public (secret-URL authenticated),
+    # so this deters token enumeration the same way invitation_preview does.
+    calendar_feed:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
     invitation_resend:
       policy: 'sliding_window'
       limit: 5
@@ -118,8 +170,46 @@ framework:
       limit: 10
       interval: '1 minute'
       lock_factory: null
+    # Keyed by user id — the endpoint is authenticated. 30/min bounds how fast
+    # one account can burn the shared outbound geocoding budget (the adapter
+    # additionally throttles the aggregate to 1 req/s per Nominatim's policy):
+    # this limiter protects the external provider and us, not a secret.
+    facility_address_suggestions:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+    # Shared non-blocking budget bounds public-demo traffic across workers.
+    facility_address_suggestions_provider:
+      policy: 'token_bucket'
+      limit: 1
+      rate: { interval: '1 second', amount: 1 }
+    facility_geocode:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
     messaging_presence_ping:
       policy: 'sliding_window'
       limit: 6
       interval: '1 minute'
+      lock_factory: null
+    email_ownership_start:
+      policy: 'sliding_window'
+      limit: 1
+      interval: '1 minute'
+      lock_factory: null
+    email_ownership_confirm:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+      lock_factory: null
+    organization_join:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
+    organization_domain_verify:
+      policy: 'sliding_window'
+      limit: 6
+      interval: '1 hour'
       lock_factory: null

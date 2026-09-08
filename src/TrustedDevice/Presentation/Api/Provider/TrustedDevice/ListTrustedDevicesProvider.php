@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -46,6 +47,10 @@ final readonly class ListTrustedDevicesProvider implements ProviderInterface
       throw new BadRequestHttpException('User must be authenticated.');
     }
 
+    if (!$user instanceof SecurityUser) {
+      throw new BadRequestHttpException('Authenticated user type is not supported.');
+    }
+
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
@@ -61,7 +66,7 @@ final readonly class ListTrustedDevicesProvider implements ProviderInterface
 
     /** @var PaginatedResult<TrustedDeviceItemResult> $result */
     $result = $this->queryBus->ask(new ListTrustedDevicesQuery(
-      userId: $user->getUserIdentifier(),
+      userId: $user->getId(),
       pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
     ));
 

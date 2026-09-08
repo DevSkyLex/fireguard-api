@@ -6,14 +6,14 @@ namespace Compliance\Presentation\Api\Controller;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterPdfRendererPort};
+use Compliance\Application\Service\SafetyRegisterContextBuilder;
 use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOverviewQuery, GetComplianceOverviewResult};
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use Compliance\Domain\Exception\ComplianceExportNotEntitledException;
-use Compliance\Presentation\Api\Factory\ComplianceSummaryOutputFactory;
 use Compliance\Presentation\Api\Trait\ComplianceExceptionMapperTrait;
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -61,18 +61,20 @@ final class ExportSafetyRegisterController extends AbstractController
    *
    * @param QueryBusPort $queryBus the query bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param OrganizationDocumentBrandingPort $branding the organization document branding port
    * @param ComplianceExportEntitlementPort $entitlement the export entitlement port
    * @param SafetyRegisterPdfRendererPort $renderer the PDF renderer port
-   * @param ComplianceSummaryOutputFactory $outputFactory the summary output factory (row-shaping reuse)
+   * @param SafetyRegisterContextBuilder $contextBuilder the shared register context pipeline
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param Security $security the security service
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
     private readonly OrganizationAuthorizationPort $authorization,
+    private readonly OrganizationDocumentBrandingPort $branding,
     private readonly ComplianceExportEntitlementPort $entitlement,
     private readonly SafetyRegisterPdfRendererPort $renderer,
-    private readonly ComplianceSummaryOutputFactory $outputFactory,
+    private readonly SafetyRegisterContextBuilder $contextBuilder,
     private readonly EventDispatcherPort $eventDispatcher,
     private readonly Security $security,
   ) {
@@ -123,6 +125,9 @@ final class ExportSafetyRegisterController extends AbstractController
     $context['facilityId'] = $facilityId;
     $context['planKey'] = $planKey;
 
+    $branding = $this->branding->getDocumentBranding($organizationId);
+    $context = $this->contextBuilder->localize($context, $branding);
+
     $pdf = $this->renderer->render($context);
 
     $this->eventDispatcher->dispatch(new SafetyRegisterExportedEvent(
@@ -158,24 +163,7 @@ final class ExportSafetyRegisterController extends AbstractController
       throw $this->mapComplianceException($exception);
     }
 
-    $output = $this->outputFactory->fromOrganizationRegister(
-      organizationId: $organizationId,
-      generatedAt: $result->generatedAt,
-      organizationStatus: $result->organizationStatus->value,
-      totals: $result->totals,
-      facilities: $result->facilities,
-    );
-
-    return [
-      [
-        'scope' => 'organization',
-        'generatedAt' => $output->generatedAt,
-        'organizationStatus' => $output->organizationStatus,
-        'totals' => $output->totals,
-        'facilities' => $output->facilities,
-      ],
-      $result->generatedAt,
-    ];
+    return [$this->contextBuilder->buildOrganizationContext($result), $result->generatedAt];
   }
 
   /**
@@ -190,22 +178,8 @@ final class ExportSafetyRegisterController extends AbstractController
       throw $this->mapComplianceException($exception);
     }
 
-    $output = $this->outputFactory->fromFacilityRegister(
-      organizationId: $organizationId,
-      generatedAt: $result->generatedAt,
-      facility: $result->facility,
-    );
-
-    return [
-      [
-        'scope' => 'facility',
-        'generatedAt' => $output->generatedAt,
-        'organizationStatus' => $output->organizationStatus,
-        'totals' => $output->totals,
-        'facilities' => $output->facilities,
-      ],
-      $result->generatedAt,
-    ];
+    return [$this->contextBuilder->buildFacilityContext($result), $result->generatedAt];
   }
+
   // #endregion
 }

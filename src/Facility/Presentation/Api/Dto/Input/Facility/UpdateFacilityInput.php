@@ -93,5 +93,15 @@ final class UpdateFacilityInput
   #[Groups([FacilitySerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional free-form metadata', required: false, example: ['surfaceM2' => 4500])]
   public ?array $metadata = null;
+
+  /**
+   * Property levelIndex.
+   *
+   * @since 1.3.0
+   */
+  #[Assert\Range(min: -100, max: 200)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional stacking order of the floor (partial update)', required: false, example: -1)]
+  public ?int $levelIndex = null;
   // #endregion
 }

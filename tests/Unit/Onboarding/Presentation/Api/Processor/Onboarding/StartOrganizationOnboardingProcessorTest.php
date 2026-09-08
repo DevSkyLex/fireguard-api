@@ -53,7 +53,8 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->expects(self::never())->method('deleteByUserId');
     $sessionRepository->method('findByUserId')->willReturn(null);
@@ -94,7 +95,8 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->expects(self::once())
       ->method('deleteByUserId')
@@ -134,12 +136,17 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     ?TransactionManagerPort $transactionManager = null,
     ?EventDispatcherInterface $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
+    if (null === $transactionManager) {
+      $transactionManager = $this->createStub(TransactionManagerPort::class);
+      $transactionManager->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
+    }
+
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
       commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
     );
   }

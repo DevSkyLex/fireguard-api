@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test PatchCanonicalFacilityHandlerTest.
@@ -88,6 +89,91 @@ final class PatchCanonicalFacilityHandlerTest extends TestCase
     );
 
     self::assertSame([], $result->changedFields);
+  }
+
+  /**
+   * Method testAPatchWithLevelIndexSavesTouchesAndAuditsTheChangedField.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAPatchWithLevelIndexSavesTouchesAndAuditsTheChangedField(): void
+  {
+    $facilities = $this->createMock(CanonicalFacilityRepositoryPort::class);
+    $facilities->method('findById')->willReturn($this->facility());
+    $facilities->expects(self::once())->method('save');
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof FacilityUpdatedEvent
+        && ['levelIndex'] === $event->changedFields,
+    ));
+
+    $result = $this->handler($facilities, eventDispatcher: $dispatcher)(
+      new PatchCanonicalFacilityCommand(self::FACILITY_ID, 3, hasLevelIndex: true, levelIndex: -1),
+    );
+
+    self::assertSame(['levelIndex'], $result->changedFields);
+  }
+
+  /**
+   * Method testAnAbsentLevelIndexKeyLeavesItUnchanged.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnAbsentLevelIndexKeyLeavesItUnchanged(): void
+  {
+    $facilities = $this->createStub(CanonicalFacilityRepositoryPort::class);
+    $facilities->method('findById')->willReturn($this->facility(levelIndex: 4));
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof FacilityUpdatedEvent
+        && ['name'] === $event->changedFields,
+    ));
+
+    $this->handler($facilities, eventDispatcher: $dispatcher)(
+      new PatchCanonicalFacilityCommand(self::FACILITY_ID, 3, hasName: true, name: 'Renamed'),
+    );
+  }
+
+  /**
+   * Method testAnExplicitNullLevelIndexErasesIt.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAnExplicitNullLevelIndexErasesIt(): void
+  {
+    $facilities = $this->createStub(CanonicalFacilityRepositoryPort::class);
+    $facilities->method('findById')->willReturn($this->facility(levelIndex: 4));
+
+    $result = $this->handler($facilities)(
+      new PatchCanonicalFacilityCommand(self::FACILITY_ID, 3, hasLevelIndex: true, levelIndex: null),
+    );
+
+    self::assertSame(['levelIndex'], $result->changedFields);
+  }
+
+  /**
+   * Method testAPatchWithLevelIndexOutOfRangeIsRejected.
+   *
+   * The PATCH path must not bypass the domain bound.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testAPatchWithLevelIndexOutOfRangeIsRejected(): void
+  {
+    $facilities = $this->createMock(CanonicalFacilityRepositoryPort::class);
+    $facilities->method('findById')->willReturn($this->facility());
+    $facilities->expects(self::never())->method('save');
+
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Facility level index must be between -100 and 200.');
+
+    $this->handler($facilities)(
+      new PatchCanonicalFacilityCommand(self::FACILITY_ID, 3, hasLevelIndex: true, levelIndex: 201),
+    );
   }
 
   /**
@@ -533,6 +619,7 @@ final class PatchCanonicalFacilityHandlerTest extends TestCase
     FacilityStatus $status = FacilityStatus::ACTIVE,
     ?string $parentFacilityId = null,
     ?string $interventionId = null,
+    ?int $levelIndex = null,
   ): CanonicalFacility {
     return CanonicalFacility::reconstitute(
       id: FacilityId::fromString(self::FACILITY_ID),
@@ -550,6 +637,7 @@ final class PatchCanonicalFacilityHandlerTest extends TestCase
       status: $status,
       revision: 3,
       updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      levelIndex: $levelIndex,
     );
   }
 

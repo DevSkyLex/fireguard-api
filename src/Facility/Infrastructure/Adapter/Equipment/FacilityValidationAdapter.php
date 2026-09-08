@@ -6,7 +6,7 @@ namespace Facility\Infrastructure\Adapter\Equipment;
 
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\ValueObject\FacilityId;
+use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
 
 use function sprintf;
@@ -64,6 +64,29 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
     $facility = $this->facilityRepository->findById(FacilityId::fromString($facilityId));
 
     return null !== $facility && (string) $facility->organizationId() === $organizationId;
+  }
+
+  /**
+   * Method resolveIdByCode.
+   *
+   * @since 1.2.0
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $code the facility code to resolve
+   *
+   * @return ?string the facility identifier, or null when no active facility carries that code
+   */
+  public function resolveIdByCode(string $organizationId, string $code): ?string
+  {
+    $matches = $this->facilityRepository->findByOrganizationId(
+      organizationId: FacilityOrganizationId::fromString($organizationId),
+      includeArchived: false,
+      code: $code,
+      limit: 1,
+      offset: 0,
+    );
+
+    return isset($matches[0]) ? $matches[0]->id()->__toString() : null;
   }
   // #endregion
 }

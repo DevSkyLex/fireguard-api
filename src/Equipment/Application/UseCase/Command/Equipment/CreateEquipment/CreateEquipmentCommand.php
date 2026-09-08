@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -45,6 +46,8 @@ final readonly class CreateEquipmentCommand implements CommandMessage
     public ?string $resourceId = null,
     public bool $dryRun = false,
     public int $quotaProjectionOffset = 0,
+    public ?OrganizationSetupContext $setupContext = null,
+    public ?string $facilityId = null,
   ) {
   }
   // #endregion

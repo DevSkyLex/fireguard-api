@@ -21,6 +21,13 @@ final class StartOrganizationOnboardingInput
 {
   // #region Properties
   /**
+   * @since 1.1.0 Explicit user intent; absent preserves legacy resume.
+   */
+  #[Groups([OnboardingSerializationGroup::WRITE])]
+  #[\Symfony\Component\Validator\Constraints\Choice(choices: ['create'])]
+  public ?string $intent = null;
+
+  /**
    * Property reset.
    *
    * @since 1.0.0

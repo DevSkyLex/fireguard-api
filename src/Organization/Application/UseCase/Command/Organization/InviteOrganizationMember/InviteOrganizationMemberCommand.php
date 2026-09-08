@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\InviteOrganizationMember;
 
+use Onboarding\Application\Contract\Setup\OrganizationSetupContext;
 use Shared\Application\Message\CommandMessage;
 
 /**
@@ -35,6 +36,7 @@ final readonly class InviteOrganizationMemberCommand implements CommandMessage
     public string $email,
     public string $invitedByUserId,
     public array $roleIds = [],
+    public ?OrganizationSetupContext $setupContext = null,
   ) {
   }
   // #endregion

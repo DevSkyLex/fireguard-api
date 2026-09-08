@@ -14,6 +14,7 @@ use Throwable;
 
 use function array_unique;
 use function array_values;
+use function in_array;
 use function sprintf;
 
 /**
@@ -38,12 +39,14 @@ final readonly class InterventionNotificationService
    * @param OrganizationMemberRepositoryPort $members the members value
    * @param OrganizationNotificationPolicyPort $policy the organization notification policy port
    * @param InterventionReviewerRecipientResolver $reviewers the submission reviewer resolver
+   * @param InterventionRecurrenceRecipientResolver $admins the organization administrator resolver
    */
   public function __construct(
     private NotificationPort $notifications,
     private OrganizationMemberRepositoryPort $members,
     private OrganizationNotificationPolicyPort $policy,
     private InterventionReviewerRecipientResolver $reviewers,
+    private InterventionRecurrenceRecipientResolver $admins,
   ) {
   }
 
@@ -218,7 +221,12 @@ final readonly class InterventionNotificationService
    * Method overdue.
    *
    * Notifies the intervention's responsible member and participants that its
-   * `dueAt` has passed. See {@see self::dueSoon()} for the delivery rules.
+   * `dueAt` has passed, and escalates to the organization's administrators
+   * (active members granted `organization.interventions.plan`, resolved by
+   * {@see InterventionRecurrenceRecipientResolver}) — an overdue intervention
+   * is a compliance signal the people who plan the work must see even when
+   * they are neither responsible nor participant. Recipients are
+   * deduplicated by user. See {@see self::dueSoon()} for the delivery rules.
    *
    * @since 1.0.0
    *
@@ -246,6 +254,7 @@ final readonly class InterventionNotificationService
       $organizationId,
       $dueAt,
       $memberIds,
+      escalateToAdmins: true,
     );
   }
 
@@ -317,6 +326,7 @@ final readonly class InterventionNotificationService
    * @param string $organizationId the organization owning the intervention
    * @param DateTimeImmutable $dueAt the intervention's due date
    * @param list<string> $memberIds the candidate member ids
+   * @param bool $escalateToAdmins whether to also notify the organization's administrators
    */
   private function remind(
     string $type,
@@ -327,6 +337,7 @@ final readonly class InterventionNotificationService
     string $organizationId,
     DateTimeImmutable $dueAt,
     array $memberIds,
+    bool $escalateToAdmins = false,
   ): void {
     try {
       $policy = $this->policy->notificationPolicy($organizationId);
@@ -351,9 +362,38 @@ final readonly class InterventionNotificationService
         $interventionId,
       );
 
+      $notifiedUserIds = [];
       foreach (array_values(array_unique($memberIds)) as $memberId) {
         $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
         if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
+          continue;
+        }
+
+        $notifiedUserIds[] = $member->userId();
+
+        try {
+          $this->notifications->send(new SendNotificationRequest(
+            type: $type,
+            subject: $subject,
+            body: $body,
+            channels: $channels,
+            payload: ['interventionId' => $interventionId],
+            recipientUserId: $member->userId(),
+            organizationId: $organizationId,
+          ));
+        } catch (Throwable) {
+          // Best-effort per recipient: one failed delivery must not starve the others.
+        }
+      }
+
+      if (!$escalateToAdmins) {
+        return;
+      }
+
+      // Escalation: the organization's administrators, minus anyone already
+      // notified above as responsible or participant.
+      foreach ($this->admins->organizationAdministrators($organizationId) as $adminUserId) {
+        if (in_array($adminUserId, $notifiedUserIds, true)) {
           continue;
         }
 
@@ -364,7 +404,7 @@ final readonly class InterventionNotificationService
             body: $body,
             channels: $channels,
             payload: ['interventionId' => $interventionId],
-            recipientUserId: $member->userId(),
+            recipientUserId: $adminUserId,
             organizationId: $organizationId,
           ));
         } catch (Throwable) {

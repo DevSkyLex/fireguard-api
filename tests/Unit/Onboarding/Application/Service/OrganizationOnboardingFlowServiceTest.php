@@ -8,7 +8,8 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use LogicException;
-use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
+use Onboarding\Application\Contract\Setup\{OrganizationSetupConflict, OrganizationSetupOperation};
+use Onboarding\Application\Port\Outbound\{OrganizationOnboardingSessionRepositoryPort, OrganizationSetupRepositoryPort};
 use Onboarding\Application\Service\{
   ExecuteOnboardingStepPayload,
   OrganizationOnboardingFlowService
@@ -41,7 +42,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $userId = '550e8400-e29b-41d4-a716-446655440101';
     $sessionId = '550e8400-e29b-41d4-a716-446655440199';
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->expects(self::once())
       ->method('findByUserId')
@@ -50,7 +52,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->expects(self::once())
       ->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
+    /**
+     * @var UuidFactory&MockObject $uuidFactory */
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::once())
       ->method('generateRaw')
@@ -83,7 +86,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $userId = '550e8400-e29b-41d4-a716-446655440103';
     $sessionId = '550e8400-e29b-41d4-a716-446655440197';
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->expects(self::once())
       ->method('deleteByUserId')
@@ -116,7 +120,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440153';
     $sessionId = '550e8400-e29b-41d4-a716-446655440189';
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
@@ -210,7 +215,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
@@ -423,7 +429,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -481,7 +488,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -566,7 +574,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -581,7 +590,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       hasEquipment: true,
     );
 
-    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    /**
+     * @var EventDispatcherInterface&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
 
@@ -630,7 +640,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -681,7 +692,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -696,7 +708,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       hasEquipment: true,
     );
 
-    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    /**
+     * @var EventDispatcherInterface&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
@@ -737,7 +750,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -852,7 +866,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -906,7 +921,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -916,7 +932,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
-    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    /**
+     * @var EventDispatcherInterface&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
 
@@ -960,7 +977,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -1003,7 +1021,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -1013,7 +1032,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
-    /** @var CommandBusPort&MockObject $commandBus */
+    /**
+     * @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
@@ -1223,7 +1243,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
@@ -1277,7 +1298,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -1437,7 +1459,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -1447,7 +1470,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
-    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    /**
+     * @var EventDispatcherInterface&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
     $eventDispatcher->expects(self::once())->method('dispatch');
 
@@ -1494,7 +1518,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
@@ -1526,7 +1551,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $newerOrgId = '550e8400-e29b-41d4-a716-446655440293';
     $sessionId = '550e8400-e29b-41d4-a716-446655440243';
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    /**
+     * @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
     $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
@@ -1557,6 +1583,105 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     self::assertSame($newerOrgId, $state->targetOrganizationId);
   }
 
+  #[Test]
+  public function newlyJoinedOrganizationIsNeverAdoptedForDestructiveRollback(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655445801';
+    $session = OrganizationOnboardingSession::start('550e8400-e29b-41d4-a716-446655445802', $userId);
+    $external = $this->buildOrganizationResult('550e8400-e29b-41d4-a716-446655445803', 'Employer', 'different-owner', new DateTimeImmutable('+1 minute'));
+    $repository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $repository->method('findByUserId')->willReturn($session);
+    $query = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($query, $external);
+    $result = $this->buildService(sessionRepository: $repository, queryBus: $query)->getFlow($userId);
+    self::assertSame(OrganizationOnboardingState::COMPLETED, $result->state);
+    self::assertSame($external->id, $result->accessibleOrganizationId);
+    self::assertFalse($result->canRollback);
+    self::assertSame([], $session->rollbackStack());
+  }
+
+  #[Test]
+  public function explicitCreationContinuesAlongsideExistingExternalMembership(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655445811';
+    $session = OrganizationOnboardingSession::start('550e8400-e29b-41d4-a716-446655445812', $userId);
+    $external = $this->buildOrganizationResult('550e8400-e29b-41d4-a716-446655445813', 'Employer', 'different-owner', new DateTimeImmutable('-1 day'));
+    $repository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $repository->method('findByUserId')->willReturn($session);
+    $query = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($query, $external);
+    $result = $this->buildService(sessionRepository: $repository, queryBus: $query)->start($userId, false, 'create');
+    self::assertTrue($session->creationIntent());
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $result->state);
+    self::assertNull($result->targetOrganizationId);
+    self::assertSame($external->id, $result->accessibleOrganizationId);
+    self::assertFalse($result->canRollback);
+  }
+
+  #[Test]
+  public function missingReceiptOrganizationNeverFallsBackToAnotherOrganizationEvenOnRepeatedReads(): void
+  {
+    $user = '550e8400-e29b-41d4-a716-446655445821';
+    $session = OrganizationOnboardingSession::start('550e8400-e29b-41d4-a716-446655445822', $user);
+    $session->chooseCreation();
+    $other = $this->buildOrganizationResult('550e8400-e29b-41d4-a716-446655445823', 'Outside wizard', $user, new DateTimeImmutable('+1 hour'));
+    $repository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $repository->method('findByUserId')->willReturn($session);
+    $repository->expects(self::never())->method('save');
+    $setup = $this->createMock(OrganizationSetupRepositoryPort::class);
+    $setup->method('listOperations')->willReturn([new OrganizationSetupOperation('create_organization', 'org', ['name' => 'Missing org'], '550e8400-e29b-41d4-a716-446655445824')]);
+    $setup->expects(self::never())->method('saveOperations');
+    $query = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($query, $other);
+    $service = $this->buildService(sessionRepository: $repository, queryBus: $query, setupRepository: $setup);
+    for ($attempt = 0; $attempt < 2; ++$attempt) {
+      try {
+        $service->getFlow($user);
+        self::fail('A missing creator receipt must refuse recovery.');
+      } catch (OrganizationSetupConflict $exception) {
+        self::assertStringContainsString('no longer available', $exception->getMessage());
+      }
+      self::assertNull($session->targetOrganizationId());
+      self::assertSame([], $session->rollbackStack());
+    }
+  }
+
+  #[Test]
+  public function creatorReceiptDoesNotAcceptAnOrganizationWhoseOwnerHasChanged(): void
+  {
+    $user = '550e8400-e29b-41d4-a716-446655445831';
+    $session = OrganizationOnboardingSession::start('550e8400-e29b-41d4-a716-446655445832', $user);
+    $session->chooseCreation();
+    $transferred = $this->buildOrganizationResult('550e8400-e29b-41d4-a716-446655445833', 'Transferred', 'another-owner', new DateTimeImmutable('+1 hour'));
+    $repository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $repository->method('findByUserId')->willReturn($session);
+    $setup = $this->createStub(OrganizationSetupRepositoryPort::class);
+    $setup->method('listOperations')->willReturn([new OrganizationSetupOperation('create_organization', 'org', ['name' => 'Transferred'], $transferred->id)]);
+    $query = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($query, $transferred);
+    $this->expectException(OrganizationSetupConflict::class);
+    $this->buildService(sessionRepository: $repository, queryBus: $query, setupRepository: $setup)->getFlow($user);
+  }
+
+  #[Test]
+  public function aPreparedCreatorReceiptNeverAdoptsAnUnrelatedOrganization(): void
+  {
+    $user = '550e8400-e29b-41d4-a716-446655445841';
+    $session = OrganizationOnboardingSession::start('550e8400-e29b-41d4-a716-446655445842', $user);
+    $session->chooseCreation();
+    $outside = $this->buildOrganizationResult('550e8400-e29b-41d4-a716-446655445843', 'Outside wizard', $user, new DateTimeImmutable('+1 hour'));
+    $repository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $repository->method('findByUserId')->willReturn($session);
+    $setup = $this->createStub(OrganizationSetupRepositoryPort::class);
+    $setup->method('listOperations')->willReturn([new OrganizationSetupOperation('create_organization', 'org', ['name' => 'Pending'])]);
+    $query = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($query, $outside);
+    $state = $this->buildService(sessionRepository: $repository, queryBus: $query, setupRepository: $setup)->getFlow($user);
+    self::assertNull($state->targetOrganizationId);
+    self::assertFalse($state->canRollback);
+    self::assertSame('create_organization', $state->nextStep);
+  }
+
   private function buildRollbackableSession(string $userId, string $orgId, string $sessionId): OrganizationOnboardingSession
   {
     return OrganizationOnboardingSession::reconstitute(
@@ -1584,14 +1709,21 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     ?UuidFactory $uuidFactory = null,
     ?TransactionManagerPort $transactionManager = null,
     ?EventDispatcherInterface $eventDispatcher = null,
+    ?OrganizationSetupRepositoryPort $setupRepository = null,
   ): OrganizationOnboardingFlowService {
+    if (null === $transactionManager) {
+      $transactionManager = $this->createStub(TransactionManagerPort::class);
+      $transactionManager->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
+    }
+
     return new OrganizationOnboardingFlowService(
       sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
       queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
       commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
       uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
+      setupRepository: $setupRepository,
     );
   }
 

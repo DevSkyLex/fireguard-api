@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole;
 
-use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
+use Organization\Application\Port\Inbound\{OrganizationJoinAccessPort, OrganizationLastAdminGuardPort};
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
@@ -51,6 +51,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private OrganizationLastAdminGuardPort $lastAdminGuard,
     private TransactionManagerPort $transactionManager,
+    private ?OrganizationJoinAccessPort $joinAccess = null,
   ) {
   }
   // #endregion
@@ -77,7 +78,9 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
 
     $roleId = OrganizationRoleId::fromString($command->roleId);
 
-    /** @var list<string> $permissions */
+    /**
+     * @var list<string> $permissions
+     */
     $permissions = array_values(array_unique($command->permissions));
 
     if (0 === count($permissions)) {
@@ -90,9 +93,12 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     // the advisory lock (see the guard port contract); and the rename's
     // name-uniqueness lookup must not sit outside the transaction that persists
     // the new name either.
-    /** @var OrganizationRole $role */
+    /**
+     * @var OrganizationRole $role
+     */
     $role = $this->transactionManager->transactional(
       function () use ($command, $organizationId, $roleId, $permissions): OrganizationRole {
+        $this->joinAccess?->assertRoleChange($command->organizationId, $command->roleId, $permissions);
         $this->lastAdminGuard->assertCanUpdateRolePermissions(
           $command->organizationId,
           $command->roleId,

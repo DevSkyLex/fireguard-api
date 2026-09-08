@@ -188,6 +188,7 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     $output->latitude = $facility->latitude;
     $output->longitude = $facility->longitude;
     $output->metadata = $facility->metadata;
+    $output->levelIndex = $facility->levelIndex;
     $output->createdAt = $facility->createdAt->format('c');
     $output->updatedAt = $facility->updatedAt->format('c');
 

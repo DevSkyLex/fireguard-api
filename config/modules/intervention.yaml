@@ -153,6 +153,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Cross-module read model for the Calendar module (unified feed source)
   Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter:
     arguments:

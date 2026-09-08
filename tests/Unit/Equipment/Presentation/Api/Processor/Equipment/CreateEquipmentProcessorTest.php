@@ -13,6 +13,7 @@ use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquip
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
+use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor;
 use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, InterventionResourceAssignment};
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
@@ -89,6 +90,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -136,6 +138,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -197,6 +200,7 @@ final class CreateEquipmentProcessorTest extends TestCase
       ));
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -222,6 +226,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $security->method('getUser')->willReturn(null);
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -335,6 +340,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $input->facility = '/api/facilities/' . self::FACILITY_ID;
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -367,6 +373,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $gateway->method('assign')->willReturn(new InterventionResourceAssignment(null, 'published', 1));
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -400,6 +407,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -449,6 +457,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->authenticatedSecurity(),
@@ -472,6 +481,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -495,6 +505,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -516,6 +527,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $gateway->method('resourceExists')->willReturn(false);
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -546,6 +558,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $input->intervention = '/api/interventions/' . self::INTERVENTION_ID;
 
     $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $this->permissiveAuthorization(),
       security: $this->authenticatedSecurity(),
@@ -574,6 +587,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     }
 
     return new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->authenticatedSecurity(),

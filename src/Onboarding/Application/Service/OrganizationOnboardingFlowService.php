@@ -8,6 +8,7 @@ use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQ
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use InvalidArgumentException;
 use LogicException;
+use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
@@ -64,6 +65,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherInterface $eventDispatcher,
+    private ?\Onboarding\Application\Port\Outbound\OrganizationSetupRepositoryPort $setupRepository = null,
   ) {
   }
   // #endregion
@@ -80,25 +82,33 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function getFlow(string $userId): OrganizationOnboardingSessionState
   {
-    $session = $this->getOrCreateSession($userId);
-    $previousState = $session->state();
-    $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
-    $this->sessionRepository->save($session);
+    $completionEvent = null;
+    $state = $this->transactionManager->transactional(function () use ($userId, &$completionEvent): OrganizationOnboardingSessionState {
+      $session = $this->getOrCreateSession($userId);
+      $previousState = $session->state();
+      $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
+      $this->sessionRepository->save($session);
 
-    if (
-      OrganizationOnboardingState::COMPLETED === $computed->state
-      && OrganizationOnboardingState::COMPLETED !== $previousState
-      && null !== $computed->targetOrganizationId
-    ) {
-      $this->eventDispatcher->dispatch(new OrganizationOnboardingSessionCompletedEvent(
-        sessionId: $session->id(),
-        userId: $userId,
-        targetOrganizationId: $computed->targetOrganizationId,
-        completedAt: $session->updatedAt(),
-      ));
+      if (
+        OrganizationOnboardingState::COMPLETED === $computed->state
+        && OrganizationOnboardingState::COMPLETED !== $previousState
+        && null !== $computed->targetOrganizationId
+      ) {
+        $completionEvent = new OrganizationOnboardingSessionCompletedEvent(
+          sessionId: $session->id(),
+          userId: $userId,
+          targetOrganizationId: $computed->targetOrganizationId,
+          completedAt: $session->updatedAt(),
+        );
+      }
+
+      return $this->buildState($session, $computed);
+    });
+    if ($completionEvent instanceof OrganizationOnboardingSessionCompletedEvent) {
+      $this->eventDispatcher->dispatch($completionEvent);
     }
 
-    return $this->buildState($session, $computed);
+    return $state;
   }
 
   /**
@@ -111,10 +121,16 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    *
    * @return OrganizationOnboardingSessionState the current flow state
    */
-  public function start(string $userId, bool $reset = false): OrganizationOnboardingSessionState
+  public function start(string $userId, bool $reset = false, ?string $intent = null): OrganizationOnboardingSessionState
   {
-    if ($reset) {
+    $existing = $this->sessionRepository->findByUserId($userId);
+    if ($reset || ('create' === $intent && null !== $existing && OrganizationOnboardingState::COMPLETED === $existing->state())) {
       $this->sessionRepository->deleteByUserId($userId);
+    }
+    if ('create' === $intent) {
+      $session = $this->getOrCreateSession($userId);
+      $session->chooseCreation();
+      $this->sessionRepository->save($session);
     }
 
     return $this->getFlow($userId);
@@ -139,7 +155,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
 
     $completionEvent = null;
 
-    /** @var OrganizationOnboardingSessionState $state */
+    /**
+     * @var OrganizationOnboardingSessionState $state
+     */
     $state = $this->transactionManager->transactional(function () use ($userId, $stepKey, &$completionEvent): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
@@ -148,6 +166,20 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         $reason = $computed->blockedReason ?? 'unknown';
 
         throw new LogicException(sprintf('Onboarding is blocked: %s.', $reason));
+      }
+
+      if ($session->creationIntent() && in_array($stepKey, $session->completedSteps(), true)) {
+        foreach ($session->stepHistory() as $entry) {
+          if ($entry->stepKey === $stepKey && !$entry->skipped) {
+            return $this->buildState($session, $computed);
+          }
+        }
+      }
+
+      foreach ($this->setupRepository?->listOperations($session->id()) ?? [] as $setupOperation) {
+        if ($setupOperation->stepKey === $stepKey && null === $setupOperation->resourceId) {
+          throw OrganizationSetupConflict::because('Finish the prepared batch before confirming its step.');
+        }
       }
 
       if ($stepKey !== $computed->nextStep) {
@@ -194,7 +226,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function rollbackLastStep(string $userId): OrganizationOnboardingSessionState
   {
-    /** @var OrganizationOnboardingSessionState $state */
+    /**
+     * @var OrganizationOnboardingSessionState $state
+     */
     $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
       $session = $this->sessionRepository->findByUserId($userId);
       if (!$session instanceof OrganizationOnboardingSession) {
@@ -208,6 +242,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       }
 
       $this->applyRollbackAction($userId, $rollbackAction);
+      $this->setupRepository?->saveOperations($session->id(), []);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
 
       $this->sessionRepository->save($session);
@@ -247,7 +282,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
 
     $completionEvent = null;
 
-    /** @var OrganizationOnboardingSessionState $state */
+    /**
+     * @var OrganizationOnboardingSessionState $state
+     */
     $state = $this->transactionManager->transactional(function () use ($userId, $stepKey, &$completionEvent): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
@@ -310,7 +347,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function dismiss(string $userId): OrganizationOnboardingSessionState
   {
-    /** @var OrganizationOnboardingSessionState $state */
+    /**
+     * @var OrganizationOnboardingSessionState $state
+     */
     $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
@@ -336,7 +375,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function resume(string $userId): OrganizationOnboardingSessionState
   {
-    /** @var OrganizationOnboardingSessionState $state */
+    /**
+     * @var OrganizationOnboardingSessionState $state
+     */
     $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
@@ -388,7 +429,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     OrganizationOnboardingSession $session,
     string $userId,
   ): ComputedOnboardingState {
-    /** @var PaginatedResult<GetOrganizationResult> $organizationsResult */
+    /**
+     * @var PaginatedResult<GetOrganizationResult> $organizationsResult
+     */
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
     $targetOrganization = $this->resolveTargetOrganization($session, $organizationsResult);
 
@@ -398,6 +441,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         return $this->completeForAlreadyJoinedOrganization($session, $joinedOrganization);
       }
 
+      if (null !== $session->targetOrganizationId() && !($this->setupRepository?->hasJournal($session->id()) ?? false)) {
+        $this->setupRepository?->saveOperations($session->id(), []);
+      }
       $session->clearTargetOrganization();
       foreach (OrganizationOnboardingStep::all() as $step) {
         $session->markStepPending($step);
@@ -555,7 +601,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function hasFacility(string $organizationId): bool
   {
-    /** @var PaginatedResult<mixed> $result */
+    /**
+     * @var PaginatedResult<mixed> $result
+     */
     $result = $this->queryBus->ask(new ListFacilitiesQuery(
       organizationId: $organizationId,
       pagination: new Pagination(offset: 0, limit: 1),
@@ -575,7 +623,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function hasEquipment(string $organizationId): bool
   {
-    /** @var PaginatedResult<mixed> $result */
+    /**
+     * @var PaginatedResult<mixed> $result
+     */
     $result = $this->queryBus->ask(new ListEquipmentsQuery(
       organizationId: $organizationId,
       pagination: new Pagination(offset: 0, limit: 1),
@@ -599,6 +649,19 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function buildState(OrganizationOnboardingSession $session, ComputedOnboardingState $computed): OrganizationOnboardingSessionState
   {
+    /**
+     * @var PaginatedResult<GetOrganizationResult> $memberships
+     */
+    $memberships = $this->queryBus->ask(new ListUserOrganizationsQuery($session->userId()));
+    $accessibleOrganizationId = null;
+    foreach ($memberships->items as $organization) {
+      if ($organization->isActive && ($organization->id !== $session->targetOrganizationId() || OrganizationOnboardingState::COMPLETED === $session->state())) {
+        $accessibleOrganizationId = $organization->id;
+
+        break;
+      }
+    }
+
     $lastRollbackAction = $session->peekRollbackAction();
     $lastRollbackStep = $lastRollbackAction instanceof RollbackActionInterface
       ? $lastRollbackAction->step()
@@ -622,6 +685,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       lastRollbackableStep: $lastRollbackStep,
       dismissed: $session->isDismissed(),
       dismissedAt: $session->dismissedAt()?->format('c'),
+      accessibleOrganizationId: $accessibleOrganizationId,
+      sessionId: $session->id(),
+      setupOperations: $this->setupRepository?->listOperations($session->id()) ?? [],
     );
   }
 
@@ -648,6 +714,9 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     OrganizationOnboardingSession $session,
     PaginatedResult $organizationsResult,
   ): ?GetOrganizationResult {
+    if ($session->creationIntent()) {
+      return null;
+    }
     $pinnedOrganizationId = $session->targetOrganizationId();
     if (is_string($pinnedOrganizationId) && '' !== $pinnedOrganizationId) {
       return null;
@@ -708,6 +777,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   /**
    * Method resolveTargetOrganization.
    *
+   * A setup journal is authoritative: only the completed creator receipt may
+   * select an organization. An unavailable result refuses recovery without
+   * discarding that receipt; a prepared item never adopts an unrelated result.
+   * The legacy rules below apply only to sessions without a setup journal.
+   *
    * When a targetOrganizationId is already pinned on the session, only that
    * organization is accepted. If it was deleted externally the method returns
    * null so the flow resets instead of silently switching to another org.
@@ -728,6 +802,38 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     OrganizationOnboardingSession $session,
     PaginatedResult $organizationsResult,
   ): ?GetOrganizationResult {
+    $setupOperations = $this->setupRepository?->listOperations($session->id()) ?? [];
+    if ([] !== $setupOperations || ($this->setupRepository?->hasJournal($session->id()) ?? false)) {
+      if ([] === $setupOperations) {
+        return null;
+      }
+      foreach ($setupOperations as $operation) {
+        if (OrganizationOnboardingStep::CREATE_ORGANIZATION !== $operation->stepKey) {
+          continue;
+        }
+        // A prepared creator item cannot adopt an unrelated organization while
+        // its resource write has not completed. Only its durable result may pin.
+        if (null === $operation->resourceId) {
+          return null;
+        }
+        foreach ($organizationsResult->items as $organization) {
+          if ($organization->id === $operation->resourceId
+            && $organization->isActive
+            && $organization->createdByUserId === $session->userId()
+            && $organization->ownerUserId === $session->userId()
+            && $organization->createdAt >= $session->createdAt()) {
+            return $organization;
+          }
+        }
+
+        // Keep the receipt when its organization disappears or ownership changes.
+        // Clearing it would let the next GET adopt another organization by date.
+        throw OrganizationSetupConflict::because('The organization created by this setup is no longer available. Reset the creation session explicitly.');
+      }
+
+      throw OrganizationSetupConflict::because('The setup creation receipt is missing.');
+    }
+
     if ([] === $organizationsResult->items) {
       return null;
     }
@@ -750,7 +856,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     $sessionCreatedAt = $session->createdAt();
     $candidate = null;
     foreach ($organizationsResult->items as $organization) {
-      if ($organization->createdAt >= $sessionCreatedAt) {
+      if ($organization->isActive && $organization->createdByUserId === $session->userId() && $organization->ownerUserId === $session->userId() && $organization->createdAt >= $sessionCreatedAt) {
         if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
           $candidate = $organization;
         }
@@ -789,7 +895,26 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function rollbackDeleteOrganization(string $userId, string $organizationId): void
   {
-    /** @var PaginatedResult<GetOrganizationResult> $organizationsResult */
+    /**
+     * @var PaginatedResult<GetOrganizationResult> $memberships
+     */
+    $memberships = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
+    $session = $this->sessionRepository->findByUserId($userId);
+    $owned = false;
+    foreach ($memberships->items as $organization) {
+      if ($organization->id === $organizationId && $organization->createdByUserId === $userId && $organization->ownerUserId === $userId && null !== $session && $organization->createdAt >= $session->createdAt()) {
+        $owned = true;
+
+        break;
+      }
+    }
+    if (!$owned) {
+      throw new LogicException('Only an organization created by this onboarding can be rolled back.');
+    }
+
+    /**
+     * @var PaginatedResult<GetOrganizationResult> $organizationsResult
+     */
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
 
     $isUserMember = false;

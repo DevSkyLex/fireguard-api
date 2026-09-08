@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
+use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort};
 use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
@@ -38,6 +38,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
    *
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param ?OrganizationJoinRepositoryPort $joinRepository serialized organization admission state
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
@@ -47,6 +48,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
     private EventDispatcherPort $eventDispatcher,
+    private ?OrganizationJoinRepositoryPort $joinRepository = null,
   ) {
   }
   // #endregion
@@ -93,6 +95,15 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       $command,
       $now,
     ): RevokeOrganizationInvitationResult {
+      $this->joinRepository?->lock((string) $invitation->organizationId());
+      $currentInvitation = $this->invitationRepository->findById($invitation->id());
+      if (null === $currentInvitation || (string) $currentInvitation->organizationId() !== (string) $invitation->organizationId()) {
+        throw OrganizationInvitationNotFoundException::withId((string) $invitation->id());
+      }
+      if (!$currentInvitation->status()->isPending()) {
+        throw OrganizationInvitationNotPendingException::noLongerPending();
+      }
+      $invitation = $currentInvitation;
       $invitation->revoke($command->revokedByUserId, $now);
       $this->invitationRepository->save($invitation);
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Seed floor plan — Main Building, Floor 2. Companion to floor-1-layout.svg;
+  see that file for why these are hand-written SVGs.
+
+  Its rooms sit on the opposite side of the canvas from Floor 1's, so a stacked
+  3D view shows two visibly different footprints rather than one repeated twice.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1600" viewBox="0 0 2400 1600">
+  <rect width="2400" height="1600" fill="#f8fafc"/>
+
+  <!-- Building envelope: matches the floor's own outline, 0.08..0.92 x 0.10..0.90 -->
+  <rect x="192" y="160" width="2016" height="1280" fill="#ffffff" stroke="#94a3b8" stroke-width="10"/>
+
+  <!-- Zone B, 0.52..0.88 x 0.16..0.60 -->
+  <rect x="1248" y="256" width="864" height="704" fill="#f1f5f9" stroke="#64748b" stroke-width="6"/>
+  <text x="1272" y="296" font-family="sans-serif" font-size="34" fill="#475569">Zone B</text>
+
+  <!-- Storage Room, nested inside Zone B, 0.56..0.82 x 0.22..0.54 -->
+  <rect x="1344" y="352" width="624" height="512" fill="#e2e8f0" stroke="#475569" stroke-width="6"/>
+  <text x="1368" y="392" font-family="sans-serif" font-size="34" fill="#334155">Storage Room</text>
+
+  <line x1="1152" y1="160" x2="1152" y2="1440" stroke="#cbd5e1" stroke-width="6" stroke-dasharray="24 18"/>
+  <text x="420" y="800" font-family="sans-serif" font-size="34" fill="#94a3b8">Corridor</text>
+</svg>

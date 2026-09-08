@@ -263,6 +263,21 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     ['type' => 'gas_detector', 'brand' => 'Drager', 'model' => 'Polytron 7000', 'status' => 'operational'],
   ];
 
+  /**
+   * Equipment pinned onto a floor plan, keyed by seed reference.
+   *
+   * Coordinates are fractions of the plan image, the same normalized space the
+   * facility outlines use. Both points sit inside the Server Room drawn on
+   * `Floor 1`'s seeded plan, so the pin layer has something to show on the
+   * plan viewer — and, later, in the 3D view.
+   *
+   * @var array<string, array{x: float, y: float}>
+   */
+  private const array PLAN_PINNED_EQUIPMENT = [
+    'equipment-seed-bulk-21' => ['x' => 0.20, 'y' => 0.28],
+    'equipment-seed-bulk-22' => ['x' => 0.33, 'y' => 0.41],
+  ];
+
   public static function getGroups(): array
   {
     return ['equipment', 'main-seed'];
@@ -559,6 +574,13 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
         model: $seed['model'],
         serialNumber: $seed['serialNumber'],
         locationLabel: $seed['locationLabel'],
+        planPosition: isset(self::PLAN_PINNED_EQUIPMENT[$seed['reference']])
+          ? [
+            'attachmentId' => FacilityFixtures::FLOOR_ONE_PLAN_ID,
+            'x' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['x'],
+            'y' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['y'],
+          ]
+          : null,
       );
       $manager->persist($equipment);
       $this->addReference($seed['reference'], $equipment);
@@ -639,6 +661,9 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     return sprintf('equipment-seed-extra-regional-%02d', $index);
   }
 
+  /**
+   * @param array{attachmentId: string, x: float, y: float}|null $planPosition
+   */
   private function createEquipment(
     string $id,
     OrganizationRecord $organization,
@@ -650,6 +675,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     ?string $model,
     ?string $serialNumber,
     ?string $locationLabel,
+    ?array $planPosition = null,
   ): EquipmentRecord {
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
@@ -660,6 +686,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     $equipment->model = $model;
     $equipment->serialNumber = $serialNumber;
     $equipment->locationLabel = $locationLabel;
+    $equipment->planPosition = $planPosition;
     $equipment->status = $status;
     $equipment->installedAt = EquipmentStatus::IN_STOCK->value === $status
       ? null

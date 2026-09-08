@@ -11,11 +11,13 @@ use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, Provis
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Generator;
 use Import\Application\Port\Outbound\{CsvRowStreamerPort, ImportJobRepositoryPort};
-use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory};
+use Import\Application\Service\{EquipmentRowFactory, FacilityRowFactory, MemberRowFactory};
 use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand, ProcessImportJobHandler};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportStatus};
+use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionMemberInvitationResult, ProvisionOutcome as MemberProvisionOutcome};
+use Organization\Application\Port\Inbound\MemberInvitationProvisioningPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\{LoggerInterface, NullLogger};
@@ -570,6 +572,166 @@ final class ProcessImportJobHandlerTest extends TestCase
     self::assertSame(0, $reloaded->failedRows());
   }
 
+  #[Test]
+  public function itProvisionsMemberInvitationsThroughTheOrganizationPort(): void
+  {
+    $job = $this->pendingMemberJob();
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [
+      1 => ['email' => 'alice@example.com', 'roles' => 'admin|manager'],
+      2 => ['email' => 'bob@example.com', 'roles' => ''],
+    ];
+    $csvStreamer->method('countDataRows')->willReturn(2);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $captured = [];
+    $memberProvisioning = $this->createMock(MemberInvitationProvisioningPort::class);
+    $memberProvisioning->expects(self::exactly(2))
+      ->method('provision')
+      ->willReturnCallback(static function (ProvisionMemberInvitationRequest $request) use (&$captured): ProvisionMemberInvitationResult {
+        $captured[] = $request;
+
+        return new ProvisionMemberInvitationResult(MemberProvisionOutcome::CREATED, resourceId: 'invitation-1');
+      });
+
+    $handler = $this->handler(
+      $repository,
+      $csvStreamer,
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $this->createStub(EventDispatcherPort::class),
+      memberInvitationProvisioning: $memberProvisioning,
+    );
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(2, $reloaded->successfulRows());
+    self::assertSame(0, $reloaded->failedRows());
+
+    self::assertSame('alice@example.com', $captured[0]->email);
+    self::assertSame(['admin', 'manager'], $captured[0]->roleNames);
+    self::assertSame(self::CREATED_BY, $captured[0]->invitedByUserId, 'The job creator must be the inviter.');
+    self::assertFalse($captured[0]->dryRun);
+    self::assertSame([], $captured[1]->roleNames, 'A blank roles cell must fall back to the default role (empty list).');
+  }
+
+  #[Test]
+  public function itReportsEachMemberFailureAsItsDistinctNonFatalCode(): void
+  {
+    $job = $this->pendingMemberJob();
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [
+      1 => ['email' => 'ok@example.com', 'roles' => ''],
+      2 => ['email' => 'member@example.com', 'roles' => ''],
+      3 => ['email' => 'invited@example.com', 'roles' => ''],
+      4 => ['email' => 'x@example.com', 'roles' => 'ghost'],
+      5 => ['email' => 'quota@example.com', 'roles' => ''],
+      6 => ['email' => 'not-an-email', 'roles' => ''],
+      7 => ['roles' => 'admin'],
+    ];
+    $csvStreamer->method('countDataRows')->willReturn(7);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $memberProvisioning = $this->createMock(MemberInvitationProvisioningPort::class);
+    $memberProvisioning->expects(self::exactly(6))
+      ->method('provision')
+      ->willReturnOnConsecutiveCalls(
+        new ProvisionMemberInvitationResult(MemberProvisionOutcome::CREATED, resourceId: 'invitation-1'),
+        new ProvisionMemberInvitationResult(MemberProvisionOutcome::ALREADY_MEMBER, message: 'User is already an active member of this organization.'),
+        new ProvisionMemberInvitationResult(MemberProvisionOutcome::ALREADY_INVITED, message: 'A pending invitation already exists for this email.'),
+        new ProvisionMemberInvitationResult(MemberProvisionOutcome::UNKNOWN_ROLE, message: 'Organization role "ghost" not found.'),
+        new ProvisionMemberInvitationResult(MemberProvisionOutcome::QUOTA_EXCEEDED, message: 'Member limit reached.'),
+        new ProvisionMemberInvitationResult(MemberProvisionOutcome::INVALID, message: 'Invalid email address "not-an-email".'),
+      );
+
+    $handler = $this->handler(
+      $repository,
+      $csvStreamer,
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $this->createStub(EventDispatcherPort::class),
+      memberInvitationProvisioning: $memberProvisioning,
+    );
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status(), 'Member row failures must stay non-fatal.');
+    self::assertSame(1, $reloaded->successfulRows());
+    self::assertSame(6, $reloaded->failedRows());
+
+    $errors = $reloaded->errorReport();
+    self::assertCount(6, $errors);
+    self::assertSame('already_member', $errors[0]->code);
+    self::assertSame('already_invited', $errors[1]->code);
+    self::assertSame('unknown_role', $errors[2]->code);
+    self::assertSame('roles', $errors[2]->column);
+    self::assertSame('quota_exceeded', $errors[3]->code);
+    self::assertSame('invalid', $errors[4]->code);
+    self::assertSame('missing_required', $errors[5]->code, 'A missing email column never reaches the port.');
+    self::assertSame('email', $errors[5]->column);
+  }
+
+  #[Test]
+  public function itRunsAMemberDryRunReportingWouldCreateWithoutFlippingTheFlagOff(): void
+  {
+    $job = $this->pendingMemberJob(dryRun: true);
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [
+      1 => ['email' => 'alice@example.com', 'roles' => 'admin'],
+      2 => ['email' => 'ghost-role@example.com', 'roles' => 'ghost'],
+    ];
+    $csvStreamer->method('countDataRows')->willReturn(2);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $captured = [];
+    $memberProvisioning = $this->createMock(MemberInvitationProvisioningPort::class);
+    $memberProvisioning->expects(self::exactly(2))
+      ->method('provision')
+      ->willReturnCallback(static function (ProvisionMemberInvitationRequest $request) use (&$captured): ProvisionMemberInvitationResult {
+        $captured[] = $request;
+
+        return 'ghost' === ($request->roleNames[0] ?? null)
+          ? new ProvisionMemberInvitationResult(MemberProvisionOutcome::UNKNOWN_ROLE, message: 'Organization role "ghost" not found.')
+          : new ProvisionMemberInvitationResult(MemberProvisionOutcome::CREATED);
+      });
+
+    $handler = $this->handler(
+      $repository,
+      $csvStreamer,
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $this->createStub(EventDispatcherPort::class),
+      memberInvitationProvisioning: $memberProvisioning,
+    );
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    self::assertTrue($captured[0]->dryRun, 'A dry-run job must rebuild every request with dryRun: true.');
+    self::assertTrue($captured[1]->dryRun);
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(1, $reloaded->successfulRows());
+    self::assertSame(1, $reloaded->failedRows());
+
+    $errors = $reloaded->errorReport();
+    self::assertCount(2, $errors);
+    self::assertSame('would_create', $errors[0]->code);
+    self::assertSame('unknown_role', $errors[1]->code);
+  }
+
   /**
    * @param array<int, array<string, string>> $rows
    *
@@ -610,6 +772,27 @@ final class ProcessImportJobHandlerTest extends TestCase
     return $port;
   }
 
+  private function neverCalledMemberPort(): MemberInvitationProvisioningPort
+  {
+    $port = $this->createMock(MemberInvitationProvisioningPort::class);
+    $port->expects(self::never())->method('provision');
+
+    return $port;
+  }
+
+  private function pendingMemberJob(bool $dryRun = false): ImportJob
+  {
+    return ImportJob::create(
+      id: ImportJobId::fromString(self::JOB_ID),
+      organizationId: self::ORGANIZATION_ID,
+      kind: ImportKind::MEMBER,
+      storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
+      originalFilename: 'members.csv',
+      createdBy: self::CREATED_BY,
+      dryRun: $dryRun,
+    );
+  }
+
   private function handler(
     ImportJobRepositoryPort $repository,
     CsvRowStreamerPort $csvStreamer,
@@ -618,6 +801,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     EventDispatcherPort $eventDispatcher,
     ?FileStoragePort $fileStorage = null,
     ?LoggerInterface $logger = null,
+    ?MemberInvitationProvisioningPort $memberInvitationProvisioning = null,
   ): ProcessImportJobHandler {
     if (null === $fileStorage) {
       $fileStorage = $this->createStub(FileStoragePort::class);
@@ -635,8 +819,10 @@ final class ProcessImportJobHandlerTest extends TestCase
       csvStreamer: $csvStreamer,
       equipmentRowFactory: new EquipmentRowFactory(),
       facilityRowFactory: new FacilityRowFactory(),
+      memberRowFactory: new MemberRowFactory(),
       equipmentProvisioning: $equipmentProvisioning,
       facilityProvisioning: $facilityProvisioning,
+      memberInvitationProvisioning: $memberInvitationProvisioning ?? $this->neverCalledMemberPort(),
       eventDispatcher: $eventDispatcher,
       clock: $clock,
       logger: $logger ?? new NullLogger(),

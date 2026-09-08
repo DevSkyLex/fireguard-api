@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Application\Port\Outbound;
 
 use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationSlug, OrganizationStatus};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
@@ -20,6 +20,26 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 interface OrganizationRepositoryPort
 {
   // #region Methods
+  /**
+   * Method lockSlugNamespace.
+   *
+   * Serializes slug allocation and writes for the current transaction.
+   *
+   * @since 1.1.0
+   */
+  public function lockSlugNamespace(): void;
+
+  /**
+   * Method slugExists.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationSlug $slug the candidate slug
+   *
+   * @return bool whether the candidate is already assigned
+   */
+  public function slugExists(OrganizationSlug $slug): bool;
+
   /**
    * Method save.
    *
@@ -99,6 +119,22 @@ interface OrganizationRepositoryPort
    * @return int the matching organization count
    */
   public function countByIds(array $ids, ?string $status = null, ?string $search = null): int;
+
+  /**
+   * Method pageActiveIds.
+   *
+   * Pages through the identifiers of every ACTIVE organization, ordered by
+   * identifier for a stable sweep iteration. Backs recurring organization-wide
+   * sweeps (e.g. the weekly digest) with bounded memory.
+   *
+   * @since 1.0.0
+   *
+   * @param int $limit maximum number of identifiers to return
+   * @param int $offset iteration offset
+   *
+   * @return list<string> the active organization identifiers page
+   */
+  public function pageActiveIds(int $limit, int $offset): array;
 
   /**
    * Method delete.

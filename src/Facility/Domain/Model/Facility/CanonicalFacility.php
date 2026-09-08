@@ -11,11 +11,13 @@ use Facility\Domain\ValueObject\{
   CanonicalFacilityParent,
   CanonicalFacilityPatch,
   FacilityId,
+  FacilityLevelIndex,
   FacilityOrganizationId,
   FacilityRecordStatus,
   FacilityStatus,
   FacilityType
 };
+use Shared\Domain\Exception\InvalidValueException;
 
 use function trim;
 
@@ -69,6 +71,7 @@ final class CanonicalFacility
    * @param FacilityStatus $status the facility lifecycle status
    * @param int $revision the optimistic-concurrency revision
    * @param DateTimeImmutable $updatedAt the last mutation timestamp
+   * @param ?int $levelIndex the stacking order of the floor (ground floor = 0, first basement = -1)
    */
   private function __construct(
     private FacilityId $id,
@@ -86,6 +89,7 @@ final class CanonicalFacility
     private FacilityStatus $status,
     private int $revision,
     private DateTimeImmutable $updatedAt,
+    private ?int $levelIndex = null,
   ) {
   }
   // #endregion
@@ -115,6 +119,7 @@ final class CanonicalFacility
    * @param FacilityStatus $status the facility lifecycle status
    * @param int $revision the optimistic-concurrency revision
    * @param DateTimeImmutable $updatedAt the last mutation timestamp
+   * @param ?int $levelIndex the stacking order of the floor (ground floor = 0, first basement = -1)
    *
    * @return self the reconstituted canonical facility
    */
@@ -134,6 +139,7 @@ final class CanonicalFacility
     FacilityStatus $status,
     int $revision,
     DateTimeImmutable $updatedAt,
+    ?int $levelIndex = null,
   ): self {
     return new self(
       id: $id,
@@ -151,6 +157,7 @@ final class CanonicalFacility
       status: $status,
       revision: $revision,
       updatedAt: $updatedAt,
+      levelIndex: self::normalizeLevelIndex($levelIndex),
     );
   }
 
@@ -184,6 +191,7 @@ final class CanonicalFacility
       'latitude' => $this->latitude,
       'longitude' => $this->longitude,
       'metadata' => $this->metadata,
+      'levelIndex' => $this->levelIndex,
     ];
 
     if ($patch->hasType && null !== $patch->type) {
@@ -210,6 +218,10 @@ final class CanonicalFacility
 
     if ($patch->hasMetadata) {
       $this->metadata = $patch->metadata ?? [];
+    }
+
+    if ($patch->hasLevelIndex) {
+      $this->levelIndex = self::normalizeLevelIndex($patch->levelIndex);
     }
 
     if ($patch->hasStatus && null !== $patch->status) {
@@ -245,7 +257,7 @@ final class CanonicalFacility
     }
 
     $changedFields = [];
-    foreach (['type', 'name', 'code', 'address'] as $field) {
+    foreach (['type', 'name', 'code', 'address', 'levelIndex'] as $field) {
       if ($previous[$field] !== $this->{$field}) {
         $changedFields[] = $field;
       }
@@ -501,6 +513,16 @@ final class CanonicalFacility
   }
 
   /**
+   * Method levelIndex.
+   *
+   * @since 1.0.0
+   */
+  public function levelIndex(): ?int
+  {
+    return $this->levelIndex;
+  }
+
+  /**
    * Method status.
    *
    * @since 1.0.0
@@ -528,6 +550,22 @@ final class CanonicalFacility
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  /**
+   * Method normalizeLevelIndex.
+   *
+   * Delegates to {@see FacilityLevelIndex::normalize()} so the flat PATCH
+   * surface enforces exactly the bound `Facility` enforces, from one
+   * declaration rather than a copy that could drift.
+   *
+   * @since 1.0.0
+   *
+   * @throws InvalidValueException when the level index is out of range
+   */
+  private static function normalizeLevelIndex(?int $levelIndex): ?int
+  {
+    return FacilityLevelIndex::normalize($levelIndex);
   }
   // #endregion
 }

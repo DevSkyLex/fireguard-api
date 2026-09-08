@@ -102,6 +102,12 @@ final class CrossModuleDomainBoundaryTest extends TestCase
    * `ApprovalAccessDeniedException`. The two that remain are `ApprovalGate`
    * and `ApprovalExceptionMapperTrait`, which still map the exception the
    * Organization port itself raises.
+   * Refreshed 2026-08-27: `Inspection => Organization` raised 1 -> 2 for
+   * `NonConformitySlaRecipientResolver` importing `OrganizationId` — forced
+   * by `OrganizationMemberRepositoryPort::findByOrganizationId()`'s
+   * signature, the same crossing the Maintenance and Intervention reminder
+   * recipient resolvers already carry; see `src/Inspection/MODULE.md`
+   * (Architecture debt).
    */
   private const array BASELINE = [
     'Approval => Organization' => 2,
@@ -123,7 +129,7 @@ final class CrossModuleDomainBoundaryTest extends TestCase
     'Inspection => Approval' => 1,
     'Inspection => Intervention' => 6,
     'Inspection => Messaging' => 1,
-    'Inspection => Organization' => 1,
+    'Inspection => Organization' => 2,
     'Intervention => Messaging' => 1,
     'Intervention => Organization' => 5,
     'Maintenance => Organization' => 2,

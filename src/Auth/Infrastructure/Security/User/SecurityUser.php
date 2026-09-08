@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\User;
 
+use Auth\Application\Contract\User\AuthenticatedUser;
 use Symfony\Component\Security\Core\User\{PasswordAuthenticatedUserInterface, UserInterface};
 
 use function array_map;
@@ -21,7 +22,7 @@ use function strtolower;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class SecurityUser implements UserInterface, PasswordAuthenticatedUserInterface
+final readonly class SecurityUser implements UserInterface, PasswordAuthenticatedUserInterface, AuthenticatedUser
 {
   // #region Constructor
   /**
@@ -140,7 +141,7 @@ final readonly class SecurityUser implements UserInterface, PasswordAuthenticate
    *
    * @since 1.0.0
    *
-   * @return string the hashed password
+   * @return string the hashed password or an empty string for federated-only accounts
    */
   public function getPassword(): string
   {

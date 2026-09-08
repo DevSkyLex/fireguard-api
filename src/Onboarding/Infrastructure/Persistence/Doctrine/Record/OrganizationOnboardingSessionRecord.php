@@ -25,6 +25,20 @@ class OrganizationOnboardingSessionRecord
 {
   // #region Properties
   /**
+   * @since 1.2.0
+   *
+   * @var array<array-key,mixed> main-transaction setup journal and durable protocol marker
+   */
+  #[ORM\Column(name: 'setup_operations', type: 'json', options: ['jsonb' => true, 'default' => '[]'])]
+  public array $setupOperations = [];
+
+  /**
+   * @since 1.1.0 Explicit creation choice.
+   */
+  #[ORM\Column(name: 'creation_intent', type: 'boolean', options: ['default' => false])]
+  public bool $creationIntent = false;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

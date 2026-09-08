@@ -14,6 +14,22 @@ It is isolated from authentication storage and persisted in the dedicated main d
 - Assign roles to members
 - Evaluate Organization permissions (`Organization.*`, `Organization.members.*`, `Organization.roles.*`)
 
+## Verified-domain organization access
+
+Organization owns access policies, DNS proofs, discovery, join requests and memberships in `main`. Identity/address possession is consumed through User's published `EmailOwnershipPort`; no cross-database joins or browser-supplied email/domain are accepted. Historical and OAuth-only verification does not establish this capability.
+
+All organizations default to `invitation_only`. `approval_required` permits a request and `automatic` grants only the configured organization role after rechecking that its effective permissions are included in the system Member role. Configuring access requires both `organization.settings.write` and `organization.members.manage`; reviewing requests requires the latter plus the existing role-grant ceiling. The proposed default role in the settings projection does not activate or persist a policy. Used automatic roles cannot be deleted or expanded beyond the ceiling.
+
+Each exact normalized professional domain has a separate random TXT challenge per organization (`_fireguard-verification.<domain>`). Several organizations may verify the same domain independently. Public suffixes, common consumer mail and maintained disposable-domain lists are rejected. The daily Organization scheduler rechecks proofs: missing TXT suspends immediately; DNS failure permits the last successful proof for at most 48 hours. Removal, suspension or disabled discovery never removes existing members. Archived organizations cannot be discovered or joined.
+
+The authenticated `/api/organizations/join-options` projection contains only matching organization identities/actions and recipient invitation identifiers, never invitation tokens or member directories. Invitations take priority. Request lists use `member`, `totalItems` and, for reviewers, permission-filtered `assignableRoles`. Request detail exposes `applicantEmail` only to an authorized reviewer. A missing email proof still permits reading one's requests. API actions are eligibility projections; every mutation rechecks its own authorization.
+
+Organization-scoped `/access-policy`, `/domains`, `/join` and `/join-requests` operations implement policy/domain administration, immediate join and request creation/review. Account-scoped `/organizations/join-requests` and its `/{requestId}/cancel` operation support tracking. `/organizations/invitations/{invitationId}/accept` requires authenticated recipient proof and preserves invitation roles; existing token links remain supported.
+
+Requests are tied to the address ownership generation: a newer Fireguard proof invalidates an earlier request even if the address later changes back. There is one pending request per user/organization, with a 30-day expiry and a seven-day retry delay after refusal. Requests reserve no seats. Invitation acceptance closes the corresponding pending request. Removed members cannot use immediate join; approved or invited readmission replaces retained old roles with the explicitly granted set. Invitation acceptance, resend and revoke reread the current invitation under the shared organization lock; repository reads inside transactions additionally lock the invitation row, including delivery-failure invalidation. A recipient may cancel their own pending request even after its organization is archived or suspended. An expired invitation acceptance never saves its unlocked snapshot, and recipient matching precedes terminal-state errors. Delivery failure revokes only the exact token generation whose notification failed, preserving a newer resend. Organization advisory locks, partial uniqueness and the shared transactional member quota protect concurrent writes. Domain/policy changes suspend new approvals but do not retrospectively approve pending requests.
+
+Join changes emit ID-only audit events after commit and send localized email/realtime notifications as best-effort delivery. Public failures carry stable `organization_join_*` codes with a neutral localized description. Start/mutation and domain verification use dedicated rate limiters. Deploy the additive `main` migration before activating access, keep the scheduler running, and maintain the bundled domain lists documented in `Infrastructure/Resources/README.md`.
+
 ## API Endpoints
 
 | Method | Path | Description |
@@ -43,6 +59,7 @@ frontend's localized typed registries are the source of these values).
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-opened` | Get the non-conformities-opened series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus an optional `metrics` filter (e.g. `metrics=non_conformities_resolved`) that adds the resolved series to the response's `seriesByMetric` map, sharing this call's resolved period/timezone/granularity — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus the same optional `metrics` combining filter (`metrics=non_conformities_opened`) — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`), `openNonConformities` (`open` + `in_progress`) and `submittedInterventions` (status `submitted`, the "to review" badge). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` / `organization.interventions.review` permission — see Notes (L3.11) |
+| GET | `/api/organizations/{organizationId}/search` | Organization-wide global search (`q`, 2..100 chars, 400 otherwise): flat `results` list, at most 5 hits per type in stable order (`equipment`, `facility`, `intervention`, `inspection`, `non_conformity`), each hit `{type, id, title, subtitle?, extra?}` — the frontend builds routes from `type`+`id`. Caller must be an ACTIVE member (404 otherwise); each type is soft-gated on its read permission (`organization.equipment.read` / `organization.facilities.read` / `organization.interventions.read` / `organization.inspection.read` for both inspection types) — a missing permission silently omits the type, never a 403 — see Notes (L3.12) |
 | GET | `/api/organizations/{organizationId}/audit-events` | List the organization's slice of the audit ledger (activity feed), newest first, paginated (filters: `action`, `from`, `to`; `itemsPerPage` capped at 100). Requires `organization.audit.read` (admin-granted — not part of the member system role; admins hold it via `organization.*`). Reduced payload: no actor email, IP, user agent or chain internals, metadata filtered by the Audit module's per-action allowlist, and an actor who is not a member of this organization is never named — see Notes (P2.6) |
 | GET | `/api/organizations/{organizationId}/audit-events/export` | Stream the same slice as CSV, same filters. Requires `organization.audit.export`, **not** `organization.audit.read`: reading keeps the data inside the product, exporting takes a file out, and someone entitled to look is not automatically entitled to walk away with a copy. The organization comes from the URI and is not a filter the caller can widen — unlike the platform `/audit-events/export`, which composes its criteria from the request and is therefore reserved to platform operators. Columns match the read payload exactly: no actor email, IP, user agent or chain internals. Capped at the same 50 000 rows as the platform export, answered as 422 **before** the response starts streaming |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
@@ -91,6 +108,61 @@ Cross-module dependencies, and the contract each goes through:
 | consumed | `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` | `Audit\…\Contract\OrganizationAuditEntry` | the activity feed — Audit publishes a scoped, reduced read rather than lending its ledger repository; see Notes (P2.6) |
 | published | `Organization\Application\Port\Inbound\TeamDirectoryPort` | `…\Contract\Team\TeamMembershipSnapshot` | lets Intervention (and later Messaging) resolve a team's active membership without touching this module's Domain |
 | published | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` | `…\Contract\Authorization\OrganizationAccessDecision` | the permission check every other module's org-scoped endpoint runs |
+| published | `Organization\Application\Port\Inbound\MemberInvitationProvisioningPort` | `…\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionMemberInvitationResult, ProvisionOutcome}` | lets Import's bulk CSV member import provision invitations through the existing `InviteOrganizationMemberHandler` (member-cap quota and conflict rules intact). `MemberInvitationProvisioningService` resolves role *names* to ids (`OrganizationRoleRepositoryPort`), validates the email, and translates every failure into a typed outcome — `CREATED`\|`QUOTA_EXCEEDED`\|`ALREADY_MEMBER`\|`ALREADY_INVITED`\|`UNKNOWN_ROLE`\|`INVALID` (the two conflicts distinguished via `OrganizationMembershipConflictException::conflict()`, a discriminator added for exactly this). A `dryRun` request validates the email and role names and returns without dispatching — nothing persisted, no email sent, no quota projection (deliberately lighter than Equipment/Facility's dry runs; see `src/Import/MODULE.md`) |
+| published | `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` | `…\Contract\Document\OrganizationDocumentBranding` | document (PDF) branding for Compliance and Intervention exports: display name, stored logo inlined as a base64 `data:` URI (implemented by `Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` reading `FileStoragePort`), legal identity (legal name, registration number, VAT), regional settings (timezone, locale, `dateFormat`). Never throws: a missing organization or logo degrades to defaults |
+
+### Weekly digest (recurring email recap)
+
+The weekly digest lives **in this module on purpose**: it is a cross-module
+aggregate (interventions, maintenance, non-conformities) whose subject is the
+*organization* — the same shape as the organization dashboard, which already
+pulls those numbers through this module's outbound statistics ports. Housing it
+in any producing module would privilege one section over the others and force
+that module to learn about the two siblings; Organization already owns the
+member directory, the authorization service, and the notification policy the
+digest needs.
+
+- **Schedule**: `Infrastructure\Scheduler\OrganizationScheduleProvider`
+  (`#[AsSchedule('organization')]`, transport `scheduler_organization`) fires
+  `SendWeeklyDigestsCommand` every **Monday 06:00 UTC** (an anchored 1-week
+  periodical trigger — the cron-expression package is not a dependency),
+  stateful + lock-guarded like the other sweep schedules. See `OPERATIONS.md`.
+- **Use case**: `Application\UseCase\Command\Sweep\SendWeeklyDigests` pages
+  through active organizations (`OrganizationRepositoryPort::pageActiveIds`)
+  and aggregates, per organization: overdue interventions
+  (`InterventionStatisticsPort::countOverview` + `findOverdueInterventions`),
+  maintenance deadlines due within 7 days plus overdue ones
+  (`MaintenanceStatisticsPort`, adapter in the Maintenance module), and
+  unresolved non-conformities incl. SLA-breached ones
+  (`NonConformityStatisticsPort::countNonConformitiesByStatus`,
+  `countSlaBreachedNonConformities`, `findOpenNonConformities`). Detail lines
+  are capped at 5 per section; the email says "and N more".
+- **Silence at zero**: an organization whose counters are all zero gets **no
+  email**. This is deliberate — the digest reports what needs attention, not
+  that nothing does.
+- **Toggles**: the org-level `weeklyDigest` category toggle (new flag on
+  `OrganizationNotificationSettings`, PATCH `/api/organizations/{id}` →
+  `notifications.weeklyDigest`) and the org-level `emailEnabled` channel toggle
+  both gate the sweep before any data is read. Each recipient's own per-channel
+  preference for the `organization` category is then enforced by the
+  Notification module (the type is `organization.weekly_digest`).
+- **Recipients**: `OrganizationWeeklyDigestRecipientResolver` — the active
+  members whose effective permissions grant `organization.settings.write`
+  (directly or through a wildcard), i.e. the people who administer the
+  organization and can turn the digest off. Mirrors the resolver pattern of the
+  maintenance-reminder and NC-SLA sweeps, adapted to the administration
+  permission.
+- **Delivery**: email only, by design — a periodic summary is not a real-time
+  event, so no Mercure/in-app duplicate. `OrganizationWeeklyDigestNotifier`
+  localizes per recipient (en/fr/es, clamped like the invitation email),
+  renders `templates/notification/email/organization_weekly_digest.html.twig`
+  (keys under `digest.` in `translations/emails.*.yaml`), and deep-links to
+  `{frontend}/organizations/{id}` (the org dashboard). Best-effort per
+  recipient and per organization; failures log and never fail the sweep.
+- **No domain/audit event**: sending a digest changes no business state — it is
+  a notification fan-out, exactly like the NC-SLA and maintenance-reminder
+  sweeps, which dispatch none either. The Notification module persists each
+  sent notification, which is the delivery trace.
 
 ### `OrganizationAuthorizationPort` — three ways to ask
 
@@ -573,8 +645,12 @@ demonstrating that one person can belong to more than one tenant.
   `tagline: null` / `perks: []` — never an error. **`tagline`/`perks` are
   MARKETING copy only and must NEVER be read to decide what a plan grants**:
   entitlement is exclusively `Plan::limitFor()` / `OrganizationQuotaCatalog`
-  (quotas) and, for the Compliance safety-register export, the
-  `ComplianceExportEntitlementPort` allow-list (see `src/Compliance/MODULE.md`).
+  (quotas) and, for the PDF document exports (Compliance safety register,
+  Inspection report + non-conformities report, Equipment sheet), the
+  `pro`/`max` allow-list in `OrganizationExportEntitlementAdapter` — one
+  adapter implementing `ComplianceExportEntitlementPort`,
+  `InspectionReportEntitlementPort` and `EquipmentReportEntitlementPort`
+  (see `src/Compliance/MODULE.md`).
   A plan key present in `PlanPresentationCatalog` with no matching
   entitlement rule elsewhere (or vice versa) is expected and intentional —
   the two catalogs are never meant to stay in lockstep. The Billing module's
@@ -835,6 +911,34 @@ demonstrating that one person can belong to more than one tenant.
   never an error, no role query issued). Read-only aggregation: no schema
   change, no migration.
 
+- **Organization global search (L3.12)**: `GET /organizations/{organizationId}/search?q=…`
+  answers the command-palette / global-search box across five result types,
+  each owned by another module. The Organization module hosts the endpoint
+  (natural aggregator, same reasoning as the dashboard) and reaches every
+  type through a dedicated outbound search port — `EquipmentSearchPort`,
+  `FacilitySearchPort`, `InterventionSearchPort`, `InspectionSearchPort`,
+  `NonConformitySearchPort` — implemented by an adapter inside the owning
+  module (`<Module>\Infrastructure\Adapter\Organization\<Type>SearchAdapter`),
+  the third occurrence of the naming/statistics port pattern. Access mirrors
+  the navigation counters: ACTIVE membership required (a non-member gets
+  404, `SearchOrganizationHandler` checks the organization and the
+  membership directly), then each type is individually soft-gated on its
+  read permission via `OrganizationAuthorizationPort::hasPermission` (the
+  authorization service resolves the permission set once and caches it) —
+  inspections and non-conformities share `organization.inspection.read`.
+  Matching is a simple organization-scoped case-insensitive `LIKE` with a
+  `LIMIT` per adapter (`Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression`,
+  wildcard-safe), ordered by most recent update; equipment, facility and
+  inspection adapters only surface `published` records. Searched fields:
+  equipment type/brand/model/serialNumber/locationLabel; facility
+  name/code/address; intervention name (+ exact number match when the term
+  is all digits); inspection checklist reference code or inspection id;
+  non-conformity description. **Perf note**: no new index ships with this —
+  the `lower(col) LIKE` shape aligns with the existing `gin_trgm_ops`
+  expression indexes where they exist; adding trigram indexes for the
+  not-yet-covered searched columns is a recorded evolution, not part of
+  this change.
+
 - **Sidebar navigation counters (L3.11)**: `GET /organizations/{organizationId}/navigation-counters`
   answers the "does this org have work waiting" badge question for the
   frontend sidebar without paying for the full `/dashboard` payload (KPIs,
@@ -1002,3 +1106,12 @@ aggregate; its `role` field is a free-form label (e.g. `"lead"`),
 
 
 
+
+
+## Durable onboarding setup
+
+Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.
+
+## Automatic creation slugs
+
+When creation omits the slug, the server derives a valid normalized base from the organization name, uses a fallback for short names or when normalization produces no usable characters. It allocates a unique suffix inside the creation transaction under the shared slug namespace lock. Homonymous organizations are supported, including concurrent creation. Explicitly supplied slugs keep their existing validation and uniqueness conflict behavior.

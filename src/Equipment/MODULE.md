@@ -35,6 +35,9 @@ Main goals:
 | GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}/download` | Download an attachment's raw bytes (`Content-Disposition: attachment`, never inline — see below) |
 | POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
 | GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
+| GET | `/api/organizations/{organizationId}/equipment/export` | Streams a bounded CSV export of every equipment item in the organization — see below |
+| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/report` | Streams a PDF equipment sheet (identity, maintenance history, attachment index) — plan-gated, see below |
+| GET | `/api/organizations/{organizationId}/equipment/labels` | Streams a printable PDF sheet of QR equipment labels (Avery L7159 grid) — not plan-gated, see below |
 
 Removed 2026-08-20: `GET /api/organizations/{organizationId}/equipment-types` and
 `GET /api/organizations/{organizationId}/equipment-statuses` (unconsumed reference
@@ -107,6 +110,146 @@ should target this endpoint AS-IS (base64 JSON `AddAttachmentInput`), not
 the multipart shape** — `EquipmentService.uploadEvidence()` (`POST
 /api/media`) remains the separate canonical/offline-evidence path, already
 multipart, unchanged by this work.
+
+**CSV export (added 2026-08-27).** `GET .../equipment/export`
+(`EXPORT_EQUIPMENTS`, resolved on a dedicated `EquipmentExportResource` — a
+separate resource rather than a fourth operation on `EquipmentResource`,
+because that resource's `GET_EQUIPMENT` operation carries no `{equipmentId}`
+format requirement and an `export` literal segment would otherwise collide
+with it, exactly the reason `EquipmentKpiResource` is already separate)
+streams a synchronous CSV (no 202+poll), mirroring
+`Intervention\...\ExportInterventionsController`. `ExportEquipmentsController`
+resolves `organizationId` off the URI (this module's routes are
+organization-path-scoped, unlike Intervention's query-parameter
+`organization`), dispatches `ExportEquipmentsQuery` through the query bus, and
+streams the CSV via `EquipmentCsvWriter`. `ExportEquipmentsHandler` resolves
+`organization.equipment.read` through `OrganizationAuthorizationPort` —
+`EquipmentNotFoundException::forOrganizationScope()` (404) when the caller is
+outside the organization, `EquipmentAccessDeniedException` (403) when the
+permission is missing — then bounds the request with a cheap
+`EquipmentRepositoryPort::countEquipments()` before fetching a single row,
+rejecting with `EquipmentExportTooLargeException` (422) past
+`ExportEquipmentsHandler::MAX_EXPORT_ROWS` (50 000). **Deliberately
+unfiltered**: unlike the Intervention export, which replicates the list
+endpoint's filter subset, this export always scopes to the whole organization
+— it doubles as the full-organization backup/reimport source for the Import
+module's bulk CSV import, so filtering it down to whatever the caller has the
+list page currently filtered on would silently produce an incomplete backup.
+A successful export dispatches `EquipmentsExportedEvent`
+(`organizationId`/`actorUserId`/`format`/`rowCount`); the Audit module wires
+its own subscriber to turn that into an `equipment.list_exported` ledger
+entry — not wired here, matching the layering every other module's own
+`*ExportedEvent` follows.
+
+**PDF equipment sheet (plan-gated, added 2026-08-27).**
+`GET .../equipment/{equipmentId}/report` (`EXPORT_EQUIPMENT_REPORT`, on a
+dedicated `EquipmentReportExportResource` for the same route-collision reason
+as the CSV export) streams a synchronous PDF on the shared PDF socle
+(`templates/pdf/layout.html.twig`, translator domain `pdf`,
+`OrganizationDocumentBrandingPort` letterhead + regional date formatting,
+`DompdfEquipmentReportRenderer` with `isRemoteEnabled`/`isPhpEnabled` off and
+canvas `page_text()` pagination). `ExportEquipmentReportController` reuses
+the module's existing read queries only — `GetEquipmentQuery` (identity,
+tags, facility name, maintenance due status), `ListMaintenanceLogsQuery`
+(history, bounded to 100 rows) and `ListEquipmentAttachmentsQuery` (names and
+metadata, never blobs). Linked non-conformities are deliberately absent: no
+per-equipment non-conformity port exists (`NonConformityStatisticsPort` is
+organization-wide only), and creating one would be new business logic.
+
+**Decision — entitlement gate.** The sheet is reserved to the `pro`/`max`
+plans, exactly like the Compliance safety register: the controller checks
+`EquipmentReportEntitlementPort` (aliased to the SAME Organization adapter,
+`OrganizationExportEntitlementAdapter`, one plan allow-list for every PDF
+export) and answers a dedicated **403**
+(`EquipmentReportNotEntitledException::planTooLow`) when the plan is lower.
+This deliberately does **not** mirror the intervention report
+(`GET /api/interventions/{id}/report`), which predates the decision and
+remains ungated — new document exports align on the gated register.
+Authorization first: `resolveAccess()` with `organization.equipment.read`,
+`OUTSIDE_SCOPE` → **404**, `MISSING_PERMISSION` → **403**, entitlement
+checked only after that split. A successful export dispatches
+`EquipmentReportExportedEvent` (equipment, organization, actor, plan key);
+the Audit module's own subscriber records it as `equipment.report_exported`.
+
+**CSV column contract — the import round-trip.** `EquipmentCsvWriter::HEADER`
+is a `public` constant, and its first seven columns
+(`type`, `subType`, `brand`, `model`, `serialNumber`, `locationLabel`,
+`facilityCode`, in that exact order) are a published contract: they are the
+same seven columns, in the same order, that
+`Import\Application\Service\EquipmentRowFactory` reads back by column *name*
+(not position — the importer maps by header, so reordering is actually safe
+for the importer itself, but the position is still frozen here to keep the
+two sides human-comparable) on a bulk CSV reimport. `facilityCode` (added
+2026-08-28, appended 7th so the original six stay frozen in place) closes
+the reimport loop for facility assignment: the export resolves each assigned
+facility's organization-scoped unique `code` in one bulk round trip
+(`FacilityNamingPort::findCodesByIds()`), and a reimport resolves it back and
+re-assigns the created item through the existing `AssignToFacilityCommand`
+(see the provisioning port below); a facility with no code exports an empty
+cell, which the importer treats as "no assignment". Every column after the
+seventh (`id`, `status`, `facilityId`, `facilityName`, `installedAt`,
+`commissionedAt`, `createdAt`, `updatedAt`) is read-only metadata the
+importer ignores. The frozen slice is asserted by
+`tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest.php`.
+
+**QR label sheet (added 2026-08-28).** `GET .../equipment/labels`
+(`EXPORT_EQUIPMENT_LABELS`, on a dedicated `EquipmentLabelSheetResource` for
+the same route-collision reason as the CSV export: `labels` is a literal
+segment under `/equipment/`) streams a synchronous PDF of printable QR
+stickers. Selection is mutually exclusive: `ids[]` (an explicit equipment
+list, one label each), `facilityId` (every equipment item of one facility),
+or neither (the whole organization park); providing both is a **400**, an
+explicitly empty `ids[]` is a **400** too (silently falling back to the whole
+park on a bad parameter would print hundreds of unwanted labels).
+`ExportEquipmentLabelsHandler` resolves `organization.equipment.read`
+(`OUTSIDE_SCOPE` → **404**, `MISSING_PERMISSION` → **403**), then bounds the
+request with `EquipmentRepositoryPort::countEquipmentLabelCandidates()`
+before fetching a row, rejecting with
+`EquipmentLabelExportTooLargeException` (**422**) past
+`ExportEquipmentLabelsHandler::MAX_LABELS` (**500** — ~21 A4 pages; beyond
+that it is a bulk print job to split per facility). Identifiers outside the
+organization never match: the repository always applies the organization
+filter, so a foreign id silently yields no label rather than leaking
+anything.
+
+**QR payload — the scan contract.** Each label's QR encodes the equipment's
+canonical relative IRI **`/api/equipment/{id}`** — byte-for-byte the first
+form the frontend's
+`InterventionDiscoveryService.normalizeScannedTarget()` accepts verbatim
+(`fireguard-sso-web/src/app/features/organization/features/interventions/services/intervention-discovery/intervention-discovery.service.ts`;
+it also normalizes a bare UUID and a full URL by its pathname — the relative
+IRI is the deterministic choice, independent of whichever host the app is
+deployed on). QR codes are generated by `bacon/bacon-qr-code` (`^3.1`, pure
+PHP, BSD-2-Clause, no image extension) inside
+`DompdfEquipmentLabelSheetRenderer`, error-correction level **M**, as SVG
+injected into the HTML as a base64 `data:image/svg+xml` `<img>` —
+**measured**: dompdf 3.1 silently drops inline `<svg>` elements (empty page
+content stream) while the same SVG through an `<img>` data URI renders as
+vector paths via php-svg-lib.
+
+**Sheet geometry — Avery L7159.** `templates/equipment/labels.html.twig`
+deliberately does **not** extend `pdf/layout.html.twig`: the common layout
+paints a fixed header/footer inside the page body, which would print across
+the top and bottom sticker rows. The template owns its own skeleton and maps
+the physical die-cut grid of an Avery L7159 / J8159 sheet exactly: A4,
+24 labels of 63.5 × 33.9 mm in 3 columns × 8 rows, horizontal pitch 66 mm
+(2.5 mm gutters), vertical pitch 33.9 mm (no row gap), side margins 7.25 mm,
+top/bottom margins 12.9 mm (the `@page` margins ARE the sheet margins). Each
+label carries the QR (24 mm), the type/sub-type, the serial number and the
+facility/location in small print. Page numbering is deliberately absent — a
+sheet is cut apart.
+
+**Decision — no entitlement gate.** Unlike the equipment sheet and the
+safety register (both `pro`/`max`), the label sheet checks **no plan**: the
+QR labels are the physical half of the field scan loop, which is itself
+ungated (`InterventionDiscoveryService` and the intervention endpoints carry
+no plan gate), so gating the sheet would break the core scan workflow for
+lower plans. The gated exports are reporting deliverables; a label is
+operational material. A successful export dispatches
+`EquipmentLabelsExportedEvent`
+(`organizationId`/`actorUserId`/`selection`/`labelCount`); the Audit module's
+own subscriber records it as `equipment.labels_exported` (metadata: selection
+mode name and label count, never the selected identifiers).
 
 ## Flows
 
@@ -212,10 +355,18 @@ Aggregates and entities:
 - `brand`, `model`, `serialNumber` (serialNumber is unique per organization)
 - `locationLabel` (optional free-text — the spot *inside* a facility, not the facility)
 - `facilityName` (read-only display name of the assigned facility). The module stores only
-  `facilityId`; the name is resolved through `FacilityNamingPort`, batched once per listing.
-  Deliberately separate from `FacilityValidationPort`: that contract throws, and a label
-  lookup must not go through something whose job is to reject writes. Null when unassigned
-  or unresolvable — an unresolved name is not a blank name.
+  `facilityId`; the name is resolved through `FacilityNamingPort` — batched into ONE lookup
+  per collection page (both the main path and the due-status filtered path), and resolved
+  per item on the detail read and on **every action response** (create, update, assign,
+  unassign, commission, maintenance, decommission): an action answers with the same
+  equipment payload the detail read would give, so the UI never has to re-fetch to keep its
+  facility badge. All of those payloads go through the single
+  `Presentation/Api/Factory/EquipmentOutputFactory` (2026-09-01 — the per-processor mapping
+  copies are gone; that duplication is how the field went missing from the action responses
+  in the first place). Deliberately separate from `FacilityValidationPort`: that contract
+  throws, and a label lookup must not go through something whose job is to reject writes.
+  Null when unassigned or unresolvable — an unresolved name is not a blank name, and a null
+  is omitted from the JSON entirely (API Platform skips null fields).
 - `installedAt`, `commissionedAt` (optional)
 - `planPosition` (optional, `{attachmentId, x, y}`, Phase 4 — see "Plan
   position" below). Exposed on the **detail** read
@@ -342,6 +493,10 @@ Cross-module contracts and lifecycle invariants:
 - `Equipment\Infrastructure\Adapter\Facility\FacilityEquipmentDependencyAdapter`
   implements Facility's archival dependency port (active = published and not
   decommissioned).
+- `Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter` implements
+  the Organization module's `EquipmentSearchPort` for the organization global
+  search (`GET /organizations/{organizationId}/search`) — bounded org-scoped
+  `LIKE` over type/brand/model/serialNumber/locationLabel, published records only.
 - **Plan position cross-module pair (Phase 4)**: outbound —
   `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort`,
   consumed by `SetEquipmentPlanPositionHandler`, implemented by Facility
@@ -495,6 +650,26 @@ Cross-module contracts and lifecycle invariants:
   rethrowing, so a caller processing many rows can continue past a single
   failed one. Mirrors `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort`.
   See `src/Import/MODULE.md`.
+- **Bulk CSV import v3 — `facilityCode` (2026-08-28)**:
+  `ProvisionEquipmentRequest` carries an optional `facilityCode` — the
+  organization-scoped unique code of the facility the created item should be
+  assigned to. `EquipmentProvisioningService` resolves it **before creating
+  anything** through the new
+  `FacilityValidationPort::resolveIdByCode()` (implemented Facility-side in
+  `Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter`,
+  archived facilities excluded, mirroring the Facility module's own
+  `parentCode` resolution); an unknown code answers `INVALID` without
+  dispatching a single command, on a real run and a dry run alike. On a real
+  run with a resolved code the service dispatches `CreateEquipmentCommand`
+  and then the existing `AssignToFacilityCommand` — **two separate
+  synchronous commands, two transactions, deliberately not atomic**:
+  duplicating the creation use case to gain a shared transaction would
+  recreate the parallel business-logic path the port exists to avoid. A
+  failed assignment after a successful creation is answered as `INVALID`
+  carrying the created equipment id and a message naming both facts — the
+  item exists, unassigned, recoverable through the normal assignment
+  endpoint. A dry run resolves the code (so an unknown one is caught) but
+  never dispatches the assignment.
 - **Bulk CSV import v2 — dry-run mode**: `ProvisionEquipmentRequest` carries
   an optional `dryRun` (default `false`) and `quotaProjectionOffset` (default
   `0`), threaded onto `CreateEquipmentCommand`. `CreateEquipmentHandler`
@@ -618,6 +793,12 @@ names the write path has no reason to carry).
   (implements Facility's `FacilityEquipmentPlanPositionPort`) is wired with
   `doctrine.orm.main_entity_manager` here; the port alias itself is
   registered in `config/modules/facility.yaml` (the port's owning module).
+- CSV export: `Equipment\Application\UseCase\Query\ExportEquipments\ExportEquipmentsHandler`
+  is tagged `messenger.message_handler`. It touches Doctrine only through the
+  already-wired `EquipmentRepositoryPort`/`FacilityNamingPort` aliases, so it
+  needs no `$entityManager` of its own; same for `ExportEquipmentsController`,
+  which reaches Doctrine only via the query bus and is covered by the
+  `Equipment\Presentation\:` resource autowiring.
 
 ## Testing
 
@@ -713,6 +894,46 @@ names the write path has no reason to carry).
     partial input. Overlay-side equipment inclusion is covered in
     `tests/Functional/Api/FacilityPlanGeometryApiTest.php` (Facility owns
     that endpoint).
+- CSV export:
+  - `tests/Unit/Equipment/Application/UseCase/Query/ExportEquipments/ExportEquipmentsHandlerTest`
+    — 403 without `organization.equipment.read`, 404 outside the
+    organization's scope, 422 past `MAX_EXPORT_ROWS`, and bulk facility-name
+    resolution with the raw-id fallback when a name cannot be resolved.
+  - `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest` —
+    freezes `EquipmentCsvWriter::HEADER`'s first six columns
+    (`type`/`subType`/`brand`/`model`/`serialNumber`/`locationLabel`) as the
+    Import module's round-trip contract, plus the header/data-row write and
+    the facility-name fallback.
+  - `tests/Unit/Equipment/Presentation/Api/Controller/ExportEquipmentsControllerTest`
+    — the CSV body and headers (`StreamedResponse::getContent()` is not
+    reliably buffered by the functional `KernelBrowser`), the missing-URI-
+    variable 400, the unauthenticated 401, the `EquipmentsExportedEvent`
+    dispatch, and the bus-wrapped 403/422 unwrapping.
+  - Functional: `tests/Functional/Api/EquipmentExportApiTest.php` — 200 with
+    CSV content type/attachment disposition and the import column order, 401,
+    403 for a member without `organization.equipment.read`, 404 for a caller
+    outside the organization. The 422 row-cap path is unit-only (`MAX_EXPORT_ROWS`
+    is a class constant; seeding 50 001 rows for a functional test is not
+    worth the runtime).
+- QR label sheet:
+  - `tests/Unit/Equipment/Application/UseCase/Query/ExportEquipmentLabels/ExportEquipmentLabelsHandlerTest`
+    — 403 without `organization.equipment.read`, 404 outside the
+    organization's scope, 400 on the ambiguous or empty selection, 422 past
+    `MAX_LABELS` (both the early id-count check and the repository COUNT,
+    neither fetching a row), id-list deduplication, the selection-mode name
+    in the result, and the single bulk facility-name round trip.
+  - `tests/Unit/Equipment/Presentation/Api/Controller/ExportEquipmentLabelsControllerTest`
+    — the Twig context shaping (the `/api/equipment/{id}` QR value,
+    byte-for-byte), the PDF headers/disposition, the both-modes 400, the
+    empty-`ids[]` 400, the unauthenticated 401, the
+    `EquipmentLabelsExportedEvent` dispatch, and the bus-wrapped 403/404/422
+    unwrapping.
+  - Functional: `tests/Functional/Api/EquipmentLabelSheetApiTest.php` — 200
+    `%PDF-` for the whole-park, `ids[]` and `facilityId` selections, 400 for
+    both modes at once, **422 through the real HTTP surface** (501 ids in the
+    query string — cheap, unlike seeding 50 001 rows for the CSV cap), 401,
+    403 for a member without `organization.equipment.read`, 404 for a caller
+    outside the organization.
 - Run module tests: `make test tests/Unit/Equipment/`
 
 ## Error Codes
@@ -738,9 +959,17 @@ names the write path has no reason to carry).
 - `FloorPlanAttachmentNotFoundException` → 404 (Phase 4, contract exception)
 - `FloorPlanAttachmentNotFloorPlanException` → 409 (Phase 4, contract exception)
 - `FloorPlanAttachmentNotAncestorException` → 409 (Phase 4, contract exception)
+- `EquipmentAccessDeniedException` → 403 (export only — authenticated member missing `organization.equipment.read`)
+- `EquipmentExportTooLargeException` → 422 (export only — past `ExportEquipmentsHandler::MAX_EXPORT_ROWS`)
+- `EquipmentLabelExportTooLargeException` → 422 (label sheet only — past `ExportEquipmentLabelsHandler::MAX_LABELS` (500))
 
 The three `FloorPlanAttachment*` exceptions are **contract exceptions**, not
 Domain ones: they live under `Application/Contract/FloorPlan/` because they
 are the typed `@throws` surface of `EquipmentFloorPlanValidationPort`, thrown
 by Facility's adapter across the module boundary — and cross-module access is
 restricted to `Application\Port\` and `Application\Contract\` types.
+
+
+## Durable onboarding setup
+
+Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.

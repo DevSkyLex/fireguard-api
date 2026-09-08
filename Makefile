@@ -31,7 +31,7 @@ APP_LOG_DIR ?= $(TMP_DIR)/$(PROJECT_NAME)/log/$(APP_ENV)
 export APP_CACHE_DIR
 export APP_LOG_DIR
 
-.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures seed-fixtures-docker test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 # Run the whole suite: unit, architecture, integration, functional and E2E.
 
@@ -154,6 +154,16 @@ test-cache-clean:
 # Load repository seed fixtures into auth and main databases safely
 seed-fixtures:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
+
+# Same seed, run inside the app container.
+#
+# `app_var` is a named volume mounted over /var/www/html/var, so the host's var/
+# and the container's are different filesystems. Seeding from the host writes
+# the floor-plan images where the API will never look: the download endpoint
+# answers 404 and the plan viewer spins on an image that exists, on the wrong
+# disk. Use this whenever the seeded *files* matter, not just the rows.
+seed-fixtures-docker:
+	docker compose exec -T app php -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
 # Mapping vs database, on BOTH entity managers, against the test databases the
 # suite runs on. CI has always run this inside the "Prepare PostgreSQL test

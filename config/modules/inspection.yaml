@@ -6,6 +6,12 @@ services:
   Inspection\Presentation\:
     resource: '../../src/Inspection/Presentation'
 
+  Inspection\Application\Service\:
+    resource: '../../src/Inspection/Application/Service'
+
+  Inspection\Infrastructure\Scheduler\:
+    resource: '../../src/Inspection/Infrastructure/Scheduler'
+
   # CanonicalInspectionProvider names no entity manager: both of its reads
   # went to Application\UseCase\Query\Inspection\.
   # CanonicalInspectionMutationProcessor names no entity manager on purpose:
@@ -63,6 +69,13 @@ services:
   Inspection\Application\Port\Outbound\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
+  Inspection\Application\Port\Outbound\NonConformityStatisticsGatewayPort:
+    alias: Inspection\Infrastructure\Adapter\Statistics\DoctrineNonConformityStatisticsGatewayAdapter
+
+  Inspection\Infrastructure\Adapter\Statistics\DoctrineNonConformityStatisticsGatewayAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
 
   # Reports in-progress inspections targeting a facility (for the facility archival guard)
@@ -85,6 +98,14 @@ services:
     tags: ['approval.deferred_action_executor']
 
   Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
+
+  Inspection\Infrastructure\Adapter\Organization\InspectionSearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Adapter\Organization\NonConformitySearchAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Cross-module read model for the Calendar module (unified feed source)
   Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter: ~
@@ -181,6 +202,22 @@ services:
 
   Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter: ~
 
+  # PDF report renderers (no Doctrine — plain Twig contexts)
+  Inspection\Infrastructure\Pdf\DompdfInspectionReportRenderer: ~
+
+  Inspection\Infrastructure\Pdf\DompdfNonConformityReportRenderer: ~
+
+  Inspection\Application\Port\Outbound\InspectionReportPdfRendererPort:
+    alias: Inspection\Infrastructure\Pdf\DompdfInspectionReportRenderer
+
+  Inspection\Application\Port\Outbound\NonConformityReportPdfRendererPort:
+    alias: Inspection\Infrastructure\Pdf\DompdfNonConformityReportRenderer
+
+  # PDF report entitlement (pro/max — the same Organization-module adapter
+  # as the Compliance safety register, one allow-list for every PDF export)
+  Inspection\Application\Port\Outbound\InspectionReportEntitlementPort:
+    alias: Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter
+
   # Command Handlers
   Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
     arguments:
@@ -203,6 +240,9 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\EscalateNonConformitySlaBreachesHandler:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Command\Checklist\CreateChecklist\CreateChecklistHandler:
@@ -267,6 +307,9 @@ services:
   Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Query\NonConformity\GetNonConformityStatistics\GetNonConformityStatisticsHandler:
+    tags: ['messenger.message_handler']
+
   Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistHandler:
     tags: ['messenger.message_handler']
 
@@ -297,3 +340,22 @@ services:
   Inspection\Application\UseCase\Query\Inspection\ResolveCanonicalInspectionScope\ResolveCanonicalInspectionScopeHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Query\ExportInspections\ExportInspectionsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\ExportNonConformities\ExportNonConformitiesHandler:
+    tags: ['messenger.message_handler']
+
+
+  # NC SLA escalation sweep: candidate selection over non_conformities (main DB)
+  Inspection\Application\Port\Outbound\NonConformitySlaPort:
+    alias: Inspection\Infrastructure\Adapter\Sla\DoctrineNonConformitySlaAdapter
+
+  Inspection\Infrastructure\Adapter\Sla\DoctrineNonConformitySlaAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module read model: per-severity non-conformity resolution SLAs
+  # (adapter lives in the owning Organization module)
+  Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort:
+    alias: Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter

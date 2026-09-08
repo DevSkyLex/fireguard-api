@@ -63,6 +63,10 @@ api_platform:
   # The prescribed fix for a handler that wants a status is a DOMAIN exception,
   # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
+    Organization\Domain\Exception\OrganizationJoinException: 409
+    Organization\Domain\Exception\OrganizationJoinInputException: 422
+    Auth\Domain\Exception\EmailOwnershipException: 400
+    User\Domain\Exception\EmailOwnershipUnavailableException: 403
     # The three that predate FG-035. They already worked because all three are
     # raised BEFORE the command bus wraps anything — which is precisely the
     # limitation step 1 removes.
@@ -112,6 +116,7 @@ api_platform:
     Assistant\Domain\Exception\AssistantValidationException: 422
     Calendar\Domain\Exception\CalendarEventNotFoundException: 404
     Calendar\Domain\Exception\CalendarEventValidationException: 422
+    Calendar\Domain\Exception\CalendarFeedTokenNotFoundException: 404
     Compliance\Domain\Exception\ComplianceAccessDeniedException: 403
     Compliance\Domain\Exception\ComplianceExportNotEntitledException: 403
     Compliance\Domain\Exception\ComplianceNotFoundException: 404
@@ -143,12 +148,24 @@ api_platform:
     Facility\Domain\Exception\FacilityAttachmentNotFoundException: 404
     Facility\Domain\Exception\FacilityCodeAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityHierarchyException: 400
+    # A2: the 3D building model was requested for a facility whose type is
+    # not `building` — the request conflicts with the facility's own type,
+    # mirroring FacilityAttachmentNotFloorPlanException's 409.
+    Facility\Domain\Exception\FacilityNotBuildingException: 409
     # 400 because that is what it already answers: the class extends
     # `InvalidArgumentException`, so every processor catch already maps it. The
     # entry is the safety net for a path with no catch, not a change. A case
     # exists for 404 or 422 — the referenced organization genuinely does not
     # exist — but that is a contract decision, not a refactor's side effect.
     Facility\Domain\Exception\FacilityOrganizationNotFoundException: 400
+    # Both geocode-endpoint entries are the FG-035 shape: the provider is
+    # catch-free, so these two lines ARE the mapping, not a safety net.
+    # AddressNotFound is a plain 404 with no oracle duty — an address is not
+    # a resource. AccessDenied's 403 matches what every legacy catch site
+    # already answers (see PresentationExceptionStatusTest's baseline).
+    Facility\Domain\Exception\FacilityAddressNotFoundException: 404
+    Facility\Domain\Exception\FacilityAddressSuggestionsUnavailableException: 503
+    Facility\Domain\Exception\FacilityAccessDeniedException: 403
     Facility\Domain\Exception\FacilityMetadataFieldKeyAlreadyExistsException: 409
     Facility\Domain\Exception\FacilityMetadataFieldLimitExceededException: 422
     Facility\Domain\Exception\FacilityMetadataFieldNotFoundException: 404
@@ -213,6 +230,7 @@ api_platform:
     # completed yet"; changing it is a contract decision, not a side effect of
     # this refactor.
     Onboarding\Domain\Exception\OnboardingStepNotExecutableException: 400
+    Onboarding\Application\Contract\Setup\OrganizationSetupConflict: 409
     Onboarding\Domain\Exception\UnsupportedOnboardingStepException: 400
     # Organization's domain conditions. The conflict family answers 409 as of
     # 2026-08-26, arbitrated rather than inherited: each of these is a

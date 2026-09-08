@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\AssignToFacility;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityValidationPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId};
 use Exception;
 use Shared\Application\Message\CommandHandler;
@@ -31,6 +32,7 @@ final readonly class AssignToFacilityHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private FacilityValidationPort $facilityValidation,
     private TagRepositoryPort $tagRepository,
+    private FacilityNamingPort $facilityNaming,
   ) {
   }
   // #endregion
@@ -95,7 +97,28 @@ final readonly class AssignToFacilityHandler implements CommandHandler
       ),
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
+      facilityName: $this->resolveFacilityName($equipment),
     );
+  }
+
+  /**
+   * Method resolveFacilityName.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate
+   *
+   * @return ?string the assigned facility's display name, or null when unassigned or unresolved
+   */
+  private function resolveFacilityName(Equipment $equipment): ?string
+  {
+    $facilityId = $equipment->facilityId()?->__toString();
+
+    if (null === $facilityId) {
+      return null;
+    }
+
+    return $this->facilityNaming->findNamesByIds([$facilityId])[$facilityId] ?? null;
   }
   // #endregion
 }

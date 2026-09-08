@@ -1,0 +1,81 @@
+{% extends 'notification/email/layout.html.twig' %}
+
+{% set lang = locale|default('en') %}
+
+{% block lang %}{{ lang }}{% endblock %}
+
+{% block content %}
+  <h1>{{ 'digest.heading'|trans({ '%org%': organizationName }, 'emails', lang) }}</h1>
+  <p>{{ 'digest.intro'|trans({ '%org%': organizationName|e }, 'emails', lang)|raw }}</p>
+
+  {% if overdueInterventionsCount > 0 %}
+    <h2 style="font-size: 16px; margin: 24px 0 8px; color: #0f172a;">
+      {{ 'digest.interventionsTitle'|trans({}, 'emails', lang) }} ({{ overdueInterventionsCount }})
+    </h2>
+    <ul style="margin: 0 0 8px; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6;">
+      {% for intervention in overdueInterventions %}
+        <li>
+          #{{ intervention.number }} — {{ intervention.name }}{% if intervention.dueAt %}
+            ({{ 'digest.interventionDue'|trans({ '%date%': intervention.dueAt }, 'emails', lang) }}){% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if overdueInterventionsCount > overdueInterventions|length %}
+      <p class="muted">{{ 'digest.andMore'|trans({ '%count%': overdueInterventionsCount - overdueInterventions|length }, 'emails', lang) }}</p>
+    {% endif %}
+  {% endif %}
+
+  {% if maintenanceDueSoonCount > 0 or maintenanceOverdueCount > 0 %}
+    <h2 style="font-size: 16px; margin: 24px 0 8px; color: #0f172a;">
+      {{ 'digest.maintenanceTitle'|trans({}, 'emails', lang) }}
+    </h2>
+    <p style="margin: 0 0 8px; color: #334155; font-size: 14px;">
+      {% if maintenanceOverdueCount > 0 %}{{ 'digest.maintenanceOverdueCount'|trans({ '%count%': maintenanceOverdueCount }, 'emails', lang) }}{% endif %}
+      {%- if maintenanceOverdueCount > 0 and maintenanceDueSoonCount > 0 %} · {% endif -%}
+      {% if maintenanceDueSoonCount > 0 %}{{ 'digest.maintenanceDueSoonCount'|trans({ '%count%': maintenanceDueSoonCount }, 'emails', lang) }}{% endif %}
+    </p>
+    <ul style="margin: 0 0 8px; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6;">
+      {% for deadline in maintenanceDeadlines %}
+        <li>
+          {{ deadline.equipmentType }} —
+          {% if deadline.overdue %}
+            {{ 'digest.maintenanceOverdueTag'|trans({}, 'emails', lang) }} ({{ deadline.nextDueAt }})
+          {% else %}
+            {{ 'digest.maintenanceDueTag'|trans({ '%date%': deadline.nextDueAt }, 'emails', lang) }}
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if maintenanceDueSoonCount + maintenanceOverdueCount > maintenanceDeadlines|length %}
+      <p class="muted">{{ 'digest.andMore'|trans({ '%count%': maintenanceDueSoonCount + maintenanceOverdueCount - maintenanceDeadlines|length }, 'emails', lang) }}</p>
+    {% endif %}
+  {% endif %}
+
+  {% if openNonConformitiesCount > 0 or slaBreachedNonConformitiesCount > 0 %}
+    <h2 style="font-size: 16px; margin: 24px 0 8px; color: #0f172a;">
+      {{ 'digest.ncTitle'|trans({}, 'emails', lang) }}
+    </h2>
+    <p style="margin: 0 0 8px; color: #334155; font-size: 14px;">
+      {% if openNonConformitiesCount > 0 %}{{ 'digest.ncOpenCount'|trans({ '%count%': openNonConformitiesCount }, 'emails', lang) }}{% endif %}
+      {%- if openNonConformitiesCount > 0 and slaBreachedNonConformitiesCount > 0 %} · {% endif -%}
+      {% if slaBreachedNonConformitiesCount > 0 %}{{ 'digest.ncSlaBreachedCount'|trans({ '%count%': slaBreachedNonConformitiesCount }, 'emails', lang) }}{% endif %}
+    </p>
+    <ul style="margin: 0 0 8px; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6;">
+      {% for nonConformity in openNonConformities %}
+        <li>
+          [{{ nonConformity.severity }}] {{ nonConformity.description|length > 80 ? nonConformity.description|slice(0, 80) ~ '…' : nonConformity.description }}
+          ({{ 'digest.ncOpenedAt'|trans({ '%date%': nonConformity.openedAt }, 'emails', lang) }})
+        </li>
+      {% endfor %}
+    </ul>
+    {% if openNonConformitiesCount > openNonConformities|length %}
+      <p class="muted">{{ 'digest.andMore'|trans({ '%count%': openNonConformitiesCount - openNonConformities|length }, 'emails', lang) }}</p>
+    {% endif %}
+  {% endif %}
+
+  <div class="btn-wrap">
+    <a href="{{ dashboardUrl }}" class="btn">{{ 'digest.cta'|trans({}, 'emails', lang) }}</a>
+  </div>
+  <p class="muted">{{ 'digest.fallback'|trans({}, 'emails', lang) }}</p>
+  <p class="link-fallback"><a href="{{ dashboardUrl }}">{{ dashboardUrl }}</a></p>
+{% endblock %}

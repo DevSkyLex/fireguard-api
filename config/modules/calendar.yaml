@@ -47,3 +47,38 @@ services:
 
   Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\GetCalendarFeedHandler:
     tags: ['messenger.message_handler']
+
+  # ---------------------------------------------------------------------------
+  # Member iCal feed tokens (phase 10a)
+  # ---------------------------------------------------------------------------
+
+  # Repository (main entity manager)
+  Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarFeedTokenRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Calendar\Application\Port\Outbound\FeedToken\CalendarFeedTokenRepositoryPort:
+    alias: Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarFeedTokenRepository
+
+  # Secret generator/hasher: raw secret lives in memory only, SHA-256 in base.
+  Calendar\Application\Service\CalendarFeedTokenSecretFactory: ~
+
+  # RFC 5545 serializer for the public .ics endpoint (deep links need the
+  # public frontend base URL).
+  Calendar\Presentation\Api\Ical\CalendarFeedIcalWriter:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
+
+  # Feed token command handlers
+  Calendar\Application\UseCase\Command\FeedToken\RotateCalendarFeedToken\RotateCalendarFeedTokenHandler:
+    tags: ['messenger.message_handler']
+
+  Calendar\Application\UseCase\Command\FeedToken\RevokeCalendarFeedToken\RevokeCalendarFeedTokenHandler:
+    tags: ['messenger.message_handler']
+
+  # Feed token query handlers
+  Calendar\Application\UseCase\Query\FeedToken\GetCalendarFeedTokenMetadata\GetCalendarFeedTokenMetadataHandler:
+    tags: ['messenger.message_handler']
+
+  Calendar\Application\UseCase\Query\FeedToken\ResolveCalendarFeedToken\ResolveCalendarFeedTokenHandler:
+    tags: ['messenger.message_handler']

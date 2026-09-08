@@ -89,6 +89,7 @@ final readonly class GetImportJobHandler implements QueryHandler
     return match ($kind) {
       ImportKind::EQUIPMENT => 'organization.equipment.read',
       ImportKind::FACILITY => 'organization.facilities.read',
+      ImportKind::MEMBER => 'organization.members.read',
     };
   }
   // #endregion

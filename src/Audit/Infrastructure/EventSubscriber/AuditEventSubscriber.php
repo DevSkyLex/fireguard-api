@@ -18,12 +18,15 @@ use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent, UserLoggedOu
 use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFailedEvent};
-use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent};
-use Compliance\Domain\Event\SafetyRegisterExportedEvent;
+use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent, CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
+use Compliance\Domain\Event\{SafetyRegisterExportedEvent, SafetyRegisterSnapshotCreatedEvent};
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Equipment\Domain\Event\Export\{EquipmentLabelsExportedEvent, EquipmentReportExportedEvent, EquipmentsExportedEvent};
+use Facility\Domain\Event\Export\FacilitiesExportedEvent;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
+use Inspection\Domain\Event\Export\{InspectionReportExportedEvent, InspectionsExportedEvent, NonConformitiesExportedEvent, NonConformitiesReportExportedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Export\InterventionsExportedEvent;
@@ -37,6 +40,7 @@ use Intervention\Domain\Event\Recurrence\{
 };
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
+use Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent;
 use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Messaging\Domain\Event\Channel\{
   MessagingChannelCreatedEvent,
@@ -50,6 +54,7 @@ use Messaging\Domain\Event\Message\{MessagingMessageModeratedEvent, MessagingMes
 use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
+use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
 use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
 use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
@@ -64,6 +69,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Throwable;
+use User\Domain\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEvent, UserEmailChangeRequestedEvent};
 use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
 /**
@@ -130,6 +136,10 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'oauth.consent_granted_event' => 'onConsentGranted',
       'otp.totp_enrollment_confirmed_event' => 'onTotpEnrollmentConfirmed',
       'otp.totp_enrollment_disabled_event' => 'onTotpEnrollmentDisabled',
+      'user.user_email_change_requested_event' => 'onUserEmailChangeRequested',
+      'user.user_email_change_confirmed_event' => 'onUserEmailChangeConfirmed',
+      'user.user_email_change_cancelled_event' => 'onUserEmailChangeCancelled',
+      OrganizationJoinChangedEvent::class => 'onOrganizationJoinChanged',
       'organization.organization_created_event' => 'onOrganizationCreated',
       'organization.organization_archived_event' => 'onOrganizationArchived',
       'organization.organization_restored_event' => 'onOrganizationRestored',
@@ -184,6 +194,8 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'calendar.calendar_event_created_event' => 'onCalendarEventCreated',
       'calendar.calendar_event_updated_event' => 'onCalendarEventUpdated',
       'calendar.calendar_event_deleted_event' => 'onCalendarEventDeleted',
+      'calendar.calendar_feed_token_created_event' => 'onCalendarFeedTokenCreated',
+      'calendar.calendar_feed_token_revoked_event' => 'onCalendarFeedTokenRevoked',
       'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
       'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
       'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
@@ -195,6 +207,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'import.import_job_completed_event' => 'onImportJobCompleted',
       'import.import_job_failed_event' => 'onImportJobFailed',
       'compliance.safety_register_exported_event' => 'onSafetyRegisterExported',
+      'compliance.safety_register_snapshot_created_event' => 'onSafetyRegisterSnapshotCreated',
       'webhook.webhook_subscription_created_event' => 'onWebhookSubscriptionCreated',
       'webhook.webhook_subscription_deleted_event' => 'onWebhookSubscriptionDeleted',
       'approval.approval_requested_event' => 'onApprovalRequested',
@@ -204,6 +217,15 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
       'intervention.interventions_exported_event' => 'onInterventionsExported',
+      'equipment.equipments_exported_event' => 'onEquipmentsExported',
+      'facility.facilities_exported_event' => 'onFacilitiesExported',
+      'inspection.inspections_exported_event' => 'onInspectionsExported',
+      'inspection.non_conformities_exported_event' => 'onNonConformitiesExported',
+      'maintenance.maintenance_schedules_exported_event' => 'onMaintenanceSchedulesExported',
+      'inspection.inspection_report_exported_event' => 'onInspectionReportExported',
+      'inspection.non_conformities_report_exported_event' => 'onNonConformitiesReportExported',
+      'equipment.equipment_report_exported_event' => 'onEquipmentReportExported',
+      'equipment.equipment_labels_exported_event' => 'onEquipmentLabelsExported',
     ];
   }
 
@@ -565,6 +587,51 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onUserEmailChangeRequested.
+   *
+   * Records a sign-in email change request. Both addresses are PII:
+   * they go through the sanitizer like every other email in the
+   * ledger — sanitized display form plus deterministic hash, never
+   * the raw value in the metadata.
+   *
+   * @since 1.0.0
+   *
+   * @param UserEmailChangeRequestedEvent $event the domain event
+   */
+  public function onUserEmailChangeRequested(UserEmailChangeRequestedEvent $event): void
+  {
+    $this->recordEmailChangeAudit('user.email_change_requested', $event->userId, $event->currentEmail, $event->newEmail, $event->occurredAt);
+  }
+
+  /**
+   * Method onUserEmailChangeConfirmed.
+   *
+   * Records an applied sign-in email change (sessions revoked).
+   *
+   * @since 1.0.0
+   *
+   * @param UserEmailChangeConfirmedEvent $event the domain event
+   */
+  public function onUserEmailChangeConfirmed(UserEmailChangeConfirmedEvent $event): void
+  {
+    $this->recordEmailChangeAudit('user.email_change_confirmed', $event->userId, $event->currentEmail, $event->newEmail, $event->occurredAt);
+  }
+
+  /**
+   * Method onUserEmailChangeCancelled.
+   *
+   * Records a cancelled sign-in email change request.
+   *
+   * @since 1.0.0
+   *
+   * @param UserEmailChangeCancelledEvent $event the domain event
+   */
+  public function onUserEmailChangeCancelled(UserEmailChangeCancelledEvent $event): void
+  {
+    $this->recordEmailChangeAudit('user.email_change_cancelled', $event->userId, $event->currentEmail, $event->newEmail, $event->occurredAt);
+  }
+
+  /**
    * Method onOrganizationCreated.
    *
    * Records the creation of an organization.
@@ -650,6 +717,28 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       subjectId: $event->organizationId,
       metadata: [],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onOrganizationJoinChanged.
+   *
+   * Records committed access changes without DNS proofs or raw applicant emails.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationJoinChangedEvent $event the committed domain event
+   */
+  public function onOrganizationJoinChanged(OrganizationJoinChangedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'organization.join_' . $event->operation,
+      organizationId: $event->organizationId,
+      subjectType: 'organization_access',
+      subjectId: $event->resourceId ?? $event->organizationId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 
@@ -1864,6 +1953,59 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onCalendarFeedTokenCreated.
+   *
+   * Records the creation (or rotation) of a member iCal feed token.
+   * Identifiers only — the metadata never carries the secret nor its hash:
+   * the ledger must not hold anything that shortens a brute-force of the
+   * feed URL.
+   *
+   * @since 1.5.0
+   *
+   * @param CalendarFeedTokenCreatedEvent $event the domain event
+   */
+  public function onCalendarFeedTokenCreated(CalendarFeedTokenCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.feed_token_created',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_feed_token',
+      subjectId: $event->tokenId,
+      metadata: [
+        'rotated' => $event->rotated,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onCalendarFeedTokenRevoked.
+   *
+   * Records the revocation of a member iCal feed token, whether explicit
+   * (DELETE) or implicit (rotation). Mirrors `onCalendarFeedTokenCreated`'s
+   * no-secret rule.
+   *
+   * @since 1.5.0
+   *
+   * @param CalendarFeedTokenRevokedEvent $event the domain event
+   */
+  public function onCalendarFeedTokenRevoked(CalendarFeedTokenRevokedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'calendar.feed_token_revoked',
+      organizationId: $event->organizationId,
+      subjectType: 'calendar_feed_token',
+      subjectId: $event->tokenId,
+      metadata: [
+        'reason' => $event->reason,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
    * Method onMessagingConversationArchived.
    *
    * Records a conversation archival. Low-volume, unlike per-message
@@ -2154,6 +2296,38 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onSafetyRegisterSnapshotCreated.
+   *
+   * Records every archived "registre de sécurité" snapshot — a dated,
+   * plan-gated compliance archive whose SHA-256 content hash lands in the
+   * tamper-evident ledger, so the stored PDF and the audit trail
+   * corroborate each other (who archived what scope, when, under which
+   * plan, and exactly which bytes).
+   *
+   * @since 1.6.0
+   *
+   * @param SafetyRegisterSnapshotCreatedEvent $event the domain event
+   */
+  public function onSafetyRegisterSnapshotCreated(SafetyRegisterSnapshotCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'compliance.register_snapshot_created',
+      organizationId: $event->organizationId,
+      subjectType: 'safety_register_snapshot',
+      subjectId: $event->snapshotId,
+      metadata: [
+        'scope' => $event->scope,
+        'plan_key' => $event->planKey,
+        'generated_at' => $event->generatedAt,
+        'content_hash' => $event->contentHash,
+        'size_bytes' => $event->sizeBytes,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
    * Method onInterventionsExported.
    *
    * Records every CSV export of an organization's interventions — the
@@ -2176,6 +2350,255 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       metadata: [
         'row_count' => $event->rowCount,
         'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onEquipmentsExported.
+   *
+   * Records every CSV export of an organization's equipment park — the
+   * equipment module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. The export carries no filters,
+   * so the metadata holds the row count only.
+   *
+   * @since 1.6.0
+   *
+   * @param EquipmentsExportedEvent $event the domain event
+   */
+  public function onEquipmentsExported(EquipmentsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onFacilitiesExported.
+   *
+   * Records every CSV export of an organization's facilities — the facility
+   * module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param FacilitiesExportedEvent $event the domain event
+   */
+  public function onFacilitiesExported(FacilitiesExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onInspectionsExported.
+   *
+   * Records every CSV export of an organization's inspections — the
+   * inspection module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param InspectionsExportedEvent $event the domain event
+   */
+  public function onInspectionsExported(InspectionsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.list_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onNonConformitiesExported.
+   *
+   * Records every CSV export of an organization's non-conformities — the
+   * inspection module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param NonConformitiesExportedEvent $event the domain event
+   */
+  public function onNonConformitiesExported(NonConformitiesExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.non_conformities_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onMaintenanceSchedulesExported.
+   *
+   * Records every CSV export of an organization's maintenance schedules —
+   * the maintenance module auditing its own export action, mirroring
+   * {@see self::onInterventionsExported()}. Metadata carries only the
+   * applied filter *names*, never their raw values.
+   *
+   * @since 1.6.0
+   *
+   * @param MaintenanceSchedulesExportedEvent $event the domain event
+   */
+  public function onMaintenanceSchedulesExported(MaintenanceSchedulesExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'maintenance.schedules_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onInspectionReportExported.
+   *
+   * Records every export of an inspection's PDF report — a plan-gated
+   * document pull, mirroring {@see self::onSafetyRegisterExported()}'s
+   * "who pulled this document, under which plan" traceability.
+   *
+   * @since 1.7.0
+   *
+   * @param InspectionReportExportedEvent $event the domain event
+   */
+  public function onInspectionReportExported(InspectionReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'inspection',
+      subjectId: $event->inspectionId,
+      metadata: [
+        'plan_key' => $event->planKey,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onNonConformitiesReportExported.
+   *
+   * Records every export of an organization's non-conformities PDF report —
+   * a plan-gated document pull, mirroring
+   * {@see self::onNonConformitiesExported()} for the filter discipline
+   * (names only, never values) and
+   * {@see self::onSafetyRegisterExported()} for the plan traceability.
+   *
+   * @since 1.7.0
+   *
+   * @param NonConformitiesReportExportedEvent $event the domain event
+   */
+  public function onNonConformitiesReportExported(NonConformitiesReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'inspection.non_conformities_report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'row_count' => $event->rowCount,
+        'filter_keys' => $event->filterKeys,
+        'plan_key' => $event->planKey,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onEquipmentReportExported.
+   *
+   * Records every export of an equipment's PDF sheet — a plan-gated
+   * document pull, mirroring {@see self::onSafetyRegisterExported()}'s
+   * "who pulled this document, under which plan" traceability.
+   *
+   * @since 1.7.0
+   *
+   * @param EquipmentReportExportedEvent $event the domain event
+   */
+  public function onEquipmentReportExported(EquipmentReportExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.report_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'equipment',
+      subjectId: $event->equipmentId,
+      metadata: [
+        'plan_key' => $event->planKey,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
+    );
+  }
+
+  /**
+   * Method onEquipmentLabelsExported.
+   *
+   * Records every generation of a printable QR equipment label sheet — the
+   * equipment module auditing its own export action, mirroring
+   * {@see self::onEquipmentsExported()}. Metadata carries the selection
+   * mode name and the label count only, never the selected identifiers.
+   *
+   * @since 1.8.0
+   *
+   * @param EquipmentLabelsExportedEvent $event the domain event
+   */
+  public function onEquipmentLabelsExported(EquipmentLabelsExportedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.labels_exported',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'selection' => $event->selection,
+        'label_count' => $event->labelCount,
       ],
       occurredAt: $event->occurredAt,
       actorUserId: $event->actorUserId,
@@ -2405,6 +2828,49 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'filter_keys' => $event->filterKeys,
       ]),
       occurredAt: $event->occurredAt,
+    ));
+  }
+
+  /**
+   * Method recordEmailChangeAudit.
+   *
+   * Shared shape of the three email-change ledger entries.
+   *
+   * @since 1.0.0
+   *
+   * @param string $action the audit action
+   * @param string $userId the acting user
+   * @param string $currentEmail the current (old) address
+   * @param string $newEmail the requested/applied new address
+   * @param DateTimeImmutable $occurredAt when the event occurred
+   */
+  private function recordEmailChangeAudit(
+    string $action,
+    string $userId,
+    string $currentEmail,
+    string $newEmail,
+    DateTimeImmutable $occurredAt,
+  ): void {
+    $context = $this->requestContext();
+
+    $this->dispatchAuditEvent(new RecordAuditEventCommand(
+      action: $action,
+      actorType: 'user',
+      actorId: $userId,
+      actorEmail: $this->sanitizer->email($currentEmail),
+      actorEmailHash: $this->sanitizer->emailHash($currentEmail),
+      subjectType: 'user',
+      subjectId: $userId,
+      ipAddress: $this->sanitizer->ip($context['ip']),
+      ipHash: $this->sanitizer->ipHash($context['ip']),
+      userAgent: $context['user_agent'],
+      metadata: $this->withRequestMeta([
+        'current_email' => $this->sanitizer->email($currentEmail),
+        'current_email_hash' => $this->sanitizer->emailHash($currentEmail),
+        'new_email' => $this->sanitizer->email($newEmail),
+        'new_email_hash' => $this->sanitizer->emailHash($newEmail),
+      ]),
+      occurredAt: $occurredAt,
     ));
   }
 

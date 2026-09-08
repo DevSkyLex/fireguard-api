@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\Port\Outbound;
 
+use Organization\Application\Contract\Inspection\OpenNonConformitySummary;
+
 /**
  * Port NonConformityStatisticsPort.
  *
@@ -114,4 +116,33 @@ interface NonConformityStatisticsPort
    * Counts critical non-conformities that are still open or in progress.
    */
   public function countOpenCriticalNonConformities(string $organizationId, ?string $status = null): int;
+
+  /**
+   * Method countSlaBreachedNonConformities.
+   *
+   * Counts the organization's unresolved non-conformities whose resolution
+   * SLA breach has been signalled (the hourly SLA sweep stamped them).
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the unresolved SLA-breached non-conformity count
+   */
+  public function countSlaBreachedNonConformities(string $organizationId): int;
+
+  /**
+   * Method findOpenNonConformities.
+   *
+   * Lists the organization's unresolved non-conformities, oldest first.
+   * Backs the weekly digest detail lines.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param int $limit maximum number of summaries to return
+   *
+   * @return list<OpenNonConformitySummary> the unresolved non-conformity summaries
+   */
+  public function findOpenNonConformities(string $organizationId, int $limit): array;
 }

@@ -1,0 +1,29 @@
+{
+  "description": "FireGuard native Codex guards; review changed hooks before trusting them.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|PowerShell|exec_command|apply_patch|Edit|Write|MultiEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=require('node:fs'),p=require('node:path');let d=process.cwd();while(!f.existsSync(p.join(d,'.codex/hooks/adapter.mjs'))){const u=p.dirname(d);if(u===d)throw Error('FireGuard hook not found');d=u;}import(require('node:url').pathToFileURL(p.join(d,'.codex/hooks/adapter.mjs')).href).then(m=>m.handle(JSON.parse(f.readFileSync(0,'utf8')),'pre')).catch(e=>{console.error(e.message);process.exitCode=2;});\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(apply_patch|Edit|Write|MultiEdit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=require('node:fs'),p=require('node:path');let d=process.cwd();while(!f.existsSync(p.join(d,'.codex/hooks/adapter.mjs'))){const u=p.dirname(d);if(u===d)throw Error('FireGuard hook not found');d=u;}import(require('node:url').pathToFileURL(p.join(d,'.codex/hooks/adapter.mjs')).href).then(m=>m.handle(JSON.parse(f.readFileSync(0,'utf8')),'post')).catch(e=>{console.error(e.message);process.exitCode=2;});\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

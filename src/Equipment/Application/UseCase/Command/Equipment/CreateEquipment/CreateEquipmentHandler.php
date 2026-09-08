@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
-use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use DateTimeImmutable;
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
+use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Shared\Application\Factory\UuidFactory;
@@ -38,12 +41,16 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param FacilityNamingPort $facilityNaming the facility display-name lookup port
    */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private UuidFactory $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
+    private FacilityNamingPort $facilityNaming,
+    private ?OrganizationSetupPort $setup = null,
+    private ?\Equipment\Application\Port\Outbound\FacilityValidationPort $facilityValidation = null,
   ) {
   }
   // #endregion
@@ -62,6 +69,14 @@ final readonly class CreateEquipmentHandler implements CommandHandler
    */
   public function __invoke(CreateEquipmentCommand $command): CreateEquipmentResult
   {
+    if (null !== $command->setupContext && null === $this->setup) {
+      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+    }
+
+    if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
+      throw OrganizationSetupConflict::because('Setup receipts cannot be combined with another creation protocol.');
+    }
+
     try {
       $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
@@ -101,9 +116,36 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     // Enforce the plan quota and persist atomically: assertCanAdd takes a
     // transaction-scoped advisory lock so concurrent creates at the cap cannot
     // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
-    $this->transactionManager->transactional(function () use ($command, $equipment): void {
+    $equipment = $this->transactionManager->transactional(function () use ($command, $equipment): Equipment {
+      if (null !== $command->setupContext) {
+        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
+          'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
+          'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
+          'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
+        ]);
+        if (null !== $operation->resourceId) {
+          $existing = $this->equipmentRepository->findById(EquipmentId::fromString($operation->resourceId));
+          if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
+            throw OrganizationSetupConflict::because('The created equipment is no longer available.');
+          }
+
+          return $existing;
+        }
+        if (null !== $command->facilityId) {
+          if (null === $this->facilityValidation) {
+            throw OrganizationSetupConflict::because('Facility validation is unavailable.');
+          }
+          $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
+          $equipment->assignToFacility(\Equipment\Domain\ValueObject\EquipmentFacilityId::fromString($command->facilityId), new DateTimeImmutable());
+        }
+      }
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
       $this->equipmentRepository->save($equipment);
+      if (null !== $command->setupContext) {
+        ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_first_equipment', (string) $equipment->id());
+      }
+
+      return $equipment;
     });
 
     return $this->toResult($equipment);
@@ -136,7 +178,28 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       tags: [],
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
+      facilityName: $this->resolveFacilityName($equipment),
     );
+  }
+
+  /**
+   * Method resolveFacilityName.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate
+   *
+   * @return ?string the assigned facility's display name, or null when unassigned or unresolved
+   */
+  private function resolveFacilityName(Equipment $equipment): ?string
+  {
+    $facilityId = $equipment->facilityId()?->__toString();
+
+    if (null === $facilityId) {
+      return null;
+    }
+
+    return $this->facilityNaming->findNamesByIds([$facilityId])[$facilityId] ?? null;
   }
 
   // #endregion
