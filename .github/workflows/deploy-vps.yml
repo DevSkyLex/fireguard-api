@@ -108,8 +108,9 @@ jobs:
       # on purpose: compose.prod.yaml pins them in its own `environment:` blocks, which
       # win over `env_file:`. Declaring them here would be a value nothing reads.
       #
-      # Off unless FIREGUARD_MANAGED_ENV is true, and the playbook refuses to render
-      # while any of these is empty. Scope them to the `production` ENVIRONMENT (this
+      # Off unless FIREGUARD_MANAGED_ENV is true. The playbook refuses blank required
+      # values; only credentials for an explicitly disabled provider may stay blank.
+      # Scope values to the `production` ENVIRONMENT (this
       # job declares it above), not to the repository: environment scope is what keeps
       # a workflow on another branch from reading them.
       #
@@ -124,14 +125,13 @@ jobs:
       CORS_ALLOW_ORIGIN:               ${{ vars.CORS_ALLOW_ORIGIN }}
       DATABASE_STORAGE_TIMEZONE:       ${{ vars.DATABASE_STORAGE_TIMEZONE }}
       GOOGLE_OIDC_CLIENT_ID:           ${{ vars.GOOGLE_OIDC_CLIENT_ID }}
-      GOOGLE_OIDC_ENABLED:             ${{ vars.GOOGLE_OIDC_ENABLED }}
+      GOOGLE_OIDC_ENABLED:             ${{ vars.GOOGLE_OIDC_ENABLED || 'false' }}
       MAILER_FROM:                     ${{ vars.MAILER_FROM }}
       MERCURE_CORS_ORIGINS:            ${{ vars.MERCURE_CORS_ORIGINS }}
       MESSENGER_TRANSPORT_DSN:         ${{ vars.MESSENGER_TRANSPORT_DSN }}
       MICROSOFT_OIDC_CLIENT_ID:        ${{ vars.MICROSOFT_OIDC_CLIENT_ID }}
-      MICROSOFT_OIDC_ENABLED:          ${{ vars.MICROSOFT_OIDC_ENABLED }}
+      MICROSOFT_OIDC_ENABLED:          ${{ vars.MICROSOFT_OIDC_ENABLED || 'false' }}
       OAUTH_ISSUER:                    ${{ vars.OAUTH_ISSUER }}
-      PHOTON_BASE_URL:                 ${{ vars.PHOTON_BASE_URL }}
       POSTGRES_AUTH_DB:                ${{ vars.POSTGRES_AUTH_DB }}
       POSTGRES_AUTH_USER:              ${{ vars.POSTGRES_AUTH_USER }}
       POSTGRES_MAIN_DB:                ${{ vars.POSTGRES_MAIN_DB }}

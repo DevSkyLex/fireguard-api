@@ -77,6 +77,10 @@ parameters:
   env(OLLAMA_ALLOWED_MODELS): 'gemma4:e4b,qwen3.6:latest'
   env(OLLAMA_HTTP_TIMEOUT): '120'
 
+  # Facility. The public Photon endpoint is the safe development/fallback origin;
+  # operators can still override it with a real PHOTON_BASE_URL for sustained traffic.
+  env(PHOTON_BASE_URL): 'https://photon.komoot.io'
+
   # Webhooks. `false` is the fail-closed value: an absent key must never start allowing
   # plaintext callback URLs.
   env(WEBHOOK_ALLOW_INSECURE_URLS): 'false'

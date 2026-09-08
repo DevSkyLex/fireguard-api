@@ -1213,9 +1213,10 @@ valid WGS 84 coordinates are selectable; house numbers remain optional. Successf
 empty results differ from temporary failures (503). Requests are limited to 30/minute
 per user and one uncached outbound request per second across workers, without waiting.
 Successful responses, including empty results, are cached for 24 hours; provider failures
-are never cached. HTTP duration is bounded to three seconds. `PHOTON_BASE_URL` is
-operator configuration, defaults to the public demo, and should point to a private
-instance for sustained traffic. This read-only capability does not persist in either database.
+are never cached. HTTP duration is bounded to three seconds. `PHOTON_BASE_URL` is an
+optional operator override; the application defaults to the public demo and production
+should point it to a private instance for sustained traffic. This read-only capability
+does not persist in either database.
 
 
 ## Durable onboarding setup

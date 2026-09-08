@@ -24,6 +24,15 @@
       - FIREGUARD_IMAGE
       - AUTH_DATABASE_URL
       - MAIN_DATABASE_URL
+    # Provider credentials are intentionally blank while their switch is false.
+    # They become mandatory together as soon as the provider is enabled.
+    fireguard_federated_provider_credentials:
+      GOOGLE_OIDC_ENABLED:
+        - GOOGLE_OIDC_CLIENT_ID
+        - GOOGLE_OIDC_CLIENT_SECRET
+      MICROSOFT_OIDC_ENABLED:
+        - MICROSOFT_OIDC_CLIENT_ID
+        - MICROSOFT_OIDC_CLIENT_SECRET
     fireguard_traefik_network: traefik_proxy
     # How many per-deployment backup directories to keep. Nothing pruned them
     # before: every deploy wrote a full dump of BOTH databases and left it there,
@@ -190,13 +199,46 @@
     # boot: `Synchronize auth database role password` below reads that URL and runs
     # ALTER USER on the live database, so an empty password would be applied.
     #
-    # Hence: refuse to render at all unless every key has a non-empty value.
+    # Provider credentials are the deliberate exception: when the matching switch is
+    # false, blank values keep the adapter disabled and still satisfy Symfony's env
+    # resolution. The switch itself always has an explicit true/false value.
+    - name: Validate federated provider switches
+      ansible.builtin.assert:
+        that:
+          - lookup('env', item.key) in ['true', 'false']
+        fail_msg: >-
+          {{ item.key }} must be the literal string true or false. The application is
+          still running and no migration has run.
+      loop: "{{ fireguard_federated_provider_credentials | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when: fireguard_managed_env
+
+    - name: Allow credentials to stay blank for inactive providers
+      ansible.builtin.set_fact:
+        fireguard_optional_blank_env_keys: >-
+          {{ fireguard_optional_blank_env_keys | default([]) | union(item.value) }}
+      loop: "{{ fireguard_federated_provider_credentials | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when:
+        - fireguard_managed_env
+        - not (lookup('env', item.key) | bool)
+
+    - name: Resolve production keys that must not be blank
+      ansible.builtin.set_fact:
+        fireguard_non_blank_env_keys: >-
+          {{ fireguard_required_env_keys
+             | difference(fireguard_computed_env_keys)
+             | difference(fireguard_optional_blank_env_keys | default([])) }}
+      when: fireguard_managed_env
+
     - name: Collect the keys the workflow failed to supply
       ansible.builtin.set_fact:
         fireguard_blank_env_keys: >-
           {{ fireguard_blank_env_keys | default([])
              + ([item] if (lookup('env', item) | length == 0) else []) }}
-      loop: "{{ fireguard_required_env_keys | difference(fireguard_computed_env_keys) | list }}"
+      loop: "{{ fireguard_non_blank_env_keys | list }}"
       loop_control:
         label: "{{ item }}"
       when: fireguard_managed_env
@@ -206,10 +248,11 @@
         msg: >-
           FIREGUARD_MANAGED_ENV is on but the workflow supplied no value for
           {{ fireguard_blank_env_keys | join(', ') }}.
-          Rendering would write those keys empty, which is worse than leaving them
-          missing -- an empty value is not a missing value, it is a working one that
-          happens to be wrong, and an empty AUTH_DATABASE_URL password is applied to
-          the live database by the role-password task below. Set them as GitHub
+          Rendering would write required keys empty, which is worse than leaving them
+          missing. Credentials for explicitly disabled federated providers are allowed
+          to stay blank; every other empty value is a working value that happens to be
+          wrong, and an empty AUTH_DATABASE_URL password is applied to the live database
+          by the role-password task below. Set them as GitHub
           variables or secrets, or turn FIREGUARD_MANAGED_ENV off. The application is
           still running and no migration has run.
       when:
@@ -236,7 +279,7 @@
              + ([item] if (lookup('env', item) is search('[\r\n\x27]')
                            or lookup('env', item) != (lookup('env', item) | trim))
                 else []) }}
-      loop: "{{ fireguard_required_env_keys | difference(fireguard_computed_env_keys) | list }}"
+      loop: "{{ fireguard_non_blank_env_keys | list }}"
       loop_control:
         label: "{{ item }}"
       when: fireguard_managed_env
