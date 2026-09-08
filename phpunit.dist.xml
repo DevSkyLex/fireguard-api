@@ -25,6 +25,13 @@
         <server name="SHELL_VERBOSITY" value="-1" />
         <env name="SYMFONY_DEPRECATIONS_HELPER" value="disabled" />
         <env name="MFA_ENABLED" value="false" />
+        <env name="APP_FRONTEND_URL" value="http://localhost:4200" force="true" />
+        <env name="GOOGLE_OIDC_ENABLED" value="false" force="true" />
+        <env name="GOOGLE_OIDC_CLIENT_ID" value="" force="true" />
+        <env name="GOOGLE_OIDC_CLIENT_SECRET" value="" force="true" />
+        <env name="MICROSOFT_OIDC_ENABLED" value="false" force="true" />
+        <env name="MICROSOFT_OIDC_CLIENT_ID" value="" force="true" />
+        <env name="MICROSOFT_OIDC_CLIENT_SECRET" value="" force="true" />
         <env name="KERNEL_CLASS" value="App\Kernel" />
     </php>
 
