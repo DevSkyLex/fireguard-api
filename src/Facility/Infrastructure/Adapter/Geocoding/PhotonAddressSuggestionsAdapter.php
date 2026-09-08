@@ -56,7 +56,7 @@ final readonly class PhotonAddressSuggestionsAdapter implements AddressSuggestio
     private CachePort $cache,
     #[Autowire(service: 'limiter.facility_address_suggestions_provider')]
     private RateLimiterFactory $outboundLimiter,
-    #[Autowire('%env(default:facility.photon.base_url_default:PHOTON_BASE_URL)%')]
+    #[Autowire('%env(PHOTON_BASE_URL)%')]
     private string $baseUrl,
   ) {
   }
