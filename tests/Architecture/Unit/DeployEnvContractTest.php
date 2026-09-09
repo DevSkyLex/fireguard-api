@@ -17,6 +17,7 @@ use function array_values;
 use function dirname;
 use function file_get_contents;
 use function implode;
+use function in_array;
 use function is_array;
 use function is_string;
 use function preg_match_all;
@@ -40,8 +41,8 @@ use function str_starts_with;
  *
  * This test is the link. It recomputes the required set the way
  * `ansible/deploy.yml` does — `.env.example`, plus the `${VAR:?...}` entries of
- * `compose.prod.yaml`, minus what compose pins in its own `environment:` blocks
- * — and demands the workflow declare exactly that.
+ * the production and development Compose files, minus what base Compose pins in
+ * its own `environment:` blocks — and demands the workflow declare exactly that.
  *
  * @category Architecture Tests
  *
@@ -61,6 +62,14 @@ final class DeployEnvContractTest extends TestCase
    * @var list<string>
    */
   private const array COMPUTED_KEYS = ['FIREGUARD_IMAGE', 'AUTH_DATABASE_URL', 'MAIN_DATABASE_URL'];
+
+  /**
+   * Controller-only secrets used by Ansible checks and deliberately omitted
+   * from the generated container environment.
+   *
+   * @var list<string>
+   */
+  private const array DEPLOYMENT_ONLY_KEYS = ['BASIC_AUTH_CREDENTIALS'];
   // #endregion
 
   // #region Tests
@@ -118,6 +127,28 @@ final class DeployEnvContractTest extends TestCase
   }
 
   /**
+   * Method testDeploymentOnlyWorkflowKeysAreReadByAnsible.
+   *
+   * These values may be excluded from the container env contract only when the
+   * deploy playbook consumes each one directly.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testDeploymentOnlyWorkflowKeysAreReadByAnsible(): void
+  {
+    $ansible = (string) file_get_contents(dirname(__DIR__, 3) . '/ansible/deploy.yml');
+
+    foreach (self::DEPLOYMENT_ONLY_KEYS as $key) {
+      self::assertStringContainsString(
+        "lookup('env', '" . $key . "')",
+        $ansible,
+        sprintf('%s is excluded from the generated env contract but Ansible never reads it.', $key),
+      );
+    }
+  }
+
+  /**
    * Method testAKeyWithADefaultIsNotAlsoDemandedOfProduction.
    *
    * `config/packages/env_defaults.yaml` exists so that a constant cannot go
@@ -161,11 +192,13 @@ final class DeployEnvContractTest extends TestCase
   {
     $root = dirname(__DIR__, 3);
     $compose = (string) file_get_contents($root . '/compose.prod.yaml');
+    $developmentCompose = (string) file_get_contents($root . '/compose.dev.yaml');
 
     preg_match_all('/^([A-Z][A-Z0-9_]*)=/m', (string) file_get_contents($root . '/.env.example'), $declared);
     preg_match_all('/\$\{([A-Z][A-Z0-9_]*):\?/', $compose, $mandatory);
+    preg_match_all('/\$\{([A-Z][A-Z0-9_]*):\?/', $developmentCompose, $developmentMandatory);
 
-    $keys = array_unique(array_merge($declared[1], $mandatory[1]));
+    $keys = array_unique(array_merge($declared[1], $mandatory[1], $developmentMandatory[1]));
 
     return array_values(array_diff($keys, $this->composePinnedKeys($compose), self::COMPUTED_KEYS));
   }
@@ -210,8 +243,8 @@ final class DeployEnvContractTest extends TestCase
    * Method workflowKeys.
    *
    * The application keys the deploy job's env block supplies. The deployment
-   * credentials and the managed-env switch are excluded: they configure the
-   * deploy itself and never reach the generated file.
+   * credentials, managed-env switch and controller-only checks are excluded:
+   * they configure the deploy itself and never reach the generated file.
    *
    * @return list<string> the declared keys
    */
@@ -224,7 +257,8 @@ final class DeployEnvContractTest extends TestCase
       $matches[1],
       static fn (string $key): bool => !str_starts_with($key, 'VPS_')
         && !str_starts_with($key, 'GHCR_')
-        && 'FIREGUARD_MANAGED_ENV' !== $key,
+        && 'FIREGUARD_MANAGED_ENV' !== $key
+        && !in_array($key, self::DEPLOYMENT_ONLY_KEYS, true),
     ));
   }
 
