@@ -8,11 +8,16 @@
     fireguard_image: "{{ lookup('env', 'IMAGE_REF') | lower }}"
     fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
     fireguard_mercure_healthcheck_url: "https://{{ lookup('env', 'MERCURE_HOST') }}/healthz"
+    fireguard_mailpit_healthcheck_url: "https://{{ lookup('env', 'MAILPIT_HOST') }}/"
     fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
     fireguard_deployment_environment: "{{ lookup('env', 'DEPLOY_ENVIRONMENT') | default('production', true) }}"
     fireguard_compose_file: compose.yaml
     fireguard_compose_args: "-f compose.yaml{{ ' -f compose.dev.yaml' if fireguard_deployment_environment == 'development' else '' }}"
     fireguard_compose_command: "docker compose {{ fireguard_compose_args }}"
+    fireguard_deployment_env_keys: >-
+      {{ ['MAILPIT_HOST', 'TRAEFIK_MAILPIT_ROUTER_NAME', 'BASIC_AUTH_USERS']
+         if fireguard_deployment_environment == 'development'
+         else [] }}
     fireguard_compose_project_name: "{{ lookup('env', 'COMPOSE_PROJECT_NAME') }}"
     fireguard_legacy_compose_project_name: "{{ 'back' if fireguard_deployment_environment == 'production' else '' }}"
     fireguard_dependency_services: "auth_database main_database redis mercure{{ ' mailpit' if fireguard_deployment_environment == 'development' else '' }}"
@@ -160,14 +165,13 @@
         src: "{{ fireguard_env_file }}"
       register: fireguard_env_contents
 
-    # Three sources, because the file serves two consumers and one of them also
-    # answers for itself. `.env.example` is the application's declared contract.
-    # `compose.prod.yaml` adds the Postgres identity and the image ref, marking what
-    # it cannot do without as `${VAR:?message}` -- `${VAR:-default}` is optional and
-    # is deliberately not collected. Deriving that list from the compose file rather
-    # than hand-keeping it means POSTGRES_AUTH_PASSWORD cannot quietly drop out.
+    # Three required-key sources feed the managed file. `.env.example` is the
+    # application's declared contract. `compose.prod.yaml` adds the Postgres identity
+    # and image ref through `${VAR:?message}`; optional `${VAR:-default}` entries are
+    # deliberately ignored. Development-only Compose inputs live in
+    # `fireguard_deployment_env_keys`, so production never requires Mailpit settings.
     #
-    # And it SUBTRACTS what compose pins itself. Its `environment:` blocks hardcode
+    # The resolver SUBTRACTS what compose pins itself. Its `environment:` blocks hardcode
     # APP_ENV, REDIS_URL, MERCURE_URL, MERCURE_PUBLIC_URL and DEFAULT_URI, and
     # `environment:` wins over `env_file:` -- so those five reach the container
     # whatever the env file says, including in the `run --rm` deploy steps. Demanding
@@ -190,8 +194,9 @@
     - name: Resolve the keys the deployment env file must carry
       ansible.builtin.set_fact:
         fireguard_declared_env_keys: >-
-          {{ ((lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
-              | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?')))
+          {{ (lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
+             | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?'))
+             | union(fireguard_deployment_env_keys)
              | difference(fireguard_pinned_env_keys) }}
 
     - name: Resolve optional keys that have application defaults
@@ -916,6 +921,37 @@
       retries: "{{ fireguard_healthcheck_retries }}"
       delay: "{{ fireguard_healthcheck_delay }}"
       until: fireguard_public_mercure_health.status == 200
+
+    - name: Refuse unauthenticated public Mailpit access
+      ansible.builtin.uri:
+        url: "{{ fireguard_mailpit_healthcheck_url }}"
+        method: GET
+        status_code: 401
+        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+        return_content: false
+      delegate_to: localhost
+      register: fireguard_public_mailpit_unauthenticated
+      retries: "{{ fireguard_healthcheck_retries }}"
+      delay: "{{ fireguard_healthcheck_delay }}"
+      until: fireguard_public_mailpit_unauthenticated.status == 401
+      when: fireguard_deployment_environment == 'development'
+
+    - name: Wait for authenticated public Mailpit access
+      ansible.builtin.uri:
+        url: "{{ fireguard_mailpit_healthcheck_url }}"
+        method: GET
+        headers:
+          Authorization: "Basic {{ lookup('env', 'BASIC_AUTH_CREDENTIALS') | b64encode }}"
+        status_code: 200
+        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+        return_content: false
+      delegate_to: localhost
+      register: fireguard_public_mailpit_authenticated
+      retries: "{{ fireguard_healthcheck_retries }}"
+      delay: "{{ fireguard_healthcheck_delay }}"
+      until: fireguard_public_mailpit_authenticated.status == 200
+      no_log: true
+      when: fireguard_deployment_environment == 'development'
 
     - name: Show deployment services
       ansible.builtin.command: "{{ fireguard_compose_command }} ps"

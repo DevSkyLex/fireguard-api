@@ -2,8 +2,9 @@ services:
   mailpit:
     image: axllent/mailpit:v1.27
     restart: unless-stopped
-    ports:
-      - '127.0.0.1:8025:8025'
+    networks:
+      - default
+      - traefik_proxy
     volumes:
       - mailpit_data:/data
     environment:
@@ -17,7 +18,24 @@ services:
       retries: 6
       start_period: 10s
     labels:
-      - 'traefik.enable=false'
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=traefik_proxy'
+
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.rule=Host(`${MAILPIT_HOST:?Set MAILPIT_HOST}`)'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.entrypoints=websecure'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.tls=true'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.tls.certresolver=letsencrypt'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.middlewares=${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-auth,${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-noindex,${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-security'
+      - 'traefik.http.routers.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.service=${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}'
+
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-auth.basicauth.users=${BASIC_AUTH_USERS:?Set BASIC_AUTH_USERS}'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-auth.basicauth.removeheader=true'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-noindex.headers.customresponseheaders.X-Robots-Tag=noindex,nofollow,noarchive'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-noindex.headers.customresponseheaders.Cache-Control=private,no-store'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-security.headers.contenttypenosniff=true'
+      - 'traefik.http.middlewares.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}-security.headers.referrerpolicy=no-referrer'
+
+      - 'traefik.http.services.${TRAEFIK_MAILPIT_ROUTER_NAME:?Set TRAEFIK_MAILPIT_ROUTER_NAME}.loadbalancer.server.port=8025'
 
 volumes:
   mailpit_data:
