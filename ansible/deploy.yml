@@ -7,6 +7,7 @@
     fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/srv/apps/fireguard/production/back', true) }}"
     fireguard_image: "{{ lookup('env', 'IMAGE_REF') | lower }}"
     fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
+    fireguard_mercure_healthcheck_url: "https://{{ lookup('env', 'MERCURE_HOST') }}/healthz"
     fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
     fireguard_deployment_environment: "{{ lookup('env', 'DEPLOY_ENVIRONMENT') | default('production', true) }}"
     fireguard_compose_file: compose.yaml
@@ -886,6 +887,19 @@
       delay: "{{ fireguard_healthcheck_delay }}"
       until: fireguard_public_health.status == 200
       when: fireguard_healthcheck_url | length > 0
+
+    - name: Wait for public Mercure health
+      ansible.builtin.uri:
+        url: "{{ fireguard_mercure_healthcheck_url }}"
+        method: GET
+        status_code: 200
+        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
+        return_content: false
+      delegate_to: localhost
+      register: fireguard_public_mercure_health
+      retries: "{{ fireguard_healthcheck_retries }}"
+      delay: "{{ fireguard_healthcheck_delay }}"
+      until: fireguard_public_mercure_health.status == 200
 
     - name: Show deployment services
       ansible.builtin.command: "{{ fireguard_compose_command }} ps"
