@@ -149,6 +149,27 @@ final class DeployEnvContractTest extends TestCase
   }
 
   /**
+   * Method testBasicAuthHashIsNotDoubleEscapedBeforeCompose.
+   *
+   * The managed env file single-quotes every value, so Compose receives dollar
+   * signs literally. Escaping an htpasswd hash here changes the hash Traefik
+   * verifies and makes every valid credential return 401.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testBasicAuthHashIsNotDoubleEscapedBeforeCompose(): void
+  {
+    $template = (string) file_get_contents(dirname(__DIR__, 3) . '/ansible/templates/production.env.j2');
+
+    self::assertStringNotContainsString(
+      '| replace(\'$\', \'$$\')',
+      $template,
+      'The single-quoted managed env file must preserve htpasswd hashes exactly.',
+    );
+  }
+
+  /**
    * Method testAKeyWithADefaultIsNotAlsoDemandedOfProduction.
    *
    * `config/packages/env_defaults.yaml` exists so that a constant cannot go
