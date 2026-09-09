@@ -775,6 +775,20 @@
           delay: "{{ fireguard_healthcheck_delay }}"
           until: fireguard_internal_health.rc == 0
 
+        - name: Wait for assistant worker health
+          ansible.builtin.shell: |
+            set -o pipefail
+            {{ fireguard_compose_command }} ps --format json assistant_worker \
+              | grep -q '"Health":"healthy"'
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+            executable: /bin/bash
+          register: fireguard_assistant_worker_health
+          changed_when: false
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: fireguard_assistant_worker_health.rc == 0
+
         # /api/health sits on a `security: false` firewall, so a green health
         # check proves the container boots and nothing more. These two probes
         # cover what it cannot, and each maps to a way production has actually
@@ -847,8 +861,8 @@
         # e.g. `EnvNotFoundException: Environment variable not found: "..."` — is
         # in `docker compose logs`, not in curl's bare "error: 500". Surface it
         # before aborting so a failed deploy is diagnosable from the run output.
-        - name: Dump application logs after failed health check
-          ansible.builtin.command: "{{ fireguard_compose_command }} logs --tail=200 --no-color app"
+        - name: Dump application and assistant worker logs after failed health check
+          ansible.builtin.command: "{{ fireguard_compose_command }} logs --tail=200 --no-color app assistant_worker"
           args:
             chdir: "{{ fireguard_app_dir }}"
           register: fireguard_app_logs
@@ -861,14 +875,16 @@
         # dump above went to a variable nobody read, and the failure message
         # pointed at logs that were never in the run output -- which is exactly
         # how the 2026-07-28 deploy failed undiagnosed for five weeks.
-        - name: Surface the application logs in the run output
+        - name: Surface the application and assistant worker logs in the run output
           ansible.builtin.debug:
             msg: "{{ (fireguard_app_logs.stdout_lines | default([])) + (fireguard_app_logs.stderr_lines | default([])) }}"
-        - name: Fail the deploy after surfacing application logs
+        - name: Fail the deploy after surfacing service logs
           ansible.builtin.fail:
             msg: >-
-              The application did not pass its surface checks. The app container
-              logs were dumped in the previous task. A startup EnvNotFoundException
+              The application surface checks or the assistant worker health check failed.
+              The app container and assistant worker logs were dumped in the previous task.
+              If the worker never reached Docker's healthy state, inspect its startup error
+              or restart loop. A startup EnvNotFoundException
               there means a required key is missing from {{ fireguard_env_file }}.
               An empty JWKS, or an anonymous GET /api answering 500 instead of 401,
               means the app cannot read config/jwt/public.key -- the jwt_init step
