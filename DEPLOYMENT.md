@@ -2,10 +2,10 @@
 
 Fireguard API utilise le même VPS pour la production et le développement, avec des répertoires, projets Compose, volumes, bases, clés et URL distincts.
 
-| Environnement GitHub | Branche   | API                                     | Mercure                                     | Répertoire VPS                         | Projet Docker               | Préfixe de volumes   |
-| -------------------- | --------- | --------------------------------------- | ------------------------------------------- | -------------------------------------- | --------------------------- | -------------------- |
-| `production`         | `main`    | `api.fireguard.valentin-fortin.pro`     | `mercure.fireguard.valentin-fortin.pro`     | `/srv/apps/fireguard/production/back`  | `fireguard-production-back` | `back`               |
-| `development`        | `develop` | `dev.api.fireguard.valentin-fortin.pro` | `dev.mercure.fireguard.valentin-fortin.pro` | `/srv/apps/fireguard/development/back` | `fireguard-dev-back`        | `fireguard-dev-back` |
+| Environnement GitHub | Branche   | API                                     | Mercure                                     | Mailpit                                  | Répertoire VPS                         | Projet Docker               | Préfixe de volumes   |
+| -------------------- | --------- | --------------------------------------- | ------------------------------------------- | ---------------------------------------- | -------------------------------------- | --------------------------- | -------------------- |
+| `production`         | `main`    | `api.fireguard.valentin-fortin.pro`     | `mercure.fireguard.valentin-fortin.pro`     | —                                        | `/srv/apps/fireguard/production/back`  | `fireguard-production-back` | `back`               |
+| `development`        | `develop` | `dev.api.fireguard.valentin-fortin.pro` | `dev.mercure.fireguard.valentin-fortin.pro` | `dev.mail.fireguard.valentin-fortin.pro` | `/srv/apps/fireguard/development/back` | `fireguard-dev-back`        | `fireguard-dev-back` |
 
 Le préfixe `back` conserve les volumes de production créés avant l’introduction du nom explicite du projet Compose. Il ne doit pas être modifié sans migration de volumes. Lors du premier déploiement de cette version, Ansible télécharge d’abord les images, arrête l’ancien projet Compose `back` sans supprimer ses volumes, puis démarre `fireguard-production-back` sur ces mêmes volumes.
 
@@ -36,25 +36,20 @@ Secrets applicatifs propres à chaque environnement :
 - `POSTGRES_AUTH_PASSWORD`, `POSTGRES_MAIN_PASSWORD`
 - `MERCURE_JWT_SECRET`
 - `OAUTH_ENCRYPTION_KEY`, `WEBHOOK_ENCRYPTION_KEY`
+- `BASIC_AUTH_USERS`, `BASIC_AUTH_CREDENTIALS` dans `development`
 - `SECURITY_LOG_PII_SALT`
 - `GOOGLE_OIDC_CLIENT_SECRET`, `MICROSOFT_OIDC_CLIENT_SECRET` lorsque les fournisseurs sont activés
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
 
-Les variables `API_HOST`, `MERCURE_HOST`, `DEFAULT_URI`, `MERCURE_PUBLIC_URL`, `TRAEFIK_API_ROUTER_NAME`, `TRAEFIK_MERCURE_ROUTER_NAME`, `DOCKER_PROJECT_NAME` et `VOLUME_PREFIX` pilotent Compose et Traefik. `VPS_APP_DIR` et `VPS_HEALTHCHECK_URL` pilotent Ansible.
+Les variables `API_HOST`, `MERCURE_HOST`, `MAILPIT_HOST`, `DEFAULT_URI`, `MERCURE_PUBLIC_URL`, `TRAEFIK_API_ROUTER_NAME`, `TRAEFIK_MERCURE_ROUTER_NAME`, `TRAEFIK_MAILPIT_ROUTER_NAME`, `DOCKER_PROJECT_NAME` et `VOLUME_PREFIX` pilotent Compose et Traefik. `VPS_APP_DIR` et `VPS_HEALTHCHECK_URL` pilotent Ansible.
 
 Le mode géré `FIREGUARD_MANAGED_ENV=true` rend `.env` depuis les variables et secrets GitHub. Le déploiement refuse toute valeur requise absente, vide ou dangereuse avant l’arrêt de l’application et avant les migrations.
 
 ## Développement et Mailpit
 
-`compose.dev.yaml` ajoute Mailpit avec un volume persistant. Son serveur SMTP est joignable par l’application à `smtp://mailpit:1025`. Son interface n’est publiée que sur la boucle locale du VPS : `127.0.0.1:8025`.
+`compose.dev.yaml` ajoute Mailpit avec un volume persistant. Son serveur SMTP est joignable par l’application à `smtp://mailpit:1025`.
 
-Accès depuis un poste autorisé :
-
-```powershell
-ssh -L 8025:127.0.0.1:8025 VPS_USER@VPS_HOST
-```
-
-Ouvrir ensuite `http://127.0.0.1:8025`. Aucun routeur Traefik n’expose Mailpit.
+L’interface est disponible sur `https://dev.mail.fireguard.valentin-fortin.pro` depuis tout réseau. Traefik termine TLS, impose Basic Auth et ajoute `X-Robots-Tag: noindex,nofollow,noarchive` ainsi que `Cache-Control: private,no-store`. Le port `8025` n’est pas publié sur l’hôte et le serveur SMTP `1025` reste limité au réseau Docker.
 
 ## OAuth, cookies et Stripe
 
