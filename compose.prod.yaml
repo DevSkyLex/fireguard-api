@@ -1,3 +1,5 @@
+name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME}
+
 x-logging: &default-logging
   driver: json-file
   options:
@@ -26,8 +28,8 @@ services:
       # if they are absent from .env, every deploy step passes green while every
       # request 500s with EnvNotFoundException. Pin them here (they match the Traefik
       # Host() rules below) so the running container never depends on .env drift.
-      MERCURE_PUBLIC_URL: https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
-      DEFAULT_URI: https://api.fireguard.valentin-fortin.pro
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
     networks:
       - default
       - traefik_proxy
@@ -39,13 +41,13 @@ services:
       - "traefik.docker.network=traefik_proxy"
 
       # API Symfony
-      - "traefik.http.routers.fireguard-api.rule=Host(`api.fireguard.valentin-fortin.pro`)"
-      - "traefik.http.routers.fireguard-api.entrypoints=websecure"
-      - "traefik.http.routers.fireguard-api.tls=true"
-      - "traefik.http.routers.fireguard-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.fireguard-api.priority=10"
-      - "traefik.http.routers.fireguard-api.service=fireguard-api"
-      - "traefik.http.services.fireguard-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.rule=Host(`${API_HOST:?Set API_HOST}`)"
+      - "traefik.http.routers.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.tls=true"
+      - "traefik.http.routers.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.priority=10"
+      - "traefik.http.routers.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.service=${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}"
+      - "traefik.http.services.${TRAEFIK_API_ROUTER_NAME:?Set TRAEFIK_API_ROUTER_NAME}.loadbalancer.server.port=8000"
     depends_on:
       auth_database:
         condition: service_healthy
@@ -87,8 +89,8 @@ services:
       MERCURE_URL: http://mercure/.well-known/mercure
       # The reply consumer publishes to Mercure and generates URLs in a non-HTTP
       # (worker) context, so it needs the same public-facing values as `app`.
-      MERCURE_PUBLIC_URL: https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
-      DEFAULT_URI: https://api.fireguard.valentin-fortin.pro
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
     command:
       ["php", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "--memory-limit=256M"]
     volumes:
@@ -255,13 +257,13 @@ services:
       - "traefik.docker.network=traefik_proxy"
 
       # Mercure
-      - "traefik.http.routers.fireguard-mercure.rule=Host(`mercure.fireguard.valentin-fortin.pro`)"
-      - "traefik.http.routers.fireguard-mercure.entrypoints=websecure"
-      - "traefik.http.routers.fireguard-mercure.tls=true"
-      - "traefik.http.routers.fireguard-mercure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.fireguard-mercure.priority=20"
-      - "traefik.http.routers.fireguard-mercure.service=fireguard-mercure"
-      - "traefik.http.services.fireguard-mercure.loadbalancer.server.port=80"
+      - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.rule=Host(`${MERCURE_HOST:?Set MERCURE_HOST}`)"
+      - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.entrypoints=websecure"
+      - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.tls=true"
+      - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.priority=20"
+      - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.service=${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}"
+      - "traefik.http.services.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.loadbalancer.server.port=80"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 30s
@@ -272,12 +274,19 @@ services:
 
 volumes:
   app_var:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_app_var
   jwt_keys:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_jwt_keys
   auth_database_data:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_auth_database_data
   main_database_data:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_main_database_data
   redis_data:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_redis_data
   mercure_data:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_mercure_data
   mercure_config:
+    name: ${VOLUME_PREFIX:?Set VOLUME_PREFIX}_mercure_config
 
 networks:
   traefik_proxy:
