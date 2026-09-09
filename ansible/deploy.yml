@@ -194,9 +194,9 @@
     - name: Resolve the keys the deployment env file must carry
       ansible.builtin.set_fact:
         fireguard_declared_env_keys: >-
-          {{ ((lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
-              | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?')))
-              | union(fireguard_deployment_env_keys))
+          {{ (lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
+             | union(lookup('file', playbook_dir + '/../compose.prod.yaml') | regex_findall('\$\{([A-Z][A-Z0-9_]*):\?'))
+             | union(fireguard_deployment_env_keys)
              | difference(fireguard_pinned_env_keys) }}
 
     - name: Resolve optional keys that have application defaults
