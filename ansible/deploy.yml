@@ -4,13 +4,19 @@
   gather_facts: false
 
   vars:
-    fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/opt/fireguard-sso-api', true) }}"
+    fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/srv/apps/fireguard/production/back', true) }}"
     fireguard_image: "{{ lookup('env', 'IMAGE_REF') | lower }}"
     fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
     fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
+    fireguard_deployment_environment: "{{ lookup('env', 'DEPLOY_ENVIRONMENT') | default('production', true) }}"
     fireguard_compose_file: compose.yaml
+    fireguard_compose_args: "-f compose.yaml{{ ' -f compose.dev.yaml' if fireguard_deployment_environment == 'development' else '' }}"
+    fireguard_compose_command: "docker compose {{ fireguard_compose_args }}"
+    fireguard_compose_project_name: "{{ lookup('env', 'COMPOSE_PROJECT_NAME') }}"
+    fireguard_legacy_compose_project_name: "{{ 'back' if fireguard_deployment_environment == 'production' else '' }}"
+    fireguard_dependency_services: "auth_database main_database redis mercure{{ ' mailpit' if fireguard_deployment_environment == 'development' else '' }}"
     fireguard_env_file: "{{ fireguard_app_dir }}/.env"
-    # When true, the deploy RENDERS the production env file from GitHub variables
+    # When true, the deploy RENDERS the deployment env file from GitHub variables
     # and secrets instead of trusting whatever is on the VPS. Off by default: the
     # existing file holds values GitHub does not have yet, and rendering before they
     # are populated would replace a working secret with an empty string. Turn it on
@@ -60,6 +66,16 @@
       ansible.builtin.command: curl --version
       changed_when: false
 
+    - name: Validate VPS capacity
+      ansible.builtin.shell: |
+        available_kib=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
+        free_kib=$(df -Pk /srv | awk 'NR==2 {print $4}')
+        test "$available_kib" -ge 2621440
+        test "$free_kib" -ge 10485760
+      args:
+        executable: /bin/sh
+      changed_when: false
+
     - name: Compute deployment timestamp once
       ansible.builtin.set_fact:
         fireguard_deployment_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%d%H%M%S') }}"
@@ -82,24 +98,40 @@
         state: directory
         mode: "0755"
 
-    - name: Check production env file exists on VPS
+    - name: Initialize a managed deployment env file
+      ansible.builtin.file:
+        path: "{{ fireguard_env_file }}"
+        state: touch
+        mode: "0600"
+        access_time: preserve
+        modification_time: preserve
+      when: fireguard_managed_env
+
+    - name: Check deployment env file exists on VPS
       ansible.builtin.stat:
         path: "{{ fireguard_env_file }}"
       register: fireguard_env_stat
 
-    - name: Stop if production env file is missing
+    - name: Stop if deployment env file is missing
       ansible.builtin.fail:
         msg: "Missing {{ fireguard_env_file }}. Create it manually on the VPS before deploying."
       when: not fireguard_env_stat.stat.exists
 
-    - name: Copy production Docker Compose file
+    - name: Copy base Docker Compose file
       ansible.builtin.copy:
         src: ../compose.prod.yaml
         dest: "{{ fireguard_app_dir }}/{{ fireguard_compose_file }}"
         mode: "0644"
 
+    - name: Copy development Docker Compose override
+      ansible.builtin.copy:
+        src: ../compose.dev.yaml
+        dest: "{{ fireguard_app_dir }}/compose.dev.yaml"
+        mode: "0644"
+      when: fireguard_deployment_environment == 'development'
+
     # Skipped when the file is generated: the template writes FIREGUARD_IMAGE itself.
-    - name: Record deployed image in production env file
+    - name: Record deployed image in deployment env file
       ansible.builtin.lineinfile:
         path: "{{ fireguard_env_file }}"
         regexp: ^FIREGUARD_IMAGE=
@@ -108,7 +140,7 @@
         mode: "0600"
       when: not fireguard_managed_env
 
-    - name: Ensure production env file permissions are private
+    - name: Ensure deployment env file permissions are private
       ansible.builtin.file:
         path: "{{ fireguard_env_file }}"
         mode: "0600"
@@ -122,7 +154,7 @@
     # spent four minutes failing the health check on a bare 500, *after* stopping the
     # app and migrating both databases. This check runs BEFORE any of that, so a
     # missing key costs a named error instead of a half-deployed production.
-    - name: Read the production env file
+    - name: Read the deployment env file
       ansible.builtin.slurp:
         src: "{{ fireguard_env_file }}"
       register: fireguard_env_contents
@@ -141,7 +173,7 @@
     # them was a false positive that would block a deploy over a key that is never
     # actually missing. Only literal values count: `${FRANKENPHP_CONFIG:-}` is an
     # interpolation, not a pin.
-    - name: Read the production compose file
+    - name: Read the base compose file
       ansible.builtin.set_fact:
         fireguard_compose: "{{ lookup('file', playbook_dir + '/../compose.prod.yaml') | from_yaml }}"
 
@@ -154,7 +186,7 @@
              | rejectattr('value', 'match', '\$\{')
              | map(attribute='key') | list }}
 
-    - name: Resolve the keys the production env file must carry
+    - name: Resolve the keys the deployment env file must carry
       ansible.builtin.set_fact:
         fireguard_declared_env_keys: >-
           {{ ((lookup('file', playbook_dir + '/../.env.example') | regex_findall('(?m)^([A-Z][A-Z0-9_]*)='))
@@ -167,16 +199,16 @@
           {{ lookup('file', playbook_dir + '/../config/packages/env_defaults.yaml')
              | regex_findall('env\\(([A-Z][A-Z0-9_]*)\\):') }}
 
-    - name: Resolve required production env keys
+    - name: Resolve required deployment env keys
       ansible.builtin.set_fact:
         fireguard_required_env_keys: >-
           {{ fireguard_declared_env_keys | difference(fireguard_optional_env_keys) }}
 
-    - name: Collect the env keys the production file sets
+    - name: Collect the env keys the deployment file sets
       ansible.builtin.set_fact:
         fireguard_present_env_keys: "{{ fireguard_env_contents.content | b64decode | regex_findall('(?m)^([A-Z][A-Z0-9_]*)=') }}"
 
-    - name: Stop before touching production if a declared key is missing
+    - name: Stop before changing services if a declared key is missing
       ansible.builtin.fail:
         msg: >-
           {{ fireguard_env_file }} is missing
@@ -225,7 +257,7 @@
         - fireguard_managed_env
         - not (lookup('env', item.key) | bool)
 
-    - name: Resolve production keys that must not be blank
+    - name: Resolve deployment keys that must not be blank
       ansible.builtin.set_fact:
         fireguard_non_blank_env_keys: >-
           {{ fireguard_required_env_keys
@@ -301,11 +333,11 @@
         - fireguard_unsafe_env_keys | default([]) | length > 0
 
     # ONE previous copy, overwritten, not one per deployment. A timestamped backup
-    # of a file holding every production secret accumulates a new full copy on disk
+    # of a file holding every deployment secret accumulates a new full copy on disk
     # every deploy, forever, and nothing here prunes them. In managed mode the file
     # is reproducible from GitHub, so this is a convenience for recovering from a
     # bad render, not the source of truth -- one is enough.
-    - name: Back up the production env file before replacing it
+    - name: Back up the deployment env file before replacing it
       ansible.builtin.copy:
         src: "{{ fireguard_env_file }}"
         dest: "{{ fireguard_env_file }}.previous"
@@ -313,7 +345,7 @@
         mode: "0600"
       when: fireguard_managed_env
 
-    - name: Generate the production env file
+    - name: Generate the deployment env file
       ansible.builtin.template:
         src: templates/production.env.j2
         dest: "{{ fireguard_env_file }}"
@@ -340,12 +372,33 @@
         - ghcr_token | length > 0
 
     - name: Pull Docker images
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} pull"
+      ansible.builtin.command: "{{ fireguard_compose_command }} pull"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
+    - name: Inspect active Docker Compose projects
+      ansible.builtin.command: docker compose ls --format json
+      register: fireguard_compose_projects
+      changed_when: false
+
+    # The former production compose file had no explicit project name, so Docker
+    # derived "back" from /srv/apps/fireguard/production/back. The new explicit
+    # name must take over those services once, otherwise both projects publish the
+    # same Traefik routers. `down` deliberately omits `--volumes`; the explicit
+    # VOLUME_PREFIX=back names below reconnect the new project to the existing data.
+    - name: Stop the legacy production Compose project before renaming it
+      ansible.builtin.command: >-
+        docker compose -p {{ fireguard_legacy_compose_project_name }}
+        -f {{ fireguard_compose_file }} down --remove-orphans
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      when:
+        - fireguard_deployment_environment == 'production'
+        - fireguard_compose_project_name != fireguard_legacy_compose_project_name
+        - fireguard_compose_projects.stdout is search('"Name"\s*:\s*"' ~ fireguard_legacy_compose_project_name ~ '"')
+
     - name: Initialize JWT key volume
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} --profile tools run --rm jwt_init"
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm jwt_init"
       args:
         chdir: "{{ fireguard_app_dir }}"
       register: fireguard_jwt_init
@@ -359,21 +412,32 @@
         msg: "{{ (fireguard_jwt_init.stdout_lines | default([])) + (fireguard_jwt_init.stderr_lines | default([])) }}"
 
     - name: Ensure application runtime volume permissions
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} --profile tools run --rm app_var_init"
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm app_var_init"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Start dependency services
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} up -d auth_database main_database redis mercure"
+      ansible.builtin.command: "{{ fireguard_compose_command }} up -d {{ fireguard_dependency_services }}"
       args:
         chdir: "{{ fireguard_app_dir }}"
+
+    - name: Wait for Mailpit in development
+      ansible.builtin.command: "{{ fireguard_compose_command }} exec -T mailpit /mailpit readyz"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      register: fireguard_mailpit_ready
+      changed_when: false
+      retries: 30
+      delay: 2
+      until: fireguard_mailpit_ready.rc == 0
+      when: fireguard_deployment_environment == 'development'
 
     - name: Wait for auth database
       ansible.builtin.shell: |
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
-        docker compose -f {{ fireguard_compose_file }} exec -T auth_database pg_isready -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB"
+        {{ fireguard_compose_command }} exec -T auth_database pg_isready -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -388,7 +452,7 @@
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
-        docker compose -f {{ fireguard_compose_file }} exec -T main_database pg_isready -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB"
+        {{ fireguard_compose_command }} exec -T main_database pg_isready -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -433,7 +497,7 @@
         connected=''
         for candidate in "$POSTGRES_AUTH_USER" postgres admin fireguard; do
           [ -n "$candidate" ] || continue
-          if docker compose -f {{ fireguard_compose_file }} exec -T auth_database \
+          if {{ fireguard_compose_command }} exec -T auth_database \
                psql -U "$candidate" -d template1 -tAc 'SELECT 1' >/dev/null 2>&1; then
             connected="$candidate"
             break
@@ -450,7 +514,7 @@
           # reads it without touching the server.
           latest=$(ls -1d backups/*/ 2>/dev/null | sort | tail -1)
           if [ -n "$latest" ] && [ -r "${latest}auth.dump" ]; then
-            toc=$(cat "${latest}auth.dump" | docker compose -f {{ fireguard_compose_file }} exec -T auth_database pg_restore -l 2>/dev/null)
+            toc=$(cat "${latest}auth.dump" | {{ fireguard_compose_command }} exec -T auth_database pg_restore -l 2>/dev/null)
             if [ -n "$toc" ]; then
               echo "reading the most recent backup instead: ${latest}auth.dump"
               echo "$toc" | grep -m1 'dbname:' | sed 's/^;[[:space:]]*/  /'
@@ -466,9 +530,9 @@
         fi
 
         echo "connected as: ${connected}"
-        roles=$(docker compose -f {{ fireguard_compose_file }} exec -T auth_database \
+        roles=$({{ fireguard_compose_command }} exec -T auth_database \
           psql -U "$connected" -d template1 -tAc "SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' ORDER BY rolname")
-        databases=$(docker compose -f {{ fireguard_compose_file }} exec -T auth_database \
+        databases=$({{ fireguard_compose_command }} exec -T auth_database \
           psql -U "$connected" -d template1 -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY datname")
         echo "roles present: $(echo "$roles" | tr '\n' ' ')"
         echo "databases present: $(echo "$databases" | tr '\n' ' ')"
@@ -513,7 +577,7 @@
         connected=''
         for candidate in "$POSTGRES_MAIN_USER" postgres main_admin fireguard; do
           [ -n "$candidate" ] || continue
-          if docker compose -f {{ fireguard_compose_file }} exec -T main_database \
+          if {{ fireguard_compose_command }} exec -T main_database \
                psql -U "$candidate" -d template1 -tAc 'SELECT 1' >/dev/null 2>&1; then
             connected="$candidate"
             break
@@ -530,7 +594,7 @@
           # reads it without touching the server.
           latest=$(ls -1d backups/*/ 2>/dev/null | sort | tail -1)
           if [ -n "$latest" ] && [ -r "${latest}main.dump" ]; then
-            toc=$(cat "${latest}main.dump" | docker compose -f {{ fireguard_compose_file }} exec -T main_database pg_restore -l 2>/dev/null)
+            toc=$(cat "${latest}main.dump" | {{ fireguard_compose_command }} exec -T main_database pg_restore -l 2>/dev/null)
             if [ -n "$toc" ]; then
               echo "reading the most recent backup instead: ${latest}main.dump"
               echo "$toc" | grep -m1 'dbname:' | sed 's/^;[[:space:]]*/  /'
@@ -546,9 +610,9 @@
         fi
 
         echo "connected as: ${connected}"
-        roles=$(docker compose -f {{ fireguard_compose_file }} exec -T main_database \
+        roles=$({{ fireguard_compose_command }} exec -T main_database \
           psql -U "$connected" -d template1 -tAc "SELECT rolname FROM pg_roles WHERE rolname NOT LIKE 'pg\_%' ORDER BY rolname")
-        databases=$(docker compose -f {{ fireguard_compose_file }} exec -T main_database \
+        databases=$({{ fireguard_compose_command }} exec -T main_database \
           psql -U "$connected" -d template1 -tAc "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY datname")
         echo "roles present: $(echo "$roles" | tr '\n' ' ')"
         echo "databases present: $(echo "$databases" | tr '\n' ' ')"
@@ -590,7 +654,7 @@
         test -n "$doctrine_password"
         escaped_user=$(printf '%s' "$doctrine_user" | sed 's/"/""/g')
         escaped_password=$(printf '%s' "$doctrine_password" | sed "s/'/''/g")
-        docker compose -f {{ fireguard_compose_file }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -c "ALTER USER \"$escaped_user\" WITH PASSWORD '$escaped_password';"
+        {{ fireguard_compose_command }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -c "ALTER USER \"$escaped_user\" WITH PASSWORD '$escaped_password';"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -607,7 +671,7 @@
         test -n "$doctrine_password"
         escaped_user=$(printf '%s' "$doctrine_user" | sed 's/"/""/g')
         escaped_password=$(printf '%s' "$doctrine_password" | sed "s/'/''/g")
-        docker compose -f {{ fireguard_compose_file }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -c "ALTER USER \"$escaped_user\" WITH PASSWORD '$escaped_password';"
+        {{ fireguard_compose_command }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -c "ALTER USER \"$escaped_user\" WITH PASSWORD '$escaped_password';"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -624,7 +688,7 @@
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
-        docker compose -f {{ fireguard_compose_file }} exec -T auth_database pg_dump -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -Fc > backups/{{ fireguard_deployment_timestamp }}/auth.dump
+        {{ fireguard_compose_command }} exec -T auth_database pg_dump -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -Fc > backups/{{ fireguard_deployment_timestamp }}/auth.dump
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -634,7 +698,7 @@
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
-        docker compose -f {{ fireguard_compose_file }} exec -T main_database pg_dump -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -Fc > backups/{{ fireguard_deployment_timestamp }}/main.dump
+        {{ fireguard_compose_command }} exec -T main_database pg_dump -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -Fc > backups/{{ fireguard_deployment_timestamp }}/main.dump
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -661,7 +725,7 @@
         label: "{{ item | basename }}"
 
     - name: Stop application service before schema changes
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} stop app"
+      ansible.builtin.command: "{{ fireguard_compose_command }} stop app"
       args:
         chdir: "{{ fireguard_app_dir }}"
       register: fireguard_stop_app
@@ -669,39 +733,39 @@
       failed_when: false
 
     - name: Run auth migrations
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Run main migrations
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Clear production cache
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Warm production cache
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:warmup --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:warmup --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Synchronize RBAC permissions
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod -vvv"
+      ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Start application service
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} up -d app"
+      ansible.builtin.command: "{{ fireguard_compose_command }} up -d app assistant_worker"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Verify internal application health
       block:
         - name: Wait for internal application health
-          ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} exec -T app curl -fsS http://localhost:8000/api/health"
+          ansible.builtin.command: "{{ fireguard_compose_command }} exec -T app curl -fsS http://localhost:8000/api/health"
           args:
             chdir: "{{ fireguard_app_dir }}"
           register: fireguard_internal_health
@@ -722,7 +786,7 @@
         # follow, and it must survive to be printed even when they abort.
         - name: Inspect the key directory the application actually sees
           ansible.builtin.command: >-
-            docker compose -f {{ fireguard_compose_file }} exec -T app
+            {{ fireguard_compose_command }} exec -T app
             sh -c "ls -la config/jwt 2>&1; echo '--- resolved:'; readlink -f config/jwt"
           args:
             chdir: "{{ fireguard_app_dir }}"
@@ -740,7 +804,7 @@
         - name: Verify the token-signing key is published
           ansible.builtin.shell: |
             set -euo pipefail
-            body=$(docker compose -f {{ fireguard_compose_file }} exec -T app               curl -fsS http://localhost:8000/api/.well-known/jwks.json)
+            body=$({{ fireguard_compose_command }} exec -T app               curl -fsS http://localhost:8000/api/.well-known/jwks.json)
             echo "$body"
             if ! printf '%s' "$body" | grep -q '"kty"'; then
               echo "::error::JWKS is empty. config/jwt/public.key is missing, unreadable or unparsable in the app container." >&2
@@ -760,7 +824,7 @@
         - name: Verify a protected route answers 401 rather than failing
           ansible.builtin.shell: |
             set -euo pipefail
-            code=$(docker compose -f {{ fireguard_compose_file }} exec -T app               curl -s -o /dev/null -w '%{http_code}'               -H 'Accept: application/ld+json' http://localhost:8000/api)
+            code=$({{ fireguard_compose_command }} exec -T app               curl -s -o /dev/null -w '%{http_code}'               -H 'Accept: application/ld+json' http://localhost:8000/api)
             echo "GET /api (anonymous) -> $code"
             if [ "$code" != "401" ]; then
               echo "::error::Anonymous GET /api answered $code, expected 401. The firewall is not producing a denial." >&2
@@ -783,7 +847,7 @@
         # in `docker compose logs`, not in curl's bare "error: 500". Surface it
         # before aborting so a failed deploy is diagnosable from the run output.
         - name: Dump application logs after failed health check
-          ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} logs --tail=200 --no-color app"
+          ansible.builtin.command: "{{ fireguard_compose_command }} logs --tail=200 --no-color app"
           args:
             chdir: "{{ fireguard_app_dir }}"
           register: fireguard_app_logs
@@ -824,7 +888,7 @@
       when: fireguard_healthcheck_url | length > 0
 
     - name: Show deployment services
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} ps"
+      ansible.builtin.command: "{{ fireguard_compose_command }} ps"
       args:
         chdir: "{{ fireguard_app_dir }}"
       changed_when: false

@@ -15,7 +15,7 @@ on:
         type: boolean
         default: false
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -327,6 +327,47 @@ jobs:
       - name: Check for security vulnerabilities
         # --locked audits composer.lock: this job installs no dependencies.
         run: composer audit --locked
+
+  # ===========================================================================
+  # Deployment contracts
+  # ===========================================================================
+  deployment:
+    name: Deployment Configuration
+    runs-on: ubuntu-latest
+    env:
+      FIREGUARD_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci
+      COMPOSE_PROJECT_NAME: fireguard-ci-back
+      VOLUME_PREFIX: fireguard-ci-back
+      API_HOST: api.fireguard.test
+      MERCURE_HOST: mercure.fireguard.test
+      TRAEFIK_API_ROUTER_NAME: fireguard-ci-api
+      TRAEFIK_MERCURE_ROUTER_NAME: fireguard-ci-mercure
+      DEFAULT_URI: https://api.fireguard.test
+      MERCURE_PUBLIC_URL: https://mercure.fireguard.test/.well-known/mercure
+      MERCURE_CORS_ORIGINS: https://app.fireguard.test
+      MERCURE_JWT_SECRET: ci-only
+      POSTGRES_AUTH_DB: fireguard_auth_ci
+      POSTGRES_AUTH_USER: fireguard_auth_ci
+      POSTGRES_AUTH_PASSWORD: ci-only
+      POSTGRES_MAIN_DB: fireguard_main_ci
+      POSTGRES_MAIN_USER: fireguard_main_ci
+      POSTGRES_MAIN_PASSWORD: ci-only
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: python3 -m pip install --user ansible-core
+
+      - name: Validate Ansible syntax
+        run: ansible-playbook --syntax-check -i 'localhost,' ansible/deploy.yml
+
+      - name: Validate production and development Compose files
+        run: |
+          touch .env
+          docker compose -f compose.prod.yaml config --quiet
+          docker compose -f compose.prod.yaml -f compose.dev.yaml config --quiet
 
   # ==========================================================================
   # Mutation Testing (manual opt-in only)
