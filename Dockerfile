@@ -104,6 +104,40 @@ COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
 # =============================================================================
+# Development fixture image
+# =============================================================================
+FROM base AS fixtures-vendor
+
+COPY composer.json composer.lock ./
+
+RUN composer install \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --no-progress \
+    --no-interaction
+
+COPY . .
+
+RUN composer dump-autoload --optimize --classmap-authoritative
+
+FROM base AS fixtures
+
+COPY --chown=app:app . .
+COPY --from=fixtures-vendor --chown=app:app /var/www/html/vendor vendor
+
+RUN touch .env \
+    && chown app:app .env \
+    && mkdir -p var/cache var/log \
+    && chown -R app:app var /data /config \
+    && (setcap -r /usr/local/bin/frankenphp || true)
+
+USER app
+
+ENTRYPOINT ["php", "-d", "memory_limit=1G", "bin/console"]
+CMD ["app:fixtures:load", "--env=dev", "--no-interaction"]
+
+# =============================================================================
 # Production image
 # =============================================================================
 FROM base AS prod

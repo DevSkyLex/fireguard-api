@@ -61,7 +61,12 @@ final class DeployEnvContractTest extends TestCase
    *
    * @var list<string>
    */
-  private const array COMPUTED_KEYS = ['FIREGUARD_IMAGE', 'AUTH_DATABASE_URL', 'MAIN_DATABASE_URL'];
+  private const array COMPUTED_KEYS = [
+    'FIREGUARD_IMAGE',
+    'FIREGUARD_FIXTURES_IMAGE',
+    'AUTH_DATABASE_URL',
+    'MAIN_DATABASE_URL',
+  ];
 
   /**
    * Controller-only secrets used by Ansible checks and deliberately omitted
@@ -167,6 +172,33 @@ final class DeployEnvContractTest extends TestCase
       $template,
       'The single-quoted managed env file must preserve htpasswd hashes exactly.',
     );
+  }
+
+  /**
+   * Method testFixtureResetIsManualAndDevelopmentOnly.
+   *
+   * The fixture command purges both databases. It must be opt-in and must fail
+   * closed outside the isolated development environment.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testFixtureResetIsManualAndDevelopmentOnly(): void
+  {
+    $root = dirname(__DIR__, 3);
+    $workflow = (string) file_get_contents($root . '/.github/workflows/deploy-vps.yml');
+    $playbook = (string) file_get_contents($root . '/ansible/deploy.yml');
+
+    self::assertStringContainsString('reset_development_fixtures:', $workflow);
+    self::assertStringContainsString(
+      "github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures",
+      $workflow,
+    );
+    self::assertStringContainsString(
+      "not fireguard_reset_development_fixtures or fireguard_deployment_environment == 'development'",
+      $playbook,
+    );
+    self::assertStringContainsString('when: fireguard_reset_development_fixtures', $playbook);
   }
 
   /**

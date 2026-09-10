@@ -7,6 +7,12 @@ on:
       - '**/*.md'
       - 'docs/**'
   workflow_dispatch:
+    inputs:
+      reset_development_fixtures:
+        description: 'Purge both development databases and reload the fixture baseline'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: deploy-vps-${{ github.ref_name }}
@@ -33,6 +39,7 @@ jobs:
       packages: write
     outputs:
       image-ref: ${{ steps.image.outputs.ref }}
+      fixture-image-ref: ${{ steps.image.outputs.fixture-ref }}
 
     steps:
       - name: Checkout code
@@ -75,11 +82,38 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Extract fixture image metadata
+        id: fixture_meta
+        if: github.ref_name == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image_name.outputs.name }}
+          tags: type=sha,format=short,suffix=-fixtures
+
+      - name: Build and push fixture image
+        if: github.ref_name == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: fixtures
+          push: true
+          tags: ${{ steps.fixture_meta.outputs.tags }}
+          labels: ${{ steps.fixture_meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Select deployed image
         id: image
+        env:
+          RESET_DEVELOPMENT_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures && 'true' || 'false' }}
         run: |
           image_name="${{ steps.image_name.outputs.name }}"
           echo "ref=${image_name}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          if [ "$RESET_DEVELOPMENT_FIXTURES" = "true" ]; then
+            echo "fixture-ref=${image_name}:sha-${GITHUB_SHA::7}-fixtures" >> "$GITHUB_OUTPUT"
+          else
+            echo "fixture-ref=${image_name}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
 
   deploy:
     name: Deploy to VPS
@@ -93,6 +127,8 @@ jobs:
     env:
       DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'develop' && 'development' || 'production' }}
       IMAGE_REF: ${{ needs.build.outputs.image-ref }}
+      FIXTURE_IMAGE_REF: ${{ needs.build.outputs.fixture-image-ref }}
+      RESET_DEVELOPMENT_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures && 'true' || 'false' }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_PORT: ${{ vars.VPS_PORT || '22' }}
       VPS_USER: ${{ secrets.VPS_USER }}
@@ -166,6 +202,16 @@ jobs:
             *) echo "Unsupported deployment branch: $GITHUB_REF_NAME"; exit 1 ;;
           esac
 
+          case "$RESET_DEVELOPMENT_FIXTURES" in
+            true|false) ;;
+            *) echo "RESET_DEVELOPMENT_FIXTURES must be true or false."; exit 1 ;;
+          esac
+
+          if [ "$RESET_DEVELOPMENT_FIXTURES" = "true" ] && [ "$DEPLOY_ENVIRONMENT" != "development" ]; then
+            echo "Fixture reset is restricted to the development environment."
+            exit 1
+          fi
+
           for value in VPS_HOST VPS_USER VPS_SSH_KEY IMAGE_REF VPS_APP_DIR COMPOSE_PROJECT_NAME VOLUME_PREFIX API_HOST MERCURE_HOST TRAEFIK_API_ROUTER_NAME TRAEFIK_MERCURE_ROUTER_NAME DEFAULT_URI MERCURE_PUBLIC_URL; do
             test -n "${!value}" || { echo "$value is required."; exit 1; }
           done
@@ -174,6 +220,10 @@ jobs:
             for value in MAILPIT_HOST TRAEFIK_MAILPIT_ROUTER_NAME BASIC_AUTH_USERS BASIC_AUTH_CREDENTIALS; do
               test -n "${!value}" || { echo "$value is required for development."; exit 1; }
             done
+          fi
+
+          if [ "$RESET_DEVELOPMENT_FIXTURES" = "true" ]; then
+            test -n "$FIXTURE_IMAGE_REF" || { echo "FIXTURE_IMAGE_REF is required to reset development fixtures."; exit 1; }
           fi
 
       - name: Configure SSH

@@ -336,6 +336,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FIREGUARD_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci
+      FIREGUARD_FIXTURES_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci-fixtures
       COMPOSE_PROJECT_NAME: fireguard-ci-back
       VOLUME_PREFIX: fireguard-ci-back
       API_HOST: api.fireguard.test
