@@ -51,6 +51,14 @@ Le mode géré `FIREGUARD_MANAGED_ENV=true` rend `.env` depuis les variables et 
 
 L’interface est disponible sur `https://dev.mail.fireguard.valentin-fortin.pro` depuis tout réseau. Traefik termine TLS, impose Basic Auth et ajoute `X-Robots-Tag: noindex,nofollow,noarchive` ainsi que `Cache-Control: private,no-store`. Le port `8025` n’est pas publié sur l’hôte et le serveur SMTP `1025` reste limité au réseau Docker.
 
+## Fixtures de développement
+
+Les fixtures ne sont jamais chargées par un push ou un déploiement ordinaire. Elles purgent puis reconstruisent les bases `auth` et `main`, y compris les comptes et données créés manuellement.
+
+Pour initialiser ou réinitialiser les données de démonstration, lancer manuellement le workflow `Deploy VPS` sur la branche `develop` en activant l’entrée `reset_development_fixtures`. Le workflow construit alors une image temporaire contenant les dépendances de fixtures, sauvegarde les deux bases, arrête les processus applicatifs, applique les migrations, recharge la baseline puis exécute les contrôles de santé habituels.
+
+La demande est refusée pour tout environnement autre que `development`. L’image applicative de production reste construite avec `--no-dev` et ne contient pas le chargeur de fixtures.
+
 ## OAuth, cookies et Stripe
 
 - Les clients Google et Microsoft du dev utilisent uniquement les callbacks `dev.*` et restent désactivés tant que leurs identifiants dédiés ne sont pas enregistrés.

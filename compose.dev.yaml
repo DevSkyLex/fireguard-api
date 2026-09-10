@@ -1,4 +1,32 @@
 services:
+  fixture_loader:
+    image: ${FIREGUARD_FIXTURES_IMAGE:?Set FIREGUARD_FIXTURES_IMAGE}
+    profiles: ['tools']
+    env_file:
+      - .env
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: '0'
+      APP_RUNTIME: Symfony\Component\Runtime\SymfonyRuntime
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+    networks:
+      - default
+    volumes:
+      - app_var:/var/www/html/var
+      - jwt_keys:/var/www/html/config/jwt:ro
+    depends_on:
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+    labels:
+      - 'traefik.enable=false'
+    security_opt:
+      - no-new-privileges:true
+
   mailpit:
     image: axllent/mailpit:v1.27
     restart: unless-stopped
