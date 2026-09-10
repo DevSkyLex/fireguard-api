@@ -6,11 +6,13 @@
   vars:
     fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/srv/apps/fireguard/production/back', true) }}"
     fireguard_image: "{{ lookup('env', 'IMAGE_REF') | lower }}"
+    fireguard_fixture_image: "{{ lookup('env', 'FIXTURE_IMAGE_REF') | lower }}"
     fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
     fireguard_mercure_healthcheck_url: "https://{{ lookup('env', 'MERCURE_HOST') }}/healthz"
     fireguard_mailpit_healthcheck_url: "https://{{ lookup('env', 'MAILPIT_HOST') }}/"
     fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
     fireguard_deployment_environment: "{{ lookup('env', 'DEPLOY_ENVIRONMENT') | default('production', true) }}"
+    fireguard_reset_development_fixtures: "{{ lookup('env', 'RESET_DEVELOPMENT_FIXTURES') | default('false', true) | bool }}"
     fireguard_compose_file: compose.yaml
     fireguard_compose_args: "-f compose.yaml{{ ' -f compose.dev.yaml' if fireguard_deployment_environment == 'development' else '' }}"
     fireguard_compose_command: "docker compose {{ fireguard_compose_args }}"
@@ -34,6 +36,7 @@
     # so the password cannot exist in two places and disagree with itself.
     fireguard_computed_env_keys:
       - FIREGUARD_IMAGE
+      - FIREGUARD_FIXTURES_IMAGE
       - AUTH_DATABASE_URL
       - MAIN_DATABASE_URL
     # Provider credentials are intentionally blank while their switch is false.
@@ -63,6 +66,14 @@
           - fireguard_image is defined
           - fireguard_image | length > 0
         fail_msg: fireguard_image is required.
+
+    - name: Validate development fixture reset request
+      ansible.builtin.assert:
+        that:
+          - not fireguard_reset_development_fixtures or fireguard_deployment_environment == 'development'
+          - not fireguard_reset_development_fixtures or fireguard_fixture_image | length > 0
+        fail_msg: >-
+          Fixture reset is restricted to development and requires a dedicated fixture image.
 
     - name: Validate Docker Compose is available
       ansible.builtin.command: docker compose version
@@ -747,6 +758,24 @@
       ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
+
+    - name: Stop background application worker before resetting development data
+      ansible.builtin.command: "{{ fireguard_compose_command }} stop assistant_worker"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      when: fireguard_reset_development_fixtures
+
+    - name: Pull development fixture image
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools pull fixture_loader"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      when: fireguard_reset_development_fixtures
+
+    - name: Purge and reload development fixture baseline
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm --no-deps fixture_loader"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      when: fireguard_reset_development_fixtures
 
     - name: Clear production cache
       ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"
