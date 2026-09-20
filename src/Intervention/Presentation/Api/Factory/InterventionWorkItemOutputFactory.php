@@ -9,6 +9,7 @@ use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityQuery, G
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Presentation\Api\Dto\Output\{InterventionAssigneeOutput, InterventionTargetOutput, InterventionWorkItemOutput};
 use Intervention\Presentation\Api\Mapper\InterventionWorkflowViewDataTrait;
+use LogicException;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationMember\{GetOrganizationMemberQuery, GetOrganizationMemberResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Http\ResourceIriParser;
@@ -75,9 +76,11 @@ final class InterventionWorkItemOutputFactory
    * @since 1.1.0
    *
    * @param QueryBusPort $queryBus the query bus value
+   * @param ?\Intervention\Application\Service\InterventionWorkItemCapabilities $capabilities resolves caller-specific operational and time-journal actions
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
+    private readonly ?\Intervention\Application\Service\InterventionWorkItemCapabilities $capabilities = null,
   ) {
   }
 
@@ -89,10 +92,11 @@ final class InterventionWorkItemOutputFactory
    * @since 1.0.0
    *
    * @param InterventionWorkflowView $view the view value
+   * @param ?string $userId authenticated account identifier used for authorization
    *
    * @return InterventionWorkItemOutput the from view result
    */
-  public function fromView(InterventionWorkflowView $view): InterventionWorkItemOutput
+  public function fromView(InterventionWorkflowView $view, ?string $userId = null): InterventionWorkItemOutput
   {
     $data = $view->data;
     $output = new InterventionWorkItemOutput();
@@ -108,6 +112,17 @@ final class InterventionWorkItemOutputFactory
     $output->status = $this->string($data, 'status');
     $output->required = $this->boolean($data, 'required');
     $output->skipReason = $this->nullableString($data, 'skipReason');
+    $output->estimatedMinutes = null === ($data['estimatedMinutes'] ?? null) ? null : $this->integer($data, 'estimatedMinutes');
+    $output->remainingMinutes = null === ($data['remainingMinutes'] ?? null) ? null : $this->integer($data, 'remainingMinutes');
+    $output->workStartsOn = $this->nullableString($data, 'workStartsOn');
+    $output->workEndsOn = $this->nullableString($data, 'workEndsOn');
+    $output->spentMinutes = $this->integer($data, 'spentMinutes');
+    if (null !== $userId) {
+      if (null === $this->capabilities) {
+        throw new LogicException('Caller-specific capabilities require the work item policy.');
+      }
+      $output->allowedActions = $this->capabilities->forCaller($output->id, $output->status, $userId);
+    }
     $output->evidenceCount = $this->integer($data, 'evidenceCount');
     $output->revision = $this->integer($data, 'revision');
     $output->createdAt = $this->string($data, 'createdAt');

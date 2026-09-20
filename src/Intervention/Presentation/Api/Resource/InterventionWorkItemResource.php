@@ -36,9 +36,12 @@ use Symfony\Component\HttpFoundation\Response;
       openapi: new Operation(parameters: [
         new Parameter(name: 'intervention', in: 'query', required: true, schema: ['type' => 'string']),
         new Parameter(name: 'assignee', in: 'query', required: false, schema: ['type' => 'string']),
+        new Parameter(name: 'prioritizeAssignee', in: 'query', description: 'Member IRI whose matching tasks are ordered first, without filtering out other assignees.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'source', in: 'query', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'action', in: 'query', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'status', in: 'query', required: false, schema: ['type' => 'string']),
+        new Parameter(name: 'status[]', in: 'query', description: 'Match any of these statuses before counting and paginating.', required: false, schema: ['type' => 'array', 'items' => ['type' => 'string']], style: 'form', explode: true),
+        new Parameter(name: 'search', in: 'query', required: false, schema: ['type' => 'string']),
       ]),
       security: "is_granted('ROLE_USER')",
     ),

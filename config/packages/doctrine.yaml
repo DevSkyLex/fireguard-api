@@ -193,6 +193,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Calendar/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Calendar\Infrastructure\Persistence\Doctrine\Record'
             alias: Calendar
+          Workload:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Workload/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Workload\Infrastructure\Persistence\Doctrine\Record'
+            alias: Workload
           Compliance:
             is_bundle: false
             type: attribute

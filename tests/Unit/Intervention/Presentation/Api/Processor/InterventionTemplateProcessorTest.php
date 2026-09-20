@@ -64,6 +64,7 @@ final class InterventionTemplateProcessorTest extends TestCase
           'target' => null,
           'resultResource' => null,
           'required' => true,
+          'estimatedMinutes' => null,
           'defaultAssigneeId' => self::MEMBER_ID,
         ]], $command->items);
 

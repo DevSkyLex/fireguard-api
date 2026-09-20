@@ -27,6 +27,7 @@ final readonly class InterventionTemplateItemView
    * @param ?string $resultResource the result resource value
    * @param bool $required the required value
    * @param ?string $defaultAssigneeId the default assignee id value
+   * @param ?int $estimatedMinutes reference estimate in whole minutes; null means unestimated
    */
   public function __construct(
     public string $id,
@@ -36,6 +37,7 @@ final readonly class InterventionTemplateItemView
     public ?string $resultResource,
     public bool $required,
     public ?string $defaultAssigneeId,
+    public ?int $estimatedMinutes = null,
   ) {
   }
 }

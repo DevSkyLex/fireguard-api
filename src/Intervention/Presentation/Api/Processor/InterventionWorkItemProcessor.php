@@ -104,6 +104,10 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
         'assigneeId' => null === $data->assignee ? null : ResourceIriParser::memberId($data->assignee),
         'source' => $data->source,
         'required' => $data->required,
+        'estimatedMinutes' => $data->estimatedMinutes,
+        'workloadConfirmationToken' => $data->workloadConfirmationToken,
+        'workStartsOn' => $data->workStartsOn,
+        'workEndsOn' => $data->workEndsOn,
       ]
       : ($data instanceof UpdateInterventionWorkItemInput ? $this->updatePayload($data) : []);
 
@@ -122,7 +126,7 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
       throw $this->mapWorkflowException($exception);
     }
 
-    return null === $result->view ? null : $this->mapper->fromView($result->view);
+    return null === $result->view ? null : $this->mapper->fromView($result->view, $user->getId());
   }
 
   /**
@@ -138,7 +142,7 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
   {
     $fields = $this->mergePatchFields->all();
     $payload = [];
-    foreach (['resultResource', 'status', 'skipReason'] as $field) {
+    foreach (['resultResource', 'status', 'skipReason', 'estimatedMinutes', 'remainingMinutes', 'workStartsOn', 'workEndsOn', 'workloadConfirmationToken'] as $field) {
       if (array_key_exists($field, $fields)) {
         $payload[$field] = $input->{$field};
       }

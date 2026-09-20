@@ -1,0 +1,53 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  _instanceof:
+    Shared\Application\Message\QueryHandler:
+      tags: ['messenger.message_handler']
+    Shared\Application\Message\CommandHandler:
+      tags: ['messenger.message_handler']
+
+  Workload\Presentation\:
+    resource: '../../src/Workload/Presentation'
+
+  Workload\Application\:
+    resource: '../../src/Workload/Application'
+    exclude: '../../src/Workload/Application/{Contract}'
+
+  Workload\Infrastructure\Persistence\Doctrine\Repository\CapacityRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Workload\Infrastructure\Adapter\Doctrine\DoctrineWorkloadCoordinationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Workload\Application\Port\Outbound\CapacityRepositoryPort:
+    alias: Workload\Infrastructure\Persistence\Doctrine\Repository\CapacityRepository
+
+  Workload\Application\Port\Inbound\WorkloadCoordinationPort:
+    alias: Workload\Infrastructure\Adapter\Doctrine\DoctrineWorkloadCoordinationAdapter
+
+  Workload\Application\Port\Inbound\WorkloadProjectionPort:
+    alias: Workload\Application\Service\WorkloadProjector
+
+  Workload\Application\Port\Inbound\WorkloadPlanningPort:
+    alias: Workload\Application\Service\WorkloadPlanningService
+
+  Workload\Infrastructure\Adapter\Cryptography\HmacWorkloadConfirmationSignerAdapter:
+    arguments:
+      $secret: '%kernel.secret%'
+
+  Workload\Application\Port\Outbound\WorkloadConfirmationSignerPort:
+    alias: Workload\Infrastructure\Adapter\Cryptography\HmacWorkloadConfirmationSignerAdapter
+
+  workload.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Workload\Application\UseCase\Command\Capacity\ChangeCapacity\ChangeCapacityHandler:
+    arguments:
+      $transactionManager: '@workload.main_transaction_manager'

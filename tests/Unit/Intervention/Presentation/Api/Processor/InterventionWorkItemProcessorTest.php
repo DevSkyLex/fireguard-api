@@ -16,12 +16,11 @@ use Intervention\Presentation\Api\Dto\Input\{
   CreateInterventionWorkItemInput,
   UpdateInterventionWorkItemInput
 };
-use Intervention\Presentation\Api\Factory\InterventionWorkItemOutputFactory;
 use Intervention\Presentation\Api\Processor\InterventionWorkItemProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{CreationPreconditionGuard, MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -37,6 +36,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundH
 #[CoversClass(InterventionWorkItemProcessor::class)]
 final class InterventionWorkItemProcessorTest extends TestCase
 {
+  use \Tests\Support\Factory\WorkItemOutputFactoryTrait;
+
   // #region Constants
   private const string WORK_ITEM_ID = '550e8400-e29b-41d4-a716-446655441502';
 
@@ -204,7 +205,7 @@ final class InterventionWorkItemProcessorTest extends TestCase
 
     $processor = new InterventionWorkItemProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
-      mapper: new InterventionWorkItemOutputFactory($this->createStub(QueryBusPort::class)),
+      mapper: $this->workItemOutputFactory(),
       security: $security,
       requestStack: $requestStack,
       revisionGuard: new RevisionGuard($requestStack),
@@ -242,7 +243,7 @@ final class InterventionWorkItemProcessorTest extends TestCase
 
     return new InterventionWorkItemProcessor(
       commandBus: $commandBus,
-      mapper: new InterventionWorkItemOutputFactory($this->createStub(QueryBusPort::class)),
+      mapper: $this->workItemOutputFactory(),
       security: $this->securityWithUser(),
       requestStack: $requestStack,
       revisionGuard: new RevisionGuard($requestStack),
@@ -308,6 +309,7 @@ final class InterventionWorkItemProcessorTest extends TestCase
         'required' => true,
         'skipReason' => null,
         'evidenceCount' => 0,
+        'spentMinutes' => 0,
         'revision' => 1,
         'createdAt' => '2026-01-01T00:00:00+00:00',
         'updatedAt' => '2026-01-01T00:00:00+00:00',

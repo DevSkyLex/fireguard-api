@@ -12,7 +12,6 @@ use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{Get
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Presentation\Api\Dto\Output\InterventionWorkItemOutput;
-use Intervention\Presentation\Api\Factory\InterventionWorkItemOutputFactory;
 use Intervention\Presentation\Api\Provider\InterventionWorkItemProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -32,6 +31,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 #[CoversClass(InterventionWorkItemProvider::class)]
 final class InterventionWorkItemProviderTest extends TestCase
 {
+  use \Tests\Support\Factory\WorkItemOutputFactoryTrait;
+
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655441300';
 
   private const string ORG_ID = '550e8400-e29b-41d4-a716-446655440001';
@@ -65,7 +66,10 @@ final class InterventionWorkItemProviderTest extends TestCase
   {
     $requestStack = $this->requestStack(
       '?intervention=/api/interventions/' . self::INTERVENTION_ID
-      . '&status=planned'
+      . '&status[]=planned&status[]=in_progress'
+      . '&search=panel'
+      . '&page=2&itemsPerPage=10'
+      . '&prioritizeAssignee=/api/organizations/' . self::ORG_ID . '/members/' . self::MEMBER_ID
       . '&action='
       . '&assignee=/api/organizations/' . self::ORG_ID . '/members/' . self::MEMBER_ID,
     );
@@ -77,7 +81,14 @@ final class InterventionWorkItemProviderTest extends TestCase
       ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
         self::assertSame('work_item', $query->resource);
         self::assertSame(self::INTERVENTION_ID, $query->scopeId);
-        self::assertSame(['status' => 'planned', 'assigneeId' => self::MEMBER_ID], $query->filters);
+        self::assertSame([
+          'search' => 'panel',
+          'status' => ['planned', 'in_progress'],
+          'assigneeId' => self::MEMBER_ID,
+          'prioritizeAssigneeId' => self::MEMBER_ID,
+        ], $query->filters);
+        self::assertSame(2, $query->page);
+        self::assertSame(10, $query->itemsPerPage);
 
         return true;
       }))
@@ -106,7 +117,7 @@ final class InterventionWorkItemProviderTest extends TestCase
 
     $provider = new InterventionWorkItemProvider(
       $this->createStub(QueryBusPort::class),
-      new InterventionWorkItemOutputFactory($this->createStub(QueryBusPort::class)),
+      $this->workItemOutputFactory(),
       $security,
       $this->requestStack(''),
     );
@@ -149,7 +160,7 @@ final class InterventionWorkItemProviderTest extends TestCase
   {
     return new InterventionWorkItemProvider(
       $queryBus,
-      new InterventionWorkItemOutputFactory($this->createStub(QueryBusPort::class)),
+      $this->workItemOutputFactory(),
       $this->security(),
       $requestStack,
     );
@@ -192,6 +203,7 @@ final class InterventionWorkItemProviderTest extends TestCase
       'required' => true,
       'skipReason' => null,
       'evidenceCount' => 0,
+      'spentMinutes' => 0,
       'revision' => 1,
       'createdAt' => '2026-01-01T00:00:00+00:00',
       'updatedAt' => '2026-01-01T00:00:00+00:00',

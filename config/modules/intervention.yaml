@@ -3,6 +3,10 @@ services:
     autowire: true
     autoconfigure: true
 
+  Intervention\Application\Port\Inbound\InterventionWorkloadContributionsPort:
+    alias: Intervention\Infrastructure\Adapter\Workload\InterventionWorkloadContributionsAdapter
+
+
   Intervention\Presentation\:
     resource: '../../src/Intervention/Presentation'
 
@@ -20,6 +24,30 @@ services:
 
   Intervention\Infrastructure\:
     resource: '../../src/Intervention/Infrastructure'
+
+  Intervention\Infrastructure\Adapter\Workload\InterventionWorkloadContributionsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionTimeEntryRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionTimeEntryRepositoryPort:
+    alias: Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionTimeEntryRepository
+
+  intervention.time_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\UseCase\Command\Time\WriteTimeEntry\WriteTimeEntryHandler:
+    arguments:
+      $transactions: '@intervention.time_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Time\ListTimeEntries\ListTimeEntriesHandler:
+    tags: ['messenger.message_handler']
 
   # Bind the rich-text comment sanitizer (Quill / PrimeNG editor output).
   Intervention\Presentation\Api\Processor\InterventionActivityProcessor:

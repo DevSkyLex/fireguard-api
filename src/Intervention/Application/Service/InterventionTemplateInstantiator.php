@@ -117,6 +117,7 @@ final readonly class InterventionTemplateInstantiator
           required: $item->required,
           assigneeId: $this->activeMemberOrNull($template->organizationId, $item->defaultAssigneeId),
           resultResource: $item->resultResource,
+          estimatedMinutes: $item->estimatedMinutes,
         ),
         $template->items,
       ),

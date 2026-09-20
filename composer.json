@@ -95,7 +95,8 @@
             "Webhook\\": "src/Webhook/",
             "Approval\\": "src/Approval/",
             "Assistant\\": "src/Assistant/",
-            "Calendar\\": "src/Calendar/"
+            "Calendar\\": "src/Calendar/",
+            "Workload\\": "src/Workload/"
         },
         "classmap": [
             "src/Kernel.php"

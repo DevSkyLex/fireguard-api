@@ -25,7 +25,8 @@ use const DIRECTORY_SEPARATOR;
  *
  * Guards the security invariant that every Intervention use-case handler that
  * acts on behalf of a user enforces an organization permission check through
- * the OrganizationAuthorizationPort. Without this net, a newly added handler
+ * the OrganizationAuthorizationPort, directly or through an invoked and checked
+ * application policy. Without this net, a newly added handler
  * could silently expose intervention data to any authenticated user, since the
  * API layer only requires ROLE_USER and delegates real authorization here.
  *
@@ -39,7 +40,7 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
   /**
    * Constant AUTHORIZATION_PORT.
    *
-   * The port every user-facing handler must depend on.
+   * The port every user-facing authorization boundary must depend on.
    *
    * @var string
    */
@@ -83,8 +84,9 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
   /**
    * Method testUserFacingHandlersEnforceAuthorization.
    *
-   * Ensures every Intervention use-case handler depends on the authorization
-   * port unless it is an explicitly exempt internal handler.
+   * Ensures every user-facing handler checks organization scope directly or
+   * invokes the required policy methods. Delegation is not an authorization exemption:
+   * the policy itself must depend on the port and perform a scope-aware check.
    *
    * @return void no return value
    */
@@ -116,9 +118,12 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
         continue;
       }
       $contents = file_get_contents($file->getPathname());
-      if (false === $contents || !str_contains($contents, self::AUTHORIZATION_PORT)) {
+      if (false !== $contents && !str_contains($contents, self::AUTHORIZATION_PORT)) {
+        $contents = $this->authorizationPolicySource($shortName, $contents);
+      }
+      if (false === $contents || null === $contents || !str_contains($contents, self::AUTHORIZATION_PORT)) {
         $violations[] = sprintf(
-          '%s must depend on %s (or be added to EXEMPT_HANDLERS with a justification).',
+          '%s must enforce %s directly or through an invoked scope-aware authorization policy.',
           $shortName,
           self::AUTHORIZATION_PORT,
         );
@@ -151,6 +156,61 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
       actual: $violations,
       message: 'Every user-facing Intervention handler must enforce an organization permission.',
     );
+  }
+
+  /**
+   * Rejects a merely injected policy or an incomplete delegated authorization flow.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testDelegatedPolicyRequiresEveryAuthorizationCall(): void
+  {
+    $dependency = 'InterventionTimeAccessPolicy $access;';
+    self::assertNull($this->authorizationPolicySource('WriteTimeEntryHandler', $dependency));
+    self::assertNull($this->authorizationPolicySource('WriteTimeEntryHandler', $dependency . ' $this->access->actor('));
+    self::assertNull($this->authorizationPolicySource('ListTimeEntriesHandler', $dependency . ' $this->access->canManage('));
+    self::assertNull($this->authorizationPolicySource('ListTimeEntriesHandler', $dependency . ' $this->access->actor('));
+    self::assertNull($this->authorizationPolicySource('UnknownHandler', $dependency . ' $this->access->assertWrite('));
+    self::assertNotNull($this->authorizationPolicySource('WriteTimeEntryHandler', $dependency . ' $this->access->assertWrite('));
+    self::assertNotNull($this->authorizationPolicySource('ListTimeEntriesHandler', $dependency . ' $this->access->actor( $this->access->canManage('));
+  }
+
+  /**
+   * Resolves the authorization source for the independent time journal.
+   *
+   * The write policy checks membership, permission and contributor scope; reads
+   * require both actor scoping and the dedicated management-permission decision.
+   * Other handlers retain the direct-port rule. Policy denial paths are tested
+   * independently in InterventionTimeAccessPolicyTest and the API suite.
+   *
+   * @since 1.0.0
+   *
+   * @param string $handler discovered use-case class name
+   * @param string $contents handler source inspected by the architecture guard
+   *
+   * @return ?string policy source, or null when the required delegation is absent
+   */
+  private function authorizationPolicySource(string $handler, string $contents): ?string
+  {
+    $requiredCalls = match ($handler) {
+      'WriteTimeEntryHandler' => ['assertWrite'],
+      'ListTimeEntriesHandler' => ['actor', 'canManage'],
+      default => [],
+    };
+    if ([] === $requiredCalls || !str_contains($contents, 'InterventionTimeAccessPolicy')) {
+      return null;
+    }
+    foreach ($requiredCalls as $method) {
+      if (!str_contains($contents, '->' . $method . '(')) {
+        return null;
+      }
+    }
+    $policy = file_get_contents(dirname(__DIR__, 3) . '/src/Intervention/Application/Service/InterventionTimeAccessPolicy.php');
+
+    return false !== $policy && str_contains($policy, self::AUTHORIZATION_PORT) ? $policy : null;
   }
   // #endregion
 }

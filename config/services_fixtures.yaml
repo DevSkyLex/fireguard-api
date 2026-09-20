@@ -54,3 +54,12 @@ services:
   Messaging\Infrastructure\DataFixtures\MessagingFixtures:
     tags:
       - { name: 'app.seed_fixture.main' }
+
+  # Opt-in, append-safe demo sets. Never part of the purged test seed baseline.
+  Workload\Infrastructure\DataFixtures\WorkloadFixtures:
+    tags:
+      - { name: 'app.seed_fixture.append', priority: 10 }
+
+  Intervention\Infrastructure\DataFixtures\InterventionWorkloadFixtures:
+    tags:
+      - { name: 'app.seed_fixture.append' }

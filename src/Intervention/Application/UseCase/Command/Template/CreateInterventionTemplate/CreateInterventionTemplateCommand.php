@@ -32,7 +32,7 @@ final readonly class CreateInterventionTemplateCommand implements CommandMessage
    * @param ?string $defaultResponsibleId the default responsible member id value
    * @param ?string $duration the ISO-8601 duration string value (e.g. `P14D`)
    * @param list<string> $labelIds the organization label ids value
-   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}> $items the template items, in position order
+   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the template items, in position order
    */
   public function __construct(
     public string $userId,

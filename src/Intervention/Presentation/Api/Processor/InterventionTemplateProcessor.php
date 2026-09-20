@@ -148,7 +148,7 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
    *
    * @param InterventionTemplateItemInput $item the item input value
    *
-   * @return array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}
+   * @return array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}
    */
   private static function itemPayload(InterventionTemplateItemInput $item): array
   {
@@ -157,6 +157,7 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
       'target' => $item->target,
       'resultResource' => $item->resultResource,
       'required' => $item->required,
+      'estimatedMinutes' => $item->estimatedMinutes,
       'defaultAssigneeId' => null === $item->defaultAssignee ? null : ResourceIriParser::memberId($item->defaultAssignee),
     ];
   }

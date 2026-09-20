@@ -24,6 +24,14 @@ use Doctrine\ORM\Mapping as ORM;
 class InterventionTemplateItemRecord
 {
   /**
+   * Property estimatedMinutes.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'integer', nullable: true)]
+  public ?int $estimatedMinutes = null;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

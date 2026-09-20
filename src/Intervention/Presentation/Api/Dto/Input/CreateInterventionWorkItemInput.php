@@ -18,6 +18,38 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class CreateInterventionWorkItemInput
 {
   /**
+   * Property workloadConfirmationToken.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Length(max: 64)]
+  public ?string $workloadConfirmationToken = null;
+
+  /**
+   * Property estimatedMinutes. Null means not estimated.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\PositiveOrZero]
+  public ?int $estimatedMinutes = null;
+
+  /**
+   * Property workStartsOn. Organization-local date.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Date]
+  public ?string $workStartsOn = null;
+
+  /**
+   * Property workEndsOn. Organization-local date.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Date]
+  public ?string $workEndsOn = null;
+
+  /**
    * Property intervention.
    *
    * @since 1.0.0

@@ -45,21 +45,73 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 
 ### Work items (draft scope)
 
+Task effort is nullable integral minutes: baseline estimate and explicit remaining
+effort are independent from actual time. A custom local-date work period must stay
+inside the intervention period; moving the latter reports incompatible tasks before
+acceptance. New template occurrences copy only the optional estimate, never actuals.
+Reopening completed or skipped work resets remaining effort to unknown unless supplied.
+Only unfinished work in draft, planned, in-progress or correction can be reassigned
+with the existing planning permission. Assignment history retains former contributors.
+
+Intervention publishes task/time contributions to Workload through its inbound port.
+Planning mutations, programmatic creation and activating transitions use Workload's
+coordination and planning ports inside the explicit main transaction. Factual remaining
+effort updates do not require overload consent; assignments and re-planning do.
+
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/intervention-work-items` | Add a work item to an intervention |
-| GET | `/intervention-work-items` | List (filters: `intervention` *(required)*, `assignee`, `source`, `action`, `status`) |
+| GET | `/intervention-work-items` | Paginated list (`page`, `itemsPerPage`, capped at 100). Filters: `intervention` *(required)*, `assignee`, `source`, `action`, `status` *(scalar or repeated)*, `search` across target/action/source/status/result resource. Optional `prioritizeAssignee` member IRI orders matching tasks first without narrowing membership. |
 | GET | `/intervention-work-items/{id}` | Get work item |
 | PATCH | `/intervention-work-items/{id}` | Update work item (status: `planned → in_progress → completed`/`skipped`) |
 | PUT | `/intervention-work-items/{id}` | Upsert (offline replay path; `201`) |
 | DELETE | `/intervention-work-items/{id}` | Delete work item |
+
+Work-item filtering and assignee prioritization run before pagination. Counts cover all
+matching rows; ordering is stable by update date descending then identifier ascending,
+within each assignee-priority group when requested. Global intervention progress remains
+independent of the requested page and filters.
+
+### Independent time journal
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/intervention-work-items/{taskId}/time-entries` | Authorized entries and their retained revisions |
+| POST | `/intervention-work-items/{taskId}/time-entries` | Record actual work with a stable client entry identifier |
+| PATCH | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Correct an entry against its own `If-Match` revision |
+| DELETE | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Cancel an entry against its own revision without deleting history |
+
+The journal is a separate aggregate from the operational intervention and its
+publication snapshot. Recording, correcting or cancelling time does not mutate
+task status, remaining effort or operational revision, including after submission
+and publication. Durations are positive whole minutes, worked dates are local
+organization dates no later than today, and notes are optional. Entries retain
+the beneficiary, the acting author and every correction version. Cancelled time
+no longer contributes to actual totals but still prevents physical deletion of
+its task and parent intervention.
+
+`organization.interventions.time.write` permits authorized contributors to record
+their own time; `organization.interventions.time.manage` is required to act for
+another member. Active organization membership and intervention contribution
+scope are checked independently. Assignment history preserves former assignees'
+retrospective journal rights, not current execution rights. Reassignment never
+transfers historical time to the new assignee.
+
+The journal handlers invoke `InterventionTimeAccessPolicy` for those checks rather
+than duplicating them. The architecture guard follows this delegation and checks
+the policy's organization-scoped authorization port; it does not exempt the handlers.
+
+Create replay is idempotent for the same client identifier and payload; a different
+payload for that identifier conflicts. Corrections require the journal revision,
+not the intervention revision. Mutations use the explicit main entity manager and
+Workload coordination locks, but factual time is accepted even if it reveals overload.
 
 ### Proposed changes (review)
 
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/intervention-changes` | Propose a change to an existing resource |
-| GET | `/intervention-changes` | List (filters: `intervention` *(required)*, `resource`, `status`) |
+| GET | `/intervention-changes` | List (filters: `intervention` *(required)*, `resource`, `status`, `search` across resource/status/patch values) |
 | GET | `/intervention-changes/{id}` | Get change |
 | PATCH | `/intervention-changes/{id}` | Update change status (`proposed → rejected` only — `applied` is set exclusively by the publication worker, never through this endpoint) |
 | PUT | `/intervention-changes/{id}` | Upsert (offline replay path; `201`) |
@@ -1696,6 +1748,15 @@ number; leaving it behind would make the next runtime creation collide on the
 unique `(organization_id, number)`.
 
 Covered by `tests/Integration/Intervention/Infrastructure/DataFixtures/InterventionFixturesIntegrationTest`.
+
+The separate opt-in `workload` demo group appends five intervention scenarios for
+the current and next local workweek, with task effort, assignment history and
+independent versioned time entries. It uses the existing per-organization number
+allocator and preserves whole existing scenario trees on replay. It is loaded
+through `app:fixtures:append workload` in dev/test, never the standard purged seed
+baseline. Workload owns capacity examples separately; see `Workload/MODULE.md`
+for the safe loading command and data-preservation contract.
+
 ## Error Codes
 
 Domain exceptions are translated to HTTP by
@@ -1723,4 +1784,3 @@ and mapped to **422 Unprocessable Entity** — thrown by
 `ExportInterventionsHandler` when the `/interventions/export` filters match
 more than `MAX_EXPORT_ROWS` (50 000) interventions, mirroring
 `Audit\Application\Contract\AuditExportTooLargeException`.
-

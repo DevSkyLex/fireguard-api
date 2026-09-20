@@ -19,6 +19,14 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class InterventionTemplateItemInput
 {
   /**
+   * Property estimatedMinutes.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\PositiveOrZero]
+  public ?int $estimatedMinutes = null;
+
+  /**
    * Property action.
    *
    * @since 1.0.0

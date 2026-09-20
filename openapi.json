@@ -20073,6 +20073,18 @@
                         "explode": false
                     },
                     {
+                        "name": "search",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "page",
                         "in": "query",
                         "description": "The collection page number",
@@ -22025,6 +22037,384 @@
                 }
             }
         },
+        "/api/intervention-work-items/{taskId}/time-entries": {
+            "get": {
+                "operationId": "intervention_time_list",
+                "tags": [
+                    "InterventionTime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "InterventionTime resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterventionTime.TimeJournalOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a InterventionTime resource.",
+                "description": "Retrieves a InterventionTime resource.",
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "intervention_time_create",
+                "tags": [
+                    "InterventionTime"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "InterventionTime resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterventionTime.TimeEntryOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a InterventionTime resource.",
+                "description": "Creates a InterventionTime resource.",
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new InterventionTime resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InterventionTime.WriteTimeEntryInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/intervention-work-items/{taskId}/time-entries/{entryId}": {
+            "delete": {
+                "operationId": "intervention_time_cancel",
+                "tags": [
+                    "InterventionTime"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "InterventionTime resource deleted"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the InterventionTime resource.",
+                "description": "Removes the InterventionTime resource.",
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "entryId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "patch": {
+                "operationId": "intervention_time_correct",
+                "tags": [
+                    "InterventionTime"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "InterventionTime resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InterventionTime.TimeEntryOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the InterventionTime resource.",
+                "description": "Updates the InterventionTime resource.",
+                "parameters": [
+                    {
+                        "name": "taskId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "entryId",
+                        "in": "path",
+                        "description": "InterventionTime identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The updated InterventionTime resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InterventionTime.WriteTimeEntryInput.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/intervention-work-items": {
             "get": {
                 "operationId": "intervention_work_item_list",
@@ -22112,6 +22502,18 @@
                         "explode": false
                     },
                     {
+                        "name": "prioritizeAssignee",
+                        "in": "query",
+                        "description": "Member IRI whose matching tasks are ordered first, without filtering out other assignees.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
                         "name": "source",
                         "in": "query",
                         "description": "",
@@ -22137,6 +22539,33 @@
                     },
                     {
                         "name": "status",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "status[]",
+                        "in": "query",
+                        "description": "Match any of these statuses before counting and paginating.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "style": "form",
+                        "explode": true
+                    },
+                    {
+                        "name": "search",
                         "in": "query",
                         "description": "",
                         "required": false,
@@ -40981,6 +41410,956 @@
                 "description": "Returns the curated public event type allowlist a webhook subscription may register for.",
                 "parameters": []
             }
+        },
+        "/api/organizations/{organizationId}/workload": {
+            "get": {
+                "operationId": "workload_get",
+                "tags": [
+                    "Workload"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Workload resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workload.WorkloadOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Workload resource.",
+                "description": "Retrieves a Workload resource.",
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "member",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "team",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "overloaded",
+                        "in": "query",
+                        "description": "",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "One-based member page. Pagination never limits workload contributions.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "description": "Members per page, after member, team and overload filters.",
+                        "required": false,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 10
+                        },
+                        "style": "form",
+                        "explode": false
+                    },
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "Workload identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/workload/assessments": {
+            "post": {
+                "operationId": "workload_assess",
+                "tags": [
+                    "Workload"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Workload resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Workload.WorkloadAssessmentOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Workload resource.",
+                "description": "Creates a Workload resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "Workload identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new Workload resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Workload.WorkloadAssessmentInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/workload/members/{memberId}/capacity": {
+            "get": {
+                "operationId": "workload_capacity_get",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "WorkloadCapacity resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkloadCapacity.CapacityOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a WorkloadCapacity resource.",
+                "description": "Retrieves a WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "memberId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "workload_capacity_save",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "WorkloadCapacity resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkloadCapacity.CapacityChangeOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a WorkloadCapacity resource.",
+                "description": "Creates a WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "memberId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new WorkloadCapacity resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkloadCapacity.CapacityWeekInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/workload/members/{memberId}/exceptions": {
+            "get": {
+                "operationId": "workload_exceptions_get",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "WorkloadCapacity resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkloadCapacity.CapacityOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a WorkloadCapacity resource.",
+                "description": "Retrieves a WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "memberId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "workload_exception_create",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "WorkloadCapacity resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkloadCapacity.CapacityChangeOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a WorkloadCapacity resource.",
+                "description": "Creates a WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "memberId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new WorkloadCapacity resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkloadCapacity.CapacityExceptionInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/organizations/{organizationId}/workload/members/{memberId}/exceptions/{exceptionId}": {
+            "delete": {
+                "operationId": "workload_exception_cancel",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "204": {
+                        "description": "WorkloadCapacity resource deleted"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "links": {}
+                    }
+                },
+                "summary": "Removes the WorkloadCapacity resource.",
+                "description": "Removes the WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "memberId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    },
+                    {
+                        "name": "exceptionId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
+        "/api/organizations/{organizationId}/workload/settings": {
+            "get": {
+                "operationId": "workload_settings_get",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "WorkloadCapacity resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkloadCapacity.CapacityOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a WorkloadCapacity resource.",
+                "description": "Retrieves a WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            },
+            "post": {
+                "operationId": "workload_settings_save",
+                "tags": [
+                    "WorkloadCapacity"
+                ],
+                "responses": {
+                    "201": {
+                        "description": "WorkloadCapacity resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WorkloadCapacity.CapacityChangeOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a WorkloadCapacity resource.",
+                "description": "Creates a WorkloadCapacity resource.",
+                "parameters": [
+                    {
+                        "name": "organizationId",
+                        "in": "path",
+                        "description": "WorkloadCapacity identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new WorkloadCapacity resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WorkloadCapacity.CapacityWeekInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
         }
     },
     "components": {
@@ -42320,6 +43699,71 @@
                     }
                 ],
                 "description": "Member-scoped iCal calendar feed subscription token."
+            },
+            "CapacityConfigurationView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "weeks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CapacityWeekView.jsonld"
+                        }
+                    },
+                    "exceptions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CapacityExceptionView.jsonld"
+                        }
+                    }
+                }
+            },
+            "CapacityExceptionView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "description": "stable resource identifier, retained across idempotent retries",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "organization member whose work or capacity is represented",
+                        "type": "string"
+                    },
+                    "startsOn": {
+                        "description": "inclusive organization-local start date",
+                        "type": "string"
+                    },
+                    "endsOn": {
+                        "description": "inclusive organization-local end date",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "description": "duration in whole minutes",
+                        "type": "integer"
+                    }
+                }
+            },
+            "CapacityWeekView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "description": "stable resource identifier, retained across idempotent retries",
+                        "type": "string"
+                    },
+                    "scopeId": {
+                        "description": "organization identifier for defaults, or member identifier for an individual override",
+                        "type": "string"
+                    },
+                    "effectiveOn": {
+                        "description": "first local date on which this capacity version applies",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
             },
             "Challenge.ChallengeOutput.jsonld": {
                 "allOf": [
@@ -47503,6 +48947,14 @@
                 "type": "object",
                 "description": "Field intervention coordinating draft operational resources.",
                 "properties": {
+                    "workloadConfirmationToken": {
+                        "maxLength": 64,
+                        "description": "Property workloadConfirmationToken.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "name": {
                         "minLength": 1,
                         "maxLength": 160,
@@ -49118,10 +50570,15 @@
             },
             "InterventionTemplateItemInput": {
                 "type": "object",
-                "required": [
-                    "action"
-                ],
                 "properties": {
+                    "estimatedMinutes": {
+                        "minimum": 0,
+                        "description": "Property estimatedMinutes.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "action": {
                         "maxLength": 60,
                         "description": "Property action.",
@@ -49156,11 +50613,21 @@
                             "null"
                         ]
                     }
-                }
+                },
+                "required": [
+                    "action"
+                ]
             },
             "InterventionTemplateItemOutput.jsonld": {
                 "type": "object",
                 "properties": {
+                    "estimatedMinutes": {
+                        "description": "Property estimatedMinutes.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "id": {
                         "description": "Property id.",
                         "default": "",
@@ -49204,13 +50671,184 @@
                     }
                 }
             },
+            "InterventionTime.TimeEntryOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "description": "stable resource identifier, retained across idempotent retries",
+                                "type": "string"
+                            },
+                            "entry": {
+                                "$ref": "#/components/schemas/TimeEntryView.jsonld"
+                            }
+                        }
+                    }
+                ],
+                "description": "InterventionTimeResource."
+            },
+            "InterventionTime.TimeJournalOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "workItemId": {
+                                "description": "intervention task associated with this contribution",
+                                "type": "string"
+                            },
+                            "entries": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/TimeEntryView.jsonld"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "InterventionTimeResource."
+            },
+            "InterventionTime.WriteTimeEntryInput": {
+                "type": "object",
+                "description": "InterventionTimeResource.",
+                "properties": {
+                    "id": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "memberId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "workedOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "note": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "workedOn"
+                ]
+            },
+            "InterventionTime.WriteTimeEntryInput.jsonMergePatch": {
+                "type": "object",
+                "description": "InterventionTimeResource.",
+                "properties": {
+                    "id": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "memberId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "workedOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "note": {
+                        "maxLength": 2000,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
             "InterventionWorkItem.CreateInterventionWorkItemInput": {
                 "type": "object",
                 "description": "Resource InterventionWorkItemResource.",
-                "required": [
-                    "intervention"
-                ],
                 "properties": {
+                    "workloadConfirmationToken": {
+                        "maxLength": 64,
+                        "description": "Property workloadConfirmationToken.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "estimatedMinutes": {
+                        "minimum": 0,
+                        "description": "Property estimatedMinutes. Null means not estimated.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "workStartsOn": {
+                        "description": "Property workStartsOn. Organization-local date.",
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "workEndsOn": {
+                        "description": "Property workEndsOn. Organization-local date.",
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "intervention": {
                         "description": "Property intervention.",
                         "default": "",
@@ -49261,7 +50899,10 @@
                         "default": true,
                         "type": "boolean"
                     }
-                }
+                },
+                "required": [
+                    "intervention"
+                ]
             },
             "InterventionWorkItem.InterventionWorkItemOutput.jsonld": {
                 "allOf": [
@@ -49271,6 +50912,54 @@
                     {
                         "type": "object",
                         "properties": {
+                            "spentMinutes": {
+                                "description": "Property spentMinutes.",
+                                "default": 0,
+                                "type": "integer"
+                            },
+                            "allowedActions": {
+                                "description": "Property allowedActions.",
+                                "default": {
+                                    "canLogTime": false,
+                                    "canManageTime": false,
+                                    "canReestimate": false,
+                                    "canReassign": false,
+                                    "canEditPlanning": false,
+                                    "canExecute": false
+                                },
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "estimatedMinutes": {
+                                "description": "Property estimatedMinutes.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "remainingMinutes": {
+                                "description": "Property remainingMinutes.",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ]
+                            },
+                            "workStartsOn": {
+                                "description": "Property workStartsOn.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "workEndsOn": {
+                                "description": "Property workEndsOn.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
                             "id": {
                                 "description": "Property id.",
                                 "default": "",
@@ -49378,6 +51067,50 @@
                 "type": "object",
                 "description": "Resource InterventionWorkItemResource.",
                 "properties": {
+                    "workloadConfirmationToken": {
+                        "maxLength": 64,
+                        "description": "Property workloadConfirmationToken.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "estimatedMinutes": {
+                        "minimum": 0,
+                        "description": "Property estimatedMinutes. Null means not estimated.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "workStartsOn": {
+                        "description": "Property workStartsOn. Organization-local date.",
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "workEndsOn": {
+                        "description": "Property workEndsOn. Organization-local date.",
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "remainingMinutes": {
+                        "minimum": 0,
+                        "description": "Property remainingMinutes. Explicit re-estimation only.",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
                     "resultResource": {
                         "description": "Property resultResource.",
                         "type": [
@@ -51199,6 +52932,34 @@
                     }
                 ],
                 "description": "Multipart media attached to operational resources."
+            },
+            "MemberWorkloadView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "memberId": {
+                        "description": "organization member whose work or capacity is represented",
+                        "type": "string"
+                    },
+                    "days": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WorkloadDayView.jsonld"
+                        }
+                    },
+                    "unallocated": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UnallocatedWorkView.jsonld"
+                        }
+                    },
+                    "displayName": {
+                        "description": "member label resolved within the organization",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
             },
             "Message.AddReactionInput": {
                 "type": "object",
@@ -58009,6 +59770,104 @@
                 ],
                 "description": "Create a new tenant with custom OAuth2 settings."
             },
+            "TimeEntryVersionView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "revision": {
+                        "description": "revision of this resource, used independently of other aggregates",
+                        "type": "integer"
+                    },
+                    "workedOn": {
+                        "description": "organization-local calendar date on which the work was performed",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "description": "duration in whole minutes",
+                        "type": "integer"
+                    },
+                    "note": {
+                        "description": "optional context supplied with the time entry",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "cancelled": {
+                        "description": "whether the entry is cancelled while its history remains retained",
+                        "type": "boolean"
+                    },
+                    "actorId": {
+                        "description": "member who authored the operation, not necessarily its beneficiary",
+                        "type": "string"
+                    },
+                    "recordedAt": {
+                        "description": "timestamp when this version was recorded",
+                        "type": "string"
+                    }
+                }
+            },
+            "TimeEntryView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "description": "stable resource identifier, retained across idempotent retries",
+                        "type": "string"
+                    },
+                    "workItemId": {
+                        "description": "intervention task associated with this contribution",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "organization member whose work or capacity is represented",
+                        "type": "string"
+                    },
+                    "workedOn": {
+                        "description": "organization-local calendar date on which the work was performed",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "description": "duration in whole minutes",
+                        "type": "integer"
+                    },
+                    "note": {
+                        "description": "optional context supplied with the time entry",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "revision": {
+                        "description": "revision of this resource, used independently of other aggregates",
+                        "type": "integer"
+                    },
+                    "cancelled": {
+                        "description": "whether the entry is cancelled while its history remains retained",
+                        "type": "boolean"
+                    },
+                    "createdBy": {
+                        "description": "member who authored the initial entry",
+                        "type": "string"
+                    },
+                    "updatedBy": {
+                        "description": "member who authored the latest version",
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "description": "timestamp when the resource was created",
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "description": "timestamp of the latest persisted version",
+                        "type": "string"
+                    },
+                    "versions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TimeEntryVersionView.jsonld"
+                        }
+                    }
+                }
+            },
             "Totp.ConfirmTotpInput": {
                 "type": "object",
                 "description": "TOTP (Authenticator App) management.",
@@ -58210,6 +60069,59 @@
                     }
                 ],
                 "description": "List all trusted devices for the current user."
+            },
+            "UnallocatedWorkView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "taskId": {
+                        "description": "intervention work-item identifier",
+                        "type": "string"
+                    },
+                    "interventionId": {
+                        "description": "owning intervention identifier",
+                        "type": "string"
+                    },
+                    "label": {
+                        "description": "human-readable task label for the contribution",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "description": "assigned member, or null for work that still needs assignment",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "remainingMinutes": {
+                        "description": "explicit remaining effort in whole minutes; never derived from actual time",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "startsOn": {
+                        "description": "inclusive organization-local start date",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "endsOn": {
+                        "description": "inclusive organization-local end date",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "commitment": {
+                        "description": "demand classification: draft, committed, or no future demand",
+                        "type": "string"
+                    },
+                    "reason": {
+                        "description": "reason the task cannot be included in a complete daily allocation",
+                        "type": "string"
+                    }
+                }
             },
             "UpdateOrganizationApprovalInput-Organization.write": {
                 "type": "object",
@@ -59121,6 +61033,422 @@
                     }
                 ],
                 "description": "Organization-scoped outbound webhook subscription management."
+            },
+            "Workload.WorkloadAssessmentInput": {
+                "type": "object",
+                "description": "WorkloadResource.",
+                "properties": {
+                    "changes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WorkloadTaskProposalInput"
+                        }
+                    },
+                    "planInterventionId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
+            },
+            "Workload.WorkloadAssessmentOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "organizationId": {
+                                "description": "organization identifier that scopes this operation",
+                                "type": "string"
+                            },
+                            "assessment": {
+                                "$ref": "#/components/schemas/WorkloadAssessment.jsonld"
+                            }
+                        }
+                    }
+                ],
+                "description": "WorkloadResource."
+            },
+            "Workload.WorkloadOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "organizationId": {
+                                "description": "organization identifier that scopes this operation",
+                                "type": "string"
+                            },
+                            "projection": {
+                                "$ref": "#/components/schemas/WorkloadProjectionView.jsonld"
+                            },
+                            "canManageCapacity": {
+                                "description": "whether the caller may administer member availability",
+                                "type": "boolean"
+                            },
+                            "canReadTeam": {
+                                "description": "whether the caller may read other members' workload",
+                                "type": "boolean"
+                            },
+                            "teams": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "memberOptions": {
+                                "description": "organization-scoped picker identities",
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": [
+                                        "id",
+                                        "name",
+                                        "avatarUrl",
+                                        "roleNames"
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "avatarUrl": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ]
+                                        },
+                                        "roleNames": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "totalItems": {
+                                "description": "authorized members matching the filters before pagination",
+                                "type": "integer"
+                            },
+                            "page": {
+                                "description": "resolved one-based member page",
+                                "type": "integer"
+                            },
+                            "pageSize": {
+                                "description": "members per page",
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "description": "WorkloadResource."
+            },
+            "WorkloadAssessment.jsonld": {
+                "type": "object",
+                "properties": {
+                    "confirmationRequired": {
+                        "description": "whether the proposal creates or increases daily overload",
+                        "type": "boolean"
+                    },
+                    "increases": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "completeness": {
+                        "description": "calculation quality: complete, partial, or unavailable",
+                        "type": "string"
+                    },
+                    "confirmationToken": {
+                        "description": "consent bound to the exact server assessment, never blanket approval",
+                        "type": "string"
+                    }
+                }
+            },
+            "WorkloadCapacity.CapacityChangeOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "description": "stable resource identifier, retained across idempotent retries",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "CapacityResource."
+            },
+            "WorkloadCapacity.CapacityExceptionInput": {
+                "type": "object",
+                "description": "CapacityResource.",
+                "required": [
+                    "startsOn",
+                    "endsOn"
+                ],
+                "properties": {
+                    "startsOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "endsOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "minimum": 0,
+                        "maximum": 1440,
+                        "default": 0,
+                        "type": "integer"
+                    }
+                }
+            },
+            "WorkloadCapacity.CapacityOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "organizationId": {
+                                "description": "organization identifier that scopes this operation",
+                                "type": "string"
+                            },
+                            "configuration": {
+                                "$ref": "#/components/schemas/CapacityConfigurationView.jsonld"
+                            }
+                        }
+                    }
+                ],
+                "description": "CapacityResource."
+            },
+            "WorkloadCapacity.CapacityWeekInput": {
+                "type": "object",
+                "description": "CapacityResource.",
+                "required": [
+                    "effectiveOn"
+                ],
+                "properties": {
+                    "effectiveOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "minutes": {
+                        "minItems": 7,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "WorkloadDayView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "description": "organization-local calendar date",
+                        "type": "string"
+                    },
+                    "capacityMinutes": {
+                        "description": "available minutes; null is unknown and zero means unavailable",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "actualMinutes": {
+                        "description": "recorded work, independent of remaining effort",
+                        "type": "integer"
+                    },
+                    "remainingMinutes": {
+                        "description": "explicit remaining effort in whole minutes; never derived from actual time",
+                        "type": "integer"
+                    },
+                    "draftMinutes": {
+                        "description": "tentative demand from draft interventions",
+                        "type": "integer"
+                    },
+                    "overloadMinutes": {
+                        "description": "committed daily excess; null when capacity is unknown",
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "utilizationPercent": {
+                        "description": "daily utilization, or null when capacity cannot be divided",
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "completeness": {
+                        "description": "calculation quality: complete, partial, or unavailable",
+                        "type": "string"
+                    },
+                    "availability": {
+                        "description": "availability classification that preserves incomplete data",
+                        "type": "string"
+                    },
+                    "contributions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "anyOf": [
+                                    {
+                                        "type": "integer"
+                                    },
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "WorkloadProjectionView.jsonld": {
+                "type": "object",
+                "properties": {
+                    "startsOn": {
+                        "description": "inclusive organization-local start date",
+                        "type": "string"
+                    },
+                    "endsOn": {
+                        "description": "inclusive organization-local end date",
+                        "type": "string"
+                    },
+                    "today": {
+                        "description": "current calendar date in the organization timezone",
+                        "type": "string"
+                    },
+                    "timezone": {
+                        "description": "organization IANA timezone used to interpret local dates",
+                        "type": "string"
+                    },
+                    "firstDayOfWeek": {
+                        "description": "organization-configured first day of the week",
+                        "type": "string"
+                    },
+                    "calculatedAt": {
+                        "description": "instant at which the projection was calculated",
+                        "type": "string"
+                    },
+                    "members": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MemberWorkloadView.jsonld"
+                        }
+                    },
+                    "unassigned": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UnallocatedWorkView.jsonld"
+                        }
+                    },
+                    "completeness": {
+                        "description": "calculation quality: complete, partial, or unavailable",
+                        "type": "string"
+                    }
+                }
+            },
+            "WorkloadTaskProposalInput": {
+                "type": "object",
+                "required": [
+                    "taskId"
+                ],
+                "properties": {
+                    "taskId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "default": "",
+                        "type": "string"
+                    },
+                    "memberId": {
+                        "format": "uuid",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "remainingMinutes": {
+                        "minimum": 0,
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "startsOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "endsOn": {
+                        "externalDocs": {
+                            "url": "https://schema.org/Date"
+                        },
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
             }
         },
         "responses": {},
@@ -59244,12 +61572,24 @@
             "description": "Resource InterventionTemplateResource.\n\nOrganization-scoped intervention templates: reusable blueprints (type,\npriority, defaults, planned items) instantiated into real intervention\ndrafts (without recurrence \u2014 see the module changelog for later lots)."
         },
         {
+            "name": "InterventionTime",
+            "description": "InterventionTimeResource."
+        },
+        {
             "name": "InterventionWorkItem",
             "description": "Resource InterventionWorkItemResource."
         },
         {
             "name": "Publication",
             "description": "Resource PublicationResource."
+        },
+        {
+            "name": "WorkloadCapacity",
+            "description": "CapacityResource."
+        },
+        {
+            "name": "Workload",
+            "description": "WorkloadResource."
         },
         {
             "name": "Inbox",

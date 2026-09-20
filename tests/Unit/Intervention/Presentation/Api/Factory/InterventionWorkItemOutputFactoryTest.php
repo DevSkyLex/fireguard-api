@@ -253,6 +253,7 @@ final class InterventionWorkItemOutputFactoryTest extends TestCase
         'required' => true,
         'skipReason' => null,
         'evidenceCount' => 0,
+        'spentMinutes' => 0,
         'revision' => 1,
         'createdAt' => '2026-01-01T00:00:00+00:00',
         'updatedAt' => '2026-01-01T00:00:00+00:00',
