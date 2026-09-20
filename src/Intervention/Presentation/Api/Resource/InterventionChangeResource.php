@@ -37,6 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
         new Parameter(name: 'intervention', in: 'query', required: true, schema: ['type' => 'string']),
         new Parameter(name: 'resource', in: 'query', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'status', in: 'query', required: false, schema: ['type' => 'string']),
+        new Parameter(name: 'search', in: 'query', required: false, schema: ['type' => 'string']),
       ]),
       security: "is_granted('ROLE_USER')",
     ),

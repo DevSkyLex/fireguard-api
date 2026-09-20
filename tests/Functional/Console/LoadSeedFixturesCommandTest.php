@@ -9,7 +9,7 @@ use Calendar\Infrastructure\DataFixtures\CalendarFixtures;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
-use Intervention\Infrastructure\DataFixtures\InterventionFixtures;
+use Intervention\Infrastructure\DataFixtures\{InterventionFixtures, InterventionWorkloadFixtures};
 use Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures;
 use Messaging\Infrastructure\DataFixtures\MessagingFixtures;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
@@ -17,9 +17,10 @@ use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
 use Organization\Infrastructure\DataFixtures\{OrganizationFixtures, PlanFixtures};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use ReflectionClass;
-use Shared\Infrastructure\Console\LoadSeedFixturesCommand;
+use Shared\Infrastructure\Console\{AppendSeedFixturesCommand, LoadSeedFixturesCommand};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use User\Infrastructure\DataFixtures\UserFixtures;
+use Workload\Infrastructure\DataFixtures\WorkloadFixtures;
 
 use function array_map;
 use function get_debug_type;
@@ -30,6 +31,21 @@ use function sort;
 #[CoversClass(LoadSeedFixturesCommand::class)]
 final class LoadSeedFixturesCommandTest extends KernelTestCase
 {
+  #[Test]
+  public function testAppendCommandReceivesOnlyOptInAppendSafeFixtures(): void
+  {
+    self::bootKernel();
+    $command = self::getContainer()->get(AppendSeedFixturesCommand::class);
+    $fixtures = new ReflectionClass($command)->getProperty('fixtures')->getValue($command);
+    self::assertIsIterable($fixtures);
+    $types = [];
+    foreach ($fixtures as $fixture) {
+      self::assertIsObject($fixture);
+      $types[] = $fixture::class;
+    }
+    self::assertSame([WorkloadFixtures::class, InterventionWorkloadFixtures::class], $types);
+  }
+
   #[Test]
   public function testCommandReceivesTaggedFixtureSetsFromContainer(): void
   {

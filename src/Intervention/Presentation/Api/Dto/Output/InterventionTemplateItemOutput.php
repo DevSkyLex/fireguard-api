@@ -18,6 +18,13 @@ use ApiPlatform\Metadata\ApiProperty;
 final class InterventionTemplateItemOutput
 {
   /**
+   * Property estimatedMinutes.
+   *
+   * @since 1.1.0
+   */
+  public ?int $estimatedMinutes = null;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

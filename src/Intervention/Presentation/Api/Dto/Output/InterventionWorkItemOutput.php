@@ -18,6 +18,50 @@ use ApiPlatform\Metadata\ApiProperty;
 final class InterventionWorkItemOutput
 {
   /**
+   * Property spentMinutes.
+   *
+   * @since 1.1.0
+   */
+  public int $spentMinutes = 0;
+
+  /**
+   * Property allowedActions.
+   *
+   * @since 1.1.0
+   *
+   * @var array{canLogTime: bool, canManageTime: bool, canReestimate: bool, canReassign: bool, canEditPlanning: bool, canExecute: bool}
+   */
+  public array $allowedActions = ['canLogTime' => false, 'canManageTime' => false, 'canReestimate' => false, 'canReassign' => false, 'canEditPlanning' => false, 'canExecute' => false];
+
+  /**
+   * Property estimatedMinutes.
+   *
+   * @since 1.1.0
+   */
+  public ?int $estimatedMinutes = null;
+
+  /**
+   * Property remainingMinutes.
+   *
+   * @since 1.1.0
+   */
+  public ?int $remainingMinutes = null;
+
+  /**
+   * Property workStartsOn.
+   *
+   * @since 1.1.0
+   */
+  public ?string $workStartsOn = null;
+
+  /**
+   * Property workEndsOn.
+   *
+   * @since 1.1.0
+   */
+  public ?string $workEndsOn = null;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

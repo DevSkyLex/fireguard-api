@@ -23,6 +23,38 @@ use Doctrine\ORM\Mapping as ORM;
 class InterventionWorkItemRecord
 {
   /**
+   * Property estimatedMinutes.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'integer', nullable: true)]
+  public ?int $estimatedMinutes = null;
+
+  /**
+   * Property remainingMinutes.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'integer', nullable: true)]
+  public ?int $remainingMinutes = null;
+
+  /**
+   * Property workStartsOn. Local date, not an instant.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'string', length: 10, nullable: true)]
+  public ?string $workStartsOn = null;
+
+  /**
+   * Property workEndsOn. Local date, not an instant.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(type: 'string', length: 10, nullable: true)]
+  public ?string $workEndsOn = null;
+
+  /**
    * Property id.
    *
    * @since 1.0.0

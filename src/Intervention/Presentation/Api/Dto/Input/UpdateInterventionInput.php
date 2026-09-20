@@ -19,6 +19,14 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class UpdateInterventionInput
 {
   /**
+   * Property workloadConfirmationToken.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Length(max: 64)]
+  public ?string $workloadConfirmationToken = null;
+
+  /**
    * Property name.
    *
    * @since 1.0.0

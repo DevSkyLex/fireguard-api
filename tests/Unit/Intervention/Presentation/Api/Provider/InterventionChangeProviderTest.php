@@ -61,7 +61,8 @@ final class InterventionChangeProviderTest extends TestCase
   public function testProvideForwardsOnlyTheNonEmptyCollectionFilters(): void
   {
     $requestStack = $this->requestStack(
-      '?intervention=/api/interventions/' . self::INTERVENTION_ID . '&resource=facility&status=',
+      '?intervention=/api/interventions/' . self::INTERVENTION_ID
+      . '&resource=facility&status=&search=pressure',
     );
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -71,7 +72,7 @@ final class InterventionChangeProviderTest extends TestCase
       ->with(self::callback(static function (ListInterventionWorkflowQuery $query): bool {
         self::assertSame('change', $query->resource);
         self::assertSame(self::INTERVENTION_ID, $query->scopeId);
-        self::assertSame(['resource' => 'facility'], $query->filters);
+        self::assertSame(['resource' => 'facility', 'search' => 'pressure'], $query->filters);
 
         return true;
       }))

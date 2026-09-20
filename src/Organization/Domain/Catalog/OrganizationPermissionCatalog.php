@@ -233,6 +233,12 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.inspection.write', 'description' => 'Manage organization inspections, checklists, non-conformities, and attachments/photos'],
 
       // Field intervention management
+      ['name' => 'organization.workload.read', 'description' => 'View team workload in the organization'],
+      ['name' => 'organization.workload.manage', 'description' => 'Manage organization and member working capacities'],
+      ['name' => 'organization.interventions.time.write', 'description' => 'Record and correct own intervention time'],
+      ['name' => 'organization.interventions.time.manage', 'description' => 'Record and correct intervention time for other members'],
+
+      // Field intervention management
       ['name' => 'organization.interventions.read', 'description' => 'View organization field interventions, validation issues, and attachments'],
       ['name' => 'organization.interventions.write', 'description' => 'Create and update organization field interventions'],
       ['name' => 'organization.interventions.plan', 'description' => 'Prepare and assign organization field interventions (including attachments while in draft)'],

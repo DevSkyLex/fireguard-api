@@ -157,7 +157,7 @@ final readonly class InterventionProcessor implements ProcessorInterface
   {
     $fields = $this->mergePatchFields->all();
     $payload = [];
-    foreach (['name', 'description', 'status', 'priority', 'plannedStartAt', 'dueAt', 'reviewNote'] as $field) {
+    foreach (['name', 'description', 'status', 'priority', 'plannedStartAt', 'dueAt', 'reviewNote', 'workloadConfirmationToken'] as $field) {
       if (array_key_exists($field, $fields)) {
         $payload[$field] = $input->{$field};
       }

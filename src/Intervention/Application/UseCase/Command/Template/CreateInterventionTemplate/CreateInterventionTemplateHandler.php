@@ -172,9 +172,9 @@ final readonly class CreateInterventionTemplateHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}> $items the raw items value
+   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the raw items value
    *
-   * @return list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}> the validated items
+   * @return list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> the validated items
    */
   public static function validatedItems(array $items): array
   {
@@ -191,6 +191,7 @@ final readonly class CreateInterventionTemplateHandler implements CommandHandler
         'resultResource' => $item['resultResource'],
         'required' => $item['required'],
         'defaultAssigneeId' => $item['defaultAssigneeId'],
+        'estimatedMinutes' => \Intervention\Domain\ValueObject\WorkItemEffort::minutes($item['estimatedMinutes'] ?? null),
       ];
     }
 

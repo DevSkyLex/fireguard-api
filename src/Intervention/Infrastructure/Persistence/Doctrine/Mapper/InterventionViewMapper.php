@@ -194,6 +194,15 @@ final readonly class InterventionViewMapper
       'status' => $record->status,
       'required' => $record->required,
       'skipReason' => $record->skipReason,
+      'estimatedMinutes' => $record->estimatedMinutes,
+      'spentMinutes' => (int) $this->entityManager->createQueryBuilder()
+        ->select('COALESCE(SUM(t.minutes), 0)')
+        ->from(\Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionTimeEntryRecord::class, 't')
+        ->where('t.workItem = :item AND t.cancelled = false')->setParameter('item', $record)
+        ->getQuery()->getSingleScalarResult(),
+      'remainingMinutes' => $record->remainingMinutes,
+      'workStartsOn' => $record->workStartsOn,
+      'workEndsOn' => $record->workEndsOn,
       'evidenceCount' => $evidenceCount,
       'revision' => $record->revision,
       'createdAt' => $record->createdAt->format('c'),

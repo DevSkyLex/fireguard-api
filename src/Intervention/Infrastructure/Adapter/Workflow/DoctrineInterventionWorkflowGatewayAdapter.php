@@ -6,6 +6,7 @@ namespace Intervention\Infrastructure\Adapter\Workflow;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use DateTimeZone;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
@@ -30,6 +31,7 @@ use Intervention\Domain\Exception\{
 use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
 use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy, InterventionWorkItemTransitionPolicy};
 use Intervention\Domain\ValueObject\{InterventionChangeStatus, InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType, InterventionWorkItemStatus};
+use Intervention\Domain\ValueObject\{WorkItemEffort, WorkItemPeriod};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\{InterventionMapper, InterventionViewMapper};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
@@ -37,19 +39,26 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionRecord,
   InterventionWorkItemRecord
 };
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionTimeEntryRecord, InterventionWorkItemAssignmentRecord};
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
+use Workload\Application\Contract\Planning\WorkloadPlanningSnapshot;
+use Workload\Application\Port\Inbound\{WorkloadCoordinationPort, WorkloadPlanningPort};
 
+use function array_diff;
 use function array_filter;
+use function array_intersect;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
+use function implode;
 use function in_array;
 use function is_array;
 use function is_int;
@@ -90,7 +99,11 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param InterventionIssueFinder $issueFinder the issue finder value
    * @param InterventionViewMapper $views the view mapper value
    * @param InterventionActivityPort $activities the activity feed port value
+   * @param InterventionDraftPublisher $draftPublisher publishes newly prepared intervention drafts through the workflow boundary
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher (audit ledger)
+   * @param OrganizationWorkforceDirectoryPort $workforce organization-local membership and regional context directory
+   * @param WorkloadCoordinationPort $workloadCoordination coordinates demand-changing writes within the main transaction
+   * @param WorkloadPlanningPort $workloadPlanning captures and verifies daily overload assessments
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -106,6 +119,9 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private InterventionActivityPort $activities,
     private InterventionDraftPublisher $draftPublisher,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationWorkforceDirectoryPort $workforce,
+    private WorkloadCoordinationPort $workloadCoordination,
+    private WorkloadPlanningPort $workloadPlanning,
   ) {
   }
 
@@ -173,12 +189,18 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $notifications = [];
     $view = $this->entityManager->wrapInTransaction(
       function () use ($mutation, &$notifications): ?InterventionWorkflowView {
-        return match ($mutation->resource) {
+        $before = $this->prepareWorkloadMutation($mutation);
+        $view = match ($mutation->resource) {
           'intervention' => $this->mutateIntervention($mutation, $notifications),
           'work_item' => $this->mutateWorkItem($mutation, $notifications),
           'change' => $this->mutateChange($mutation),
           default => throw new InvalidArgumentException('Unsupported intervention workflow resource.'),
         };
+        if (null !== $before && $this->requiresWorkloadAssessment($mutation)) {
+          $this->workloadPlanning->assertAccepted($before, $this->nullableString($mutation->payload, 'workloadConfirmationToken'));
+        }
+
+        return $view;
       },
     );
     foreach ($notifications as $notify) {
@@ -257,6 +279,15 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         ->addOrderBy('m.id', 'ASC');
     }
     $total = (int) $countQb->resetDQLPart('orderBy')->select('COUNT(' . $alias . '.id)')->getQuery()->getSingleScalarResult();
+    if ('work_item' === $resource && is_string($filters['prioritizeAssigneeId'] ?? null)) {
+      // Order the whole matching collection, not just the requested page.
+      // Bind the ordering-only parameter after counting to keep COUNT's bindings valid.
+      $qb->addSelect('CASE WHEN w.assigneeId = :prioritizeAssigneeId THEN 0 ELSE 1 END AS HIDDEN assigneePriority')
+        ->setParameter('prioritizeAssigneeId', $filters['prioritizeAssigneeId'])
+        ->orderBy('assigneePriority', 'ASC')
+        ->addOrderBy('w.updatedAt', 'DESC')
+        ->addOrderBy('w.id', 'ASC');
+    }
     /** @var list<InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord> $records */
     $records = $qb
       ->setFirstResult(($page - 1) * $itemsPerPage)
@@ -379,6 +410,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       if (!in_array($intervention->status, ['draft', 'abandoned'], true)) {
         throw new InterventionConflictException('Only draft or abandoned interventions can be deleted.');
       }
+      $this->assertNoTimeHistory($intervention);
       // Purge any still-draft resource records this intervention created before
       // removing it, so no orphaned drafts (and their unique client ids) survive.
       $this->draftPublisher->discard($intervention->id);
@@ -536,6 +568,20 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       hasDueAt: array_key_exists('dueAt', $mutation->payload),
       hasReviewNote: array_key_exists('reviewNote', $mutation->payload),
     );
+    // Check explicit task periods against the proposed organization-local window.
+    $timezone = $this->organizationTimezone($organizationId);
+    $invalidPeriods = [];
+    foreach ($intervention->workItems as $item) {
+      if (!new WorkItemPeriod($item->workStartsOn, $item->workEndsOn)->fitsWithin(
+        $aggregate->plannedStartAt()?->setTimezone($timezone)->format('Y-m-d'),
+        $aggregate->dueAt()?->setTimezone($timezone)->format('Y-m-d'),
+      )) {
+        $invalidPeriods[] = $item->id;
+      }
+    }
+    if ([] !== $invalidPeriods) {
+      throw new InterventionValidationException('Replan these task periods before changing the intervention dates: ' . implode(', ', $invalidPeriods));
+    }
     InterventionMapper::sync($aggregate, $intervention);
     // A rescheduled due date invalidates any reminder already sent against the
     // old one: the anti-spam stamps must not silently suppress a reminder for
@@ -652,7 +698,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $intervention = $this->workItemIntervention($record);
     $this->assertRevision($record->revision, $mutation->expectedRevision);
     $this->assertInterventionWorkMutable($intervention);
-    if ('draft' !== $intervention->status) {
+    if ('draft' !== $intervention->status && !$this->isWorkItemPlanningOnly($mutation)) {
       $this->memberPolicy->assertCanExecuteWorkItem(
         $this->organizationId($intervention),
         $mutation->userId,
@@ -660,14 +706,20 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $intervention->participants,
         $record->assigneeId,
       );
-      if (array_key_exists('assigneeId', $mutation->payload)) {
-        throw new InterventionConflictException('Work item assignments are frozen after planning.');
-      }
+    }
+    if (array_key_exists('assigneeId', $mutation->payload) && in_array($record->status, ['completed', 'skipped'], true)) {
+      throw new InterventionConflictException('Finished work items cannot be reassigned.');
+    }
+    if (in_array($record->status, ['completed', 'skipped'], true)
+      && in_array($mutation->payload['status'] ?? $record->status, ['completed', 'skipped'], true)
+      && [] !== array_intersect(array_keys($mutation->payload), ['estimatedMinutes', 'remainingMinutes', 'workStartsOn', 'workEndsOn'])) {
+      throw new InterventionConflictException('Reopen the task before changing its effort or period. Time may still be recorded independently.');
     }
     if ('delete' === $mutation->action) {
       if ('draft' !== $intervention->status) {
         throw new InterventionConflictException('Only prepared work items can be deleted.');
       }
+      $this->assertNoTimeHistory($intervention, $record);
       $this->entityManager->remove($record);
       $this->touch($intervention, new DateTimeImmutable());
       $this->entityManager->flush();
@@ -675,6 +727,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       return null;
     }
     $previousAssigneeId = $record->assigneeId;
+    $previousWorkItemStatus = $record->status;
     $interventionAutoStarted = false;
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
@@ -700,10 +753,19 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $this->memberPolicy->assertActiveMember($this->organizationId($intervention), $record->assigneeId);
       }
     }
+    $this->applyWorkItemEffort($record, $intervention, $mutation->payload, false);
+    if (in_array($previousWorkItemStatus, ['completed', 'skipped'], true)
+      && !in_array($record->status, ['completed', 'skipped'], true)
+      && !array_key_exists('remainingMinutes', $mutation->payload)) {
+      $record->remainingMinutes = null;
+    }
     $now = new DateTimeImmutable();
     ++$record->revision;
     $record->updatedAt = $now;
     $this->touch($intervention, $now);
+    if ($record->assigneeId !== $previousAssigneeId) {
+      $this->recordAssignment($record, $previousAssigneeId, $mutation->userId, $now);
+    }
     $this->entityManager->flush();
     // Starting work on any item auto-advances the intervention
     // planned -> in_progress; journal it as a `status_changed` activity so the
@@ -742,6 +804,217 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }
 
     return $this->views->workItemView($record);
+  }
+
+  /**
+   * Method applyWorkItemEffort.
+   *
+   * Validates task effort and local dates without deriving remaining effort from actual time.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionWorkItemRecord $record persisted record being mapped or updated
+   * @param InterventionRecord $intervention owning intervention and its operational planning window
+   * @param array<string, mixed> $payload
+   * @param bool $creating whether to initialize remaining effort from the reference estimate
+   *
+   * @return void completes without returning a value
+   */
+  private function applyWorkItemEffort(InterventionWorkItemRecord $record, InterventionRecord $intervention, array $payload, bool $creating): void
+  {
+    if (array_key_exists('estimatedMinutes', $payload)) {
+      $record->estimatedMinutes = WorkItemEffort::minutes($payload['estimatedMinutes']);
+    }
+    if ($creating) {
+      $record->remainingMinutes = $record->estimatedMinutes;
+    } elseif (array_key_exists('remainingMinutes', $payload)) {
+      $record->remainingMinutes = WorkItemEffort::minutes($payload['remainingMinutes']);
+    }
+    $period = new WorkItemPeriod(
+      array_key_exists('workStartsOn', $payload) ? $this->nullableString($payload, 'workStartsOn') : $record->workStartsOn,
+      array_key_exists('workEndsOn', $payload) ? $this->nullableString($payload, 'workEndsOn') : $record->workEndsOn,
+    );
+    $timezone = $this->organizationTimezone($this->organizationId($intervention));
+    if (!$period->fitsWithin($intervention->plannedStartAt?->setTimezone($timezone)->format('Y-m-d'), $intervention->dueAt?->setTimezone($timezone)->format('Y-m-d'))) {
+      throw new InterventionValidationException('The task period must be within the intervention period.');
+    }
+    $record->workStartsOn = $period->startsOn;
+    $record->workEndsOn = $period->endsOn;
+  }
+
+  /**
+   * Coordinates affected members and captures their demand before an operational mutation.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionWorkflowMutation $mutation requested operational mutation, including any explicit overload consent
+   *
+   * @return ?WorkloadPlanningSnapshot Relevant demand captured before the mutation. Null means no existing demand needs coordination.
+   */
+  private function prepareWorkloadMutation(InterventionWorkflowMutation $mutation): ?WorkloadPlanningSnapshot
+  {
+    if ('change' === $mutation->resource || ('intervention' === $mutation->resource && 'create' === $mutation->action)) {
+      return null;
+    }
+    $context = 'create' === $mutation->action
+      ? $this->interventionContext($this->requiredString($mutation->payload, 'interventionId'))
+      : $this->resourceContext($mutation->resource, $mutation->id ?? '');
+    if (null === $context) {
+      throw InterventionNotFoundException::withId($mutation->id ?? 'unknown');
+    }
+    // Parent first, sorted members next, task rows last, shared with time writes.
+    $parent = $this->intervention($context->interventionId);
+    $this->entityManager->refresh($parent);
+    $members = [];
+    foreach ($this->entityManager->getRepository(InterventionWorkItemRecord::class)->findBy(['intervention' => $parent]) as $item) {
+      $this->entityManager->refresh($item);
+      if (null !== $item->assigneeId) {
+        $members[] = $item->assigneeId;
+      }
+    }
+    $nextAssignee = $this->nullableString($mutation->payload, 'assigneeId');
+    if (null !== $nextAssignee) {
+      $members[] = $nextAssignee;
+    }
+    $this->workloadCoordination->acquire($context->organizationId, $members);
+
+    return $this->workloadPlanning->capture($context->organizationId, $members);
+  }
+
+  /**
+   * Identifies planning mutations that require a fresh overload assessment.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionWorkflowMutation $mutation requested operational mutation, including any explicit overload consent
+   *
+   * @return bool whether this mutation can introduce a planning overload
+   */
+  private function requiresWorkloadAssessment(InterventionWorkflowMutation $mutation): bool
+  {
+    if ('delete' === $mutation->action) {
+      return false;
+    }
+    if ('create' === $mutation->action) {
+      return true;
+    }
+    foreach (['status', 'assigneeId', 'workStartsOn', 'workEndsOn', 'plannedStartAt', 'dueAt'] as $field) {
+      if (array_key_exists($field, $mutation->payload)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Distinguishes planning-only updates from execution or remaining-effort changes.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionWorkflowMutation $mutation requested operational mutation, including any explicit overload consent
+   *
+   * @return bool whether only planner-owned task fields are changed
+   */
+  private function isWorkItemPlanningOnly(InterventionWorkflowMutation $mutation): bool
+  {
+    return 'update' === $mutation->action
+      && [] !== $mutation->payload
+      && [] === array_diff(array_keys($mutation->payload), ['assigneeId', 'estimatedMinutes', 'workStartsOn', 'workEndsOn', 'workloadConfirmationToken']);
+  }
+
+  /**
+   * Prevents physical deletion of a resource that carries retained time history.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionRecord $intervention owning intervention and its operational planning window
+   * @param ?InterventionWorkItemRecord $item work item whose assignment or retained history is being checked
+   *
+   * @return void completes without returning a value
+   */
+  private function assertNoTimeHistory(InterventionRecord $intervention, ?InterventionWorkItemRecord $item = null): void
+  {
+    $qb = $this->entityManager->createQueryBuilder()->select('COUNT(t.id)')->from(InterventionTimeEntryRecord::class, 't')
+      ->join('t.workItem', 'w')->where('w.intervention = :intervention')->setParameter('intervention', $intervention);
+    if (null !== $item) {
+      $qb->andWhere('w.id = :item')->setParameter('item', $item->id);
+    }
+    if ((int) $qb->getQuery()->getSingleScalarResult() > 0) {
+      throw new InterventionConflictException('Time history must be retained; this resource cannot be deleted.');
+    }
+  }
+
+  /**
+   * Records the assignment transition while preserving access to historical contributions.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionWorkItemRecord $item work item whose assignment or retained history is being checked
+   * @param ?string $previousMember previously observed assignee, or null when unassigned
+   * @param string $userId authenticated account identifier used for authorization
+   * @param DateTimeImmutable $now timestamp of the current operation
+   *
+   * @return void completes without returning a value
+   */
+  private function recordAssignment(InterventionWorkItemRecord $item, ?string $previousMember, string $userId, DateTimeImmutable $now): void
+  {
+    $parent = $this->workItemIntervention($item, false);
+    $organizationId = $this->organizationId($parent);
+    $actor = $this->memberPolicy->findMemberId($organizationId, $userId);
+    $history = $this->entityManager->getRepository(InterventionWorkItemAssignmentRecord::class)->findBy(['workItem' => $item, 'unassignedAt' => null]);
+    foreach ($history as $assignment) {
+      $assignment->unassignedAt = $now;
+    }
+    // Imports can predate assignment tracking. Record only the observed prior
+    // assignee at this transition; never invent an earlier assignment date.
+    if ([] === $history && null !== $previousMember) {
+      $previous = new InterventionWorkItemAssignmentRecord();
+      $previous->id = $this->uuidFactory->generateRaw();
+      $previous->workItem = $item;
+      $previous->memberId = $previousMember;
+      $previous->assignedAt = $now;
+      $previous->unassignedAt = $now;
+      $previous->actorId = $actor;
+      $this->entityManager->persist($previous);
+    }
+    if (null !== $item->assigneeId) {
+      $assignment = new InterventionWorkItemAssignmentRecord();
+      $assignment->id = $this->uuidFactory->generateRaw();
+      $assignment->workItem = $item;
+      $assignment->memberId = $item->assigneeId;
+      $assignment->assignedAt = $now;
+      $assignment->actorId = $actor;
+      $this->entityManager->persist($assignment);
+    }
+    $this->activities->append(
+      $parent->id,
+      $organizationId,
+      $actor,
+      'system',
+      'work_item_reassigned',
+      null,
+      ['workItemId' => $item->id, 'from' => $previousMember, 'to' => $item->assigneeId],
+    );
+  }
+
+  /**
+   * Resolves the organization timezone or rejects an unknown organization.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId organization identifier that scopes this operation
+   *
+   * @return DateTimeZone organization-local timezone for planning and contribution dates
+   */
+  private function organizationTimezone(string $organizationId): DateTimeZone
+  {
+    $context = $this->workforce->context($organizationId);
+    if (null === $context) {
+      throw new InterventionNotFoundException('Organization not found.');
+    }
+
+    return new DateTimeZone($context->timezone);
   }
 
   /**
@@ -791,10 +1064,14 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $record->assigneeId = $assigneeId;
     $record->source = $source;
     $record->required = (bool) ($mutation->payload['required'] ?? true);
+    $this->applyWorkItemEffort($record, $intervention, $mutation->payload, true);
     $record->createdAt = $now;
     $record->updatedAt = $now;
     $this->touch($intervention, $now);
     $this->entityManager->persist($record);
+    if (null !== $record->assigneeId) {
+      $this->recordAssignment($record, null, $mutation->userId, $now);
+    }
     $this->entityManager->flush();
     if (null !== $record->assigneeId) {
       $interventionId = $intervention->id;
@@ -1071,12 +1348,27 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       ->from(InterventionWorkItemRecord::class, 'w')
       ->where('w.intervention = :intervention')
       ->setParameter('intervention', $intervention)
-      ->orderBy('w.updatedAt', 'DESC');
-    foreach (['source', 'action', 'status', 'assigneeId'] as $filter) {
+      ->orderBy('w.updatedAt', 'DESC')
+      ->addOrderBy('w.id', 'ASC');
+    foreach (['source', 'action', 'assigneeId'] as $filter) {
       if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
         $qb->andWhere('w.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
       }
     }
+    $statuses = self::filterValues($filters['status'] ?? null);
+    if ([] !== $statuses) {
+      $qb->andWhere('w.status IN (:workItemStatuses)')->setParameter('workItemStatuses', $statuses);
+    }
+    TrigramSearchExpression::apply(
+      $qb,
+      'workItemSearch',
+      is_string($filters['search'] ?? null) ? $filters['search'] : null,
+      'w.target',
+      'w.action',
+      'w.source',
+      'w.status',
+      'w.resultResource',
+    );
 
     return $qb;
   }
@@ -1103,6 +1395,19 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     foreach (['resource', 'status'] as $filter) {
       if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
         $qb->andWhere('c.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+      }
+    }
+    if (is_string($filters['search'] ?? null) && '' !== trim($filters['search'])) {
+      $matchingIds = $this->entityManager->getConnection()->fetchFirstColumn(
+        "SELECT id FROM intervention_changes WHERE intervention_id = :intervention AND (LOWER(resource) LIKE :search ESCAPE '\\' OR LOWER(status) LIKE :search ESCAPE '\\' OR LOWER(CAST(patch AS text)) LIKE :search ESCAPE '\\')",
+        [
+          'intervention' => $interventionId,
+          'search' => TrigramSearchExpression::likeValue(trim($filters['search'])),
+        ],
+      );
+      $qb->andWhere([] === $matchingIds ? '1 = 0' : 'c.id IN (:changeSearchIds)');
+      if ([] !== $matchingIds) {
+        $qb->setParameter('changeSearchIds', $matchingIds);
       }
     }
 

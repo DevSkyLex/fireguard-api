@@ -63,6 +63,8 @@ api_platform:
   # The prescribed fix for a handler that wants a status is a DOMAIN exception,
   # not an entry here. That work is cleanup, not a defect: nothing is broken.
   exception_to_status:
+    Workload\Domain\Exception\WorkloadNotFoundException: 404
+    Workload\Domain\Exception\WorkloadAccessDeniedException: 403
     Organization\Domain\Exception\OrganizationJoinException: 409
     Organization\Domain\Exception\OrganizationJoinInputException: 422
     Auth\Domain\Exception\EmailOwnershipException: 400
@@ -302,6 +304,7 @@ api_platform:
       - '%kernel.project_dir%/src/TrustedDevice/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Authorization/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Intervention/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Workload/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Billing/Presentation/Api/Resource'
 
 # Security schemes for OpenAPI (Swagger UI)

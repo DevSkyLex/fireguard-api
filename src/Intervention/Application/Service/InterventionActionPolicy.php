@@ -10,7 +10,10 @@ use Intervention\Domain\Service\{InterventionChangePolicy, InterventionMutabilit
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 
+use function array_diff;
+use function array_intersect;
 use function array_key_exists;
+use function array_keys;
 use function array_unique;
 use function array_values;
 use function in_array;
@@ -120,6 +123,15 @@ final readonly class InterventionActionPolicy
   public function requiredPermissions(string $resource, string $action, array $payload, string $contextStatus): array
   {
     $base = $this->requiredPermission($resource, $action, $payload, $contextStatus);
+    if ('work_item' === $resource && 'update' === $action && 'draft' !== $contextStatus) {
+      $planningFields = ['assigneeId', 'estimatedMinutes', 'workStartsOn', 'workEndsOn'];
+      $planning = [] !== array_intersect(array_keys($payload), $planningFields);
+      if ($planning) {
+        return [] === array_diff(array_keys($payload), [...$planningFields, 'workloadConfirmationToken'])
+          ? [self::PERMISSION_PLAN]
+          : [self::PERMISSION_PLAN, self::PERMISSION_EXECUTE];
+      }
+    }
     if ('intervention' !== $resource || 'create' === $action || 'draft' === $contextStatus) {
       return [$base];
     }

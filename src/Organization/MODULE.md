@@ -7,6 +7,11 @@ It is isolated from authentication storage and persisted in the dedicated main d
 
 ## Core capabilities
 
+`OrganizationWorkforceDirectoryPort` publishes organization-local memberships, regional context
+and minimal member identities to Workload. Identity reads are restricted to the requested
+organization and authorized member IDs supplied by the calling use case; role names never
+include account roles or roles assigned in another organization.
+
 - Create Organizations
 - Add existing users as Organization members
 - Invite users by email (existing account or future account)

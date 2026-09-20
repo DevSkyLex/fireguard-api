@@ -137,6 +137,8 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
    * @param string $interventionId the intervention identifier
    * @param string $actor the acting user identifier
    * @param InterventionDraftWorkItem $workItem the work item to seed
+   *
+   * @return void completes without returning a value
    */
   private function createWorkItem(string $interventionId, string $actor, InterventionDraftWorkItem $workItem): void
   {
@@ -153,6 +155,7 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
         'assigneeId' => $workItem->assigneeId,
         'source' => 'planned',
         'required' => $workItem->required,
+        'estimatedMinutes' => $workItem->estimatedMinutes,
       ],
     ));
   }

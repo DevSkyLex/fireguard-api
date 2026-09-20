@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Workload\Domain\Exception;
+
+use RuntimeException;
+
+/**
+ * WorkloadAccessDeniedException.
+ *
+ * @category Workload
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class WorkloadAccessDeniedException extends RuntimeException
+{
+}

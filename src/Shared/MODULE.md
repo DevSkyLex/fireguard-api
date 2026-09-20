@@ -74,6 +74,13 @@ Key folders:
 - Service wiring: `config/modules/shared.yaml`
 - Parameters: `config/services.yaml` (e.g., `shared.file_storage.base_path`)
 
+`app:fixtures:append <group>` is a dev/test-only, main-database command for opt-in
+demo data. Only repeatable fixtures explicitly tagged `app.seed_fixture.append`
+are eligible. It runs the selected set in one transaction, never purges data,
+never writes auth, and never auto-loads prerequisite fixtures. Unknown groups
+fail before database access. The existing `app:fixtures:load` purge/reload
+contract is unchanged.
+
 ## Object Storage (FileStoragePort backend)
 
 `Shared\Application\Port\Outbound\FileStoragePort` (`write`/`read`/`delete`/`exists`)

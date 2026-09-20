@@ -1,4 +1,12 @@
 services:
+  Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort:
+    alias: Organization\Infrastructure\Adapter\Workforce\OrganizationWorkforceDirectoryAdapter
+
+  Organization\Infrastructure\Adapter\Workforce\OrganizationWorkforceDirectoryAdapter:
+    autowire: true
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   _defaults:
     autowire: true
     autoconfigure: true

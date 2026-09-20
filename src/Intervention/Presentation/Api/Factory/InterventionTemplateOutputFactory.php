@@ -75,6 +75,7 @@ final class InterventionTemplateOutputFactory
     $output->target = $item->target;
     $output->resultResource = $item->resultResource;
     $output->required = $item->required;
+    $output->estimatedMinutes = $item->estimatedMinutes;
     $output->defaultAssignee = null === $item->defaultAssigneeId
       ? null
       : '/api/organizations/' . $organizationId . '/members/' . $item->defaultAssigneeId;

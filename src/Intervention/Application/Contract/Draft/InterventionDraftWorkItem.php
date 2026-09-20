@@ -31,6 +31,7 @@ final readonly class InterventionDraftWorkItem
    * @param bool $required whether completing the item is required before submission
    * @param ?string $assigneeId the optional assigned member identifier
    * @param ?string $resultResource the optional expected result resource kind
+   * @param ?int $estimatedMinutes reference estimate in whole minutes; null means unestimated
    */
   public function __construct(
     public string $action,
@@ -38,6 +39,7 @@ final readonly class InterventionDraftWorkItem
     public bool $required = true,
     public ?string $assigneeId = null,
     public ?string $resultResource = null,
+    public ?int $estimatedMinutes = null,
   ) {
   }
   // #endregion

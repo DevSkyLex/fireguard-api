@@ -94,7 +94,7 @@ final readonly class InterventionChangeProvider implements ProviderInterface
       throw new BadRequestHttpException('The intervention filter is required.');
     }
     $filters = [];
-    foreach (['resource', 'status'] as $filter) {
+    foreach (['resource', 'status', 'search'] as $filter) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;

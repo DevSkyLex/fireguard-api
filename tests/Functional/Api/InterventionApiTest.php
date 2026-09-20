@@ -7,7 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -85,6 +85,113 @@ final class InterventionApiTest extends WebTestCase
     self::assertIsArray($body['allowedActions']);
     self::assertSame(true, $body['allowedActions']['canDelete'] ?? null, 'A draft intervention owned by a full-access caller must be deletable.');
     self::assertSame(true, $body['allowedActions']['canEditDetails'] ?? null);
+  }
+
+  // #endregion
+
+  // #region Workflow collection search
+
+  #[Test]
+  public function testWorkItemCollectionCombinesServerSearchWithRepeatedStatuses(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention(id: '650e8400-e29b-41d4-a716-449001000213', status: 'in_progress', number: 313);
+    $matchingId = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000214', $interventionId, 'planned', 'north stairwell detector');
+    $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000215', $interventionId, 'completed', 'south loading bay');
+
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('GET', '/api/intervention-work-items?' . http_build_query([
+      'intervention' => '/api/interventions/' . $interventionId,
+      'search' => 'stairwell',
+      'status' => ['planned', 'in_progress'],
+    ]), server: ['HTTP_ACCEPT' => 'application/ld+json']);
+
+    $response = $client->getResponse();
+    self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+    self::assertSame([$matchingId], $this->memberIds($this->decode($response->getContent() ?: '{}')));
+  }
+
+  #[Test]
+  public function testWorkItemPaginationCountsAndPrioritizesTheCompleteFilteredCollection(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention(id: '650e8400-e29b-41d4-a716-449001000220', status: 'in_progress', number: 320);
+    $first = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000221', $interventionId, 'planned', 'panel one');
+    $second = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000222', $interventionId, 'in_progress', 'panel two');
+    $third = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000223', $interventionId, 'planned', 'panel three');
+    $fourth = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000224', $interventionId, 'in_progress', 'panel four');
+    $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000225', $interventionId, 'completed', 'panel complete');
+    $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000226', $interventionId, 'planned', 'unrelated task');
+    $otherId = $this->seedIntervention(id: '650e8400-e29b-41d4-a716-449001000227', status: 'in_progress', number: 327);
+    $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000228', $otherId, 'planned', 'panel outside this intervention');
+    $manager = $this->entityManager();
+    foreach ([$second, $fourth] as $id) {
+      $record = $manager->find(InterventionWorkItemRecord::class, $id);
+      self::assertInstanceOf(InterventionWorkItemRecord::class, $record);
+      $record->assigneeId = self::ADMIN_MEMBER_ID;
+    }
+    $manager->flush();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+
+    foreach ([true, false] as $prioritized) {
+      $expectedPages = $prioritized ? [[$second, $fourth], [$first, $third], []] : [[$first, $second], [$third, $fourth], []];
+      foreach ($expectedPages as $index => $expectedIds) {
+        static::ensureKernelShutdown();
+        $client = static::createClient();
+        $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+        $query = [
+          'intervention' => '/api/interventions/' . $interventionId,
+          'status' => ['planned', 'in_progress'],
+          'search' => 'panel',
+          'page' => $index + 1,
+          'itemsPerPage' => 2,
+        ];
+        if ($prioritized) {
+          $query['prioritizeAssignee'] = '/api/organizations/' . self::ORGANIZATION_ID . '/members/' . self::ADMIN_MEMBER_ID;
+        }
+        $client->request('GET', '/api/intervention-work-items?' . http_build_query($query), server: ['HTTP_ACCEPT' => 'application/ld+json']);
+        $response = $client->getResponse();
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $body = $this->decode($response->getContent() ?: '{}');
+        self::assertSame(4, $body['totalItems'] ?? null);
+        self::assertSame($expectedIds, $this->memberIds($body));
+      }
+    }
+  }
+
+  #[Test]
+  public function testChangeCollectionSearchesPatchValuesAndExcludesUnknownTerms(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention(id: '650e8400-e29b-41d4-a716-449001000216', status: 'in_progress', number: 316);
+    $matchingId = $this->seedChange('650e8400-e29b-41d4-a716-449001000217', $interventionId, ['status' => 'decommissioned']);
+
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('GET', '/api/intervention-changes?' . http_build_query([
+      'intervention' => '/api/interventions/' . $interventionId,
+      'search' => 'decommissioned',
+      'status' => 'proposed',
+    ]), server: ['HTTP_ACCEPT' => 'application/ld+json']);
+
+    $response = $client->getResponse();
+    self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+    self::assertSame([$matchingId], $this->memberIds($this->decode($response->getContent() ?: '{}')));
+
+    static::ensureKernelShutdown();
+    $emptyClient = static::createClient();
+    $emptyClient->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $emptyClient->request('GET', '/api/intervention-changes?' . http_build_query([
+      'intervention' => '/api/interventions/' . $interventionId,
+      'search' => 'definitely-absent',
+      'status' => 'proposed',
+    ]), server: ['HTTP_ACCEPT' => 'application/ld+json']);
+
+    $response = $emptyClient->getResponse();
+    self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+    self::assertSame([], $this->memberIds($this->decode($response->getContent() ?: '{}')));
   }
 
   // #endregion
@@ -283,6 +390,89 @@ final class InterventionApiTest extends WebTestCase
 
     $response = $client->getResponse();
     self::assertSame(409, $response->getStatusCode(), (string) $response->getContent());
+  }
+
+  // #endregion
+
+  // #region Effort and local work periods
+
+  #[Test]
+  public function testTaskEstimateInitializesRemainingAndReestimationStaysIndependent(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention('650e8400-e29b-41d4-a716-449001000801', 'draft', 801);
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('POST', '/api/intervention-work-items', server: ['CONTENT_TYPE' => 'application/ld+json'], content: (string) json_encode([
+      'intervention' => '/api/interventions/' . $interventionId,
+      'action' => 'inventory',
+      'estimatedMinutes' => 300,
+    ]));
+    self::assertSame(201, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $created = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    self::assertSame(300, $created['estimatedMinutes']);
+    self::assertSame(300, $created['remainingMinutes']);
+    self::assertIsString($created['id']);
+    $id = $created['id'];
+
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $id, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{"remainingMinutes":180}');
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $changed = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    self::assertSame(300, $changed['estimatedMinutes']);
+    self::assertSame(180, $changed['remainingMinutes']);
+
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $id, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-2"'], content: '{"estimatedMinutes":420}');
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $changed = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    self::assertSame(420, $changed['estimatedMinutes']);
+    self::assertSame(180, $changed['remainingMinutes']);
+  }
+
+  #[Test]
+  public function testTaskPeriodCannotEscapeItsInterventionWindow(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention('650e8400-e29b-41d4-a716-449001000802', 'draft', 802);
+    $record = $this->entityManager()->find(InterventionRecord::class, $interventionId);
+    self::assertInstanceOf(InterventionRecord::class, $record);
+    $record->plannedStartAt = new DateTimeImmutable('2026-09-14T08:00:00+00:00');
+    $record->dueAt = new DateTimeImmutable('2026-09-18T17:00:00+00:00');
+    $this->entityManager()->flush();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('POST', '/api/intervention-work-items', server: ['CONTENT_TYPE' => 'application/ld+json'], content: (string) json_encode([
+      'intervention' => '/api/interventions/' . $interventionId,
+      'action' => 'inventory',
+      'workStartsOn' => '2026-09-13',
+      'workEndsOn' => '2026-09-16',
+    ]));
+    self::assertSame(422, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+  }
+
+  #[Test]
+  public function testReopeningCompletedTaskMarksRemainingUnknown(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizationWithFullAccessAdmin();
+    $interventionId = $this->seedIntervention('650e8400-e29b-41d4-a716-449001000803', 'in_progress', 803, self::ADMIN_MEMBER_ID);
+    $id = $this->seedWorkItem('650e8400-e29b-41d4-a716-449001000804', $interventionId, 'completed');
+    $record = $this->entityManager()->find(InterventionWorkItemRecord::class, $id);
+    self::assertInstanceOf(InterventionWorkItemRecord::class, $record);
+    $record->estimatedMinutes = 300;
+    $record->remainingMinutes = 180;
+    $this->entityManager()->flush();
+    $client->loginUser($this->securityUser(self::ADMIN_USER_ID), 'api');
+    $client->request('PATCH', '/api/intervention-work-items/' . $id, server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_IF_MATCH' => '"revision-1"'], content: '{"status":"planned"}');
+    self::assertSame(200, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    $body = $this->decodeObject($client->getResponse()->getContent() ?: '{}');
+    self::assertSame(300, $body['estimatedMinutes']);
+    self::assertNull($body['remainingMinutes'] ?? null);
   }
 
   // #endregion
@@ -548,7 +738,7 @@ final class InterventionApiTest extends WebTestCase
     return $id;
   }
 
-  private function seedWorkItem(string $id, string $interventionId, string $status): string
+  private function seedWorkItem(string $id, string $interventionId, string $status, ?string $target = null): string
   {
     $entityManager = $this->entityManager();
     $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
@@ -566,12 +756,38 @@ final class InterventionApiTest extends WebTestCase
     $workItem->id = $id;
     $workItem->intervention = $intervention;
     $workItem->action = 'inspection';
+    $workItem->target = $target;
     $workItem->source = 'planned';
     $workItem->status = $status;
     $workItem->required = true;
     $workItem->createdAt = $now;
     $workItem->updatedAt = $now;
     $entityManager->persist($workItem);
+    $entityManager->flush();
+
+    return $id;
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function seedChange(string $id, string $interventionId, array $patch): string
+  {
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+
+    /** @var InterventionRecord $intervention */
+    $intervention = $entityManager->getReference(InterventionRecord::class, $interventionId);
+
+    $change = new InterventionChangeRecord();
+    $change->id = $id;
+    $change->intervention = $intervention;
+    $change->resource = '/api/equipment/650e8400-e29b-41d4-a716-449001000299';
+    $change->patch = $patch;
+    $change->status = 'proposed';
+    $change->createdAt = $now;
+    $change->updatedAt = $now;
+    $entityManager->persist($change);
     $entityManager->flush();
 
     return $id;

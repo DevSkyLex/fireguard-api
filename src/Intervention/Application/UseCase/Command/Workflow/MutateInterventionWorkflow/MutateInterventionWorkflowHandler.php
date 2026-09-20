@@ -69,7 +69,7 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
         throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
       }
     }
-    if (in_array('organization.interventions.execute', $permissions, true)) {
+    if ('work_item' !== $command->resource && in_array('organization.interventions.execute', $permissions, true)) {
       $this->memberPolicy->assertCanExecuteIntervention(
         $context->organizationId,
         $command->userId,

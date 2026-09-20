@@ -21,7 +21,10 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
+use function array_filter;
 use function array_map;
+use function array_values;
+use function is_array;
 use function is_string;
 use function max;
 use function min;
@@ -86,7 +89,7 @@ final readonly class InterventionWorkItemProvider implements ProviderInterface
         throw $this->mapWorkflowException($exception);
       }
 
-      return $this->mapper->fromView($result->view);
+      return $this->mapper->fromView($result->view, $user->getId());
     }
     $query = $this->requestStack->getCurrentRequest()?->query;
     $intervention = $query?->get('intervention');
@@ -94,15 +97,23 @@ final readonly class InterventionWorkItemProvider implements ProviderInterface
       throw new BadRequestHttpException('The intervention filter is required.');
     }
     $filters = [];
-    foreach (['source', 'action', 'status'] as $filter) {
+    foreach (['source', 'action', 'search'] as $filter) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;
       }
     }
+    $statuses = $this->multiValue($query?->all()['status'] ?? null);
+    if ([] !== $statuses) {
+      $filters['status'] = $statuses;
+    }
     $assignee = $query?->get('assignee');
     if (is_string($assignee) && '' !== $assignee) {
       $filters['assigneeId'] = ResourceIriParser::memberId($assignee);
+    }
+    $prioritizeAssignee = $query?->get('prioritizeAssignee');
+    if (is_string($prioritizeAssignee) && '' !== $prioritizeAssignee) {
+      $filters['prioritizeAssigneeId'] = ResourceIriParser::memberId($prioritizeAssignee);
     }
 
     try {
@@ -120,7 +131,7 @@ final readonly class InterventionWorkItemProvider implements ProviderInterface
     }
 
     return new TraversablePaginator(
-      new ArrayIterator(array_map($this->mapper->fromView(...), $result->page->items)),
+      new ArrayIterator(array_map(fn ($view): InterventionWorkItemOutput => $this->mapper->fromView($view, $user->getId()), $result->page->items)),
       (float) $result->page->page,
       (float) $result->page->itemsPerPage,
       (float) $result->page->total,
@@ -144,5 +155,29 @@ final readonly class InterventionWorkItemProvider implements ProviderInterface
     }
 
     return $user;
+  }
+
+  /**
+   * Normalizes a scalar or repeated query value to a non-empty string list.
+   *
+   * @since 1.1.0
+   *
+   * @param mixed $raw the raw query value
+   *
+   * @return list<string> the normalized values
+   */
+  private function multiValue(mixed $raw): array
+  {
+    if (is_string($raw) && '' !== $raw) {
+      return [$raw];
+    }
+    if (!is_array($raw)) {
+      return [];
+    }
+
+    return array_values(array_filter(
+      array_map(static fn (mixed $value): string => is_string($value) ? $value : '', $raw),
+      static fn (string $value): bool => '' !== $value,
+    ));
   }
 }

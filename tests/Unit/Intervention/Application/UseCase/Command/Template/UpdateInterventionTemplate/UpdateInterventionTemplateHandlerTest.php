@@ -157,6 +157,7 @@ final class UpdateInterventionTemplateHandlerTest extends TestCase
           'resultResource' => null,
           'required' => true,
           'defaultAssigneeId' => null,
+          'estimatedMinutes' => null,
         ]], $items);
 
         return $updated;

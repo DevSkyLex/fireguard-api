@@ -64,7 +64,7 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    * @param ?string $defaultResponsibleId the default responsible member id value
    * @param ?string $duration the ISO-8601 duration string value
    * @param list<string> $labelIds the organization label ids value
-   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}> $items the template items, in position order
+   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the template items, in position order
    *
    * @return InterventionTemplateView the created template view
    */
@@ -120,7 +120,7 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    * @param ?string $defaultResponsibleId the default responsible member id value, only applied when `$hasDefaultResponsibleId` is true
    * @param ?string $duration the ISO-8601 duration string value, only applied when `$hasDuration` is true
    * @param ?list<string> $labelIds the organization label ids value, only applied when `$hasLabelIds` is true
-   * @param ?list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}> $items the template items, only applied when `$hasItems` is true
+   * @param ?list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the template items, only applied when `$hasItems` is true
    * @param bool $hasName whether the name field was present in the merge-patch request
    * @param bool $hasDescription whether the description field was present in the merge-patch request
    * @param bool $hasType whether the type field was present in the merge-patch request
@@ -281,7 +281,9 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    * @since 1.0.0
    *
    * @param InterventionTemplateRecord $record the template record value
-   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string}> $items the replacement items, in position order
+   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the replacement items, in position order
+   *
+   * @return void completes without returning a value
    */
   private function replaceItems(InterventionTemplateRecord $record, array $items): void
   {
@@ -301,6 +303,7 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
       $itemRecord->resultResource = $item['resultResource'];
       $itemRecord->required = $item['required'];
       $itemRecord->defaultAssigneeId = $item['defaultAssigneeId'];
+      $itemRecord->estimatedMinutes = $item['estimatedMinutes'] ?? null;
       $record->items->add($itemRecord);
       $this->entityManager->persist($itemRecord);
       ++$position;
@@ -394,6 +397,7 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
           $item->resultResource,
           $item->required,
           $item->defaultAssigneeId,
+          $item->estimatedMinutes,
         ),
         $items,
       ),

@@ -45,7 +45,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
         null,
         'P14D',
         ['label-1'],
-        [['action' => 'inspection', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null]],
+        [['action' => 'inspection', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null, 'estimatedMinutes' => null]],
       )
       ->willReturn($view);
 
