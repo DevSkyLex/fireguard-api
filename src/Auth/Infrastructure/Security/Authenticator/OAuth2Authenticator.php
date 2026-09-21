@@ -126,6 +126,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
    */
   public function authenticate(Request $request): Passport
   {
+    $request->attributes->remove('_fireguard_session_id');
     $authHeader = $request->headers->get(key: 'Authorization', default: '');
     $token = substr($authHeader, 7);
 
@@ -182,20 +183,29 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         );
       }
 
+      if ('pre_auth' === $claims->get('scope', null)) {
+        throw new CustomUserMessageAuthenticationException('Second factor verification is required');
+      }
+
       $accessToken = null;
       if (self::ACCESS_TOKEN_USE_AUTH_SESSION === $claims->get('_fireguard_token_use', null)) {
         // Login-flow tokens are not rows in the OAuth2 token table; the session
         // that issued them is what carries their revocation state. Without this
         // check, revoking a session — "sign out everywhere", a password change,
         // a password reset — left the access token usable until it expired.
-        if ($this->sessionStatus->isAccessTokenRevoked($tokenId)) {
+        $sessionId = $this->sessionStatus->activeSessionId($tokenId, $userId);
+        if (null === $sessionId) {
           throw new CustomUserMessageAuthenticationException(
-            message: 'Token has been revoked',
+            message: 'Session is no longer active',
           );
         }
+        $request->attributes->set('_fireguard_session_id', $sessionId);
       } else {
         // OAuth2 tokens must keep database-backed revocation and expiry checks.
         $accessToken = $this->accessTokenLookup->find($tokenId);
+        if (null === $accessToken) {
+          throw new CustomUserMessageAuthenticationException('Access token is not registered');
+        }
       }
 
       if ($accessToken instanceof AccessTokenStatus) {
@@ -215,18 +225,21 @@ final class OAuth2Authenticator extends AbstractAuthenticator
 
         $scopes = $accessToken->scopes;
       } else {
-        // Login flow, and any signed token with no database row: scopes come
-        // from the claims, which the signature check above has now vouched for.
+        // A registered interactive session: scopes come from its signed claims.
         $scopesClaim = $claims->get('scopes', []);
         $scopes = is_array($scopesClaim) ? array_values(array_filter($scopesClaim, 'is_string')) : [];
       }
 
       $userBadge = new UserBadge(
         userIdentifier: $userId,
-        userLoader: fn (string $id) => $this->userProvider->loadUserById(
-          userId: $id,
-          scopes: $scopes,
-        ),
+        userLoader: function (string $id) use ($scopes) {
+          $user = $this->userProvider->loadUserById(userId: $id, scopes: $scopes);
+          if (!$user->isActive()) {
+            throw new CustomUserMessageAuthenticationException('User account is not active');
+          }
+
+          return $user;
+        },
       );
 
       return new SelfValidatingPassport(userBadge: $userBadge);
@@ -234,7 +247,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       throw $exception;
     } catch (Throwable $exception) {
       throw new CustomUserMessageAuthenticationException(
-        message: 'Invalid access token: ' . $exception->getMessage(),
+        message: 'Invalid access token',
       );
     }
   }

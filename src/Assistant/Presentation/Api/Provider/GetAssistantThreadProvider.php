@@ -85,9 +85,9 @@ final readonly class GetAssistantThreadProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId and threadId URI parameters are required.');
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $messagesPage = max(1, $query?->getInt('messagesPage', 1) ?? 1);
-    $messagesItemsPerPage = max(1, min(200, $query?->getInt('messagesItemsPerPage', 50) ?? 50));
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $messagesPage = max(1, $query->getInt('messagesPage', 1));
+    $messagesItemsPerPage = max(1, min(200, $query->getInt('messagesItemsPerPage', 50)));
 
     try {
       /** @var GetAssistantThreadResult $result */

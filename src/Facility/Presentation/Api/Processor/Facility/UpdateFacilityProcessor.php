@@ -11,6 +11,7 @@ use Facility\Application\UseCase\Command\Facility\UpdateFacility\{UpdateFacility
 use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Input\Facility\UpdateFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -39,6 +40,7 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
 {
   // #region Constructor
   public function __construct(
+    private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
@@ -151,23 +153,7 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    $output = new FacilityOutput();
-    $output->id = $result->facilityId;
-    $output->organizationId = $result->organizationId;
-    $output->parentFacilityId = $result->parentFacilityId;
-    $output->type = $result->type;
-    $output->name = $result->name;
-    $output->code = $result->code;
-    $output->status = $result->status;
-    $output->address = $result->address;
-    $output->latitude = $result->latitude;
-    $output->longitude = $result->longitude;
-    $output->metadata = $result->metadata;
-    $output->levelIndex = $result->levelIndex;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->detail->read($organizationId, $result->facilityId);
   }
 
   /**

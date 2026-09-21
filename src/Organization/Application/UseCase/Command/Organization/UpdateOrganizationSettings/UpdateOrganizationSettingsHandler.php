@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Event\Organization\{
   OrganizationRestoredEvent,
-  OrganizationSettingsUpdatedEvent,
   OrganizationSuspendedEvent
 };
 use Organization\Domain\Exception\{
@@ -193,8 +193,14 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
     }
 
     try {
-      $this->transactionManager->transactional(function () use ($organization): void {
+      $this->transactionManager->transactional(function () use ($organization, $command, $changedFields): void {
         $this->organizationRepository->save($organization);
+        if ([] !== $changedFields) {
+          $this->eventDispatcher->dispatch(new OrganizationSettingsUpdatedEvent(
+            organizationId: $command->organizationId,
+            changedFields: $changedFields,
+          ));
+        }
       });
     } catch (Throwable $exception) {
       if ($this->isDuplicateSlugConstraintViolation($exception)) {
@@ -204,12 +210,7 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
       throw $exception;
     }
 
-    if ([] !== $changedFields) {
-      $this->eventDispatcher->dispatch(new OrganizationSettingsUpdatedEvent(
-        organizationId: $command->organizationId,
-        changedFields: $changedFields,
-      ));
-    }
+
 
     if (null !== $command->isActive) {
       if ($command->isActive && OrganizationStatus::ACTIVE !== $previousStatus) {

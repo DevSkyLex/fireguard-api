@@ -44,6 +44,7 @@ final class ComplianceSummaryOutputFactory
     $output->organizationStatus = $organizationStatus;
     $output->totals = $totals;
     $output->facilities = array_map($this->facilityRow(...), $facilities);
+    $output->dataEvaluatedAt = SafetyRegisterContextBuilder::oldestEvaluation($facilities);
 
     return $output;
   }
@@ -71,6 +72,7 @@ final class ComplianceSummaryOutputFactory
     $output->organizationStatus = $facility->status->value;
     $output->totals = SafetyRegisterContextBuilder::facilityTotals($facility);
     $output->facilities = [$this->facilityRow($facility)];
+    $output->dataEvaluatedAt = $facility->dataEvaluatedAt;
 
     return $output;
   }
@@ -102,6 +104,8 @@ final class ComplianceSummaryOutputFactory
    *   openHighNonConformityCount: int,
    *   openCriticalNonConformityCount: int,
    *   lastInspectionAt: ?string,
+   *   unevaluatedEquipmentCount: int,
+   *   dataEvaluatedAt: ?string,
    * } the facility row
    */
   private function facilityRow(FacilityComplianceView $facility): array

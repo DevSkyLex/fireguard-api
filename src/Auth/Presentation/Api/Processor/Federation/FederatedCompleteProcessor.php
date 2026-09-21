@@ -96,7 +96,7 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
         browserBinding: $browserBinding ?? '',
         providerError: $data->error,
         ipAddress: $ipAddress,
-        userAgent: $request?->headers->get('User-Agent'),
+        userAgent: \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent'),
         trustedDeviceToken: null === $request ? null : $this->trustedDeviceCookieService->getTokenFromRequest($request),
       );
 

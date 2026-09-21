@@ -90,7 +90,7 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Missing organization.delete permission.');
     }
 
-    $slugQueryParam = $this->requestStack->getCurrentRequest()?->query->get('slug');
+    $slugQueryParam = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('slug');
     $slugConfirmation = is_string($slugQueryParam) ? $slugQueryParam : null;
 
     $this->commandBus->dispatch(new DeleteOrganizationCommand(

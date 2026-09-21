@@ -39,6 +39,10 @@ to write the reason down rather than to delete the endpoints.
 
 ### Challenge (Email/SMS)
 
+Resend cooldowns and HTTP rate limits expose `rate_limit_exceeded` and
+`retryAfterSeconds` through the shared Problem Details boundary, including Auth's
+registration, password-reset and MFA resend endpoints. `Retry-After` remains available.
+
 ```mermaid
 sequenceDiagram
   participant Client
@@ -149,7 +153,36 @@ OTP HTTP endpoints; Auth must confirm it through the User capability.
   shared counter would let a failed disable eat the enrollment's confirmation
   budget, and the two reset on different events.
 - Permissions: `otp_totp.setup`, `otp_totp.confirm`, `otp_totp.disable` (see `Authorization\Infrastructure\Catalog\PermissionCatalog`); granted to the default `user` and `admin` roles.
-- Secret storage: the base32 TOTP secret is stored as plain text in `totp_enrollments.active_secret` / `.pending_secret` — this mirrors how the existing `otps.code_hash`-adjacent `recipient` and other OTP module fields are stored (no column-level encryption elsewhere in this module or `Session`/`TrustedDevice`). Unlike email/SMS OTP codes (which are Argon2id-hashed via `OtpCode`, since only a one-way equality check is needed), a TOTP secret cannot be hashed because the server must recompute codes from it at verification time; this is standard for TOTP implementations (e.g. Google Authenticator servers). Treat the DB as sensitive and protect it at the infrastructure level (encryption at rest, restricted access) — see `SECURITY.md`.
+- Secret storage uses the Otp-owned `TotpSecretCipherPort`, implemented by
+  AES-256-GCM with a dedicated key ring. Versioned envelopes carry the key identifier;
+  their authentication binds the user and active/pending slot. New writes are encrypted
+  once `TOTP_ENCRYPTION_WRITE_KEY` is provisioned. Legacy rows remain readable during
+  rollout. The durable `secrets_encrypted` marker prevents writes from reverting a
+  migrated enrollment to plaintext if configuration is rolled back. Decryption failure
+  never falls back to plaintext. Authenticator secrets and enrollment/lockout state stay
+  unchanged.
+
+### Encryption deployment and key rotation
+
+1. Apply additive auth migration `Version20260920150000` before the compatible reader.
+   It keeps both old columns and adds encrypted active/pending columns plus the marker.
+2. Provision `TOTP_ENCRYPTION_KEYS` through the deployment secret store: a JSON object
+   mapping key IDs to base64-encoded, randomly generated 32-byte keys, dedicated to Otp.
+   Keep `TOTP_ENCRYPTION_WRITE_KEY` empty only during the initial compatible-read rollout.
+3. Once every instance can read ciphertext, select the write-key ID. New and updated
+   enrollments now use encrypted storage and clear their old values.
+4. Run `php -d memory_limit=1G bin/console app:otp:encrypt-secrets --batch-size=100`.
+   Each auth transaction locks a bounded batch, authenticates old ciphertext, migrates
+   or rotates secrets, verifies the decrypted result, and then commits. Restarting is
+   safe; current envelopes are not rewritten. No account IDs or secrets are printed.
+5. Run the same command with `--verify-only`; it writes nothing and fails if any row
+   still needs migration or if a key/envelope is invalid. Retain the old columns until
+   deployment and data verification are complete; remove them only in a later migration.
+6. For rotation, add a new key while retaining prior keys, select its ID for writes,
+   rerun migration and verification, then retire old keys only after verification and
+   the backup/rollback retention window. Backups containing older envelopes need their
+   corresponding keys. A rollback must retain this compatible reader and the key ring.
+   Schema rollback is explicitly refused once any enrollment has been encrypted.
 
 ## Testing
 

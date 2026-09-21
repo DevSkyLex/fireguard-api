@@ -51,12 +51,20 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
   {
     $record = $this->entityManager->find(MaintenanceScheduleRecord::class, $id);
 
+    if ($record instanceof MaintenanceScheduleRecord) {
+      $this->entityManager->refresh($record);
+    }
+
     return $record instanceof MaintenanceScheduleRecord ? $this->view($record) : null;
   }
 
   public function findByOrganizationAndEquipment(string $organizationId, string $equipmentId): ?MaintenanceScheduleView
   {
     $record = $this->findRecordByOrganizationAndEquipment($organizationId, $equipmentId);
+
+    if ($record instanceof MaintenanceScheduleRecord) {
+      $this->entityManager->refresh($record);
+    }
 
     return $record instanceof MaintenanceScheduleRecord ? $this->view($record) : null;
   }
@@ -192,6 +200,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $record->lastRemindedAt = $snapshot->lastRemindedAt;
     $record->remindedFor = $snapshot->remindedFor;
     $record->updatedAt = $now;
+    $record->evaluatedAt = $snapshot->evaluatedAt;
 
     if ($isNew) {
       $this->entityManager->persist($record);
@@ -217,8 +226,9 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     ?string $facilityId,
     ?string $equipmentType,
     ?string $dueStatus,
+    ?DateTimeImmutable $dueBefore = null,
   ): int {
-    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus);
+    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus, $dueBefore);
 
     return (int) $qb->select('COUNT(s.id)')->getQuery()->getSingleScalarResult();
   }
@@ -228,8 +238,9 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     ?string $facilityId,
     ?string $equipmentType,
     ?string $dueStatus,
+    ?DateTimeImmutable $dueBefore = null,
   ): array {
-    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus)
+    $qb = $this->exportQuery($organizationId, $facilityId, $equipmentType, $dueStatus, $dueBefore)
       ->select('s')
       ->orderBy('s.updatedAt', 'DESC')
       ->addOrderBy('s.id', 'ASC');
@@ -268,8 +279,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
    *
    * Builds the base, unpaginated query shared by {@see self::countForExport()}
    * and {@see self::listExportCandidates()} — the same (cheap, indexed)
-   * filter subset {@see self::list()} applies, minus `dueBefore`, which the
-   * export endpoint deliberately does not expose.
+   * filters applied by {@see self::list()}, including `dueBefore`.
    *
    * @since 1.0.0
    *
@@ -285,6 +295,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     ?string $facilityId,
     ?string $equipmentType,
     ?string $dueStatus,
+    ?DateTimeImmutable $dueBefore = null,
   ): QueryBuilder {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
 
@@ -301,6 +312,10 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     }
     if (null !== $dueStatus) {
       $qb->andWhere('s.dueStatus = :dueStatus')->setParameter('dueStatus', $dueStatus);
+    }
+
+    if (null !== $dueBefore) {
+      $qb->andWhere('s.nextDueAt IS NOT NULL AND s.nextDueAt <= :dueBefore')->setParameter('dueBefore', $dueBefore);
     }
 
     return $qb;
@@ -356,6 +371,7 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
       $record->remindedFor,
       $record->createdAt,
       $record->updatedAt,
+      $record->evaluatedAt,
     );
   }
 

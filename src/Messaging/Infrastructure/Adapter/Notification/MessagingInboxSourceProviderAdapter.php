@@ -9,14 +9,16 @@ use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Domain\ValueObject\MessagingSubjectType;
-use Notification\Application\Contract\Inbox\InboxItem;
+use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\Port\Outbound\InboxSourceProviderPort;
 
 use function array_map;
 use function array_unique;
 use function array_values;
+use function count;
 use function in_array;
 use function mb_strimwidth;
+use function min;
 use function trim;
 
 /**
@@ -160,7 +162,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     return self::SOURCE_KEY;
   }
 
-  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): array
+  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
     // Messaging member identity is per-organization
     // (MessagingMemberDirectoryPort::resolveActiveMemberId() always takes an
@@ -181,7 +183,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
       return [];
     }
 
-    return $this->fetchMentions($userId, $organizationId, $memberId, $before, $limit);
+    return $this->fetchMentions($userId, $organizationId, $memberId, $before, $limit, $cursor);
   }
 
   public function countUnread(string $userId, ?string $organizationId): int
@@ -226,9 +228,41 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    *
    * @return list<InboxItem> the mention items the member may actually read
    */
-  private function fetchMentions(string $userId, string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array
+  private function fetchMentions(string $userId, string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
-    $candidates = $this->messages->listMentionsForMember($organizationId, $memberId, $before, $limit);
+    $items = [];
+    $batchSize = min(100, $limit);
+    do {
+      $candidates = $this->messages->listMentionsForMember($organizationId, $memberId, $before, $batchSize, $cursor);
+      foreach ($this->accessibleMentions($userId, $organizationId, $memberId, $candidates) as $item) {
+        $items[] = $item;
+        if (count($items) === $limit) {
+          return $items;
+        }
+      }
+      $last = $candidates[count($candidates) - 1] ?? null;
+      if (null === $last) {
+        break;
+      }
+      $next = new InboxCursor($last->createdAt, self::SOURCE_KEY, $last->id);
+      if (null !== $cursor && $next->encode() === $cursor->encode()) {
+        break;
+      }
+      $cursor = $next;
+    } while (count($candidates) === $batchSize);
+
+    return $items;
+  }
+
+  /**
+   * Batch-filters candidate conversations without skipping older readable mentions.
+   *
+   * @param list<MessageView> $candidates bounded message candidates
+   *
+   * @return list<InboxItem> readable mentions
+   */
+  private function accessibleMentions(string $userId, string $organizationId, string $memberId, array $candidates): array
+  {
     if ([] === $candidates) {
       return [];
     }
@@ -248,7 +282,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
         continue;
       }
 
-      $items[] = $this->toInboxItem($message, $lastReadAtByConversation[$message->conversationId] ?? null);
+      $items[] = $this->toInboxItem($message, $lastReadAtByConversation[$message->conversationId] ?? null, $subjectTypesByConversation[$message->conversationId] ?? null);
     }
 
     return $items;
@@ -280,14 +314,15 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     $manages = $this->accessPolicy->hasManagePermission($userId, $organizationId);
     // ONE bulk lookup of every channel this member participates in, never
     // one `isParticipant()` call per channel.
-    $channelIds = $manages ? [] : $this->participants->listChannelIdsForMember($organizationId, $memberId);
+    $channelIds = $manages && !in_array(MessagingSubjectType::DIRECT->value, $subjectTypesByConversation, true)
+      ? [] : $this->participants->listChannelIdsForMember($organizationId, $memberId);
 
     $permissionCache = [];
     $accessible = [];
 
     foreach ($subjectTypesByConversation as $conversationId => $subjectType) {
-      if (MessagingSubjectType::CHANNEL->value === $subjectType) {
-        if ($manages || in_array($conversationId, $channelIds, true)) {
+      if (MessagingSubjectType::CHANNEL->value === $subjectType || MessagingSubjectType::DIRECT->value === $subjectType) {
+        if ((MessagingSubjectType::CHANNEL->value === $subjectType && $manages) || in_array($conversationId, $channelIds, true)) {
           $accessible[] = $conversationId;
         }
 
@@ -322,7 +357,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    *
    * @return InboxItem the mapped inbox item
    */
-  private function toInboxItem(MessageView $message, ?DateTimeImmutable $lastReadAt): InboxItem
+  private function toInboxItem(MessageView $message, ?DateTimeImmutable $lastReadAt, ?string $subjectType = null): InboxItem
   {
     return new InboxItem(
       sourceKey: self::SOURCE_KEY,
@@ -340,6 +375,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
       organizationId: $message->organizationId,
       targetType: self::TARGET_TYPE_CONVERSATION,
       targetId: $message->conversationId,
+      targetKind: $subjectType,
     );
   }
 

@@ -128,7 +128,7 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       $outputs[] = $output;
     }
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $statusFilter = $filters['status'] ?? null;
     if (is_string($statusFilter) && '' !== $statusFilter) {

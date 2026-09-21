@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\Service;
 
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Application\Service\OrganizationAuthorizationService;
+use Organization\Application\Service\{OrganizationAuthorizationService, OrganizationCacheInvalidator};
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -19,6 +19,53 @@ use Symfony\Contracts\Service\ResetInterface;
 #[CoversClass(OrganizationAuthorizationService::class)]
 final class OrganizationAuthorizationServiceTest extends TestCase
 {
+  #[Test]
+  public function testMembershipInvalidationClearsPermissionsAndDenialMemoEvenWhenLegacyCacheFails(): void
+  {
+    $members = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $members->expects(self::exactly(2))->method('getPermissionNamesForUserInOrganization')
+      ->willReturnOnConsecutiveCalls(['organization.read'], []);
+    $members->expects(self::exactly(2))->method('hasActiveMembership')->willReturnOnConsecutiveCalls(true, false);
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::never())->method('get');
+    $cache->expects(self::exactly(2))->method('delete')->willThrowException(new RuntimeException('offline'));
+    $invalidator = new OrganizationCacheInvalidator($cache);
+    $service = new OrganizationAuthorizationService($members, $this->activeOrganizationRepository(), $invalidator);
+    $user = '550e8400-e29b-41d4-a716-446655440001';
+    $org = '550e8400-e29b-41d4-a716-446655440010';
+    self::assertTrue($service->hasPermission($user, $org, 'organization.read'));
+    self::assertTrue($service->isMemberOf($user, $org));
+    $invalidator->invalidateCurrentMemberProfile($org, $user);
+    self::assertSame(OrganizationAccessDecision::OUTSIDE_SCOPE, $service->resolveAccess($user, $org, 'organization.read'));
+  }
+
+  #[Test]
+  public function testSuspensionInvalidatesStatusWithinTheRequest(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
+    $organizations = $this->createMock(OrganizationRepositoryPort::class);
+    $organizations->expects(self::exactly(2))->method('statusOf')
+      ->willReturnOnConsecutiveCalls(OrganizationStatus::ACTIVE, OrganizationStatus::SUSPENDED);
+    $invalidator = new OrganizationCacheInvalidator($this->createStub(CachePort::class));
+    $service = new OrganizationAuthorizationService($members, $organizations, $invalidator);
+    $user = '550e8400-e29b-41d4-a716-446655440001';
+    $org = '550e8400-e29b-41d4-a716-446655440010';
+    self::assertTrue($service->hasPermission($user, $org, 'organization.members.manage'));
+    $invalidator->invalidateOrganization();
+    self::assertFalse($service->hasPermission($user, $org, 'organization.members.manage'));
+  }
+
+  #[Test]
+  public function testUnavailableStatusNeverGrantsAWrite(): void
+  {
+    $organizations = $this->createStub(OrganizationRepositoryPort::class);
+    $organizations->method('statusOf')->willThrowException(new RuntimeException('database unavailable'));
+    $service = new OrganizationAuthorizationService($this->createStub(OrganizationMemberRepositoryPort::class), $organizations);
+    $this->expectException(RuntimeException::class);
+    $service->hasPermission('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.members.manage');
+  }
+
   #[Test]
   public function testHasPermissionReturnsTrueForExactMatch(): void
   {
@@ -86,60 +133,6 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-446655440001',
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
       permissions: ['organization.members.read'],
-    );
-  }
-
-  #[Test]
-  public function testGetUserPermissionsUsesSharedCacheBeforeRepository(): void
-  {
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::never())->method('getPermissionNamesForUserInOrganization');
-
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->with('organization.permissions.550e8400-e29b-41d4-a716-446655440010.550e8400-e29b-41d4-a716-446655440001')
-      ->willReturn(['organization.read']);
-    $cache->expects(self::never())->method('set');
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
-
-    self::assertSame(
-      ['organization.read'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
-    );
-  }
-
-  #[Test]
-  public function testGetUserPermissionsRefreshesStaleEmptySharedCache(): void
-  {
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::once())
-      ->method('getPermissionNamesForUserInOrganization')
-      ->with(
-        '550e8400-e29b-41d4-a716-446655440001',
-        self::isInstanceOf(OrganizationId::class),
-      )
-      ->willReturn(['organization.*']);
-
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->with('organization.permissions.550e8400-e29b-41d4-a716-446655440010.550e8400-e29b-41d4-a716-446655440001')
-      ->willReturn([]);
-    $cache->expects(self::once())
-      ->method('set')
-      ->with(
-        'organization.permissions.550e8400-e29b-41d4-a716-446655440010.550e8400-e29b-41d4-a716-446655440001',
-        ['organization.*'],
-        self::anything(),
-      );
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
-
-    self::assertSame(
-      ['organization.*'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
     );
   }
 
@@ -461,124 +454,6 @@ final class OrganizationAuthorizationServiceTest extends TestCase
   }
 
   #[Test]
-  public function testSharedCacheIsBypassedWhenTtlIsNotPositive(): void
-  {
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::once())
-      ->method('getPermissionNamesForUserInOrganization')
-      ->willReturn(['organization.read']);
-
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::never())->method('get');
-    $cache->expects(self::never())->method('set');
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache, 0);
-
-    self::assertSame(
-      ['organization.read'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
-    );
-  }
-
-  #[Test]
-  public function testSharedCacheReadFailureFallsBackToRepository(): void
-  {
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::once())
-      ->method('getPermissionNamesForUserInOrganization')
-      ->willReturn(['organization.read']);
-
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->willThrowException(new RuntimeException('cache down'));
-    $cache->expects(self::once())->method('set');
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
-
-    self::assertSame(
-      ['organization.read'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
-    );
-  }
-
-  #[Test]
-  public function testSharedCacheReadIgnoresNonArrayValues(): void
-  {
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::once())
-      ->method('getPermissionNamesForUserInOrganization')
-      ->willReturn(['organization.read']);
-
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->willReturn('corrupted-entry');
-    $cache->expects(self::once())->method('set');
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
-
-    self::assertSame(
-      ['organization.read'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
-    );
-  }
-
-  #[Test]
-  public function testSharedCacheReadFiltersNonStringEntries(): void
-  {
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::never())->method('getPermissionNamesForUserInOrganization');
-
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->willReturn(['organization.read', 42, 'organization.members.read', null]);
-    $cache->expects(self::never())->method('set');
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
-
-    self::assertSame(
-      ['organization.read', 'organization.members.read'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
-    );
-  }
-
-  #[Test]
-  public function testSharedCacheWriteFailureIsSwallowed(): void
-  {
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::once())
-      ->method('getPermissionNamesForUserInOrganization')
-      ->willReturn(['organization.read']);
-
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->willReturn(null);
-    $cache->expects(self::once())
-      ->method('set')
-      ->willThrowException(new RuntimeException('cache write failed'));
-
-    $service = new OrganizationAuthorizationService($memberRepository, $this->activeOrganizationRepository(), $cache);
-
-    self::assertSame(
-      ['organization.read'],
-      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
-    );
-  }
-
-  #[Test]
   public function testResolveAccessGrantsWithoutEverQueryingMembership(): void
   {
     // The whole point of resolving scope lazily: an authorized request must
@@ -865,26 +740,6 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       '550e8400-e29b-41d4-a716-446655440010',
       ['organization.facilities.write'],
     );
-  }
-
-  #[Test]
-  public function testAnUnreadableStatusDoesNotDenyAccess(): void
-  {
-    // Failing closed here would lock every member out of an organization that
-    // was never suspended, on nothing worse than a database blip.
-    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.*']);
-
-    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
-    $organizationRepository->method('statusOf')->willThrowException(new RuntimeException('database down'));
-
-    $service = new OrganizationAuthorizationService($memberRepository, $organizationRepository);
-
-    self::assertTrue($service->hasPermission(
-      userId: '550e8400-e29b-41d4-a716-446655440001',
-      organizationId: '550e8400-e29b-41d4-a716-446655440010',
-      permission: 'organization.facilities.write',
-    ));
   }
 
   #[Test]

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Command\CancelSubscription;
 
+use Billing\Application\Port\Outbound\BillingReconciliationPort;
 use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 /**
  * UseCase CancelSubscriptionHandler.
@@ -35,12 +35,12 @@ final readonly class CancelSubscriptionHandler implements CommandHandler
    *
    * @param SubscriptionRepositoryPort $subscriptions the subscription repository
    * @param StripeGatewayPort $stripe the Stripe gateway
-   * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param BillingReconciliationPort $reconciliation the transaction manager
    */
   public function __construct(
     private SubscriptionRepositoryPort $subscriptions,
     private StripeGatewayPort $stripe,
-    private TransactionManagerPort $transactionManager,
+    private BillingReconciliationPort $reconciliation,
   ) {
   }
   // #endregion
@@ -61,7 +61,12 @@ final readonly class CancelSubscriptionHandler implements CommandHandler
    */
   public function __invoke(CancelSubscriptionCommand $command): VoidResult
   {
-    $subscription = $this->subscriptions->findByOrganizationId($command->organizationId);
+    return $this->reconciliation->synchronized($command->organizationId, fn (): VoidResult => $this->execute($command));
+  }
+
+  private function execute(CancelSubscriptionCommand $command): VoidResult
+  {
+    $subscription = $this->subscriptions->findByOrganizationId($command->organizationId, refresh: true);
     $stripeSubscriptionId = $subscription?->stripeSubscriptionId();
 
     if (null === $subscription || null === $stripeSubscriptionId) {
@@ -72,9 +77,7 @@ final readonly class CancelSubscriptionHandler implements CommandHandler
 
     $subscription->scheduleCancellation();
 
-    $this->transactionManager->transactional(function () use ($subscription): void {
-      $this->subscriptions->save($subscription);
-    });
+    $this->subscriptions->save($subscription);
 
     return new VoidResult();
   }

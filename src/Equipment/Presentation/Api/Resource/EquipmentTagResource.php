@@ -40,19 +40,28 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Equipment'],
-        summary: 'List tag catalog',
-        description: 'Lists all tags available in the organization catalog. Supports optional search for typeahead.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'search' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter tags by name (case-insensitive substring match).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'search',
             in: 'query',
             required: false,
             description: 'Filter tags by name (case-insensitive substring match).',
             schema: ['type' => 'string'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Equipment'],
+        summary: 'List tag catalog',
+        description: 'Lists all tags available in the organization catalog. Supports optional search for typeahead.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Tag catalog retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),

@@ -35,6 +35,7 @@ final readonly class CreateChecklistCommand implements CommandMessage
     public string $version,
     public array $items = [],
     public ?string $referenceCode = null,
+    public ?string $previousChecklistId = null,
   ) {
   }
   // #endregion

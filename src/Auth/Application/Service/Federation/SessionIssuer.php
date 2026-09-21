@@ -96,16 +96,16 @@ final readonly class SessionIssuer
 
     $tokens = $this->tokenService->generateTokens($userId, $email, $scopes, $rememberMe);
     $this->users->recordSignInMethod($userId, $grantType->method());
+    $accessTokenId = $this->recordSession($userId, $ipAddress, $userAgent, $rememberMe, $tokens);
     $this->eventDispatcher->dispatch(new UserLoggedInEvent($userId, $email, $ipAddress));
     $this->eventDispatcher->dispatch(new TokenIssuedEvent(
-      tokenId: $tokens['access_token'],
+      tokenId: $accessTokenId,
       grantType: $grantType->value,
       clientId: 'user_session',
       userId: $userId,
       scopes: $scopes,
       expiresIn: $tokens['expires_in'],
     ));
-    $this->recordSession($userId, $ipAddress, $userAgent, $rememberMe, $tokens);
 
     return new LoginResult(
       authenticated: true,
@@ -122,7 +122,7 @@ final readonly class SessionIssuer
   /**
    * @param array<string, mixed> $tokens
    */
-  private function recordSession(string $userId, ?string $ipAddress, ?string $userAgent, bool $rememberMe, array $tokens): void
+  private function recordSession(string $userId, ?string $ipAddress, ?string $userAgent, bool $rememberMe, array $tokens): string
   {
     $accessTokenId = $this->tokenIdentifier($tokens, 'access_token_id');
     $refreshTokenId = $this->tokenIdentifier($tokens, 'refresh_token_id');
@@ -135,20 +135,19 @@ final readonly class SessionIssuer
       }
     }
     if (null === $accessTokenId || null === $refreshTokenId) {
-      return;
+      throw new UnexpectedValueException('Session token identifiers are required.');
     }
 
-    try {
-      $this->sessionTracking->recordSession(
-        userId: $userId,
-        ipAddress: $ipAddress ?? '127.0.0.1',
-        userAgent: $userAgent ?? 'unknown',
-        accessTokenId: $accessTokenId,
-        refreshTokenId: $refreshTokenId,
-        rememberMe: $rememberMe,
-      );
-    } catch (Throwable) {
-    }
+    $this->sessionTracking->recordSession(
+      userId: $userId,
+      ipAddress: $ipAddress ?? '127.0.0.1',
+      userAgent: $userAgent ?? 'unknown',
+      accessTokenId: $accessTokenId,
+      refreshTokenId: $refreshTokenId,
+      rememberMe: $rememberMe,
+    );
+
+    return $accessTokenId;
   }
 
   /**

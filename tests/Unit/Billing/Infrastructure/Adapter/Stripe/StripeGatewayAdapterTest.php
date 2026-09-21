@@ -9,6 +9,8 @@ use Billing\Domain\Exception\InvalidWebhookSignatureException;
 use Billing\Infrastructure\Adapter\Stripe\StripeGatewayAdapter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Stripe\ApiRequestor;
+use Stripe\HttpClient\ClientInterface;
 
 use function hash_hmac;
 use function json_encode;
@@ -72,6 +74,8 @@ final class StripeGatewayAdapterTest extends TestCase
   {
     $payload = json_encode([
       'id' => 'evt_1',
+      'created' => 1_800_000_001,
+      'livemode' => false,
       'object' => 'event',
       'type' => 'customer.subscription.updated',
       'data' => [
@@ -97,6 +101,60 @@ final class StripeGatewayAdapterTest extends TestCase
     self::assertSame('price_pro_m', $event->priceId);
     self::assertSame(1_800_000_000, $event->currentPeriodEnd);
     self::assertTrue($event->cancelAtPeriodEnd);
+    self::assertSame('evt_1', $event->eventId);
+    self::assertSame(1_800_000_001, $event->created);
+    self::assertFalse($event->liveMode);
+  }
+
+  #[Test]
+  public function identifiesLiveAndTestKeys(): void
+  {
+    self::assertFalse($this->adapter()->isLiveMode());
+    self::assertTrue(new StripeGatewayAdapter('sk_live_dummy', self::WEBHOOK_SECRET)->isLiveMode());
+    self::assertTrue(new StripeGatewayAdapter('rk_live_dummy', self::WEBHOOK_SECRET)->isLiveMode());
+  }
+
+  #[Test]
+  public function readsEveryPageIncludingCanceledSubscriptions(): void
+  {
+    $previous = ApiRequestor::httpClient();
+    $http = $this->createMock(ClientInterface::class);
+    $requests = 0;
+    $http->expects(self::exactly(2))->method('request')->willReturnCallback(
+      static function (string $method, string $url, array $headers, array $params) use (&$requests): array {
+        ++$requests;
+        self::assertSame('get', $method);
+        self::assertStringEndsWith('/v1/subscriptions', $url);
+        self::assertSame('cus_123', $params['customer']);
+        self::assertSame('all', $params['status']);
+        if (2 === $requests) {
+          self::assertSame('sub_1', $params['starting_after']);
+        }
+
+        return [json_encode([
+          'object' => 'list', 'url' => '/v1/subscriptions', 'has_more' => 1 === $requests,
+          'data' => [[
+            'object' => 'subscription', 'id' => 'sub_' . $requests,
+            'customer' => 'cus_123', 'status' => 1 === $requests ? 'active' : 'canceled',
+            'metadata' => ['organization_id' => 'org-42'], 'created' => 100 - $requests,
+            'livemode' => false, 'cancel_at_period_end' => false,
+            'items' => ['data' => [['price' => ['id' => 'price_pro_m'], 'current_period_end' => 1_800_000_000]]],
+          ]],
+        ], JSON_THROW_ON_ERROR), 200, []];
+      },
+    );
+    ApiRequestor::setHttpClient($http);
+
+    try {
+      $subscriptions = $this->adapter()->listSubscriptions('cus_123');
+      self::assertCount(2, $subscriptions);
+      self::assertSame('active', $subscriptions[0]->status);
+      self::assertSame('canceled', $subscriptions[1]->status);
+      self::assertSame('org-42', $subscriptions[1]->organizationId);
+      self::assertSame(1_800_000_000, $subscriptions[0]->currentPeriodEnd);
+    } finally {
+      ApiRequestor::setHttpClient($previous);
+    }
   }
 
   #[Test]

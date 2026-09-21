@@ -184,6 +184,14 @@ final class ExecuteAutomationRuleHandlerTest extends TestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn(new DateTimeImmutable('2026-01-05T00:00:00+00:00'));
 
-    return new ExecuteAutomationRuleHandler($runs, $policy, $draftFactory, $eventDispatcher, $clock, new NullLogger());
+    return new ExecuteAutomationRuleHandler(
+      $runs,
+      $policy,
+      $draftFactory,
+      $eventDispatcher,
+      $clock,
+      new NullLogger(),
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
+    );
   }
 }

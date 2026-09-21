@@ -37,6 +37,7 @@ final readonly class InviteOrganizationMemberCommand implements CommandMessage
     public string $invitedByUserId,
     public array $roleIds = [],
     public ?OrganizationSetupContext $setupContext = null,
+    public bool $deferDelivery = false,
   ) {
   }
   // #endregion

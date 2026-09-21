@@ -54,14 +54,31 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'severity' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by severity (low, medium, high, critical)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+        ),
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by status (open, in_progress, done, waived)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List non-conformities',
         description: 'Lists non-conformities for an inspection.',
-        parameters: [
-          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
-          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
@@ -81,14 +98,31 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'severity' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by severity (low, medium, high, critical)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+        ),
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by status (open, in_progress, done, waived)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List organization non-conformities',
         description: 'Lists non-conformities across every inspection of an organization, newest first.',
-        parameters: [
-          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
-          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
@@ -106,6 +140,26 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       serialize: false,
       output: false,
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'severity' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by severity (low, medium, high, critical)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+        ),
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by status (open, in_progress, done, waived)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Export non-conformities (CSV)',
@@ -116,10 +170,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           . 'to ' . ExportNonConformitiesHandler::MAX_EXPORT_ROWS . ' matching rows — the request is rejected '
           . 'with 422 if the filters match more; narrow the filters and retry.',
         security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
-          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'CSV export streamed successfully'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing organizationId or an invalid enum filter value'),
@@ -140,6 +191,26 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       serialize: false,
       output: false,
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'severity' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by severity (low, medium, high, critical)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+        ),
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by status (open, in_progress, done, waived)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Export non-conformities report (PDF)',
@@ -151,10 +222,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           . ' matching rows — the request is rejected with 422 if the filters match more; narrow the filters '
           . 'and retry.',
         security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
-          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformities report PDF'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing organizationId or an invalid enum filter value'),

@@ -80,6 +80,7 @@ class EquipmentRecord
    *
    * @since 1.0.0
    */
+  #[ORM\Version]
   #[ORM\Column(name: 'revision', type: 'integer', options: ['default' => 1])]
   public int $revision = 1;
 

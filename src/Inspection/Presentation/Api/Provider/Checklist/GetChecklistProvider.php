@@ -74,16 +74,20 @@ final readonly class GetChecklistProvider implements ProviderInterface
       throw $exception;
     }
 
-    return $this->mapResult($result);
+    return $this->mapResult($result, $this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.write'));
   }
 
-  private function mapResult(GetChecklistResult $result): ChecklistOutput
+  private function mapResult(GetChecklistResult $result, bool $canManage): ChecklistOutput
   {
     $output = new ChecklistOutput();
     $output->id = $result->checklistId;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->referenceCode = $result->referenceCode;
+    $output->previousChecklistId = $result->previousChecklistId;
+    $output->canEditMetadata = $canManage && 'archived' !== $result->status;
+    $output->canEditItems = $output->canEditMetadata && $result->itemsEditable;
+    $output->canCreateRevision = $canManage;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');

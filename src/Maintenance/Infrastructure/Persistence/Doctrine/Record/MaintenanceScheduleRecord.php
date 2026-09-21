@@ -27,6 +27,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Table(name: 'maintenance_schedules')]
 #[ORM\UniqueConstraint(name: 'uniq_maintenance_schedule_org_equipment', columns: ['organization_id', 'equipment_id'])]
 #[ORM\Index(name: 'idx_maintenance_schedule_org_status_due', columns: ['organization_id', 'due_status', 'next_due_at'])]
+#[ORM\Index(name: 'idx_maintenance_schedule_org_due', columns: ['organization_id', 'next_due_at'])]
 class MaintenanceScheduleRecord
 {
   // #region Properties
@@ -155,5 +156,11 @@ class MaintenanceScheduleRecord
    */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * Last successful business evaluation; null for legacy rows not recalculated.
+   */
+  #[ORM\Column(name: 'evaluated_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $evaluatedAt = null;
   // #endregion
 }

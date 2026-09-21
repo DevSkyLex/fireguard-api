@@ -88,9 +88,19 @@ final readonly class GetCalendarFeedHandler implements QueryHandler
     $to = self::parse($query->to, 'to');
     self::assertSupportedRange($from, $to);
 
-    $items = $this->aggregator->aggregate($query->organizationId, $from, $to);
+    $allowedSources = ['calendar_event'];
+    foreach ([
+      'inspection' => 'organization.inspection.read',
+      'intervention' => 'organization.interventions.read',
+      'maintenance' => 'organization.maintenance.read',
+    ] as $source => $permission) {
+      if ($this->authorization->hasPermission($query->userId, $query->organizationId, $permission)) {
+        $allowedSources[] = $source;
+      }
+    }
+    $feed = $this->aggregator->aggregate($query->organizationId, $from, $to, $allowedSources);
 
-    return new GetCalendarFeedResult(items: $items, from: $from, to: $to);
+    return new GetCalendarFeedResult(items: $feed->items, from: $from, to: $to, sources: $feed->sources, complete: $feed->isComplete());
   }
 
   /**

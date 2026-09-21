@@ -7,10 +7,15 @@ namespace Tests\Unit\Otp\Infrastructure\Persistence\Doctrine\Mapper;
 use DateTimeImmutable;
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Domain\ValueObject\TotpSecret;
+use Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter;
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+
+use function base64_encode;
+use function str_repeat;
 
 /**
  * Test TotpEnrollmentMapperTest.
@@ -51,7 +56,7 @@ final class TotpEnrollmentMapperTest extends TestCase
       updatedAt: $updatedAt,
     );
 
-    $record = new TotpEnrollmentMapper()->toRecord($enrollment);
+    $record = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''))->toRecord($enrollment);
 
     self::assertSame(self::USER_ID, $record->getUserId());
     self::assertSame(self::ACTIVE_SECRET, $record->getActiveSecret());
@@ -69,7 +74,7 @@ final class TotpEnrollmentMapperTest extends TestCase
   {
     $existing = new TotpEnrollmentRecord();
 
-    $returned = new TotpEnrollmentMapper()->toRecord($this->enrollment(), $existing);
+    $returned = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''))->toRecord($this->enrollment(), $existing);
 
     self::assertSame($existing, $returned);
     self::assertSame(self::USER_ID, $existing->getUserId());
@@ -92,7 +97,7 @@ final class TotpEnrollmentMapperTest extends TestCase
       updatedAt: $timestamp,
     );
 
-    $record = new TotpEnrollmentMapper()->toRecord($enrollment);
+    $record = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''))->toRecord($enrollment);
 
     self::assertNull($record->getActiveSecret());
     self::assertNull($record->getActiveConfirmedAt());
@@ -120,7 +125,7 @@ final class TotpEnrollmentMapperTest extends TestCase
       ->setCreatedAt($createdAt)
       ->setUpdatedAt($updatedAt);
 
-    $enrollment = new TotpEnrollmentMapper()->toDomain($record);
+    $enrollment = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''))->toDomain($record);
 
     self::assertSame(self::USER_ID, $enrollment->userId());
     self::assertInstanceOf(TotpSecret::class, $enrollment->activeSecret());
@@ -151,7 +156,7 @@ final class TotpEnrollmentMapperTest extends TestCase
       ->setCreatedAt($timestamp)
       ->setUpdatedAt($timestamp);
 
-    $enrollment = new TotpEnrollmentMapper()->toDomain($record);
+    $enrollment = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''))->toDomain($record);
 
     self::assertNull($enrollment->activeSecret());
     self::assertNull($enrollment->pendingSecret());
@@ -162,7 +167,7 @@ final class TotpEnrollmentMapperTest extends TestCase
   #[Test]
   public function testRoundTripPreservesState(): void
   {
-    $mapper = new TotpEnrollmentMapper();
+    $mapper = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''));
 
     $roundTripped = $mapper->toRecord($mapper->toDomain($mapper->toRecord($this->enrollment())));
 
@@ -173,6 +178,31 @@ final class TotpEnrollmentMapperTest extends TestCase
   // #endregion
 
   // #region Helpers
+  #[Test]
+  public function encryptsSecretsAndPreservesEnrollmentState(): void
+  {
+    $mapper = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter(['key' => base64_encode(str_repeat('x', 32))], 'key'));
+    $record = $mapper->toRecord($this->enrollment());
+
+    self::assertTrue($record->secretsEncrypted);
+    self::assertNull($record->getActiveSecret());
+    self::assertNull($record->getPendingSecret());
+    self::assertNotNull($record->activeSecretCiphertext);
+    self::assertSame(self::ACTIVE_SECRET, $mapper->toDomain($record)->activeSecret()?->secret);
+    self::assertSame(4, $mapper->toDomain($record)->maxAttempts());
+  }
+
+  #[Test]
+  public function cannotDowngradeAnEncryptedEnrollmentWhenTheWriteKeyIsRemoved(): void
+  {
+    $enabled = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter(['key' => base64_encode(str_repeat('x', 32))], 'key'));
+    $record = $enabled->toRecord($this->enrollment());
+    $unconfigured = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''));
+
+    $this->expectException(RuntimeException::class);
+    $unconfigured->toRecord($this->enrollment(), $record);
+  }
+
   private function enrollment(): TotpEnrollment
   {
     $timestamp = new DateTimeImmutable('2026-03-01T10:00:00+00:00');

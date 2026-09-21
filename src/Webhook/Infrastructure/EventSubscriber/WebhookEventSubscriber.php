@@ -13,6 +13,7 @@ use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\DurableEventContextPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
@@ -36,10 +37,9 @@ use Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWe
  *
  * This subscriber ONLY builds the stable public envelope `data` and
  * enqueues — it never looks up a subscription and never performs an
- * outbound HTTP call in the request thread. Subscriber errors must never
- * propagate: a failure here would otherwise fail the request that
- * triggered the source domain event, even though webhook delivery is a
- * best-effort side effect of it.
+ * outbound HTTP call in the request thread. Durable delivery reuses its event
+ * identity and propagates queue errors for retry. Legacy synchronous events
+ * retain their best-effort behavior.
  *
  * @category Subscriber
  *
@@ -63,6 +63,7 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
     private MessageBusInterface $messageBus,
     private UuidFactory $uuidFactory,
     private LoggerInterface $logger,
+    private DurableEventContextPort $eventContext,
   ) {
   }
   // #endregion
@@ -314,12 +315,9 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
    * Method enqueue.
    *
    * Builds and fire-and-forget dispatches a `DispatchWebhookEventCommand`,
-   * swallowing and logging any failure. `eventId` is a fresh UUID minted
-   * once per call — it becomes the fan-out's `(subscriptionId, eventId)`
-   * dedupe key, which stays stable across any Messenger redelivery of this
-   * exact `DispatchWebhookEventCommand` (the same serialized message,
-   * retried), which is the only realistic duplicate-processing scenario
-   * this idempotency guard needs to cover.
+   * using the durable source identity when present, otherwise a fresh UUID.
+   * The fan-out's `(subscriptionId, eventId)` key survives retries of both
+   * the source domain event and its delivery command.
    *
    * @since 1.0.0
    *
@@ -334,7 +332,7 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
       $this->messageBus->dispatch(new DispatchWebhookEventCommand(
         organizationId: $organizationId,
         eventType: $type->value,
-        eventId: $this->uuidFactory->generateRaw(),
+        eventId: $this->eventContext->eventId() ?? $this->uuidFactory->generateRaw(),
         data: $data,
         occurredAt: $occurredAt,
       ));
@@ -344,6 +342,9 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
         'organization_id' => $organizationId,
         'error' => $exception->getMessage(),
       ]);
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
     }
   }
 }

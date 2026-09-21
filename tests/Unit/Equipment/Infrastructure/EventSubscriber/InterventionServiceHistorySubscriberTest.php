@@ -30,6 +30,7 @@ final class InterventionServiceHistorySubscriberTest extends TestCase
     self::assertInstanceOf(EventSubscriberInterface::class, new InterventionServiceHistorySubscriber(
       $this->createStub(CommandBusPort::class),
       new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
     ));
 
     $subscribed = InterventionServiceHistorySubscriber::getSubscribedEvents();
@@ -59,7 +60,11 @@ final class InterventionServiceHistorySubscriberTest extends TestCase
         return true;
       }));
 
-    $subscriber = new InterventionServiceHistorySubscriber($commandBus, new NullLogger());
+    $subscriber = new InterventionServiceHistorySubscriber(
+      $commandBus,
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onInterventionPublished($event);
   }
@@ -74,7 +79,11 @@ final class InterventionServiceHistorySubscriberTest extends TestCase
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())->method('error');
 
-    $subscriber = new InterventionServiceHistorySubscriber($commandBus, $logger);
+    $subscriber = new InterventionServiceHistorySubscriber(
+      $commandBus,
+      $logger,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     // Must not throw: an uncaught exception here would abort the whole
     // published-event fan-out, breaking the audit ledger entry emitted by

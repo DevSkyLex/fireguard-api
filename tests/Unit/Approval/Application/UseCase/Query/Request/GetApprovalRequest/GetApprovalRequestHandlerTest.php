@@ -41,7 +41,7 @@ final class GetApprovalRequestHandlerTest extends TestCase
       ->with('user-1', self::ORG_ID, 'organization.approvals.read')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $handler = new GetApprovalRequestHandler(requests: $requests, authorization: $authorization);
+    $handler = new GetApprovalRequestHandler(requests: $requests, authorization: $authorization, views: $this->views());
 
     $result = $handler(new GetApprovalRequestQuery(self::ORG_ID, self::REQUEST_ID, 'user-1'));
 
@@ -115,6 +115,19 @@ final class GetApprovalRequestHandlerTest extends TestCase
     );
   }
 
+  private function views(): \Approval\Application\Service\ApprovalRequestViewFactory
+  {
+    $clock = $this->createStub(\Shared\Application\Port\Outbound\ClockPort::class);
+    $clock->method('now')->willReturn(new DateTimeImmutable('2026-01-18T00:00:00Z'));
+
+    return new \Approval\Application\Service\ApprovalRequestViewFactory(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(\Approval\Application\Port\Outbound\ApprovalPolicyPort::class),
+      $this->createStub(\Approval\Application\Port\Outbound\ApprovalMemberDirectoryPort::class),
+      $clock,
+    );
+  }
+
   private function handler(
     ApprovalRequestRepositoryPort $requests,
     OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
@@ -125,6 +138,7 @@ final class GetApprovalRequestHandlerTest extends TestCase
     return new GetApprovalRequestHandler(
       requests: $requests,
       authorization: $authorization,
+      views: $this->views(),
     );
   }
 }

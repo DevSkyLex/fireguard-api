@@ -29,6 +29,7 @@ Main goals:
 | GET | `/api/organizations/{organizationId}/approval-requests/{requestId}` | Get a single approval request | `organization.approvals.read` |
 | POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/approve` | Approve and re-execute the deferred action | `organization.approvals.decide` |
 | POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/reject` | Reject; the deferred action is never executed | `organization.approvals.decide` |
+| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/withdraw` | Withdraw with optional reason; never executes the deferred action | Active original requester |
 | GET | `/api/approvals/action-types` | Reference catalog of gatable action types | `ROLE_USER` |
 
 Every operation requires `ROLE_USER` at the resource level; the
@@ -47,11 +48,13 @@ organizations. Aligned with the Maintenance hardening (`fix(maintenance):
 return 404 for schedules outside the caller's organization`) and the rule
 `OrganizationAccessDecision` states in its own docblock.
 
-**Known contract drift:** `/approve` and `/reject` are bare API Platform
-`Post` operations with no `status:`, so a successful decision answers **201
-Created** even though it creates nothing, while `ApprovalRequestResource`
-documents 200. The tests assert 201, the behaviour as shipped; reconciling
-the two is a wire change for the frontend and has not been made.
+Successful `/approve` and `/reject` operations explicitly return **200**.
+Approval, rejection, withdrawal and the expiry sweep acquire the same request-row lock in a
+`main` transaction. The row is refreshed after locking, including when Doctrine
+already cached it. Decisions check the deadline under the lock; an elapsed request
+is persisted as expired before returning 409. Likewise, a no-longer-applicable action
+commits cancellation before the conflict is raised outside the transaction. Technical
+failures roll back both the decision and local business writes.
 
 **Deviation from the lot brief's prose sketch:** the brief's narrative
 description implies a flatter, unprefixed `/approval-requests` route family
@@ -59,12 +62,13 @@ with the organization resolved from a query parameter. This module instead
 nests every route under `/organizations/{organizationId}/approval-requests`,
 consistent with **every** other org-scoped resource in this API (Webhook,
 Equipment, Inspection, Team, OrganizationRole…) — avoiding a new,
-unprecedented unprefixed routing convention. The brief's "cancel" endpoint
-was **not** built as a separate public operation: it exists only as an
-internal `ApprovalRequest::cancel()` domain transition used by the approve
-flow when the deferred action is no longer applicable — no
-`CancelApprovalRequestCommand`/route exists (a pending request a requester
-wants to withdraw can be left to expire, or rejected by a decider).
+unprecedented unprefixed routing convention. Withdrawal is a separate `/withdraw` operation: the active original requester may close a
+pending, unexpired request under the common decision lock without `approvals.decide`.
+The terminal `withdrawn` status records actor, time and optional reason. System cancellation
+still describes an inapplicable deferred action. Withdrawal and its outbox event commit
+atomically in `main`; the auth audit consumer records `approval.withdrawn` asynchronously.
+The read `allowedActions` includes `withdraw` independently of decision-policy refusal.
+A second withdrawal conflicts; expired state commits before returning the conflict.
 
 ## Flows
 
@@ -299,7 +303,7 @@ deploy (propagates `read`/`request` to persisted `member` roles).
 
 ## Audit
 
-`approval.requested` / `approval.approved` / `approval.rejected` /
+`approval.requested` / `approval.approved` / `approval.rejected` / `approval.withdrawn` /
 `approval.expired` / `approval.execution_failed` — appended to
 `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber` (subject type
 `approval_request`).
@@ -369,10 +373,17 @@ consumer, pending requests never expire.
 - Run module tests: `php vendor/bin/phpunit tests/Unit/Approval`
 ## Error Codes
 
+Read responses expose advisory `allowedActions` and `decisionBlockReason` for the
+current actor. The server still checks state, expiry, permissions and policy under
+the shared decision lock. Stable Problem Details `code` values distinguish
+`approval_not_pending`, `approval_subject_changed`, `approval_permission_required`,
+`approval_role_required`, `approval_withdrawal_forbidden` and `approval_self_decision_forbidden`. An expired deadline
+blocks the read capability with `approval_expired` even before the periodic sweep.
+Frontend refresh after conflict retains the local decision note.
+
 | Exception | HTTP |
 | --- | --- |
 | `ApprovalRequestNotFoundException` | 404 Not Found — unknown id, a request owned by another organization, **and an organization the caller is not an active member of** (`::forOrganizationScope()` on the listing) |
 | `ApprovalAccessDeniedException` (member, but missing the required permission) / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` (still raised by `ApprovalGate`) | 403 Forbidden |
 | `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException` | 409 Conflict |
 | `InvalidArgumentException` | 400 Bad Request |
-

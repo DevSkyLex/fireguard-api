@@ -26,12 +26,15 @@ final readonly class InterventionPublicationContext
    * @param string $organizationId the organization id value
    * @param string $status the status value
    * @param int $revision the revision value
+   * @param list<string> $recipientMemberIds members to notify on publication
    */
   public function __construct(
     public string $interventionId,
     public string $organizationId,
     public string $status,
     public int $revision,
+    public string $name = '',
+    public array $recipientMemberIds = [],
   ) {
   }
 }

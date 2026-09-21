@@ -66,6 +66,9 @@ final readonly class GetImportJobResult implements ResultMessage
     public ?DateTimeImmutable $startedAt,
     public ?DateTimeImmutable $completedAt,
     public DateTimeImmutable $updatedAt,
+    public bool $canResume = false,
+    public bool $canConfirm = false,
+    public ?string $confirmedJobId = null,
   ) {
   }
   // #endregion
@@ -84,7 +87,7 @@ final readonly class GetImportJobResult implements ResultMessage
    *
    * @return self the read view
    */
-  public static function fromDomain(ImportJob $job): self
+  public static function fromDomain(ImportJob $job, bool $canResume = false, bool $canConfirm = false): self
   {
     return new self(
       importJobId: (string) $job->id(),
@@ -112,6 +115,9 @@ final readonly class GetImportJobResult implements ResultMessage
       startedAt: $job->startedAt(),
       completedAt: $job->completedAt(),
       updatedAt: $job->updatedAt(),
+      canResume: $canResume,
+      canConfirm: $canConfirm && $job->canConfirm(),
+      confirmedJobId: $job->confirmedJobId(),
     );
   }
   // #endregion

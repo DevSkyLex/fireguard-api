@@ -5,6 +5,12 @@
 Organization manages Organizations and member-level RBAC inside each Organization.
 It is isolated from authentication storage and persisted in the dedicated main database.
 
+Imported invitations defer email delivery to the main outbox in the creation
+transaction. The delivery rechecks the current token, pending state and expiry,
+and deduplicates by invitation plus token hash. Other invitation callers keep
+their existing synchronous behavior. Invitation events use the main outbox when
+a caller already owns a main transaction.
+
 ## Core capabilities
 
 `OrganizationWorkforceDirectoryPort` publishes organization-local memberships, regional context
@@ -1120,3 +1126,18 @@ Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together
 ## Automatic creation slugs
 
 When creation omits the slug, the server derives a valid normalized base from the organization name, uses a fallback for short names or when normalization produces no usable characters. It allocates a unique suffix inside the creation transaction under the shared slug namespace lock. Homonymous organizations are supported, including concurrent creation. Explicitly supplied slugs keep their existing validation and uniqueness conflict behavior.
+
+Settings updates record `OrganizationSettingsUpdatedEvent` in the main transactional outbox
+before commit. Maintenance consumes compliance changes and reloads the current policy.
+
+`OrganizationSettingsUpdatedEvent` is a published Application Contract. Its original
+Domain name remains an alias for queued serialized events during rollout. Subscribers use
+the established `organization.organization_settings_updated_event` dispatcher name.
+
+### Access freshness
+
+Organization authorization uses request-local memoization only. Every new request reads the
+current main-database membership and grants; shared cache entries cannot authorize a revoked
+member. Member/role mutations and organization status or ownership changes invalidate the
+same request memo. `/me` always resolves current membership and roles. Cache eviction failures
+cannot extend a grant, and an unreadable organization status never grants a write.

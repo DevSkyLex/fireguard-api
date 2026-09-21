@@ -35,6 +35,8 @@ final readonly class ListChecklistResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public ?string $referenceCode = null,
+    public ?string $previousChecklistId = null,
+    public bool $itemsEditable = false,
   ) {
   }
   // #endregion

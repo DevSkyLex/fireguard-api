@@ -159,66 +159,34 @@ learning from a toggle whether the organization exists.
 | ″ | `InspectionAssistantContextProviderAdapter` (priority 20) | Inspection | bound (L2.2) |
 | ″ | `MaintenanceAssistantContextProviderAdapter` (priority 10) | Maintenance | bound (L2.2) |
 
-## The message status state machine (the crux)
+## Generation attempts and recovery
 
-`Assistant\Domain\ValueObject\AssistantMessageStatus` (`pending` |
-`streaming` | `complete` | `failed`) is enforced by
-`Assistant\Domain\Model\Message\AssistantMessage`, which is the only place
-allowed to mutate it (`canTransitionTo()` is the single source of truth):
+A user question is complete immediately. Its reply transitions `pending -> streaming -> complete`
+or `pending|streaming -> failed|cancelled`. A failed/cancelled reply can start a new attempt on the
+same reply and original question. The question id and temperature are persisted for retry.
 
-```
-PENDING --> STREAMING --> COMPLETE
-   |                          ^
-   `------> FAILED <----------'
-```
+The main-database message lock serializes worker claims, fragments, completion, cancellation and
+retry. Only a pending attempt can be claimed. Duplicate workers and old attempt commands do nothing.
+Every attempt has an identity, increasing number, monotonic sequence and a five-minute deadline.
+The provider request is bounded by the remaining time and is cancelled when a fragment is rejected.
+Every fragment is persisted, so a lost live connection can recover the partial answer by HTTP.
 
-- A `user`-authored message is `AssistantMessage::askUser()` — status
-  `complete` immediately.
-- An `assistant`-authored reply is `AssistantMessage::pendingReply()` —
-  status `pending`, body empty, the moment generation is enqueued.
-- `pending -> streaming` (`markStreaming()`): called by
-  `GenerateAssistantReplyHandler` the moment the FIRST content fragment
-  arrives from Ollama — never called preemptively before any token exists.
-- `streaming -> complete` (`markComplete()`): **REPLACES** the current body
-  (never appends).
-- `pending -> failed` / `streaming -> failed` (`markFailed()`): legal from
-  either — the backend can be unreachable before any token (`pending`), or
-  fail mid-reply (`streaming`).
-- `complete`/`failed` are terminal.
+`POST .../messages/{messageId}/cancel` and `/retry` require the expected `attemptId`, active assistant
+permission/settings, and thread ownership. A stale identity returns 409 `assistant_attempt_conflict`.
+Cancellation retains partial text. Retry clears the reply and queues exactly one new identity in the
+same main transaction. A lost retry response is recovered by reading the thread. It cannot queue a
+second attempt with the old identity. The assistant queue uses `doctrine://main`.
 
-### The retry-safety contract (both layers)
+Each realtime write is validated under that same lock. Frames carry the full body and attempt
+metadata; consumers must discard older attempts/sequences. A hub failure does not undo local state;
+HTTP remains authoritative. Model/provider failures settle with stable codes, including
+`assistant_generation_failed` and `assistant_attempt_expired`.
 
-The `assistant` Messenger transport's `retry_strategy.max_retries: 1` means a
-transient failure in `GenerateAssistantReplyHandler` can run the SAME
-generation command a second time. Two independent guarantees make that safe:
-
-1. **Persistence layer** — `GenerateAssistantReplyHandler` checks
-   `$message->status()->isTerminal()` first and no-ops if already
-   `complete`/`failed` (mirrors `DeliverWebhookHandler`). If the message is
-   already `streaming` (a previous attempt crashed after the first token but
-   before settling), the handler does **not** re-call `markStreaming()` —
-   that would throw (`AssistantMessageIllegalStatusTransitionException`,
-   since the state machine only allows `pending -> streaming`) — it simply
-   restarts generation and lets the eventual `markComplete()`/`markFailed()`
-   REPLACE the row.
-2. **Mercure layer** — every published fragment
-   (`AssistantRealtimePublisherPort::publishGenerationEvent()`) carries the
-   **FULL accumulated reply body so far**, never an incremental delta. A
-   retry that restarts streaming from token 1 republishes a growing sequence
-   of snapshots; the client only ever REPLACES its displayed text with the
-   latest event, so replayed fragments can, at worst, repeat frames already
-   rendered — never producing user-visible duplicated content. This is what
-   actually defuses the failure mode called out for this lot: *"a
-   partially-streamed reply that Messenger retries republishes its
-   fragments and the user sees the answer twice."*
-
-Ollama being unreachable, timing out, returning a non-2xx status, or
-returning an empty response are all reported through
-`AssistantGenerationOutcome` (never an unhandled exception from the port),
-and settle the message `failed` with a stable `errorCode` (`ollama_unreachable`,
-`ollama_timeout`, `ollama_http_error`, `ollama_stream_error`,
-`ollama_empty_response`, plus `assistant_thread_not_found` and
-`ollama_model_not_configured` for the handler's own guard clauses).
+A killed worker is never silently taken over by a duplicate delivery. Its deadline prevents later
+writes; the member can cancel then retry, or request retry after expiry. The UI reports silence and
+rereads state without inventing a terminal result. Legacy queued commands initialize attempt
+metadata when claimed. Historical settled replies without a retained question id remain readable
+but have `canRetry: false`; new questions use the complete attempt contract.
 
 ## The operator-vs-tenant configuration boundary
 
@@ -241,7 +209,7 @@ and settle the message `failed` with a stable `errorCode` (`ollama_unreachable`,
     allowlist denies every tenant-supplied model** rather than permitting
     any — the operator must explicitly opt in.
   - `temperature` — `AskAssistantQuestionInput::$temperature`, optional,
-    per-question, never persisted, range-validated `0.0`-`2.0`.
+    per-question, persisted for retry, range-validated `0.0`-`2.0`.
 - Deliberately **not** reused: `Webhook\Domain\Service\WebhookUrlPolicy`. It
   is a private-IP SSRF denylist built for a TENANT-supplied URL (a webhook
   subscription's target), and would incorrectly reject `http://localhost:11434`.
@@ -269,7 +237,11 @@ Published event payload (JSON):
 ```json
 {
   "messageId": "...",
-  "status": "streaming|complete|failed",
+  "status": "pending|streaming|complete|failed|cancelled",
+  "attemptId": "...",
+  "attemptNumber": 1,
+  "attemptSequence": 2,
+  "attemptExpiresAt": "2026-09-21T10:05:00+00:00",
   "body": "the FULL accumulated reply text so far",
   "tokenCount": null,
   "errorCode": null

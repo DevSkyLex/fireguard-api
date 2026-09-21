@@ -66,6 +66,8 @@ final readonly class FacilityComplianceView
     public int $openHighNonConformityCount,
     public int $openCriticalNonConformityCount,
     public ?string $lastInspectionAt,
+    public int $unevaluatedEquipmentCount = 0,
+    public ?string $dataEvaluatedAt = null,
   ) {
   }
   // #endregion

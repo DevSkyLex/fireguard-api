@@ -60,6 +60,7 @@ final readonly class MessengerAssistantGenerationDispatcherAdapter implements As
     string $assistantMessageId,
     ?string $model = null,
     ?float $temperature = null,
+    ?string $attemptId = null,
   ): void {
     $this->messageBus->dispatch(new GenerateAssistantReplyCommand(
       organizationId: $organizationId,
@@ -68,6 +69,7 @@ final readonly class MessengerAssistantGenerationDispatcherAdapter implements As
       assistantMessageId: $assistantMessageId,
       model: $model,
       temperature: $temperature,
+      attemptId: $attemptId,
     ));
   }
   // #endregion

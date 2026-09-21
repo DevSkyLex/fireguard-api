@@ -167,6 +167,7 @@ final class AskAssistantQuestionHandlerTest extends TestCase
       uuidFactory: new UuidFactory($uuidGenerator),
       eventDispatcher: $eventDispatcher,
       clock: $clock,
+      transaction: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
   }
 

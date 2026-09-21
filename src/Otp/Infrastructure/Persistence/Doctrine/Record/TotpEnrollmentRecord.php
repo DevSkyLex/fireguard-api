@@ -22,6 +22,15 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'totp_enrollments')]
 class TotpEnrollmentRecord
 {
+  #[ORM\Column(name: 'active_secret_ciphertext', type: 'text', nullable: true)]
+  public ?string $activeSecretCiphertext = null;
+
+  #[ORM\Column(name: 'pending_secret_ciphertext', type: 'text', nullable: true)]
+  public ?string $pendingSecretCiphertext = null;
+
+  #[ORM\Column(name: 'secrets_encrypted', type: 'boolean', options: ['default' => false])]
+  public bool $secretsEncrypted = false;
+
   // #region Properties
   #[ORM\Id]
   #[ORM\Column(name: 'user_id', type: 'string', length: 36)]

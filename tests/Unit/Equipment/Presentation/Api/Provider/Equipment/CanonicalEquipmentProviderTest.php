@@ -6,6 +6,7 @@ namespace Tests\Unit\Equipment\Presentation\Api\Provider\Equipment;
 
 use ApiPlatform\Metadata\{Get, GetCollection};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
@@ -182,6 +183,33 @@ final class CanonicalEquipmentProviderTest extends TestCase
       $security,
       $requestStack,
       new InterventionResourceManager($resources),
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->detailQueries(), new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
     );
+  }
+
+  private function detailQueries(): \Shared\Application\Port\Inbound\QueryBusPort
+  {
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Shared\Application\Message\QueryMessage $query): \Shared\Application\Message\ResultMessage => $query instanceof \Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentQuery
+      ? new \Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult(
+        equipmentId: 'equipment-id',
+        organizationId: self::ORGANIZATION_ID,
+        facilityId: null,
+        type: 'fire_extinguisher',
+        subType: null,
+        brand: null,
+        model: null,
+        serialNumber: null,
+        locationLabel: null,
+        status: 'in_stock',
+        installedAt: null,
+        commissionedAt: null,
+        tags: [],
+        createdAt: new DateTimeImmutable('2026-09-20'),
+        updatedAt: new DateTimeImmutable('2026-09-20'),
+      )
+      : new \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentResult(new \Equipment\Application\Contract\Equipment\CanonicalEquipmentView('equipment-id', self::ORGANIZATION_ID, 'published', null, 3)));
+
+    return $queries;
   }
 }

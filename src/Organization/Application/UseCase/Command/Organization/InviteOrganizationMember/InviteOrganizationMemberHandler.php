@@ -10,6 +10,7 @@ use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Outbound\InvitationDeliveryQueuePort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
@@ -81,6 +82,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     private TransactionManagerPort $transactionManager,
     private OrganizationQuotaPort $quota,
     private EventDispatcherPort $eventDispatcher,
+    private InvitationDeliveryQueuePort $deliveryQueue,
     private ?OrganizationSetupPort $setup = null,
   ) {
   }
@@ -183,6 +185,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       $organizationId,
       $email,
       $existingUser,
+      $tokenHash,
       &$replayed,
     ): InviteOrganizationMemberResult {
       if (null !== $command->setupContext) {
@@ -230,6 +233,16 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
 
       $this->invitationRepository->save($invitation);
       $this->invitationRepository->replaceRoleIds($invitation->id(), $roleIdsAsVo);
+      if ($command->deferDelivery) {
+        $this->deliveryQueue->enqueue((string) $invitation->id(), $acceptUrl, $tokenHash);
+        $this->eventDispatcher->dispatch(new OrganizationInvitationSentEvent(
+          organizationId: $command->organizationId,
+          invitationId: (string) $invitation->id(),
+          invitedEmail: $command->email,
+          invitedByUserId: $command->invitedByUserId,
+          resend: false,
+        ));
+      }
       if (null !== $command->setupContext) {
         ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'invite_members', (string) $invitation->id());
       }
@@ -237,7 +250,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       return $this->buildResult($invitation, $acceptUrl);
     });
 
-    if ($replayed) {
+    if ($replayed || $command->deferDelivery) {
       return $result;
     }
 

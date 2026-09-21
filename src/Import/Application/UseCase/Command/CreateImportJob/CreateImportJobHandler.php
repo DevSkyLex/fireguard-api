@@ -11,7 +11,7 @@ use Import\Domain\ValueObject\{ImportJobId, ImportKind};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Application\Port\Outbound\{FileStoragePort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -62,6 +62,7 @@ final readonly class CreateImportJobHandler implements CommandHandler
     private ImportJobQueuePort $queue,
     private OrganizationAuthorizationPort $authorization,
     private UuidFactory $uuidFactory,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -115,14 +116,15 @@ final readonly class CreateImportJobHandler implements CommandHandler
     $this->fileStorage->write($storagePath, $command->contents);
 
     try {
-      $this->repository->save($job);
+      $this->transactionManager->transactional(function () use ($job, $id): void {
+        $this->repository->save($job);
+        $this->queue->dispatch((string) $id);
+      });
     } catch (Throwable $exception) {
       $this->fileStorage->delete($storagePath);
 
       throw $exception;
     }
-
-    $this->queue->dispatch((string) $id);
 
     return new CreateImportJobResult(
       importJobId: (string) $id,

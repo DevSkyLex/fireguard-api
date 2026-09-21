@@ -28,6 +28,11 @@ final class CreateChecklistInput
   #[ApiProperty(description: 'Optional human-facing reference code, unique per organization', required: false, example: 'CHK-EXT-Q')]
   public ?string $referenceCode = null;
 
+  #[Assert\Uuid]
+  #[Groups([InspectionSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Previous checklist in the same organization. Creates a distinct revision without changing existing inspections.')]
+  public ?string $previousChecklistId = null;
+
   /**
    * @var list<ChecklistItemInput>
    */

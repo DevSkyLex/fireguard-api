@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionOutcome};
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Application\Service\EquipmentProvisioningService;
-use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\AssignToFacilityCommand;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
@@ -172,11 +171,11 @@ final class EquipmentProvisioningServiceTest extends TestCase
   }
 
   #[Test]
-  public function itAssignsTheCreatedEquipmentWhenTheFacilityCodeResolves(): void
+  public function itCreatesAndAssignsWithOneCommandWhenTheFacilityCodeResolves(): void
   {
     $dispatched = [];
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::exactly(2))
+    $commandBus->expects(self::once())
       ->method('dispatch')
       ->willReturnCallback(function (object $command) use (&$dispatched): CreateEquipmentResult {
         $dispatched[] = $command;
@@ -193,25 +192,18 @@ final class EquipmentProvisioningServiceTest extends TestCase
     self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
     self::assertSame('equipment-9', $result->resourceId);
     self::assertInstanceOf(CreateEquipmentCommand::class, $dispatched[0]);
-    self::assertInstanceOf(AssignToFacilityCommand::class, $dispatched[1]);
-    self::assertSame('equipment-9', $dispatched[1]->equipmentId);
-    self::assertSame('facility-7', $dispatched[1]->facilityId);
-    self::assertSame(self::ORGANIZATION_ID, $dispatched[1]->organizationId);
+    self::assertSame('facility-7', $dispatched[0]->facilityId);
+    self::assertSame(self::ORGANIZATION_ID, $dispatched[0]->organizationId);
   }
 
   #[Test]
-  public function itReportsInvalidWithTheCreatedIdWhenTheAssignmentFailsAfterCreation(): void
+  public function itReportsInvalidWithoutACreatedIdWhenAssignmentFails(): void
   {
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::exactly(2))
+    $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturnCallback(function (object $command): CreateEquipmentResult {
-        if ($command instanceof AssignToFacilityCommand) {
-          throw MessengerRuntimeException::wrap(new InvalidArgumentException('Facility with ID "facility-7" is archived and cannot be used.'));
-        }
-
-        return $this->fakeResult('equipment-9');
-      });
+      ->with(self::isInstanceOf(CreateEquipmentCommand::class))
+      ->willThrowException(MessengerRuntimeException::wrap(new InvalidArgumentException('Facility with ID "facility-7" is archived and cannot be used.')));
 
     $facilityValidation = $this->createStub(FacilityValidationPort::class);
     $facilityValidation->method('resolveIdByCode')->willReturn('facility-7');
@@ -220,8 +212,7 @@ final class EquipmentProvisioningServiceTest extends TestCase
       ->provision($this->request(facilityCode: 'WH-01'));
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
-    self::assertSame('equipment-9', $result->resourceId, 'The created-but-unassigned equipment id must be reported.');
-    self::assertStringContainsString('created but could not be assigned', (string) $result->message);
+    self::assertNull($result->resourceId);
     self::assertStringContainsString('archived', (string) $result->message);
   }
 
@@ -255,6 +246,8 @@ final class EquipmentProvisioningServiceTest extends TestCase
 
     self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
     self::assertInstanceOf(CreateEquipmentCommand::class, $dispatched[0]);
+    self::assertSame('facility-7', $dispatched[0]->facilityId);
+    self::assertTrue($dispatched[0]->dryRun);
   }
 
   #[Test]

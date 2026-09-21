@@ -548,13 +548,49 @@ that runs neither leaves every assistant reply at `pending` forever, with no
 cancel endpoint and no server-side deadline to settle it.
 
 **Worker command** (must run permanently, e.g. under supervisor/systemd):
+
+After the independent auth/main migrations, initialize framework-owned tables
+before starting the new worker version:
+
+```bash
+php bin/console messenger:setup-transports main_outbox main_failed failed
+```
+
+`main_outbox` is the PostgreSQL outbox on the main connection; its table is
+excluded from ORM schema diffs because Messenger owns its schema. Deployment
+does not create a cross-database transaction. Both Compose configurations include
+the workflow consumer. Production keys and application configuration must already
+be provisioned through the normal deployment environment.
+
 ```bash
 php bin/console messenger:consume \
-  async webhook assistant \
+  main_outbox async webhook assistant \
   scheduler_maintenance scheduler_intervention scheduler_approval \
   scheduler_inspection scheduler_organization \
   --time-limit=3600
 ```
+
+Monitor `messenger:stats main_outbox main_failed async failed`, the age of the
+oldest undelivered message, and business jobs that remain pending/processing.
+Inspect failures with `messenger:failed:show --transport=main_failed` (or `failed`
+for general work). After correcting the cause, retry selected message IDs with
+`messenger:failed:retry <id> --transport=main_failed`. Replays retain event identity;
+do not delete consumer receipts while messages or backups can still replay them.
+
+For the import cutover, drain or stop the previous worker version before starting
+new workers. Reconcile legacy processing jobs before allowing automatic resumption:
+the previous implementation could create rows beyond its last saved counter and
+cannot retroactively supply atomic receipts for them. New jobs commit every row's
+creation, receipt and progress together. Keep row receipts for the lifetime of the
+job and any replayable message/backup. A stopped worker's lease expires after 120
+seconds; live row transactions remain protected by a database lock.
+
+Imported invitations are delivered from `main_outbox` after their creation commits.
+Delivery failures do not erase confirmed import rows. Retry the delivery message;
+expired, revoked or rotated invitations are ignored. Restrict access to queue storage
+and failure inspection: invitation messages contain the accept URL until consumed.
+Never copy payloads into logs. External email delivery is at least once; a provider
+acknowledgement lost after delivery can cause a repeat.
 
 **The transport list must be kept in sync with `config/packages/messenger.yaml`.**
 A transport with no consumer does not error — it silently accumulates messages
@@ -563,7 +599,8 @@ work" and produces no log line to investigate. Concretely, per transport:
 
 | Transport | Omitting it means |
 | --- | --- |
-| `async` | Intervention publication, recurrence materialization, maintenance recompute, automation rules and CSV imports never execute |
+| `main_outbox` | Publications, durable domain events, automation rules, CSV imports and deferred invitations never execute |
+| `async` | Recurrence materialization and maintenance recompute never execute |
 | `webhook` | No outbound webhook is ever delivered; subscriptions look healthy and fire nothing |
 | `assistant` | **Every assistant question stays `pending` forever** — the user asks, no answer and no error ever arrives |
 | `scheduler_maintenance` | Inspection due dates are never recomputed; no due/overdue reminders |
@@ -700,6 +737,19 @@ MAIN_DATABASE_URL="postgresql://main_user:password@pgbouncer-main:6432/fireguard
 
 ## Troubleshooting
 
+### Interactive session security rollout
+
+Deploy mandatory session persistence and atomic refresh together. A login, MFA
+completion or registration auto-login only returns tokens after its `auth` session
+is stored. An existing session recorded with its current token pair continues to
+work; a legacy token with no session record requires signing in again. TOTP
+enrollments and authenticators are unaffected. Refresh invalidates the previous
+access token, so clients must share a single refresh in flight. Monitor refresh
+failures and login storage errors without logging token values. Do not restore
+the previous permissive authenticator during rollback: it accepted untracked
+tokens, including an MFA pre-authentication token on protected API endpoints.
+
+
 ### Common Issues
 
 | Issue | Symptoms | Solution |
@@ -752,6 +802,20 @@ For security incidents, follow your organization's incident response procedures.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Architecture documentation
 - Module documentation in `src/<Module>/MODULE.md`
 
+## Maintenance evaluation rollout
 
+Apply main migration `Version20260920193000` before deploying evaluation-aware consumers.
+Keep the main outbox worker and the existing maintenance sweep running: equipment and
+compliance-policy events trigger recomputation, while the sweep repairs missed events and
+initializes legacy schedules. A null `evaluatedAt` intentionally means not yet evaluated;
+report generation time must not be used as data freshness. Monitor outbox backlog and
+unevaluated equipment counts until the first complete sweep has finished. No existing
+archived safety register is regenerated.
 
+## Import simulation confirmation rollout
 
+Apply main migration `Version20260921230000` before deploying confirmation consumers.
+Preserve retained CSV files while a simulation or its linked real import can still be
+confirmed, resumed or replayed. Both jobs intentionally reference the same immutable
+bytes; cleanup must account for both references. Monitor failed main outbox deliveries
+and import progress. A successful simulation does not reserve quotas or resource references.

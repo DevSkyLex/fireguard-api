@@ -74,6 +74,7 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
           'options' => ['temperature' => $temperature],
         ],
         'timeout' => $timeoutSeconds,
+        'max_duration' => $timeoutSeconds,
       ]);
 
       $statusCode = $response->getStatusCode();
@@ -128,6 +129,8 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
       }
     } catch (TransportExceptionInterface $exception) {
       return new AssistantGenerationOutcome($body, $tokenCount, 'ollama_stream_error', $exception->getMessage());
+    } finally {
+      $response->cancel();
     }
 
     if ('' === $body) {

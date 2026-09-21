@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Import\Application\UseCase\Query\ListImportJobs;
 
 use Import\Application\Port\Outbound\ImportJobRepositoryPort;
+use Import\Application\Service\ImportPermissions;
 use Import\Application\UseCase\Query\GetImportJob\GetImportJobResult;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use Import\Domain\ValueObject\ImportKind;
@@ -20,9 +21,8 @@ use function max;
  * UseCase ListImportJobsHandler.
  *
  * Org-scoped listing. When a `kind` filter is given, the matching kind's
- * read permission is required; otherwise any of `organization.equipment.read`,
- * `organization.facilities.read` or `organization.members.read` grants
- * visibility over the mixed list.
+ * read permission is required. Mixed collections and their totals include only
+ * kinds whose read permission the current member holds, before pagination.
  *
  * The caller names the organization in the query, so the check separates
  * "not a member of that organization" (404, the same answer an unknown
@@ -67,13 +67,13 @@ final readonly class ListImportJobsHandler implements QueryHandler
   public function __invoke(ListImportJobsQuery $query): ListImportJobsResult
   {
     $kind = null === $query->kind ? null : $this->resolveKind($query->kind);
-    $this->assertReadAccess($query->userId, $query->organizationId, $kind);
+    $allowedKinds = $this->readableKinds($query->userId, $query->organizationId, $kind);
 
     $itemsPerPage = max(1, $query->itemsPerPage);
     $offset = max(0, $query->page - 1) * $itemsPerPage;
 
-    $jobs = $this->repository->listByOrganization($query->organizationId, $kind, $itemsPerPage, $offset);
-    $total = $this->repository->countByOrganization($query->organizationId, $kind);
+    $jobs = $this->repository->listByOrganization($query->organizationId, $kind, $itemsPerPage, $offset, $allowedKinds);
+    $total = $this->repository->countByOrganization($query->organizationId, $kind, $allowedKinds);
 
     return new ListImportJobsResult(
       items: array_map(GetImportJobResult::fromDomain(...), $jobs),
@@ -102,18 +102,20 @@ final readonly class ListImportJobsHandler implements QueryHandler
   }
 
   /**
-   * Method assertReadAccess.
+   * Method readableKinds.
    *
    * @since 1.0.0
    *
    * @param string $userId the acting user identifier
    * @param string $organizationId the owning organization identifier
    * @param ?ImportKind $kind the resolved kind filter, when given
+   *
+   * @return non-empty-list<ImportKind> authorized kinds to apply before paging and counting
    */
-  private function assertReadAccess(string $userId, string $organizationId, ?ImportKind $kind): void
+  private function readableKinds(string $userId, string $organizationId, ?ImportKind $kind): array
   {
     if (null !== $kind) {
-      $permission = $this->readPermission($kind);
+      $permission = ImportPermissions::read($kind);
 
       $decision = $this->authorization->resolveAccess($userId, $organizationId, $permission);
       if ($decision->isOutsideScope()) {
@@ -123,7 +125,7 @@ final readonly class ListImportJobsHandler implements QueryHandler
         throw ImportAccessDeniedException::missingPermission($permission);
       }
 
-      return;
+      return [$kind];
     }
 
     // The unfiltered list is granted by ANY of the kinds' read permissions,
@@ -134,31 +136,17 @@ final readonly class ListImportJobsHandler implements QueryHandler
       throw ImportJobNotFoundException::forOrganizationScope($organizationId);
     }
 
-    $hasEquipmentRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.equipment.read');
-    $hasFacilityRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.facilities.read');
-    $hasMemberRead = $this->authorization->hasPermission($userId, $organizationId, 'organization.members.read');
-
-    if (!$hasEquipmentRead && !$hasFacilityRead && !$hasMemberRead) {
+    $kinds = [];
+    foreach (ImportKind::cases() as $candidate) {
+      if ($this->authorization->hasPermission($userId, $organizationId, ImportPermissions::read($candidate))) {
+        $kinds[] = $candidate;
+      }
+    }
+    if ([] === $kinds) {
       throw ImportAccessDeniedException::missingPermission('organization.equipment.read');
     }
-  }
 
-  /**
-   * Method readPermission.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportKind $kind the import kind value
-   *
-   * @return string the required organization permission
-   */
-  private function readPermission(ImportKind $kind): string
-  {
-    return match ($kind) {
-      ImportKind::EQUIPMENT => 'organization.equipment.read',
-      ImportKind::FACILITY => 'organization.facilities.read',
-      ImportKind::MEMBER => 'organization.members.read',
-    };
+    return $kinds;
   }
   // #endregion
 }

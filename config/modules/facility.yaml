@@ -166,6 +166,7 @@ services:
   Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
     arguments:
       $transactionManager: '@facility.main_transaction_manager'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Command\Facility\UpdateFacility\UpdateFacilityHandler:
@@ -264,3 +265,7 @@ services:
     alias: Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter
 
   Facility\Infrastructure\Adapter\Geocoding\PhotonAddressSuggestionsAdapter: ~
+
+  Facility\Infrastructure\EventSubscriber\FacilityPlanAuditListener:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'

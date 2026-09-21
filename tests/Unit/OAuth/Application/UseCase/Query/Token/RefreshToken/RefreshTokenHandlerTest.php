@@ -14,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+use UnexpectedValueException;
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 
@@ -32,6 +33,7 @@ final class RefreshTokenHandlerTest extends TestCase
   public function testReturnsFailureWhenTokenMissing(): void
   {
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $this->createStub(JwtTokenServicePort::class),
       queryBus: $this->createStub(QueryBusPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -64,6 +66,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ));
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $this->createStub(QueryBusPort::class),
       eventDispatcher: $eventDispatcher,
@@ -84,7 +87,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ->method('decodeRefreshToken')
       ->with('refresh-token')
       ->willReturn([
-        'user_id' => 'user-123',
+        'user_id' => 'user-123', 'access_token_id' => 'access-old', 'refresh_token_id' => 'refresh-old',
         'scopes' => ['openid'],
       ]);
 
@@ -104,6 +107,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ));
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $queryBus,
       eventDispatcher: $eventDispatcher,
@@ -144,6 +148,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ));
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $queryBus,
       eventDispatcher: $eventDispatcher,
@@ -169,6 +174,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ]);
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $this->createStub(QueryBusPort::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
@@ -189,7 +195,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ->method('decodeRefreshToken')
       ->with('refresh-token')
       ->willReturn([
-        'user_id' => 'user-123',
+        'user_id' => 'user-123', 'access_token_id' => 'access-old', 'refresh_token_id' => 'refresh-old',
         'scopes' => ['openid'],
       ]);
 
@@ -209,6 +215,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ));
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $queryBus,
       eventDispatcher: $eventDispatcher,
@@ -229,7 +236,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ->method('decodeRefreshToken')
       ->with('refresh-token')
       ->willReturn([
-        'user_id' => 'user-123',
+        'user_id' => 'user-123', 'access_token_id' => 'access-old', 'refresh_token_id' => 'refresh-old',
         'scopes' => ['openid', 'profile'],
         'remember_me' => true,
       ]);
@@ -259,6 +266,7 @@ final class RefreshTokenHandlerTest extends TestCase
       ->with(self::isInstanceOf(TokenRefreshedEvent::class));
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $queryBus,
       eventDispatcher: $eventDispatcher,
@@ -276,16 +284,15 @@ final class RefreshTokenHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testTokenIdentifiersAreNullWhenTheServiceOmitsOrBlanksThem(): void
+  public function testMissingTokenIdentifiersCannotIssueAnUntrackedSession(): void
   {
-    // The token service is not contractually required to return the optional
-    // identifier keys; the handler must degrade to null rather than assume.
+    // Returning tokens without a revocation anchor must fail closed.
     /** @var JwtTokenServicePort&MockObject $tokenService */
     $tokenService = $this->createMock(JwtTokenServicePort::class);
     $tokenService->expects(self::once())
       ->method('decodeRefreshToken')
       ->willReturn([
-        'user_id' => 'user-123',
+        'user_id' => 'user-123', 'access_token_id' => 'access-old', 'refresh_token_id' => 'refresh-old',
         'scopes' => ['openid'],
         'remember_me' => false,
       ]);
@@ -309,19 +316,25 @@ final class RefreshTokenHandlerTest extends TestCase
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $eventDispatcher->expects(self::once())->method('dispatch');
+    $eventDispatcher->expects(self::never())->method('dispatch');
 
     $handler = new RefreshTokenHandler(
+      sessions: $this->rotation(),
       tokenService: $tokenService,
       queryBus: $queryBus,
       eventDispatcher: $eventDispatcher,
     );
 
-    $result = $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token', ipAddress: '127.0.0.1'));
+    $this->expectException(UnexpectedValueException::class);
+    $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token', ipAddress: '127.0.0.1'));
+  }
 
-    self::assertTrue($result->success);
-    self::assertNull($result->accessTokenId);
-    self::assertNull($result->refreshTokenId);
+  private function rotation(): \OAuth\Application\Port\Outbound\SessionRotationPort
+  {
+    $rotation = $this->createStub(\OAuth\Application\Port\Outbound\SessionRotationPort::class);
+    $rotation->method('rotate')->willReturn(true);
+
+    return $rotation;
   }
 
   private function createUserView(bool $canLogin): UserView

@@ -45,12 +45,6 @@ final class ImportJobRepositoryTest extends KernelTestCase
 
   private const string JOB_TIE_HIGH = '770e8400-e29b-41d4-a716-4466554400b2';
 
-  private const string CLAIM_PENDING = '770e8400-e29b-41d4-a716-4466554400c1';
-
-  private const string CLAIM_COMPLETED = '770e8400-e29b-41d4-a716-4466554400c2';
-
-  private const string CLAIM_FAILED = '770e8400-e29b-41d4-a716-4466554400c3';
-
   private const string ABSENT_JOB = '770e8400-e29b-41d4-a716-4466554400cf';
 
   private EntityManagerInterface $entityManager;
@@ -211,6 +205,22 @@ final class ImportJobRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testPermissionScopeFiltersBeforePaginationAndCounting(): void
+  {
+    $this->saveJob(self::JOB_A, ImportKind::EQUIPMENT, ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
+    $this->saveJob(self::JOB_B, ImportKind::FACILITY, ImportStatus::PENDING, new DateTimeImmutable('2026-04-02T08:00:00+00:00'));
+    $this->saveJob(self::JOB_C, ImportKind::EQUIPMENT, ImportStatus::PROCESSING, new DateTimeImmutable('2026-04-03T08:00:00+00:00'));
+    $this->saveJob(self::OTHER_JOB, ImportKind::EQUIPMENT, ImportStatus::PENDING, new DateTimeImmutable('2026-04-04T08:00:00+00:00'), self::OTHER_ORGANIZATION_ID);
+
+    self::assertSame([self::JOB_A], $this->idsOf($this->repository->listByOrganization(self::ORGANIZATION_ID, null, 1, 1, [ImportKind::EQUIPMENT])));
+    self::assertSame(2, $this->repository->countByOrganization(self::ORGANIZATION_ID, null, [ImportKind::EQUIPMENT]));
+    self::assertSame([], $this->repository->listByOrganization(self::ORGANIZATION_ID, ImportKind::FACILITY, 10, 0, [ImportKind::EQUIPMENT]));
+    self::assertSame(0, $this->repository->countByOrganization(self::ORGANIZATION_ID, ImportKind::FACILITY, [ImportKind::EQUIPMENT]));
+    self::assertSame([], $this->repository->listByOrganization(self::ORGANIZATION_ID, null, 10, 0, []));
+    self::assertSame(0, $this->repository->countByOrganization(self::ORGANIZATION_ID, null, []));
+  }
+
+  #[Test]
   public function testCountByOrganizationHonoursTheKindFilterAndScope(): void
   {
     $this->saveJob(self::JOB_A, ImportKind::EQUIPMENT, ImportStatus::COMPLETED, new DateTimeImmutable('2026-04-01T08:00:00+00:00'));
@@ -224,51 +234,6 @@ final class ImportJobRepositoryTest extends KernelTestCase
     // Scoped to the other organization: one equipment job, zero facility jobs.
     self::assertSame(1, $this->repository->countByOrganization(self::OTHER_ORGANIZATION_ID, null));
     self::assertSame(0, $this->repository->countByOrganization(self::OTHER_ORGANIZATION_ID, ImportKind::FACILITY));
-  }
-
-  #[Test]
-  public function testClaimTransitionsPendingIsIdempotentForProcessingAndRejectsTerminal(): void
-  {
-    $this->saveJob(self::CLAIM_PENDING, ImportKind::EQUIPMENT, ImportStatus::PENDING, new DateTimeImmutable('2026-06-01T06:00:00+00:00'));
-    $this->saveJob(
-      self::CLAIM_COMPLETED,
-      ImportKind::EQUIPMENT,
-      ImportStatus::COMPLETED,
-      new DateTimeImmutable('2026-06-01T06:00:00+00:00'),
-      completedAt: new DateTimeImmutable('2026-06-01T06:30:00+00:00'),
-    );
-    $this->saveJob(
-      self::CLAIM_FAILED,
-      ImportKind::FACILITY,
-      ImportStatus::FAILED,
-      new DateTimeImmutable('2026-06-01T06:00:00+00:00'),
-      jobError: 'Unreadable upload',
-      completedAt: new DateTimeImmutable('2026-06-01T06:30:00+00:00'),
-    );
-
-    // A pending job is claimed: it becomes processing and gains a started_at.
-    self::assertTrue($this->repository->claim(ImportJobId::fromString(self::CLAIM_PENDING)));
-    $this->entityManager->clear();
-    $claimed = $this->repository->findById(ImportJobId::fromString(self::CLAIM_PENDING));
-    self::assertInstanceOf(ImportJob::class, $claimed);
-    self::assertSame(ImportStatus::PROCESSING, $claimed->status());
-    self::assertNotNull($claimed->startedAt());
-    $firstStartedAt = $claimed->startedAt();
-
-    // Re-claiming an already-processing job is a safe no-op: still true, started_at preserved (COALESCE).
-    self::assertTrue($this->repository->claim(ImportJobId::fromString(self::CLAIM_PENDING)));
-    $this->entityManager->clear();
-    $reclaimed = $this->repository->findById(ImportJobId::fromString(self::CLAIM_PENDING));
-    self::assertInstanceOf(ImportJob::class, $reclaimed);
-    self::assertSame(ImportStatus::PROCESSING, $reclaimed->status());
-    self::assertEquals($firstStartedAt, $reclaimed->startedAt());
-
-    // Terminal jobs are never reclaimed.
-    self::assertFalse($this->repository->claim(ImportJobId::fromString(self::CLAIM_COMPLETED)));
-    self::assertFalse($this->repository->claim(ImportJobId::fromString(self::CLAIM_FAILED)));
-
-    // An unknown identifier claims nothing.
-    self::assertFalse($this->repository->claim(ImportJobId::fromString(self::ABSENT_JOB)));
   }
 
   /**

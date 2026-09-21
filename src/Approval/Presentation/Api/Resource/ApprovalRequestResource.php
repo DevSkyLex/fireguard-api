@@ -6,10 +6,10 @@ namespace Approval\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
-use Approval\Presentation\Api\Dto\Input\{ApproveApprovalRequestInput, RejectApprovalRequestInput};
+use Approval\Presentation\Api\Dto\Input\{ApproveApprovalRequestInput, RejectApprovalRequestInput, WithdrawApprovalRequestInput};
 use Approval\Presentation\Api\Dto\Output\ApprovalRequestOutput;
 use Approval\Presentation\Api\Operation\ApprovalOperations;
-use Approval\Presentation\Api\Processor\{ApproveApprovalRequestProcessor, RejectApprovalRequestProcessor};
+use Approval\Presentation\Api\Processor\{ApproveApprovalRequestProcessor, RejectApprovalRequestProcessor, WithdrawApprovalRequestProcessor};
 use Approval\Presentation\Api\Provider\{GetApprovalRequestProvider, ListApprovalRequestsProvider};
 use Approval\Presentation\Api\Serialization\ApprovalSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -107,6 +107,30 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Rejected'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions, below the minimum approver role, or self-approval'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Request no longer pending'),
+        ],
+      ),
+    ),
+    new Post(
+      name: ApprovalOperations::WITHDRAW_APPROVAL_REQUEST,
+      uriTemplate: '/{organizationId}/approval-requests/{requestId}/withdraw',
+      status: HttpResponse::HTTP_OK,
+      input: WithdrawApprovalRequestInput::class,
+      output: ApprovalRequestOutput::class,
+      processor: WithdrawApprovalRequestProcessor::class,
+      read: false,
+      strictQueryParameterValidation: true,
+      denormalizationContext: ['groups' => [ApprovalSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Approvals'],
+        summary: 'Withdraw your pending approval request',
+        description: 'Only the original requester with active organization membership may withdraw. The deferred action is never executed.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Withdrawn with actor, time and optional reason'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Caller is not the requester'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Request outside active membership scope or unknown'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Request no longer pending or expired'),
         ],
       ),
     ),

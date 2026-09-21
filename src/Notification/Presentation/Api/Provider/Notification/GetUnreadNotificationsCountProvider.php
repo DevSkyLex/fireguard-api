@@ -67,7 +67,7 @@ final readonly class GetUnreadNotificationsCountProvider implements ProviderInte
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $organizationId = $this->toNullableString($this->requestStack->getCurrentRequest()?->query->get('organization'));
+    $organizationId = $this->toNullableString(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization'));
 
     /** @var GetUnreadNotificationsCountResult $result */
     $result = $this->queryBus->ask(new GetUnreadNotificationsCountQuery(

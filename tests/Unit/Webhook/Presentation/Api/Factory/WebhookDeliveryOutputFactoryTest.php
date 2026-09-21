@@ -48,7 +48,8 @@ final class WebhookDeliveryOutputFactoryTest extends TestCase
     self::assertSame('delivered', $output->status);
     self::assertSame(2, $output->attempts);
     self::assertSame(204, $output->httpStatus);
-    self::assertSame('previous failure', $output->lastError);
+    self::assertNull($output->lastError);
+    self::assertNull($output->errorCode);
     self::assertSame('2026-07-18T01:00:00+00:00', $output->nextRetryAt);
     self::assertSame('2026-07-18T02:00:00+00:00', $output->deliveredAt);
     self::assertSame('2026-07-18T00:00:00+00:00', $output->createdAt);
@@ -77,5 +78,35 @@ final class WebhookDeliveryOutputFactoryTest extends TestCase
     self::assertNull($output->nextRetryAt);
     self::assertNull($output->deliveredAt);
     self::assertSame(0, $output->attempts);
+  }
+
+  #[Test]
+  public function testLegacyDiagnosticsNeverExposeAddressesOrCredentials(): void
+  {
+    foreach ([
+      [null, 'cURL: https://user:secret@10.0.0.1/private failed', 'webhook_delivery_failed'],
+      [503, 'upstream 10.0.0.2 internal body', 'webhook_http_error'],
+      [null, 'The delivery timed out.', 'webhook_timeout'],
+      [null, 'The destination is unreachable or disallowed.', 'webhook_destination_unreachable'],
+      [null, 'The target URL is invalid or disallowed.', 'webhook_destination_disallowed'],
+    ] as [$status, $diagnostic, $code]) {
+      $view = new WebhookDeliveryResult(
+        self::DELIVERY_ID,
+        self::SUBSCRIPTION_ID,
+        'webhook.ping',
+        'failed',
+        5,
+        $status,
+        $diagnostic,
+        null,
+        null,
+        new DateTimeImmutable(),
+      );
+      $output = new WebhookDeliveryOutputFactory()->fromView($view);
+      self::assertSame($code, $output->errorCode);
+      self::assertNotNull($output->lastError);
+      self::assertStringNotContainsString('10.0.', $output->lastError);
+      self::assertStringNotContainsString('secret', $output->lastError);
+    }
   }
 }

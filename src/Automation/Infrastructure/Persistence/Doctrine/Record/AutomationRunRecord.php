@@ -95,4 +95,16 @@ class AutomationRunRecord
    */
   #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
   public DateTimeImmutable $createdAt;
+
+  /**
+   * @var array<string, mixed>|null
+   */
+  #[ORM\Column(name: 'trigger_payload', type: 'json', nullable: true, options: ['jsonb' => true])]
+  public ?array $triggerPayload = null;
+
+  #[ORM\Column(name: 'current_attempt_id', type: 'string', length: 36, nullable: true)]
+  public ?string $currentAttemptId = null;
+
+  #[ORM\Column(name: 'attempt_count', type: 'integer', options: ['default' => 1])]
+  public int $attemptCount = 1;
 }

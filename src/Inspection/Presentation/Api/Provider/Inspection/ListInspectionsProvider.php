@@ -76,18 +76,18 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $equipmentId = $request?->query->get('equipmentId');
+    $equipmentId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('equipmentId');
     $uriFacilityId = $uriVariables['facilityId'] ?? null;
-    $queryFacilityId = $request?->query->get('facilityId');
+    $queryFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facilityId');
     $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
-    $result = $request?->query->get('result');
-    $status = $request?->query->get('status');
-    $performedAtFrom = $request?->query->get('performedAtFrom');
-    $performedAtTo = $request?->query->get('performedAtTo');
-    $inspectorUserId = $request?->query->get('inspectorUserId');
-    $checklistId = $request?->query->get('checklistId');
+    $result = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('result');
+    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
+    $performedAtFrom = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('performedAtFrom');
+    $performedAtTo = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('performedAtTo');
+    $inspectorUserId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('inspectorUserId');
+    $checklistId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('checklistId');
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

@@ -164,6 +164,7 @@ interface MaintenanceScheduleRepositoryPort
     ?string $facilityId,
     ?string $equipmentType,
     ?string $dueStatus,
+    ?DateTimeImmutable $dueBefore = null,
   ): int;
 
   /**
@@ -188,6 +189,7 @@ interface MaintenanceScheduleRepositoryPort
     ?string $facilityId,
     ?string $equipmentType,
     ?string $dueStatus,
+    ?DateTimeImmutable $dueBefore = null,
   ): array;
   // #endregion
 }

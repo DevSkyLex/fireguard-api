@@ -330,6 +330,7 @@ final class CreateInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenChecklistNotFound(): void
   {
     $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(InspectionId::fromString(self::INSP_ID));
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
@@ -365,6 +366,7 @@ final class CreateInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenChecklistIsArchived(): void
   {
     $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(InspectionId::fromString(self::INSP_ID));
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
@@ -506,6 +508,7 @@ final class CreateInspectionHandlerTest extends TestCase
     );
 
     return new CreateInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $equipmentValidation,
       facilityValidation: $facilityValidation,

@@ -89,6 +89,7 @@ final class AddNonConformityHandlerTest extends TestCase
       nonConformityRepository: $ncRepository,
       uuidFactory: $uuidFactory,
       eventDispatcher: $eventDispatcher,
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $result = $handler->__invoke(new AddNonConformityCommand(
@@ -127,6 +128,7 @@ final class AddNonConformityHandlerTest extends TestCase
       nonConformityRepository: $ncRepository,
       uuidFactory: $uuidFactory,
       eventDispatcher: $eventDispatcher,
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -160,6 +162,7 @@ final class AddNonConformityHandlerTest extends TestCase
       nonConformityRepository: $ncRepository,
       uuidFactory: $uuidFactory,
       eventDispatcher: $eventDispatcher,
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $this->expectException(InspectionAlreadyClosedException::class);
@@ -180,6 +183,7 @@ final class AddNonConformityHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
       uuidFactory: $this->createStub(UuidFactory::class),
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $this->expectException(InvalidValueException::class);
@@ -251,6 +255,7 @@ final class AddNonConformityHandlerTest extends TestCase
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
       uuidFactory: $uuidFactory,
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
   }
 

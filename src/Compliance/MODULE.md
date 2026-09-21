@@ -27,8 +27,9 @@ Two capabilities:
 Reads are **live** (current snapshot at `generatedAt`, same semantics as the
 dashboard overview): `maintenance_schedules` only carries the CURRENT
 `dueStatus`, so reconstructing past compliance is out of scope for v1. The
-exported PDF is a point-in-time snapshot; it is not persisted (regenerable at
-any time), and provenance (who exported what, when, under which plan) is
+live exported PDF is a point-in-time snapshot; separate archived registers persist the
+original PDF. The live export can be regenerated at
+any time, and provenance (who exported what, when, under which plan) is
 captured by the `compliance.register_exported` domain event in the Audit
 ledger — no dedicated export-log table.
 
@@ -463,3 +464,12 @@ same document, retained.
 | `ComplianceExportNotEntitledException` | 403 Forbidden ("upgrade required") |
 | `ComplianceNotFoundException` | 404 Not Found |
 
+
+## Evaluation coverage
+
+The current summary and newly generated PDF distinguish `generatedAt` (including the 60-second
+read cache) from `dataEvaluatedAt`, the oldest confirmed maintenance evaluation in the scope.
+`unevaluatedEquipmentCount` counts active inventory without a confirmed evaluation, including
+legacy schedules with no evaluation date. It differs from `unscheduledEquipmentCount` (evaluated
+without a periodicity). Dates and coverage are supplied by Maintenance; Compliance does not
+recompute due statuses. Existing immutable archived PDF files are not regenerated.

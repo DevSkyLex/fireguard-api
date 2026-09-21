@@ -80,15 +80,15 @@ final readonly class InterventionActivityProvider implements ProviderInterface
       throw new BadRequestHttpException('The interventionId URI parameter is required.');
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
 
     try {
       /** @var ListInterventionActivitiesResult $result */
       $result = $this->queryBus->ask(new ListInterventionActivitiesQuery(
         $user->getId(),
         $interventionId,
-        max(1, $query?->getInt('page', 1) ?? 1),
-        max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30)),
+        max(1, $query->getInt('page', 1)),
+        max(1, min(100, $query->getInt('itemsPerPage', 30))),
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

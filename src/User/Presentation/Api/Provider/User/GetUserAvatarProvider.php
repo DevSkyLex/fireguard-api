@@ -100,7 +100,7 @@ final readonly class GetUserAvatarProvider implements ProviderInterface
 
     $request = $context['request'] ?? null;
     $requested = $uriVariables['size']
-      ?? ($request instanceof Request ? $request->query->get('size') : null)
+      ?? ($request instanceof Request ? \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('size') : null)
       ?? self::DEFAULT_SIZE;
     $size = $this->resolveSize(is_numeric($requested) ? (int) $requested : self::DEFAULT_SIZE);
     $path = sprintf('avatars/%s/%d.webp', $id, $size);

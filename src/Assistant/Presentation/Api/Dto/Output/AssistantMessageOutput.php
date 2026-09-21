@@ -109,5 +109,29 @@ final class AssistantMessageOutput
   #[Groups([AssistantSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $completedAt = null;
+
   // #endregion
+  #[Groups([AssistantSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $attemptId = null;
+
+  #[Groups([AssistantSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $attemptNumber = 0;
+
+  #[Groups([AssistantSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $attemptSequence = 0;
+
+  #[Groups([AssistantSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $attemptExpiresAt = null;
+
+  #[Groups([AssistantSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $canCancel = false;
+
+  #[Groups([AssistantSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $canRetry = false;
 }

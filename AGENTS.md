@@ -77,8 +77,8 @@ The single most expensive thing to get wrong here, because **it fails silently**
 - **Cross-module access is through `Application\Port\` and `Application\Contract\` only** —
   never a sibling module's `Domain\`, `Infrastructure\`, or `Record`.
 - Do not trust the tooling to catch a boundary break. `deptrac.yaml` permits
-  `Presentation → Infrastructure` outright, and **no collector sees a cross-module edge at
-  all** — importing a sibling's `Domain\` is green. That one is on the reviewer.
+  `Presentation → Infrastructure` outright. `deptrac.modules.php` adds module boundaries
+  with exact legacy class-pair exceptions; both configurations must pass.
 
 ## Module Structure
 

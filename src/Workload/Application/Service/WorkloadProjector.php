@@ -24,6 +24,7 @@ use function array_map;
 use function array_values;
 use function hash;
 use function in_array;
+use function iterator_to_array;
 use function json_encode;
 use function ksort;
 
@@ -112,6 +113,27 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
     ksort($members);
     $organizationWeeks = array_values(array_filter($weeks, static fn ($week): bool => $week->scopeId === $organizationId));
     $toChange = static fn (CapacityWeekView $week): CapacityChange => new CapacityChange(LocalDate::fromString($week->effectiveOn), new CapacityWeek($week->minutes));
+    // Index complete source reads once. Member pagination remains outside this projection.
+    $weeksByScope = [];
+    foreach ($weeks as $week) {
+      $weeksByScope[$week->scopeId][] = $week;
+    }
+    $exceptionsByMember = [];
+    foreach ($exceptions as $exception) {
+      $exceptionsByMember[$exception->memberId][] = $exception;
+    }
+    $tasksByMember = [];
+    foreach ($tasks as $task) {
+      if (null !== $task->memberId) {
+        $tasksByMember[$task->memberId][] = $task;
+      }
+    }
+    $actualsByMember = [];
+    foreach ($actuals as $entry) {
+      $actualsByMember[$entry->memberId][] = $entry;
+    }
+    $organizationChanges = array_map($toChange, $organizationWeeks);
+    $dates = iterator_to_array(self::dates($start, $end), false);
     $output = [];
     $unassigned = [];
     $overall = 'complete';
@@ -119,18 +141,18 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
     $policy = new WorkloadAllocationPolicy();
     foreach (array_keys($members) as $memberId) {
       $schedule = new CapacitySchedule(
-        array_map($toChange, $organizationWeeks),
-        array_map($toChange, array_values(array_filter($weeks, static fn ($week): bool => $week->scopeId === $memberId))),
+        $organizationChanges,
+        array_map($toChange, $weeksByScope[$memberId] ?? []),
         array_map(
           static fn ($exception): CapacityException => new CapacityException(LocalDate::fromString($exception->startsOn), LocalDate::fromString($exception->endsOn), $exception->minutes),
-          array_values(array_filter($exceptions, static fn ($exception): bool => $exception->memberId === $memberId)),
+          $exceptionsByMember[$memberId] ?? [],
         ),
       );
       /** @var array<string, list<array{taskId: string, kind: string, minutes: int, entryId: ?string, interventionId: ?string, label: ?string}>> $shares */
       $shares = [];
       $unallocated = [];
-      foreach ($tasks as $task) {
-        if ($task->memberId !== $memberId || (null !== $task->startsOn && $task->startsOn > $to)) {
+      foreach ($tasksByMember[$memberId] ?? [] as $task) {
+        if (null !== $task->startsOn && $task->startsOn > $to) {
           continue;
         }
         $allocation = $policy->allocate(new WorkDemand(
@@ -150,13 +172,11 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
           }
         }
       }
-      foreach ($actuals as $entry) {
-        if ($entry->memberId === $memberId) {
-          $shares[$entry->workedOn][] = ['taskId' => $entry->taskId, 'kind' => 'actual', 'minutes' => $entry->minutes, 'entryId' => $entry->entryId, 'interventionId' => $entry->interventionId, 'label' => $entry->label];
-        }
+      foreach ($actualsByMember[$memberId] ?? [] as $entry) {
+        $shares[$entry->workedOn][] = ['taskId' => $entry->taskId, 'kind' => 'actual', 'minutes' => $entry->minutes, 'entryId' => $entry->entryId, 'interventionId' => $entry->interventionId, 'label' => $entry->label];
       }
       $days = [];
-      foreach (self::dates($start, $end) as $date) {
+      foreach ($dates as $date) {
         $totals = ['actual' => 0, 'committed' => 0, 'draft' => 0];
         foreach ($shares[$date->value] ?? [] as $share) {
           $totals[$share['kind']] += $share['minutes'];

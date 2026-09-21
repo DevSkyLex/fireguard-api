@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Application\Service;
 
 use DateTimeImmutable;
-use Notification\Application\Contract\Inbox\InboxItem;
+use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\Port\Outbound\InboxSourceProviderPort;
 use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
@@ -87,17 +87,18 @@ final readonly class InboxAggregator
    *
    * @return InboxAggregationResult the aggregated page
    */
-  public function aggregate(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): InboxAggregationResult
+  public function aggregate(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): InboxAggregationResult
   {
     /** @var list<InboxItem> $collected */
     $collected = [];
-    $anySourceAtCapacity = false;
+    $complete = true;
 
     foreach ($this->providers as $provider) {
-      $items = $this->fetchFromProvider($provider, $userId, $organizationId, $before, $limit);
+      $items = $this->fetchFromProvider($provider, $userId, $organizationId, $before, $limit + 1, $cursor);
+      if (null === $items) {
+        $complete = false;
 
-      if (count($items) >= $limit) {
-        $anySourceAtCapacity = true;
+        continue;
       }
 
       array_push($collected, ...$items);
@@ -105,11 +106,12 @@ final readonly class InboxAggregator
 
     usort($collected, self::compare(...));
 
-    $hasMore = count($collected) > $limit || $anySourceAtCapacity;
+    $hasMore = count($collected) > $limit;
 
     return new InboxAggregationResult(
       items: array_slice($collected, 0, $limit),
       hasMore: $hasMore,
+      complete: $complete,
     );
   }
 
@@ -187,7 +189,7 @@ final readonly class InboxAggregator
    * @param DateTimeImmutable|null $before the cursor
    * @param int $limit the per-source fetch bound
    *
-   * @return list<InboxItem> the source's items, or an empty list on failure
+   * @return list<InboxItem>|null the source's items, or null on failure
    */
   private function fetchFromProvider(
     InboxSourceProviderPort $provider,
@@ -195,16 +197,17 @@ final readonly class InboxAggregator
     ?string $organizationId,
     ?DateTimeImmutable $before,
     int $limit,
-  ): array {
+    ?InboxCursor $cursor,
+  ): ?array {
     try {
-      return $provider->fetch($userId, $organizationId, $before, $limit);
+      return $provider->fetch($userId, $organizationId, $before, $limit, $cursor);
     } catch (Throwable $exception) {
       $this->logger->error('Inbox source provider failed; degrading to an empty contribution.', [
         'sourceKey' => $provider->sourceKey(),
         'error' => $exception->getMessage(),
       ]);
 
-      return [];
+      return null;
     }
   }
 

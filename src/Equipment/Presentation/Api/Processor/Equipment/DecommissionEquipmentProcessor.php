@@ -13,7 +13,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
+use Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -46,7 +46,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
     private OrganizationAuthorizationPort $authorization,
     private ApprovalGatePort $approvalGate,
     private Security $security,
-    private EquipmentOutputFactory $outputFactory,
+    private EquipmentDetailOutputFactory $outputFactory,
   ) {
   }
   // #endregion
@@ -125,7 +125,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
       throw $exception;
     }
 
-    return $this->outputFactory->fromView($result);
+    return $this->outputFactory->read($organizationId, $result->equipmentId);
   }
 
   /**

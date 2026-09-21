@@ -15,6 +15,18 @@ services:
   Maintenance\Infrastructure\Scheduler\:
     resource: '../../src/Maintenance/Infrastructure/Scheduler'
 
+  Maintenance\Infrastructure\EventSubscriber\MaintenanceRecomputeSubscriber: ~
+
+  Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort:
+    alias: Maintenance\Infrastructure\Persistence\Doctrine\Lock\MaintenanceScheduleLockAdapter
+
+  Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort:
+    alias: Inspection\Infrastructure\Adapter\Maintenance\InspectionMaintenanceHistoryAdapter
+
+  Maintenance\Infrastructure\Persistence\Doctrine\Lock\MaintenanceScheduleLockAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
   # Outbound ports
   Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort:
     alias: Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceScheduleRepository
@@ -80,6 +92,8 @@ services:
 
   # Command handlers
   Maintenance\Application\UseCase\Command\Schedule\SetMaintenanceScheduleOverride\SetMaintenanceScheduleOverrideHandler:
+    arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
     tags: ['messenger.message_handler']
 
   Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\GenerateInspectionCampaignHandler:

@@ -39,28 +39,47 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: GetCalendarFeedProvider::class,
       normalizationContext: ['groups' => [CalendarSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Calendar'],
-        summary: 'Get unified calendar feed',
-        description: 'Returns the merged, chronologically ordered feed for a mandatory, bounded (max 366 days) date range. '
-          . 'Merges standalone calendar events with inspections, interventions, and preventive-maintenance due dates. '
-          . 'A failing source is isolated and logged rather than failing the whole request. Requires organization.events.read.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'from' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-08-01T00:00:00Z'],
+          description: 'Inclusive ISO 8601 datetime lower bound, with an explicit timezone offset.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'from',
             in: 'query',
             required: true,
             description: 'Inclusive ISO 8601 datetime lower bound, with an explicit timezone offset.',
             schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-08-01T00:00:00Z'],
           ),
-          new Parameter(
+        ),
+        'to' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-08-31T23:59:59Z'],
+          description: 'Inclusive ISO 8601 datetime upper bound, with an explicit timezone offset. The range cannot exceed 366 days.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'to',
             in: 'query',
             required: true,
             description: 'Inclusive ISO 8601 datetime upper bound, with an explicit timezone offset. The range cannot exceed 366 days.',
             schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-08-31T23:59:59Z'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Calendar'],
+        summary: 'Get unified calendar feed',
+        description: 'Returns the merged, chronologically ordered feed for a mandatory, bounded (max 366 days) date range. '
+          . 'Merges standalone calendar events with inspections, interventions, and preventive-maintenance due dates. '
+          . 'Requires organization.events.read; each other source additionally requires its own read permission. '
+          . 'Only authorized sources appear in sources. Each reports available and truncated; complete is false if any source fails or exceeds 500 entries. '
+          . 'Retry unavailable sources or reduce the date range for truncated results. Available entries remain included.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Feed retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing, malformed, inverted, or over-long "from"/"to" range'),

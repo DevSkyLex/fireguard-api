@@ -1,203 +1,88 @@
 # Automation Module
 
-## Overview
+## Purpose and ownership
 
-Automation is a lightweight module that turns domain events from other
-modules into system-actor actions, gated by an organization's own automation
-policy toggles. Lot 7 implements exactly one rule:
-`auto_create_intervention_on_critical_nc` — recording a critical
-non-conformity auto-creates a draft corrective intervention, when the
-organization has opted in.
+Automation turns committed domain events into policy-controlled system actions.
+The current rule is `auto_create_intervention_on_critical_nc`: a critical
+non-conformity can create a corrective intervention draft. The organization opts
+in through its automation policy; the default is disabled. Policy is reread when
+executing, never inferred from the triggering event or the browser.
 
-Main goals:
+## Delivery and local atomicity
 
-- React to domain events (trigger subscribers) without coupling the emitting
-  module to Automation.
-- Gate every rule behind an explicit, per-organization opt-in toggle (default
-  off).
-- Execute the rule's action exactly once per subject, even under Messenger
-  retries or duplicate trigger dispatches.
-- Never let an automation failure — or a trigger subscriber failure — affect
-  the request that raised the triggering event.
+`AddNonConformityHandler` records its event in the main transactional outbox.
+`AutomationTriggerSubscriber` recognizes critical severity and records the rule
+command in `main_outbox`. Its main-owned consumption receipt and command commit
+together. Durable delivery errors propagate for retry; legacy synchronous event
+sources retain their best-effort behavior.
 
-## API Endpoints
+Execution reserves the unique `(rule_key, subject_id)` action inside the same main
+transaction as its draft, work items, outcome and durable outcome event. Duplicate
+commands are no-ops. An interruption rolls everything back; a caught action failure
+records a failed run and event in a fresh conditional reservation. A competing
+worker's committed success cannot be replaced by that failure. Technical failures
+while recording the outcome reach Messenger's retry and `main_failed` destination.
+Delivery is at least once, with at most one committed local draft per action.
 
-No API endpoints in this lot: no new organization permissions, no read/write
-resources. Everything is event-driven.
+## Rule contract
 
-## Flows
+The trigger carries `organizationId`, `inspectionId`, `nonConformityId` and
+`severity`. It has no facility/equipment identity, so the resulting draft has no
+inferred site. The draft uses `InterventionDraftFactoryPort`, a system actor,
+`origin: automation:<rule key>`, `type: inspection_campaign`, urgent priority and
+one required inspection work item targeting the non-conformity and inspection.
+Its due date uses the current organization SLA for the triggering severity.
+Disabled rules record a skipped run without creating a draft.
 
-### Trigger → execute (async)
+## Boundaries
 
-```mermaid
-sequenceDiagram
-  participant Insp as AddNonConformityHandler
-  participant Disp as EventDispatcherPort
-  participant Sub as AutomationTriggerSubscriber
-  participant Bus as CommandBusPort (async)
-  participant Exec as ExecuteAutomationRuleHandler
-  participant Pol as AutomationPolicyPort
-  participant Draft as InterventionDraftFactoryPort
-  Insp->>Disp: dispatch(NonConformityRecordedEvent)
-  Note over Insp,Disp: best-effort — subscriber errors never propagate
-  Disp->>Sub: onNonConformityRecorded(event)
-  Sub->>Sub: severity === 'critical'?
-  Sub->>Bus: dispatch(ExecuteAutomationRuleCommand)
-  Bus-->>Exec: (async transport)
-  Exec->>Exec: reserveRun(ruleKey, organizationId, subjectId)
-  Exec->>Pol: policyFor(organizationId)
-  alt rule enabled
-    Exec->>Draft: create(CreateInterventionDraftRequest)
-    Exec->>Exec: markSucceeded / markFailed
-  else rule disabled
-    Exec->>Exec: markSkipped
-  end
-```
+- `AutomationPolicyPort` is implemented by Organization's public adapter.
+- `AutomationRuleQueuePort` uses the raw Messenger bus because an asynchronous
+  send has no synchronous command result.
+- `AutomationRunPort` owns the main run log and unique action reservation.
+- Outcome events are system-attributed and consumed by Audit with auth-owned
+  receipts, independently of the producer's main transaction.
+- Organization-scoped policy, paginated attempt history and attempt detail require
+  `organization.automation.read`; explicit retry additionally requires
+  `organization.automation.manage`. Existing administrator wildcards include both.
+  Policy editing stays under Organization's settings permission.
+- Only the owning module's safe output is published: raw exception details and retained
+  trigger payloads never reach history responses. Failures expose `automation_action_failed`.
 
-## Architecture
+## Persistence and operations
 
-- **Application** (`src/Automation/Application`): the single use case
-  (`ExecuteAutomationRuleHandler`), outbound ports
-  (`AutomationRunPort`, `AutomationPolicyPort`), and contracts
-  (`AutomationTriggers` — trigger event name + rule key constants;
-  `AutomationPolicy` — the resolved per-organization policy DTO).
-- **Domain** (`src/Automation/Domain`): the two rule-outcome events and
-  `AutomationRunNotFoundException`.
-- **Infrastructure** (`src/Automation/Infrastructure`): the Doctrine
-  run repository/record and `AutomationTriggerSubscriber`.
+`automation_runs` lives in main, with unique `(rule_key, subject_id)` and an
+organization index. Organization identity is denormalized; no cross-database
+foreign key exists. `consumed_events` receipts and the framework-owned
+`messenger_messages` table support durable triggers and outcomes.
 
-### Trigger contract
+Initialize transports before workers, consume `main_outbox`, monitor failed run
+counts and `main_failed`, and keep receipts while messages can be replayed. See
+`Shared/MODULE.md` and `OPERATIONS.md` for setup and recovery commands.
 
-`AutomationTriggers::NON_CONFORMITY_RECORDED_EVENT` holds the **exact**
-event name the Shared event dispatcher assigns
-`Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent`
-(`inspection.non_conformity_recorded_event`, per
-`SymfonyEventDispatcherAdapter`'s `<module>.<snake_case_class>` convention —
-verified against the event class and its dispatch site,
-`AddNonConformityHandler`). The event's payload is `organizationId`,
-`inspectionId`, `nonConformityId`, `severity` — **no** equipment or facility
-identifier. This is why the corrective intervention draft this lot creates
-has no `siteId`: the trigger simply does not carry one. A future lot that
-needs it would have to either extend the event's payload or look the
-non-conformity/inspection up through a new cross-module port; this lot does
-neither, to stay within its "no new ports beyond what's specified" scope.
+## Validation
 
-### AutomationTriggerSubscriber
+Unit tests cover policy, deduplication, draft shape and outcomes. PostgreSQL tests
+cover real reservations, native transport rollback/commit, competing consumers,
+auth/main receipt isolation and publication replay. Tests use WebTestCase or
+KernelTestCase; no external Stripe, webhook or mail delivery is required.
 
-Positioned exactly like `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber`
-(which itself already subscribes to the same `NonConformityRecordedEvent`,
-independently, for the audit ledger): implements
-`Symfony\Component\EventDispatcher\EventSubscriberInterface`, is
-autoconfigured (no explicit tag needed), and reacts to a `critical` severity
-by dispatching `ExecuteAutomationRuleCommand` through `CommandBusPort` —
-routed to the `async` transport
-(`config/packages/messenger.yaml`). Subscriber errors are swallowed and
-logged, mirroring the Audit subscriber's `dispatchAuditEvent()` — a failure
-here must never fail the non-conformity recording request itself.
+## Explicit retry and history
 
-### ExecuteAutomationRuleHandler
+`GET /organizations/{organizationId}/automation` reports the effective rule. `/automation/runs`
+lists attempts with server totals; `/automation/attempts/{id}` reads one scoped attempt.
+`POST /automation/runs/{runId}/retry` requires the failed `attemptId` and returns 202 with a new
+identity. The action row retains its unique `(rule_key, subject_id)` reservation permanently.
+The retry locks that row, rechecks policy/access, appends one pending attempt and enqueues its
+identity on `main_outbox` in the same transaction. A stale or non-retryable request returns
+409 `automation_retry_conflict`; clients reread rather than silently resubmit.
 
-The single execution path for every automation rule, even though only one
-exists today:
+Workers claim only the expected pending attempt, recheck policy and atomically commit its action
+and outcome. Duplicated old triggers and completed attempt commands cannot replay an action.
+Historical attempts remain unchanged when a retry starts. Disabled policies prevent retry and
+cause already-queued attempts to be skipped. Policy changes are effective at worker execution.
 
-1. **Idempotence** — `AutomationRunPort::reserveRun()` inserts a placeholder
-   run row FIRST, via a raw DBAL statement (not the ORM's
-   `persist()`/`flush()` — a unique-constraint violation during an ORM
-   `flush()` closes the `EntityManager`, and a duplicate claim is an
-   expected, routine outcome here; mirrors
-   `Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter::reserveRun()`).
-   A reservation miss (`null`) is a silent no-op.
-2. **Policy** — `AutomationPolicyPort::policyFor()` is read fresh (never
-   trusted from the trigger subscriber's own severity gate, so a future
-   rule/policy shape change only needs updating here). Toggle off → the run
-   is marked `skipped`, done.
-3. **Action** — builds a corrective intervention draft through
-   `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort`:
-   system actor (`actorUserId: null`), `origin:
-   'automation:auto_create_intervention_on_critical_nc'`, `type:
-   'inspection_campaign'` (the most defensible existing type for a
-   re-inspection/verification action — mirrors
-   `Maintenance\...\GenerateInspectionCampaignHandler`'s exact same choice),
-   one required work item (`action: 'inspection'`, `target` a JSON object
-   with `nonConformityId`/`inspectionId` — no `equipmentId`, see above),
-   `priority: 'urgent'`, `dueAt = now + nonConformitySlaDays[severity] days`
-   (from the resolved policy; `severity` comes from the trigger payload,
-   defaulting to `critical`).
-4. **Outcome** — success marks the run `succeeded` with the intervention id
-   and dispatches `automation.rule_executed`; failure marks the run `failed`
-   with the error and dispatches `automation.rule_failed` — deliberately
-   swallowed (logged, not rethrown): the run row already guards against a
-   Messenger retry producing a duplicate draft.
-
-### Ports & adapters (`config/modules/automation.yaml`)
-
-| Port | Adapter |
-| --- | --- |
-| `AutomationRunPort` (outbound) | `AutomationRunRepository` |
-| `AutomationPolicyPort` (outbound, cross-module) | `Organization\Infrastructure\Adapter\Automation\OrganizationAutomationPolicyAdapter` |
-
-`OrganizationAutomationPolicyAdapter` reads the organization's existing
-`OrganizationAutomationSettings` (rule toggles) and
-`OrganizationComplianceSettings::effectiveNonConformitySlaDays()` value
-objects, mirroring
-`Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter`.
-Registered in `config/modules/organization.yaml`; aliased in
-`config/modules/automation.yaml`. Never throws on an unknown/malformed
-organization: falls back to "everything off, catalog SLA defaults" so a
-lookup failure can never silently trigger an automation.
-
-Reused inbound port from another module:
-`Intervention\Application\Port\Inbound\InterventionDraftFactoryPort` (the
-corrective intervention draft).
-
-## Domain Model
-
-No aggregate: automation runs are a record-level idempotence/audit log
-(`AutomationRunRecord`), the same treatment
-`InterventionTemplateRecord`/`MaintenanceScheduleRecord` receive elsewhere.
-
-- `AutomationRunRecord`: `id`, `ruleKey` (≤ 80 chars), `organizationId`
-  (denormalized, not a foreign key), `subjectId`, `status`
-  (`succeeded` | `failed` | `skipped`), `interventionId` (nullable),
-  `error` (nullable), `createdAt`; unique per `(ruleKey, subjectId)`.
-
-Domain events (`Domain/Event/Rule`): `AutomationRuleExecutedEvent`,
-`AutomationRuleFailedEvent` — both carry `ruleKey`, `organizationId`,
-`subjectId`, and either `interventionId` or `error`. Dispatched by
-`ExecuteAutomationRuleHandler` with a system actor (no user is ever
-attributed to an automation).
-
-## Permissions
-
-None. No API surface in this lot; the trigger subscriber and handler act as
-the system, never as an authenticated user.
-
-## Persistence
-
-- Table: `automation_runs` (**main** database), unique
-  `(rule_key, subject_id)`, index `(organization_id)`. `organization_id` is
-  denormalized (no foreign key) — a lightweight run-log table, decoupled
-  from the Organization module.
-- Doctrine mapping: `src/Automation/Infrastructure/Persistence/Doctrine/Record`.
-- Repository: `Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository`.
-
-## Configuration
-
-- Service wiring: `config/modules/automation.yaml`
-- Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
-- Messenger routing: `config/packages/messenger.yaml`
-  (`ExecuteAutomationRuleCommand` → `async`)
-- Module import: `config/packages/modules.yaml`
-- Autoload: `composer.json` (`Automation\\` → `src/Automation/`)
-- Cross-module wiring (additive): `config/modules/organization.yaml`
-
-## Testing
-
-- Unit: `tests/Unit/Automation`
-- Run module tests: `make test tests/Unit/Automation/`
-
-## Error Codes
-
-| Exception | Notes |
-| --- | --- |
-| `AutomationRunNotFoundException` | Internal only (a reserved run row disappearing between `reserveRun()` and `markSucceeded()`/`markFailed()`/`markSkipped()`) — never reaches the API, since this module has none. |
+Main migration `20260921234000` creates `automation_attempts` and retained trigger/current-attempt
+columns. Existing outcomes are backfilled as first attempts, without invented trigger payloads;
+those legacy failures remain readable but cannot be retried. Deploy the migration, drain/restart
+old workers, then enable the frontend. Do not roll back to a worker that ignores retry identity.

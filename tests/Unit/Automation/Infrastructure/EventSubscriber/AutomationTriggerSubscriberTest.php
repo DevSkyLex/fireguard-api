@@ -36,6 +36,8 @@ final class AutomationTriggerSubscriberTest extends TestCase
     self::assertInstanceOf(EventSubscriberInterface::class, new AutomationTriggerSubscriber(
       $this->createStub(AutomationRuleQueuePort::class),
       new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     ));
 
     $subscribed = AutomationTriggerSubscriber::getSubscribedEvents();
@@ -63,7 +65,12 @@ final class AutomationTriggerSubscriberTest extends TestCase
         }),
       );
 
-    $subscriber = new AutomationTriggerSubscriber($ruleQueue, new NullLogger());
+    $subscriber = new AutomationTriggerSubscriber(
+      $ruleQueue,
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
+    );
 
     $subscriber->onNonConformityRecorded(new NonConformityRecordedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -79,7 +86,12 @@ final class AutomationTriggerSubscriberTest extends TestCase
     $ruleQueue = $this->createMock(AutomationRuleQueuePort::class);
     $ruleQueue->expects(self::never())->method('enqueue');
 
-    $subscriber = new AutomationTriggerSubscriber($ruleQueue, new NullLogger());
+    $subscriber = new AutomationTriggerSubscriber(
+      $ruleQueue,
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
+    );
 
     foreach (['low', 'medium', 'high'] as $severity) {
       $subscriber->onNonConformityRecorded(new NonConformityRecordedEvent(
@@ -100,7 +112,12 @@ final class AutomationTriggerSubscriberTest extends TestCase
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())->method('error');
 
-    $subscriber = new AutomationTriggerSubscriber($ruleQueue, $logger);
+    $subscriber = new AutomationTriggerSubscriber(
+      $ruleQueue,
+      $logger,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
+    );
 
     // Must not throw.
     $subscriber->onNonConformityRecorded(new NonConformityRecordedEvent(

@@ -163,7 +163,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
     $status = is_string($row['status']) ? $row['status'] : '';
 
     if (!password_verify($password, $passwordHash)) {
-      throw new RuntimeException("Password verification failed. Hash: {$passwordHash}");
+      throw new RuntimeException('Fixture password verification failed.');
     }
 
     if ('active' !== $status) {
@@ -217,6 +217,22 @@ abstract class OAuth2WebTestCase extends WebTestCase
     self::assertTrue(is_string($token) && '' !== $token, 'Login should return an access_token.');
 
     return $token;
+  }
+
+  /**
+   * @return array{token:string, userId:string}
+   */
+  protected function authenticateFreshUser(KernelBrowser $client): array
+  {
+    $email = uniqid('boundary-', true) . '@example.test';
+    $this->createAndActivateUser($client, $email, 'FixturePassword123!');
+    $token = $this->authenticateAsSeededAdmin($client, $email, 'FixturePassword123!');
+    $client->request('GET', '/api/me', server: ['HTTP_ACCEPT' => 'application/ld+json', 'HTTP_AUTHORIZATION' => 'Bearer ' . $token]);
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $profile = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertIsString($profile['id'] ?? null);
+
+    return ['token' => $token, 'userId' => $profile['id']];
   }
 
   /**

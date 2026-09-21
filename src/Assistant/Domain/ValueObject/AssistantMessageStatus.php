@@ -40,6 +40,7 @@ enum AssistantMessageStatus: string
   case STREAMING = 'streaming';
   case COMPLETE = 'complete';
   case FAILED = 'failed';
+  case CANCELLED = 'cancelled';
 
   // #region Methods
   /**
@@ -74,9 +75,9 @@ enum AssistantMessageStatus: string
   public function canTransitionTo(self $target): bool
   {
     return match ($this) {
-      self::PENDING => in_array($target, [self::STREAMING, self::FAILED], true),
-      self::STREAMING => in_array($target, [self::COMPLETE, self::FAILED], true),
-      self::COMPLETE, self::FAILED => false,
+      self::PENDING => in_array($target, [self::STREAMING, self::FAILED, self::CANCELLED], true),
+      self::STREAMING => in_array($target, [self::COMPLETE, self::FAILED, self::CANCELLED], true),
+      self::COMPLETE, self::FAILED, self::CANCELLED => false,
     };
   }
 
@@ -89,7 +90,7 @@ enum AssistantMessageStatus: string
    */
   public function isTerminal(): bool
   {
-    return self::COMPLETE === $this || self::FAILED === $this;
+    return self::COMPLETE === $this || self::FAILED === $this || self::CANCELLED === $this;
   }
   // #endregion
 }

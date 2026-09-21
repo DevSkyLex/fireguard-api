@@ -7,7 +7,6 @@ namespace Equipment\Application\Service;
 use Equipment\Application\Contract\Provisioning\{ProvisionEquipmentRequest, ProvisionEquipmentResult, ProvisionOutcome};
 use Equipment\Application\Port\Inbound\EquipmentProvisioningPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
-use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\AssignToFacilityCommand;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use InvalidArgumentException;
@@ -15,7 +14,6 @@ use Organization\Application\Contract\Quota\OrganizationQuotaExceededException;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
-use Throwable;
 
 /**
  * Service EquipmentProvisioningService.
@@ -93,6 +91,7 @@ final readonly class EquipmentProvisioningService implements EquipmentProvisioni
         locationLabel: $request->locationLabel,
         dryRun: $request->dryRun,
         quotaProjectionOffset: $request->quotaProjectionOffset,
+        facilityId: $facilityId,
       ));
     } catch (OrganizationQuotaExceededException $exception) {
       return new ProvisionEquipmentResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
@@ -102,58 +101,7 @@ final readonly class EquipmentProvisioningService implements EquipmentProvisioni
       return $this->fromWrappedException($exception);
     }
 
-    if (null !== $facilityId && !$request->dryRun) {
-      return $this->assignToFacility($request, $result->equipmentId, $facilityId);
-    }
-
     return new ProvisionEquipmentResult(ProvisionOutcome::CREATED, resourceId: $result->equipmentId);
-  }
-
-  /**
-   * Method assignToFacility.
-   *
-   * Dispatches the existing `AssignToFacilityCommand` for an equipment item
-   * that was just created — the same use case the HTTP API uses, so the
-   * facility assignability rules (existence, organization, non-archived)
-   * apply identically. Create and assign are two separate synchronous
-   * commands, each with its own transaction: a failed assignment after a
-   * successful creation leaves the equipment created but unassigned, and is
-   * reported as an `INVALID` outcome naming both facts. This is deliberate —
-   * duplicating the creation use case to gain a shared transaction would
-   * create the parallel business-logic path the provisioning ports exist to
-   * avoid, and the worst case (an unassigned item, visible in the row
-   * report) is recoverable through the normal assignment endpoint.
-   *
-   * @since 1.1.0
-   *
-   * @param ProvisionEquipmentRequest $request the provisioning request
-   * @param string $equipmentId the created equipment identifier
-   * @param string $facilityId the resolved facility identifier
-   *
-   * @return ProvisionEquipmentResult the provisioning outcome
-   */
-  private function assignToFacility(ProvisionEquipmentRequest $request, string $equipmentId, string $facilityId): ProvisionEquipmentResult
-  {
-    try {
-      $this->commandBus->dispatch(new AssignToFacilityCommand(
-        organizationId: $request->organizationId,
-        equipmentId: $equipmentId,
-        facilityId: $facilityId,
-      ));
-    } catch (Throwable $exception) {
-      $invalid = $this->findException($exception, InvalidValueException::class)
-        ?? $this->findException($exception, InvalidArgumentException::class)
-        ?? $exception;
-
-      return new ProvisionEquipmentResult(
-        ProvisionOutcome::INVALID,
-        resourceId: $equipmentId,
-        message: 'Equipment was created but could not be assigned to facility code "'
-          . $request->facilityCode . '": ' . $invalid->getMessage(),
-      );
-    }
-
-    return new ProvisionEquipmentResult(ProvisionOutcome::CREATED, resourceId: $equipmentId);
   }
 
   /**

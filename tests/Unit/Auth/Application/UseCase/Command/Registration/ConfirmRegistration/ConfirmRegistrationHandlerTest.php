@@ -292,7 +292,7 @@ final class ConfirmRegistrationHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testSucceedsEvenWhenSessionTrackingFails(): void
+  public function testDoesNotReturnTokensWhenSessionTrackingFails(): void
   {
     $otp = $this->makeOtp();
     $user = $this->makeUser();
@@ -319,10 +319,8 @@ final class ConfirmRegistrationHandlerTest extends TestCase
       sessionTracking: $sessionTracking,
     );
 
-    $result = $handler($this->makeCommand(code: $otp->code()->plain()));
-
-    self::assertTrue($result->success);
-    self::assertSame(self::ACCESS_TOKEN, $result->accessToken);
+    $this->expectException(RuntimeException::class);
+    $handler($this->makeCommand(code: $otp->code()->plain()));
   }
   // #endregion
 

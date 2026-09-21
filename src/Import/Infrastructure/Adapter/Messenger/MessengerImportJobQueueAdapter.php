@@ -47,9 +47,9 @@ final readonly class MessengerImportJobQueueAdapter implements ImportJobQueuePor
    *
    * @param string $importJobId the import job identifier
    */
-  public function dispatch(string $importJobId): void
+  public function dispatch(string $importJobId, ?string $requestedBy = null): void
   {
-    $this->messageBus->dispatch(new ProcessImportJobCommand($importJobId));
+    $this->messageBus->dispatch(new ProcessImportJobCommand($importJobId, $requestedBy));
   }
   // #endregion
 }

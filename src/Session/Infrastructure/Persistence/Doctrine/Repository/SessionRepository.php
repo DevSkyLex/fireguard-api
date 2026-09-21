@@ -57,6 +57,16 @@ final class SessionRepository implements SessionRepositoryPort
   // #endregion
 
   // #region Methods
+  public function rotateTokens(string $currentRefreshTokenId, string $currentAccessTokenId, string $newAccessTokenId, string $newRefreshTokenId): bool
+  {
+    // The conditional UPDATE serializes refreshes and revocations on the same row.
+    // Never fall back to an access-token lookup: a used refresh token must fail.
+    return 1 === $this->entityManager->getConnection()->executeStatement(
+      'UPDATE sessions SET access_token_id = ?, refresh_token_id = ?, last_activity_at = CURRENT_TIMESTAMP WHERE refresh_token_id = ? AND access_token_id = ? AND revoked_at IS NULL',
+      [$newAccessTokenId, $newRefreshTokenId, $currentRefreshTokenId, $currentAccessTokenId],
+    );
+  }
+
   /**
    * Method save
    * {@inheritDoc}
@@ -140,6 +150,9 @@ final class SessionRepository implements SessionRepositoryPort
       return null;
     }
 
+    // Revocation and rotation use conditional SQL, so the identity map may be stale.
+    $this->entityManager->refresh($record);
+
     return SessionMapper::toDomain(record: $record);
   }
 
@@ -154,6 +167,8 @@ final class SessionRepository implements SessionRepositoryPort
     if (!$record) {
       return null;
     }
+
+    $this->entityManager->refresh($record);
 
     return SessionMapper::toDomain(record: $record);
   }

@@ -53,6 +53,7 @@ final readonly class MaintenanceScheduleView
     public ?DateTimeImmutable $remindedFor,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public ?DateTimeImmutable $evaluatedAt = null,
   ) {
   }
   // #endregion

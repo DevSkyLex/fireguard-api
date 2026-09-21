@@ -92,6 +92,8 @@ final readonly class ArchiveChecklistProcessor implements ProcessorInterface
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->referenceCode = $result->referenceCode;
+    $output->previousChecklistId = $result->previousChecklistId;
+    $output->canCreateRevision = true;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');

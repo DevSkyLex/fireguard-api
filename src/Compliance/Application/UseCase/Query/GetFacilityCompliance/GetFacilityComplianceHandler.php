@@ -121,7 +121,7 @@ final readonly class GetFacilityComplianceHandler implements QueryHandler
 
   private function buildCacheKey(string $organizationId, string $facilityId): string
   {
-    return 'compliance.facility.' . hash('sha256', $organizationId . '|' . $facilityId);
+    return 'compliance.facility.v2.' . hash('sha256', $organizationId . '|' . $facilityId);
   }
 
   private function readCache(string $cacheKey): ?GetFacilityComplianceResult

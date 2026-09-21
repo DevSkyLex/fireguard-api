@@ -529,111 +529,35 @@ to be `published` (not an in-flight intervention draft); Intervention has no
 such split (it IS the workspace) so any intervention in the organization is a
 valid subject regardless of workflow status.
 
-### The `inbox.source_provider` seam (L1.8b — Messaging's mention source)
+### The `inbox.source_provider` seam
 
-Messaging hosts the `Notification`-consumed adapter for the unified inbox
-(`GET /api/inbox`, see `Notification\MODULE.md`'s "Unified Inbox Seam"
-section): `Messaging\Infrastructure\Adapter\Notification\MessagingInboxSourceProviderAdapter`
-implements `Notification\Application\Port\Outbound\InboxSourceProviderPort`
-and is tagged `inbox.source_provider` in Messaging's OWN
-`config/modules/messaging.yaml` — `config/modules/notification.yaml` is
-never touched to add a source, mirroring how `messaging.subject_resolver`
-adapters are hosted by their OWNING module rather than the consumer.
+`MessagingInboxSourceProviderAdapter` implements Notification's published
+`InboxSourceProviderPort` and uses its `InboxItem`/`InboxCursor` contracts. It is tagged
+in `config/modules/messaging.yaml`; Notification has no dependency on Messaging.
+Only mentions contribute entries. Direct conversations and replies are implemented,
+but are not separate inbox sources.
 
-**Only `kind: mention` is live.** `direct_message` and `thread_reply` are
-reserved `InboxItem::$kind` values with no backing data model yet:
-`MessagingSubjectType` has no direct-message case, and there is no threaded-reply
-concept in this module. When either ships, add a sibling
-`fetchDirectMessages()`/`fetchThreadReplies()` private method to the adapter
-and merge its results into `fetch()` — no rewrite of the mention path.
+- An organization, active member and `organization.messaging.read` are required.
+  Missing scope or access contributes no items, without enumerating inaccessible data.
+- Candidate SQL excludes self-mentions and tombstones, matches exact member identifiers,
+  and applies the full-precision `(createdAt DESC, sourceKey ASC, id ASC)` cursor before
+  limiting. Legacy `before` remains supported. Each query is capped at 100 candidates;
+  scanning continues until enough readable entries are found or the source is exhausted.
+- Conversation subject types and read markers are loaded in batches. Channel mentions
+  require participation or `organization.messaging.manage`. Direct-conversation mentions
+  require participation, including for managers: the personal inbox does not enumerate
+  other members' direct conversations. This does not change direct-lookup moderation
+  permissions. Subject threads require the subject's own read permission; unknown types
+  are excluded. A mention never grants access.
+- Items use `sourceKey: messaging.mention`, message ID, `targetType: conversation`,
+  conversation ID, and `targetKind` equal to the conversation subject type. Read state
+  comes from the existing conversation marker. Opening the destination uses Messaging's
+  normal read action; Notification's acknowledgement endpoint is never called for mentions.
+- `countUnread` examines at most 200 readable entries through this same pipeline. It is
+  a lower bound beyond that window, not a total derived from the first client page.
 
-`fetch()`:
-
-1. Returns `[]` immediately (never throws) when `organizationId` is `null` —
-   `MessagingMemberDirectoryPort::resolveActiveMemberId()` always takes an
-   organization, so with none given there is no member id to match
-   `mentions` against; this source deliberately does not fan out across
-   every organization the user belongs to.
-2. Returns `[]` when the user lacks `organization.messaging.read`
-   (`MessagingAccessPolicy::hasReadPermission()`, a non-throwing twin of
-   `assertCanListConversations()` added for this bulk/list-shaped call site)
-   or is not an active member of the organization.
-3. Calls `MessagingMessageRepositoryPort::listMentionsForMember()` — the ONE
-   bounded candidate query: organization scope, own-message exclusion
-   (a member is never notified of mentioning themselves), tombstone
-   exclusion, the `before` cursor, and `limit` are all pushed down to SQL.
-   It is a single `EXISTS (SELECT 1 FROM
-   json_array_elements_text(m.mentions) ...)` query against the candidate
-   ids, then one `IN (:ids)` hydration query — never a query per message.
-   `json_array_elements_text` is used rather than the jsonb `?`/`?|`
-   operators, which DBAL's positional-parameter parser can misread, and it
-   matches exact values rather than substrings.
-
-   > The suite runs on PostgreSQL, so this query — the one that ships — is
-   > the one the tests execute. There is no portable fallback and no
-   > platform dispatch: a green suite now means the containment semantics
-   > (present → true, absent → false, empty array → false) actually hold.
-   > Still uncovered by assertions, because they change plans rather than
-   > results: the pg_trgm GIN indexes and the partial indexes on
-   > `approval_requests` / `messaging_messages`.
-4. **A mention alone never grants access.** The candidate conversations are
-   batch-resolved in two more bounded queries —
-   `MessagingConversationRepositoryPort::findSubjectTypesByIds()` and
-   `MessagingReadMarkerRepositoryPort::lastReadAtByConversations()` (both
-   added for this seam) — then each candidate is authorized: a channel
-   (`subjectType=channel`) requires participation
-   (`MessagingParticipantRepositoryPort::listChannelIdsForMember()`, ONE
-   bulk lookup, never `isParticipant()` per channel) or
-   `organization.messaging.manage`; a subject-thread conversation requires
-   the subject's own read permission. That permission is looked up from a
-   local `subjectType => permission` table duplicated in the adapter
-   (`organization.facilities.read`/`.equipment.read`/`.interventions.read`/
-   `.inspection.read`) rather than calling
-   `MessagingSubjectResolverRegistry::resolve()` per candidate — that
-   registry issues a cross-module EXISTENCE query per subject, which is
-   exactly the per-row cost this seam must avoid (the same duplication
-   rationale as `MentionExtractor`'s regex, see Domain Model). An unresolved
-   or unrecognized subject type is excluded, never granted — excluding a
-   borderline row is always preferred over including it.
-5. Maps each accessible mention to an `InboxItem`: `sourceKey:
-   'messaging.mention'`, `id` = message id, `title` a fixed, generic string
-   (no subject label is resolved — doing so would mean calling back into
-   the subject resolver seam per candidate), `snippet` a bounded
-   (`mb_strimwidth`, 160 chars) preview of the message body, `isRead`
-   derived from the member's read marker vs. the message's `createdAt`,
-   `targetType: 'conversation'`, `targetId` = conversation id.
-
-`MessagingAccessPolicy` gained two non-throwing helpers for this seam (and
-any future bulk/list-shaped consumer): `hasReadPermission()` (the
-`organization.messaging.read` half of `assertCanReadThread()`/
-`assertCanListConversations()`) and a generic `hasPermission()` (delegates
-to `OrganizationAuthorizationPort::hasPermission()`, used for the per-subject
-permission checks above) — both mirror the existing `hasManagePermission()`
-shape rather than introducing a second authorization path.
-
-**`countUnread()` (L1.8b follow-up: `GET /api/inbox/unread-count`)** —
-`InboxSourceProviderPort` gained a second seam method
-(`Notification\MODULE.md`'s "Unified inbox unread count" section):
-`countUnread(userId, organizationId): int`, deliberately NOT
-`$limit`-bounded — it must return the true unread count, not a bounded
-page's count. `NotificationInboxSourceProviderAdapter` satisfies this with a
-single SQL `COUNT`, but a mention's readability additionally depends on the
-same per-row, permission-based conversation access `fetch()` applies (step 4
-above), which cannot be pushed into a SQL predicate without re-deriving RBAC
-rules in the query layer — something this codebase deliberately never does.
-`MessagingInboxSourceProviderAdapter::countUnread()` therefore reuses the
-same access-check pipeline as `fetch()` (organization/permission/membership
-guards, then the bounded `listMentionsForMember()` candidate query capped at
-`UNREAD_COUNT_SCAN_LIMIT` = 200, then the same access filtering), and counts
-the unread ones within that window. This is an EXACT count up to the cap and
-a lower bound beyond it — a documented, deliberate trade-off for a badge
-counter (most UIs cap an unread badge display at "99+" anyway). A future lot
-could replace this with a dedicated aggregate repository query if exactness
-beyond the cap ever becomes a real product requirement; it would need to
-either push the access-permission check into SQL (a bigger change this
-module has avoided everywhere else) or introduce a materialized
-per-member/per-conversation access index.
-
+Tests cover ties within/across sources, full timestamp precision, inaccessible-batch
+refill, private direct-conversation exclusion and PostgreSQL cursor predicates.
 ## Domain Model
 
 `Conversation` aggregate (`Domain/Model/Conversation`): `id`, `organizationId`,

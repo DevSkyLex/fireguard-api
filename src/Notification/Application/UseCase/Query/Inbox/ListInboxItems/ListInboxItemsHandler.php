@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Application\UseCase\Query\Inbox\ListInboxItems;
 
+use Notification\Application\Contract\Inbox\InboxCursor;
 use Notification\Application\Service\InboxAggregator;
 use Shared\Application\Message\QueryHandler;
 
@@ -61,6 +62,7 @@ final readonly class ListInboxItemsHandler implements QueryHandler
       organizationId: $query->organizationId,
       before: $query->before,
       limit: $limit,
+      cursor: $query->cursor,
     );
 
     $lastItem = $aggregation->items[count($aggregation->items) - 1] ?? null;
@@ -72,6 +74,8 @@ final readonly class ListInboxItemsHandler implements QueryHandler
       items: $aggregation->items,
       nextCursor: $nextCursor,
       hasMore: $aggregation->hasMore,
+      nextPageCursor: $aggregation->complete && $aggregation->hasMore && null !== $lastItem ? InboxCursor::fromItem($lastItem)->encode() : null,
+      complete: $aggregation->complete,
     );
   }
   // #endregion

@@ -8,6 +8,7 @@ use Automation\Application\Contract\Trigger\AutomationTriggers;
 use Automation\Application\Port\Outbound\AutomationRuleQueuePort;
 use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
 use Psr\Log\LoggerInterface;
+use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Throwable;
 
@@ -20,7 +21,7 @@ use Throwable;
  * {@see \Audit\Infrastructure\EventSubscriber\AuditEventSubscriber}, which
  * subscribes to the very same `NonConformityRecordedEvent`) and turns a
  * matching trigger into an `ExecuteAutomationRuleCommand`, enqueued on the
- * `async` transport through {@see AutomationRuleQueuePort}.
+ * `main_outbox` transport through {@see AutomationRuleQueuePort}.
  *
  * The enqueue deliberately does NOT go through `CommandBusPort`: that adapter
  * demands a `HandledStamp` and throws `NoHandlerResultException` when none is
@@ -30,9 +31,9 @@ use Throwable;
  * extraction — but every trigger then raised an exception that the catch
  * below turned into a false `error` log, hiding real dispatch failures.
  *
- * Subscriber errors must never propagate: a failure here would otherwise
- * fail the non-conformity recording request itself, even though automation
- * is a best-effort side effect of it.
+ * Durable triggers record their receipt and command in one main transaction;
+ * failures propagate for retry. Legacy synchronous dispatches retain their
+ * best-effort behavior.
  *
  * @category Subscriber
  *
@@ -66,6 +67,8 @@ final readonly class AutomationTriggerSubscriber implements EventSubscriberInter
   public function __construct(
     private AutomationRuleQueuePort $ruleQueue,
     private LoggerInterface $logger,
+    private DurableEventContextPort $eventContext,
+    private IdempotentConsumerPort $eventConsumer,
   ) {
   }
   // #endregion
@@ -98,16 +101,24 @@ final readonly class AutomationTriggerSubscriber implements EventSubscriberInter
     }
 
     try {
-      $this->ruleQueue->enqueue(
-        ruleKey: AutomationTriggers::RULE_AUTO_CREATE_INTERVENTION_ON_CRITICAL_NC,
-        organizationId: $event->organizationId,
-        subjectId: $event->nonConformityId,
-        triggerPayload: [
-          'nonConformityId' => $event->nonConformityId,
-          'inspectionId' => $event->inspectionId,
-          'severity' => $event->severity,
-        ],
-      );
+      $enqueue = function () use ($event): void {
+        $this->ruleQueue->enqueue(
+          ruleKey: AutomationTriggers::RULE_AUTO_CREATE_INTERVENTION_ON_CRITICAL_NC,
+          organizationId: $event->organizationId,
+          subjectId: $event->nonConformityId,
+          triggerPayload: [
+            'nonConformityId' => $event->nonConformityId,
+            'inspectionId' => $event->inspectionId,
+            'severity' => $event->severity,
+          ],
+        );
+      };
+      $eventId = $this->eventContext->eventId();
+      if (null === $eventId) {
+        $enqueue();
+      } else {
+        $this->eventConsumer->consume($eventId, 'automation.trigger', $enqueue);
+      }
     } catch (Throwable $exception) {
       $this->logger->error('Failed to dispatch automation rule execution', [
         'rule_key' => AutomationTriggers::RULE_AUTO_CREATE_INTERVENTION_ON_CRITICAL_NC,
@@ -115,6 +126,9 @@ final readonly class AutomationTriggerSubscriber implements EventSubscriberInter
         'non_conformity_id' => $event->nonConformityId,
         'error' => $exception->getMessage(),
       ]);
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
     }
   }
 }

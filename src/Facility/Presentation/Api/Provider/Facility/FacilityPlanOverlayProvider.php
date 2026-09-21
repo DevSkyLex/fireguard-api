@@ -85,7 +85,7 @@ final readonly class FacilityPlanOverlayProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $attachmentId = $request?->query->get('attachmentId');
+    $attachmentId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('attachmentId');
 
     try {
       /** @var GetFacilityPlanOverlayResult $result */

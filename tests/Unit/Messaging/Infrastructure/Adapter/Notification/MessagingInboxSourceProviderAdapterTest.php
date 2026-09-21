@@ -228,6 +228,49 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testManagingMessagingDoesNotRevealPrivateDirectMentions(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('listMentionsForMember')->willReturn([$this->message(id: 'private-message', conversationId: 'private-direct')]);
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findSubjectTypesByIds')->willReturn(['private-direct' => 'direct']);
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('listChannelIdsForMember')->willReturn([]);
+    $adapter = $this->buildAdapter(messages: $messages, conversations: $conversations, participants: $participants, accessPolicy: $this->accessPolicy(manage: true));
+
+    self::assertSame([], $adapter->fetch('user-1', 'org-1', null, 20));
+  }
+
+  #[Test]
+  public function testRefillsAfterInaccessibleMentionsWithoutSkippingReadableOlderItems(): void
+  {
+    $hidden = [$this->message(id: 'a', conversationId: 'private-direct'), $this->message(id: 'b', conversationId: 'private-direct')];
+    $visible = $this->message(id: 'c', conversationId: 'channel');
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::exactly(2))->method('listMentionsForMember')->willReturnCallback(
+      static function (string $organization, string $member, ?DateTimeImmutable $before, int $limit, ?\Notification\Application\Contract\Inbox\InboxCursor $cursor) use ($hidden, $visible): array {
+        self::assertSame(2, $limit);
+        if (null === $cursor) {
+          return $hidden;
+        }
+        self::assertSame('b', $cursor->id);
+
+        return [$visible];
+      },
+    );
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findSubjectTypesByIds')->willReturn(['private-direct' => 'direct', 'channel' => 'channel']);
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('listChannelIdsForMember')->willReturn(['channel']);
+    $adapter = $this->buildAdapter(messages: $messages, conversations: $conversations, participants: $participants);
+
+    $items = $adapter->fetch('user-1', 'org-1', null, 2);
+    self::assertCount(1, $items);
+    self::assertSame('c', $items[0]->id);
+    self::assertSame('channel', $items[0]->targetKind);
+  }
+
+  #[Test]
   public function testFetchExcludesAConversationWithAnUnrecognizedSubjectType(): void
   {
     $message = $this->message(id: 'message-1', conversationId: 'conversation-1');
@@ -399,7 +442,7 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
     $messages = $this->createMock(MessagingMessageRepositoryPort::class);
     $messages->expects(self::once())
       ->method('listMentionsForMember')
-      ->with('org-1', 'member-1', null, 200)
+      ->with('org-1', 'member-1', null, 100)
       ->willReturn([]);
 
     $adapter = $this->buildAdapter(messages: $messages, memberId: 'member-1');

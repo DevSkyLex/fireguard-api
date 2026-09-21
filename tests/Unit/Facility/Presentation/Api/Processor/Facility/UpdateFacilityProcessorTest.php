@@ -60,6 +60,7 @@ final class UpdateFacilityProcessorTest extends TestCase
       ->method('dispatch');
 
     $processor = new UpdateFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -116,7 +117,7 @@ final class UpdateFacilityProcessorTest extends TestCase
           && !$command->hasMetadata
           && 'HQ Updated' === $command->name;
       }))
-      ->willReturn(new UpdateFacilityResult(
+      ->willReturn($detailResult = new UpdateFacilityResult(
         facilityId: '550e8400-e29b-41d4-a716-446655441112',
         organizationId: '550e8400-e29b-41d4-a716-446655441111',
         parentFacilityId: null,
@@ -131,6 +132,7 @@ final class UpdateFacilityProcessorTest extends TestCase
       ));
 
     $processor = new UpdateFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -187,7 +189,7 @@ final class UpdateFacilityProcessorTest extends TestCase
           && 48.8566 === $command->latitude
           && 2.3522 === $command->longitude;
       }))
-      ->willReturn(new UpdateFacilityResult(
+      ->willReturn($detailResult = new UpdateFacilityResult(
         facilityId: '550e8400-e29b-41d4-a716-446655442102',
         organizationId: '550e8400-e29b-41d4-a716-446655442101',
         parentFacilityId: null,
@@ -204,6 +206,7 @@ final class UpdateFacilityProcessorTest extends TestCase
       ));
 
     $processor = new UpdateFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -257,7 +260,7 @@ final class UpdateFacilityProcessorTest extends TestCase
           && !$command->hasName
           && -1 === $command->levelIndex;
       }))
-      ->willReturn(new UpdateFacilityResult(
+      ->willReturn($detailResult = new UpdateFacilityResult(
         facilityId: '550e8400-e29b-41d4-a716-446655442112',
         organizationId: '550e8400-e29b-41d4-a716-446655442111',
         parentFacilityId: null,
@@ -273,6 +276,7 @@ final class UpdateFacilityProcessorTest extends TestCase
       ));
 
     $processor = new UpdateFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -302,6 +306,7 @@ final class UpdateFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UpdateFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -520,6 +525,7 @@ final class UpdateFacilityProcessorTest extends TestCase
     }
 
     return new UpdateFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,

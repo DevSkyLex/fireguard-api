@@ -103,6 +103,7 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     ?DateTimeImmutable $hideReadBefore = null,
     array $hiddenReadCategories = [],
     ?DateTimeImmutable $before = null,
+    ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null,
   ): array {
     $qb = $this->filteredQueryBuilder(
       userId: $userId,
@@ -120,6 +121,17 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
       ->addOrderBy('n.id', 'ASC')
       ->setMaxResults(min(100, max(1, $limit)))
       ->setFirstResult(max(0, $offset));
+
+    if (null !== $cursor) {
+      $sourceOrder = 'notification' <=> $cursor->sourceKey;
+      if (0 === $sourceOrder) {
+        $qb->andWhere('(n.createdAt < :cursorAt OR (n.createdAt = :cursorAt AND n.id > :cursorId))')
+          ->setParameter('cursorId', $cursor->id);
+      } else {
+        $qb->andWhere($sourceOrder > 0 ? 'n.createdAt <= :cursorAt' : 'n.createdAt < :cursorAt');
+      }
+      $qb->setParameter('cursorAt', $cursor->databaseInstant());
+    }
 
     /** @var list<NotificationRecord> $records */
     $records = $qb->getQuery()->getResult();

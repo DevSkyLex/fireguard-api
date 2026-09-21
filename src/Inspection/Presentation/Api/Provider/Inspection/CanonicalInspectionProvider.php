@@ -106,9 +106,9 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $interventionId = $this->filterId($request?->query->get('intervention'), 'interventions');
-    $organizationId = $this->filterId($request?->query->get('organization'), 'organizations');
-    $equipmentId = $this->filterId($request?->query->get('equipment'), 'equipment');
+    $interventionId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention'), 'interventions');
+    $organizationId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'), 'organizations');
+    $equipmentId = $this->filterId(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('equipment'), 'equipment');
 
     /** @var ResolveCanonicalInspectionScopeResult $scope */
     $scope = $this->queryBus->ask(new ResolveCanonicalInspectionScopeQuery(
@@ -122,8 +122,8 @@ final readonly class CanonicalInspectionProvider implements ProviderInterface
 
     $this->assertRead($scope->organizationId);
 
-    $recordStatus = $request?->query->get('recordStatus');
-    $filters = $context['filters'] ?? [];
+    $recordStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     /** @var ListCanonicalInspectionsResult $result */
     $result = $this->queryBus->ask(new ListCanonicalInspectionsQuery(

@@ -7,20 +7,37 @@ namespace Organization\Application\Service;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
 
-final readonly class OrganizationCacheInvalidator
+final class OrganizationCacheInvalidator
 {
+  private int $revision = 0;
+
   public function __construct(
-    private CachePort $cache,
+    private readonly CachePort $cache,
   ) {
+  }
+
+  public function revision(): int
+  {
+    return $this->revision;
+  }
+
+  public function invalidateOrganization(): void
+  {
+    ++$this->revision;
   }
 
   public function invalidateCurrentMemberProfile(string $organizationId, string $userId): void
   {
-    try {
-      $this->cache->delete(OrganizationCacheKeys::currentMemberProfile($organizationId, $userId));
-      $this->cache->delete(OrganizationCacheKeys::permissions($organizationId, $userId));
-    } catch (Throwable) {
-      // Cache failures should not block organization membership mutations.
+    $this->invalidateOrganization();
+    foreach ([
+      OrganizationCacheKeys::currentMemberProfile($organizationId, $userId),
+      OrganizationCacheKeys::permissions($organizationId, $userId),
+    ] as $key) {
+      try {
+        $this->cache->delete($key);
+      } catch (Throwable) {
+        // Legacy shared entries are best effort; new authorization reads never trust them.
+      }
     }
   }
 

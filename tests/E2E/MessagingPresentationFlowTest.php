@@ -82,8 +82,7 @@ final class MessagingPresentationFlowTest extends OAuth2WebTestCase
   public function testListConversationsAuthenticatedRejectsMissingOrganizationFilter(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-    self::assertNotNull($token, 'Should be able to obtain an access token.');
+    $token = $this->authenticateAsSeededAdmin($client);
 
     // The `organization` filter is validated inside ListConversationsProvider
     // before any permission/data access, so a missing filter is a deterministic
@@ -153,8 +152,7 @@ final class MessagingPresentationFlowTest extends OAuth2WebTestCase
   public function testListSavedMessagesAuthenticatedRejectsMissingOrganizationFilter(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-    self::assertNotNull($token, 'Should be able to obtain an access token.');
+    $token = $this->authenticateAsSeededAdmin($client);
 
     // ListSavedMessagesProvider validates the required `organization` filter
     // before any data access, so an authenticated call without it is a
@@ -179,8 +177,7 @@ final class MessagingPresentationFlowTest extends OAuth2WebTestCase
   public function testGetPresenceAuthenticatedRejectsMissingFilters(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-    self::assertNotNull($token, 'Should be able to obtain an access token.');
+    $token = $this->authenticateAsSeededAdmin($client);
 
     // GetPresenceProvider validates both the `organization` and the `memberIds`
     // filters before any data access; a bare authenticated request is a

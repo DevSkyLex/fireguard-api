@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests;
 
-use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
+use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalRequestRepositoryPort};
 use Approval\Domain\Event\Request\ApprovalExpiredEvent;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
@@ -43,11 +43,13 @@ final readonly class ExpireStaleApprovalRequestsHandler implements CommandHandle
    * @param ApprovalRequestRepositoryPort $requests the approval request repository port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
+   * @param ApprovalDecisionLockPort $decisions the transactional decision lock
    */
   public function __construct(
     private ApprovalRequestRepositoryPort $requests,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
+    private ApprovalDecisionLockPort $decisions,
   ) {
   }
   // #endregion
@@ -70,20 +72,23 @@ final readonly class ExpireStaleApprovalRequestsHandler implements CommandHandle
       $page = $this->requests->findPendingExpiredBefore($now, self::PAGE_SIZE);
 
       foreach ($page as $request) {
-        if (!$request->isPending()) {
-          // Already decided/expired by a concurrent run: skip.
-          continue;
-        }
+        $this->decisions->synchronized((string) $request->id(), function () use ($request): void {
+          $current = $this->requests->findById($request->id());
+          $now = $this->clock->now();
+          if (null === $current || !$current->isPending() || $current->expiresAt() > $now) {
+            return;
+          }
 
-        $request->expire($now);
-        $this->requests->save($request);
+          $current->expire($now);
+          $this->requests->save($current);
 
-        $this->eventDispatcher->dispatch(new ApprovalExpiredEvent(
-          organizationId: $request->organizationId(),
-          requestId: (string) $request->id(),
-          actionType: $request->actionType(),
-          subjectId: $request->subjectId(),
-        ));
+          $this->eventDispatcher->dispatch(new ApprovalExpiredEvent(
+            organizationId: $current->organizationId(),
+            requestId: (string) $current->id(),
+            actionType: $current->actionType(),
+            subjectId: $current->subjectId(),
+          ));
+        });
       }
     } while (self::PAGE_SIZE === count($page));
 

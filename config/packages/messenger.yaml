@@ -1,14 +1,23 @@
 framework:
     messenger:
-        # Uncomment this (and the failed transport below) to send failed messages to this transport for later handling.
-        # failure_transport: failed
+        failure_transport: failed
 
         transports:
+            # PostgreSQL is the transactional outbox for main-owned events and
+            # commands. Its inserts use the same connection as business writes.
+            main_outbox:
+                dsn: 'doctrine://main?queue_name=main_outbox&auto_setup=false'
+                failure_transport: main_failed
+                retry_strategy:
+                    max_retries: 5
+                    delay: 1000
+                    multiplier: 3
+                    max_delay: 600000
+            main_failed: 'doctrine://main?queue_name=main_failed&auto_setup=false'
             async:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 options:
                     queue_name: async
-            # failed: 'doctrine://default?queue_name=failed'
             sync: 'sync://'
             # Dedicated transport for outbound webhook fan-out/delivery: isolated
             # from the general-purpose `async` transport so a slow/unreachable
@@ -37,7 +46,7 @@ framework:
             # `failed` (the pending/streaming assistant message is settled by
             # `GenerateAssistantReplyHandler` calling `AssistantMessage::markFailed()`).
             assistant:
-                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                dsn: 'doctrine://main'
                 options:
                     queue_name: assistant
                 retry_strategy:
@@ -51,13 +60,15 @@ framework:
             failed: 'doctrine://auth?queue_name=failed'
 
         routing:
-            'Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': async
+            'Shared\Infrastructure\Messaging\Outbox\OutboxEvent': main_outbox
+            'Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': main_outbox
             'Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand': async
             'Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesCommand': async
             'Inspection\Application\UseCase\Command\Sweep\EscalateNonConformitySlaBreaches\EscalateNonConformitySlaBreachesCommand': async
             'Organization\Application\UseCase\Command\Sweep\SendWeeklyDigests\SendWeeklyDigestsCommand': async
-            'Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand': async
-            'Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobCommand': async
+            'Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand': main_outbox
+            'Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobCommand': main_outbox
+            'Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation\DeliverOrganizationInvitationCommand': main_outbox
             'Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\ExpireStaleApprovalRequestsCommand': async
             'Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventCommand': webhook
             'Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookCommand': webhook
@@ -67,6 +78,7 @@ when@test:
     framework:
         messenger:
             transports:
+                main_outbox: 'in-memory://'
                 async: 'in-memory://'
                 webhook: 'in-memory://'
                 assistant: 'in-memory://'

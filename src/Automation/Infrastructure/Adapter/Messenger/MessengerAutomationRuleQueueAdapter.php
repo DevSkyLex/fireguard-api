@@ -51,13 +51,14 @@ final readonly class MessengerAutomationRuleQueueAdapter implements AutomationRu
    * @param string $subjectId the triggering subject identifier
    * @param array<string, mixed> $triggerPayload the trigger payload
    */
-  public function enqueue(string $ruleKey, string $organizationId, string $subjectId, array $triggerPayload = []): void
+  public function enqueue(string $ruleKey, string $organizationId, string $subjectId, array $triggerPayload = [], ?string $attemptId = null): void
   {
     $this->messageBus->dispatch(new ExecuteAutomationRuleCommand(
       ruleKey: $ruleKey,
       organizationId: $organizationId,
       subjectId: $subjectId,
       triggerPayload: $triggerPayload,
+      attemptId: $attemptId,
     ));
   }
   // #endregion

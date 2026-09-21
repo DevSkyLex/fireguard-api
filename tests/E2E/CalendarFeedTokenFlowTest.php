@@ -9,6 +9,7 @@ use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
+use function http_build_query;
 use function is_string;
 use function json_encode;
 use function str_contains;
@@ -39,6 +40,20 @@ final class CalendarFeedTokenFlowTest extends OAuth2WebTestCase
 
     // An event guarantees at least one feed entry inside the -30d/+180d window.
     $this->createEvent($client, $token, $organizationId, 'Exercice évacuation annuel');
+
+    $from = new DateTimeImmutable('-1 day')->format('Y-m-d\TH:i:sP');
+    $to = new DateTimeImmutable('+10 days')->format('Y-m-d\TH:i:sP');
+    $client->request('GET', '/api/organizations/' . $organizationId . '/calendar/feed?' . http_build_query(['from' => $from, 'to' => $to]), server: $this->headers($token));
+    self::assertSame(200, $client->getResponse()->getStatusCode());
+    $feedContract = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertTrue($feedContract['complete'] ?? false);
+    self::assertIsArray($feedContract['sources'] ?? null);
+    self::assertNotEmpty($feedContract['sources']);
+    foreach ($feedContract['sources'] as $source) {
+      self::assertIsArray($source);
+      self::assertTrue($source['available'] ?? false);
+      self::assertFalse($source['truncated'] ?? true);
+    }
 
     // 1. Create the feed token: 201, the secret and the full URL, exactly once.
     $client->request(

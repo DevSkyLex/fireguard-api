@@ -9,6 +9,8 @@ use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Shared\Application\Message\QueryHandler;
 
+use function in_array;
+
 /**
  * UseCase GetChecklistHandler.
  *
@@ -56,6 +58,8 @@ final readonly class GetChecklistHandler implements QueryHandler
       );
     }
 
+    $referenced = $this->checklistRepository->referencedIds($organizationId, [$query->checklistId]);
+
     return new GetChecklistResult(
       checklistId: (string) $checklist->id(),
       organizationId: (string) $checklist->organizationId(),
@@ -66,6 +70,8 @@ final readonly class GetChecklistHandler implements QueryHandler
       createdAt: $checklist->createdAt(),
       updatedAt: $checklist->updatedAt(),
       referenceCode: $checklist->referenceCode(),
+      previousChecklistId: $checklist->previousChecklistId()?->__toString(),
+      itemsEditable: !$checklist->status()->isArchived() && !in_array((string) $checklist->id(), $referenced, true),
     );
   }
   // #endregion

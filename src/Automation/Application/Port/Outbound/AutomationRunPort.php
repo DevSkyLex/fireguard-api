@@ -37,10 +37,12 @@ interface AutomationRunPort
    * @param string $ruleKey the automation rule key
    * @param string $organizationId the organization identifier
    * @param string $subjectId the subject identifier the rule runs against
+   * @param array<string, mixed> $triggerPayload retained execution inputs
+   * @param ?string $attemptId explicit retry identity, or null for a first trigger
    *
    * @return ?string the reserved run id, or null when already claimed
    */
-  public function reserveRun(string $ruleKey, string $organizationId, string $subjectId): ?string;
+  public function reserveRun(string $ruleKey, string $organizationId, string $subjectId, array $triggerPayload = [], ?string $attemptId = null): ?string;
 
   /**
    * Method markSkipped.

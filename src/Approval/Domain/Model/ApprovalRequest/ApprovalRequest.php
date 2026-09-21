@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Approval\Domain\Model\ApprovalRequest;
 
-use Approval\Domain\Exception\ApprovalRequestNotPendingException;
+use Approval\Domain\Exception\{ApprovalRequestNotPendingException, ApprovalWithdrawalNotAllowedException};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use DateTimeImmutable;
 
@@ -461,6 +461,30 @@ final class ApprovalRequest
     $this->decisionByMemberId = $decisionByMemberId;
     $this->decisionByUserId = $decisionByUserId;
     $this->decisionNote = $decisionNote;
+    $this->decidedAt = $now;
+    $this->touch($now);
+  }
+
+  /**
+   * Method withdraw.
+   *
+   * @since 1.1.0
+   *
+   * @param string $memberId the active requester member identifier
+   * @param string $userId the original requester user identifier
+   * @param ?string $note the withdrawal reason
+   * @param DateTimeImmutable $now the decision time
+   */
+  public function withdraw(string $memberId, string $userId, ?string $note, DateTimeImmutable $now): void
+  {
+    if ($userId !== $this->requestedByUserId) {
+      throw ApprovalWithdrawalNotAllowedException::create();
+    }
+    $this->assertPending();
+    $this->status = ApprovalStatus::WITHDRAWN;
+    $this->decisionByMemberId = $memberId;
+    $this->decisionByUserId = $userId;
+    $this->decisionNote = $note;
     $this->decidedAt = $now;
     $this->touch($now);
   }

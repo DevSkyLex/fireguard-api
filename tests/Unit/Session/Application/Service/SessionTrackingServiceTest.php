@@ -80,16 +80,11 @@ final class SessionTrackingServiceTest extends TestCase
   #[Test]
   public function testRotateSessionTokensDispatchesUpdate(): void
   {
-    $session = $this->createSession();
-
     $repository = $this->createMock(SessionRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findByRefreshTokenId')
-      ->with('refresh-old')
-      ->willReturn($session);
-    $repository->expects(self::once())
-      ->method('save')
-      ->with($session);
+      ->method('rotateTokens')
+      ->with('refresh-old', 'access-old', 'access-new', 'refresh-new')
+      ->willReturn(true);
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
@@ -104,7 +99,7 @@ final class SessionTrackingServiceTest extends TestCase
       ),
     );
 
-    $service->rotateSessionTokens('refresh-old', 'access-old', 'access-new', 'refresh-new');
+    self::assertTrue($service->rotateSessionTokens('refresh-old', 'access-old', 'access-new', 'refresh-new'));
   }
 
   #[Test]

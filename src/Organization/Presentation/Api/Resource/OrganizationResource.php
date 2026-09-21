@@ -80,19 +80,28 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Organization'],
-        summary: 'List user Organizations',
-        description: 'Lists Organizations where the authenticated user is a member.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['active', 'suspended', 'archived']],
+          description: 'Filter by organization status.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'status',
             in: 'query',
             required: false,
             description: 'Filter by organization status.',
             schema: ['type' => 'string', 'enum' => ['active', 'suspended', 'archived']],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'List user Organizations',
+        description: 'Lists Organizations where the authenticated user is a member.',
+        parameters: [],
       ),
     ),
     new Get(
@@ -259,19 +268,28 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: false,
       processor: DeleteOrganizationProcessor::class,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Organization'],
-        summary: 'Archive Organization',
-        description: 'Archives the organization (reversible soft delete — NOT a permanent removal): it is hidden from the default listing and its owned data (facilities, equipment, inspections, interventions) is preserved rather than orphaned, and can be restored through the settings PATCH (isActive: true). Requires the organization.delete permission plus a danger-zone confirmation: the "slug" query parameter must exactly match the organization\'s current slug (case-insensitive, trimmed). A missing or mismatched confirmation is rejected with HTTP 422 and nothing is archived. Idempotent when already archived, provided the confirmation is still correct.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'slug' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Danger-zone confirmation: the organization\'s current slug, typed by the caller.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'slug',
             in: 'query',
             required: true,
             description: 'Danger-zone confirmation: the organization\'s current slug, typed by the caller.',
             schema: ['type' => 'string'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Archive Organization',
+        description: 'Archives the organization (reversible soft delete — NOT a permanent removal): it is hidden from the default listing and its owned data (facilities, equipment, inspections, interventions) is preserved rather than orphaned, and can be restored through the settings PATCH (isActive: true). Requires the organization.delete permission plus a danger-zone confirmation: the "slug" query parameter must exactly match the organization\'s current slug (case-insensitive, trimmed). A missing or mismatched confirmation is rejected with HTTP 422 and nothing is archived. Idempotent when already archived, provided the confirmation is still correct.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Organization archived'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),

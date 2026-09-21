@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Import\Presentation\Api\Trait;
 
+use Import\Application\Exception\ImportLeaseUnavailable;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
 use InvalidArgumentException;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
 
 /**
@@ -45,6 +46,7 @@ trait ImportExceptionMapperTrait
     $current = $exception;
     do {
       $mapped = match (true) {
+        $current instanceof ImportLeaseUnavailable => new ConflictHttpException($current->getMessage(), $exception),
         $current instanceof ImportAccessDeniedException,
         $current instanceof OrganizationAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
         $current instanceof ImportJobNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),

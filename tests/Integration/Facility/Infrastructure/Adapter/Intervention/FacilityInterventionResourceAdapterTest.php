@@ -48,7 +48,14 @@ final class FacilityInterventionResourceAdapterTest extends KernelTestCase
     $facilityRepository = static::getContainer()->get(FacilityRepositoryPort::class);
     $metadataRepository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
     $metadataRepository->method('findByOrganizationId')->willReturn([]);
-    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $facilityRepository, new FacilityMetadataSchemaGuard($metadataRepository));
+    $this->adapter = new FacilityInterventionResourceAdapter(
+      $this->entityManager,
+      $guard,
+      $facilityRepository,
+      new FacilityMetadataSchemaGuard($metadataRepository),
+      attachments: new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository($this->entityManager),
+      planAncestry: new \Facility\Application\Service\FacilityAttachmentAncestryGuard(new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository($this->entityManager)),
+    );
 
     $this->removeOrganization(self::ORGANIZATION_ID);
     $this->removeOrganization(self::OTHER_ORGANIZATION_ID);
@@ -140,7 +147,7 @@ final class FacilityInterventionResourceAdapterTest extends KernelTestCase
 
     self::assertSame('770e8400-e29b-41d4-a716-446655440051', $assignment->interventionId);
     self::assertSame('draft', $assignment->recordStatus);
-    self::assertSame(1, $assignment->revision);
+    self::assertSame(2, $assignment->revision);
 
     $this->entityManager->clear();
     $reloaded = $this->entityManager->find(FacilityRecord::class, '770e8400-e29b-41d4-a716-446655440050');

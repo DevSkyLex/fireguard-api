@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Application\Service;
 
 use DateTimeImmutable;
-use Notification\Application\Contract\Inbox\InboxItem;
+use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\Port\Outbound\InboxSourceProviderPort;
 use Throwable;
 
 use function array_filter;
+use function array_slice;
+use function array_values;
 use function count;
+use function usort;
 
 /**
  * Fake FakeInboxSourceProvider.
@@ -56,7 +59,7 @@ final class FakeInboxSourceProvider implements InboxSourceProviderPort
     return $this->key;
   }
 
-  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): array
+  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
     $this->lastCallArguments = [$userId, $organizationId, $before, $limit];
 
@@ -64,7 +67,13 @@ final class FakeInboxSourceProvider implements InboxSourceProviderPort
       throw $this->throws;
     }
 
-    return $this->items;
+    $items = array_values(array_filter(
+      $this->items,
+      static fn (InboxItem $item): bool => (null === $before || $item->occurredAt < $before) && (null === $cursor || $cursor->precedes($item)),
+    ));
+    usort($items, static fn (InboxItem $a, InboxItem $b): int => ($b->occurredAt <=> $a->occurredAt) ?: ($a->sourceKey <=> $b->sourceKey) ?: ($a->id <=> $b->id));
+
+    return array_slice($items, 0, $limit);
   }
 
   public function countUnread(string $userId, ?string $organizationId): int

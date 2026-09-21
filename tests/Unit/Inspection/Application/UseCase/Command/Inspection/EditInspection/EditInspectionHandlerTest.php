@@ -45,6 +45,7 @@ final class EditInspectionHandlerTest extends TestCase
     $repository->expects(self::once())->method('save');
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),
@@ -71,6 +72,7 @@ final class EditInspectionHandlerTest extends TestCase
     $repository->method('findPublishedById')->willReturn(null);
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),
@@ -94,6 +96,7 @@ final class EditInspectionHandlerTest extends TestCase
     $repository->method('findPublishedById')->willReturn($inspection);
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),
@@ -117,6 +120,7 @@ final class EditInspectionHandlerTest extends TestCase
     $repository->method('findPublishedById')->willReturn($inspection);
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),
@@ -151,6 +155,7 @@ final class EditInspectionHandlerTest extends TestCase
       ->with(self::EQUIP_ID, self::ORG_ID);
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $equipmentValidation,
       facilityValidation: $this->createStub(FacilityValidationPort::class),
@@ -182,6 +187,7 @@ final class EditInspectionHandlerTest extends TestCase
       ->with('550e8400-e29b-41d4-a716-446655440004', self::ORG_ID);
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $facilityValidation,
@@ -213,6 +219,7 @@ final class EditInspectionHandlerTest extends TestCase
       ->with('550e8400-e29b-41d4-a716-446655440005', self::ORG_ID);
 
     $handler = new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),
@@ -292,6 +299,7 @@ final class EditInspectionHandlerTest extends TestCase
   private function makeHandler(InspectionRepositoryPort $repository): EditInspectionHandler
   {
     return new EditInspectionHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       inspectionRepository: $repository,
       equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $this->createStub(FacilityValidationPort::class),

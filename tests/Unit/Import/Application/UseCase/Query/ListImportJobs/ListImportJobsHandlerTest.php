@@ -32,6 +32,27 @@ final class ListImportJobsHandlerTest extends TestCase
   private const string USER_ID = 'user-1';
 
   #[Test]
+  public function itScopesBothRowsAndTotalsToTheKindsTheMemberCanRead(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturnCallback(
+      static fn (string $user, string $organization, string $permission): bool => 'organization.facilities.read' === $permission,
+    );
+    $repository = $this->createMock(ImportJobRepositoryPort::class);
+    $repository->expects(self::once())->method('listByOrganization')
+      ->with(self::ORGANIZATION_ID, null, 10, 10, [ImportKind::FACILITY])->willReturn([]);
+    $repository->expects(self::once())->method('countByOrganization')
+      ->with(self::ORGANIZATION_ID, null, [ImportKind::FACILITY])->willReturn(10);
+
+    $result = (new ListImportJobsHandler($repository, $authorization))(
+      new ListImportJobsQuery(self::USER_ID, self::ORGANIZATION_ID, page: 2, itemsPerPage: 10),
+    );
+    self::assertSame(10, $result->total);
+    self::assertSame([], $result->items);
+  }
+
+  #[Test]
   public function itReturnsTheOrgScopedPageWhenNoKindFilterIsGiven(): void
   {
     $repository = $this->createStub(ImportJobRepositoryPort::class);

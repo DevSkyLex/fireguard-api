@@ -65,6 +65,8 @@ final class GetCalendarFeedProviderTest extends TestCase
           items: [$item],
           from: new DateTimeImmutable('2026-08-01T00:00:00+00:00'),
           to: new DateTimeImmutable('2026-08-31T23:59:59+00:00'),
+          sources: [new \Calendar\Application\Contract\Feed\CalendarFeedSourceState('inspection', false, false)],
+          complete: false,
         );
       });
 
@@ -84,6 +86,10 @@ final class GetCalendarFeedProviderTest extends TestCase
     self::assertCount(1, $output->items);
     self::assertSame('v-1', $output->items[0]->id);
     self::assertSame('intervention', $output->items[0]->sourceKey);
+    self::assertFalse($output->complete);
+    self::assertCount(1, $output->sources);
+    self::assertSame('inspection', $output->sources[0]->sourceKey);
+    self::assertFalse($output->sources[0]->available);
   }
 
   #[Test]

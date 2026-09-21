@@ -12,7 +12,7 @@ use Session\Presentation\Api\Dto\Output\Session\RevokeOtherSessionsOutput;
 use Session\Presentation\Api\Support\ResolvesCurrentSessionId;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, UnauthorizedHttpException};
 
 /**
  * Processor RevokeOtherSessionsProcessor.
@@ -67,9 +67,13 @@ final readonly class RevokeOtherSessionsProcessor implements ProcessorInterface
       throw new UnauthorizedHttpException('Bearer', 'Authenticated user type is not supported.');
     }
 
+    $currentSessionId = $this->resolveCurrentSessionId(context: $context);
+    if ('' === $currentSessionId) {
+      throw new ConflictHttpException('The current session could not be identified.');
+    }
     $command = new RevokeOtherUserSessionsCommand(
       userId: $user->getId(),
-      currentSessionId: $this->resolveCurrentSessionId(context: $context),
+      currentSessionId: $currentSessionId,
       reason: 'User requested logout from other devices',
     );
 

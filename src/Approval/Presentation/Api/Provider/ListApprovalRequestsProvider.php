@@ -83,11 +83,11 @@ final readonly class ListApprovalRequestsProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $page = max(1, $query?->getInt('page', 1) ?? 1);
-    $itemsPerPage = max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30));
-    $status = $query?->get('status');
-    $actionType = $query?->get('actionType');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $page = max(1, $query->getInt('page', 1));
+    $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
+    $status = $query->get('status');
+    $actionType = $query->get('actionType');
 
     try {
       /** @var ListApprovalRequestsResult $result */

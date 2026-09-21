@@ -93,6 +93,10 @@ final class OrganizationAuditMetadataProjection
     'organization.team_member_added' => ['team_id', 'role'],
     'organization.team_member_removed' => ['team_id'],
 
+    'facility.plan_geometry_changed' => ['operation', 'previous_attachment_id', 'attachment_id', 'revision', 'intervention_id'],
+
+    'equipment.plan_position_changed' => ['operation', 'previous_attachment_id', 'attachment_id', 'revision', 'intervention_id'],
+
     // Facilities
     'facility.archived' => [],
     'facility.restored' => [],
@@ -171,6 +175,7 @@ final class OrganizationAuditMetadataProjection
     'approval.requested' => ['action_type', 'subject_id', 'requested_by_member_id'],
     'approval.approved' => ['action_type', 'subject_id', 'decision_by_member_id'],
     'approval.rejected' => ['action_type', 'subject_id', 'decision_by_member_id'],
+    'approval.withdrawn' => ['action_type', 'subject_id', 'decision_by_member_id'],
     'approval.expired' => ['action_type', 'subject_id'],
     // 'error' is raw exception text.
     'approval.execution_failed' => ['action_type', 'subject_id'],

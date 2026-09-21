@@ -45,6 +45,8 @@ final readonly class GetApprovalRequestResult implements ResultMessage
    * @param ?DateTimeImmutable $decidedAt the decision timestamp, once decided
    * @param ?DateTimeImmutable $executedAt the execution timestamp, once executed
    * @param ?string $executionError the last execution/cancellation error, if any
+   * @param list<string> $allowedActions current reader's available decisions
+   * @param ?string $decisionBlockReason stable reason when decisions are unavailable
    */
   public function __construct(
     public string $id,
@@ -63,6 +65,8 @@ final readonly class GetApprovalRequestResult implements ResultMessage
     public ?DateTimeImmutable $decidedAt,
     public ?DateTimeImmutable $executedAt,
     public ?string $executionError,
+    public array $allowedActions = [],
+    public ?string $decisionBlockReason = null,
   ) {
   }
   // #endregion
@@ -76,10 +80,11 @@ final readonly class GetApprovalRequestResult implements ResultMessage
    * @since 1.0.0
    *
    * @param ApprovalRequest $request the approval request aggregate
+   * @param list<string> $allowedActions available decisions
    *
    * @return self the view built from the aggregate
    */
-  public static function fromDomain(ApprovalRequest $request): self
+  public static function fromDomain(ApprovalRequest $request, array $allowedActions = [], ?string $decisionBlockReason = null): self
   {
     return new self(
       id: (string) $request->id(),
@@ -98,6 +103,8 @@ final readonly class GetApprovalRequestResult implements ResultMessage
       decidedAt: $request->decidedAt(),
       executedAt: $request->executedAt(),
       executionError: $request->executionError(),
+      allowedActions: $allowedActions,
+      decisionBlockReason: $decisionBlockReason,
     );
   }
   // #endregion

@@ -12,7 +12,6 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\DecommissionEquipmentProcessor;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -66,7 +65,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $approvalGate->expects(self::never())->method('evaluate');
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $approvalGate,
@@ -100,7 +99,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $approvalGate->expects(self::never())->method('evaluate');
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $approvalGate,
@@ -142,7 +141,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $this->applyNowGate(),
@@ -179,7 +178,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $this->applyNowGate(),
@@ -209,7 +208,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $now = new DateTimeImmutable('2026-03-15T10:00:00+00:00');
 
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn(new DecommissionEquipmentResult(
+    $commandBus->method('dispatch')->willReturn($detailResult = new DecommissionEquipmentResult(
       equipmentId: self::EQUIP_ID,
       organizationId: self::ORG_ID,
       facilityId: null,
@@ -228,7 +227,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     ));
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $this->applyNowGate(),
@@ -273,7 +272,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
       ->willReturn(ApprovalGateDecision::deferred('request-1', 'pending', $expiresAt));
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $approvalGate,
@@ -305,7 +304,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       approvalGate: $this->applyNowGate(),
@@ -329,7 +328,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       approvalGate: $this->applyNowGate(),
@@ -443,7 +442,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new DecommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       approvalGate: $this->applyNowGate(),

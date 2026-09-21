@@ -45,6 +45,7 @@ final class WebhookEventSubscriberTest extends TestCase
       $this->createStub(MessageBusInterface::class),
       $this->uuidFactory(),
       new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
     ));
 
     $subscribed = WebhookEventSubscriber::getSubscribedEvents();
@@ -89,7 +90,12 @@ final class WebhookEventSubscriberTest extends TestCase
       }))
       ->willReturn($this->envelope());
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onNonConformityRecorded(new NonConformityRecordedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -113,7 +119,12 @@ final class WebhookEventSubscriberTest extends TestCase
       }))
       ->willReturn($this->envelope());
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onInterventionPublished(new InterventionPublishedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -132,7 +143,12 @@ final class WebhookEventSubscriberTest extends TestCase
         && 'facility-1' === $command->data['facilityId']))
       ->willReturn($this->envelope());
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onFacilityArchived(new FacilityArchivedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -150,7 +166,12 @@ final class WebhookEventSubscriberTest extends TestCase
         && 'facility-1' === $command->data['facilityId']))
       ->willReturn($this->envelope());
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onFacilityCreated(new FacilityCreatedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -169,7 +190,12 @@ final class WebhookEventSubscriberTest extends TestCase
         && ['name', 'code'] === $command->data['changedFields']))
       ->willReturn($this->envelope());
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onFacilityUpdated(new FacilityUpdatedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -190,7 +216,12 @@ final class WebhookEventSubscriberTest extends TestCase
         && 'in_stock' === $command->data['previousStatus']))
       ->willReturn($this->envelope());
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onEquipmentCommissioned(new EquipmentCommissionedEvent(
       organizationId: self::ORGANIZATION_ID,
@@ -209,7 +240,12 @@ final class WebhookEventSubscriberTest extends TestCase
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())->method('error')->with('Failed to dispatch webhook event.');
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), $logger);
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      $logger,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     // Must not throw — a webhook delivery failure must never fail the
     // request that triggered the source domain event.
@@ -234,7 +270,12 @@ final class WebhookEventSubscriberTest extends TestCase
       },
     );
 
-    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+    $subscriber = new WebhookEventSubscriber(
+      $messageBus,
+      $this->uuidFactory(),
+      new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+    );
 
     $subscriber->onEquipmentDecommissioned(new EquipmentDecommissionedEvent(
       organizationId: self::ORGANIZATION_ID,

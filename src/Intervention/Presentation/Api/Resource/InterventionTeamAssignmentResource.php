@@ -42,19 +42,28 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AssignTeamToInterventionProcessor::class,
       status: HttpResponse::HTTP_OK,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Interventions'],
-        summary: 'Assign a team to an intervention',
-        description: 'Snapshot-expands the CURRENT active members of an organization team into the intervention participants list (union, deduped). Requires organization.interventions.plan and an If-Match: "revision-N" header, since it writes participants through the same optimistic-concurrency path a manual edit uses. Participants stay assignable while the intervention is draft, planned, in_progress or changes_requested; the assignment is refused once it is submitted (frozen under review — withdraw it first) or published/abandoned (immutable). A teamId that does not exist in the caller\'s organization answers 404; 422 means the team exists but has no active members.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'If-Match' => new \ApiPlatform\Metadata\HeaderParameter(
+          schema: ['type' => 'string'],
+          description: 'The intervention revision being mutated, as `"revision-N"`.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'If-Match',
             in: 'header',
             description: 'The intervention revision being mutated, as `"revision-N"`.',
             required: true,
             schema: ['type' => 'string'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Interventions'],
+        summary: 'Assign a team to an intervention',
+        description: 'Snapshot-expands the CURRENT active members of an organization team into the intervention participants list (union, deduped). Requires organization.interventions.plan and an If-Match: "revision-N" header, since it writes participants through the same optimistic-concurrency path a manual edit uses. Participants stay assignable while the intervention is draft, planned, in_progress or changes_requested; the assignment is refused once it is submitted (frozen under review — withdraw it first) or published/abandoned (immutable). A teamId that does not exist in the caller\'s organization answers 404; 422 means the team exists but has no active members.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Team assigned; participants updated'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'The team has no active members to assign'),

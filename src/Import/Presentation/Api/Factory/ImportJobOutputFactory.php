@@ -79,6 +79,9 @@ final class ImportJobOutputFactory
     $output->startedAt = $view->startedAt?->format('c');
     $output->completedAt = $view->completedAt?->format('c');
     $output->updatedAt = $view->updatedAt->format('c');
+    $output->canResume = $view->canResume;
+    $output->canConfirm = $view->canConfirm;
+    $output->confirmedJobId = $view->confirmedJobId;
 
     return $output;
   }

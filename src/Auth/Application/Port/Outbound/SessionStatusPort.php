@@ -19,13 +19,18 @@ namespace Auth\Application\Port\Outbound;
  */
 interface SessionStatusPort
 {
+  /**
+   * Resolve only a current, non-revoked token belonging to the signed subject.
+   */
+  public function activeSessionId(string $accessTokenId, string $userId): ?string;
+
   // #region Methods
   /**
    * Method isAccessTokenRevoked.
    *
    * True only when a session exists for this access token AND has been
-   * revoked. An untracked token answers false — see the Session module's port
-   * for why an absent row must not be read as a revocation.
+   * revoked. An untracked token answers false. Authentication must instead use
+   * activeSessionId, which rejects untracked and rotated tokens.
    *
    * @since 1.0.0
    *

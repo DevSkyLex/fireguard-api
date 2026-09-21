@@ -10,7 +10,6 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Command\Equipment\CommissionEquipment\{CommissionEquipmentCommand, CommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\CommissionEquipmentProcessor;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -58,7 +57,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -88,7 +87,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -129,7 +128,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -165,7 +164,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -194,7 +193,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     $now = new DateTimeImmutable('2026-03-15T10:00:00+00:00');
 
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn(new CommissionEquipmentResult(
+    $commandBus->method('dispatch')->willReturn($detailResult = new CommissionEquipmentResult(
       equipmentId: self::EQUIP_ID,
       organizationId: self::ORG_ID,
       facilityId: '550e8400-e29b-41d4-a716-446655456099',
@@ -213,7 +212,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     ));
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -241,7 +240,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -264,7 +263,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $this->commissionSecurity(),
@@ -369,7 +368,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new CommissionEquipmentProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->commissionSecurity(),

@@ -7,12 +7,16 @@ namespace App\Tests\E2E;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
+use function array_diff_key;
 use function basename;
+use function count;
 use function is_array;
 use function is_string;
 use function json_encode;
 use function str_contains;
 use function uniqid;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Test InspectionPresentationFlow.
@@ -24,6 +28,81 @@ use function uniqid;
 final class InspectionPresentationFlowTest extends OAuth2WebTestCase
 {
   // #region Tests
+
+  public function testChecklistRevisionPreservesHistoryAndPermitsMetadataOnlyEdits(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'checklist-revision-' . uniqid() . '@example.com';
+    $this->createAndActivateUser($client, $email, 'ChecklistRevision123!');
+    $token = $this->loginAndGetUserAccessToken($client, $email, 'ChecklistRevision123!');
+    $org = $this->createOrganization($client, $token, 'Checklist revisions ' . uniqid());
+    self::assertNotNull($org);
+    $equipment = $this->createEquipment($client, $token, $org);
+    self::assertNotNull($equipment);
+    $request = function (string $method, string $path, ?array $body = null, int $status = 200) use ($client, $token): array {
+      $client->request($method, $path, server: [
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'CONTENT_TYPE' => 'PATCH' === $method ? 'application/merge-patch+json' : 'application/ld+json',
+      ], content: null === $body ? null : json_encode($body, JSON_THROW_ON_ERROR));
+      self::assertResponseStatusCodeSame($status, $client->getResponse()->getContent() ?: '');
+
+      return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    };
+    $collection = '/api/organizations/' . $org . '/checklists';
+    $first = $request('POST', $collection, [
+      'name' => 'Original checklist', 'version' => '1.0', 'referenceCode' => 'CHK-V1',
+      'items' => [['label' => 'Original pressure check', 'required' => true]],
+    ], 201);
+    self::assertTrue($first['canEditItems']);
+    $firstId = $first['id'];
+    self::assertIsString($firstId);
+    $inspection = $request('POST', '/api/organizations/' . $org . '/inspections', [
+      'equipmentId' => $equipment, 'checklistId' => $firstId, 'result' => 'pass',
+      'performedAt' => '2026-09-20T09:00:00Z', 'inspectorType' => 'external',
+      'inspectorName' => 'Revision inspector',
+    ], 201);
+    $used = $request('GET', $collection . '/' . $firstId);
+    self::assertTrue($used['canEditMetadata']);
+    self::assertFalse($used['canEditItems']);
+    self::assertTrue($used['canCreateRevision']);
+    $renamed = $request('PATCH', $collection . '/' . $firstId, ['name' => 'Updated metadata']);
+    self::assertSame('Updated metadata', $renamed['name']);
+    $request('PATCH', $collection . '/' . $firstId, ['items' => [['label' => 'Forbidden change']]], 409);
+    $revision = $request('POST', $collection, [
+      'name' => 'Revised checklist', 'version' => '2.0', 'referenceCode' => 'CHK-V2',
+      'previousChecklistId' => $firstId, 'items' => [['label' => 'Revised pressure check']],
+    ], 201);
+    self::assertNotSame($firstId, $revision['id']);
+    self::assertSame($firstId, $revision['previousChecklistId']);
+    $preserved = $request('GET', $collection . '/' . $firstId);
+    self::assertSame('1.0', $preserved['version']);
+    $firstItems = $first['items'];
+    $preservedItems = $preserved['items'];
+    self::assertIsArray($firstItems);
+    self::assertIsArray($preservedItems);
+    self::assertCount(count($firstItems), $preservedItems);
+    foreach ($firstItems as $index => $item) {
+      self::assertIsArray($item);
+      $preservedItem = $preservedItems[$index];
+      self::assertIsArray($preservedItem);
+      self::assertSame(array_diff_key($item, ['@id' => true]), array_diff_key($preservedItem, ['@id' => true]));
+    }
+    $inspectionId = $inspection['id'];
+    self::assertIsString($inspectionId);
+    $history = $request('GET', '/api/organizations/' . $org . '/inspections/' . $inspectionId);
+    self::assertSame($firstId, $history['checklistId']);
+    $request('POST', $collection, [
+      'name' => 'Duplicate ref', 'version' => '3.0', 'referenceCode' => 'CHK-V1', 'previousChecklistId' => $firstId,
+    ], 409);
+    $request('POST', $collection, [
+      'name' => 'Same version', 'version' => '1.0', 'previousChecklistId' => $firstId,
+    ], 400);
+    $foreignOrg = $this->createOrganization($client, $token, 'Other checklist org ' . uniqid());
+    $request('POST', '/api/organizations/' . $foreignOrg . '/checklists', [
+      'name' => 'Foreign revision', 'version' => '2.0', 'previousChecklistId' => $firstId,
+    ], 404);
+  }
 
   /**
    * The organization-wide non-conformity list and the single non-conformity

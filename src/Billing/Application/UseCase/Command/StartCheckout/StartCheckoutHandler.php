@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Command\StartCheckout;
 
+use Billing\Application\Port\Outbound\BillingReconciliationPort;
 use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\Model\Subscription\Subscription;
@@ -11,9 +12,9 @@ use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId};
 use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 
+use function rawurlencode;
 use function rtrim;
 use function sprintf;
 
@@ -45,7 +46,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
    * @param StripeGatewayPort $stripe the Stripe gateway
    * @param SubscriptionRepositoryPort $subscriptions the subscription repository
    * @param UuidFactory $uuidFactory the UUID factory
-   * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param BillingReconciliationPort $reconciliation the transaction manager
    * @param string $frontendUrl the public frontend base URL for return links
    */
   public function __construct(
@@ -53,7 +54,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
     private StripeGatewayPort $stripe,
     private SubscriptionRepositoryPort $subscriptions,
     private UuidFactory $uuidFactory,
-    private TransactionManagerPort $transactionManager,
+    private BillingReconciliationPort $reconciliation,
     private string $frontendUrl,
   ) {
   }
@@ -75,6 +76,11 @@ final readonly class StartCheckoutHandler implements CommandHandler
    */
   public function __invoke(StartCheckoutCommand $command): StartCheckoutResult
   {
+    return $this->reconciliation->synchronized($command->organizationId, fn (): StartCheckoutResult => $this->execute($command));
+  }
+
+  private function execute(StartCheckoutCommand $command): StartCheckoutResult
+  {
     $interval = BillingInterval::fromString($command->interval);
 
     if (null === $interval) {
@@ -87,7 +93,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
       throw InvalidValueException::because('The selected plan is not available for purchase.');
     }
 
-    $subscription = $this->subscriptions->findByOrganizationId($command->organizationId);
+    $subscription = $this->subscriptions->findByOrganizationId($command->organizationId, refresh: true);
     $customerId = $this->stripe->ensureCustomer($command->organizationId, $subscription?->stripeCustomerId());
 
     if (null === $subscription) {
@@ -95,9 +101,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
       $subscriptionId = $this->uuidFactory->create(SubscriptionId::class);
       $subscription = Subscription::start($subscriptionId, $command->organizationId, $customerId);
 
-      $this->transactionManager->transactional(function () use ($subscription): void {
-        $this->subscriptions->save($subscription);
-      });
+      $this->subscriptions->save($subscription);
     }
 
     $url = $this->stripe->createCheckoutSession(
@@ -105,7 +109,7 @@ final readonly class StartCheckoutHandler implements CommandHandler
       priceId: $priceId,
       organizationId: $command->organizationId,
       planKey: $command->planKey,
-      successUrl: $this->returnUrl($command->organizationId, 'success'),
+      successUrl: $this->returnUrl($command->organizationId, 'success') . '&checkoutPlan=' . rawurlencode($command->planKey) . '&checkoutInterval=' . $interval->value,
       cancelUrl: $this->returnUrl($command->organizationId, 'cancel'),
     );
 

@@ -20,7 +20,7 @@ use Inspection\Domain\ValueObject\{
 use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -41,6 +41,7 @@ final readonly class AddNonConformityHandler implements CommandHandler
     private NonConformityRepositoryPort $nonConformityRepository,
     private UuidFactory $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
+    private TransactionManagerPort $transactions,
   ) {
   }
   // #endregion
@@ -91,14 +92,15 @@ final readonly class AddNonConformityHandler implements CommandHandler
       throw $exception;
     }
 
-    $this->nonConformityRepository->save($nonConformity);
-
-    $this->eventDispatcher->dispatch(new NonConformityRecordedEvent(
-      organizationId: $command->organizationId,
-      inspectionId: $command->inspectionId,
-      nonConformityId: (string) $nonConformity->id(),
-      severity: $nonConformity->severity()->value,
-    ));
+    $this->transactions->transactional(function () use ($nonConformity, $command): void {
+      $this->nonConformityRepository->save($nonConformity);
+      $this->eventDispatcher->dispatch(new NonConformityRecordedEvent(
+        organizationId: $command->organizationId,
+        inspectionId: $command->inspectionId,
+        nonConformityId: (string) $nonConformity->id(),
+        severity: $nonConformity->severity()->value,
+      ));
+    });
 
     return new AddNonConformityResult(
       nonConformityId: (string) $nonConformity->id(),

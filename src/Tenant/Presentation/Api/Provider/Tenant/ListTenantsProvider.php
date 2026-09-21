@@ -66,7 +66,7 @@ final readonly class ListTenantsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

@@ -82,7 +82,14 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     // The archival guard is a non-DB collaborator; a stub keeps every non-archiving
     // branch deterministic. The archiving branches inject their own guard double.
     $guard = self::createStub(FacilityArchivalGuardPort::class);
-    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, $this->permissiveMetadataSchemaGuard());
+    $this->adapter = new FacilityInterventionResourceAdapter(
+      $this->entityManager,
+      $guard,
+      $this->facilityRepository,
+      $this->permissiveMetadataSchemaGuard(),
+      attachments: new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository($this->entityManager),
+      planAncestry: new \Facility\Application\Service\FacilityAttachmentAncestryGuard(new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository($this->entityManager)),
+    );
 
     $this->createOrganization();
     $this->createFacility(self::TARGET_ID, 'building', 'Warehouse', 'active', 'published');
@@ -216,6 +223,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     self::assertInstanceOf(FacilityRecord::class, $record);
     self::assertSame(48.8566, $record->latitude);
     self::assertSame(2.3522, $record->longitude);
+    $this->entityManager->flush();
     self::assertSame(2, $record->revision);
 
     $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [
@@ -224,6 +232,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     ]);
     self::assertNull($record->latitude);
     self::assertNull($record->longitude);
+    $this->entityManager->flush();
     self::assertSame(3, $record->revision);
   }
 
@@ -248,6 +257,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     self::assertNull($record->address);
     self::assertSame(['floors' => 3], $record->metadata);
     self::assertSame('active', $record->status);
+    $this->entityManager->flush();
     self::assertSame(2, $record->revision);
     self::assertGreaterThan($record->createdAt, $record->updatedAt);
   }
@@ -261,10 +271,12 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     self::assertInstanceOf(FacilityRecord::class, $record);
     self::assertInstanceOf(FacilityRecord::class, $record->parentFacility);
     self::assertSame(self::PARENT_ID, $record->parentFacility->id);
+    $this->entityManager->flush();
     self::assertSame(2, $record->revision);
 
     $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['parent' => null]);
     self::assertNull($record->parentFacility);
+    $this->entityManager->flush();
     self::assertSame(3, $record->revision);
   }
 
@@ -296,6 +308,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     $record = $this->entityManager->find(FacilityRecord::class, self::TARGET_ID);
     self::assertInstanceOf(FacilityRecord::class, $record);
     self::assertSame('archived', $record->status);
+    $this->entityManager->flush();
     self::assertSame(2, $record->revision);
   }
 
@@ -307,7 +320,14 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
       ->method('assertNoActiveDependents')
       ->with(self::ORGANIZATION_ID, self::TARGET_ID)
       ->willThrowException(FacilityHasActiveDependentsException::withActiveEquipment(self::TARGET_ID));
-    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, $this->permissiveMetadataSchemaGuard());
+    $adapter = new FacilityInterventionResourceAdapter(
+      $this->entityManager,
+      $guard,
+      $this->facilityRepository,
+      $this->permissiveMetadataSchemaGuard(),
+      attachments: new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository($this->entityManager),
+      planAncestry: new \Facility\Application\Service\FacilityAttachmentAncestryGuard(new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository($this->entityManager)),
+    );
 
     $this->expectException(InterventionConflictException::class);
     $this->expectExceptionMessage('cannot be archived while it has active equipment assigned');
@@ -366,7 +386,14 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
       ),
     ]);
     $guard = self::createStub(FacilityArchivalGuardPort::class);
-    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, new FacilityMetadataSchemaGuard($repository));
+    $adapter = new FacilityInterventionResourceAdapter(
+      $this->entityManager,
+      $guard,
+      $this->facilityRepository,
+      new FacilityMetadataSchemaGuard($repository),
+      attachments: new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository($this->entityManager),
+      planAncestry: new \Facility\Application\Service\FacilityAttachmentAncestryGuard(new \Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository($this->entityManager)),
+    );
 
     try {
       $adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['metadata' => ['surface-m2' => 'not-a-number']]);

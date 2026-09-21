@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Infrastructure\Persistence\Doctrine\Mapper;
 
+use Otp\Application\Port\Outbound\Totp\TotpSecretCipherPort;
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
@@ -19,6 +20,17 @@ use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
  */
 final readonly class TotpEnrollmentMapper
 {
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param TotpSecretCipherPort $cipher the dedicated versioned secret cipher
+   */
+  public function __construct(private TotpSecretCipherPort $cipher)
+  {
+  }
+
   // #region Methods
   /**
    * Method toRecord.
@@ -33,12 +45,21 @@ final readonly class TotpEnrollmentMapper
   public function toRecord(TotpEnrollment $enrollment, ?TotpEnrollmentRecord $record = null): TotpEnrollmentRecord
   {
     $record = $record ?? new TotpEnrollmentRecord();
+    $active = $enrollment->activeSecret()?->secret;
+    $pending = $enrollment->pendingSecret()?->secret;
+    if ($this->cipher->canEncrypt() || $record->secretsEncrypted) {
+      $record->activeSecretCiphertext = null === $active ? null : $this->cipher->encrypt($active, $enrollment->userId() . ':active');
+      $record->pendingSecretCiphertext = null === $pending ? null : $this->cipher->encrypt($pending, $enrollment->userId() . ':pending');
+      $record->secretsEncrypted = true;
+      $active = null;
+      $pending = null;
+    }
 
     return $record
       ->setUserId($enrollment->userId())
-      ->setActiveSecret($enrollment->activeSecret()?->secret)
+      ->setActiveSecret($active)
       ->setActiveConfirmedAt($enrollment->activeConfirmedAt())
-      ->setPendingSecret($enrollment->pendingSecret()?->secret)
+      ->setPendingSecret($pending)
       ->setPendingCreatedAt($enrollment->pendingCreatedAt())
       ->setAttempts($enrollment->attempts())
       ->setMaxAttempts($enrollment->maxAttempts())
@@ -59,8 +80,12 @@ final readonly class TotpEnrollmentMapper
    */
   public function toDomain(TotpEnrollmentRecord $record): TotpEnrollment
   {
-    $activeSecret = $record->getActiveSecret();
-    $pendingSecret = $record->getPendingSecret();
+    $activeSecret = $record->secretsEncrypted
+      ? (null === $record->activeSecretCiphertext ? null : $this->cipher->decrypt($record->activeSecretCiphertext, $record->getUserId() . ':active'))
+      : $record->getActiveSecret();
+    $pendingSecret = $record->secretsEncrypted
+      ? (null === $record->pendingSecretCiphertext ? null : $this->cipher->decrypt($record->pendingSecretCiphertext, $record->getUserId() . ':pending'))
+      : $record->getPendingSecret();
 
     return TotpEnrollment::reconstitute(
       userId: $record->getUserId(),

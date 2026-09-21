@@ -17,6 +17,7 @@ use RuntimeException;
 use Shared\Application\Port\Outbound\LoggerPort;
 
 use function array_map;
+use function array_slice;
 
 /**
  * Test CalendarFeedAggregatorTest.
@@ -67,11 +68,13 @@ final class CalendarFeedAggregatorTest extends TestCase
       $this->createStub(LoggerPort::class),
     );
 
-    $items = $aggregator->aggregate(
+    $result = $aggregator->aggregate(
       self::ORGANIZATION_ID,
       new DateTimeImmutable('2026-08-01T00:00:00+00:00'),
       new DateTimeImmutable('2026-08-31T23:59:59+00:00'),
+      ['calendar_event', 'inspection', 'intervention', 'maintenance'],
     );
+    $items = $result->items;
 
     self::assertCount(4, $items);
     self::assertSame(
@@ -108,14 +111,48 @@ final class CalendarFeedAggregatorTest extends TestCase
 
     $aggregator = new CalendarFeedAggregator($events, $inspections, $interventions, $maintenance, $logger);
 
-    $items = $aggregator->aggregate(
+    $result = $aggregator->aggregate(
       self::ORGANIZATION_ID,
       new DateTimeImmutable('2026-08-01T00:00:00+00:00'),
       new DateTimeImmutable('2026-08-31T23:59:59+00:00'),
+      ['calendar_event', 'inspection', 'intervention', 'maintenance'],
     );
+    $items = $result->items;
 
     self::assertCount(1, $items);
     self::assertSame('v-1', $items[0]->id);
+    self::assertFalse($result->isComplete());
+    self::assertFalse($result->sources[1]->available);
+    self::assertFalse($result->sources[1]->truncated);
+    self::assertTrue($result->sources[2]->available);
+  }
+
+  #[Test]
+  public function itDetectsTruncationUsingAnExtraItemAndKeepsTheExactLimitComplete(): void
+  {
+    $items = [];
+    for ($index = 0; $index < 501; ++$index) {
+      $items[] = $this->feedItem('inspection', 'i-' . $index, '2026-08-15T10:00:00+00:00');
+    }
+    $from = new DateTimeImmutable('2026-08-01');
+    $to = new DateTimeImmutable('2026-08-31');
+    $inspections = $this->createMock(InspectionCalendarFeedPort::class);
+    $inspections->expects(self::exactly(2))->method('findBetween')->with(self::ORGANIZATION_ID, $from, $to, 501)
+      ->willReturnOnConsecutiveCalls($items, array_slice($items, 0, 500));
+    $events = $this->createMock(CalendarEventRepositoryPort::class);
+    $events->expects(self::never())->method('listBetween');
+    $aggregator = new CalendarFeedAggregator($events, $inspections, $this->createStub(InterventionCalendarFeedPort::class), $this->createStub(MaintenanceCalendarFeedPort::class), $this->createStub(LoggerPort::class));
+
+    $truncated = $aggregator->aggregate(self::ORGANIZATION_ID, $from, $to, ['inspection']);
+    self::assertCount(500, $truncated->items);
+    self::assertCount(1, $truncated->sources);
+    self::assertTrue($truncated->sources[0]->available);
+    self::assertTrue($truncated->sources[0]->truncated);
+    self::assertFalse($truncated->isComplete());
+    $complete = $aggregator->aggregate(self::ORGANIZATION_ID, $from, $to, ['inspection']);
+    self::assertCount(500, $complete->items);
+    self::assertFalse($complete->sources[0]->truncated);
+    self::assertTrue($complete->isComplete());
   }
 
   #[Test]
@@ -148,11 +185,13 @@ final class CalendarFeedAggregatorTest extends TestCase
       $this->createStub(LoggerPort::class),
     );
 
-    $items = $aggregator->aggregate(
+    $result = $aggregator->aggregate(
       self::ORGANIZATION_ID,
       new DateTimeImmutable('2026-08-01T00:00:00+00:00'),
       new DateTimeImmutable('2026-08-31T23:59:59+00:00'),
+      ['calendar_event', 'inspection', 'intervention', 'maintenance'],
     );
+    $items = $result->items;
 
     // Same instant for all three: ordered by sourceKey ascending
     // ('inspection' < 'intervention'), then id ascending within 'inspection'.

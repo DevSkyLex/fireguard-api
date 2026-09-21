@@ -74,6 +74,7 @@ final class RevokeOtherSessionsProcessorTest extends TestCase
     $session->setId('mock-session-id');
     $request->setSession($session);
     $currentSessionId = $request->getSession()->getId();
+    $request->attributes->set('_fireguard_session_id', $currentSessionId);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -124,7 +125,9 @@ final class RevokeOtherSessionsProcessorTest extends TestCase
       security: $security,
     );
 
-    $output = $processor->process(null, new Post(), [], []);
+    $request = new Request();
+    $request->attributes->set('_fireguard_session_id', 'current-session');
+    $output = $processor->process(null, new Post(), [], ['request' => $request]);
 
     self::assertSame(0, $output->revokedCount, 'idempotent: zero sessions revoked is a valid, non-error outcome');
   }

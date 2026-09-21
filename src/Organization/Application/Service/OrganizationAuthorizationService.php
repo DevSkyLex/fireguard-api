@@ -10,16 +10,11 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
-use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Contracts\Service\ResetInterface;
-use Throwable;
 
-use function array_filter;
 use function array_key_exists;
-use function array_values;
 use function count;
 use function explode;
-use function is_array;
 
 /**
  * Service OrganizationAuthorizationService.
@@ -32,7 +27,7 @@ use function is_array;
  */
 final class OrganizationAuthorizationService implements OrganizationAuthorizationPort, ResetInterface
 {
-  private const int DEFAULT_CACHE_TTL_SECONDS = 30;
+  private int $observedRevision = -1;
 
   /**
    * @var array<string, list<string>>
@@ -72,8 +67,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   public function __construct(
     private readonly OrganizationMemberRepositoryPort $memberRepository,
     private readonly OrganizationRepositoryPort $organizationRepository,
-    private readonly ?CachePort $cache = null,
-    private readonly int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
+    private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
   }
   // #endregion
@@ -171,22 +165,16 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   public function getUserPermissions(string $userId, string $organizationId): array
   {
+    $this->synchronizeInvalidation();
     $cacheKey = $userId . '|' . $organizationId;
     if (isset($this->permissionCache[$cacheKey]) && [] !== $this->permissionCache[$cacheKey]) {
       return $this->permissionCache[$cacheKey];
-    }
-
-    $sharedCacheKey = OrganizationCacheKeys::permissions($organizationId, $userId);
-    $cached = $this->readSharedPermissionsCache($sharedCacheKey);
-    if (null !== $cached && [] !== $cached) {
-      return $this->permissionCache[$cacheKey] = $cached;
     }
 
     $permissions = $this->memberRepository->getPermissionNamesForUserInOrganization(
       userId: $userId,
       organizationId: OrganizationId::fromString($organizationId),
     );
-    $this->writeSharedPermissionsCache($sharedCacheKey, $permissions);
 
     return $this->permissionCache[$cacheKey] = $permissions;
   }
@@ -254,6 +242,7 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private function isActiveMember(string $userId, string $organizationId): bool
   {
+    $this->synchronizeInvalidation();
     $cacheKey = $userId . '|' . $organizationId;
     if (isset($this->membershipCache[$cacheKey])) {
       return $this->membershipCache[$cacheKey];
@@ -323,18 +312,12 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   private function organizationStatus(string $organizationId): ?OrganizationStatus
   {
+    $this->synchronizeInvalidation();
     if (array_key_exists($organizationId, $this->statusCache)) {
       return $this->statusCache[$organizationId];
     }
 
-    try {
-      $status = $this->organizationRepository->statusOf(OrganizationId::fromString($organizationId));
-    } catch (Throwable) {
-      // An unreadable status must not turn into a denial: authorization would
-      // start failing closed on an infrastructure blip, locking every member
-      // out of an organization that was never suspended.
-      $status = null;
-    }
+    $status = $this->organizationRepository->statusOf(OrganizationId::fromString($organizationId));
 
     return $this->statusCache[$organizationId] = $status;
   }
@@ -389,40 +372,16 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   }
 
   /**
-   * @return list<string>|null
+   * Clears request-local answers after a mutation in this unit of work.
+   *
+   * @since 1.1.0
    */
-  private function readSharedPermissionsCache(string $cacheKey): ?array
+  private function synchronizeInvalidation(): void
   {
-    if (null === $this->cache || $this->cacheTtl <= 0) {
-      return null;
-    }
-
-    try {
-      $cached = $this->cache->get($cacheKey);
-    } catch (Throwable) {
-      return null;
-    }
-
-    if (!is_array($cached)) {
-      return null;
-    }
-
-    return array_values(array_filter($cached, 'is_string'));
-  }
-
-  /**
-   * @param list<string> $permissions
-   */
-  private function writeSharedPermissionsCache(string $cacheKey, array $permissions): void
-  {
-    if (null === $this->cache || $this->cacheTtl <= 0) {
-      return;
-    }
-
-    try {
-      $this->cache->set($cacheKey, $permissions, $this->cacheTtl);
-    } catch (Throwable) {
-      // Cache failures should not block authorization checks.
+    $revision = $this->cacheInvalidator?->revision() ?? 0;
+    if ($this->observedRevision !== $revision) {
+      $this->reset();
+      $this->observedRevision = $revision;
     }
   }
   // #endregion

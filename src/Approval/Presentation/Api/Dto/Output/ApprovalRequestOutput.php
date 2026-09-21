@@ -163,5 +163,14 @@ final class ApprovalRequestOutput
   #[Groups([ApprovalSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $executionError = null;
+
+  /**
+   * @var list<string> available decisions, revalidated by the command
+   */
+  #[Groups([ApprovalSerializationGroup::READ])]
+  public array $allowedActions = [];
+
+  #[Groups([ApprovalSerializationGroup::READ])]
+  public ?string $decisionBlockReason = null;
   // #endregion
 }

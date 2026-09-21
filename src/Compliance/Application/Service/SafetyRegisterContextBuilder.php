@@ -7,6 +7,7 @@ namespace Compliance\Application\Service;
 use Compliance\Application\Contract\FacilityComplianceView;
 use Compliance\Application\UseCase\Query\GetComplianceOverview\GetComplianceOverviewResult;
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\GetFacilityComplianceResult;
+use DateTimeImmutable;
 use Organization\Application\Contract\Document\OrganizationDocumentBranding;
 use Shared\Application\Document\DocumentDateFormatter;
 
@@ -53,6 +54,7 @@ final class SafetyRegisterContextBuilder
     return [
       'scope' => 'organization',
       'generatedAt' => $result->generatedAt,
+      'dataEvaluatedAt' => self::oldestEvaluation($result->facilities),
       'organizationStatus' => $result->organizationStatus->value,
       'totals' => $result->totals,
       'facilities' => array_map(self::facilityRow(...), $result->facilities),
@@ -76,6 +78,7 @@ final class SafetyRegisterContextBuilder
     return [
       'scope' => 'facility',
       'generatedAt' => $result->generatedAt,
+      'dataEvaluatedAt' => $result->facility->dataEvaluatedAt,
       'organizationStatus' => $result->facility->status->value,
       'totals' => self::facilityTotals($result->facility),
       'facilities' => [self::facilityRow($result->facility)],
@@ -112,6 +115,8 @@ final class SafetyRegisterContextBuilder
 
     $generatedAt = $context['generatedAt'] ?? null;
     $context['generatedAtFormatted'] = $formatter->formatDateTime(is_string($generatedAt) ? $generatedAt : null);
+    $evaluatedAt = $context['dataEvaluatedAt'] ?? null;
+    $context['dataEvaluatedAtFormatted'] = $formatter->formatDateTime(is_string($evaluatedAt) ? $evaluatedAt : null);
 
     if (isset($context['facilities']) && is_array($context['facilities'])) {
       $context['facilities'] = array_map(
@@ -155,6 +160,7 @@ final class SafetyRegisterContextBuilder
       'dueSoonEquipmentCount' => $facility->dueSoonEquipmentCount,
       'overdueEquipmentCount' => $facility->overdueEquipmentCount,
       'unscheduledEquipmentCount' => $facility->unscheduledEquipmentCount,
+      'unevaluatedEquipmentCount' => $facility->unevaluatedEquipmentCount,
       'trackedEquipmentCount' => $facility->trackedEquipmentCount(),
       'complianceRate' => $facility->complianceRate(),
       'openLowNonConformityCount' => $facility->openLowNonConformityCount,
@@ -195,6 +201,8 @@ final class SafetyRegisterContextBuilder
    *   openHighNonConformityCount: int,
    *   openCriticalNonConformityCount: int,
    *   lastInspectionAt: ?string,
+   *   unevaluatedEquipmentCount: int,
+   *   dataEvaluatedAt: ?string,
    * } the facility row
    */
   public static function facilityRow(FacilityComplianceView $facility): array
@@ -212,6 +220,7 @@ final class SafetyRegisterContextBuilder
       'dueSoonEquipmentCount' => $facility->dueSoonEquipmentCount,
       'overdueEquipmentCount' => $facility->overdueEquipmentCount,
       'unscheduledEquipmentCount' => $facility->unscheduledEquipmentCount,
+      'unevaluatedEquipmentCount' => $facility->unevaluatedEquipmentCount,
       'trackedEquipmentCount' => $facility->trackedEquipmentCount(),
       'complianceRate' => $facility->complianceRate(),
       'openLowNonConformityCount' => $facility->openLowNonConformityCount,
@@ -219,7 +228,23 @@ final class SafetyRegisterContextBuilder
       'openHighNonConformityCount' => $facility->openHighNonConformityCount,
       'openCriticalNonConformityCount' => $facility->openCriticalNonConformityCount,
       'lastInspectionAt' => $facility->lastInspectionAt,
+      'dataEvaluatedAt' => $facility->dataEvaluatedAt,
     ];
+  }
+
+  /**
+   * @param list<FacilityComplianceView> $facilities
+   */
+  public static function oldestEvaluation(array $facilities): ?string
+  {
+    $oldest = null;
+    foreach ($facilities as $facility) {
+      if (null !== $facility->dataEvaluatedAt && (null === $oldest || new DateTimeImmutable($facility->dataEvaluatedAt) < new DateTimeImmutable($oldest))) {
+        $oldest = $facility->dataEvaluatedAt;
+      }
+    }
+
+    return $oldest;
   }
   // #endregion
 }

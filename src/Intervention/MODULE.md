@@ -2,6 +2,15 @@
 
 ## Overview
 
+Publication scheduling commits the publication row and its `main_outbox` command
+together. Execution commits all resource mutations, the completed status and its
+durable event in one main transaction. A failure rolls these writes back before
+recording a guarded failed status and failure event. Conditional transitions and
+fresh reads under PostgreSQL locks prevent stale workers from replacing completion.
+Notifications, service history, audit and webhook fan-out consume the committed
+event; local effects are deduplicated when it is redelivered. Retrying a failed
+publication reuses its existing revision and publication identity.
+
 Intervention coordinates organization-scoped **field interventions**: the workflow
 that takes a fire-safety operation from `draft` to `published`, producing real
 facilities, equipment and inspections only when the intervention is published.
@@ -1784,3 +1793,12 @@ and mapped to **422 Unprocessable Entity** — thrown by
 `ExportInterventionsHandler` when the `/interventions/export` filters match
 more than `MAX_EXPORT_ROWS` (50 000) interventions, mirroring
 `Audit\Application\Contract\AuditExportTooLargeException`.
+
+### Workload read projection
+
+`InterventionWorkloadContributionsAdapter` reads only the scalar fields of the public
+work/time contracts. It keeps the same complete organization scope, terminal-task filters,
+uncancelled actual date range, timezone fallbacks, ordering and distinct revisions.
+It does not hydrate intervention trees into the unit of work. The 20,000-task PostgreSQL
+measurement and reproduction command live in Workload/MODULE.md. Statistics already use
+bounded grouped reads and remain unchanged after measurement.

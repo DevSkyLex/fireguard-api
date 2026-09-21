@@ -10,7 +10,6 @@ use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Intervention\Application\Service\InterventionResourceManager;
@@ -47,7 +46,6 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
-   * @param FacilityRepositoryPort $facilityRepository resolves the ancestor breadcrumb for the item read
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
@@ -55,11 +53,11 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
-    private FacilityRepositoryPort $facilityRepository,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
     private InterventionResourceManager $interventionResourceManager,
+    private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
   ) {
   }
 
@@ -87,10 +85,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       }
       $this->assertRead($record->organization->id);
 
-      $output = $this->map($record, includeGeometry: true);
-      $output->path = $this->facilityRepository->findAncestors($record->id);
-
-      return $output;
+      return $this->detail->read($record->organization->id, $record->id);
     }
 
     [$organization, $interventionId, $recordStatus] = $this->filters();

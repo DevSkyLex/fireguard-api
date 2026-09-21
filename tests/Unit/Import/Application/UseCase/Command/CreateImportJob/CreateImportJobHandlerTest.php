@@ -58,6 +58,7 @@ final class CreateImportJobHandlerTest extends TestCase
       queue: $queue,
       authorization: $authorization,
       uuidFactory: $this->uuidFactory(),
+      transactionManager: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $result = $handler->__invoke($this->command('equipment'));
@@ -84,6 +85,7 @@ final class CreateImportJobHandlerTest extends TestCase
       queue: $this->createStub(ImportJobQueuePort::class),
       authorization: $authorization,
       uuidFactory: $this->uuidFactory(),
+      transactionManager: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $result = $handler->__invoke($this->command('facility'));
@@ -111,6 +113,7 @@ final class CreateImportJobHandlerTest extends TestCase
       queue: $queue,
       authorization: $authorization,
       uuidFactory: $this->uuidFactory(),
+      transactionManager: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $this->expectException(ImportJobNotFoundException::class);
@@ -137,6 +140,7 @@ final class CreateImportJobHandlerTest extends TestCase
       queue: $queue,
       authorization: $authorization,
       uuidFactory: $this->uuidFactory(),
+      transactionManager: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $this->expectException(ImportAccessDeniedException::class);
@@ -215,6 +219,7 @@ final class CreateImportJobHandlerTest extends TestCase
       queue: $queue,
       authorization: $authorization,
       uuidFactory: $this->uuidFactory(),
+      transactionManager: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
 
     $this->expectException(RuntimeException::class);
@@ -252,6 +257,7 @@ final class CreateImportJobHandlerTest extends TestCase
       queue: $this->createStub(ImportJobQueuePort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       uuidFactory: $this->uuidFactory(),
+      transactionManager: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
   }
 }

@@ -54,11 +54,11 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->expects(self::once())->method('save')->with($checklist);
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
-    $inspectionRepository->method('countByOrganizationId')->willReturn(0);
+    $checklistRepository->method('referencedIds')->willReturn([]);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $inspectionRepository,
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -86,8 +86,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->method('findById')->willReturn(null);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -110,8 +110,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->method('findById')->willReturn($checklist);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -135,8 +135,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->method('findById')->willReturn($checklist);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -159,8 +159,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->method('findById')->willReturn($checklist);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -183,15 +183,11 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository = $this->createStub(ChecklistRepositoryPort::class);
     $checklistRepository->method('findById')->willReturn($checklist);
 
-    /** @var InspectionRepositoryPort&MockObject $inspectionRepository */
-    $inspectionRepository = $this->createMock(InspectionRepositoryPort::class);
-    $inspectionRepository->expects(self::once())
-      ->method('countByOrganizationId')
-      ->willReturn(2);
+    $checklistRepository->method('referencedIds')->willReturn([self::CL_ID]);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $inspectionRepository,
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -216,11 +212,11 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->expects(self::once())->method('save');
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
-    $inspectionRepository->method('countByOrganizationId')->willReturn(0);
+    $checklistRepository->method('referencedIds')->willReturn([]);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $inspectionRepository,
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -259,8 +255,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $inspectionRepository,
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -278,8 +274,8 @@ final class UpdateChecklistHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnAMalformedChecklistId(): void
   {
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $this->createStub(ChecklistRepositoryPort::class),
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -304,8 +300,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->expects(self::once())->method('save')->willThrowException(new RuntimeException('Connection lost.'));
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 
@@ -339,8 +335,8 @@ final class UpdateChecklistHandlerTest extends TestCase
     $checklistRepository->expects(self::once())->method('save')->willThrowException($uniqueViolation);
 
     $handler = new UpdateChecklistHandler(
+      locks: new \Tests\Support\Inspection\PassthroughChecklistLock(),
       checklistRepository: $checklistRepository,
-      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       uuidFactory: $this->makeUuidFactory(),
     );
 

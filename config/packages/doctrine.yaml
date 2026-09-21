@@ -17,6 +17,7 @@ doctrine:
         url: "%env(resolve:MAIN_DATABASE_URL)%"
         profiling_collect_backtrace: "%kernel.debug%"
         use_savepoints: true
+        schema_filter: ~^(?!messenger_messages)~
   orm:
     default_entity_manager: auth
     auto_generate_proxy_classes: true
@@ -35,6 +36,12 @@ doctrine:
             class: Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter
             enabled: false
         mappings:
+          SharedReceipts:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Shared/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Shared\Infrastructure\Persistence\Doctrine\Record'
+            alias: SharedReceipts
           Auth:
             is_bundle: false
             type: attribute
@@ -97,6 +104,12 @@ doctrine:
         identity_generation_preferences:
           Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         mappings:
+          SharedReceipts:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Shared/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Shared\Infrastructure\Persistence\Doctrine\Record'
+            alias: SharedReceipts
           Organization:
             is_bundle: false
             type: attribute

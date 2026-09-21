@@ -33,6 +33,13 @@ final readonly class SessionStatusService implements SessionStatusPort
   // #endregion
 
   // #region Methods
+  public function activeSessionId(string $accessTokenId, string $userId): ?string
+  {
+    $result = $this->getSessionByAccessTokenHandler->__invoke(new GetSessionByAccessTokenQuery($accessTokenId));
+
+    return $result->tracked && !$result->revoked && $result->userId === $userId ? $result->sessionId : null;
+  }
+
   public function isAccessTokenRevoked(string $accessTokenId): bool
   {
     if ('' === $accessTokenId) {

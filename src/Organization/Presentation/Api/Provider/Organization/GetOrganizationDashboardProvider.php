@@ -191,7 +191,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
     $this->assertDashboardPermissions($user->getId(), $organizationId);
 
-    $filters = $this->normalizeFilters($context['filters'] ?? []);
+    $filters = $this->normalizeFilters(\Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context));
 
     $periodFrom = $this->extractDateFilter($filters, 'from');
     $periodTo = $this->extractDateFilter($filters, 'to');

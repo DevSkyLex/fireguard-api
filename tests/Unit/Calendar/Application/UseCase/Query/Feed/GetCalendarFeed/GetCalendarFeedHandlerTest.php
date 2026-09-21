@@ -15,6 +15,8 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\LoggerPort;
 use Shared\Domain\Exception\InvalidValueException;
 
+use function array_map;
+
 /**
  * Test GetCalendarFeedHandlerTest.
  *
@@ -53,6 +55,26 @@ final class GetCalendarFeedHandlerTest extends TestCase
 
     self::assertInstanceOf(GetCalendarFeedResult::class, $result);
     self::assertSame([], $result->items);
+    self::assertTrue($result->complete);
+    self::assertCount(1, $result->sources);
+    self::assertSame('calendar_event', $result->sources[0]->sourceKey);
+  }
+
+  #[Test]
+  public function itDoesNotQueryOrDescribeSourcesWithoutTheirReadPermission(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturnCallback(static fn (string $user, string $organization, string $permission): bool => 'organization.maintenance.read' === $permission);
+    $inspections = $this->createMock(InspectionCalendarFeedPort::class);
+    $inspections->expects(self::never())->method('findBetween');
+    $interventions = $this->createMock(InterventionCalendarFeedPort::class);
+    $interventions->expects(self::never())->method('findBetween');
+    $maintenance = $this->createMock(MaintenanceCalendarFeedPort::class);
+    $maintenance->expects(self::once())->method('findBetween')->willReturn([]);
+    $aggregator = new CalendarFeedAggregator($this->createStub(CalendarEventRepositoryPort::class), $inspections, $interventions, $maintenance, $this->createStub(LoggerPort::class));
+    $result = (new GetCalendarFeedHandler($authorization, $aggregator))(new GetCalendarFeedQuery(self::USER_ID, self::ORGANIZATION_ID, '2026-08-01T00:00:00Z', '2026-08-31T00:00:00Z'));
+    self::assertSame(['calendar_event', 'maintenance'], array_map(static fn ($source): string => $source->sourceKey, $result->sources));
+    self::assertTrue($result->complete);
   }
 
   #[Test]

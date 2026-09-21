@@ -57,13 +57,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: FacilityMediaProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'kind' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['document', 'floor_plan']],
+          description: 'Filter by attachment kind ("document" or "floor_plan").',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'kind', in: 'query', required: false, description: 'Filter by attachment kind ("document" or "floor_plan").', schema: ['type' => 'string', 'enum' => ['document', 'floor_plan']]),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'List facility attachments',
         description: 'Lists all attachments for a given facility.',
-        parameters: [
-          new Parameter(name: 'kind', in: 'query', required: false, description: 'Filter by attachment kind ("document" or "floor_plan").', schema: ['type' => 'string', 'enum' => ['document', 'floor_plan']]),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),

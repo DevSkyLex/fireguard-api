@@ -53,6 +53,10 @@ interface AssistantRealtimePublisherPort
     string $body,
     ?int $tokenCount = null,
     ?string $errorCode = null,
+    ?string $attemptId = null,
+    int $attemptNumber = 0,
+    int $attemptSequence = 0,
+    ?string $attemptExpiresAt = null,
   ): void;
   // #endregion
 }

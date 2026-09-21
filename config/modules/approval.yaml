@@ -17,6 +17,13 @@ services:
     alias: Approval\Application\Service\ApprovalGate
 
   # Outbound ports
+  Approval\Application\Port\Outbound\ApprovalDecisionLockPort:
+    alias: Approval\Infrastructure\Persistence\Doctrine\Lock\PostgresApprovalDecisionLockAdapter
+
+  Approval\Infrastructure\Persistence\Doctrine\Lock\PostgresApprovalDecisionLockAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort:
     alias: Approval\Infrastructure\Persistence\Doctrine\Repository\ApprovalRequestRepository
 
@@ -48,6 +55,11 @@ services:
     tags: ['messenger.message_handler']
 
   Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\ExpireStaleApprovalRequestsHandler:
+    tags: ['messenger.message_handler']
+
+  Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest\WithdrawApprovalRequestHandler:
+    arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   # Query handlers

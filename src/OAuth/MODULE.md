@@ -8,6 +8,12 @@ Implements OAuth 2.0 (RFC 6749), Token Revocation (RFC 7009), Token Introspectio
 The OAuth module exposes OAuth2 and OpenID Connect endpoints and the client management API. It relies on a hexagonal architecture (ports and adapters) with Api Platform for HTTP exposure and League OAuth2 Server as the core engine.
 Request validation is handled by DTO constraints and custom validators, then mapped to OAuth2 error payloads by the API error subscriber to keep RFC 6749 compatibility.
 
+The interactive refresh query used by Auth consumes the old session token pair
+through OAuth's `SessionRotationPort`, adapted exclusively to Session's published
+inbound tracking port. Rotation is atomic and precedes the success event or response.
+Replay/revocation returns a failed result; storage failures remain technical failures.
+League's protocol grant handling and token persistence remain distinct.
+
 ### Features
 
 | Feature | Description |
@@ -22,6 +28,10 @@ Request validation is handled by DTO constraints and custom validators, then map
 | Rate limiting | Token, introspection, and revocation endpoints |
 
 ## API Endpoints
+
+Client-management operation names use the `oauth_client_` prefix. They are globally
+unique Symfony route names; client-management URLs and OAuth2 protocol operations
+remain unchanged.
 
 ### OAuth2
 

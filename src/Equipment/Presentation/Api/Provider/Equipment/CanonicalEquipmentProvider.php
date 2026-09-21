@@ -57,6 +57,7 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     private Security $security,
     private RequestStack $requestStack,
     private InterventionResourceManager $interventionResourceManager,
+    private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
   ) {
   }
 
@@ -84,16 +85,16 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
       }
       $this->assertRead($record->organization->id, 'Equipment not found.');
 
-      return $this->map($record);
+      return $this->detail->read($record->organization->id, $record->id);
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $intervention = $request?->query->get('intervention');
+    $intervention = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention');
     $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
-    $organizationValue = $request?->query->get('organization');
+    $organizationValue = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization');
     $organization = $this->organization($organizationValue, $intervention);
     $this->assertRead($organization, 'Organization not found.');
-    $recordStatus = $request?->query->get('recordStatus');
+    $recordStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
     $query = $this->entityManager->createQueryBuilder()
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
@@ -105,7 +106,7 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     if (null !== $interventionId) {
       $query->andWhere('e.interventionId = :interventionId')->setParameter('interventionId', $interventionId);
     }
-    $facility = $request?->query->get('facility');
+    $facility = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facility');
     if (is_string($facility) && '' !== $facility) {
       $query->andWhere('e.facilityId = :facilityId')->setParameter('facilityId', ResourceIriParser::id($facility, 'facilities'));
     }

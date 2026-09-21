@@ -14,7 +14,7 @@ use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId, SubscriptionStatus};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Tests\Support\Billing\ImmediateBillingReconciliation;
 
 /**
  * Test ResumeSubscriptionHandlerTest.
@@ -80,13 +80,8 @@ final class ResumeSubscriptionHandlerTest extends TestCase
     return $subscription;
   }
 
-  private function transactionManager(): TransactionManagerPort
+  private function transactionManager(): ImmediateBillingReconciliation
   {
-    $manager = $this->createStub(TransactionManagerPort::class);
-    $manager->method('transactional')->willReturnCallback(
-      static fn (callable $operation): mixed => $operation(),
-    );
-
-    return $manager;
+    return new ImmediateBillingReconciliation();
   }
 }

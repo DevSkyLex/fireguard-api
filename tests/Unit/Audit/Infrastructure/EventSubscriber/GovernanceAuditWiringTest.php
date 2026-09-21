@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
+use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
 use Approval\Domain\Event\Request\{
   ApprovalApprovedEvent,
   ApprovalExecutionFailedEvent,
@@ -15,6 +16,7 @@ use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand,
 use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
+use DateTimeImmutable;
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -81,6 +83,7 @@ final class GovernanceAuditWiringTest extends TestCase
         decisionByMemberId: 'member-2',
         decisionByUserId: self::ACTOR_USER_ID,
       ),
+      new ApprovalWithdrawnEvent(self::ORGANIZATION_ID, self::REQUEST_ID, 'equipment.decommission', 'equip-1', 'member-1', self::ACTOR_USER_ID, new DateTimeImmutable()),
       new ApprovalExpiredEvent(
         organizationId: self::ORGANIZATION_ID,
         requestId: self::REQUEST_ID,
@@ -101,6 +104,7 @@ final class GovernanceAuditWiringTest extends TestCase
       'approval.requested' => ['approval_request', self::REQUEST_ID, ['action_type' => 'equipment.decommission', 'subject_id' => 'equip-1', 'requested_by_member_id' => 'member-1', 'organization_id' => self::ORGANIZATION_ID], 'user'],
       'approval.approved' => ['approval_request', self::REQUEST_ID, ['action_type' => 'equipment.decommission', 'subject_id' => 'equip-1', 'decision_by_member_id' => 'member-2', 'organization_id' => self::ORGANIZATION_ID], 'user'],
       'approval.rejected' => ['approval_request', self::REQUEST_ID, ['action_type' => 'equipment.decommission', 'subject_id' => 'equip-1', 'decision_by_member_id' => 'member-2', 'organization_id' => self::ORGANIZATION_ID], 'user'],
+      'approval.withdrawn' => ['approval_request', self::REQUEST_ID, ['action_type' => 'equipment.decommission', 'subject_id' => 'equip-1', 'decision_by_member_id' => 'member-1', 'organization_id' => self::ORGANIZATION_ID], 'user'],
       'approval.expired' => ['approval_request', self::REQUEST_ID, ['action_type' => 'equipment.decommission', 'subject_id' => 'equip-1', 'organization_id' => self::ORGANIZATION_ID], 'system'],
       'approval.execution_failed' => ['approval_request', self::REQUEST_ID, ['action_type' => 'equipment.decommission', 'subject_id' => 'equip-1', 'error' => 'equipment already decommissioned', 'organization_id' => self::ORGANIZATION_ID], 'user'],
     ];
@@ -222,6 +226,8 @@ final class GovernanceAuditWiringTest extends TestCase
       requestStack: new RequestStack(),
       security: $security,
       logger: new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $symfonyDispatcher = new EventDispatcher();

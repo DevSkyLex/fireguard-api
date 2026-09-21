@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, RequestBody, Response};
 use ArrayObject;
 use Import\Presentation\Api\Dto\Output\ImportJobOutput;
-use Import\Presentation\Api\Processor\CreateImportJobProcessor;
+use Import\Presentation\Api\Processor\{ConfirmImportSimulationProcessor, CreateImportJobProcessor, ResumeImportJobProcessor};
 use Import\Presentation\Api\Provider\{ImportJobCollectionProvider, ImportJobProvider};
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -29,6 +29,53 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   shortName: 'ImportJob',
   description: 'Bulk CSV import batches provisioning Equipment or Facility resources.',
   operations: [
+    new Post(
+      uriTemplate: '/imports/{id}/confirm',
+      name: 'confirm_import_simulation',
+      status: HttpResponse::HTTP_ACCEPTED,
+      read: false,
+      deserialize: false,
+      input: false,
+      output: ImportJobOutput::class,
+      processor: ConfirmImportSimulationProcessor::class,
+      security: "is_granted('ROLE_USER')",
+      strictQueryParameterValidation: true,
+      parameters: new \ApiPlatform\Metadata\Parameters(),
+      openapi: new Operation(
+        tags: ['Import'],
+        summary: 'Confirm a successful simulation once',
+        description: 'Reuses the retained file. Repeated confirmation returns the same real import. Rights, quotas and references are checked again during execution.',
+        responses: [
+          202 => new Response(description: 'The single real import, newly enqueued or already confirmed'),
+          403 => new Response(description: 'Write permission removed'),
+          404 => new Response(description: 'Simulation absent or outside membership scope'),
+          409 => new Response(description: 'Simulation incomplete, contains row failures, or retained file unavailable'),
+        ],
+      ),
+    ),
+    new Post(
+      uriTemplate: '/imports/{id}/resume',
+      name: 'resume_import_job',
+      status: HttpResponse::HTTP_ACCEPTED,
+      read: false,
+      deserialize: false,
+      input: false,
+      output: ImportJobOutput::class,
+      processor: ResumeImportJobProcessor::class,
+      security: "is_granted('ROLE_USER')",
+      strictQueryParameterValidation: true,
+      parameters: new \ApiPlatform\Metadata\Parameters(),
+      openapi: new Operation(
+        tags: ['Import'],
+        summary: 'Resume the same import from its confirmed rows',
+        responses: [
+          202 => new Response(description: 'Existing import enqueued; confirmed rows retained'),
+          403 => new Response(description: 'Missing write permission for this import kind'),
+          404 => new Response(description: 'Import absent or outside the active membership scope'),
+          409 => new Response(description: 'Import already completed or reserved by a live worker'),
+        ],
+      ),
+    ),
     new Post(
       uriTemplate: '/imports',
       status: HttpResponse::HTTP_ACCEPTED,
@@ -79,10 +126,27 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'kind', in: 'query', description: 'Resource kind filter (equipment|facility|member).', required: false, schema: ['type' => 'string']),
-      ]),
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Organization IRI.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        ),
+        'kind' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Resource kind filter (equipment|facility|member).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'kind', in: 'query', description: 'Resource kind filter (equipment|facility|member).', required: false, schema: ['type' => 'string']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     new Get(
       uriTemplate: '/imports/{id}',

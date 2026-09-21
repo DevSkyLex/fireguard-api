@@ -36,6 +36,7 @@ final readonly class ExecuteAutomationRuleCommand implements CommandMessage
     public string $organizationId,
     public string $subjectId,
     public array $triggerPayload = [],
+    public ?string $attemptId = null,
   ) {
   }
 }

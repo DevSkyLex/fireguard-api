@@ -76,14 +76,14 @@ final readonly class ListSavedMessagesProvider implements ProviderInterface
   {
     $user = $this->user();
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $organization = $query?->get('organization');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }
 
-    $page = max(1, $query?->getInt('page', 1) ?? 1);
-    $itemsPerPage = max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30));
+    $page = max(1, $query->getInt('page', 1));
+    $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
     try {
       /** @var ListSavedMessagesResult $result */

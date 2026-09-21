@@ -67,10 +67,18 @@ use Symfony\Component\HttpFoundation\Response;
       output: InterventionAttachmentOutput::class,
       provider: InterventionMediaProvider::class,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'workItem', in: 'query', required: false, schema: ['type' => 'string'], description: 'Narrows the list to attachments scoped to this work item (IRI or bare id).'),
-      ]),
+      parameters: [
+        'workItem' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Narrows the list to attachments scoped to this work item (IRI or bare id).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'workItem', in: 'query', required: false, schema: ['type' => 'string'], description: 'Narrows the list to attachments scoped to this work item (IRI or bare id).'),
+        ),
+      ],
+      openapi: new Operation(parameters: [new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string'])]),
     ),
     new Get(
       name: InterventionOperations::GET_INTERVENTION_ATTACHMENT,

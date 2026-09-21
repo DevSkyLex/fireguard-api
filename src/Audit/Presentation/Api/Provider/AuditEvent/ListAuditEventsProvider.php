@@ -68,7 +68,7 @@ final readonly class ListAuditEventsProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

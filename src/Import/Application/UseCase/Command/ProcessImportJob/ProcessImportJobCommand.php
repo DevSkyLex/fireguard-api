@@ -31,6 +31,7 @@ final readonly class ProcessImportJobCommand implements CommandMessage
    */
   public function __construct(
     public string $importJobId,
+    public ?string $requestedBy = null,
   ) {
   }
   // #endregion

@@ -18,6 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\VoidResult;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Tests\Support\Approval\ImmediateApprovalDecisionLock;
 
 /**
  * Test ExpireStaleApprovalRequestsHandlerTest.
@@ -53,6 +54,7 @@ final class ExpireStaleApprovalRequestsHandlerTest extends TestCase
       ->with($now, self::anything())
       ->willReturn([$stale]);
     $requests->expects(self::once())->method('save')->with($stale);
+    $requests->method('findById')->willReturn($stale);
 
     /** @var EventDispatcherPort&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -63,7 +65,7 @@ final class ExpireStaleApprovalRequestsHandlerTest extends TestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn($now);
 
-    $handler = new ExpireStaleApprovalRequestsHandler($requests, $eventDispatcher, $clock);
+    $handler = new ExpireStaleApprovalRequestsHandler($requests, $eventDispatcher, $clock, new ImmediateApprovalDecisionLock());
 
     $result = $handler(new ExpireStaleApprovalRequestsCommand());
 
@@ -92,6 +94,7 @@ final class ExpireStaleApprovalRequestsHandlerTest extends TestCase
     /** @var ApprovalRequestRepositoryPort&MockObject $requests */
     $requests = $this->createMock(ApprovalRequestRepositoryPort::class);
     $requests->method('findPendingExpiredBefore')->willReturn([$alreadyApproved]);
+    $requests->method('findById')->willReturn($alreadyApproved);
     $requests->expects(self::never())->method('save');
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -100,7 +103,7 @@ final class ExpireStaleApprovalRequestsHandlerTest extends TestCase
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn($now);
 
-    $handler = new ExpireStaleApprovalRequestsHandler($requests, $eventDispatcher, $clock);
+    $handler = new ExpireStaleApprovalRequestsHandler($requests, $eventDispatcher, $clock, new ImmediateApprovalDecisionLock());
 
     $handler(new ExpireStaleApprovalRequestsCommand());
   }

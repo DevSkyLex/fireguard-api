@@ -43,7 +43,7 @@ interface SubscriptionRepositoryPort
    *
    * @return ?Subscription the subscription when found
    */
-  public function findByOrganizationId(string $organizationId): ?Subscription;
+  public function findByOrganizationId(string $organizationId, bool $refresh = false): ?Subscription;
 
   /**
    * Method findByStripeCustomerId.

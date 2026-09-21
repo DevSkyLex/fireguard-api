@@ -11,6 +11,7 @@ use function is_string;
 use function parse_url;
 use function sprintf;
 use function strtolower;
+use function trim;
 
 use const FILTER_FLAG_NO_PRIV_RANGE;
 use const FILTER_FLAG_NO_RES_RANGE;
@@ -105,6 +106,7 @@ final readonly class WebhookUrlPolicy
    */
   public function isPrivateOrReservedIp(string $ip): bool
   {
+    $ip = trim($ip, '[]');
     $filtered = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
 
     return false === $filtered && false !== filter_var($ip, FILTER_VALIDATE_IP);

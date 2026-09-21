@@ -14,7 +14,6 @@ use Workload\Application\UseCase\Query\Projection\GetWorkload\{GetWorkloadQuery,
 use Workload\Presentation\Api\Dto\Output\WorkloadOutput;
 
 use function filter_var;
-use function is_array;
 use function is_string;
 
 use const FILTER_VALIDATE_INT;
@@ -61,7 +60,7 @@ final readonly class WorkloadProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $organizationId = $uriVariables['organizationId'] ?? null;
-    $filters = is_array($context['filters'] ?? null) ? $context['filters'] : [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     $from = $filters['from'] ?? null;
     $to = $filters['to'] ?? null;
     if (!is_string($organizationId) || !is_string($from) || !is_string($to)) {

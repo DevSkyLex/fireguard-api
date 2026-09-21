@@ -94,6 +94,7 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
       'dueSoonEquipmentCount' => 0,
       'overdueEquipmentCount' => 0,
       'unscheduledEquipmentCount' => 0,
+      'unevaluatedEquipmentCount' => 0,
       'trackedEquipmentCount' => 0,
       'openLowNonConformityCount' => 0,
       'openMediumNonConformityCount' => 0,
@@ -107,6 +108,7 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
       $totals['dueSoonEquipmentCount'] += $facility->dueSoonEquipmentCount;
       $totals['overdueEquipmentCount'] += $facility->overdueEquipmentCount;
       $totals['unscheduledEquipmentCount'] += $facility->unscheduledEquipmentCount;
+      $totals['unevaluatedEquipmentCount'] += $facility->unevaluatedEquipmentCount;
       $totals['trackedEquipmentCount'] += $facility->trackedEquipmentCount();
       $totals['openLowNonConformityCount'] += $facility->openLowNonConformityCount;
       $totals['openMediumNonConformityCount'] += $facility->openMediumNonConformityCount;
@@ -158,7 +160,7 @@ final readonly class GetComplianceOverviewHandler implements QueryHandler
 
   private function buildCacheKey(string $organizationId): string
   {
-    return 'compliance.overview.' . hash('sha256', $organizationId);
+    return 'compliance.overview.v2.' . hash('sha256', $organizationId);
   }
 
   private function readCache(string $cacheKey): ?GetComplianceOverviewResult

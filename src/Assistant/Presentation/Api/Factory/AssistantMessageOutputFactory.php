@@ -42,6 +42,13 @@ final class AssistantMessageOutputFactory
     $output->createdAt = $view->createdAt->format('c');
     $output->completedAt = $view->completedAt?->format('c');
 
+    $output->attemptId = $view->attemptId;
+    $output->attemptNumber = $view->attemptNumber;
+    $output->attemptSequence = $view->attemptSequence;
+    $output->attemptExpiresAt = $view->attemptExpiresAt?->format('c');
+    $output->canCancel = $view->canCancel;
+    $output->canRetry = $view->canRetry;
+
     return $output;
   }
   // #endregion

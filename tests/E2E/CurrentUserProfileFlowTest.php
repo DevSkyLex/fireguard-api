@@ -26,9 +26,10 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
   public function testCurrentUserCanUpdateProfileAndAvatar(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
+    $identity = $this->authenticateFreshUser($client);
+    $token = $identity['token'];
+    $userId = $identity['userId'];
 
-    self::assertNotNull($token, 'Should be able to obtain access token.');
 
     $client->request(
       method: 'PATCH',
@@ -51,7 +52,7 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
     );
 
     $profile = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
-    self::assertSame(self::DEV_CLIENT_ID, $profile['id'] ?? null);
+    self::assertSame($userId, $profile['id'] ?? null);
     self::assertSame('Updated', $profile['firstName'] ?? null);
     self::assertSame('Profile', $profile['lastName'] ?? null);
 
@@ -87,12 +88,12 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
       );
 
       $profile = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
-      self::assertSame(self::DEV_CLIENT_ID, $profile['id'] ?? null);
+      self::assertSame($userId, $profile['id'] ?? null);
       $avatarUrl = $profile['avatarUrl'] ?? null;
       self::assertIsString($avatarUrl);
-      self::assertStringContainsString('/api/users/' . self::DEV_CLIENT_ID . '/avatar', $avatarUrl);
+      self::assertStringContainsString('/api/users/' . $userId . '/avatar', $avatarUrl);
     } finally {
-      $avatarResizer->delete(self::DEV_CLIENT_ID);
+      $avatarResizer->delete($userId);
       if (file_exists($tempFile)) {
         unlink($tempFile);
       }
@@ -100,12 +101,13 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
   }
 
   #[Test]
-  public function testCurrentUserCanDeactivateOwnAccountAndItIsIdempotent(): void
+  public function testCurrentUserDeactivationRevokesFurtherRequests(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
+    $identity = $this->authenticateFreshUser($client);
+    $token = $identity['token'];
+    $userId = $identity['userId'];
 
-    self::assertNotNull($token, 'Should be able to obtain access token.');
 
     $client->request(
       method: 'POST',
@@ -123,10 +125,10 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
     );
 
     $profile = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
-    self::assertSame(self::DEV_CLIENT_ID, $profile['id'] ?? null);
+    self::assertSame($userId, $profile['id'] ?? null);
     self::assertSame('inactive', $profile['status'] ?? null);
 
-    // Idempotent: deactivating an already-inactive account must not fail.
+    // The original bearer no longer authorizes even an idempotent operation.
     $client->request(
       method: 'POST',
       uri: '/api/me/deactivate',
@@ -137,13 +139,10 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
     );
 
     self::assertSame(
-      Response::HTTP_OK,
+      Response::HTTP_UNAUTHORIZED,
       $client->getResponse()->getStatusCode(),
-      'Repeated self-service deactivation should stay idempotent. Response: ' . $client->getResponse()->getContent(),
+      'The deactivated account must no longer authenticate.',
     );
-
-    $profileAgain = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
-    self::assertSame('inactive', $profileAgain['status'] ?? null);
   }
 
   private function minimalPngBinary(): string

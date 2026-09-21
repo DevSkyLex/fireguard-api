@@ -73,6 +73,8 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
     private MaintenanceScheduleRecomputePolicy $policy,
     private MaintenanceReminderNotifier $notifier,
     private ClockPort $clock,
+    private \Maintenance\Application\Service\MaintenanceScheduleService $synchronizer,
+    private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort $locks,
   ) {
   }
   // #endregion
@@ -127,33 +129,7 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
    */
   private function reconcileOneEquipment(TrackableEquipment $equipment): void
   {
-    if ('decommissioned' === $equipment->status) {
-      $this->schedules->removeByOrganizationAndEquipment($equipment->organizationId, $equipment->equipmentId);
-
-      return;
-    }
-
-    $existing = $this->schedules->findByOrganizationAndEquipment($equipment->organizationId, $equipment->equipmentId);
-    if (null !== $existing) {
-      // Already reconciled: due status is refreshed by the recompute pass.
-      return;
-    }
-
-    $compliancePolicy = $this->compliancePolicy->compliancePolicy($equipment->organizationId);
-    $effectiveInterval = $this->policy->resolveEffectiveInterval(null, $compliancePolicy->periodicityFor($equipment->equipmentType));
-    $dueStatus = $this->policy->computeDueStatus(null, $effectiveInterval, $this->clock->now(), $compliancePolicy->reminderWindowDays);
-
-    $this->schedules->save(new MaintenanceScheduleSnapshot(
-      id: null,
-      organizationId: $equipment->organizationId,
-      equipmentId: $equipment->equipmentId,
-      facilityId: $equipment->facilityId,
-      equipmentType: $equipment->equipmentType,
-      intervalOverride: null,
-      lastInspectionClosedAt: null,
-      nextDueAt: null,
-      dueStatus: $dueStatus->value,
-    ));
+    $this->synchronizer->refreshEquipment($equipment->organizationId, $equipment->equipmentId);
   }
 
   /**
@@ -172,7 +148,7 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
       $page = $this->schedules->pageForSweep(self::PAGE_SIZE, $offset);
 
       foreach ($page->items as $schedule) {
-        $this->recomputeAndRemindOne($schedule);
+        $this->locks->synchronized($schedule->organizationId, $schedule->equipmentId, fn () => $this->recomputeAndRemindOne($schedule));
       }
 
       $offset += self::PAGE_SIZE;
@@ -188,6 +164,10 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
    */
   private function recomputeAndRemindOne(MaintenanceScheduleView $schedule): void
   {
+    $schedule = $this->schedules->findByOrganizationAndEquipment($schedule->organizationId, $schedule->equipmentId);
+    if (null === $schedule) {
+      return;
+    }
     $compliancePolicy = $this->compliancePolicy->compliancePolicy($schedule->organizationId);
     $effectiveInterval = $this->policy->resolveEffectiveInterval(
       $schedule->intervalOverride,
@@ -240,6 +220,7 @@ final readonly class RecomputeMaintenanceSchedulesHandler implements CommandHand
       dueStatus: $dueStatus->value,
       lastRemindedAt: $lastRemindedAt,
       remindedFor: $remindedFor,
+      evaluatedAt: $this->clock->now(),
     ));
   }
   // #endregion

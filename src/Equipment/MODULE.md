@@ -184,7 +184,7 @@ two sides human-comparable) on a bulk CSV reimport. `facilityCode` (added
 the reimport loop for facility assignment: the export resolves each assigned
 facility's organization-scoped unique `code` in one bulk round trip
 (`FacilityNamingPort::findCodesByIds()`), and a reimport resolves it back and
-re-assigns the created item through the existing `AssignToFacilityCommand`
+assigns the item atomically through the existing `CreateEquipmentCommand`
 (see the provisioning port below); a facility with no code exports an empty
 cell, which the importer treats as "no assignment". Every column after the
 seventh (`id`, `status`, `facilityId`, `facilityName`, `installedAt`,
@@ -452,10 +452,10 @@ here through `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAda
   `{attachmentId, x, y}` object (validated through the same `PlanPosition`
   VO) or `null`. Clearing the `facility` field in the same or an earlier
   patch also clears `planPosition`, mirroring the aggregate's
-  `unassignFromFacility()` invariant; the offline path does not re-validate
-  attachment ownership against Facility (no cross-module port call from an
-  adapter that must stay usable while genuinely offline) — that check is
-  enforced only on the online `PUT .../plan-position` route.
+  `unassignFromFacility()` invariant. On replay/publication, the server revalidates
+  attachment kind, current facility ancestry and decommissioning through the Facility
+  public floor-plan port. Changing the facility clears an existing pin before an
+  explicit new placement is considered.
 - **Free-text search (R10)**: the `search` filter is pushed down into SQL in
   `EquipmentRepository::createListQueryBuilder()` via the shared
   `Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression` builder —
@@ -661,15 +661,10 @@ Cross-module contracts and lifecycle invariants:
   `parentCode` resolution); an unknown code answers `INVALID` without
   dispatching a single command, on a real run and a dry run alike. On a real
   run with a resolved code the service dispatches `CreateEquipmentCommand`
-  and then the existing `AssignToFacilityCommand` — **two separate
-  synchronous commands, two transactions, deliberately not atomic**:
-  duplicating the creation use case to gain a shared transaction would
-  recreate the parallel business-logic path the port exists to avoid. A
-  failed assignment after a successful creation is answered as `INVALID`
-  carrying the created equipment id and a message naming both facts — the
-  item exists, unassigned, recoverable through the normal assignment
-  endpoint. A dry run resolves the code (so an unknown one is caught) but
-  never dispatches the assignment.
+  with the resolved facility ID. Facility validation, assignment, quota
+  enforcement and persistence share the existing main transaction. A failed
+  assignment is answered as `INVALID` without leaving an unassigned item.
+  A dry run resolves the code (so an unknown one is caught) without persisting.
 - **Bulk CSV import v2 — dry-run mode**: `ProvisionEquipmentRequest` carries
   an optional `dryRun` (default `false`) and `quotaProjectionOffset` (default
   `0`), threaded onto `CreateEquipmentCommand`. `CreateEquipmentHandler`
@@ -973,3 +968,21 @@ restricted to `Application\Port\` and `Application\Contract\` types.
 ## Durable onboarding setup
 
 Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.
+
+Published equipment persistence exposes `EquipmentChangedEvent` as a public invalidation fact.
+Its Doctrine listener enqueues it in the owning main transaction for creation, lifecycle,
+assignment, type and publication changes or deletion; consumers reload current source state.
+
+### Spatial history and persisted revisions
+
+Published placement changes enqueue the public `EquipmentPlanPositionChangedEvent` in
+main. Audit delivery preserves the initiating actor and deduplicates local consequences.
+Metadata contains operation, old/new plan identifiers, revision and intervention, never
+coordinates. Publishing a draft validates its placement and emits once; replay is inert.
+
+Doctrine owns the shared optimistic revision for legacy writes, canonical patches and
+publication. Direct placement and legacy update/assignment/lifecycle responses use the
+same complete detail projection as canonical GET. Creation retains the revision returned
+by intervention assignment. Concurrent stale writes return 412 `resource_revision_conflict`.
+Plan writes expose 409 codes `equipment_facility_required`, `equipment_decommissioned`,
+`floor_plan_outside_ancestry` and `attachment_not_floor_plan` for contextual recovery.

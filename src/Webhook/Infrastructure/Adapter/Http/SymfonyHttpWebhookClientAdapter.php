@@ -4,27 +4,22 @@ declare(strict_types=1);
 
 namespace Webhook\Infrastructure\Adapter\Http;
 
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\HttpClient\NoPrivateNetworkHttpClient;
+use Symfony\Contracts\HttpClient\Exception\{TimeoutExceptionInterface, TransportExceptionInterface};
 use Webhook\Application\Contract\Http\WebhookHttpResponse;
 use Webhook\Application\Port\Outbound\WebhookHttpClientPort;
+use Webhook\Domain\Exception\WebhookValidationException;
 use Webhook\Domain\Service\WebhookUrlPolicy;
 
-use function gethostbyname;
-use function is_string;
-use function parse_url;
-
-use const PHP_URL_HOST;
+use function max;
+use function min;
 
 /**
  * Adapter SymfonyHttpWebhookClientAdapter.
  *
  * Sends the signed outbound delivery POST via `symfony/http-client`.
- * Re-validates the DNS-resolved address just before connecting (guards
- * against DNS rebinding between subscription creation and delivery time —
- * see `Webhook\Domain\Service\WebhookUrlPolicy`) and disables redirect
- * following (`max_redirects: 0`) so a malicious 3xx cannot retarget the
- * request at an internal host.
+ * The native guarded client pins DNS and validates the actual connected IP.
+ * Redirects are disabled and both idle and total delivery duration are bounded.
  *
  * @category Adapter
  *
@@ -40,11 +35,11 @@ final readonly class SymfonyHttpWebhookClientAdapter implements WebhookHttpClien
    *
    * @since 1.0.0
    *
-   * @param HttpClientInterface $httpClient the Symfony HTTP client
+   * @param NoPrivateNetworkHttpClient $httpClient the guarded Symfony HTTP client
    * @param WebhookUrlPolicy $urlPolicy the SSRF hardening URL policy
    */
   public function __construct(
-    private HttpClientInterface $httpClient,
+    private NoPrivateNetworkHttpClient $httpClient,
     private WebhookUrlPolicy $urlPolicy,
   ) {
   }
@@ -53,32 +48,24 @@ final readonly class SymfonyHttpWebhookClientAdapter implements WebhookHttpClien
   // #region Methods
   public function post(string $url, array $headers, string $body, int $timeoutSeconds): WebhookHttpResponse
   {
-    $host = parse_url($url, PHP_URL_HOST);
-
-    if (!is_string($host) || '' === $host) {
-      return new WebhookHttpResponse(null, 'Invalid target URL.');
-    }
-
-    // gethostbyname() returns the original hostname unchanged when
-    // resolution fails, which is itself later rejected as "not delivered"
-    // by a connection failure — safe either way.
-    $resolvedAddress = gethostbyname($host);
-
-    if ($this->urlPolicy->isPrivateOrReservedIp($resolvedAddress)) {
-      return new WebhookHttpResponse(null, 'Blocked: the target host resolves to a private, loopback, or reserved address.');
-    }
-
     try {
+      $this->urlPolicy->assertValidUrl($url);
+      $timeout = max(1, min(60, $timeoutSeconds));
       $response = $this->httpClient->request('POST', $url, [
         'headers' => $headers,
         'body' => $body,
-        'timeout' => $timeoutSeconds,
+        'timeout' => $timeout,
+        'max_duration' => $timeout,
         'max_redirects' => 0,
       ]);
 
       return new WebhookHttpResponse($response->getStatusCode());
-    } catch (TransportExceptionInterface $exception) {
-      return new WebhookHttpResponse(null, $exception->getMessage());
+    } catch (WebhookValidationException) {
+      return new WebhookHttpResponse(null, 'The target URL is invalid or disallowed.');
+    } catch (TimeoutExceptionInterface) {
+      return new WebhookHttpResponse(null, 'The delivery timed out.');
+    } catch (TransportExceptionInterface) {
+      return new WebhookHttpResponse(null, 'The destination is unreachable or disallowed.');
     }
   }
   // #endregion

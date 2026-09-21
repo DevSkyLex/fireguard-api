@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Application\Port\Outbound;
 
-use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePaymentMethod};
+use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePaymentMethod, StripeSubscription};
 
 /**
  * Port StripeGatewayPort.
@@ -93,6 +93,19 @@ interface StripeGatewayPort
    * @return StripeEvent the normalized event
    */
   public function parseEvent(string $payload, string $signatureHeader): StripeEvent;
+
+  /**
+   * Returns the mode of the configured Stripe API key.
+   */
+  public function isLiveMode(): bool;
+
+  /**
+   * Retrieves all current subscription states, including canceled subscriptions.
+   * All pages must be read; an incomplete result must raise a gateway exception.
+   *
+   * @return list<StripeSubscription>
+   */
+  public function listSubscriptions(string $customerId): array;
 
   /**
    * Method listInvoices.

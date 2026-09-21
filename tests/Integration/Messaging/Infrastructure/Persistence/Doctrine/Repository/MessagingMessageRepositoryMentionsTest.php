@@ -11,12 +11,14 @@ use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\ValueObject\MessageId;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord;
 use Messaging\Infrastructure\Persistence\Doctrine\Repository\{MessagingConversationRepository, MessagingMessageRepository, MessagingReadMarkerRepository};
+use Notification\Application\Contract\Inbox\InboxCursor;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Factory\UuidFactory;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function array_slice;
 use function mt_rand;
 use function sprintf;
 
@@ -96,6 +98,21 @@ final class MessagingMessageRepositoryMentionsTest extends KernelTestCase
     $ids = $this->ids($messages->listMentionsForMember(self::ORG_ID, self::MEMBER_ID, null, 20));
 
     self::assertSame([$mentioning->id], $ids);
+  }
+
+  #[Test]
+  public function testCompositeCursorKeepsTiesAndRespectsSourceOrdering(): void
+  {
+    $messages = new MessagingMessageRepository($this->entityManager);
+    $now = new DateTimeImmutable('2026-09-20T10:00:00+00:00');
+    for ($i = 0; $i < 3; ++$i) {
+      $this->appendMessage($messages, self::CONVERSATION_ID, self::ORG_ID, 'author-1', [self::MEMBER_ID], $now);
+    }
+    $all = $this->ids($messages->listMentionsForMember(self::ORG_ID, self::MEMBER_ID, null, 20));
+    $cursor = new InboxCursor($now, 'messaging.mention', $all[0]);
+    self::assertSame(array_slice($all, 1), $this->ids($messages->listMentionsForMember(self::ORG_ID, self::MEMBER_ID, null, 20, $cursor)));
+    self::assertSame([], $messages->listMentionsForMember(self::ORG_ID, self::MEMBER_ID, null, 20, new InboxCursor($now, 'notification', 'x')));
+    self::assertSame($all, $this->ids($messages->listMentionsForMember(self::ORG_ID, self::MEMBER_ID, null, 20, new InboxCursor($now, 'first', 'x'))));
   }
 
   #[Test]

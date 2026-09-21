@@ -10,7 +10,6 @@ use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\Facility\CanonicalFacilityView;
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\DeleteCanonicalFacilityCommand;
 use Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\PatchCanonicalFacilityCommand;
 use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityResult;
@@ -499,11 +498,11 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
 
     $provider = new CanonicalFacilityProvider(
       $this->entityManager(),
-      $this->createStub(FacilityRepositoryPort::class),
       $authorization,
       $security,
       $requestStack,
       $manager,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
     );
 
     return new CanonicalFacilityMutationProcessor(
@@ -612,4 +611,27 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     };
   }
   // #endregion
+
+  private function detailQueries(): QueryBusPort
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Shared\Application\Message\QueryMessage $query): ResultMessage => $query instanceof \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery
+      ? new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult(
+        facilityId: self::FACILITY_ID,
+        organizationId: self::ORGANIZATION_ID,
+        parentFacilityId: null,
+        type: 'building',
+        name: 'Building B',
+        code: null,
+        status: 'active',
+        address: null,
+        metadata: [],
+        path: [['id' => 'root-id', 'name' => 'Root', 'type' => 'site']],
+        createdAt: new DateTimeImmutable('2026-09-20'),
+        updatedAt: new DateTimeImmutable('2026-09-20'),
+      )
+      : new GetCanonicalFacilityResult(new CanonicalFacilityView(self::FACILITY_ID, self::ORGANIZATION_ID, 'published', null, 3)));
+
+    return $queries;
+  }
 }

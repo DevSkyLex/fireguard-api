@@ -62,4 +62,16 @@ final class ChecklistOutput
   #[Groups([InspectionSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $updatedAt = '';
+
+  #[Groups([InspectionSerializationGroup::READ])]
+  public ?string $previousChecklistId = null;
+
+  #[Groups([InspectionSerializationGroup::READ])]
+  public bool $canEditMetadata = false;
+
+  #[Groups([InspectionSerializationGroup::READ])]
+  public bool $canEditItems = false;
+
+  #[Groups([InspectionSerializationGroup::READ])]
+  public bool $canCreateRevision = false;
 }

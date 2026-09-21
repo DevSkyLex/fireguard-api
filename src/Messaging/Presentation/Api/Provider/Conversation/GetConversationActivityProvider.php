@@ -88,8 +88,8 @@ final readonly class GetConversationActivityProvider implements ProviderInterfac
       throw new BadRequestHttpException('The conversationId URI parameter is required.');
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $buckets = max(self::MIN_BUCKETS, min(self::MAX_BUCKETS, $query?->getInt('buckets', self::DEFAULT_BUCKETS) ?? self::DEFAULT_BUCKETS));
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $buckets = max(self::MIN_BUCKETS, min(self::MAX_BUCKETS, $query->getInt('buckets', self::DEFAULT_BUCKETS)));
 
     try {
       /** @var GetConversationActivityResult $result */

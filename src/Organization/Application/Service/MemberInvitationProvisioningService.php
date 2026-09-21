@@ -129,6 +129,7 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
         email: $request->email,
         invitedByUserId: $request->invitedByUserId,
         roleIds: $roleIds,
+        deferDelivery: true,
       ));
     } catch (OrganizationQuotaExceededException $exception) {
       return new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());

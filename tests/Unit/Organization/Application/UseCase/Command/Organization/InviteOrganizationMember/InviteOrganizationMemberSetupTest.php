@@ -67,7 +67,7 @@ final class InviteOrganizationMemberSetupTest extends TestCase
     $uuid->method('create')->willReturn(OrganizationInvitationId::fromString('cc11c711-0000-4000-8000-000000000299'));
     $transactions = $this->createStub(TransactionManagerPort::class);
     $transactions->method('transactional')->willReturnCallback(static fn (callable $work): mixed => $work());
-    $handler = new InviteOrganizationMemberHandler($orgs, $roles, $this->createStub(OrganizationMemberRepositoryPort::class), $invitations, $this->createStub(UserRepositoryPort::class), new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), EmailTranslatorTestFactory::create()), $this->createStub(LoggerPort::class), $uuid, $transactions, $quota, $events, $setup);
+    $handler = new InviteOrganizationMemberHandler($orgs, $roles, $this->createStub(OrganizationMemberRepositoryPort::class), $invitations, $this->createStub(UserRepositoryPort::class), new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), EmailTranslatorTestFactory::create()), $this->createStub(LoggerPort::class), $uuid, $transactions, $quota, $events, $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class), $setup);
     $result = $handler(new InviteOrganizationMemberCommand($orgId, 'member@example.com', 'creator', setupContext: new OrganizationSetupContext('creator', 'session', 'invite')));
     self::assertSame($id, $result->invitationId);
     self::assertSame('pending', $result->status);

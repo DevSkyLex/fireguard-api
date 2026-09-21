@@ -14,6 +14,8 @@ services:
       - '../../src/Shared/Infrastructure/**/Tests/'
       - '../../src/Shared/Infrastructure/**/Tests.php'
       - '../../src/Shared/Infrastructure/**/Test.php'
+      - '../../src/Shared/Infrastructure/Persistence/Doctrine/Record/'
+      - '../../src/Shared/Infrastructure/Messaging/Outbox/OutboxEvent.php'
 
   # Load Shared Application layer (handlers)
   Shared\Application\UseCase\:
@@ -73,6 +75,32 @@ services:
   Shared\Application\Port\Outbound\UuidGeneratorPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter'
   Shared\Application\Port\Outbound\HashingPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter'
   Shared\Application\Port\Outbound\EventDispatcherPort: '@Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter'
+  Shared\Application\Port\Outbound\CurrentActorPort: '@Auth\Infrastructure\Adapter\Shared\CurrentActorAdapter'
+  Shared\Application\Port\Outbound\DurableEventContextPort: '@Shared\Infrastructure\Messaging\Outbox\DurableEventContext'
+
+  Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $sender: '@messenger.transport.main_outbox'
+
+  Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  Shared\Infrastructure\Messaging\Outbox\DoctrineIdempotentConsumerAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
+  shared.auth_event_consumer:
+    class: Shared\Infrastructure\Messaging\Outbox\DoctrineIdempotentConsumerAdapter
+    arguments:
+      $connection: '@doctrine.dbal.auth_connection'
+
+  Shared\Application\Port\Outbound\IdempotentConsumerPort: '@Shared\Infrastructure\Messaging\Outbox\DoctrineIdempotentConsumerAdapter'
   Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter'
   Shared\Application\Port\Outbound\HealthCheckPort: '@Shared\Infrastructure\Adapter\Doctrine\HealthCheckAdapter'
 

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use LogicException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
@@ -131,13 +132,13 @@ final readonly class CreateEquipmentHandler implements CommandHandler
 
           return $existing;
         }
-        if (null !== $command->facilityId) {
-          if (null === $this->facilityValidation) {
-            throw OrganizationSetupConflict::because('Facility validation is unavailable.');
-          }
-          $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
-          $equipment->assignToFacility(\Equipment\Domain\ValueObject\EquipmentFacilityId::fromString($command->facilityId), new DateTimeImmutable());
+      }
+      if (null !== $command->facilityId) {
+        if (null === $this->facilityValidation) {
+          throw new LogicException('Facility validation is unavailable.');
         }
+        $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
+        $equipment->assignToFacility(\Equipment\Domain\ValueObject\EquipmentFacilityId::fromString($command->facilityId), new DateTimeImmutable());
       }
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
       $this->equipmentRepository->save($equipment);

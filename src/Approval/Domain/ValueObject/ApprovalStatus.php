@@ -20,6 +20,7 @@ enum ApprovalStatus: string
   case PENDING = 'pending';
   case APPROVED = 'approved';
   case REJECTED = 'rejected';
+  case WITHDRAWN = 'withdrawn';
   case CANCELLED = 'cancelled';
   case EXPIRED = 'expired';
 

@@ -47,6 +47,7 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
   ) {
   }
   // #endregion
@@ -128,21 +129,7 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
       throw $exception;
     }
 
-    $output = new FacilityOutput();
-    $output->id = $result->facilityId;
-    $output->organizationId = $result->organizationId;
-    $output->parentFacilityId = $result->parentFacilityId;
-    $output->type = $result->type;
-    $output->name = $result->name;
-    $output->code = $result->code;
-    $output->status = $result->status;
-    $output->address = $result->address;
-    $output->metadata = $result->metadata;
-    $output->planGeometry = $result->planGeometry;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->detail->read($organizationId, $facilityId);
   }
   // #endregion
 }

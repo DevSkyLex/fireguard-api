@@ -203,6 +203,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
@@ -372,6 +373,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
@@ -512,6 +514,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
@@ -641,6 +644,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     $handler = new InviteOrganizationMemberHandler(
+      deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
@@ -896,6 +900,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     );
 
     return new InviteOrganizationMemberHandler(
+      deliveryQueue: $this->createStub(\Organization\Application\Port\Outbound\InvitationDeliveryQueuePort::class),
       organizationRepository: $organizationRepository ?? $this->createStub(OrganizationRepositoryPort::class),
       roleRepository: $roleRepository ?? $this->createStub(OrganizationRoleRepositoryPort::class),
       memberRepository: $memberRepository ?? $this->createStub(OrganizationMemberRepositoryPort::class),

@@ -21,7 +21,7 @@ final class AssistantMessageStatusTest extends TestCase
   #[Test]
   public function testValuesReturnsEveryCase(): void
   {
-    self::assertSame(['pending', 'streaming', 'complete', 'failed'], AssistantMessageStatus::values());
+    self::assertSame(['pending', 'streaming', 'complete', 'failed', 'cancelled'], AssistantMessageStatus::values());
   }
 
   #[Test]

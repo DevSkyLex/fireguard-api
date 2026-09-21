@@ -32,7 +32,7 @@ final class ApprovalStatusTest extends TestCase
   public function testValuesReturnsEveryCaseValue(): void
   {
     self::assertSame(
-      ['pending', 'approved', 'rejected', 'cancelled', 'expired'],
+      ['pending', 'approved', 'rejected', 'withdrawn', 'cancelled', 'expired'],
       ApprovalStatus::values(),
     );
   }

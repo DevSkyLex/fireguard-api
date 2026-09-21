@@ -69,6 +69,19 @@ final class MaintenanceComplianceStatisticsAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  public function evaluationCoverageCountsOnlyEvaluatedRowsAndReturnsTheOldestScopedDate(): void
+  {
+    $this->createSchedule(self::ORGANIZATION_ID, self::FACILITY_A, 'up_to_date', null, new DateTimeImmutable('2026-09-20T10:00:00Z'));
+    $this->createSchedule(self::ORGANIZATION_ID, self::FACILITY_A, 'up_to_date', null, new DateTimeImmutable('2026-09-20T11:00:00Z'));
+    $this->createSchedule(self::ORGANIZATION_ID, self::FACILITY_A, 'unscheduled', null);
+    $this->createSchedule(self::OTHER_ORGANIZATION_ID, self::FACILITY_A, 'up_to_date', null, new DateTimeImmutable('2025-01-01T00:00:00Z'));
+    $this->entityManager->flush();
+    $result = $this->adapter->evaluationByFacility(self::ORGANIZATION_ID);
+    self::assertSame(2, $result[self::FACILITY_A]['evaluatedCount']);
+    self::assertSame('2026-09-20T10:00:00+00:00', $result[self::FACILITY_A]['oldestEvaluatedAt']);
+  }
+
+  #[Test]
   public function testDueStatusCountsByFacilityGroupsAndCountsPerStatus(): void
   {
     $this->createSchedule(self::ORGANIZATION_ID, self::FACILITY_A, 'overdue', null);
@@ -165,6 +178,7 @@ final class MaintenanceComplianceStatisticsAdapterTest extends KernelTestCase
     ?string $facilityId,
     string $dueStatus,
     ?DateTimeImmutable $lastInspectionClosedAt,
+    ?DateTimeImmutable $evaluatedAt = null,
   ): void {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
 
@@ -178,6 +192,7 @@ final class MaintenanceComplianceStatisticsAdapterTest extends KernelTestCase
     $schedule->equipmentType = 'fire_extinguisher';
     $schedule->dueStatus = $dueStatus;
     $schedule->lastInspectionClosedAt = $lastInspectionClosedAt;
+    $schedule->evaluatedAt = $evaluatedAt;
     $schedule->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
     $schedule->updatedAt = $schedule->createdAt;
     $this->entityManager->persist($schedule);

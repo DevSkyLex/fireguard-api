@@ -47,10 +47,11 @@ final class NotificationFlowTest extends OAuth2WebTestCase
   public function testListNotificationsIsPaginatedAndFiltersByOrganization(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-    self::assertNotNull($token, 'Should be able to obtain access token.');
+    $identity = $this->authenticateFreshUser($client);
+    $token = $identity['token'];
+    $userId = $identity['userId'];
 
-    $userId = self::DEV_CLIENT_ID;
+
     $organizationId = Uuid::v4()->toRfc4122();
 
     for ($i = 0; $i < 3; ++$i) {
@@ -119,10 +120,11 @@ final class NotificationFlowTest extends OAuth2WebTestCase
   public function testUnreadNotificationsCountHonoursOrganizationFilter(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-    self::assertNotNull($token, 'Should be able to obtain access token.');
+    $identity = $this->authenticateFreshUser($client);
+    $token = $identity['token'];
+    $userId = $identity['userId'];
 
-    $userId = self::DEV_CLIENT_ID;
+
     $organizationId = Uuid::v4()->toRfc4122();
 
     $this->persistNotification($userId, $organizationId);
@@ -166,10 +168,11 @@ final class NotificationFlowTest extends OAuth2WebTestCase
   public function testMarkAllNotificationsAsReadIsBulkScopedIdempotentAndLeavesOtherUsersUntouched(): void
   {
     $client = static::createClientWithFixtures();
-    $token = $this->getAccessToken($client);
-    self::assertNotNull($token, 'Should be able to obtain access token.');
+    $identity = $this->authenticateFreshUser($client);
+    $token = $identity['token'];
+    $userId = $identity['userId'];
 
-    $userId = self::DEV_CLIENT_ID;
+
     $organizationId = Uuid::v4()->toRfc4122();
 
     $this->persistNotification($userId, $organizationId);

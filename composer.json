@@ -7,8 +7,8 @@
         "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "api-platform/doctrine-orm": "^4.2",
-        "api-platform/symfony": "^4.2",
+        "api-platform/doctrine-orm": "^5.0",
+        "api-platform/symfony": "^5.0",
         "bacon/bacon-qr-code": "^3.1",
         "doctrine/dbal": "^3",
         "doctrine/doctrine-bundle": "^2.18.2",
@@ -143,6 +143,7 @@
         }
     },
     "require-dev": {
+        "api-platform/test": "^5.0",
         "brianium/paratest": "^7.20",
         "dama/doctrine-test-bundle": "^8.6",
         "deptrac/deptrac": "^4.3",

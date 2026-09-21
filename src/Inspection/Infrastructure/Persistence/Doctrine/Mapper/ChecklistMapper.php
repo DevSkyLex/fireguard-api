@@ -43,6 +43,7 @@ final class ChecklistMapper
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
       referenceCode: $record->referenceCode,
+      previousChecklistId: null === $record->previousChecklist ? null : ChecklistId::fromString($record->previousChecklist->id),
     );
   }
 

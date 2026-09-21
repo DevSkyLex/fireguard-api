@@ -38,9 +38,16 @@ services:
   # FrameworkBundle's `http_client` service autoregistration (which is only
   # configured today via the transitive symfony/mercure-bundle dependency,
   # not an explicit `framework.http_client` block).
-  webhook.http_client:
+  webhook.http_client.transport:
     class: Symfony\Contracts\HttpClient\HttpClientInterface
     factory: ['Symfony\Component\HttpClient\HttpClient', 'create']
+
+  webhook.http_client:
+    class: Symfony\Component\HttpClient\NoPrivateNetworkHttpClient
+    autoconfigure: false
+    arguments: ['@webhook.http_client.transport']
+    tags:
+      - { name: kernel.reset, method: reset }
 
   Webhook\Infrastructure\Adapter\Http\SymfonyHttpWebhookClientAdapter:
     arguments:

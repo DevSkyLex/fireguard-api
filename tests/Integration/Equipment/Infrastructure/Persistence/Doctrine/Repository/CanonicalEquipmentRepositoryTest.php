@@ -83,6 +83,7 @@ final class CanonicalEquipmentRepositoryTest extends KernelTestCase
     $this->entityManager->persist($equipment);
 
     $this->entityManager->flush();
+    $this->entityManager->getConnection()->executeStatement('UPDATE equipment SET revision = 4 WHERE id = ?', [$equipment->id]);
     $this->entityManager->clear();
   }
 

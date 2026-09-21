@@ -74,6 +74,89 @@ final class ChecklistRepositoryIntegrationTest extends KernelTestCase
   }
 
   #[Test]
+  public function draftReferencesFreezeItemsAndRefreshDoesNotOverwriteStoredContent(): void
+  {
+    $checklist = Checklist::create(
+      ChecklistId::fromString(self::CHECKLIST_WITH_ITEMS_ID),
+      ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      'Draft evidence',
+      '1.0',
+      [ChecklistItem::create('locked-item', 'Original label', 0)],
+    );
+    $this->repository->save($checklist);
+    $inspection = new \Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord();
+    $inspection->id = '770e8400-e29b-41d4-a716-446655471201';
+    $inspection->organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $inspection->equipmentId = '770e8400-e29b-41d4-a716-446655471202';
+    $inspection->checklistId = self::CHECKLIST_WITH_ITEMS_ID;
+    $inspection->recordStatus = 'draft';
+    $inspection->inspectorType = 'external';
+    $inspection->inspectorName = 'Draft inspector';
+    $inspection->status = 'draft';
+    $inspection->result = 'pass';
+    $inspection->performedAt = new DateTimeImmutable();
+    $inspection->createdAt = $inspection->performedAt;
+    $inspection->updatedAt = $inspection->performedAt;
+    $this->entityManager->persist($inspection);
+    $this->entityManager->flush();
+    self::assertSame([self::CHECKLIST_WITH_ITEMS_ID], $this->repository->referencedIds(
+      ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      [self::CHECKLIST_WITH_ITEMS_ID],
+    ));
+    self::assertSame([], $this->repository->referencedIds(
+      ChecklistOrganizationId::fromString(self::OTHER_ORGANIZATION_ID),
+      [self::CHECKLIST_WITH_ITEMS_ID],
+    ));
+    // Simulates an identity-map entry read before a concurrent writer acquires the shared lock.
+    $this->entityManager->getConnection()->executeStatement("UPDATE checklist_items SET label = 'Persisted label' WHERE id = 'locked-item'");
+    $handler = self::getContainer()->get(\Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistHandler::class);
+    self::assertInstanceOf(\Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistHandler::class, $handler);
+    $handler(new \Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistCommand(
+      self::ORGANIZATION_ID,
+      self::CHECKLIST_WITH_ITEMS_ID,
+      name: 'Metadata remains editable',
+      hasName: true,
+    ));
+    self::assertSame('Persisted label', $this->repository->findById($checklist->id())?->items()[0]->label());
+    $this->expectException(\Inspection\Domain\Exception\ChecklistInUseException::class);
+    $handler(new \Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistCommand(
+      self::ORGANIZATION_ID,
+      self::CHECKLIST_WITH_ITEMS_ID,
+      items: [],
+      hasItems: true,
+    ));
+  }
+
+  #[Test]
+  public function checklistLockExcludesStructuralChangesAndNewReferences(): void
+  {
+    $url = $_ENV['MAIN_DATABASE_URL'] ?? $_SERVER['MAIN_DATABASE_URL'] ?? null;
+    self::assertIsString($url);
+    $first = \Doctrine\DBAL\DriverManager::getConnection(['url' => $url]);
+    $second = \Doctrine\DBAL\DriverManager::getConnection(['url' => $url]);
+
+    try {
+      $firstLock = new \Inspection\Infrastructure\Adapter\Checklist\ChecklistLockAdapter($first);
+      $secondLock = new \Inspection\Infrastructure\Adapter\Checklist\ChecklistLockAdapter($second);
+      $second->executeStatement("SET lock_timeout = '75ms'");
+      $firstLock->withLock(self::ORGANIZATION_ID, self::CHECKLIST_WITH_ITEMS_ID, function () use ($secondLock): void {
+        try {
+          $secondLock->withLock(self::ORGANIZATION_ID, self::CHECKLIST_WITH_ITEMS_ID, static fn (): bool => true);
+          self::fail('The competing checklist mutation bypassed the lock.');
+        } catch (\Doctrine\DBAL\Exception\DriverException $exception) {
+          self::assertSame('55P03', $exception->getSQLState());
+        }
+      });
+      $calls = 0;
+      $secondLock->withLock(self::ORGANIZATION_ID, self::CHECKLIST_WITH_ITEMS_ID, static function () use (&$calls): void { ++$calls; });
+      self::assertSame(1, $calls);
+    } finally {
+      $first->close();
+      $second->close();
+    }
+  }
+
+  #[Test]
   public function testCountItemsGroupedByChecklistIdExcludesForeignOrganizationAndOmitsZeroItemChecklists(): void
   {
     $this->repository->save(Checklist::create(

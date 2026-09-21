@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Checklist'],
         summary: 'Create a checklist',
-        description: 'Creates a new inspection checklist template.',
+        description: 'Creates a new inspection checklist template or a linked revision. A revision requires a different version label; existing inspections retain their previous checklist.',
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Checklist created'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
@@ -51,13 +51,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by status (active, archived)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (active, archived)', required: false, schema: ['type' => 'string']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Checklist'],
         summary: 'List checklists',
         description: 'Lists all checklists for the organization.',
-        parameters: [
-          new Parameter(name: 'status', in: 'query', description: 'Filter by status (active, archived)', required: false, schema: ['type' => 'string']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Checklist list'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
@@ -89,6 +98,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       status: HttpResponse::HTTP_OK,
       input: false,
       output: ChecklistOutput::class,
+      read: false,
       processor: ArchiveChecklistProcessor::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
@@ -109,6 +119,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       uriTemplate: '/{organizationId}/checklists/{checklistId}',
       input: UpdateChecklistInput::class,
       output: ChecklistOutput::class,
+      read: false,
       processor: UpdateChecklistProcessor::class,
       denormalizationContext: ['groups' => [InspectionSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],

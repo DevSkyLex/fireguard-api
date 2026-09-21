@@ -72,6 +72,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     private EntityManagerInterface $entityManager,
     private FacilityValidationPort $facilityValidation,
     private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
+    private \Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort $floorPlans,
   ) {
   }
 
@@ -180,7 +181,6 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     $record->clientId = $clientId;
     $record->interventionId = $interventionId;
     $record->recordStatus = null === $interventionId ? 'published' : 'draft';
-    $record->revision = 1;
     $this->entityManager->flush();
 
     return new InterventionResourceAssignment($interventionId, $record->recordStatus, $record->revision);
@@ -275,6 +275,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       throw new InterventionConflictException('Proposed equipment change target is invalid.');
     }
     $previousStatus = $record->status;
+    $previousFacilityId = $record->facilityId;
 
     if (array_key_exists('type', $patch)) {
       $type = $patch['type'];
@@ -327,6 +328,10 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       throw new InterventionConflictException('In-service equipment must be assigned to a facility.');
     }
 
+    if ($previousFacilityId !== $record->facilityId) {
+      $record->planPosition = null;
+    }
+
     if (array_key_exists('planPosition', $patch)) {
       $planPosition = $patch['planPosition'];
       if (null === $planPosition) {
@@ -337,7 +342,12 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
         }
 
         try {
-          $record->planPosition = PlanPosition::fromArray($planPosition)->toArray();
+          $position = PlanPosition::fromArray($planPosition);
+          $this->assertPlanUsable($position->toArray()['attachmentId'], $record->facilityId);
+          if ('decommissioned' === $record->status) {
+            throw new InterventionConflictException('Decommissioned equipment cannot be placed on a plan.');
+          }
+          $record->planPosition = $position->toArray();
         } catch (InvalidValueException $exception) {
           throw new InterventionConflictException(sprintf('Proposed equipment plan position is invalid: %s', $exception->getMessage()));
         }
@@ -366,7 +376,6 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       }
     }
 
-    ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
 
     if ($statusChanged) {
@@ -399,6 +408,12 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     ]);
 
     foreach ($records as $record) {
+      if (null !== $record->planPosition) {
+        if (null === $record->facilityId || 'decommissioned' === $record->status) {
+          throw new InterventionConflictException('The equipment cannot be placed on a plan in its current state.');
+        }
+        $this->assertPlanUsable($record->planPosition['attachmentId'], $record->facilityId);
+      }
       // Materialize the side-effects the record skipped while it was a draft
       // scratchpad (drafts are exempt from them on the canonical surface). A draft
       // is "born" in stock, so the effective transition is in_stock -> its final
@@ -410,7 +425,6 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       }
 
       $record->recordStatus = 'published';
-      ++$record->revision;
       $record->updatedAt = new DateTimeImmutable();
 
       $organization = $record->organization;
@@ -447,6 +461,15 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  private function assertPlanUsable(string $attachmentId, string $facilityId): void
+  {
+    try {
+      $this->floorPlans->assertAttachmentUsableForFacility($attachmentId, $facilityId);
+    } catch (\Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotFoundException|\Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotFloorPlanException|\Equipment\Application\Contract\FloorPlan\FloorPlanAttachmentNotAncestorException) {
+      throw new InterventionConflictException('The proposed floor plan is unavailable for this facility.');
+    }
   }
 
   /**

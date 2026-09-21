@@ -13,6 +13,8 @@ compliance:
     organization: "Informe de organización"
     facility: "Informe de establecimiento"
   meta:
+    evaluatedAt: "Evaluación más antigua"
+    unevaluated: "Equipos aún no evaluados"
     generatedAt: "Generado el"
     organization: "Organización"
     facility: "Establecimiento"
@@ -39,7 +41,7 @@ compliance:
     equipment: "Equipos (al día / vencimiento próximo / atrasados / sin planificar)"
     openNonConformities: "NC abiertas (baja/media/alta/crítica)"
     lastInspection: "Última inspección"
-  note: "Datos a %date%. El estado de vencimiento de los equipos se actualiza con el barrido de mantenimiento horario y puede tener hasta una hora de desfase. Este documento es una instantánea puntual: no se conserva y puede regenerarse en cualquier momento desde el registro en vivo."
+  note: "Registro generado el %date%. La antigüedad de las evaluaciones y los equipos pendientes se indican por separado. El registro actual puede cambiar; los archivos conservan su documento original."
 
 intervention:
   title: "Informe de intervención — FG-%number%"

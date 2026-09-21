@@ -111,5 +111,12 @@ interface ChecklistRepositoryPort
     ChecklistOrganizationId $organizationId,
     array $checklistIds,
   ): array;
+
+  /**
+   * @param list<string> $checklistIds
+   *
+   * @return list<string>
+   */
+  public function referencedIds(ChecklistOrganizationId $organizationId, array $checklistIds): array;
   // #endregion
 }

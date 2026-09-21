@@ -19,7 +19,7 @@ use Equipment\Domain\Exception\{
   EquipmentNotFoundException
 };
 use Equipment\Presentation\Api\Dto\Input\Equipment\SetEquipmentPlanPositionInput;
-use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
+use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
@@ -27,7 +27,6 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
-use function array_map;
 use function is_string;
 
 /**
@@ -57,6 +56,7 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
   ) {
   }
   // #endregion
@@ -154,25 +154,7 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
       throw $exception;
     }
 
-    $output = new EquipmentOutput();
-    $output->id = $result->equipmentId;
-    $output->organizationId = $result->organizationId;
-    $output->facilityId = $result->facilityId;
-    $output->type = $result->type;
-    $output->subType = $result->subType;
-    $output->brand = $result->brand;
-    $output->model = $result->model;
-    $output->serialNumber = $result->serialNumber;
-    $output->locationLabel = $result->locationLabel;
-    $output->status = $result->status;
-    $output->installedAt = $result->installedAt;
-    $output->commissionedAt = $result->commissionedAt;
-    $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-    $output->planPosition = $result->planPosition;
-
-    return $output;
+    return $this->detail->read($organizationId, $equipmentId);
   }
   // #endregion
 }

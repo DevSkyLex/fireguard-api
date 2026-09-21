@@ -20,6 +20,13 @@ services:
   Billing\Application\Port\Outbound\SubscriptionRepositoryPort:
     alias: Billing\Infrastructure\Persistence\Doctrine\Repository\SubscriptionRepository
 
+  Billing\Infrastructure\Persistence\Doctrine\Lock\PostgresBillingReconciliationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Billing\Application\Port\Outbound\BillingReconciliationPort:
+    alias: Billing\Infrastructure\Persistence\Doctrine\Lock\PostgresBillingReconciliationAdapter
+
   # Stripe gateway
   Billing\Infrastructure\Adapter\Stripe\StripeGatewayAdapter:
     arguments:
@@ -54,7 +61,6 @@ services:
   # Command handlers
   Billing\Application\UseCase\Command\StartCheckout\StartCheckoutHandler:
     arguments:
-      $transactionManager: '@billing.main_transaction_manager'
       $frontendUrl: '%billing.frontend_url%'
     tags: ['messenger.message_handler']
 
@@ -64,18 +70,12 @@ services:
     tags: ['messenger.message_handler']
 
   Billing\Application\UseCase\Command\HandleStripeWebhook\HandleStripeWebhookHandler:
-    arguments:
-      $transactionManager: '@billing.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Billing\Application\UseCase\Command\CancelSubscription\CancelSubscriptionHandler:
-    arguments:
-      $transactionManager: '@billing.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Billing\Application\UseCase\Command\ResumeSubscription\ResumeSubscriptionHandler:
-    arguments:
-      $transactionManager: '@billing.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   # Query handlers

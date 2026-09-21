@@ -13,7 +13,7 @@ use Intervention\Application\Contract\Draft\{CreateInterventionDraftRequest, Int
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
 use Throwable;
 
 use function array_filter;
@@ -40,13 +40,10 @@ use const JSON_THROW_ON_ERROR;
  *    null`), `origin: 'automation:<rule key>'`, type `inspection_campaign`
  *    with one required `inspection` work item, priority `urgent`, and
  *    `dueAt` derived from `now + nonConformitySlaDays[severity]` days.
- * 4. On success the run is marked `succeeded` with the created intervention
- *    id and `automation.rule_executed` is dispatched. On failure the run is
- *    marked `failed` with the error and `automation.rule_failed` is
- *    dispatched — the failure is deliberately swallowed (logged, not
- *    rethrown): the run row already guards against a Messenger retry
- *    producing a duplicate draft, so rethrowing would only risk retries
- *    that can never succeed differently.
+ * 4. Reservation, draft, outcome and durable event commit together in main.
+ *    Failures roll all of them back before recording a failed outcome in a
+ *    fresh conditional reservation. Another worker's success always wins.
+ *    Failure to persist that outcome propagates to the transport for retry.
  *
  * @category UseCase
  *
@@ -86,6 +83,7 @@ final readonly class ExecuteAutomationRuleHandler implements CommandHandler
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
     private LoggerInterface $logger,
+    private TransactionManagerPort $transactions,
   ) {
   }
   // #endregion
@@ -102,7 +100,38 @@ final readonly class ExecuteAutomationRuleHandler implements CommandHandler
    */
   public function __invoke(ExecuteAutomationRuleCommand $command): VoidResult
   {
-    $runId = $this->runs->reserveRun($command->ruleKey, $command->organizationId, $command->subjectId);
+    try {
+      return $this->transactions->transactional(fn (): VoidResult => $this->executeOnce($command));
+    } catch (Throwable $exception) {
+      // Reservation, draft, result and success event all rolled back. A fresh
+      // conditional reservation cannot replace a concurrent worker's success.
+      $this->transactions->transactional(function () use ($command, $exception): void {
+        $runId = $this->runs->reserveRun($command->ruleKey, $command->organizationId, $command->subjectId, $command->triggerPayload, $command->attemptId);
+        if (null === $runId) {
+          return;
+        }
+        $this->runs->markFailed($runId, $exception->getMessage());
+        $this->eventDispatcher->dispatch(new AutomationRuleFailedEvent(
+          ruleKey: $command->ruleKey,
+          organizationId: $command->organizationId,
+          subjectId: $command->subjectId,
+          error: $exception->getMessage(),
+        ));
+      });
+      $this->logger->error('Automation rule execution failed', [
+        'rule_key' => $command->ruleKey,
+        'organization_id' => $command->organizationId,
+        'subject_id' => $command->subjectId,
+        'error' => $exception->getMessage(),
+      ]);
+
+      return new VoidResult();
+    }
+  }
+
+  private function executeOnce(ExecuteAutomationRuleCommand $command): VoidResult
+  {
+    $runId = $this->runs->reserveRun($command->ruleKey, $command->organizationId, $command->subjectId, $command->triggerPayload, $command->attemptId);
     if (null === $runId) {
       // Already claimed by a previous attempt: skip entirely.
       return new VoidResult();
@@ -116,25 +145,7 @@ final readonly class ExecuteAutomationRuleHandler implements CommandHandler
       return new VoidResult();
     }
 
-    try {
-      $interventionId = $this->execute($command, $policy);
-    } catch (Throwable $exception) {
-      $this->runs->markFailed($runId, $exception->getMessage());
-      $this->logger->error('Automation rule execution failed', [
-        'rule_key' => $command->ruleKey,
-        'organization_id' => $command->organizationId,
-        'subject_id' => $command->subjectId,
-        'error' => $exception->getMessage(),
-      ]);
-      $this->eventDispatcher->dispatch(new AutomationRuleFailedEvent(
-        ruleKey: $command->ruleKey,
-        organizationId: $command->organizationId,
-        subjectId: $command->subjectId,
-        error: $exception->getMessage(),
-      ));
-
-      return new VoidResult();
-    }
+    $interventionId = $this->execute($command, $policy);
 
     $this->runs->markSucceeded($runId, $interventionId);
     $this->eventDispatcher->dispatch(new AutomationRuleExecutedEvent(

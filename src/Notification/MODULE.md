@@ -26,7 +26,7 @@ Main goals:
 | PATCH | `/api/notifications/preferences` | Upserts one or more per-category preferences for the authenticated user; returns the full customized set | `UpdateNotificationPreferencesProcessor` |
 | GET | `/api/notifications/{id}` | Get one notification owned by authenticated user | `GetNotificationProvider` |
 | PATCH | `/api/notifications/{id}/read` | Mark one notification as read (idempotent) | `MarkNotificationAsReadProcessor` |
-| GET | `/api/inbox` | Unified, cursor-paginated inbox feed merging every registered `inbox.source_provider` source (`organization`, `before`, `limit`) | `GetInboxProvider` |
+| GET | `/api/inbox` | Unified, cursor-paginated inbox feed merging every registered `inbox.source_provider` source (`organization`, `cursor`, `limit`; legacy `before`) | `GetInboxProvider` |
 | GET | `/api/inbox/unread-count` | Unread item count summed across every registered `inbox.source_provider` source for the authenticated user (optional `organization` filter) | `GetInboxUnreadCountProvider` |
 
 `/subscription`, `/unread-count`, `/read-all` and `/preferences` are declared
@@ -37,33 +37,12 @@ swallowed by the `{id}` placeholder. `GET /api/inbox` and `GET
 so they never have to compete with that ordering constraint (`InboxResource`
 has no `/{id}` route at all).
 
-### Unified inbox unread count (L1.8b)
+### Unified inbox unread count
 
-`GET /api/inbox/unread-count` answers "does the sidebar/bell badge need a
-number" the same way `GET /api/notifications/unread-count` does today, but
-sourced through the unified inbox seam (`InboxAggregator::countUnread()`)
-instead of `NotificationRepositoryPort::countUnreadByUserId()` directly. The
-two endpoints return the SAME number today (Notification is still the only
-registered `inbox.source_provider`), but only the inbox one stays correct
-once Messaging registers its own source (mentions, direct messages, thread
-replies) — the notification-only endpoint would then under-report. Frontend
-code driving a unified inbox/bell badge should call the inbox endpoint;
-`GET /api/notifications/unread-count` remains for a notifications-only
-badge/list, unchanged.
-
-`InboxSourceProviderPort::countUnread(userId, organizationId): int` is a
-second seam method (alongside `fetch()`), deliberately NOT `$limit`-bounded:
-it must run a single aggregate query and return the true count, never the
-count of a bounded fetched page. `NotificationInboxSourceProviderAdapter`
-implements it by forwarding to the same
-`NotificationRepositoryPort::countUnreadByUserId()` the notification-only
-endpoint already uses — no new repository method. `InboxAggregator::countUnread()`
-sums every provider's contribution with the same per-provider try/catch
-resilience as `aggregate()` (a throwing source degrades to `0`, logged at
-`error` level, never fails the whole request). Any future
-`inbox.source_provider` adapter (e.g. Messaging's) must implement both
-`fetch()` and `countUnread()`.
-
+`GET /api/inbox/unread-count` sums Notification and Messaging contributions in the
+requested scope. The notification-only endpoint remains available for its own lists.
+Every source implements both `fetch` and `countUnread`; see the unified inbox contract
+below for source limits and failure behavior.
 ## Per-User Notification Preferences
 
 Every user can customize delivery per category (the `{category}` half of a
@@ -303,141 +282,48 @@ Implication:
 (`countByUserId`, same filters, no pagination) so `ListNotificationsProvider`
 can return a `TraversablePaginator` with an accurate `totalItems`.
 
-## Unified Inbox Seam (L1.8a)
+## Unified inbox
 
-`GET /api/inbox` merges several kinds of "things needing the user's
-attention" (notifications today; @-mentions, direct messages and thread
-replies from Messaging as a later, separate lot) into one
-reverse-chronological, cursor-paginated feed. It is a **tagged-iterator
-aggregator**, a direct clone of the `messaging.subject_resolver` seam
-(`Messaging\Application\Service\MessagingSubjectResolverRegistry` /
-`Messaging\Application\Port\Outbound\MessagingSubjectResolverPort`) — read
-those two files to see the shape this mirrors. This section is written so a
-Messaging adapter can be built against the seam without reading
-Notification's code.
+`GET /api/inbox` merges account notifications and authorized Messaging mentions.
+Messaging contributes only when `organization` is provided; notification scope is
+optional. The adapter always applies ownership and current source permissions.
 
-### The seam, precisely
+The published `InboxSourceProviderPort` is implemented by each source's infrastructure
+adapter and registered in its own module with `inbox.source_provider`. Notification
+never imports the contributing module. `fetch(userId, organizationId, before, limit,
+cursor)` and `countUnread(userId, organizationId)` are the source contract.
 
-- **Tag**: `inbox.source_provider`. Any service tagged with it is picked up
-  automatically by the aggregator; adding a source requires zero edits to
-  Notification.
-- **Port**: `Notification\Application\Port\Outbound\InboxSourceProviderPort`
-  — two methods:
-  - `sourceKey(): string` — a short, stable key (e.g. `notification`,
-    `messaging.mention`) used both to label items and as the aggregator's
-    tie-breaker.
-  - `fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): list<InboxItem>`
-    — returns this source's most recent items for one user, bounded to at
-    most `$limit` (a hard query cap, never a whole-table load), optionally
-    scoped to one organization, optionally restricted to items with
-    `occurredAt` strictly before the cursor. Must never throw for "nothing
-    to return" (empty array instead) — the aggregator wraps every call
-    defensively regardless, but a well-behaved provider should not rely on
-    that net.
-- **Contract DTO**: `Notification\Application\Contract\Inbox\InboxItem`
-  (plain, framework-free — never a provider module's Domain object):
-  `sourceKey`, `id`, `kind` (e.g. `notification`, `mention`,
-  `direct_message`, `thread_reply`), `title`, `snippet` (nullable),
-  `occurredAt` (`DateTimeImmutable`), `isRead`, `organizationId` (nullable),
-  `targetType` + `targetId` (what the client should navigate to).
-- **Aggregator**: `Notification\Application\Service\InboxAggregator`,
-  constructor-injected `iterable $providers` wired as
-  `!tagged_iterator inbox.source_provider` in `config/modules/notification.yaml`.
-  `aggregate(userId, organizationId, before, limit): InboxAggregationResult`
-  calls every provider with the same `$limit` (bounded merge: each source is
-  asked for at most `$limit` items, never a whole source), merge-sorts the
-  combined results, and truncates to `$limit`.
-- **Use case**: `Application/UseCase/Query/Inbox/ListInboxItems` (query bus,
-  like every other read) sits between the `GetInboxProvider` and the
-  aggregator, clamping the requested page size (1–50) and turning the
-  aggregation result into `nextCursor`/`hasMore`.
+`InboxItem` carries `sourceKey`, `id`, `kind`, title/snippet, `occurredAt`, `isRead`,
+`organizationId`, `targetType`, `targetId`, and nullable `targetKind`. Identity is the
+pair `(sourceKey, id)`; a mention opens its conversation using `targetKind` to select
+channels or messages. Notification acknowledgement and conversation read markers
+remain owned by their respective modules.
 
-### Cursor semantics
+### Pagination and partial sources
 
-Pagination is **cursor-based only** (`?before=<ISO-8601 instant>`) —
-**never offset**. Offset over a merged heterogeneous feed is unstable by
-construction: concurrent writes to any source shift the window and produce
-duplicated or skipped rows across pages. This is stated in the endpoint's
-OpenAPI `description` precisely so nobody "fixes" it into offset pagination
-later.
+- Ordering is `occurredAt DESC, sourceKey ASC, id ASC` for the aggregator AND each
+  contributor's SQL predicate. `InboxCursor` preserves six fractional digits and binds
+  UTC instants without DBAL's second-only datetime conversion.
+- The first page omits `cursor`. Echo the response's opaque `nextPageCursor` as `cursor`
+  for the next page. Tokens are versioned and strictly validated; malformed tokens or
+  simultaneous `cursor` and `before` return 400. They convey position, never access.
+- Each source is asked for `limit + 1` readable entries before merge/truncation. The
+  public limit remains 1–50. `hasMore` reflects a real extra entry, not a full-page guess.
+- A failed contributor is logged and remaining entries are returned with `complete:
+  false` and no `nextPageCursor`. Retry that page before advancing; otherwise recovered
+  source entries could be skipped. A partial empty response is not an empty inbox.
+- Legacy `before` and `nextCursor` remain compatible but cannot disambiguate equal
+  timestamps. Existing consumers may migrate independently; new consumers use `cursor`.
 
-- Omit `before` for the first page.
-- Each response includes `nextCursor` (the `occurredAt` of the last
-  returned item, as ISO-8601) and `hasMore` (boolean). Send the previous
-  `nextCursor` back as `before` to fetch the next page; stop once `hasMore`
-  is `false`. `nextCursor` is `null` whenever `hasMore` is `false`.
-- `hasMore` is `true` when the pre-truncation merged result held more than
-  `limit` items, OR when any single source itself returned a full page
-  (`>= limit`) — the latter case covers a single-source page that exactly
-  fills `limit` but may still have more beyond what was fetched. This is a
-  conservative heuristic (may occasionally return one empty extra page); it
-  never under-reports "there is more".
+`GET /api/inbox/unread-count` sums source-owned counts independently of loaded pages.
+Notification uses an exact SQL count. Messaging retains its documented bounded readable
+window, so its contribution is a lower bound beyond 200 entries. A failing count source
+is logged and contributes zero; this existing response does not assert completeness.
 
-### Ordering and the tie-breaker
-
-Items are sorted by `occurredAt` descending (most recent first). Because
-`occurredAt` alone can tie (e.g. two items from different sources in the
-same second, or a source bulk-writing several rows at once), the
-tie-breaker is deterministic and stable:
-
-1. `occurredAt` descending (primary)
-2. `sourceKey` ascending (secondary)
-3. `id` ascending (tertiary)
-
-This never depends on provider registration order or PHP array insertion
-order, so pagination stays stable across repeated requests as long as the
-underlying data does not change.
-
-### Failure isolation
-
-`InboxAggregator` wraps every `fetch()` call in a try/catch: a throwing (or
-otherwise misbehaving) provider degrades to "that source contributed
-nothing" for the current page — it never fails the whole `GET /api/inbox`
-request. The failure is logged at `error` level via `LoggerPort`
-(`sourceKey` + exception message in the context), so degradation stays
-visible in logs rather than silent.
-
-### The Messaging adapter (L1.8b — wired)
-
-**The Messaging mention source is wired.** `Messaging\Infrastructure\Adapter\Notification\MessagingInboxSourceProviderAdapter`
-implements `InboxSourceProviderPort` and is registered with
-`tags: ['inbox.source_provider']` in Messaging's OWN
-`config/modules/messaging.yaml` (`config/modules/notification.yaml` is never
-touched to add a source) — see `Messaging\MODULE.md`'s "The
-`inbox.source_provider` seam (L1.8b — Messaging's mention source)" section
-for the full `fetch()`/`countUnread()` walkthrough. Only `kind: mention` is
-live; `direct_message` and `thread_reply` remain reserved `InboxItem::$kind`
-values with no backing data model yet in Messaging (no direct-message
-subject type, no threaded-reply concept as of this writing). Any future
-source module follows the exact same shape as `messaging.subject_resolver`
-adapters (see `Facility`, `Equipment`, `Intervention`, `Inspection`'s
-`Infrastructure/Adapter/Messaging/`):
-
-1. Host the adapter in the **provider module**, under
-   `<Module>\Infrastructure\Adapter\Notification\`, implementing
-   `Notification\Application\Port\Outbound\InboxSourceProviderPort`
-   (`fetch()` AND `countUnread()`).
-2. Register it in the provider module's OWN `config/modules/<module>.yaml`
-   with `tags: ['inbox.source_provider']` — do not touch
-   `config/modules/notification.yaml`.
-3. `fetch()` must resolve `$userId` to the items the user may see, filter by
-   `$organizationId` when provided, apply `$before` as a strict "before this
-   instant" cursor on the source's own ordering column, and cap results to
-   `$limit` (bounded merge — never load a whole history).
-4. `countUnread()` must return the TRUE unread count (not
-   `$limit`-bounded) whenever a single aggregate query can answer it
-   directly (e.g. `NotificationInboxSourceProviderAdapter`, a plain SQL
-   `COUNT`). When readability instead depends on per-row, permission-based
-   access (as Messaging's mentions do), see `Messaging\MODULE.md`'s
-   documented bounded-scan trade-off rather than re-deriving RBAC rules in
-   SQL.
-5. Map each item to an `InboxItem` with an appropriate `kind` (e.g.
-   `mention`, `direct_message`, `thread_reply`), `targetType`/`targetId` set
-   to whatever the client needs to navigate to it.
-6. Nothing in Notification changes: `InboxAggregator` picks up the new
-   tagged service automatically via `!tagged_iterator inbox.source_provider`,
-   for both `aggregate()` and `countUnread()`.
-
+Sources must perform authorization and the cursor predicate before limiting. Messaging
+refills bounded candidate batches when inaccessible conversations exhaust a batch.
+Direct messages and replies exist in Messaging, but only mentions contribute inbox
+entries; neither is a separate inbox source yet.
 ## Architecture
 
 - Presentation: Api Platform resources, providers, processor, DTO output.

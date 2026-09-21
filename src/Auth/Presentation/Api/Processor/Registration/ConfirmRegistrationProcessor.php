@@ -79,7 +79,7 @@ final readonly class ConfirmRegistrationProcessor implements ProcessorInterface
 
     $request = $this->requestStack->getCurrentRequest();
     $ipAddress = null !== $request ? ($request->getClientIp() ?? '127.0.0.1') : '127.0.0.1';
-    $userAgent = $request?->headers->get('User-Agent');
+    $userAgent = \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent');
 
     $command = new ConfirmRegistrationCommand(
       token: $data->token ?? '',

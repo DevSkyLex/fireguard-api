@@ -63,9 +63,9 @@ final class GetFacilityProviderTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $provider = new GetFacilityProvider(
-      queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -100,9 +100,8 @@ final class GetFacilityProviderTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
+    $queryBus->expects(self::exactly(2))
       ->method('ask')
-      ->with(self::isInstanceOf(GetFacilityQuery::class))
       ->willReturn(new GetFacilityResult(
         facilityId: $facilityId,
         organizationId: $organizationId,
@@ -119,12 +118,12 @@ final class GetFacilityProviderTest extends TestCase
         latitude: 48.8566,
         longitude: 2.3522,
         path: [['id' => '550e8400-e29b-41d4-a716-446655441299', 'name' => 'Root', 'type' => 'site']],
-      ));
+      ), new \Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityResult(new \Facility\Application\Contract\Facility\CanonicalFacilityView($facilityId, $organizationId, 'published', null, 7)));
 
     $provider = new GetFacilityProvider(
-      queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
     );
 
     $output = $provider->provide(
@@ -135,6 +134,7 @@ final class GetFacilityProviderTest extends TestCase
       ],
     );
 
+    self::assertSame(7, $output->revision);
     self::assertInstanceOf(FacilityOutput::class, $output);
     self::assertSame($facilityId, $output->id);
     self::assertSame('HQ', $output->name);
@@ -157,9 +157,9 @@ final class GetFacilityProviderTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $provider = new GetFacilityProvider(
-      queryBus: $queryBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -295,9 +295,9 @@ final class GetFacilityProviderTest extends TestCase
     }
 
     return new GetFacilityProvider(
-      queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($queryBus),
     );
   }
 

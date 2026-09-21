@@ -98,7 +98,7 @@ final readonly class SearchOrganizationProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $rawTerm = $this->requestStack->getCurrentRequest()?->query->get('q');
+    $rawTerm = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('q');
     $term = is_string($rawTerm) ? trim($rawTerm) : '';
     $length = mb_strlen($term);
     if ($length < self::MIN_TERM_LENGTH || $length > self::MAX_TERM_LENGTH) {

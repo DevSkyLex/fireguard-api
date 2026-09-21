@@ -10,7 +10,6 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility\{UnassignFromFacilityCommand, UnassignFromFacilityResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\UnassignFromFacilityProcessor;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -57,7 +56,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -87,7 +86,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -128,7 +127,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -157,7 +156,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     $now = new DateTimeImmutable('2026-03-15T10:00:00+00:00');
 
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willReturn(new UnassignFromFacilityResult(
+    $commandBus->method('dispatch')->willReturn($detailResult = new UnassignFromFacilityResult(
       equipmentId: self::EQUIP_ID,
       organizationId: self::ORG_ID,
       facilityId: null,
@@ -176,7 +175,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     ));
 
     $processor = new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -203,7 +202,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -226,7 +225,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $this->unassignSecurity(),
@@ -322,7 +321,7 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new UnassignFromFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->unassignSecurity(),

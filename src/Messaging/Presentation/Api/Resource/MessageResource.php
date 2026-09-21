@@ -33,10 +33,25 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
-        new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
-      ]),
+      parameters: [
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     new Post(
       uriTemplate: '/conversations/{conversationId}/messages',
@@ -88,10 +103,25 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
-        new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
-      ]),
+      parameters: [
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     new Post(
       name: 'pin_message',
@@ -152,10 +182,25 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
-        new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
-      ]),
+      parameters: [
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     // L1.5: saved messages (private bookmarks, never a property of the
     // conversation — contrast with the pin operations above).
@@ -169,11 +214,34 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
-        new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
-      ]),
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Organization IRI.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        ),
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     new Post(
       name: 'save_message',

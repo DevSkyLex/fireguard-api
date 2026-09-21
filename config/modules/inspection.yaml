@@ -1,4 +1,8 @@
 services:
+  Inspection\Infrastructure\Adapter\Maintenance\InspectionMaintenanceHistoryAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+
   _defaults:
     autowire: true
     autoconfigure: true
@@ -237,6 +241,9 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Command\NonConformity\AddNonConformity\AddNonConformityHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusHandler:
@@ -359,3 +366,10 @@ services:
   # (adapter lives in the owning Organization module)
   Inspection\Application\Port\Outbound\Compliance\NonConformitySlaPolicyPort:
     alias: Organization\Infrastructure\Adapter\Inspection\OrganizationNonConformitySlaPolicyAdapter
+
+  Inspection\Application\Port\Outbound\ChecklistLockPort:
+    alias: Inspection\Infrastructure\Adapter\Checklist\ChecklistLockAdapter
+
+  Inspection\Infrastructure\Adapter\Checklist\ChecklistLockAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'

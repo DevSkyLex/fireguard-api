@@ -186,12 +186,16 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
     );
 
+    $detail = static::getContainer()->get(\Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory::class);
+    self::assertInstanceOf(\Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory::class, $detail);
+
     return new CanonicalEquipmentProvider(
       $this->entityManager,
       $authorization,
       $security,
       $requestStack,
       new InterventionResourceManager($resources),
+      detail: $detail,
     );
   }
 

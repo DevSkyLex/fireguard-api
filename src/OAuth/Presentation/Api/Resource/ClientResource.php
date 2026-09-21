@@ -143,27 +143,44 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListClientsProvider::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
       security: "is_granted('clients.read')",
-      openapi: new Operation(
-        tags: ['Client Management'],
-        summary: 'List Clients',
-        description: 'Retrieve a paginated list of all registered OAuth2 clients. Supports filtering by name and active status. Requires clients.read permission.',
-        security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
+      parameters: [
+        'name' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter clients by name (partial match)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'name',
             in: 'query',
             required: false,
             description: 'Filter clients by name (partial match)',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'isActive' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Filter clients by active status',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'isActive',
             in: 'query',
             required: false,
             description: 'Filter clients by active status',
             schema: ['type' => 'boolean'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Client Management'],
+        summary: 'List Clients',
+        description: 'Retrieve a paginated list of all registered OAuth2 clients. Supports filtering by name and active status. Requires clients.read permission.',
+        security: [['bearerAuth' => []]],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'List of clients retrieved successfully',

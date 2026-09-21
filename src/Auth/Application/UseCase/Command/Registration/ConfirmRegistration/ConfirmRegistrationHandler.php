@@ -15,7 +15,7 @@ use Otp\Domain\ValueObject\ChallengeToken;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventBusPort, EventDispatcherPort};
 use Shared\Domain\Service\EventIdProvider;
-use Throwable;
+use UnexpectedValueException;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
@@ -147,8 +147,8 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
       rememberMe: false,
     );
 
-    $this->dispatchLoginEvents($userIdValue, $email, $scopes, $tokens, $command->ipAddress);
-    $this->recordSession($userIdValue, $tokens, $command->ipAddress, $command->userAgent);
+    $accessTokenId = $this->recordSession($userIdValue, $tokens, $command->ipAddress, $command->userAgent);
+    $this->dispatchLoginEvents($userIdValue, $email, $scopes, $accessTokenId, $tokens['expires_in'], $command->ipAddress);
 
     return ConfirmRegistrationResult::success(
       accessToken: $tokens['access_token'],
@@ -167,12 +167,13 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
    * @param non-empty-string $userId the user ID
    * @param string $email the user email
    * @param list<string> $scopes the granted scopes
-   * @param array{access_token: string, expires_in: int} $tokens issued tokens
+   * @param string $accessTokenId the token identifier, never the bearer value
+   * @param int $expiresIn token lifetime
    * @param string|null $ipAddress the client IP address
    *
    * @return void no return value
    */
-  private function dispatchLoginEvents(string $userId, string $email, array $scopes, array $tokens, ?string $ipAddress): void
+  private function dispatchLoginEvents(string $userId, string $email, array $scopes, string $accessTokenId, int $expiresIn, ?string $ipAddress): void
   {
     $this->eventDispatcher->dispatch(new UserLoggedInEvent(
       userId: $userId,
@@ -181,28 +182,28 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
     ));
 
     $this->eventDispatcher->dispatch(new TokenIssuedEvent(
-      tokenId: $tokens['access_token'],
+      tokenId: $accessTokenId,
       grantType: 'registration',
       clientId: 'user_session',
       userId: $userId,
       scopes: $scopes,
-      expiresIn: $tokens['expires_in'],
+      expiresIn: $expiresIn,
     ));
   }
 
   /**
    * Method recordSession.
    *
-   * Tracks the auto-issued session (best-effort; verification must not fail).
+   * Persists the revocation anchor before exposing the auto-issued tokens.
    *
    * @param string $userId the user ID
    * @param array{access_token: string, refresh_token: string, access_token_id?: string, refresh_token_id?: string} $tokens issued tokens
    * @param string|null $ipAddress the client IP address
    * @param string|null $userAgent the client user agent
    *
-   * @return void no return value
+   * @return string the persisted access token identifier, suitable for audit
    */
-  private function recordSession(string $userId, array $tokens, ?string $ipAddress, ?string $userAgent): void
+  private function recordSession(string $userId, array $tokens, ?string $ipAddress, ?string $userAgent): string
   {
     $accessTokenId = $this->getTokenIdentifier($tokens, 'access_token_id');
     $refreshTokenId = $this->getTokenIdentifier($tokens, 'refresh_token_id');
@@ -215,18 +216,19 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
       }
     }
 
-    try {
-      $this->sessionTracking->recordSession(
-        userId: $userId,
-        ipAddress: $ipAddress ?? '127.0.0.1',
-        userAgent: $userAgent ?? 'unknown',
-        accessTokenId: $accessTokenId,
-        refreshTokenId: $refreshTokenId,
-        rememberMe: false,
-      );
-    } catch (Throwable) {
-      // Best-effort session tracking; verification must not fail.
+    if (null === $accessTokenId || '' === $accessTokenId || null === $refreshTokenId || '' === $refreshTokenId) {
+      throw new UnexpectedValueException('Session token identifiers are required.');
     }
+    $this->sessionTracking->recordSession(
+      userId: $userId,
+      ipAddress: $ipAddress ?? '127.0.0.1',
+      userAgent: $userAgent ?? 'unknown',
+      accessTokenId: $accessTokenId,
+      refreshTokenId: $refreshTokenId,
+      rememberMe: false,
+    );
+
+    return $accessTokenId;
   }
 
   /**

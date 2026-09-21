@@ -82,6 +82,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       $authorization,
       $eventDispatcher,
       $this->clock(),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $result = $handler->__invoke(new SetMaintenanceScheduleOverrideCommand(self::USER_ID, self::SCHEDULE_ID, 'P30D'));
@@ -120,6 +121,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       $authorization,
       $eventDispatcher,
       $this->clock(),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $handler->__invoke(new SetMaintenanceScheduleOverrideCommand(self::USER_ID, self::SCHEDULE_ID, null));
@@ -138,6 +140,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(EventDispatcherPort::class),
       $this->clock(),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $this->expectException(MaintenanceNotFoundException::class);
@@ -161,6 +164,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       $authorization,
       $this->createStub(EventDispatcherPort::class),
       $this->clock(),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $this->expectException(MaintenanceAccessDeniedException::class);
@@ -187,6 +191,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       $authorization,
       $eventDispatcher,
       $this->clock(),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     // Not-found rather than access-denied: a 403 would confirm to a caller
@@ -212,6 +217,7 @@ final class SetMaintenanceScheduleOverrideHandlerTest extends TestCase
       $authorization,
       $this->createStub(EventDispatcherPort::class),
       $this->clock(),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $this->expectException(MaintenanceValidationException::class);

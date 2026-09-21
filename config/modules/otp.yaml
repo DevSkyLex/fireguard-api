@@ -2,6 +2,8 @@ parameters:
   # Fallback when TOTP_DIGITS is absent from the environment (.env.example
   # documents it); 6 digits is the authenticator-app standard.
   env(TOTP_DIGITS): '6'
+  env(TOTP_ENCRYPTION_KEYS): '{}'
+  env(TOTP_ENCRYPTION_WRITE_KEY): ''
 
 services:
   _defaults:
@@ -40,6 +42,18 @@ services:
       $entityManager: '@doctrine.orm.auth_entity_manager'
 
   Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper: ~
+
+  Otp\Application\Port\Outbound\Totp\TotpSecretCipherPort:
+    alias: Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter
+
+  Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter:
+    arguments:
+      $encodedKeys: '%env(json:TOTP_ENCRYPTION_KEYS)%'
+      $writeKeyId: '%env(TOTP_ENCRYPTION_WRITE_KEY)%'
+
+  Otp\Infrastructure\Console\MigrateTotpSecretsCommand:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   Otp\Application\Service\TotpStatusService: ~
 

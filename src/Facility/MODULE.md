@@ -1,5 +1,9 @@
 # Facility Module
 
+When facility creation participates in a main transaction (including CSV import),
+its event is appended to the main outbox in that transaction. Consumers only see
+committed creations; direct non-transactional callers retain synchronous dispatch.
+
 ## Overview
 
 Facility manages generic organizational structures such as sites, buildings,
@@ -840,8 +844,9 @@ translation only, and **holds no entity manager**.
 **Two Domain models over one table**, the same split the Inspection and
 Equipment modules made on the same day and for the same reason: the
 `Facility` aggregate does not carry `record_status`, `intervention_id` or
-`revision`, so saving it can never bump the revision the canonical `If-Match`
-contract is built on. `src/Inspection/MODULE.md` carries the long-form
+`revision`. Doctrine now owns the shared optimistic version column: legacy saves,
+canonical mutations and publication all advance the same persisted revision. A stale
+ORM write fails with 412 instead of overwriting a newer record. `src/Inspection/MODULE.md` carries the long-form
 account.
 
 **The validation order is load-bearing and alternates between pure checks and
@@ -1222,3 +1227,19 @@ does not persist in either database.
 ## Durable onboarding setup
 
 Creation accepts optional `onboardingSessionId` and `onboardingItemKey` together. These identify input previously prepared by the authenticated creator through Onboarding. The owner handler checks the session, step, input and pinned organization, then records its created identifier in the same `main` transaction as the resource and quota enforcement. A replay returns that resource without another quota consumption or event. Missing or incompatible preparation returns `onboarding_setup_conflict` (409), never a legacy fallback. Calls without either field keep their existing contract.
+
+### Spatial mutation consistency
+
+Published geometry changes enqueue a public `FacilityPlanGeometryChangedEvent` in the
+same main transaction. Initial publication emits placement once; replaying publication
+of an already published row emits nothing. Audit records placement, movement or clearing,
+plan identifiers, revision and intervention without coordinates. Main-to-auth delivery
+uses the shared outbox actor context and consumer receipts.
+
+Canonical detail, direct plan writes and legacy update/move/archive/restore/duplicate
+responses use the same complete persisted detail projection, including path, counts,
+coordinates and revision. Creation retains the revision returned by intervention assignment.
+Import/publication resources can be reread through that same canonical detail contract.
+Publication validates attachment kind and ancestry, including a proposed parent change.
+`floor_plan_outside_ancestry` and `attachment_not_floor_plan` return 409;
+`resource_revision_conflict` returns 412 when another committed write won.

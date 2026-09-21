@@ -11,7 +11,6 @@ use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFa
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\AssignToFacilityInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Processor\Equipment\AssignToFacilityProcessor;
 use InvalidArgumentException;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -80,7 +79,7 @@ final class AssignToFacilityProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -127,7 +126,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
-      ->willReturn(new AssignToFacilityResult(
+      ->willReturn($detailResult = new AssignToFacilityResult(
         equipmentId: $equipmentId,
         organizationId: $organizationId,
         facilityId: $facilityId,
@@ -146,7 +145,7 @@ final class AssignToFacilityProcessorTest extends TestCase
       ));
 
     $processor = new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -189,7 +188,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -224,7 +223,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -257,7 +256,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -284,7 +283,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $this->assignSecurity(),
@@ -405,7 +404,7 @@ final class AssignToFacilityProcessorTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return new AssignToFacilityProcessor(
-      outputFactory: new EquipmentOutputFactory(),
+      outputFactory: \Tests\Support\MutationDetailFixtures::equipment(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $this->assignSecurity(),

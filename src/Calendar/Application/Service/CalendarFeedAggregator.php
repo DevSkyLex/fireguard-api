@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Application\Service;
 
-use Calendar\Application\Contract\Feed\CalendarFeedItem;
+use Calendar\Application\Contract\Feed\{CalendarFeedItem, CalendarFeedSourceState};
 use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
 use Calendar\Domain\Model\Event\CalendarEvent;
@@ -14,6 +14,9 @@ use Throwable;
 
 use function array_map;
 use function array_push;
+use function array_slice;
+use function count;
+use function in_array;
 use function usort;
 
 /**
@@ -22,11 +25,10 @@ use function usort;
  * Merges Calendar's own standalone events with the three cross-module read
  * sources ({@see InspectionCalendarFeedPort}, {@see InterventionCalendarFeedPort},
  * {@see MaintenanceCalendarFeedPort}) into a single, chronologically ordered
- * feed. Mirrors {@see \Notification\Application\Service\InboxAggregator}:
- * each source is called defensively, so one failing/slow source degrades to
- * "contributed nothing" instead of failing the whole feed request, and the
- * failure is logged at `error` level so degradation stays visible instead of
- * silent.
+ * feed. Only authorized sources are queried. A failed source is logged and
+ * marked unavailable; one extra row detects truncation before the public cap.
+ * The result exposes completeness so callers cannot mistake a partial feed
+ * for a successful empty result.
  *
  * The mockup's fourth category, "Audit", has no business existence in this
  * backend — see `Calendar\MODULE.md`. Only these four sources ever
@@ -102,40 +104,38 @@ final readonly class CalendarFeedAggregator
    * @param string $organizationId the organization identifier
    * @param DateTimeImmutable $from the inclusive range lower bound
    * @param DateTimeImmutable $to the inclusive range upper bound
+   * @param list<string> $allowedSources source keys authorized by the calling use case
    *
-   * @return list<CalendarFeedItem> the merged, chronologically ordered feed
+   * @return CalendarFeedAggregationResult the merged feed and source completeness
    */
-  public function aggregate(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to): array
+  public function aggregate(string $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, array $allowedSources): CalendarFeedAggregationResult
   {
     /** @var list<CalendarFeedItem> $items */
     $items = [];
 
-    array_push($items, ...$this->fetchFromSource(
-      self::SOURCE_KEY_CALENDAR_EVENT,
-      fn (): array => array_map(
+    $fetchers = [
+      self::SOURCE_KEY_CALENDAR_EVENT => fn (): array => array_map(
         $this->mapStandaloneEvent(...),
-        $this->events->listBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT),
+        $this->events->listBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
       ),
-    ));
-
-    array_push($items, ...$this->fetchFromSource(
-      self::SOURCE_KEY_INSPECTION,
-      fn (): array => $this->inspections->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT),
-    ));
-
-    array_push($items, ...$this->fetchFromSource(
-      self::SOURCE_KEY_INTERVENTION,
-      fn (): array => $this->interventions->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT),
-    ));
-
-    array_push($items, ...$this->fetchFromSource(
-      self::SOURCE_KEY_MAINTENANCE,
-      fn (): array => $this->maintenance->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT),
-    ));
+      self::SOURCE_KEY_INSPECTION => fn (): array => $this->inspections->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
+      self::SOURCE_KEY_INTERVENTION => fn (): array => $this->interventions->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
+      self::SOURCE_KEY_MAINTENANCE => fn (): array => $this->maintenance->findBetween($organizationId, $from, $to, self::PER_SOURCE_LIMIT + 1),
+    ];
+    $sources = [];
+    foreach ($fetchers as $sourceKey => $fetch) {
+      if (!in_array($sourceKey, $allowedSources, true)) {
+        continue;
+      }
+      $contribution = $this->fetchFromSource($sourceKey, $fetch);
+      $truncated = null !== $contribution && count($contribution) > self::PER_SOURCE_LIMIT;
+      $sources[] = new CalendarFeedSourceState($sourceKey, null !== $contribution, $truncated);
+      array_push($items, ...array_slice($contribution ?? [], 0, self::PER_SOURCE_LIMIT));
+    }
 
     usort($items, self::compare(...));
 
-    return $items;
+    return new CalendarFeedAggregationResult($items, $sources);
   }
 
   /**
@@ -150,9 +150,9 @@ final readonly class CalendarFeedAggregator
    * @param string $sourceKey the source's key, for logging
    * @param callable(): list<CalendarFeedItem> $fetch the source's fetch call
    *
-   * @return list<CalendarFeedItem> the source's items, or an empty list on failure
+   * @return list<CalendarFeedItem>|null the source's items, or null on failure
    */
-  private function fetchFromSource(string $sourceKey, callable $fetch): array
+  private function fetchFromSource(string $sourceKey, callable $fetch): ?array
   {
     try {
       return $fetch();
@@ -162,7 +162,7 @@ final readonly class CalendarFeedAggregator
         'error' => $exception->getMessage(),
       ]);
 
-      return [];
+      return null;
     }
   }
 

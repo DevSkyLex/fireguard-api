@@ -17,7 +17,6 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use Throwable;
 
 use function array_map;
-use function is_array;
 use function is_string;
 
 /**
@@ -78,8 +77,7 @@ final readonly class GetCalendarFeedProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $filters = $context['filters'] ?? [];
-    $filters = is_array($filters) ? $filters : [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     $from = $filters['from'] ?? null;
     $to = $filters['to'] ?? null;
     if (!is_string($from) || '' === $from || !is_string($to) || '' === $to) {
@@ -102,6 +100,14 @@ final readonly class GetCalendarFeedProvider implements ProviderInterface
     $output->from = $result->from->format('c');
     $output->to = $result->to->format('c');
     $output->items = array_map($this->toItemOutput(...), $result->items);
+    $output->complete = $result->complete;
+    foreach ($result->sources as $source) {
+      $state = new \Calendar\Presentation\Api\Dto\Output\Feed\CalendarFeedSourceOutput();
+      $state->sourceKey = $source->sourceKey;
+      $state->available = $source->available;
+      $state->truncated = $source->truncated;
+      $output->sources[] = $state;
+    }
 
     return $output;
   }

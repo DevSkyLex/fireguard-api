@@ -84,13 +84,13 @@ final readonly class GetPresenceProvider implements ProviderInterface
   {
     $user = $this->user();
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $organization = $query?->get('organization');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }
 
-    $memberIds = $this->parseMemberIds($query?->get('memberIds'));
+    $memberIds = $this->parseMemberIds($query->get('memberIds'));
     if ([] === $memberIds) {
       throw new BadRequestHttpException('The memberIds filter is required.');
     }

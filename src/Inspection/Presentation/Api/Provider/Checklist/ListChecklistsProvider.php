@@ -60,9 +60,9 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $status = $request?->query->get('status');
+    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
@@ -98,9 +98,10 @@ final readonly class ListChecklistsProvider implements ProviderInterface
       throw $exception;
     }
 
+    $canManage = $this->authorization->hasPermission($user->getId(), $organizationId, 'organization.inspection.write');
     $outputs = [];
     foreach ($queryResult->items as $checklist) {
-      $outputs[] = $this->mapResult($checklist);
+      $outputs[] = $this->mapResult($checklist, $canManage);
     }
 
     return new TraversablePaginator(
@@ -125,13 +126,17 @@ final readonly class ListChecklistsProvider implements ProviderInterface
    *
    * @since 1.0.0
    */
-  private function mapResult(ListChecklistResult $result): ChecklistOutput
+  private function mapResult(ListChecklistResult $result, bool $canManage): ChecklistOutput
   {
     $output = new ChecklistOutput();
     $output->id = $result->checklistId;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->referenceCode = $result->referenceCode;
+    $output->previousChecklistId = $result->previousChecklistId;
+    $output->canEditMetadata = $canManage && 'archived' !== $result->status;
+    $output->canEditItems = $output->canEditMetadata && $result->itemsEditable;
+    $output->canCreateRevision = $canManage;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->itemCount = $result->itemCount;

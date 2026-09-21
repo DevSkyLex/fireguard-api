@@ -37,7 +37,7 @@ final class EquipmentInterventionResourceAdapterTest extends TestCase
       ->publishDrafts(self::INTERVENTION_ID);
 
     self::assertSame('published', $record->recordStatus);
-    self::assertSame(2, $record->revision);
+    // The real PostgreSQL integration test covers the version increment at flush.
     self::assertInstanceOf(DateTimeImmutable::class, $record->commissionedAt);
   }
 
@@ -177,6 +177,7 @@ final class EquipmentInterventionResourceAdapterTest extends TestCase
       $entityManager,
       $this->createStub(FacilityValidationPort::class),
       $synchronizer,
+      floorPlans: $this->createStub(\Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort::class),
     );
   }
 

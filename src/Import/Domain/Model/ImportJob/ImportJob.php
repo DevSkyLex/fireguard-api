@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Import\Domain\Model\ImportJob;
 
 use DateTimeImmutable;
+use Import\Domain\Exception\ImportConfirmationNotAllowedException;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError, ImportStatus};
 use InvalidArgumentException;
 
@@ -18,11 +19,9 @@ use InvalidArgumentException;
  * the batch — the job still reaches `completed` with a partial success.
  *
  * State machine: `pending` -> `processing` -> (`completed` | `failed`).
- * Every transition is guarded here; the claim from `pending` to `processing`
- * itself happens through a raw-DBAL conditional UPDATE
- * ({@see \Import\Infrastructure\Persistence\Doctrine\Repository\ImportJobRepository::claim()})
- * so a Messenger redelivery of an already-claimed job is a safe no-op — this
- * aggregate is then reloaded already in `processing` status.
+ * Transitions are guarded here. The execution port reserves interrupted jobs
+ * exclusively and commits each row with its receipt. Explicit resumption keeps
+ * confirmed progress when returning a non-completed job to pending.
  *
  * @category Model
  *
@@ -76,6 +75,7 @@ final class ImportJob
     private ?string $jobError = null,
     private ?DateTimeImmutable $startedAt = null,
     private ?DateTimeImmutable $completedAt = null,
+    private ?string $confirmedJobId = null,
   ) {
   }
   // #endregion
@@ -174,6 +174,7 @@ final class ImportJob
     ?string $jobError,
     ?DateTimeImmutable $startedAt,
     ?DateTimeImmutable $completedAt,
+    ?string $confirmedJobId = null,
   ): self {
     return new self(
       id: $id,
@@ -194,7 +195,33 @@ final class ImportJob
       jobError: $jobError,
       startedAt: $startedAt,
       completedAt: $completedAt,
+      confirmedJobId: $confirmedJobId,
     );
+  }
+
+  public function canConfirm(): bool
+  {
+    return $this->dryRun && ImportStatus::COMPLETED === $this->status
+      && null === $this->confirmedJobId && 0 === $this->failedRows
+      && null !== $this->totalRows && $this->totalRows > 0
+      && $this->processedRows === $this->totalRows && $this->successfulRows === $this->totalRows;
+  }
+
+  public function confirmedJobId(): ?string
+  {
+    return $this->confirmedJobId;
+  }
+
+  /**
+   * Records the single real import created by confirmation in the same transaction.
+   */
+  public function confirmWith(ImportJobId $jobId, DateTimeImmutable $now): void
+  {
+    if (!$this->canConfirm()) {
+      throw ImportConfirmationNotAllowedException::unsuccessful();
+    }
+    $this->confirmedJobId = (string) $jobId;
+    $this->touch($now);
   }
 
   /**
@@ -317,6 +344,20 @@ final class ImportJob
     $this->status = ImportStatus::FAILED;
     $this->jobError = $error;
     $this->completedAt = $now;
+    $this->touch($now);
+  }
+
+  /**
+   * Retains every confirmed row when scheduling a new processing attempt.
+   */
+  public function resume(DateTimeImmutable $now): void
+  {
+    if (ImportStatus::COMPLETED === $this->status) {
+      throw new InvalidArgumentException('A completed import cannot be resumed.');
+    }
+    $this->status = ImportStatus::PENDING;
+    $this->jobError = null;
+    $this->completedAt = null;
     $this->touch($now);
   }
 

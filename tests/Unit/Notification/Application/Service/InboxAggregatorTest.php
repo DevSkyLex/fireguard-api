@@ -87,7 +87,7 @@ final class InboxAggregatorTest extends TestCase
 
     $aggregator->aggregate(userId: 'user-42', organizationId: 'org-7', before: $before, limit: 15);
 
-    self::assertSame(['user-42', 'org-7', $before, 15], $provider->lastCallArguments);
+    self::assertSame(['user-42', 'org-7', $before, 16], $provider->lastCallArguments);
   }
 
   #[Test]

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace OAuth\Application\UseCase\Query\Token\RefreshToken;
 
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
+use OAuth\Application\Port\Outbound\SessionRotationPort;
 use OAuth\Domain\Event\Token\{TokenRefreshFailedEvent, TokenRefreshedEvent};
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
+use UnexpectedValueException;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_key_exists;
@@ -39,6 +41,7 @@ final readonly class RefreshTokenHandler implements QueryHandler
     private JwtTokenServicePort $tokenService,
     private QueryBusPort $queryBus,
     private EventDispatcherPort $eventDispatcher,
+    private SessionRotationPort $sessions,
   ) {
   }
   // #endregion
@@ -96,6 +99,17 @@ final readonly class RefreshTokenHandler implements QueryHandler
       rememberMe: $rememberMe,
     );
 
+    $newAccessTokenId = $this->getTokenIdentifier($tokens, 'access_token_id');
+    $newRefreshTokenId = $this->getTokenIdentifier($tokens, 'refresh_token_id');
+    if (null === $newAccessTokenId || null === $newRefreshTokenId) {
+      throw new UnexpectedValueException('Session token identifiers are required.');
+    }
+    if (!$this->sessions->rotate($payload['refresh_token_id'], $payload['access_token_id'], $newAccessTokenId, $newRefreshTokenId)) {
+      $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent($userId, $query->ipAddress, 'session_not_current'));
+
+      return RefreshTokenResult::failed('Invalid or expired refresh token');
+    }
+
     $this->eventDispatcher->dispatch(new TokenRefreshedEvent(
       userId: $userId,
       ipAddress: $query->ipAddress,
@@ -109,8 +123,8 @@ final readonly class RefreshTokenHandler implements QueryHandler
       tokenType: $tokens['token_type'],
       expiresIn: $tokens['expires_in'],
       scopes: $scopes,
-      accessTokenId: $this->getTokenIdentifier($tokens, 'access_token_id'),
-      refreshTokenId: $this->getTokenIdentifier($tokens, 'refresh_token_id'),
+      accessTokenId: $newAccessTokenId,
+      refreshTokenId: $newRefreshTokenId,
       rememberMe: $rememberMe,
     );
   }

@@ -13,7 +13,7 @@ use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantThreadId};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, TransactionManagerPort};
 
 /**
  * UseCase AskAssistantQuestionHandler.
@@ -61,6 +61,7 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
     private UuidFactory $uuidFactory,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
+    private TransactionManagerPort $transaction,
   ) {
   }
   // #endregion
@@ -85,59 +86,63 @@ final readonly class AskAssistantQuestionHandler implements CommandHandler
       throw AssistantThreadNotFoundException::withId($command->threadId);
     }
 
-    $now = $this->clock->now();
+    return $this->transaction->transactional(function () use ($command, $thread): AskAssistantQuestionResult {
+      $now = $this->clock->now();
 
-    /** @var AssistantMessageId $userMessageId */
-    $userMessageId = $this->uuidFactory->create(AssistantMessageId::class);
+      /** @var AssistantMessageId $userMessageId */
+      $userMessageId = $this->uuidFactory->create(AssistantMessageId::class);
 
-    $userMessage = AssistantMessage::askUser(
-      id: $userMessageId,
-      threadId: $command->threadId,
-      organizationId: $command->organizationId,
-      body: $command->body,
-      now: $now,
-    );
+      $userMessage = AssistantMessage::askUser(
+        id: $userMessageId,
+        threadId: $command->threadId,
+        organizationId: $command->organizationId,
+        body: $command->body,
+        now: $now,
+      );
 
-    $this->messages->save($userMessage);
+      $this->messages->save($userMessage);
 
-    /** @var AssistantMessageId $assistantMessageId */
-    $assistantMessageId = $this->uuidFactory->create(AssistantMessageId::class);
+      /** @var AssistantMessageId $assistantMessageId */
+      $assistantMessageId = $this->uuidFactory->create(AssistantMessageId::class);
 
-    $assistantMessage = AssistantMessage::pendingReply(
-      id: $assistantMessageId,
-      threadId: $command->threadId,
-      organizationId: $command->organizationId,
-      now: $now,
-    );
+      $assistantMessage = AssistantMessage::pendingReply(
+        id: $assistantMessageId,
+        threadId: $command->threadId,
+        organizationId: $command->organizationId,
+        now: $now,
+      );
 
-    $this->messages->save($assistantMessage);
+      $assistantMessage->initializeAttempt((string) $userMessageId, $command->temperature, $now);
+      $this->messages->save($assistantMessage);
 
-    $thread->recordActivity($now);
-    $this->threads->save($thread);
+      $thread->recordActivity($now);
+      $this->threads->save($thread);
 
-    $this->dispatcher->enqueue(
-      organizationId: $command->organizationId,
-      threadId: $command->threadId,
-      userMessageId: (string) $userMessageId,
-      assistantMessageId: (string) $assistantMessageId,
-      model: $thread->model(),
-      temperature: $command->temperature,
-    );
+      $this->dispatcher->enqueue(
+        organizationId: $command->organizationId,
+        threadId: $command->threadId,
+        userMessageId: (string) $userMessageId,
+        assistantMessageId: (string) $assistantMessageId,
+        model: $thread->model(),
+        temperature: $command->temperature,
+        attemptId: $assistantMessage->attemptId(),
+      );
 
-    $this->eventDispatcher->dispatch(new AssistantQuestionAskedEvent(
-      organizationId: $command->organizationId,
-      threadId: $command->threadId,
-      memberId: $command->actorUserId,
-      userMessageId: (string) $userMessageId,
-      assistantMessageId: (string) $assistantMessageId,
-    ));
+      $this->eventDispatcher->dispatch(new AssistantQuestionAskedEvent(
+        organizationId: $command->organizationId,
+        threadId: $command->threadId,
+        memberId: $command->actorUserId,
+        userMessageId: (string) $userMessageId,
+        assistantMessageId: (string) $assistantMessageId,
+      ));
 
-    return new AskAssistantQuestionResult(
-      threadId: $command->threadId,
-      organizationId: $command->organizationId,
-      userMessage: AssistantMessageView::fromDomain($userMessage),
-      assistantMessage: AssistantMessageView::fromDomain($assistantMessage),
-    );
+      return new AskAssistantQuestionResult(
+        threadId: $command->threadId,
+        organizationId: $command->organizationId,
+        userMessage: AssistantMessageView::fromDomain($userMessage),
+        assistantMessage: AssistantMessageView::fromDomain($assistantMessage),
+      );
+    });
   }
   // #endregion
 }

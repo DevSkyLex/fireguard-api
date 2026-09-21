@@ -24,7 +24,7 @@ Main goals:
 | Method | Path | Description | Permission |
 | --- | --- | --- | --- |
 | GET | `/api/maintenance/schedules` | List schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus`, `dueBefore`; 30/page, client page size) | `organization.maintenance.read` |
-| GET | `/api/maintenance/schedules/export` | Streams a bounded, synchronous CSV export of schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus` — the cheap, indexed subset of the list endpoint; `dueBefore` is not exposed). Bounded to 50 000 matching rows (422 above the cap). Header: `id,equipment_id,equipment_type,equipment_serial,facility,periodicity_override,last_inspection_closed_at,next_due_at,due_status,created_at,updated_at` | `organization.maintenance.read` |
+| GET | `/api/maintenance/schedules/export` | Streams a bounded, synchronous CSV export of schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus`, `dueBefore` — the same filters as the list endpoint). Bounded to 50 000 matching rows (422 above the cap). Header: `id,equipment_id,equipment_type,equipment_serial,facility,periodicity_override,last_inspection_closed_at,next_due_at,due_status,created_at,updated_at` | `organization.maintenance.read` |
 | GET | `/api/maintenance/schedules/{id}` | Get a schedule | `organization.maintenance.read` |
 | PATCH | `/api/maintenance/schedules/{id}` | Set/clear `intervalOverride` (`null` clears) | `organization.maintenance.manage` |
 | POST | `/api/maintenance/campaigns` | Generate an intervention draft from due/overdue schedules matching `facility`/`equipmentType`/`dueBefore`; `201 {interventionId, number, workItemsCount}` | `organization.maintenance.manage` AND `organization.interventions.plan` |
@@ -150,10 +150,9 @@ equipment serial number and facility display name resolved in two bulk round
 trips — never one query per row — through the two naming ports above. Unlike
 the calendar feed adapter (which explicitly skips equipment naming as a
 per-row cost), the export's naming stays bulk and is therefore affordable.
-Only the cheap, indexed filter subset (`facility`, `equipmentType`,
-`dueStatus`) is exposed; `dueBefore` is deliberately not, since it is not
-part of the schedule's `(organization_id, due_status, next_due_at)` index in
-the export's unpaginated shape. The controller dispatches
+The list and export share `facility`, `equipmentType`, `dueStatus` and inclusive
+`dueBefore` filters. The `(organization_id, next_due_at)` index supports date-bounded
+exports independently of status. The controller dispatches
 `MaintenanceSchedulesExportedEvent` (organization id, actor, `csv`, row
 count, applied filter *names* only) after a successful stream, the same
 audit-without-raw-values discipline `InterventionsExportedEvent` follows.
@@ -313,3 +312,23 @@ automatically — no backfill migration is needed.
 | `MaintenanceValidationException` | 422 Unprocessable Entity |
 | `MaintenanceExportTooLargeException` | 422 Unprocessable Entity |
 | `InvalidArgumentException` | 400 Bad Request |
+
+## Recalculation and freshness
+
+Equipment persistence emits `EquipmentChangedEvent` into the main transactional outbox,
+including publication and import writes. Compliance settings updates enqueue their settings
+event before commit. Maintenance reloads current source state on delivery; replayed events
+cannot restore a historical policy or move the last closed inspection backwards. Inspection
+closure, interval override and equipment recalculation serialize on one main transaction-scoped
+lock per organization/equipment. Decommissioned or deleted equipment loses its schedule.
+The hourly sweep reconciles facility/type and recalculates next due dates as recovery.
+
+`evaluatedAt` records actual successful evaluation, even when the resulting status is unchanged.
+Old rows remain null until evaluated; migration does not synthesize freshness. Compliance reads
+per-facility evaluation counts and the oldest timestamp through its owner-published port.
+List and CSV export apply the same inclusive `dueBefore` predicate to rows and totals.
+
+Recalculation subscribes to the shared dispatcher's stable event names
+`equipment.equipment_changed_event` and `organization.organization_settings_updated_event`.
+Both payloads are public Application Contracts. Integration coverage delivers the real
+outbox envelope rather than invoking the subscriber directly.
