@@ -239,6 +239,7 @@ final class RequestPublicationHandlerTest extends TestCase
       new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
       $authorization,
       $uuidFactory,
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
   }
 }

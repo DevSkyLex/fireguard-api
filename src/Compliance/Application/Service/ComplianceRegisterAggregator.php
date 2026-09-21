@@ -7,6 +7,8 @@ namespace Compliance\Application\Service;
 use Compliance\Application\Contract\FacilityComplianceView;
 use Compliance\Application\Port\Outbound\{ComplianceFacilityDirectoryPort, EquipmentComplianceStatisticsPort, InspectionComplianceStatisticsPort, MaintenanceComplianceStatisticsPort};
 
+use function max;
+
 /**
  * Service ComplianceRegisterAggregator.
  *
@@ -107,6 +109,7 @@ final readonly class ComplianceRegisterAggregator
     $dueStatusCounts = $this->maintenanceStatistics->dueStatusCountsByFacility($organizationId);
     $lastInspectionDates = $this->maintenanceStatistics->lastInspectionClosedAtByFacility($organizationId);
     $nonConformitiesBySeverity = $this->inspectionStatistics->openNonConformitiesBySeverityByFacility($organizationId);
+    $evaluations = $this->maintenanceStatistics->evaluationByFacility($organizationId);
     $equipmentInventory = $this->equipmentStatistics->equipmentInventoryByFacility($organizationId);
 
     $namesById = [];
@@ -129,6 +132,7 @@ final readonly class ComplianceRegisterAggregator
         lastInspectionDates: $lastInspectionDates,
         nonConformitiesBySeverity: $nonConformitiesBySeverity,
         equipmentInventory: $equipmentInventory,
+        evaluations: $evaluations,
       );
     }
 
@@ -144,6 +148,7 @@ final readonly class ComplianceRegisterAggregator
         lastInspectionDates: $lastInspectionDates,
         nonConformitiesBySeverity: $nonConformitiesBySeverity,
         equipmentInventory: $equipmentInventory,
+        evaluations: $evaluations,
       );
     }
 
@@ -157,6 +162,7 @@ final readonly class ComplianceRegisterAggregator
    * @param array<string, string> $lastInspectionDates
    * @param array<string, array{low: int, medium: int, high: int, critical: int}> $nonConformitiesBySeverity
    * @param array<string, array{total: int, active: int}> $equipmentInventory
+   * @param array<string, array{evaluatedCount: int, oldestEvaluatedAt: ?string}> $evaluations
    */
   private function buildView(
     string $facilityId,
@@ -169,6 +175,7 @@ final readonly class ComplianceRegisterAggregator
     array $lastInspectionDates,
     array $nonConformitiesBySeverity,
     array $equipmentInventory,
+    array $evaluations,
   ): FacilityComplianceView {
     $due = $dueStatusCounts[$facilityId] ?? ['up_to_date' => 0, 'due_soon' => 0, 'overdue' => 0, 'unscheduled' => 0];
     $nonConformities = $nonConformitiesBySeverity[$facilityId] ?? ['low' => 0, 'medium' => 0, 'high' => 0, 'critical' => 0];
@@ -199,6 +206,8 @@ final readonly class ComplianceRegisterAggregator
       openHighNonConformityCount: $nonConformities['high'],
       openCriticalNonConformityCount: $nonConformities['critical'],
       lastInspectionAt: $lastInspectionDates[$facilityId] ?? null,
+      unevaluatedEquipmentCount: max(0, $inventory['active'] - ($evaluations[$facilityId]['evaluatedCount'] ?? 0)),
+      dataEvaluatedAt: $evaluations[$facilityId]['oldestEvaluatedAt'] ?? null,
     );
   }
 

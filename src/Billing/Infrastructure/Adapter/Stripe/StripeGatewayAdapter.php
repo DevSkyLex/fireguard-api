@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Infrastructure\Adapter\Stripe;
 
-use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePaymentMethod};
+use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePaymentMethod, StripeSubscription};
 use Billing\Application\Port\Outbound\StripeGatewayPort;
 use Billing\Domain\Exception\{BillingGatewayUnavailableException, InvalidWebhookSignatureException};
 use DateTimeImmutable;
@@ -42,6 +42,8 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
    * @since 1.0.0
    */
   private StripeClient $stripe;
+
+  private bool $liveMode;
   // #endregion
 
   // #region Constructor
@@ -60,6 +62,7 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
     private string $webhookSecret,
   ) {
     $this->stripe = new StripeClient($secretKey);
+    $this->liveMode = str_starts_with($secretKey, 'sk_live_') || str_starts_with($secretKey, 'rk_live_');
   }
   // #endregion
 
@@ -75,7 +78,7 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
 
     $customer = $this->stripe->customers->create([
       'metadata' => ['organization_id' => $organizationId],
-    ]);
+    ], ['idempotency_key' => 'fireguard:customer:' . $organizationId]);
 
     return $customer->id;
   }
@@ -131,9 +134,13 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
     }
 
     $type = (string) $event->type;
+    $envelope = $event->toArray();
+    $eventId = $this->stringOrNull($this->dig($envelope, 'id')) ?? '';
+    $created = $this->intOrZero($this->dig($envelope, 'created'));
+    $liveMode = true === $this->dig($envelope, 'livemode');
 
     if (!str_starts_with($type, 'customer.subscription.')) {
-      return new StripeEvent(type: $type);
+      return new StripeEvent(type: $type, eventId: $eventId, created: $created, liveMode: $liveMode);
     }
 
     $data = $event->data->object->toArray();
@@ -147,7 +154,41 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
       priceId: $this->stringOrNull($this->dig($data, 'items', 'data', 0, 'price', 'id')),
       currentPeriodEnd: $this->periodEnd($data),
       cancelAtPeriodEnd: true === $this->dig($data, 'cancel_at_period_end'),
+      eventId: $eventId,
+      created: $created,
+      liveMode: $liveMode,
     );
+  }
+
+  public function isLiveMode(): bool
+  {
+    return $this->liveMode;
+  }
+
+  public function listSubscriptions(string $customerId): array
+  {
+    try {
+      $subscriptions = [];
+      $collection = $this->stripe->subscriptions->all(['customer' => $customerId, 'status' => 'all', 'limit' => 100]);
+      foreach ($collection->autoPagingIterator() as $subscription) {
+        $data = $subscription->toArray();
+        $subscriptions[] = new StripeSubscription(
+          id: $subscription->id,
+          customerId: $this->stringOrNull($this->dig($data, 'customer')) ?? '',
+          organizationId: $this->stringOrNull($this->dig($data, 'metadata', 'organization_id')),
+          status: $subscription->status,
+          priceId: $this->stringOrNull($this->dig($data, 'items', 'data', 0, 'price', 'id')),
+          currentPeriodEnd: $this->periodEnd($data),
+          cancelAtPeriodEnd: $subscription->cancel_at_period_end,
+          created: $subscription->created,
+          liveMode: $subscription->livemode,
+        );
+      }
+
+      return $subscriptions;
+    } catch (ApiErrorException $exception) {
+      throw BillingGatewayUnavailableException::create($exception);
+    }
   }
 
   /**

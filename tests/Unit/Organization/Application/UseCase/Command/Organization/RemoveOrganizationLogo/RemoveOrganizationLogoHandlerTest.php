@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo;
 
 use DateTimeImmutable;
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo\{RemoveOrganizationLogoCommand, RemoveOrganizationLogoHandler, RemoveOrganizationLogoResult};
-use Organization\Domain\Event\Organization\OrganizationSettingsUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationStatus};

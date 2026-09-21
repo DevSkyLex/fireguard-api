@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Billing\Application\UseCase;
 
-use Billing\Application\Contract\Stripe\StripeEvent;
+use Billing\Application\Contract\Stripe\{StripeEvent, StripeSubscription};
 use Billing\Application\Port\Outbound\{
   OrganizationPlanAssignmentPort,
   StripeGatewayPort,
@@ -20,7 +20,8 @@ use Billing\Domain\ValueObject\SubscriptionId;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\LoggerPort;
+use Tests\Support\Billing\ImmediateBillingReconciliation;
 
 /**
  * Test HandleStripeWebhookHandlerTest.
@@ -48,7 +49,10 @@ final class HandleStripeWebhookHandlerTest extends TestCase
       priceId: 'price_pro_m',
       currentPeriodEnd: 1_800_000_000,
       cancelAtPeriodEnd: false,
+      eventId: 'evt_1',
     ));
+
+    $stripe->method('listSubscriptions')->willReturn([new StripeSubscription('sub_1', 'cus_1', 'org-1', 'active', 'price_pro_m', null, false, 1, false)]);
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn(null);
@@ -78,6 +82,8 @@ final class HandleStripeWebhookHandlerTest extends TestCase
     $stripe = $this->createMock(StripeGatewayPort::class);
     $stripe->method('parseEvent')->willReturn(new StripeEvent(
       type: 'customer.subscription.deleted',
+      eventId: 'evt_2',
+      subscriptionId: 'sub_1',
       organizationId: 'org-1',
       customerId: 'cus_1',
     ));
@@ -156,13 +162,8 @@ final class HandleStripeWebhookHandlerTest extends TestCase
     return $factory;
   }
 
-  private function transactionManager(): TransactionManagerPort
+  private function transactionManager(): ImmediateBillingReconciliation
   {
-    $manager = $this->createMock(TransactionManagerPort::class);
-    $manager->method('transactional')->willReturnCallback(
-      static fn (callable $operation): mixed => $operation(),
-    );
-
-    return $manager;
+    return new ImmediateBillingReconciliation();
   }
 }

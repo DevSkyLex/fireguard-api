@@ -76,6 +76,7 @@ interface NotificationRepositoryPort
     ?DateTimeImmutable $hideReadBefore = null,
     array $hiddenReadCategories = [],
     ?DateTimeImmutable $before = null,
+    ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null,
   ): array;
 
   /**

@@ -100,6 +100,15 @@ final class GetCalendarFeedIcsController extends AbstractController
       throw $this->mapToUniformNotFound($exception);
     }
 
+    if (!$feed->complete) {
+      return new Response('Calendar feed temporarily incomplete.', Response::HTTP_SERVICE_UNAVAILABLE, [
+        'Content-Type' => 'text/plain; charset=utf-8',
+        'Cache-Control' => 'private, no-store',
+        'Retry-After' => '300',
+        'X-Robots-Tag' => 'noindex',
+      ]);
+    }
+
     $document = $this->icalWriter->write(
       items: $feed->items,
       organizationId: $resolved->organizationId,

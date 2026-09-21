@@ -253,6 +253,8 @@ final class AuthAuditWiringTest extends TestCase
       requestStack: new RequestStack(),
       security: $security,
       logger: new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $symfonyDispatcher = new EventDispatcher();

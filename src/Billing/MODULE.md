@@ -46,7 +46,9 @@ Persisted in the dedicated **main** database.
 plan change is applied by the webhook, never by these endpoints. Return URLs are
 built server-side from `APP_FRONTEND_URL` (clients cannot inject redirects) and
 point at `…/organizations/{id}/settings?tab=subscription`, with
-`&checkout=success|cancel` after Checkout.
+`&checkout=success|cancel` after Checkout. Successful returns also carry
+`checkoutPlan` and `checkoutInterval`, used only to compare the expected state
+with the subscription API. The return itself never confirms payment or grants access.
 
 `payment-method` is a **pure read model**: there is no local table, no input DTO
 and no write path. `GetOrganizationPaymentMethodHandler` looks up the local
@@ -62,14 +64,24 @@ direction — brand/last 4/expiry only ever flow *from* Stripe. The client's
 
 `HandleStripeWebhookHandler` reacts only to subscription lifecycle events:
 
-- `customer.subscription.created` / `customer.subscription.updated` → upsert the
-  local projection (status, `plan_key` resolved from the price, cadence,
-  `current_period_end`, `cancel_at_period_end`) **and** apply the plan to the
-  organization. The plan applied is the paid `plan_key` when the status grants
-  access (`active`, `trialing`, `past_due`), otherwise `free`.
-- `customer.subscription.deleted` → mark the projection canceled and downgrade
-  the organization to `free`.
+- `customer.subscription.created`, `customer.subscription.updated` and
+  `customer.subscription.deleted` trigger a fresh, fully paginated read of the
+  customer's subscriptions from Stripe. Event snapshots never overwrite current state.
 - any other event → no-op.
+
+The environment (`livemode`) must match the configured Stripe key. Under one
+organization-scoped PostgreSQL advisory lock, Billing rereads the local mapping,
+checks the event receipt, fetches current remote state and selects the newest
+subscription granting access (`active`, `trialing`, `past_due`), or the newest
+subscription otherwise. An old cancellation or a newer abandoned Checkout cannot
+replace a live subscription. Unknown current prices and remote read failures cause
+a retryable failure, never a downgrade based on an incomplete read.
+
+Subscription projection, organization plan and event receipt commit together in
+`main`. Receipts are unique by `(event_id, live_mode)` in `billing_stripe_events`;
+they contain identifiers and timestamps, not raw Stripe payloads. Technical failures
+roll back all local writes so the same event can be retried. Cross-database and
+external effects are outside this local atomicity guarantee.
 
 The organization is resolved from the event `metadata.organization_id`,
 **cross-checked against** the locally stored `stripe_customer_id` → organization
@@ -83,24 +95,24 @@ The three cases:
 | Metadata | Local mapping | Outcome |
 |---|---|---|
 | absent | present | the mapping wins |
-| present | absent | trusted — first event for this customer, nothing contradicts it |
+| present | absent | accepted only if the organization has no different local customer |
 | present | present and **different** | **event ignored**, logged as a warning |
 
-Neither side is preferred on a disagreement, because picking the metadata would
-let a mislabelled customer act on an organization that never subscribed — and
-`customer.subscription.deleted` downgrades whatever organization it resolves to
-onto the free plan, which turns the mismatch into a denial of service against a
-paying customer.
+Neither side is preferred on disagreement. The same checks apply to every
+subscription returned by the remote read; conflicting customer, organization or
+environment data cannot update the local projection.
 
 The refusal is logged through `LoggerPort` rather than thrown: an exception would
 make Stripe retry the same contradictory event indefinitely, and the mismatch
 needs a human to look at it, not a retry.
 
-The flow is idempotent: replaying an event converges to the same state.
+Replaying a successfully committed event is a no-op, including across workers.
 
 `cancel` / `resume` schedule the change on Stripe (`cancel_at_period_end`) **and**
 mirror the flag on the local aggregate immediately so the UI reflects it without
 waiting for the reconciling webhook.
+Checkout creation, cancellation and resumption take the same organization lock
+as reconciliation. Customer creation uses a stable organization idempotency key.
 
 ## Inter-Module Usage
 
@@ -196,7 +208,8 @@ In development the `stripe-cli` compose service forwards webhooks to
 
 ## Testing
 
-- Unit tests: `tests/Billing`
+- Canonical unit tests: `tests/Unit/Billing`; PostgreSQL concurrency tests:
+  `tests/Integration/Billing`. The older `tests/Billing` tree is not in the suite.
 - Covered:
   - `Subscription` aggregate (start, sync, cancel/resume, mark canceled, status
     access rules),
@@ -222,9 +235,11 @@ In development the `stripe-cli` compose service forwards webhooks to
   `payment-method` and `subscription` routes exist and require authentication
   (`401`/`403`, not `404`), matching the pattern used across the other
   modules' functional API tests.
-- Not covered by an automated test: `StripeGatewayAdapter` itself (the only
-  class importing `\Stripe\*`) — consistent with the rest of the module, it is
-  thin glue code exercised manually via `stripe-cli` in development.
+- Stripe adapter tests cover event identity/environment and pagination using the
+  SDK's mocked HTTP boundary. Reconciliation tests cover duplicates, reordered
+  lifecycle events, mapping conflicts, failed remote reads and unknown prices.
+- Independent PostgreSQL connections verify organization lock exclusion, durable
+  deduplication, rollback/retry and refreshing an already-managed projection.
 - The Billing module is phpstan-clean at `level: max`.
 
 ## Error Codes
@@ -253,14 +268,10 @@ processors map them to the right HTTP status.
 
 ## Notes
 
-- Webhook ordering: Stripe may deliver events out of order. The upsert converges
-  to the final state, but there is no per-event timestamp guard — an older
-  duplicate arriving after a newer event could transiently regress
-  `cancel_at_period_end` / `status` until the next event.
-- The webhook `save()` and the cross-module `assignPlanByKey()` run in separate
-  transactions; they are eventually consistent, reconciled by subsequent events.
-- `livemode` is not inspected; isolation between test and live relies on using
-  separate keys per environment.
+- Webhook delivery order is irrelevant to the local projection: each unprocessed
+  event reconciles current remote state under the same lock as billing commands.
+- Deploy the additive `main` event-journal migration before webhook workers.
+  A rollback that drops receipts loses deduplication history and requires pausing delivery.
 - An abandoned Checkout leaves an `incomplete` row (the Stripe customer is reused
   on the next attempt).
 - **Self-sufficient subscription payload (L3.8)**: `SubscriptionOutput`/

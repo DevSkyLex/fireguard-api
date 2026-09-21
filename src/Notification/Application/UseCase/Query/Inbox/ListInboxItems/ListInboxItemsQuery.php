@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Notification\Application\UseCase\Query\Inbox\ListInboxItems;
 
 use DateTimeImmutable;
+use Notification\Application\Contract\Inbox\InboxCursor;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -34,6 +35,7 @@ final readonly class ListInboxItemsQuery implements QueryMessage
     public ?string $organizationId = null,
     public ?DateTimeImmutable $before = null,
     public int $limit = 20,
+    public ?InboxCursor $cursor = null,
   ) {
   }
   // #endregion

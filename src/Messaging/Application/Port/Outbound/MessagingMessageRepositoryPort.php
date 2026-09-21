@@ -177,7 +177,7 @@ interface MessagingMessageRepositoryPort
    *
    * @return list<MessageView> the mentioning messages, newest first
    */
-  public function listMentionsForMember(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array;
+  public function listMentionsForMember(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit, ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null): array;
 
   /**
    * Method save.

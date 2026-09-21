@@ -10,6 +10,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationNotificationSettings};
+use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Throwable;
 
 use function array_unique;
@@ -47,6 +48,8 @@ final readonly class InterventionNotificationService
     private OrganizationNotificationPolicyPort $policy,
     private InterventionReviewerRecipientResolver $reviewers,
     private InterventionRecurrenceRecipientResolver $admins,
+    private DurableEventContextPort $eventContext,
+    private IdempotentConsumerPort $eventConsumer,
   ) {
   }
 
@@ -110,13 +113,21 @@ final readonly class InterventionNotificationService
   public function published(string $interventionId, string $interventionName, array $memberIds): void
   {
     foreach (array_values(array_unique($memberIds)) as $memberId) {
-      $this->send(
-        $memberId,
-        'intervention.published',
-        'Intervention published',
-        sprintf('"%s" has been published.', $interventionName),
-        $interventionId,
-      );
+      $send = function () use ($memberId, $interventionId, $interventionName): void {
+        $this->send(
+          $memberId,
+          'intervention.published',
+          'Intervention published',
+          sprintf('"%s" has been published.', $interventionName),
+          $interventionId,
+        );
+      };
+      $eventId = $this->eventContext->eventId();
+      if (null === $eventId) {
+        $send();
+      } else {
+        $this->eventConsumer->consume($eventId, 'intervention.published:' . $memberId, $send);
+      }
     }
   }
 
@@ -173,8 +184,11 @@ final readonly class InterventionNotificationService
           // Best-effort per recipient: one failed delivery must not starve the others.
         }
       }
-    } catch (Throwable) {
-      // Notifications must not make a successful intervention mutation fail.
+    } catch (Throwable $exception) {
+      // A durable delivery can retry without affecting the committed publication.
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
     }
   }
 

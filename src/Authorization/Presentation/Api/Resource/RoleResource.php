@@ -49,14 +49,23 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListRolesProvider::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
       security: "is_granted('roles.read')",
+      parameters: [
+        'isSystem' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Filter by system role flag',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'isSystem', in: 'query', required: false, description: 'Filter by system role flag', schema: ['type' => 'boolean']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'List all roles',
         description: 'Returns a paginated list of all roles with their associated permissions. Requires roles.read permission.',
         security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(name: 'isSystem', in: 'query', required: false, description: 'Filter by system role flag', schema: ['type' => 'boolean']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'List of roles retrieved successfully',

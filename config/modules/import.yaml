@@ -11,6 +11,15 @@ services:
 
   Import\Infrastructure\:
     resource: '../../src/Import/Infrastructure'
+    exclude: '../../src/Import/Infrastructure/Persistence/Doctrine/Record/'
+
+  Import\Application\Port\Outbound\ImportExecutionPort:
+    alias: Import\Infrastructure\Persistence\Doctrine\Execution\PostgresImportExecutionAdapter
+
+  Import\Infrastructure\Persistence\Doctrine\Execution\PostgresImportExecutionAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   # Outbound ports
   Import\Application\Port\Outbound\ImportJobRepositoryPort:
@@ -34,14 +43,34 @@ services:
 
   # Command handlers
   Import\Application\UseCase\Command\CreateImportJob\CreateImportJobHandler:
+    arguments:
+      $transactionManager: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
     tags: ['messenger.message_handler']
 
   Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobHandler:
+    arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   # Query handlers
+  Import\Application\UseCase\Command\ResumeImportJob\ResumeImportJobHandler:
+    tags: ['messenger.message_handler']
+
   Import\Application\UseCase\Query\GetImportJob\GetImportJobHandler:
     tags: ['messenger.message_handler']
 
   Import\Application\UseCase\Query\ListImportJobs\ListImportJobsHandler:
+    tags: ['messenger.message_handler']
+
+  Import\Application\Port\Outbound\ImportConfirmationLockPort:
+    alias: Import\Infrastructure\Persistence\Doctrine\Lock\PostgresImportConfirmationLockAdapter
+
+  Import\Infrastructure\Persistence\Doctrine\Lock\PostgresImportConfirmationLockAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Import\Application\UseCase\Command\ConfirmImportSimulation\ConfirmImportSimulationHandler:
+    tags: ['messenger.message_handler']
+
+  Import\Application\UseCase\Query\GetImportTemplate\GetImportTemplateHandler:
     tags: ['messenger.message_handler']

@@ -11,6 +11,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Maintenance\Domain\ValueObject\MaintenanceDueStatus;
 use Throwable;
 
+use function is_string;
+
 /**
  * Adapter MaintenanceComplianceStatisticsAdapter.
  *
@@ -122,6 +124,24 @@ final readonly class MaintenanceComplianceStatisticsAdapter implements Maintenan
     }
 
     return $dates;
+  }
+
+  public function evaluationByFacility(string $organizationId): array
+  {
+    /** @var list<array{facility_key: string, evaluated_count: int|string, oldest_evaluated_at: ?string}> $rows */
+    $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+      'SELECT COALESCE(facility_id, :unassigned) AS facility_key, COUNT(evaluated_at) AS evaluated_count, MIN(evaluated_at) AS oldest_evaluated_at FROM maintenance_schedules WHERE organization_id = :organization GROUP BY facility_key',
+      ['unassigned' => self::UNASSIGNED_FACILITY_KEY, 'organization' => $organizationId],
+    );
+    $result = [];
+    foreach ($rows as $row) {
+      $result[(string) $row['facility_key']] = [
+        'evaluatedCount' => (int) $row['evaluated_count'],
+        'oldestEvaluatedAt' => is_string($row['oldest_evaluated_at']) ? $this->formatStorageTimestamp($row['oldest_evaluated_at']) : null,
+      ];
+    }
+
+    return $result;
   }
 
   /**

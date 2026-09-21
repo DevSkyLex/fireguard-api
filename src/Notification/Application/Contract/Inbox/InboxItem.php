@@ -52,6 +52,7 @@ final readonly class InboxItem
     public ?string $organizationId,
     public string $targetType,
     public string $targetId,
+    public ?string $targetKind = null,
   ) {
   }
   // #endregion

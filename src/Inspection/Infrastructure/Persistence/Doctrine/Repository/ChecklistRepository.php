@@ -42,6 +42,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $checklist->organizationId());
     $record->organization = $organization;
+    if (null !== $checklist->previousChecklistId()) {
+      $record->previousChecklist = $this->entityManager->getReference(ChecklistRecord::class, (string) $checklist->previousChecklistId());
+    }
     $itemRecords = ChecklistMapper::toItemRecords($checklist);
     $existing = $this->checklistRepository->find($record->id);
 
@@ -99,10 +102,16 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
       return null;
     }
 
-    $itemRecords = $this->itemRepository->findBy(
-      ['checklist' => $record],
-      ['position' => 'ASC'],
-    );
+    $this->entityManager->refresh($record);
+
+    /** @var list<ChecklistItemRecord> $itemRecords */
+    $itemRecords = $this->itemRepository->createQueryBuilder('item')
+      ->where('item.checklist = :checklist')
+      ->setParameter('checklist', $record)
+      ->orderBy('item.position', 'ASC')
+      ->getQuery()
+      ->setHint(\Doctrine\ORM\Query::HINT_REFRESH, true)
+      ->getResult();
 
     return ChecklistMapper::toDomain($record, $itemRecords);
   }
@@ -228,6 +237,28 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     }
 
     return $counts;
+  }
+
+  /**
+   * @param list<string> $checklistIds
+   *
+   * @return list<string>
+   */
+  public function referencedIds(ChecklistOrganizationId $organizationId, array $checklistIds): array
+  {
+    if ([] === $checklistIds) {
+      return [];
+    }
+
+    // Draft inspections already contain evidence; publication status never relaxes immutability.
+    /** @var list<string> $ids */
+    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+      'SELECT DISTINCT checklist_id FROM inspections WHERE organization_id = :organization AND checklist_id IN (:ids)',
+      ['organization' => (string) $organizationId, 'ids' => $checklistIds],
+      ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING],
+    );
+
+    return $ids;
   }
 
   private function createListQueryBuilder(

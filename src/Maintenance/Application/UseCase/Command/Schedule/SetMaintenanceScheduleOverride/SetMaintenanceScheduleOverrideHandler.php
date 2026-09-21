@@ -48,6 +48,7 @@ final readonly class SetMaintenanceScheduleOverrideHandler implements CommandHan
     private OrganizationAuthorizationPort $authorization,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
+    private \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleLockPort $locks,
   ) {
   }
 
@@ -75,48 +76,55 @@ final readonly class SetMaintenanceScheduleOverrideHandler implements CommandHan
       throw new MaintenanceAccessDeniedException('Missing organization.maintenance.manage permission.');
     }
 
-    $compliancePolicy = $this->compliancePolicy->compliancePolicy($schedule->organizationId);
+    return $this->locks->synchronized($schedule->organizationId, $schedule->equipmentId, function () use ($command): SetMaintenanceScheduleOverrideResult {
+      $schedule = $this->schedules->findById($command->scheduleId);
+      if (null === $schedule) {
+        throw MaintenanceNotFoundException::withId($command->scheduleId);
+      }
+      $compliancePolicy = $this->compliancePolicy->compliancePolicy($schedule->organizationId);
 
-    try {
-      $effectiveInterval = $this->policy->resolveEffectiveInterval(
-        $command->intervalOverride,
-        $compliancePolicy->periodicityFor($schedule->equipmentType),
+      try {
+        $effectiveInterval = $this->policy->resolveEffectiveInterval(
+          $command->intervalOverride,
+          $compliancePolicy->periodicityFor($schedule->equipmentType),
+        );
+      } catch (InvalidValueException $exception) {
+        throw new MaintenanceValidationException($exception->getMessage(), 0, $exception);
+      }
+
+      $nextDueAt = $this->policy->computeNextDueAt($schedule->lastInspectionClosedAt, $effectiveInterval);
+      $dueStatus = $this->policy->computeDueStatus(
+        $nextDueAt,
+        $effectiveInterval,
+        $this->clock->now(),
+        $compliancePolicy->reminderWindowDays,
       );
-    } catch (InvalidValueException $exception) {
-      throw new MaintenanceValidationException($exception->getMessage(), 0, $exception);
-    }
+      $resetRemindedFor = $this->policy->shouldResetRemindedFor($schedule->nextDueAt, $nextDueAt);
 
-    $nextDueAt = $this->policy->computeNextDueAt($schedule->lastInspectionClosedAt, $effectiveInterval);
-    $dueStatus = $this->policy->computeDueStatus(
-      $nextDueAt,
-      $effectiveInterval,
-      $this->clock->now(),
-      $compliancePolicy->reminderWindowDays,
-    );
-    $resetRemindedFor = $this->policy->shouldResetRemindedFor($schedule->nextDueAt, $nextDueAt);
+      $updated = $this->schedules->save(new MaintenanceScheduleSnapshot(
+        id: $schedule->id,
+        organizationId: $schedule->organizationId,
+        equipmentId: $schedule->equipmentId,
+        facilityId: $schedule->facilityId,
+        equipmentType: $schedule->equipmentType,
+        intervalOverride: $command->intervalOverride,
+        lastInspectionClosedAt: $schedule->lastInspectionClosedAt,
+        nextDueAt: $nextDueAt,
+        dueStatus: $dueStatus->value,
+        lastRemindedAt: $schedule->lastRemindedAt,
+        remindedFor: $resetRemindedFor ? null : $schedule->remindedFor,
+        evaluatedAt: $this->clock->now(),
+      ));
 
-    $updated = $this->schedules->save(new MaintenanceScheduleSnapshot(
-      id: $schedule->id,
-      organizationId: $schedule->organizationId,
-      equipmentId: $schedule->equipmentId,
-      facilityId: $schedule->facilityId,
-      equipmentType: $schedule->equipmentType,
-      intervalOverride: $command->intervalOverride,
-      lastInspectionClosedAt: $schedule->lastInspectionClosedAt,
-      nextDueAt: $nextDueAt,
-      dueStatus: $dueStatus->value,
-      lastRemindedAt: $schedule->lastRemindedAt,
-      remindedFor: $resetRemindedFor ? null : $schedule->remindedFor,
-    ));
+      $this->eventDispatcher->dispatch(new MaintenanceScheduleOverriddenEvent(
+        organizationId: $updated->organizationId,
+        scheduleId: $updated->id,
+        equipmentId: $updated->equipmentId,
+        intervalOverride: $updated->intervalOverride,
+        actorUserId: $command->userId,
+      ));
 
-    $this->eventDispatcher->dispatch(new MaintenanceScheduleOverriddenEvent(
-      organizationId: $updated->organizationId,
-      scheduleId: $updated->id,
-      equipmentId: $updated->equipmentId,
-      intervalOverride: $updated->intervalOverride,
-      actorUserId: $command->userId,
-    ));
-
-    return new SetMaintenanceScheduleOverrideResult($updated);
+      return new SetMaintenanceScheduleOverrideResult($updated);
+    });
   }
 }

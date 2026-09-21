@@ -73,6 +73,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
       $this->entityManager,
       $this->facilityValidation,
       $this->maintenanceSynchronizer,
+      floorPlans: $this->createStub(\Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort::class),
     );
 
     $this->createOrganization();
@@ -142,7 +143,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
     self::assertInstanceOf(InterventionResourceAssignment::class, $assignment);
     self::assertSame($interventionId, $assignment->interventionId);
     self::assertSame('draft', $assignment->recordStatus);
-    self::assertSame(1, $assignment->revision);
+    self::assertSame(2, $assignment->revision);
 
     $this->entityManager->clear();
     $reloaded = $this->entityManager->find(EquipmentRecord::class, $equipmentId);
@@ -165,7 +166,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
 
     self::assertNull($assignment->interventionId);
     self::assertSame('published', $assignment->recordStatus);
-    self::assertSame(1, $assignment->revision);
+    self::assertSame(2, $assignment->revision);
 
     $this->entityManager->clear();
     $reloaded = $this->entityManager->find(EquipmentRecord::class, $equipmentId);
@@ -503,6 +504,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
     $this->persistEquipment($underMaintenance, status: 'under_maintenance', recordStatus: 'draft', interventionId: self::INTERVENTION_PUBLISH, facilityId: self::FACILITY_ID);
     $this->persistEquipment($alreadyPublished, recordStatus: 'published', interventionId: self::INTERVENTION_PUBLISH, revision: 5);
     $this->entityManager->flush();
+    $this->entityManager->getConnection()->executeStatement('UPDATE equipment SET revision = 5 WHERE id = ?', [$alreadyPublished]);
     $this->entityManager->clear();
 
     $this->adapter->publishDrafts(self::INTERVENTION_PUBLISH);

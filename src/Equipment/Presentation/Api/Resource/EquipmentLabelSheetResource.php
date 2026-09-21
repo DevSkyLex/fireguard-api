@@ -51,6 +51,38 @@ use Symfony\Component\HttpFoundation\Response;
       serialize: false,
       output: false,
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'ids[]' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']],
+          description: 'Explicit equipment identifiers to print, one label each. Mutually exclusive with facilityId.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
+            name: 'ids[]',
+            in: 'query',
+            description: 'Explicit equipment identifiers to print, one label each. Mutually exclusive with facilityId.',
+            required: false,
+            schema: ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']],
+          ),
+        ),
+        'facilityId' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Print one label for every equipment item of this facility. Mutually exclusive with ids[].',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
+            name: 'facilityId',
+            in: 'query',
+            description: 'Print one label for every equipment item of this facility. Mutually exclusive with ids[].',
+            required: false,
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'Export a printable QR label sheet as PDF',
@@ -62,22 +94,7 @@ use Symfony\Component\HttpFoundation\Response;
           . 'organization.equipment.read, resolved with the module\'s standard 403/404 split. Not plan-gated: '
           . 'labels are operational field material, not a reporting deliverable.',
         security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
-            name: 'ids[]',
-            in: 'query',
-            description: 'Explicit equipment identifiers to print, one label each. Mutually exclusive with facilityId.',
-            required: false,
-            schema: ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'uuid']],
-          ),
-          new Parameter(
-            name: 'facilityId',
-            in: 'query',
-            description: 'Print one label for every equipment item of this facility. Mutually exclusive with ids[].',
-            required: false,
-            schema: ['type' => 'string', 'format' => 'uuid'],
-          ),
-        ],
+        parameters: [],
         responses: [
           Response::HTTP_OK => new OpenApiResponse(description: 'QR label sheet PDF'),
           Response::HTTP_BAD_REQUEST => new OpenApiResponse(description: 'Missing organizationId, both ids[] and facilityId provided, or empty ids[]'),

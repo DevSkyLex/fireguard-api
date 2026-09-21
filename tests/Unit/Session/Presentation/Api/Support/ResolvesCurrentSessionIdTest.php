@@ -34,6 +34,7 @@ final class ResolvesCurrentSessionIdTest extends TestCase
 
     $request = new Request();
     $request->setSession($session);
+    $request->attributes->set('_fireguard_session_id', 'session-id-42');
 
     $resolver = new class () {
       use ResolvesCurrentSessionId;
@@ -91,6 +92,7 @@ final class ResolvesCurrentSessionIdTest extends TestCase
   {
     $request = new Request();
     $request->setSession(new Session(new MockArraySessionStorage()));
+    $request->getSession()->setId('http-session-must-not-be-used');
 
     $resolver = new class () {
       use ResolvesCurrentSessionId;

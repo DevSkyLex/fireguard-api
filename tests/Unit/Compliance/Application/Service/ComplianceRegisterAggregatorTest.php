@@ -27,6 +27,24 @@ final class ComplianceRegisterAggregatorTest extends TestCase
   private const string BUILDING_ID = 'building-1';
 
   #[Test]
+  public function unassessedEquipmentIsDistinctFromUnscheduledAndFreshnessUsesEvaluationTime(): void
+  {
+    $maintenance = $this->maintenanceStatistics([self::SITE_ID => ['up_to_date' => 2, 'due_soon' => 0, 'overdue' => 0, 'unscheduled' => 1]], []);
+    self::assertInstanceOf(\PHPUnit\Framework\MockObject\Stub::class, $maintenance);
+    $maintenance->method('evaluationByFacility')->willReturn([self::SITE_ID => ['evaluatedCount' => 2, 'oldestEvaluatedAt' => '2026-09-20T10:00:00+00:00']]);
+    $aggregator = new ComplianceRegisterAggregator(
+      $this->facilityDirectory([['id' => self::SITE_ID, 'name' => 'Site', 'type' => 'site', 'status' => 'active', 'parentFacilityId' => null]]),
+      $maintenance,
+      $this->inspectionStatistics([]),
+      $this->equipmentStatistics([self::SITE_ID => ['total' => 6, 'active' => 4]]),
+    );
+    $view = $aggregator->buildFacilityViews('org-1')[0];
+    self::assertSame(2, $view->unevaluatedEquipmentCount);
+    self::assertSame(1, $view->unscheduledEquipmentCount);
+    self::assertSame('2026-09-20T10:00:00+00:00', $view->dataEvaluatedAt);
+  }
+
+  #[Test]
   public function testBuildFacilityViewsAssemblesOneViewPerFacilityWithDriverCounts(): void
   {
     $aggregator = new ComplianceRegisterAggregator(

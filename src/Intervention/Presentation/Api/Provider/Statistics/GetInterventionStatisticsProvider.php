@@ -77,7 +77,7 @@ final readonly class GetInterventionStatisticsProvider implements ProviderInterf
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $organization = $this->requestStack->getCurrentRequest()?->query->get('organization');
+    $organization = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }

@@ -6,10 +6,12 @@ namespace Session\Presentation\Api\Support;
 
 use Symfony\Component\HttpFoundation\Request;
 
+use function is_string;
+
 /**
  * Trait ResolvesCurrentSessionId.
  *
- * Resolves the identifier of the HTTP session backing the current request,
+ * Resolves the verified Session aggregate identifier backing the current request,
  * used to distinguish "this device" from the caller's other active Session
  * aggregates. Shared by every Provider/Processor that needs to know which
  * session is "current" so there is a single source of truth for that
@@ -39,7 +41,10 @@ trait ResolvesCurrentSessionId
       ? $context['request']
       : null;
 
-    return $request?->getSession()->getId() ?? '';
+    // Set exclusively after signature validation and an owner-bound Session lookup.
+    $id = $request?->attributes->get('_fireguard_session_id');
+
+    return is_string($id) ? $id : '';
   }
   // #endregion
 }

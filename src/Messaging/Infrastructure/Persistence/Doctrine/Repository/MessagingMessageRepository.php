@@ -314,7 +314,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
    *
    * @return list<MessageView> the mentioning messages, newest first
    */
-  public function listMentionsForMember(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array
+  public function listMentionsForMember(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit, ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null): array
   {
     $limit = max(1, min(100, $limit));
     $sql = <<<'SQL'
@@ -339,7 +339,18 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       $types['before'] = 'datetime_immutable';
     }
 
-    $sql .= sprintf("\nORDER BY m.created_at DESC\nLIMIT %d", $limit);
+    if (null !== $cursor) {
+      $sourceOrder = 'messaging.mention' <=> $cursor->sourceKey;
+      if (0 === $sourceOrder) {
+        $sql .= ' AND (m.created_at < :cursorAt OR (m.created_at = :cursorAt AND m.id > :cursorId))';
+        $params['cursorId'] = $cursor->id;
+      } else {
+        $sql .= $sourceOrder > 0 ? ' AND m.created_at <= :cursorAt' : ' AND m.created_at < :cursorAt';
+      }
+      $params['cursorAt'] = $cursor->databaseInstant();
+    }
+
+    $sql .= sprintf("\nORDER BY m.created_at DESC, m.id ASC\nLIMIT %d", $limit);
 
     /** @var list<string> $ids */
     $ids = $this->entityManager->getConnection()->fetchFirstColumn($sql, $params, $types);

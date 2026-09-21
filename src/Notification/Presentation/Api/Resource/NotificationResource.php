@@ -45,55 +45,104 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 20,
       normalizationContext: ['groups' => [NotificationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Notification'],
-        summary: 'List notifications',
-        description: 'Returns a paginated collection of notifications for the authenticated user. Read notifications from low-value categories may be omitted from the default list after a retention delay.',
-        security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
+      parameters: [
+        'unreadOnly' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'When true, returns only unread notifications.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'unreadOnly',
             in: 'query',
             required: false,
             description: 'When true, returns only unread notifications.',
             schema: ['type' => 'boolean'],
           ),
-          new Parameter(
+        ),
+        'type' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact notification type (e.g. `organization.invitation`). See `GET /notification-types` for the full list.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'type',
             in: 'query',
             required: false,
             description: 'Filter by exact notification type (e.g. `organization.invitation`). See `GET /notification-types` for the full list.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'category' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by category prefix (e.g. `organization`, `system`). Ignored when `type` is also provided.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'category',
             in: 'query',
             required: false,
             description: 'Filter by category prefix (e.g. `organization`, `system`). Ignored when `type` is also provided.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Filter by organization identifier. When omitted, notifications across all organizations are returned, including account-level notifications that have no organization.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'organization',
             in: 'query',
             required: false,
             description: 'Filter by organization identifier. When omitted, notifications across all organizations are returned, including account-level notifications that have no organization.',
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
-          new Parameter(
+        ),
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          description: 'Page number (1-based).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'page',
             in: 'query',
             required: false,
             description: 'Page number (1-based).',
             schema: ['type' => 'integer', 'default' => 1],
           ),
-          new Parameter(
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          description: 'Number of notifications per page.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'itemsPerPage',
             in: 'query',
             required: false,
             description: 'Number of notifications per page.',
             schema: ['type' => 'integer', 'default' => 20],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Notification'],
+        summary: 'List notifications',
+        description: 'Returns a paginated collection of notifications for the authenticated user. Read notifications from low-value categories may be omitted from the default list after a retention delay.',
+        security: [['bearerAuth' => []]],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notifications retrieved successfully'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
@@ -129,20 +178,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: GetUnreadNotificationsCountProvider::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::UNREAD_COUNT]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Notification'],
-        summary: 'Get unread notifications count',
-        description: 'Returns the unread notification count for the authenticated user.',
-        security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Filter by organization identifier. When omitted, unread notifications across all organizations (and account-level ones) are counted.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'organization',
             in: 'query',
             required: false,
             description: 'Filter by organization identifier. When omitted, unread notifications across all organizations (and account-level ones) are counted.',
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Notification'],
+        summary: 'Get unread notifications count',
+        description: 'Returns the unread notification count for the authenticated user.',
+        security: [['bearerAuth' => []]],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Unread notification count returned successfully'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
@@ -157,20 +215,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: MarkAllNotificationsAsReadProcessor::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::MARK_ALL_AS_READ]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Notification'],
-        summary: 'Mark all notifications as read',
-        description: 'Marks every unread notification of the authenticated user as read. Idempotent: calling it again once everything is read affects zero notifications.',
-        security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Filter by organization identifier. When omitted, notifications across all organizations (and account-level ones) are marked as read.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'organization',
             in: 'query',
             required: false,
             description: 'Filter by organization identifier. When omitted, notifications across all organizations (and account-level ones) are marked as read.',
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Notification'],
+        summary: 'Mark all notifications as read',
+        description: 'Marks every unread notification of the authenticated user as read. Idempotent: calling it again once everything is read affects zero notifications.',
+        security: [['bearerAuth' => []]],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notifications marked as read'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),

@@ -24,8 +24,6 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
-use Shared\Application\Port\Outbound\CachePort;
 
 use function count;
 
@@ -208,7 +206,7 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeIgnoresStaleEmptyCachedProfileAndRecomputesPermissions(): void
+  public function testInvokeResolvesCurrentRolesAndPermissions(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655442231';
     $memberId = '550e8400-e29b-41d4-a716-446655442232';
@@ -241,15 +239,6 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
       description: 'Seed admin role',
     );
 
-    $staleCachedResult = new GetCurrentOrganizationMemberProfileResult(
-      id: $memberId,
-      organizationId: $organizationId,
-      userId: $userId,
-      isActive: true,
-      joinedAt: new DateTimeImmutable('-2 days'),
-      roles: [],
-      permissions: [],
-    );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
@@ -289,27 +278,11 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
       ->with($userId, $organizationId)
       ->willReturn(['organization.*']);
 
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->willReturn($staleCachedResult);
-    $cache->expects(self::once())
-      ->method('set')
-      ->with(
-        self::isString(),
-        self::callback(static fn (mixed $result): bool => $result instanceof GetCurrentOrganizationMemberProfileResult
-          && 1 === count($result->roles)
-          && ['organization.*'] === $result->permissions),
-        self::anything(),
-      );
-
     $handler = new GetCurrentOrganizationMemberProfileHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       authorization: $authorization,
-      cache: $cache,
     );
 
     $result = $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));
@@ -319,56 +292,7 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeReturnsPopulatedCachedProfileWithoutHittingRepositories(): void
-  {
-    $organizationId = '550e8400-e29b-41d4-a716-446655442241';
-    $memberId = '550e8400-e29b-41d4-a716-446655442242';
-    $userId = '550e8400-e29b-41d4-a716-446655442243';
-
-    $cachedResult = new GetCurrentOrganizationMemberProfileResult(
-      id: $memberId,
-      organizationId: $organizationId,
-      userId: $userId,
-      isActive: true,
-      joinedAt: new DateTimeImmutable('-2 days'),
-      roles: [],
-      permissions: ['organization.read'],
-    );
-
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn($this->createOrganizationFixture($organizationId));
-
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::never())->method('findByOrganizationAndUser');
-
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::never())->method('getUserPermissions');
-
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())->method('get')->willReturn($cachedResult);
-    $cache->expects(self::never())->method('set');
-
-    $handler = new GetCurrentOrganizationMemberProfileHandler(
-      organizationRepository: $organizationRepository,
-      memberRepository: $memberRepository,
-      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
-      authorization: $authorization,
-      cache: $cache,
-    );
-
-    $result = $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));
-
-    self::assertSame($cachedResult, $result);
-  }
-
-  #[Test]
-  public function testInvokeRecomputesWhenCacheReadThrowsAndSurvivesCacheWriteFailure(): void
+  public function testInvokeReadsCurrentMembershipWithoutSharedCache(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655442251';
     $memberId = '550e8400-e29b-41d4-a716-446655442252';
@@ -412,21 +336,11 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())->method('getUserPermissions')->willReturn(['organization.read']);
 
-    /** @var CachePort&MockObject $cache */
-    $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('get')
-      ->willThrowException(new RuntimeException('Cache backend unreachable.'));
-    $cache->expects(self::once())
-      ->method('set')
-      ->willThrowException(new RuntimeException('Cache backend unreachable.'));
-
     $handler = new GetCurrentOrganizationMemberProfileHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
       authorization: $authorization,
-      cache: $cache,
     );
 
     $result = $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));

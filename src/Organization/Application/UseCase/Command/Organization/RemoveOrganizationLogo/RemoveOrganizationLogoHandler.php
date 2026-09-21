@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo;
 
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\Event\Organization\OrganizationSettingsUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;

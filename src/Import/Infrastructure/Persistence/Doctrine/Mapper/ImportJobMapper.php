@@ -64,6 +64,7 @@ final class ImportJobMapper
       jobError: $record->jobError,
       startedAt: $record->startedAt,
       completedAt: $record->completedAt,
+      confirmedJobId: $record->confirmedJobId,
     );
   }
 
@@ -107,6 +108,7 @@ final class ImportJobMapper
     $record->updatedAt = $job->updatedAt();
     $record->startedAt = $job->startedAt();
     $record->completedAt = $job->completedAt();
+    $record->confirmedJobId = $job->confirmedJobId();
   }
   // #endregion
 }

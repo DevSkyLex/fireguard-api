@@ -7,12 +7,21 @@ namespace Tests\Integration\Intervention\Infrastructure\Adapter\Publication;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
+use Intervention\Application\Service\InterventionIssueFinder;
+use Intervention\Application\UseCase\Command\Publication\ExecutePublication\{ExecutePublicationCommand, ExecutePublicationHandler};
+use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException, PublicationNotFoundException};
 use Intervention\Infrastructure\Adapter\Publication\DoctrinePublicationAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionChangeRecord, InterventionRecord, PublicationRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Infrastructure\Messaging\Outbox\{DbalTransactionManagerAdapter, DeliverOutboxEventHandler, OutboxEvent, TransactionalEventDispatcher};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 use function sprintf;
 
@@ -73,6 +82,52 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     if ($this->entityManager->isOpen()) {
       $this->entityManager->close();
     }
+  }
+
+  #[Test]
+  public function testCompletedPublicationQueuesOneEventAndAuditReplayIsIdempotent(): void
+  {
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $container = self::getContainer();
+    $transport = $container->get('messenger.transport.main_outbox');
+    self::assertInstanceOf(InMemoryTransport::class, $transport);
+    $transport->reset();
+    $events = $container->get(TransactionalEventDispatcher::class);
+    self::assertInstanceOf(EventDispatcherPort::class, $events);
+    $handler = $this->executionHandler($events);
+    $handler(new ExecutePublicationCommand(self::PUBLICATION_ID));
+    $handler(new ExecutePublicationCommand(self::PUBLICATION_ID));
+    self::assertCount(1, $transport->getSent());
+    $message = $transport->getSent()[0]->getMessage();
+    self::assertInstanceOf(OutboxEvent::class, $message);
+    self::assertInstanceOf(InterventionPublishedEvent::class, $message->event);
+    self::assertSame('Publication Adapter Intervention', $message->event->interventionName);
+    $auth = $container->get('doctrine.dbal.auth_connection');
+    self::assertInstanceOf(\Doctrine\DBAL\Connection::class, $auth);
+    $count = fn (): mixed => $auth->fetchOne("SELECT COUNT(*) FROM audit_events WHERE action = 'intervention.published' AND subject_id = ?", [self::INTERVENTION_ID]);
+    self::assertSame(0, $count());
+    $delivery = $container->get(DeliverOutboxEventHandler::class);
+    self::assertInstanceOf(DeliverOutboxEventHandler::class, $delivery);
+    $delivery($message);
+    $delivery($message);
+    self::assertSame(1, $count());
+  }
+
+  #[Test]
+  public function testAnOutboxWriteFailureRollsBackPublicationBeforeRecordingTheFailure(): void
+  {
+    $this->adapter->createOrGetPending(self::PUBLICATION_ID, self::INTERVENTION_ID, 1);
+    $events = $this->createMock(EventDispatcherPort::class);
+    $events->expects(self::exactly(2))->method('dispatch')->willReturnCallback(function (object $event): void {
+      if ($event instanceof InterventionPublishedEvent) {
+        throw new RuntimeException('Outbox unavailable');
+      }
+      self::assertInstanceOf(InterventionPublicationFailedEvent::class, $event);
+      self::assertSame('submitted', $this->entityManager->getConnection()->fetchOne('SELECT status FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
+    });
+    $this->executionHandler($events)(new ExecutePublicationCommand(self::PUBLICATION_ID));
+    self::assertSame('failed', $this->adapter->find(self::PUBLICATION_ID)?->status);
+    self::assertSame(1, $this->entityManager->getConnection()->fetchOne('SELECT revision FROM interventions WHERE id = ?', [self::INTERVENTION_ID]));
   }
 
   #[Test]
@@ -366,6 +421,21 @@ final class DoctrinePublicationAdapterTest extends KernelTestCase
     $this->expectExceptionMessage('Intervention organization is unavailable.');
 
     $this->adapter->publish(self::PUBLICATION_ID);
+  }
+
+  private function executionHandler(EventDispatcherPort $events): ExecutePublicationHandler
+  {
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('summary')->willReturn(new InterventionResourceSummary(1, 0, 0));
+    $resources->method('equipmentDrafts')->willReturn([]);
+    $resources->method('workItemSummary')->willReturn(new InterventionWorkItemSummary(0, 0, 0, 0));
+
+    return new ExecutePublicationHandler(
+      $this->adapter,
+      new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
+      $events,
+      new DbalTransactionManagerAdapter($this->entityManager->getConnection()),
+    );
   }
 
   /**

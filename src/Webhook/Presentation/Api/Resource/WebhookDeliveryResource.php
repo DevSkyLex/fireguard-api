@@ -42,13 +42,22 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Delivery status filter (pending|delivered|failed).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'status', in: 'query', description: 'Delivery status filter (pending|delivered|failed).', required: false, schema: ['type' => 'string']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'List webhook deliveries',
         description: 'Lists a subscription\'s delivery log. Requires organization.webhooks.read.',
-        parameters: [
-          new Parameter(name: 'status', in: 'query', description: 'Delivery status filter (pending|delivered|failed).', required: false, schema: ['type' => 'string']),
-        ],
+        parameters: [],
       ),
     ),
     new Post(

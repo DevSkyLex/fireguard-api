@@ -8,6 +8,9 @@ attaches a secure cookie to the response when a device is trusted.
 
 ## API Endpoints
 
+Operation names use the `trusted_device_` prefix to remain globally unique across
+API Platform resources. The public URLs and cookie contract are unchanged.
+
 | Resource | Method | Path | Description |
 | --- | --- | --- | --- |
 | TrustedDevice | POST | `/api/trusted-devices` | Trust the current device |

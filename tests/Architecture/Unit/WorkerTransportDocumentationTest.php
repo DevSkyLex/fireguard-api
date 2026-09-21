@@ -51,12 +51,12 @@ final class WorkerTransportDocumentationTest extends TestCase
   /**
    * Transports a long-running worker must NOT consume.
    *
-   * `sync` dispatches in-process and has no queue. `failed` is the
+   * `sync` dispatches in-process and has no queue. `failed` and `main_failed` are the
    * dead-letter store, drained deliberately with `messenger:failed:retry`
    * after a human has looked at it — a worker consuming it would silently
    * replay poison messages in a loop.
    */
-  private const array NON_WORKER_TRANSPORTS = ['sync', 'failed'];
+  private const array NON_WORKER_TRANSPORTS = ['sync', 'failed', 'main_failed'];
   // #endregion
 
   // #region Methods

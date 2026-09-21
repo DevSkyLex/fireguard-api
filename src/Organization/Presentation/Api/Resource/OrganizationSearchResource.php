@@ -34,13 +34,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: SearchOrganizationProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'q' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'minLength' => 2, 'maxLength' => 100],
+          description: 'The free-text search term, 2 to 100 characters after trimming.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'q', in: 'query', description: 'The free-text search term, 2 to 100 characters after trimming.', required: true, schema: ['type' => 'string', 'minLength' => 2, 'maxLength' => 100]),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Search across an organization',
         description: 'Case-insensitive free-text search returning a flat `results` list, grouped by type in a stable order (`equipment`, `facility`, `intervention`, `inspection`, `non_conformity`), with at most 5 hits per type ordered by most recent update. Each hit carries `type`, `id`, `title` and optional `subtitle`/`extra`; the frontend builds the target route from `type` + `id` — the API ships no URL. Matched fields per type: equipment type/brand/model/serial number/location label; facility name/code/address; intervention name/number; inspection checklist reference code or inspection id; non-conformity description. The caller must be an ACTIVE member of the organization (a non-member gets 404, never a hint the organization exists); each type is then individually soft-gated on its read permission (`organization.equipment.read`, `organization.facilities.read`, `organization.interventions.read`, `organization.inspection.read` for both inspections and non-conformities) — a member without a permission simply gets no rows of that type, never an error.',
-        parameters: [
-          new Parameter(name: 'q', in: 'query', description: 'The free-text search term, 2 to 100 characters after trimming.', required: true, schema: ['type' => 'string', 'minLength' => 2, 'maxLength' => 100]),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Search results retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing q parameter, or q shorter than 2 / longer than 100 characters'),

@@ -63,7 +63,7 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $includeArchived = $request?->query->getBoolean('includeArchived', false) ?? false;
+    $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
 
     try {
       /** @var GetFacilityDescendantsResult $result */

@@ -46,7 +46,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $commandBus->expects(self::once())
       ->method('dispatch')
       ->with(self::isInstanceOf(RestoreFacilityCommand::class))
-      ->willReturn(new RestoreFacilityResult(
+      ->willReturn($detailResult = new RestoreFacilityResult(
         facilityId: $facilityId,
         organizationId: $organizationId,
         parentFacilityId: null,
@@ -61,6 +61,7 @@ final class RestoreFacilityProcessorTest extends TestCase
       ));
 
     $processor = new RestoreFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -113,6 +114,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new RestoreFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -138,6 +140,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new RestoreFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -162,6 +165,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new RestoreFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -190,6 +194,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new RestoreFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -322,6 +327,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $commandBus->method('dispatch')->willThrowException($exception);
 
     return new RestoreFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,

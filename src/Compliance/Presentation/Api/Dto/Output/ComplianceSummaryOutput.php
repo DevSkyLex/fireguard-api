@@ -49,6 +49,11 @@ final class ComplianceSummaryOutput
   public string $generatedAt = '';
 
   /**
+   * Oldest successful maintenance evaluation in the scope, distinct from generation time.
+   */
+  public ?string $dataEvaluatedAt = null;
+
+  /**
    * Property organizationStatus.
    *
    * One of `compliant`, `at_risk`, `non_compliant`, `not_applicable`.
@@ -103,6 +108,8 @@ final class ComplianceSummaryOutput
    *   openHighNonConformityCount: int,
    *   openCriticalNonConformityCount: int,
    *   lastInspectionAt: ?string,
+   *   unevaluatedEquipmentCount: int,
+   *   dataEvaluatedAt: ?string,
    * }>
    */
   public array $facilities = [];

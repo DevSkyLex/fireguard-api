@@ -42,6 +42,7 @@ final class MaintenanceScheduleOutputFactory
     $output->lastRemindedAt = $view->lastRemindedAt?->format('c');
     $output->createdAt = $view->createdAt->format('c');
     $output->updatedAt = $view->updatedAt->format('c');
+    $output->evaluatedAt = $view->evaluatedAt?->format('c');
 
     return $output;
   }

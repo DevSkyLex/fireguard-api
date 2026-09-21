@@ -59,6 +59,7 @@ phpstan:
 
 deptrac:
 	$(PHP) $(DEPTRAC_BIN) analyse --config-file=deptrac.yaml
+	$(PHP) $(DEPTRAC_BIN) analyse --config-file=deptrac.modules.php
 
 # Validate Symfony container configuration.
 # `lint:container` needs the raised memory limit like phpstan/phpunit do: it

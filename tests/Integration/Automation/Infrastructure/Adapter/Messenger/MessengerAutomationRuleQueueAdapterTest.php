@@ -46,7 +46,7 @@ final class MessengerAutomationRuleQueueAdapterTest extends KernelTestCase
     $queue = $container->get(AutomationRuleQueuePort::class);
 
     /** @var InMemoryTransport $transport */
-    $transport = $container->get('messenger.transport.async');
+    $transport = $container->get('messenger.transport.main_outbox');
     $before = count($transport->getSent());
 
     // Must not throw: this is the exact call the trigger subscriber makes.
@@ -78,7 +78,7 @@ final class MessengerAutomationRuleQueueAdapterTest extends KernelTestCase
     $container = self::getContainer();
 
     /** @var InMemoryTransport $transport */
-    $transport = $container->get('messenger.transport.async');
+    $transport = $container->get('messenger.transport.main_outbox');
     $before = count($transport->getSent());
 
     /** @var EventDispatcherInterface $dispatcher */

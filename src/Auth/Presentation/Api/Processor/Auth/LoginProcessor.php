@@ -68,7 +68,7 @@ final readonly class LoginProcessor implements ProcessorInterface
     $request = $this->requestStack->getCurrentRequest();
     $ipAddress = null !== $request ? ($request->getClientIp() ?? '127.0.0.1') : '127.0.0.1';
 
-    $userAgent = $request?->headers->get('User-Agent');
+    $userAgent = \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent');
 
     // Get trusted device token from cookie (if present)
     $trustedDeviceToken = null;

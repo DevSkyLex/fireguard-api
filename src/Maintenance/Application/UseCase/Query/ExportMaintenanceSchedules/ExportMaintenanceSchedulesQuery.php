@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maintenance\Application\UseCase\Query\ExportMaintenanceSchedules;
 
+use DateTimeImmutable;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -35,6 +36,7 @@ final readonly class ExportMaintenanceSchedulesQuery implements QueryMessage
     public ?string $facilityId = null,
     public ?string $equipmentType = null,
     public ?string $dueStatus = null,
+    public ?DateTimeImmutable $dueBefore = null,
   ) {
   }
   // #endregion

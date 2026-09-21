@@ -11,7 +11,7 @@ use Intervention\Domain\Exception\PublicationNotFoundException;
 use Intervention\Domain\ValueObject\PublicationStatus;
 use RuntimeException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;
 
 use function array_filter;
@@ -43,6 +43,7 @@ final readonly class ExecutePublicationHandler implements CommandHandler
     private PublicationRepositoryPort $publications,
     private InterventionIssueFinder $issueFinder,
     private EventDispatcherPort $eventDispatcher,
+    private TransactionManagerPort $transactions,
   ) {
   }
 
@@ -68,56 +69,51 @@ final readonly class ExecutePublicationHandler implements CommandHandler
     }
 
     $context = null;
-    $published = false;
-    $failed = false;
-    $failureReason = null;
 
     try {
       $context = $this->publications->interventionContext($publication->interventionId);
-      if (null === $context) {
-        throw PublicationNotFoundException::withId($publication->id);
-      }
-      if ('submitted' !== $context->status || $context->revision !== $publication->interventionRevision) {
-        throw new RuntimeException('Intervention changed before publication execution.');
-      }
-      $blockers = array_filter(
-        $this->issueFinder->find($publication->interventionId),
-        static fn ($issue): bool => 'blocker' === $issue->severity,
-      );
-      if ([] !== $blockers) {
-        throw new RuntimeException('Intervention contains blocking validation issues.');
-      }
+      $this->transactions->transactional(function () use ($publication, $context): void {
+        if (null === $context) {
+          throw PublicationNotFoundException::withId($publication->id);
+        }
+        if ('submitted' !== $context->status || $context->revision !== $publication->interventionRevision) {
+          throw new RuntimeException('Intervention changed before publication execution.');
+        }
+        $blockers = array_filter(
+          $this->issueFinder->find($publication->interventionId),
+          static fn ($issue): bool => 'blocker' === $issue->severity,
+        );
+        if ([] !== $blockers) {
+          throw new RuntimeException('Intervention contains blocking validation issues.');
+        }
 
-      $this->publications->markProcessing($publication->id);
-      $published = $this->publications->publish($publication->id);
+        $this->publications->markProcessing($publication->id);
+        $published = $this->publications->publish($publication->id);
+        if ($published) {
+          $this->eventDispatcher->dispatch(new InterventionPublishedEvent(
+            organizationId: $context->organizationId,
+            interventionId: $publication->interventionId,
+            publicationId: $publication->id,
+            interventionName: $context->name,
+            recipientMemberIds: $context->recipientMemberIds,
+          ));
+        }
+      });
     } catch (Throwable $exception) {
-      $failed = $this->publications->markFailed($publication->id, $exception->getMessage());
-      $failureReason = $exception->getMessage();
-    }
-
-    // Audit ledger: emitted AFTER the try/catch — publish() commits inside its
-    // own wrapInTransaction, so the published event is post-commit; and a
-    // hypothetical dispatch failure must never turn a committed publication
-    // into a markFailed. The dispatches are gated on the DURABLE transition
-    // reported by the adapter (not on local control flow), so an at-least-once
-    // redelivery racing a concurrent worker can neither duplicate the
-    // published row nor ledger a false failure for a completed publication.
-    // The failure event also needs the intervention context (organization
-    // scope): failures before the context is resolved are not ledgered
-    // (nothing to scope them to) but stay on the publication record.
-    if ($published && null !== $context) {
-      $this->eventDispatcher->dispatch(new InterventionPublishedEvent(
-        organizationId: $context->organizationId,
-        interventionId: $publication->interventionId,
-        publicationId: $publication->id,
-      ));
-    } elseif ($failed && null !== $failureReason && null !== $context) {
-      $this->eventDispatcher->dispatch(new InterventionPublicationFailedEvent(
-        organizationId: $context->organizationId,
-        interventionId: $publication->interventionId,
-        publicationId: $publication->id,
-        reason: $failureReason,
-      ));
+      // The publication and its event rolled back together. Persist a failed
+      // transition and its event in a fresh local transaction, even if ORM closed.
+      $this->transactions->transactional(function () use ($publication, $context, $exception): void {
+        $failed = $this->publications->markFailed($publication->id, $exception->getMessage());
+        if (!$failed || null === $context) {
+          return;
+        }
+        $this->eventDispatcher->dispatch(new InterventionPublicationFailedEvent(
+          organizationId: $context->organizationId,
+          interventionId: $publication->interventionId,
+          publicationId: $publication->id,
+          reason: $exception->getMessage(),
+        ));
+      });
     }
 
     return new VoidResult();

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Import\Application\UseCase\Query\GetImportJob;
 
-use Import\Application\Port\Outbound\ImportJobRepositoryPort;
+use Import\Application\Port\Outbound\{ImportExecutionPort, ImportJobRepositoryPort};
+use Import\Application\Service\ImportPermissions;
 use Import\Domain\Exception\{ImportAccessDeniedException, ImportJobNotFoundException};
-use Import\Domain\ValueObject\{ImportJobId, ImportKind};
+use Import\Domain\ValueObject\ImportJobId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 
@@ -41,6 +42,7 @@ final readonly class GetImportJobHandler implements QueryHandler
   public function __construct(
     private ImportJobRepositoryPort $repository,
     private OrganizationAuthorizationPort $authorization,
+    private ImportExecutionPort $execution,
   ) {
   }
   // #endregion
@@ -62,7 +64,7 @@ final readonly class GetImportJobHandler implements QueryHandler
       throw ImportJobNotFoundException::withId($query->importJobId);
     }
 
-    $permission = $this->readPermission($job->kind());
+    $permission = ImportPermissions::read($job->kind());
 
     $decision = $this->authorization->resolveAccess($query->userId, $job->organizationId(), $permission);
     if ($decision->isOutsideScope()) {
@@ -72,25 +74,11 @@ final readonly class GetImportJobHandler implements QueryHandler
       throw ImportAccessDeniedException::missingPermission($permission);
     }
 
-    return GetImportJobResult::fromDomain($job);
+    $canResume = $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind()))
+      && $this->execution->canResume($job->id());
+
+    return GetImportJobResult::fromDomain($job, $canResume, $this->authorization->hasPermission($query->userId, $job->organizationId(), ImportPermissions::write($job->kind())));
   }
 
-  /**
-   * Method readPermission.
-   *
-   * @since 1.0.0
-   *
-   * @param ImportKind $kind the import kind value
-   *
-   * @return string the required organization permission
-   */
-  private function readPermission(ImportKind $kind): string
-  {
-    return match ($kind) {
-      ImportKind::EQUIPMENT => 'organization.equipment.read',
-      ImportKind::FACILITY => 'organization.facilities.read',
-      ImportKind::MEMBER => 'organization.members.read',
-    };
-  }
   // #endregion
 }

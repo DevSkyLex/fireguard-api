@@ -62,6 +62,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $processor = new ArchiveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -86,7 +87,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
     $commandBus->expects(self::once())
       ->method('dispatch')
       ->with(self::isInstanceOf(ArchiveFacilityCommand::class))
-      ->willReturn(new ArchiveFacilityResult(
+      ->willReturn($detailResult = new ArchiveFacilityResult(
         facilityId: '550e8400-e29b-41d4-a716-446655441261',
         organizationId: '550e8400-e29b-41d4-a716-446655441260',
         parentFacilityId: null,
@@ -100,7 +101,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
         updatedAt: new DateTimeImmutable('2026-02-12T11:00:00+00:00'),
       ));
 
-    $output = $this->makeProcessor(commandBus: $commandBus)->process(
+    $output = $this->makeProcessor(commandBus: $commandBus, detailResult: $detailResult)->process(
       data: null,
       operation: new Post(),
       uriVariables: [
@@ -109,6 +110,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
       ],
     );
 
+    self::assertSame(7, $output->revision);
     self::assertSame('archived', $output->status);
     self::assertSame('SITE-001', $output->code);
     self::assertSame('2026-02-12T11:00:00+00:00', $output->updatedAt);
@@ -124,6 +126,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new ArchiveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -264,6 +267,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
     ?Throwable $exception = null,
     OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     ?CommandBusPort $commandBus = null,
+    ?object $detailResult = null,
   ): ArchiveFacilityProcessor {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441259'));
@@ -280,6 +284,7 @@ final class ArchiveFacilityProcessorTest extends TestCase
     }
 
     return new ArchiveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,

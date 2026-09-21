@@ -296,7 +296,7 @@ final class OrganizationJoinApiTest extends WebTestCase
     self::assertNotSame('', $userId);
     $tokens = static::getContainer()->get(JwtTokenServicePort::class);
     self::assertInstanceOf(JwtTokenServicePort::class, $tokens);
-    $this->accessToken = $tokens->generateTokens($userId, $userId . '@corp.example')['access_token'];
+    $this->accessToken = \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $userId, $userId . '@corp.example');
   }
 
   /**

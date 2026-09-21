@@ -23,7 +23,7 @@ final class TrustedDeviceOperations
    *
    * @var string
    */
-  public const string TRUST = 'trust';
+  public const string TRUST = 'trusted_device_trust';
 
   /**
    * Constant LIST.
@@ -32,7 +32,7 @@ final class TrustedDeviceOperations
    *
    * @var string
    */
-  public const string LIST = 'list';
+  public const string LIST = 'trusted_device_list';
 
   /**
    * Constant REVOKE.
@@ -41,7 +41,7 @@ final class TrustedDeviceOperations
    *
    * @var string
    */
-  public const string REVOKE = 'revoke';
+  public const string REVOKE = 'trusted_device_revoke';
 
   /**
    * Constant REVOKE_ALL.
@@ -50,7 +50,7 @@ final class TrustedDeviceOperations
    *
    * @var string
    */
-  public const string REVOKE_ALL = 'revoke_all';
+  public const string REVOKE_ALL = 'trusted_device_revoke_all';
 
   /**
    * Constant ALL.

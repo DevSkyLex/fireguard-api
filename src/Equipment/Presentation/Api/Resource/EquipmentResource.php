@@ -77,61 +77,118 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Equipment'],
-        summary: 'List equipment',
-        description: 'Lists equipment items for the target organization.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'facilityId' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'Filter by facility identifier.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'facilityId',
             in: 'query',
             required: false,
             description: 'Filter by facility identifier.',
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
-          new Parameter(
+        ),
+        'type' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by equipment type.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'type',
             in: 'query',
             required: false,
             description: 'Filter by equipment type.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by equipment status.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'status',
             in: 'query',
             required: false,
             description: 'Filter by equipment status.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'brand' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact equipment brand.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'brand',
             in: 'query',
             required: false,
             description: 'Filter by exact equipment brand.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'model' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact equipment model.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'model',
             in: 'query',
             required: false,
             description: 'Filter by exact equipment model.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'subType' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact equipment subtype.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'subType',
             in: 'query',
             required: false,
             description: 'Filter by exact equipment subtype.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'maintenanceDueStatus' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'maintenanceDueStatus',
             in: 'query',
             required: false,
             description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
             schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Equipment'],
+        summary: 'List equipment',
+        description: 'Lists equipment items for the target organization.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment list retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
@@ -151,54 +208,103 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(
-        tags: ['Equipment'],
-        summary: 'List facility equipment',
-        description: 'Lists equipment items directly assigned to one facility.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'type' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by equipment type.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'type',
             in: 'query',
             required: false,
             description: 'Filter by equipment type.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'status' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by equipment status.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'status',
             in: 'query',
             required: false,
             description: 'Filter by equipment status.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'brand' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact equipment brand.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'brand',
             in: 'query',
             required: false,
             description: 'Filter by exact equipment brand.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'model' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact equipment model.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'model',
             in: 'query',
             required: false,
             description: 'Filter by exact equipment model.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'subType' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Filter by exact equipment subtype.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'subType',
             in: 'query',
             required: false,
             description: 'Filter by exact equipment subtype.',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'maintenanceDueStatus' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'maintenanceDueStatus',
             in: 'query',
             required: false,
             description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
             schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['Equipment'],
+        summary: 'List facility equipment',
+        description: 'Lists equipment items directly assigned to one facility.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility equipment list retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization or facility identifier'),

@@ -740,16 +740,14 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
     $client->request(
       method: 'POST',
-      uri: '/api/oauth2/token',
+      uri: '/api/auth/login',
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
       content: json_encode([
-        'grant_type' => 'client_credentials',
-        'client_id' => self::DEV_CLIENT_ID,
-        'client_secret' => self::DEV_CLIENT_SECRET,
-        'scope' => 'OPENID PROFILE EMAIL READ WRITE',
+        'email' => 'admin@fireguard.local',
+        'password' => 'Admin123!',
       ]) ?: '',
     );
 

@@ -84,6 +84,15 @@ final class WebhookDeliveryOutput
   public ?string $lastError = null;
 
   /**
+   * Property errorCode. Stable public failure reason, independent of transport diagnostics.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([WebhookSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $errorCode = null;
+
+  /**
    * Property nextRetryAt.
    *
    * @since 1.0.0

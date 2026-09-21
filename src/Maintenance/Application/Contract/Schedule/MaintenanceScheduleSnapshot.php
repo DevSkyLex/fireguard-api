@@ -52,6 +52,7 @@ final readonly class MaintenanceScheduleSnapshot
     public string $dueStatus,
     public ?DateTimeImmutable $lastRemindedAt = null,
     public ?DateTimeImmutable $remindedFor = null,
+    public ?DateTimeImmutable $evaluatedAt = null,
   ) {
   }
   // #endregion

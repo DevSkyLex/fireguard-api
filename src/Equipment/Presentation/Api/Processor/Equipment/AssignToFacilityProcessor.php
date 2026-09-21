@@ -11,7 +11,7 @@ use Equipment\Application\UseCase\Command\Equipment\AssignToFacility\{AssignToFa
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\AssignToFacilityInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
+use Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -42,7 +42,7 @@ final readonly class AssignToFacilityProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private EquipmentOutputFactory $outputFactory,
+    private EquipmentDetailOutputFactory $outputFactory,
   ) {
   }
   // #endregion
@@ -102,7 +102,7 @@ final readonly class AssignToFacilityProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    return $this->outputFactory->fromView($result);
+    return $this->outputFactory->read($organizationId, $result->equipmentId);
   }
   // #endregion
 }

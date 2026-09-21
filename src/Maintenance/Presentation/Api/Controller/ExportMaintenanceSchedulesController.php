@@ -105,6 +105,7 @@ final class ExportMaintenanceSchedulesController extends AbstractController
         facilityId: $filters['facilityId'],
         equipmentType: $filters['equipmentType'],
         dueStatus: $filters['dueStatus'],
+        dueBefore: $filters['dueBefore'],
       ));
     } catch (Throwable $exception) {
       // The query bus wraps handler exceptions, so a direct catch of the

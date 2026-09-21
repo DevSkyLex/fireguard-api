@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\EventSubscriber;
 
+use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
 use Approval\Domain\Event\Request\{
   ApprovalApprovedEvent,
   ApprovalExecutionFailedEvent,
@@ -21,8 +22,10 @@ use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFai
 use Calendar\Domain\Event\{CalendarEventCreatedEvent, CalendarEventDeletedEvent, CalendarEventUpdatedEvent, CalendarFeedTokenCreatedEvent, CalendarFeedTokenRevokedEvent};
 use Compliance\Domain\Event\{SafetyRegisterExportedEvent, SafetyRegisterSnapshotCreatedEvent};
 use DateTimeImmutable;
+use Equipment\Application\Contract\Event\EquipmentPlanPositionChangedEvent;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Domain\Event\Export\{EquipmentLabelsExportedEvent, EquipmentReportExportedEvent, EquipmentsExportedEvent};
+use Facility\Application\Contract\Event\FacilityPlanGeometryChangedEvent;
 use Facility\Domain\Event\Export\FacilitiesExportedEvent;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilitySubtreeDuplicatedEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
@@ -53,10 +56,11 @@ use Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent;
 use Messaging\Domain\Event\Message\{MessagingMessageModeratedEvent, MessagingMessageUnpinModeratedEvent};
 use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Event\Join\OrganizationJoinChangedEvent;
 use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
-use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
+use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSuspendedEvent};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
 use Organization\Domain\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
@@ -64,6 +68,7 @@ use Organization\Domain\Event\Team\{TeamCreatedEvent, TeamDeletedEvent, TeamMemb
 use Otp\Domain\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\{DurableEventContextPort, IdempotentConsumerPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -108,6 +113,8 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
     private Security $security,
     #[Autowire(service: 'monolog.logger.security')]
     private LoggerInterface $logger,
+    private DurableEventContextPort $eventContext,
+    private IdempotentConsumerPort $eventConsumer,
   ) {
   }
   // #endregion
@@ -173,6 +180,8 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'facility.facility_archived_event' => 'onFacilityArchived',
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
+      'facility.facility_plan_geometry_changed_event' => 'onFacilityPlanGeometryChanged',
+      'equipment.equipment_plan_position_changed_event' => 'onEquipmentPlanPositionChanged',
       'facility.facility_updated_event' => 'onFacilityUpdated',
       'facility.facility_subtree_duplicated_event' => 'onFacilitySubtreeDuplicated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
@@ -213,6 +222,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'approval.approval_requested_event' => 'onApprovalRequested',
       'approval.approval_approved_event' => 'onApprovalApproved',
       'approval.approval_rejected_event' => 'onApprovalRejected',
+      'approval.approval_withdrawn_event' => 'onApprovalWithdrawn',
       'approval.approval_expired_event' => 'onApprovalExpired',
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
@@ -2735,6 +2745,33 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onApprovalWithdrawn.
+   *
+   * Records a four-eyes approval request being withdrawn; the deferred
+   * action is never executed.
+   *
+   * @since 1.2.0
+   *
+   * @param ApprovalWithdrawnEvent $event the domain event
+   */
+  public function onApprovalWithdrawn(ApprovalWithdrawnEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'approval.withdrawn',
+      organizationId: $event->organizationId,
+      subjectType: 'approval_request',
+      subjectId: $event->requestId,
+      metadata: [
+        'action_type' => $event->actionType,
+        'subject_id' => $event->subjectId,
+        'decision_by_member_id' => $event->decisionByMemberId,
+      ],
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->decisionByUserId,
+    );
+  }
+
+  /**
    * Method onApprovalExpired.
    *
    * Records a pending four-eyes approval request left undecided past its
@@ -2829,6 +2866,42 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       ]),
       occurredAt: $event->occurredAt,
     ));
+  }
+
+  public function onFacilityPlanGeometryChanged(FacilityPlanGeometryChangedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.plan_geometry_changed',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->resourceId,
+      metadata: [
+        'operation' => null === $event->attachmentId ? 'cleared' : (null === $event->previousAttachmentId ? 'placed' : 'moved'),
+        'previous_attachment_id' => $event->previousAttachmentId,
+        'attachment_id' => $event->attachmentId,
+        'revision' => $event->revision,
+        'intervention_id' => $event->interventionId,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  public function onEquipmentPlanPositionChanged(EquipmentPlanPositionChangedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'equipment.plan_position_changed',
+      organizationId: $event->organizationId,
+      subjectType: 'equipment',
+      subjectId: $event->resourceId,
+      metadata: [
+        'operation' => null === $event->attachmentId ? 'cleared' : (null === $event->previousAttachmentId ? 'placed' : 'moved'),
+        'previous_attachment_id' => $event->previousAttachmentId,
+        'attachment_id' => $event->attachmentId,
+        'revision' => $event->revision,
+        'intervention_id' => $event->interventionId,
+      ],
+      occurredAt: $event->occurredAt,
+    );
   }
 
   /**
@@ -2944,7 +3017,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
     $user = $this->security->getUser();
     $tokenId = $user instanceof SecurityUser ? $user->getId() : null;
     $tokenEmail = $user instanceof SecurityUser ? $user->getUserIdentifier() : null;
-    $actorId = $explicitUserId ?? $tokenId;
+    $actorId = $explicitUserId ?? (null !== $this->eventContext->eventId() ? $this->eventContext->actorUserId() : $tokenId);
 
     if (null === $actorId) {
       return ['type' => 'system', 'id' => null, 'email' => null];
@@ -2969,12 +3042,24 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   private function dispatchAuditEvent(RecordAuditEventCommand $command): void
   {
     try {
-      $this->commandBus->dispatch(command: $command);
+      $eventId = $this->eventContext->eventId();
+      if (null === $eventId) {
+        $this->commandBus->dispatch(command: $command);
+      } else {
+        $this->eventConsumer->consume(
+          $eventId,
+          'audit:' . $command->action . ':' . $command->subjectType . ':' . $command->subjectId,
+          function () use ($command): void { $this->commandBus->dispatch(command: $command); },
+        );
+      }
     } catch (Throwable $exception) {
       $this->logger->error('Failed to record audit event', [
         'error' => $exception->getMessage(),
         'action' => $command->action,
       ]);
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
     }
   }
 

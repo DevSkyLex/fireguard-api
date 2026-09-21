@@ -81,16 +81,16 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
 
     $request = $this->requestStack->getCurrentRequest();
     $uriFacilityId = $uriVariables['facilityId'] ?? null;
-    $queryFacilityId = $request?->query->get('facilityId');
+    $queryFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facilityId');
     $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
-    $type = $request?->query->get('type');
-    $status = $request?->query->get('status');
-    $brand = $request?->query->get('brand');
-    $model = $request?->query->get('model');
-    $subType = $request?->query->get('subType');
-    $maintenanceDueStatus = $request?->query->get('maintenanceDueStatus');
+    $type = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('type');
+    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
+    $brand = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('brand');
+    $model = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('model');
+    $subType = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('subType');
+    $maintenanceDueStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('maintenanceDueStatus');
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

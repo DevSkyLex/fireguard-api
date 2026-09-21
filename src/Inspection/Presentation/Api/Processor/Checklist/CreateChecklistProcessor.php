@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Command\Checklist\CreateChecklist\{CreateChecklistCommand, CreateChecklistResult};
-use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
+use Inspection\Domain\Exception\{ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Presentation\Api\Dto\Input\Checklist\CreateChecklistInput;
 use Inspection\Presentation\Api\Dto\Output\Checklist\{ChecklistItemOutput, ChecklistOutput};
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
@@ -18,6 +18,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 use function count;
 use function is_string;
@@ -69,12 +70,19 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
         version: $data->version,
         items: $items,
         referenceCode: $data->referenceCode,
+        previousChecklistId: $data->previousChecklistId,
       ));
+    } catch (ChecklistNotFoundException $exception) {
+      throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (ChecklistReferenceCodeAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $notFound = $this->findChecklistNotFoundException($exception);
+      if ($notFound instanceof ChecklistNotFoundException) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
       $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
       if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
         throw new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
@@ -92,6 +100,10 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->referenceCode = $result->referenceCode;
+    $output->previousChecklistId = $result->previousChecklistId;
+    $output->canEditMetadata = true;
+    $output->canEditItems = true;
+    $output->canCreateRevision = true;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');

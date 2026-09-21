@@ -89,7 +89,7 @@ final class CanonicalFacilityMapper
     $record->metadata = $facility->metadata();
     $record->levelIndex = $facility->levelIndex();
     $record->status = $facility->status()->value;
-    $record->revision = $facility->revision();
+    // Doctrine increments and compares the persisted version in the same UPDATE.
     $record->updatedAt = $facility->updatedAt();
   }
   // #endregion

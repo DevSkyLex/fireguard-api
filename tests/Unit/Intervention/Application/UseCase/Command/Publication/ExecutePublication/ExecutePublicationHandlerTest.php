@@ -259,6 +259,7 @@ final class ExecutePublicationHandlerTest extends TestCase
       $repository,
       new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
       $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      transactions: new \App\Tests\Support\Shared\ImmediateTransactionManager(),
     );
   }
 }

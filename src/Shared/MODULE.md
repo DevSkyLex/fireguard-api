@@ -57,6 +57,22 @@ sequenceDiagram
 
 ## Architecture
 
+HTTP 429 responses publish `code: rate_limit_exceeded` and nullable integer
+`retryAfterSeconds`, retaining the standard `Retry-After` header. Clients must not
+parse human-readable error copy to decide when to retry. Unknown deadlines remain
+null. The exception boundary also handles wrapped command failures.
+
+HTTP parameter declarations use API Platform 5 `QueryParameter` and
+`HeaderParameter`. `OperationParameterReader` reads the framework-parsed values
+for custom providers/processors, retaining undeclared legacy query keys and
+bracketed arrays without mutating the request. Existing operations explicitly
+retain their provider validation, defaults and conditional-request status codes
+(`constraints: []`, no automatic casting). This compatibility boundary prevents
+schema-only documentation from changing historical pagination clamping, OAuth
+protocol errors or 412/428 responses. New operations declare native constraints
+and enable strict query validation. Migrate legacy validation only with endpoint
+contract tests covering its current error and access-order semantics.
+
 - Application: message types, ports, contracts (pagination), factories, and shared exceptions.
 - Domain: value objects, domain events, traits, and domain services.
 - Infrastructure: Symfony adapters, serializer normalizer, event dispatcher/listener,
@@ -70,6 +86,30 @@ Key folders:
 - `src/Shared/Infrastructure/Symfony/Adapter`
 
 ## Configuration
+
+### Durable events and local consumer receipts
+
+`TransactionalEventDispatcher` writes a stable event envelope to the Doctrine
+`main_outbox` transport using the same `main` connection as its producer. It
+refuses calls outside an active transaction. Publication requests/completions,
+non-conformity automation triggers and automation outcomes use this boundary.
+Delivery is at least once; workers set a scoped `DurableEventContextPort` identity
+and clear it in `finally`, including failures and nested deliveries.
+
+`IdempotentConsumerPort` inserts its receipt and performs local writes in the same
+transaction. Its main and auth adapters are explicitly wired: notifications and
+automation dispatch receipts live in main, audit receipts in auth. An auth commit
+is independent of later main failures, so retries skip already committed audit
+work. No transaction or foreign key spans the two databases. Equipment service
+history retains its existing per-change deduplication; webhooks reuse the durable
+event ID across fan-out retries. Durable subscriber failures propagate to Messenger.
+
+Messenger owns `messenger_messages`, excluded from ORM schema introspection in
+both databases. Deploy the additive receipt migrations and run
+`messenger:setup-transports main_outbox main_failed failed` before consumers.
+`main_outbox` failures go to `main_failed`; other asynchronous work has `failed`
+as its default destination. Never prune receipts while retained messages may replay.
+External delivery remains at least once where a provider has no idempotency key.
 
 - Service wiring: `config/modules/shared.yaml`
 - Parameters: `config/services.yaml` (e.g., `shared.file_storage.base_path`)
@@ -220,3 +260,8 @@ all five attachment slices at once so the number cannot diverge.
 ## Error Codes
 
 Not applicable.
+
+Outbox envelopes capture only the initiating user id through `CurrentActorPort`. Delivery
+restores this context even across nested failures and clears it between messages. Older
+envelopes without an actor remain readable and represent system work; an ambient HTTP
+identity never replaces a system delivery's actor. No bearer, secret or email is stored.

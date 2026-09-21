@@ -75,7 +75,7 @@ final readonly class ListMaintenanceLogsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
     }
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 20;

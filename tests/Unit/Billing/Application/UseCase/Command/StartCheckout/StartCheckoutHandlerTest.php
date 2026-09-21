@@ -16,8 +16,8 @@ use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
+use Tests\Support\Billing\ImmediateBillingReconciliation;
 
 /**
  * Test StartCheckoutHandlerTest.
@@ -56,7 +56,7 @@ final class StartCheckoutHandlerTest extends TestCase
       ->willReturn('cus_new');
     $stripe->expects(self::once())
       ->method('createCheckoutSession')
-      ->with('cus_new', 'price_pro_month', 'org-42', 'pro', self::SUCCESS_URL, self::CANCEL_URL)
+      ->with('cus_new', 'price_pro_month', 'org-42', 'pro', self::SUCCESS_URL . '&checkoutPlan=pro&checkoutInterval=month', self::CANCEL_URL)
       ->willReturn('https://checkout.stripe.test/c/session_123');
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
@@ -106,7 +106,7 @@ final class StartCheckoutHandlerTest extends TestCase
       ->willReturn('cus_existing');
     $stripe->expects(self::once())
       ->method('createCheckoutSession')
-      ->with('cus_existing', 'price_max_year', 'org-42', 'max', self::SUCCESS_URL, self::CANCEL_URL)
+      ->with('cus_existing', 'price_max_year', 'org-42', 'max', self::SUCCESS_URL . '&checkoutPlan=max&checkoutInterval=year', self::CANCEL_URL)
       ->willReturn('https://checkout.stripe.test/c/session_456');
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
@@ -187,13 +187,8 @@ final class StartCheckoutHandlerTest extends TestCase
     );
   }
 
-  private function transactionManager(): TransactionManagerPort
+  private function transactionManager(): ImmediateBillingReconciliation
   {
-    $manager = $this->createStub(TransactionManagerPort::class);
-    $manager->method('transactional')->willReturnCallback(
-      static fn (callable $operation): mixed => $operation(),
-    );
-
-    return $manager;
+    return new ImmediateBillingReconciliation();
   }
 }

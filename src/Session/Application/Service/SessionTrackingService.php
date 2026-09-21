@@ -64,17 +64,17 @@ final readonly class SessionTrackingService implements SessionTrackingPort
     ?string $currentAccessTokenId,
     string $newAccessTokenId,
     string $newRefreshTokenId,
-  ): void {
+  ): bool {
     if ('' === $currentRefreshTokenId || '' === $newAccessTokenId || '' === $newRefreshTokenId) {
-      return;
+      return false;
     }
 
-    $this->updateSessionTokensHandler->__invoke(new UpdateSessionTokensCommand(
+    return $this->updateSessionTokensHandler->__invoke(new UpdateSessionTokensCommand(
       currentRefreshTokenId: $currentRefreshTokenId,
       currentAccessTokenId: $currentAccessTokenId,
       newAccessTokenId: $newAccessTokenId,
       newRefreshTokenId: $newRefreshTokenId,
-    ));
+    ))->updated;
   }
 
   public function revokeSessionByToken(?string $refreshTokenId, ?string $accessTokenId): void

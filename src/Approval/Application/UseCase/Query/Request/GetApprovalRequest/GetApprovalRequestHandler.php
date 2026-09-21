@@ -38,6 +38,7 @@ final readonly class GetApprovalRequestHandler implements QueryHandler
   public function __construct(
     private ApprovalRequestRepositoryPort $requests,
     private OrganizationAuthorizationPort $authorization,
+    private \Approval\Application\Service\ApprovalRequestViewFactory $views,
   ) {
   }
   // #endregion
@@ -68,7 +69,7 @@ final readonly class GetApprovalRequestHandler implements QueryHandler
       throw ApprovalRequestNotFoundException::withId($query->requestId);
     }
 
-    return GetApprovalRequestResult::fromDomain($request);
+    return $this->views->forUser($request, $query->userId);
   }
   // #endregion
 }

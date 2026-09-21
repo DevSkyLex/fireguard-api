@@ -6,16 +6,18 @@ namespace Inspection\Application\UseCase\Command\Checklist\CreateChecklist;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
-use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
+use Inspection\Domain\Exception\{ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function array_map;
 use function str_contains;
 use function strtolower;
+use function trim;
 
 /**
  * UseCase CreateChecklistHandler.
@@ -46,6 +48,18 @@ final readonly class CreateChecklistHandler implements CommandHandler
   {
     $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
 
+    $previousId = null;
+    if (null !== $command->previousChecklistId) {
+      $previousId = ChecklistId::fromString($command->previousChecklistId);
+      $previous = $this->checklistRepository->findById($previousId);
+      if (null === $previous || (string) $previous->organizationId() !== $command->organizationId) {
+        throw ChecklistNotFoundException::withId($command->previousChecklistId);
+      }
+      if (trim($command->version) === $previous->version()) {
+        throw InvalidValueException::because('A new checklist revision requires a different version label.');
+      }
+    }
+
     /** @var ChecklistId $checklistId */
     $checklistId = $this->uuidFactory->create(ChecklistId::class);
 
@@ -67,6 +81,7 @@ final readonly class CreateChecklistHandler implements CommandHandler
       version: $command->version,
       items: $items,
       referenceCode: $command->referenceCode,
+      previousChecklistId: $previousId,
     );
 
     try {
@@ -84,6 +99,7 @@ final readonly class CreateChecklistHandler implements CommandHandler
       organizationId: (string) $checklist->organizationId(),
       name: $checklist->name(),
       referenceCode: $checklist->referenceCode(),
+      previousChecklistId: $checklist->previousChecklistId()?->__toString(),
       version: $checklist->version(),
       status: $checklist->status()->value,
       items: array_map(

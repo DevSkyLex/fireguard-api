@@ -160,8 +160,7 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     /** @var FacilityRepositoryPort&MockObject $facilityRepository */
     $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
-    $facilityRepository->expects(self::once())
-      ->method('findAncestors')
+    $facilityRepository->method('findAncestors')
       ->with('facility-id')
       ->willReturn([
         ['id' => 'root-id', 'name' => 'Root', 'type' => 'site'],
@@ -179,11 +178,11 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     $provider = new CanonicalFacilityProvider(
       $entityManager,
-      $facilityRepository,
       $authorization,
       $security,
       new RequestStack(),
       new InterventionResourceManager($resources),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
     );
 
     $output = $provider->provide(new Get(), ['id' => 'facility-id']);
@@ -216,11 +215,34 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     return new CanonicalFacilityProvider(
       $entityManager,
-      $this->createStub(FacilityRepositoryPort::class),
       $authorization,
       $security,
       $requestStack,
       new InterventionResourceManager($resources),
+      detail: new \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory($this->detailQueries()),
     );
+  }
+
+  private function detailQueries(): \Shared\Application\Port\Inbound\QueryBusPort
+  {
+    $queries = $this->createStub(\Shared\Application\Port\Inbound\QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Shared\Application\Message\QueryMessage $query): \Shared\Application\Message\ResultMessage => $query instanceof \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery
+      ? new \Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult(
+        facilityId: 'facility-id',
+        organizationId: self::ORGANIZATION_ID,
+        parentFacilityId: null,
+        type: 'building',
+        name: 'Building B',
+        code: null,
+        status: 'active',
+        address: null,
+        metadata: [],
+        path: [['id' => 'root-id', 'name' => 'Root', 'type' => 'site']],
+        createdAt: new DateTimeImmutable('2026-09-20'),
+        updatedAt: new DateTimeImmutable('2026-09-20'),
+      )
+      : new \Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\GetCanonicalFacilityResult(new \Facility\Application\Contract\Facility\CanonicalFacilityView('facility-id', self::ORGANIZATION_ID, 'published', null, 3)));
+
+    return $queries;
   }
 }

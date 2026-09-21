@@ -85,9 +85,9 @@ final readonly class ListSafetyRegisterSnapshotsProvider implements ProviderInte
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $page = max(1, $query?->getInt('page', 1) ?? 1);
-    $itemsPerPage = max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30));
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $page = max(1, $query->getInt('page', 1));
+    $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
     /** @var ListSafetyRegisterSnapshotsResult $result */
     $result = $this->queryBus->ask(new ListSafetyRegisterSnapshotsQuery(

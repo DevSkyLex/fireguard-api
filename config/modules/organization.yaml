@@ -33,6 +33,7 @@ services:
 
   Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsHandler:
     arguments:
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
       $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
@@ -122,7 +123,19 @@ services:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
       $quota: '@Organization\Application\Port\Inbound\OrganizationQuotaPort'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\MainTransactionEventDispatcher'
     tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation\DeliverOrganizationInvitationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\Port\Outbound\InvitationDeliveryQueuePort:
+    alias: Organization\Infrastructure\Adapter\Invitation\MessengerInvitationDeliveryQueueAdapter
+
+  Organization\Infrastructure\Adapter\Invitation\MessengerInvitationDeliveryQueueAdapter:
+    arguments:
+      $connection: '@doctrine.dbal.main_connection'
+      $sender: '@messenger.transport.main_outbox'
 
   Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\AcceptOrganizationInvitationHandler:
     arguments:

@@ -99,7 +99,7 @@ final readonly class GeocodeAddressProvider implements ProviderInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $address = $this->requestStack->getCurrentRequest()?->query->get('address');
+    $address = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('address');
     if (!is_string($address) || '' === $address) {
       throw new BadRequestHttpException('Address query parameter is required.');
     }

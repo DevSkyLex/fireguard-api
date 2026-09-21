@@ -9,7 +9,7 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Exception;
-use Notification\Application\Contract\Inbox\InboxItem;
+use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\UseCase\Query\Inbox\ListInboxItems\{ListInboxItemsQuery, ListInboxItemsResult};
 use Notification\Presentation\Api\Dto\Output\Inbox\{InboxItemOutput, InboxOutput};
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -75,9 +75,17 @@ final readonly class GetInboxProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $organizationId = $this->toNullableString($request?->query->get('organization'));
-    $before = $this->toCursor($request?->query->get('before'));
-    $limit = $this->toLimit($request?->query->get('limit'));
+    $organizationId = $this->toNullableString(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('organization'));
+    $before = $this->toCursor(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('before'));
+    $limit = $this->toLimit(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('limit'));
+    $rawCursor = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('cursor');
+    if (null !== $rawCursor && (!is_string($rawCursor) || '' === $rawCursor)) {
+      throw new BadRequestHttpException('Invalid inbox cursor.');
+    }
+    $cursor = null === $rawCursor ? null : InboxCursor::decode($rawCursor);
+    if (null !== $cursor && null !== $before) {
+      throw new BadRequestHttpException('Use either cursor or before.');
+    }
 
     /** @var ListInboxItemsResult $result */
     $result = $this->queryBus->ask(new ListInboxItemsQuery(
@@ -85,12 +93,15 @@ final readonly class GetInboxProvider implements ProviderInterface
       organizationId: $organizationId,
       before: $before,
       limit: $limit,
+      cursor: $cursor,
     ));
 
     $output = new InboxOutput();
     $output->items = array_map($this->mapItem(...), $result->items);
     $output->nextCursor = $result->nextCursor;
+    $output->nextPageCursor = $result->nextPageCursor;
     $output->hasMore = $result->hasMore;
+    $output->complete = $result->complete;
 
     return $output;
   }
@@ -117,6 +128,7 @@ final readonly class GetInboxProvider implements ProviderInterface
     $output->organizationId = $item->organizationId;
     $output->targetType = $item->targetType;
     $output->targetId = $item->targetId;
+    $output->targetKind = $item->targetKind;
 
     return $output;
   }

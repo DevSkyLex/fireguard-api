@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Application\Port\Outbound;
 
 use DateTimeImmutable;
-use Notification\Application\Contract\Inbox\InboxItem;
+use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 
 /**
  * Port InboxSourceProviderPort.
@@ -69,7 +69,7 @@ interface InboxSourceProviderPort
    *
    * @return list<InboxItem> the source's items, ordered by `occurredAt` descending
    */
-  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): array;
+  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array;
 
   /**
    * Method countUnread.

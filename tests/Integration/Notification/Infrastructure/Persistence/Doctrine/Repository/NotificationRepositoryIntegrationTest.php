@@ -6,6 +6,7 @@ namespace Tests\Integration\Notification\Infrastructure\Persistence\Doctrine\Rep
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Notification\Application\Contract\Inbox\InboxCursor;
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
@@ -39,6 +40,21 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
   {
     parent::tearDown();
     $this->entityManager->close();
+  }
+
+  #[Test]
+  public function testCompositeCursorPreservesTiesAndFractionalBoundaries(): void
+  {
+    $user = '550e8400-e29b-41d4-a716-446655442399';
+    $now = new DateTimeImmutable('2026-09-20T10:00:00+00:00');
+    $ids = ['550e8400-e29b-41d4-a716-446655442310', '550e8400-e29b-41d4-a716-446655442311'];
+    foreach ($ids as $id) {
+      $this->repository->save($this->createNotification($id, NotificationType::USER_EMAIL_VERIFIED, 'Title', 'Body', $user, $now, $now, false, null));
+    }
+    self::assertSame([$ids[1]], $this->notificationIds($this->repository->findByUserId($user, cursor: new InboxCursor($now, 'notification', $ids[0]))));
+    self::assertSame($ids, $this->notificationIds($this->repository->findByUserId($user, cursor: new InboxCursor($now, 'messaging.mention', 'last'))));
+    self::assertSame([], $this->repository->findByUserId($user, cursor: new InboxCursor($now, 'other', 'last')));
+    self::assertSame($ids, $this->notificationIds($this->repository->findByUserId($user, cursor: new InboxCursor(new DateTimeImmutable('2026-09-20T12:00:00.123456+02:00'), 'notification', $ids[1]))));
   }
 
   #[Test]
@@ -374,6 +390,16 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
     // Already-read rows are skipped, and other recipients are untouched.
     self::assertSame(0, $this->repository->markAllAsReadForUser($userId));
     self::assertSame(1, $this->repository->countUnreadByUserId($otherUserId));
+  }
+
+  /**
+   * @param list<Notification> $items persisted notifications
+   *
+   * @return list<string> identifiers in query order
+   */
+  private function notificationIds(array $items): array
+  {
+    return array_map(static fn (Notification $item): string => (string) $item->id(), $items);
   }
 
   private function createNotification(

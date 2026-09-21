@@ -67,9 +67,9 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $includeArchived = $request?->query->getBoolean('includeArchived', false) ?? false;
+    $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

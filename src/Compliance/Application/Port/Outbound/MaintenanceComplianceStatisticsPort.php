@@ -50,5 +50,10 @@ interface MaintenanceComplianceStatisticsPort
    * @return array<string, string> map of facilityId (or `unassigned`) => ISO 8601 datetime
    */
   public function lastInspectionClosedAtByFacility(string $organizationId): array;
+
+  /**
+   * @return array<string, array{evaluatedCount: int, oldestEvaluatedAt: ?string}>
+   */
+  public function evaluationByFacility(string $organizationId): array;
   // #endregion
 }

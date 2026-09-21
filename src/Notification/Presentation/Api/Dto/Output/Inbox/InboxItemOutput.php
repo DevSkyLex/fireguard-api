@@ -19,6 +19,13 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class InboxItemOutput
 {
+  /**
+   * Optional navigation discriminator supplied by the source, preserving targetType.
+   */
+  #[Groups([NotificationSerializationGroup::INBOX_READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $targetKind = null;
+
   // #region Properties
   /**
    * Property sourceKey.

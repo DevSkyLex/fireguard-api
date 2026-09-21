@@ -36,10 +36,25 @@ use Messaging\Presentation\Api\Provider\Link\ListConversationLinksProvider;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
-        new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
-      ]),
+      parameters: [
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
   ],
 )]

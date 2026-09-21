@@ -22,6 +22,8 @@ use function json_encode;
 use function sys_get_temp_dir;
 use function tempnam;
 
+use const JSON_THROW_ON_ERROR;
+
 /**
  * Test FacilityPlanGeometryApiTest.
  *
@@ -113,6 +115,20 @@ final class FacilityPlanGeometryApiTest extends WebTestCase
     self::assertIsArray($decoded['planGeometry'] ?? null);
     self::assertSame($attachmentId, $decoded['planGeometry']['attachmentId'] ?? null);
     self::assertSame(self::VALID_POINTS, $decoded['planGeometry']['points'] ?? null);
+    self::assertSame(2, $decoded['revision']);
+    self::assertIsArray($decoded['path']);
+    self::assertCount(1, $decoded['path']);
+    static::ensureKernelShutdown();
+    $client = static::createClient();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'plan-geometry-admin@example.com');
+    $client->request('GET', '/api/facilities/' . self::CHILD_ZONE_ID);
+    self::assertResponseIsSuccessful();
+    $canonical = json_decode((string) $client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    self::assertIsArray($canonical);
+    foreach (['revision', 'recordStatus', 'planGeometry', 'path', 'hasChildren', 'equipmentCount'] as $field) {
+      self::assertSame($decoded[$field], $canonical[$field]);
+    }
+
 
     // Clear: both fields null.
     static::ensureKernelShutdown();

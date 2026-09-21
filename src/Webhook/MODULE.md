@@ -219,9 +219,9 @@ sites:
    the **authoritative** business-rule gate; never trust the API layer
    alone.
 3. `Infrastructure\Adapter\Http\SymfonyHttpWebhookClientAdapter` — **send-time
-   re-validation** of the DNS-resolved address (guards against DNS
-   rebinding between subscription creation and delivery time), plus
-   `max_redirects: 0` (a malicious 3xx cannot retarget the request).
+   re-validation** of scheme and literal addresses, including bracketed IPv6.
+   The required `NoPrivateNetworkHttpClient` pins validated DNS results and
+   checks the actual connected address. `max_redirects: 0` prevents retargeting.
 
 Rules: `https://` required unless `WEBHOOK_ALLOW_INSECURE_URLS=true` (dev
 only — never in prod); the host, once resolved to a literal IP, is rejected
@@ -230,12 +230,10 @@ covers the `169.254.169.254` cloud metadata endpoint), or otherwise
 reserved range (`filter_var(..., FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE
 | FILTER_FLAG_NO_RES_RANGE)`).
 
-**Known residual gap:** the send-time re-validation resolves the hostname
-once via `gethostbyname()` and then lets `symfony/http-client` perform its
-own, separate DNS resolution to actually connect — a narrow TOCTOU window
-remains between the two resolutions. Full protection would require pinning
-the validated IP for the actual connection (a custom DNS resolver/stream
-context), which is a documented follow-up, not built in this lot.
+Idle and total request durations are bounded to 1–60 seconds. The guarded client
+resets its DNS cache between worker messages. Delivery errors expose safe reasons
+(invalid/disallowed URL, timeout, unreachable/disallowed destination), never raw
+transport messages containing internal hostnames or URL credentials.
 
 ## API tokens (documented decision — no PAT table)
 
@@ -368,3 +366,16 @@ or the `organization.*` owner wildcard.
 | `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
 | `WebhookValidationException` | 422 Unprocessable Entity |
 | `InvalidArgumentException` | 400 Bad Request |
+
+## Organization management UI and safe delivery feedback
+
+`/organizations/:organizationId/integrations/webhooks` consumes the existing subscription,
+event catalog, test, secret rotation and delivery endpoints. `read` and `manage` remain
+independent. Creation and rotation reveal the plaintext secret once; list/detail responses
+never reveal it. Accepted tests and redeliveries are queued, not confirmed delivered.
+
+Delivery output adds nullable `errorCode`: `webhook_timeout`, `webhook_http_error`,
+`webhook_destination_disallowed`, `webhook_destination_unreachable`,
+`webhook_subscription_missing` or the fallback `webhook_delivery_failed`. `lastError`
+remains compatible as a safe public message. Old stored transport diagnostics are never
+returned verbatim; successful deliveries expose neither field. No schema change is needed.

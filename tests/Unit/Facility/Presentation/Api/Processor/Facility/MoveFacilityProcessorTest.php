@@ -62,6 +62,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $requestStack->push($request);
 
     $processor = new MoveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -109,7 +110,7 @@ final class MoveFacilityProcessorTest extends TestCase
           && '550e8400-e29b-41d4-a716-446655441234' === $command->facilityId
           && null === $command->parentFacilityId;
       }))
-      ->willReturn(new MoveFacilityResult(
+      ->willReturn($detailResult = new MoveFacilityResult(
         facilityId: $facilityId,
         organizationId: $organizationId,
         parentFacilityId: null,
@@ -131,6 +132,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $requestStack->push($request);
 
     $processor = new MoveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility($detailResult),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -195,6 +197,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $requestStack->push($request);
 
     $processor = new MoveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
@@ -227,6 +230,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $processor = new MoveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
@@ -428,6 +432,7 @@ final class MoveFacilityProcessorTest extends TestCase
     }
 
     return new MoveFacilityProcessor(
+      detail: \Tests\Support\MutationDetailFixtures::facility(null),
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,

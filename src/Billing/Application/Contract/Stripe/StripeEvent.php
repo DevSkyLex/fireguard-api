@@ -45,6 +45,9 @@ final readonly class StripeEvent
     public ?string $priceId = null,
     public ?int $currentPeriodEnd = null,
     public bool $cancelAtPeriodEnd = false,
+    public string $eventId = '',
+    public int $created = 0,
+    public bool $liveMode = false,
   ) {
   }
   // #endregion

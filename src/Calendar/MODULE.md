@@ -74,16 +74,21 @@ detail (e.g. to populate an edit form).
   — an unbounded calendar feed would eventually try to load every
   intervention/inspection/maintenance schedule ever created for a busy
   organization.
-- Each of the four sources is also capped per-call
-  (`CalendarFeedAggregator::PER_SOURCE_LIMIT` = 500 items), pushed down into
-  the query, never a post-fetch truncation.
+- Each authorized source returns at most 500 entries. Its query fetches at most 501 to
+  detect truncation exactly: 500 entries alone is complete, a 501st sets `truncated`.
+- The root response includes `complete` and `sources` (`sourceKey`, `available`,
+  `truncated`). Sources require their own read permission, in addition to calendar read:
+  `organization.inspection.read`, `organization.interventions.read`,
+  `organization.maintenance.read`. Denied sources are neither queried nor described.
 - Items are merged and sorted deterministically: `startsAt` ascending, tied
   by `sourceKey` ascending, tied by `id` ascending — never dependent on
   source call order.
 - **A failing source never fails the whole feed.** Each of the four sources
   is called defensively; a throwing source degrades to "contributed
   nothing" and is logged at `error` level, mirroring
-  `Notification\Application\Service\InboxAggregator`.
+  `Notification\Application\Service\InboxAggregator`. Its status is `available: false`
+  and the feed is incomplete; technical details stay out of the response. Retry failures
+  or reduce the period when truncated. An empty partial result is not an empty calendar.
 - `status` on a feed item is always the source's raw enum value (e.g.
   `overdue`, `closed`, `draft`), never a translated label — the frontend
   owns labels/colors via its own per-domain tag registries.
@@ -132,6 +137,9 @@ pasted into the calendar client.
   folding on UTF-8 boundaries per RFC 5545 §3.1.
 - **Response headers**: `Content-Type: text/calendar; charset=utf-8`,
   `Cache-Control: private, max-age=300`, `X-Robots-Tag: noindex`.
+- **Partial data**: iCal emits 503 with `Retry-After: 300` and `private, no-store`
+  whenever the authorized feed is incomplete. It does not publish a successful partial
+  snapshot that a subscribing client could use to remove previously known events.
 - **Audit**: `calendar.feed_token_created` (metadata: `rotated`) and
   `calendar.feed_token_revoked` (metadata: `reason` = `revoked`|`rotated`)
   via `CalendarFeedTokenCreatedEvent`/`CalendarFeedTokenRevokedEvent` —

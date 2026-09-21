@@ -53,6 +53,6 @@ interface MaintenanceEquipmentDirectoryPort
    *
    * @return list<TrackableEquipment> the equipment page
    */
-  public function listEquipmentPage(int $limit, int $offset): array;
+  public function listEquipmentPage(int $limit, int $offset, ?string $organizationId = null): array;
   // #endregion
 }

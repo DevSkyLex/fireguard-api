@@ -54,83 +54,164 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       provider: AuthorizeProcessor::class,
-      openapi: new Operation(
-        tags: ['OAuth2'],
-        summary: 'Authorize Client',
-        description: 'Initiate the OAuth2 authorization code flow (PKCE required).',
-        security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
+      parameters: [
+        'response_type' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['code']],
+          description: 'OAuth2 response type (must be code)',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'response_type',
             in: 'query',
             required: true,
             description: 'OAuth2 response type (must be code)',
             schema: ['type' => 'string', 'enum' => ['code']],
           ),
-          new Parameter(
+        ),
+        'client_id' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'OAuth2 client identifier (UUID)',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'client_id',
             in: 'query',
             required: true,
             description: 'OAuth2 client identifier (UUID)',
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
-          new Parameter(
+        ),
+        'redirect_uri' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uri'],
+          description: 'Redirect URI registered for the client',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'redirect_uri',
             in: 'query',
             required: true,
             description: 'Redirect URI registered for the client',
             schema: ['type' => 'string', 'format' => 'uri'],
           ),
-          new Parameter(
+        ),
+        'scope' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'example' => 'openid profile email'],
+          description: 'Space-separated list of requested scopes',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'scope',
             in: 'query',
             required: false,
             description: 'Space-separated list of requested scopes',
             schema: ['type' => 'string', 'example' => 'openid profile email'],
           ),
-          new Parameter(
+        ),
+        'state' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Opaque state value returned to the client',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'state',
             in: 'query',
             required: false,
             description: 'Opaque state value returned to the client',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'code_challenge' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'PKCE code challenge',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'code_challenge',
             in: 'query',
             required: true,
             description: 'PKCE code challenge',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'code_challenge_method' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'enum' => ['S256', 'plain']],
+          description: 'PKCE code challenge method (S256 or plain, defaults to plain)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'code_challenge_method',
             in: 'query',
             required: false,
             description: 'PKCE code challenge method (S256 or plain, defaults to plain)',
             schema: ['type' => 'string', 'enum' => ['S256', 'plain']],
           ),
-          new Parameter(
+        ),
+        'nonce' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'OIDC nonce value (optional)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'nonce',
             in: 'query',
             required: false,
             description: 'OIDC nonce value (optional)',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'prompt' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'example' => 'login consent'],
+          description: 'OIDC prompt values (space-separated)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'prompt',
             in: 'query',
             required: false,
             description: 'OIDC prompt values (space-separated)',
             schema: ['type' => 'string', 'example' => 'login consent'],
           ),
-          new Parameter(
+        ),
+        'max_age' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer', 'example' => 3600],
+          description: 'Maximum authentication age in seconds',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'max_age',
             in: 'query',
             required: false,
             description: 'Maximum authentication age in seconds',
             schema: ['type' => 'integer', 'example' => 3600],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['OAuth2'],
+        summary: 'Authorize Client',
+        description: 'Initiate the OAuth2 authorization code flow (PKCE required).',
+        security: [['bearerAuth' => []]],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_FOUND => new Response(
             description: 'Authorization code issued (redirect to redirect_uri).',
@@ -335,27 +416,44 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: CheckConsentOutput::class,
       provider: CheckConsentProvider::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CONSENT_READ]],
-      openapi: new Operation(
-        tags: ['OAuth2'],
-        summary: 'Check User Consent',
-        description: 'Check if the authenticated user has granted consent for a specific client and scopes.',
-        security: [['bearerAuth' => []]],
-        parameters: [
-          new Parameter(
+      parameters: [
+        'client_id' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid', 'example' => '01234567-89ab-cdef-0123-456789abcdef'],
+          description: 'The OAuth2 client identifier requesting authorization',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'client_id',
             in: 'query',
             required: true,
             description: 'The OAuth2 client identifier requesting authorization',
             schema: ['type' => 'string', 'format' => 'uuid', 'example' => '01234567-89ab-cdef-0123-456789abcdef'],
           ),
-          new Parameter(
+        ),
+        'scope' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'example' => 'openid profile email'],
+          description: 'Space-separated list of requested OAuth2 scopes',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'scope',
             in: 'query',
             required: false,
             description: 'Space-separated list of requested OAuth2 scopes',
             schema: ['type' => 'string', 'example' => 'openid profile email'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['OAuth2'],
+        summary: 'Check User Consent',
+        description: 'Check if the authenticated user has granted consent for a specific client and scopes.',
+        security: [['bearerAuth' => []]],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Consent check result',
@@ -420,40 +518,73 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         'json' => ['application/json'],
       ],
       provider: EndSessionProcessor::class,
-      openapi: new Operation(
-        tags: ['OAuth2'],
-        summary: 'End Session',
-        description: 'Terminate the current OpenID Connect session and optionally redirect to a client post-logout URI.',
-        parameters: [
-          new Parameter(
+      parameters: [
+        'id_token_hint' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'ID token previously issued by this server (optional)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'id_token_hint',
             in: 'query',
             required: false,
             description: 'ID token previously issued by this server (optional)',
             schema: ['type' => 'string'],
           ),
-          new Parameter(
+        ),
+        'post_logout_redirect_uri' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uri'],
+          description: 'Client post-logout redirect URI (must be registered)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'post_logout_redirect_uri',
             in: 'query',
             required: false,
             description: 'Client post-logout redirect URI (must be registered)',
             schema: ['type' => 'string', 'format' => 'uri'],
           ),
-          new Parameter(
+        ),
+        'client_id' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string', 'format' => 'uuid'],
+          description: 'OAuth2 client identifier (required when post_logout_redirect_uri is provided)',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'client_id',
             in: 'query',
             required: false,
             description: 'OAuth2 client identifier (required when post_logout_redirect_uri is provided)',
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
-          new Parameter(
+        ),
+        'state' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Opaque state value returned to the client after logout',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(
             name: 'state',
             in: 'query',
             required: false,
             description: 'Opaque state value returned to the client after logout',
             schema: ['type' => 'string'],
           ),
-        ],
+        ),
+      ],
+      openapi: new Operation(
+        tags: ['OAuth2'],
+        summary: 'End Session',
+        description: 'Terminate the current OpenID Connect session and optionally redirect to a client post-logout URI.',
+        parameters: [],
         responses: [
           HttpResponse::HTTP_FOUND => new Response(
             description: 'Redirect to the post_logout_redirect_uri.',

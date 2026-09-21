@@ -11,6 +11,8 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
+use function in_array;
+
 /**
  * UseCase ListChecklistsHandler.
  *
@@ -69,6 +71,8 @@ final readonly class ListChecklistsHandler implements QueryHandler
 
     $itemCounts = $this->checklistRepository->countItemsGroupedByChecklistId($organizationId, $checklistIds);
 
+    $referenced = $this->checklistRepository->referencedIds($organizationId, $checklistIds);
+
     $results = [];
 
     foreach ($checklists as $checklist) {
@@ -84,6 +88,8 @@ final readonly class ListChecklistsHandler implements QueryHandler
         createdAt: $checklist->createdAt(),
         updatedAt: $checklist->updatedAt(),
         referenceCode: $checklist->referenceCode(),
+        previousChecklistId: $checklist->previousChecklistId()?->__toString(),
+        itemsEditable: !$checklist->status()->isArchived() && !in_array((string) $checklist->id(), $referenced, true),
       );
     }
 

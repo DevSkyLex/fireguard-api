@@ -45,6 +45,7 @@ final readonly class GenerateAssistantReplyCommand implements CommandMessage
     public string $assistantMessageId,
     public ?string $model = null,
     public ?float $temperature = null,
+    public ?string $attemptId = null,
   ) {
   }
   // #endregion

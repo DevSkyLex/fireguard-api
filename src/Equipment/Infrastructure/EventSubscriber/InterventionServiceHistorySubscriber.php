@@ -8,6 +8,7 @@ use Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHis
 use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\DurableEventContextPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Throwable;
 
@@ -22,11 +23,9 @@ use Throwable;
  * change gains a completed, point-in-time service entry in its maintenance
  * log, dispatched through the command bus (sync — no async routing).
  *
- * Subscriber errors must never propagate: a failure here would otherwise
- * abort the whole published-event fan-out, breaking the audit ledger entry
- * emitted by the very same event, even though this service-history sync is
- * a best-effort side effect that can never fail or roll back the
- * publication itself.
+ * Durable delivery errors propagate for retry after publication has committed.
+ * The service log deduplicates each change. Legacy synchronous dispatches keep
+ * their best-effort error handling.
  *
  * @category Subscriber
  *
@@ -48,6 +47,7 @@ final readonly class InterventionServiceHistorySubscriber implements EventSubscr
   public function __construct(
     private CommandBusPort $commandBus,
     private LoggerInterface $logger,
+    private DurableEventContextPort $eventContext,
   ) {
   }
   // #endregion
@@ -89,6 +89,9 @@ final readonly class InterventionServiceHistorySubscriber implements EventSubscr
         'publication_id' => $event->publicationId,
         'error' => $exception->getMessage(),
       ]);
+      if (null !== $this->eventContext->eventId()) {
+        throw $exception;
+      }
     }
   }
 }

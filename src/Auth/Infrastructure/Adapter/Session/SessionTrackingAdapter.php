@@ -58,8 +58,8 @@ final readonly class SessionTrackingAdapter implements SessionTrackingPort
     ?string $currentAccessTokenId,
     string $newAccessTokenId,
     string $newRefreshTokenId,
-  ): void {
-    $this->sessionTracking->rotateSessionTokens(
+  ): bool {
+    return $this->sessionTracking->rotateSessionTokens(
       currentRefreshTokenId: $currentRefreshTokenId,
       currentAccessTokenId: $currentAccessTokenId,
       newAccessTokenId: $newAccessTokenId,

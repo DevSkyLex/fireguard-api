@@ -178,5 +178,14 @@ class ImportJobRecord
    */
   #[ORM\Column(name: 'completed_at', type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $completedAt = null;
+
+  #[ORM\Column(name: 'lease_owner', type: 'string', length: 36, nullable: true)]
+  public ?string $leaseOwner = null;
+
+  #[ORM\Column(name: 'lease_expires_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $leaseExpiresAt = null;
+
+  #[ORM\Column(name: 'confirmed_job_id', type: 'string', length: 36, nullable: true)]
+  public ?string $confirmedJobId = null;
   // #endregion
 }

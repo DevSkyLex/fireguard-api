@@ -73,7 +73,7 @@ final class MaintenanceScheduleServiceTest extends TestCase
       ->willReturn($existing);
 
     $directory = $this->createMock(MaintenanceEquipmentDirectoryPort::class);
-    $directory->expects(self::never())->method('findEquipment');
+    $directory->expects(self::once())->method('findEquipment')->willReturn(new TrackableEquipment(self::EQUIP_ID, self::ORG_ID, 'facility-1', 'fire_extinguisher', 'operational'));
 
     $compliancePolicy = $this->createStub(MaintenanceCompliancePolicyPort::class);
     $compliancePolicy->method('compliancePolicy')->willReturn(new MaintenanceCompliancePolicy(
@@ -90,6 +90,8 @@ final class MaintenanceScheduleServiceTest extends TestCase
       $compliancePolicy,
       new MaintenanceScheduleRecomputePolicy(),
       $clock,
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+      $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
     );
 
     $service->onInspectionClosed(self::ORG_ID, self::EQUIP_ID, $closedAt);
@@ -145,6 +147,8 @@ final class MaintenanceScheduleServiceTest extends TestCase
       $compliancePolicy,
       new MaintenanceScheduleRecomputePolicy(),
       $clock,
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+      $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
     );
 
     $service->onInspectionClosed(self::ORG_ID, self::EQUIP_ID, new DateTimeImmutable('2026-01-15T00:00:00+00:00'));
@@ -167,6 +171,8 @@ final class MaintenanceScheduleServiceTest extends TestCase
       $this->createStub(MaintenanceCompliancePolicyPort::class),
       new MaintenanceScheduleRecomputePolicy(),
       $this->createStub(ClockPort::class),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+      $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
     );
 
     $service->onInspectionClosed(self::ORG_ID, self::EQUIP_ID, new DateTimeImmutable());

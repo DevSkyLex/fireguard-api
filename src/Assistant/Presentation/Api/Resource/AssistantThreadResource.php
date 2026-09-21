@@ -6,10 +6,10 @@ namespace Assistant\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
-use Assistant\Presentation\Api\Dto\Input\{AskAssistantQuestionInput, StartAssistantThreadInput};
-use Assistant\Presentation\Api\Dto\Output\{AskAssistantQuestionOutput, AssistantThreadDetailOutput, AssistantThreadOutput, AssistantThreadSubscriptionOutput};
+use Assistant\Presentation\Api\Dto\Input\{AskAssistantQuestionInput, ControlAssistantAttemptInput, StartAssistantThreadInput};
+use Assistant\Presentation\Api\Dto\Output\{AskAssistantQuestionOutput, AssistantMessageOutput, AssistantThreadDetailOutput, AssistantThreadOutput, AssistantThreadSubscriptionOutput};
 use Assistant\Presentation\Api\Operation\AssistantOperations;
-use Assistant\Presentation\Api\Processor\{AskAssistantQuestionProcessor, StartAssistantThreadProcessor};
+use Assistant\Presentation\Api\Processor\{AskAssistantQuestionProcessor, ControlAssistantAttemptProcessor, StartAssistantThreadProcessor};
 use Assistant\Presentation\Api\Provider\{GetAssistantThreadProvider, GetAssistantThreadSubscriptionProvider, ListAssistantThreadsProvider};
 use Assistant\Presentation\Api\Serialization\AssistantSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -45,6 +45,35 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   routePrefix: '/organizations',
   description: 'Member-private AI-assistant chat threads.',
   operations: [
+    new Post(
+      name: 'assistant_cancel_generation',
+      uriTemplate: '/{organizationId}/assistant/threads/{threadId}/messages/{messageId}/cancel',
+      status: 200,
+      read: false,
+      strictQueryParameterValidation: true,
+      input: ControlAssistantAttemptInput::class,
+      output: AssistantMessageOutput::class,
+      processor: ControlAssistantAttemptProcessor::class,
+      denormalizationContext: ['groups' => [AssistantSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(tags: ['Assistant'], summary: 'Cancel the current generation attempt', responses: [200 => new Response(description: 'Current reply state'), 409 => new Response(description: 'Attempt changed or action unavailable')]),
+    ),
+    new Post(
+      name: 'assistant_retry_generation',
+      uriTemplate: '/{organizationId}/assistant/threads/{threadId}/messages/{messageId}/retry',
+      status: 200,
+      read: false,
+      strictQueryParameterValidation: true,
+      input: ControlAssistantAttemptInput::class,
+      output: AssistantMessageOutput::class,
+      processor: ControlAssistantAttemptProcessor::class,
+      denormalizationContext: ['groups' => [AssistantSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(tags: ['Assistant'], summary: 'Retry the current generation attempt', responses: [200 => new Response(description: 'Current reply state'), 409 => new Response(description: 'Attempt changed or action unavailable')]),
+    ),
+
     new GetCollection(
       name: AssistantOperations::LIST_ASSISTANT_THREADS,
       uriTemplate: '/{organizationId}/assistant/threads',

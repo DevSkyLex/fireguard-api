@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Facility\Application\UseCase\Command\Facility\RestoreFacility\{RestoreFacilityCommand, RestoreFacilityResult};
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -25,6 +26,7 @@ use function is_string;
 final readonly class RestoreFacilityProcessor implements ProcessorInterface
 {
   public function __construct(
+    private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
@@ -82,20 +84,7 @@ final readonly class RestoreFacilityProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    $output = new FacilityOutput();
-    $output->id = $result->facilityId;
-    $output->organizationId = $result->organizationId;
-    $output->parentFacilityId = $result->parentFacilityId;
-    $output->type = $result->type;
-    $output->name = $result->name;
-    $output->code = $result->code;
-    $output->status = $result->status;
-    $output->address = $result->address;
-    $output->metadata = $result->metadata;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->detail->read($organizationId, $result->facilityId);
   }
 
   private function findFacilityNotFoundException(Throwable $exception): ?FacilityNotFoundException

@@ -2,9 +2,18 @@
 
 ## Overview
 
+Durable event deliveries use an auth-owned consumer receipt, committed with the
+ledger append and hash-chain update. Replaying a delivery does not append another
+entry. Failures propagate to the outbox worker for retry; legacy synchronous
+events retain their existing best-effort behavior. No main/auth transaction is
+shared. Receipt history must remain for the lifetime of replayable messages.
+
 The Audit module records security and compliance events into an immutable, append-only ledger.
 It exposes read-only APIs for querying audit events with filters and pagination.
 The ledger uses hash chaining (prev_hash + payload hash) to detect tampering.
+The tenant filter applies to item, collection and total reads. A hidden or absent
+item raises `AuditEventNotFoundException`, mapped centrally to HTTP 404. A caller
+without `audit.read` remains forbidden regardless of tenant request headers.
 
 ## API Endpoints
 
@@ -385,3 +394,12 @@ whole map, so a future entry cannot quietly admit a prose or credential key.
 - `AuditExportTooLargeException` -> 422, export filters match more than
   `ExportAuditEventsHandler::MAX_EXPORT_ROWS` events; narrow the filters and
   retry
+
+Spatial facts record `facility.plan_geometry_changed` and `equipment.plan_position_changed`.
+Allowlisted metadata is operation (placed/moved/cleared), previous/current attachment id,
+revision and intervention id. The durable envelope supplies the initiating user id, with
+system fallback for legacy messages; no geometric coordinates enter this projection.
+
+Approval withdrawal consumes the public `ApprovalWithdrawnEvent` through the durable
+outbox, recording `approval.withdrawn` with its initiating actor. Free-form decision
+notes stay on the access-controlled approval resource, outside generic audit metadata.

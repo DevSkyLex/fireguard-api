@@ -13,7 +13,7 @@ use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use Auth\Domain\ValueObject\Security\SignInGrantType;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Throwable;
+use UnexpectedValueException;
 use User\Application\Port\Inbound\FederatedUserPort;
 
 use function array_filter;
@@ -126,11 +126,11 @@ final readonly class MfaVerifyHandler implements CommandHandler
     );
 
     $this->users->recordSignInMethod($userId, $grantType->method());
-    $this->recordSession($command, $userId, $tokens, $rememberMe);
+    $accessTokenId = $this->recordSession($command, $userId, $tokens, $rememberMe);
     $normalizedEmail = is_string($email) ? $email : '';
     $this->eventDispatcher->dispatch(new UserLoggedInEvent($userId, $normalizedEmail, $command->ipAddress));
     $this->eventDispatcher->dispatch(new TokenIssuedEvent(
-      tokenId: $tokens['access_token'],
+      tokenId: $accessTokenId,
       grantType: $grantType->value,
       clientId: 'user_session',
       userId: $userId,
@@ -160,9 +160,9 @@ final readonly class MfaVerifyHandler implements CommandHandler
    * @param string $userId the user ID
    * @param array{access_token: string, refresh_token: string, access_token_id?: string, refresh_token_id?: string} $tokens issued tokens
    *
-   * @return void no return value
+   * @return string the persisted access token identifier, suitable for audit
    */
-  private function recordSession(MfaVerifyCommand $command, string $userId, array $tokens, bool $rememberMe): void
+  private function recordSession(MfaVerifyCommand $command, string $userId, array $tokens, bool $rememberMe): string
   {
     $accessTokenId = $this->getTokenIdentifier($tokens, 'access_token_id');
     $refreshTokenId = $this->getTokenIdentifier($tokens, 'refresh_token_id');
@@ -178,18 +178,19 @@ final readonly class MfaVerifyHandler implements CommandHandler
     $ipAddress = $command->ipAddress ?? '127.0.0.1';
     $userAgent = $command->userAgent ?? 'unknown';
 
-    try {
-      $this->sessionTracking->recordSession(
-        userId: $userId,
-        ipAddress: $ipAddress,
-        userAgent: $userAgent,
-        accessTokenId: $accessTokenId,
-        refreshTokenId: $refreshTokenId,
-        rememberMe: $rememberMe,
-      );
-    } catch (Throwable) {
-      // Best-effort session tracking; MFA verification must not fail.
+    if (null === $accessTokenId || '' === $accessTokenId || null === $refreshTokenId || '' === $refreshTokenId) {
+      throw new UnexpectedValueException('Session token identifiers are required.');
     }
+    $this->sessionTracking->recordSession(
+      userId: $userId,
+      ipAddress: $ipAddress,
+      userAgent: $userAgent,
+      accessTokenId: $accessTokenId,
+      refreshTokenId: $refreshTokenId,
+      rememberMe: $rememberMe,
+    );
+
+    return $accessTokenId;
   }
 
   /**

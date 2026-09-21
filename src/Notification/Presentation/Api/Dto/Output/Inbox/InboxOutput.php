@@ -49,6 +49,20 @@ final class InboxOutput
   public ?string $nextCursor = null;
 
   /**
+   * Opaque composite cursor echoed unchanged as `cursor`; legacy nextCursor remains a date.
+   */
+  #[Groups([NotificationSerializationGroup::INBOX_READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $nextPageCursor = null;
+
+  /**
+   * False when a source is unavailable; retry this page instead of advancing its cursor.
+   */
+  #[Groups([NotificationSerializationGroup::INBOX_READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $complete = true;
+
+  /**
    * Property hasMore.
    *
    * True when a further page is likely available.

@@ -25,7 +25,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string CREATE = 'create';
+  public const string CREATE = 'oauth_client_create';
 
   /**
    * Constant GET.
@@ -36,7 +36,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string GET = 'get';
+  public const string GET = 'oauth_client_get';
 
   /**
    * Constant LIST.
@@ -47,7 +47,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string LIST = 'list';
+  public const string LIST = 'oauth_client_list';
 
   /**
    * Constant UPDATE.
@@ -58,7 +58,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string UPDATE = 'update';
+  public const string UPDATE = 'oauth_client_update';
 
   /**
    * Constant REGENERATE_SECRET.
@@ -69,7 +69,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string REGENERATE_SECRET = 'regenerate-secret';
+  public const string REGENERATE_SECRET = 'oauth_client_regenerate_secret';
 
   /**
    * Constant ACTIVATE.
@@ -80,7 +80,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string ACTIVATE = 'activate';
+  public const string ACTIVATE = 'oauth_client_activate';
 
   /**
    * Constant DEACTIVATE.
@@ -91,7 +91,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string DEACTIVATE = 'deactivate';
+  public const string DEACTIVATE = 'oauth_client_deactivate';
 
   /**
    * Constant DELETE.
@@ -102,7 +102,7 @@ final class ClientOperations
    *
    * @var string
    */
-  public const string DELETE = 'delete';
+  public const string DELETE = 'oauth_client_delete';
 
   /**
    * Constant ALL.

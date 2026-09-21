@@ -6,6 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationSlug, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
@@ -50,6 +51,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
     $this->repository = $this->entityManager->getRepository(OrganizationRecord::class);
   }
@@ -100,6 +102,10 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     $record = OrganizationMapper::toRecord($organization);
     $existing = $this->repository->find($record->id);
 
+    $accessChanged = !$existing instanceof OrganizationRecord
+      || $existing->status !== $record->status
+      || $existing->ownerUserId !== $record->ownerUserId;
+
     if ($existing instanceof OrganizationRecord) {
       $existing->name = $record->name;
       $existing->slug = $record->slug;
@@ -122,6 +128,9 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     }
 
     $this->entityManager->flush();
+    if ($accessChanged) {
+      $this->cacheInvalidator?->invalidateOrganization();
+    }
   }
 
   /**

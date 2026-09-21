@@ -42,7 +42,7 @@ final class ListApprovalRequestsHandlerTest extends TestCase
       ->with('user-1', self::ORG_ID, 'organization.approvals.read')
       ->willReturn(OrganizationAccessDecision::GRANTED);
 
-    $handler = new ListApprovalRequestsHandler(requests: $requests, authorization: $authorization);
+    $handler = new ListApprovalRequestsHandler(requests: $requests, authorization: $authorization, views: $this->views());
 
     $result = $handler(new ListApprovalRequestsQuery(self::ORG_ID, 'user-1', 'pending', 'nc_waiver', 1, 30));
 
@@ -108,6 +108,19 @@ final class ListApprovalRequestsHandlerTest extends TestCase
     );
   }
 
+  private function views(): \Approval\Application\Service\ApprovalRequestViewFactory
+  {
+    $clock = $this->createStub(\Shared\Application\Port\Outbound\ClockPort::class);
+    $clock->method('now')->willReturn(new DateTimeImmutable('2026-01-18T00:00:00Z'));
+
+    return new \Approval\Application\Service\ApprovalRequestViewFactory(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(\Approval\Application\Port\Outbound\ApprovalPolicyPort::class),
+      $this->createStub(\Approval\Application\Port\Outbound\ApprovalMemberDirectoryPort::class),
+      $clock,
+    );
+  }
+
   private function handler(
     ApprovalRequestRepositoryPort $requests,
     OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
@@ -118,6 +131,7 @@ final class ListApprovalRequestsHandlerTest extends TestCase
     return new ListApprovalRequestsHandler(
       requests: $requests,
       authorization: $authorization,
+      views: $this->views(),
     );
   }
 }

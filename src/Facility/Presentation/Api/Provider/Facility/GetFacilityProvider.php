@@ -7,13 +7,11 @@ namespace Facility\Presentation\Api\Provider\Facility;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityQuery, GetFacilityResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -36,9 +34,9 @@ final readonly class GetFacilityProvider implements ProviderInterface
 {
   // #region Constructor
   public function __construct(
-    private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private \Facility\Presentation\Api\Factory\FacilityDetailOutputFactory $detail,
   ) {
   }
   // #endregion
@@ -76,11 +74,7 @@ final readonly class GetFacilityProvider implements ProviderInterface
     }
 
     try {
-      /** @var GetFacilityResult $result */
-      $result = $this->queryBus->ask(new GetFacilityQuery(
-        organizationId: $organizationId,
-        facilityId: $facilityId,
-      ));
+      return $this->detail->read($organizationId, $facilityId);
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
@@ -99,27 +93,6 @@ final readonly class GetFacilityProvider implements ProviderInterface
       throw $exception;
     }
 
-    $output = new FacilityOutput();
-    $output->id = $result->facilityId;
-    $output->organizationId = $result->organizationId;
-    $output->parentFacilityId = $result->parentFacilityId;
-    $output->hasChildren = $result->hasChildren;
-    $output->equipmentCount = $result->equipmentCount;
-    $output->type = $result->type;
-    $output->name = $result->name;
-    $output->code = $result->code;
-    $output->status = $result->status;
-    $output->address = $result->address;
-    $output->latitude = $result->latitude;
-    $output->longitude = $result->longitude;
-    $output->metadata = $result->metadata;
-    $output->levelIndex = $result->levelIndex;
-    $output->planGeometry = $result->planGeometry;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-    $output->path = $result->path;
-
-    return $output;
   }
 
   /**

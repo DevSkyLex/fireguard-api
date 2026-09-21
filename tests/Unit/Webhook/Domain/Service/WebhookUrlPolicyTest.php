@@ -84,6 +84,9 @@ final class WebhookUrlPolicyTest extends TestCase
     yield 'private class B' => ['172.16.0.5'];
     yield 'private class C' => ['192.168.1.5'];
     yield 'link-local / cloud metadata' => ['169.254.169.254'];
+    yield 'IPv6 loopback' => ['[::1]'];
+    yield 'IPv6 unique local' => ['[fd00::1]'];
+    yield 'IPv6 link local' => ['[fe80::1]'];
   }
 
   #[Test]

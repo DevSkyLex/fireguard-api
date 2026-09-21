@@ -35,6 +35,218 @@ final class ImportJobApiTest extends WebTestCase
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
   #[Test]
+  public function testConfirmationReusesRetainedSimulationAndRechecksReferencesAtExecution(): void
+  {
+    $client = static::createClient();
+    $client->disableReboot();
+    $org = '550e8400-e29b-41d4-a716-446655480310';
+    $actor = '550e8400-e29b-41d4-a716-446655480311';
+    $id = '550e8400-e29b-41d4-a716-446655480312';
+    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
+    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    $files = $this->createStub(\Shared\Application\Port\Outbound\FileStoragePort::class);
+    $files->method('exists')->willReturn(true);
+    // The parent resolved during simulation has since disappeared; the real run must validate it again.
+    $files->method('read')->willReturn("type,name,parentCode\nbuilding,Child,REMOVED-PARENT\n");
+    static::getContainer()->set(\Shared\Application\Port\Outbound\FileStoragePort::class, $files);
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $em);
+    $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
+    $em->flush();
+    $source = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::FACILITY, 'retained.csv', 'facilities.csv', $actor, true);
+    $source->markProcessing(new DateTimeImmutable());
+    $source->setTotalRows(1);
+    $source->recordRowSuccess();
+    $source->complete(new DateTimeImmutable());
+    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $jobs);
+    $jobs->save($source);
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $actor, $actor . '@corp.example'));
+    $client->request('GET', '/api/imports/' . $id);
+    self::assertResponseIsSuccessful();
+    $before = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($before);
+    self::assertTrue($before['canConfirm']);
+    $client->request('POST', '/api/imports/' . $id . '/confirm');
+    self::assertResponseStatusCodeSame(202);
+    $first = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($first);
+    self::assertIsString($first['id']);
+    self::assertFalse($first['dryRun']);
+    $client->request('POST', '/api/imports/' . $id . '/confirm');
+    self::assertResponseStatusCodeSame(202);
+    $second = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($second);
+    self::assertSame($first['id'], $second['id']);
+    $client->request('GET', '/api/imports/' . $id);
+    self::assertResponseIsSuccessful();
+    $after = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($after);
+    self::assertFalse($after['canConfirm']);
+    self::assertSame($first['id'], $after['confirmedJobId']);
+    $worker = static::getContainer()->get(ProcessImportJobHandler::class);
+    self::assertInstanceOf(ProcessImportJobHandler::class, $worker);
+    $worker(new ProcessImportJobCommand($first['id']));
+    $client->request('GET', '/api/imports/' . $first['id']);
+    self::assertResponseIsSuccessful();
+    $report = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($report);
+    self::assertSame('completed', $report['status']);
+    self::assertSame(0, $report['successfulRows']);
+    self::assertSame(1, $report['failedRows']);
+  }
+
+  #[Test]
+  #[\PHPUnit\Framework\Attributes\DataProvider('confirmationDenials')]
+  public function testConfirmationDenialAndScope(string $access, int $status): void
+  {
+    $client = static::createClient();
+    $org = '550e8400-e29b-41d4-a716-446655480320';
+    $actor = '550e8400-e29b-41d4-a716-446655480321';
+    $other = '550e8400-e29b-41d4-a716-446655480322';
+    $id = '550e8400-e29b-41d4-a716-446655480323';
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $em);
+    $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
+    if ('reader' === $access) {
+      $this->seedMemberWithPermissions($em, $org, $other, ['organization.facilities.read']);
+    }
+    $em->flush();
+    $job = \Import\Domain\Model\ImportJob\ImportJob::create(\Import\Domain\ValueObject\ImportJobId::fromString($id), $org, \Import\Domain\ValueObject\ImportKind::FACILITY, 'retained.csv', 'facilities.csv', $actor, true);
+    $jobs = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $jobs);
+    $jobs->save($job);
+    $client->loginUser($this->securityUser('owner' === $access ? $actor : $other), 'api');
+    $client->request('POST', '/api/imports/' . $id . '/confirm');
+    self::assertResponseStatusCodeSame($status);
+  }
+
+  /**
+   * @return iterable<string, array{string, int}>
+   */
+  public static function confirmationDenials(): iterable
+  {
+    yield 'unfinished simulation' => ['owner', 409];
+    yield 'write removed' => ['reader', 403];
+    yield 'outside scope' => ['outsider', 404];
+  }
+
+  #[Test]
+  #[\PHPUnit\Framework\Attributes\DataProvider('templateAccess')]
+  public function testCsvTemplateUsesCurrentWritePermission(string $kind, bool $write, int $status): void
+  {
+    $client = static::createClient();
+    $org = '550e8400-e29b-41d4-a716-446655480330';
+    $actor = '550e8400-e29b-41d4-a716-446655480331';
+    $reader = '550e8400-e29b-41d4-a716-446655480332';
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $em);
+    $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
+    $this->seedMemberWithPermissions($em, $org, $reader, ['organization.facilities.read']);
+    $em->flush();
+    $client->loginUser($this->securityUser($write ? $actor : $reader), 'api');
+    $client->request('GET', '/api/organizations/' . $org . '/import-templates/' . $kind);
+    self::assertResponseStatusCodeSame($status);
+    if (200 === $status) {
+      $body = json_decode($client->getResponse()->getContent() ?: '{}', true);
+      self::assertIsArray($body);
+      self::assertSame('fireguard-' . $kind . '-template.csv', $body['filename']);
+      self::assertIsString($body['content']);
+      self::assertStringEndsWith("\r\n", $body['content']);
+      self::assertSame('text/csv;charset=utf-8', $body['mediaType']);
+    }
+  }
+
+  /**
+   * @return iterable<string, array{string, bool, int}>
+   */
+  public static function templateAccess(): iterable
+  {
+    foreach (['facility', 'equipment', 'member'] as $kind) {
+      yield $kind => [$kind, true, 200];
+    }
+    yield 'read only' => ['facility', false, 403];
+    yield 'unknown kind' => ['unknown', true, 404];
+  }
+
+  #[Test]
+  public function testResumeRetainsConfirmedRowsAndRejectsALiveWorkerOrAnOutsider(): void
+  {
+    $client = static::createClient();
+    $client->disableReboot();
+    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
+    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    $org = '550e8400-e29b-41d4-a716-446655480290';
+    $actor = '550e8400-e29b-41d4-a716-446655480291';
+    $id = '550e8400-e29b-41d4-a716-446655480292';
+    $em = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $em);
+    $this->seedFullAccessOrganization($em, $org, $actor, new DateTimeImmutable());
+    $em->flush();
+    $job = \Import\Domain\Model\ImportJob\ImportJob::create(
+      \Import\Domain\ValueObject\ImportJobId::fromString($id),
+      $org,
+      \Import\Domain\ValueObject\ImportKind::FACILITY,
+      'retained.csv',
+      'retained.csv',
+      $actor,
+    );
+    $job->markProcessing(new DateTimeImmutable());
+    $job->setTotalRows(2);
+    $job->recordRowSuccess();
+    $job->fail('Storage unavailable', new DateTimeImmutable());
+    $repository = static::getContainer()->get(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class);
+    self::assertInstanceOf(\Import\Application\Port\Outbound\ImportJobRepositoryPort::class, $repository);
+    $repository->save($job);
+    $tokens = static::getContainer()->get(\Auth\Application\Port\Outbound\JwtTokenServicePort::class);
+    self::assertInstanceOf(\Auth\Application\Port\Outbound\JwtTokenServicePort::class, $tokens);
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $actor, $actor . '@corp.example'));
+    $client->loginUser($this->securityUser($actor), 'api');
+    $client->request('GET', '/api/imports/' . $id, server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseIsSuccessful();
+    $body = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    self::assertTrue($body['canResume']);
+    $client->loginUser($this->securityUser($actor), 'api');
+    $client->request('POST', '/api/imports/' . $id . '/resume', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(202);
+    $body = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    self::assertSame($id, $body['id']);
+    self::assertSame('pending', $body['status']);
+    self::assertSame(1, $body['processedRows']);
+    self::assertSame(1, $body['successfulRows']);
+    self::assertNull($body['jobError']);
+    $transport = static::getContainer()->get('messenger.transport.main_outbox');
+    self::assertInstanceOf(\Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport::class, $transport);
+    $messages = $transport->getSent();
+    self::assertCount(1, $messages);
+    self::assertInstanceOf(ProcessImportJobCommand::class, $messages[0]->getMessage());
+    self::assertSame($actor, $messages[0]->getMessage()->requestedBy);
+
+    $connection = static::getContainer()->get('doctrine.dbal.main_connection');
+    self::assertInstanceOf(\Doctrine\DBAL\Connection::class, $connection);
+    $connection->executeStatement(
+      "UPDATE import_jobs SET status = 'processing', lease_owner = :owner, lease_expires_at = clock_timestamp() + INTERVAL '2 minutes' WHERE id = :id",
+      ['owner' => $actor, 'id' => $id],
+    );
+    $client->loginUser($this->securityUser($actor), 'api');
+    $client->request('POST', '/api/imports/' . $id . '/resume', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(409);
+    $client->loginUser($this->securityUser($actor), 'api');
+    $client->request('GET', '/api/imports/' . $id, server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    $body = json_decode($client->getResponse()->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    self::assertFalse($body['canResume']);
+    $client->loginUser($this->securityUser(self::DUMMY_UUID), 'api');
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), self::DUMMY_UUID, 'outsider@corp.example'));
+    $client->request('POST', '/api/imports/' . $id . '/resume', server: ['HTTP_ACCEPT' => 'application/ld+json']);
+    self::assertResponseStatusCodeSame(404);
+  }
+
+  #[Test]
   public function testCreateImportJobRequiresAuthentication(): void
   {
     $client = static::createClient();

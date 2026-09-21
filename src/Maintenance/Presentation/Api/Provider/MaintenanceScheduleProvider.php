@@ -9,8 +9,6 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateTimeImmutable;
-use Exception;
 use Maintenance\Application\UseCase\Query\Schedule\GetMaintenanceSchedule\{GetMaintenanceScheduleQuery, GetMaintenanceScheduleResult};
 use Maintenance\Application\UseCase\Query\Schedule\ListMaintenanceSchedules\{ListMaintenanceSchedulesQuery, ListMaintenanceSchedulesResult};
 use Maintenance\Presentation\Api\Factory\MaintenanceScheduleOutputFactory;
@@ -86,18 +84,18 @@ final readonly class MaintenanceScheduleProvider implements ProviderInterface
       return $this->mapper->fromView($result->schedule);
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $organization = $query?->get('organization');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }
 
-    $facility = $query?->get('facility');
-    $equipmentType = $query?->get('equipmentType');
-    $dueStatus = $query?->get('dueStatus');
-    $dueBefore = $this->parseOptionalDate($query?->get('dueBefore'));
-    $page = max(1, $query?->getInt('page', 1) ?? 1);
-    $itemsPerPage = max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30));
+    $facility = $query->get('facility');
+    $equipmentType = $query->get('equipmentType');
+    $dueStatus = $query->get('dueStatus');
+    $dueBefore = \Maintenance\Presentation\Api\Service\MaintenanceScheduleExportCriteriaFactory::parseDueBefore($query->get('dueBefore'));
+    $page = max(1, $query->getInt('page', 1));
+    $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
     try {
       /** @var ListMaintenanceSchedulesResult $result */
@@ -121,28 +119,6 @@ final readonly class MaintenanceScheduleProvider implements ProviderInterface
       (float) $result->page->itemsPerPage,
       (float) $result->page->total,
     );
-  }
-
-  /**
-   * Method parseOptionalDate.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $value the raw query value
-   *
-   * @return ?DateTimeImmutable the parsed date, or null
-   */
-  private function parseOptionalDate(mixed $value): ?DateTimeImmutable
-  {
-    if (!is_string($value) || '' === $value) {
-      return null;
-    }
-
-    try {
-      return new DateTimeImmutable($value);
-    } catch (Exception $exception) {
-      throw new BadRequestHttpException('Invalid "dueBefore" filter.', $exception);
-    }
   }
 
   /**

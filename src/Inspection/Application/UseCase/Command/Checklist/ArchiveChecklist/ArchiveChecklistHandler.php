@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Checklist\ArchiveChecklist;
 
-use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Application\Port\Outbound\{ChecklistLockPort, ChecklistRepositoryPort};
 use Inspection\Domain\Exception\ChecklistNotFoundException;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Shared\Application\Message\CommandHandler;
@@ -22,6 +22,7 @@ final readonly class ArchiveChecklistHandler implements CommandHandler
 {
   // #region Constructor
   public function __construct(
+    private ChecklistLockPort $locks,
     private ChecklistRepositoryPort $checklistRepository,
   ) {
   }
@@ -34,6 +35,11 @@ final readonly class ArchiveChecklistHandler implements CommandHandler
    * @since 1.0.0
    */
   public function __invoke(ArchiveChecklistCommand $command): ArchiveChecklistResult
+  {
+    return $this->locks->withLock($command->organizationId, $command->checklistId, fn (): ArchiveChecklistResult => $this->execute($command));
+  }
+
+  private function execute(ArchiveChecklistCommand $command): ArchiveChecklistResult
   {
     $checklistId = ChecklistId::fromString($command->checklistId);
     $organizationId = ChecklistOrganizationId::fromString($command->organizationId);

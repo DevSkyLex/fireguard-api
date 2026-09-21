@@ -23,5 +23,7 @@ final class ApprovalOperations
 
   public const string REJECT_APPROVAL_REQUEST = 'rejectApprovalRequest';
 
+  public const string WITHDRAW_APPROVAL_REQUEST = 'withdrawApprovalRequest';
+
   public const string LIST_APPROVAL_ACTION_TYPES = 'listApprovalActionTypes';
 }

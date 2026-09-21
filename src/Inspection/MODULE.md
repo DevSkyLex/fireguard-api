@@ -2,6 +2,11 @@
 
 ## Overview
 
+Recording a non-conformity commits its row and domain event in the same main
+transaction. The durable event subsequently drives audit, webhook and automation
+consumers. A queue write failure rolls back creation; subscriber failures retry
+without reversing the already committed non-conformity.
+
 Inspection manages the fire safety inspection lifecycle for an organization. It
 covers three sub-domains: reusable checklist templates, actual inspection records
 performed on equipment items, and non-conformity tracking for deficiencies found
@@ -141,6 +146,21 @@ query requires the `organizationId` up front, and the resolveAccess-before-
 load ordering depends on it.
 
 ### Checklists
+
+Checklist outputs expose actor-authorized `canEditMetadata`, `canEditItems` and
+`canCreateRevision`. Active templates retain editable names and reference codes;
+any inspection reference, including a draft, freezes their items. Archived templates
+cannot be edited. Item edits, archival and inspection assignment share a main
+transaction advisory lock and re-read current state after acquiring it.
+
+`POST .../checklists` accepts `previousChecklistId` to create a distinct linked
+revision in the same organization, with a different version label. Existing
+inspections keep their checklist and item identifiers. Reference codes stay unique
+per organization across all revisions. The predecessor is never implicitly archived,
+renamed or rewritten. Lists resolve reference usage in a single bounded query and
+keep the existing count-only item contract. Mutation processors own their resource
+read; framework automatic reads are disabled on PATCH/archive.
+
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -1225,3 +1245,8 @@ and reachable on its own; only which of the two failures wins moved.
   of the request shape, not of domain state
 - `OrganizationAccessDeniedException` (raised by `ApprovalGate` on the gated
   waiver path) → 403
+
+Maintenance can recover a missed closure synchronization through its published
+`MaintenanceInspectionHistoryPort`, implemented here. Only closed, published inspections
+within the requested organization/equipment scope contribute; closure time uses the same
+immutable `updatedAt` instant passed by CloseInspection. Draft inspections are excluded.

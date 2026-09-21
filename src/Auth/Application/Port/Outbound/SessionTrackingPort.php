@@ -49,7 +49,7 @@ interface SessionTrackingPort
     ?string $currentAccessTokenId,
     string $newAccessTokenId,
     string $newRefreshTokenId,
-  ): void;
+  ): bool;
 
   /**
    * Revokes a session using token identifiers.

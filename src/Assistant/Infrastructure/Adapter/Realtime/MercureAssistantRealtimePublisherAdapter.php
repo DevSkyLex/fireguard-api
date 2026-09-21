@@ -55,6 +55,10 @@ final readonly class MercureAssistantRealtimePublisherAdapter implements Assista
     string $body,
     ?int $tokenCount = null,
     ?string $errorCode = null,
+    ?string $attemptId = null,
+    int $attemptNumber = 0,
+    int $attemptSequence = 0,
+    ?string $attemptExpiresAt = null,
   ): void {
     $update = new Update(
       topics: [self::topic($organizationId, $threadId)],
@@ -64,6 +68,10 @@ final readonly class MercureAssistantRealtimePublisherAdapter implements Assista
         'body' => $body,
         'tokenCount' => $tokenCount,
         'errorCode' => $errorCode,
+        'attemptId' => $attemptId,
+        'attemptNumber' => $attemptNumber,
+        'attemptSequence' => $attemptSequence,
+        'attemptExpiresAt' => $attemptExpiresAt,
       ], JSON_THROW_ON_ERROR),
       private: true,
     );

@@ -56,10 +56,27 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'isArchived', in: 'query', description: 'Archived-flag filter.', required: false, schema: ['type' => 'boolean']),
-      ]),
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Organization IRI.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        ),
+        'isArchived' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'boolean'],
+          description: 'Archived-flag filter.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'isArchived', in: 'query', description: 'Archived-flag filter.', required: false, schema: ['type' => 'boolean']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
   ],
 )]

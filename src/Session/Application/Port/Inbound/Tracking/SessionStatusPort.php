@@ -18,15 +18,18 @@ namespace Session\Application\Port\Inbound\Tracking;
  */
 interface SessionStatusPort
 {
+  /**
+   * Resolve only a current, non-revoked token belonging to the signed subject.
+   */
+  public function activeSessionId(string $accessTokenId, string $userId): ?string;
+
   // #region Methods
   /**
    * Method isAccessTokenRevoked.
    *
    * Answers true only when a session is found for this access token AND that
-   * session has been revoked. An untracked token answers false: session
-   * recording is best-effort at every issuance site, so treating an absent row
-   * as a revocation would turn a transient tracking failure into a lockout
-   * lasting the whole token lifetime.
+   * session has been revoked. An untracked token answers false. This historical
+   * diagnostic is not an authorization check: authentication requires activeSessionId.
    *
    * @since 1.0.0
    *

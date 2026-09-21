@@ -13,6 +13,8 @@ compliance:
     organization: "Organization report"
     facility: "Facility report"
   meta:
+    evaluatedAt: "Oldest evaluation"
+    unevaluated: "Equipment not yet evaluated"
     generatedAt: "Generated on"
     organization: "Organization"
     facility: "Facility"
@@ -39,7 +41,7 @@ compliance:
     equipment: "Equipment (up-to-date / due soon / overdue / unscheduled)"
     openNonConformities: "Open NC (low/med/high/critical)"
     lastInspection: "Last inspection"
-  note: "Data as of %date%. Equipment due status is refreshed by the hourly maintenance sweep and may be up to one hour stale. This document is a point-in-time snapshot and is not stored; regenerate it at any time from the live compliance register."
+  note: "Register generated on %date%. Evaluation freshness and equipment awaiting evaluation are shown separately. The live register can change; archived registers preserve their original document."
 
 intervention:
   title: "Intervention report — FG-%number%"

@@ -107,4 +107,9 @@ final class MaintenanceScheduleOutput
    * @since 1.0.0
    */
   public string $updatedAt = '';
+
+  /**
+   * Last successful evaluation of the policy and current equipment data.
+   */
+  public ?string $evaluatedAt = null;
 }

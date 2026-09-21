@@ -7,15 +7,12 @@ namespace Equipment\Presentation\Api\Provider\Equipment;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentQuery, GetEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
-use Equipment\Presentation\Api\Factory\EquipmentOutputFactory;
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
@@ -38,10 +35,9 @@ final readonly class GetEquipmentProvider implements ProviderInterface
 
   // #region Constructor
   public function __construct(
-    private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private EquipmentOutputFactory $outputFactory,
+    private \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory $detail,
   ) {
   }
   // #endregion
@@ -79,11 +75,7 @@ final readonly class GetEquipmentProvider implements ProviderInterface
     }
 
     try {
-      /** @var GetEquipmentResult $result */
-      $result = $this->queryBus->ask(new GetEquipmentQuery(
-        organizationId: $organizationId,
-        equipmentId: $equipmentId,
-      ));
+      return $this->detail->read($organizationId, $equipmentId);
     } catch (EquipmentNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
@@ -102,7 +94,6 @@ final readonly class GetEquipmentProvider implements ProviderInterface
       throw $exception;
     }
 
-    return $this->outputFactory->fromView($result);
   }
 
   // #endregion

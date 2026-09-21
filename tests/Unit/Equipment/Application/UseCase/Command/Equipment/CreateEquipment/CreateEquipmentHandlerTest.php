@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort, FacilityValidationPort};
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
+use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\EquipmentId;
+use InvalidArgumentException;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -222,6 +224,45 @@ final class CreateEquipmentHandlerTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655440905', $result->equipmentId);
   }
 
+  #[Test]
+  public function itPersistsTheFacilityAssignmentWithCreation(): void
+  {
+    $facilityId = '550e8400-e29b-41d4-a716-446655440990';
+    $organizationId = '550e8400-e29b-41d4-a716-446655440981';
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->with(self::callback(
+      static fn (Equipment $equipment): bool => (string) $equipment->facilityId() === $facilityId,
+    ));
+    $validation = $this->createMock(FacilityValidationPort::class);
+    $validation->expects(self::once())->method('assertFacilityIsAssignable')->with($facilityId, $organizationId);
+
+    $result = ($this->handler($repository, $this->createStub(UuidFactory::class), facilityValidation: $validation))(new CreateEquipmentCommand(
+      organizationId: $organizationId,
+      type: 'fire_extinguisher',
+      resourceId: '550e8400-e29b-41d4-a716-446655440905',
+      facilityId: $facilityId,
+    ));
+
+    self::assertSame($facilityId, $result->facilityId);
+  }
+
+  #[Test]
+  public function itNeverPersistsEquipmentWhenItsFacilityIsNoLongerAssignable(): void
+  {
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+    $validation = $this->createStub(FacilityValidationPort::class);
+    $validation->method('assertFacilityIsAssignable')->willThrowException(new InvalidArgumentException('Facility is archived.'));
+    $this->expectException(InvalidArgumentException::class);
+
+    ($this->handler($repository, $this->createStub(UuidFactory::class), facilityValidation: $validation))(new CreateEquipmentCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655440981',
+      type: 'fire_extinguisher',
+      resourceId: '550e8400-e29b-41d4-a716-446655440905',
+      facilityId: '550e8400-e29b-41d4-a716-446655440990',
+    ));
+  }
+
   /**
    * Builds the handler with a pass-through transaction manager (invokes the
    * operation inline) and a permissive quota port unless one is supplied.
@@ -230,6 +271,7 @@ final class CreateEquipmentHandlerTest extends TestCase
     EquipmentRepositoryPort $repository,
     UuidFactory $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
+    ?FacilityValidationPort $facilityValidation = null,
   ): CreateEquipmentHandler {
     $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')->willReturnCallback(
@@ -242,6 +284,7 @@ final class CreateEquipmentHandlerTest extends TestCase
       uuidFactory: $uuidFactory,
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
       transactionManager: $transactionManager,
+      facilityValidation: $facilityValidation,
     );
   }
 }

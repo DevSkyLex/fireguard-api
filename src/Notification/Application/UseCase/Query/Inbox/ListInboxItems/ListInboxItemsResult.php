@@ -32,6 +32,8 @@ final readonly class ListInboxItemsResult implements ResultMessage
     public array $items,
     public ?string $nextCursor,
     public bool $hasMore,
+    public ?string $nextPageCursor = null,
+    public bool $complete = true,
   ) {
   }
   // #endregion

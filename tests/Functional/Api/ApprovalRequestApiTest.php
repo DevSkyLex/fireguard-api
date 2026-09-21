@@ -9,11 +9,15 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 use function json_decode;
+use function json_encode;
+use function str_repeat;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Test ApprovalRequestApiTest.
@@ -211,6 +215,8 @@ final class ApprovalRequestApiTest extends WebTestCase
     self::assertSame('equipment_decommission', $decoded['actionType'] ?? null);
     self::assertSame('pending', $decoded['status'] ?? null);
     self::assertSame(self::REQUESTER_MEMBER_ID, $decoded['requestedByMemberId'] ?? null);
+    self::assertSame([], $decoded['allowedActions'] ?? null);
+    self::assertSame('approval_permission_required', $decoded['decisionBlockReason'] ?? null);
   }
 
   #[Test]
@@ -313,6 +319,7 @@ final class ApprovalRequestApiTest extends WebTestCase
       actual: $client->getResponse()->getStatusCode(),
       message: 'A decider below the policy minApproverRole must be denied. Response: ' . $client->getResponse()->getContent(),
     );
+    $this->assertProblemCode($client, 'approval_role_required');
   }
 
   #[Test]
@@ -343,6 +350,7 @@ final class ApprovalRequestApiTest extends WebTestCase
       actual: $client->getResponse()->getStatusCode(),
       message: 'The requester must not decide on their own request. Response: ' . $client->getResponse()->getContent(),
     );
+    $this->assertProblemCode($client, 'approval_self_decision_forbidden');
   }
 
   #[Test]
@@ -421,6 +429,7 @@ final class ApprovalRequestApiTest extends WebTestCase
       actual: $client->getResponse()->getStatusCode(),
       message: 'A second decision on a decided request is a conflict. Response: ' . $client->getResponse()->getContent(),
     );
+    $this->assertProblemCode($client, 'approval_not_pending');
   }
 
   #[Test]
@@ -452,6 +461,7 @@ final class ApprovalRequestApiTest extends WebTestCase
       actual: $client->getResponse()->getStatusCode(),
       message: 'A deferred action that no longer applies is a conflict. Response: ' . $client->getResponse()->getContent(),
     );
+    $this->assertProblemCode($client, 'approval_subject_changed');
 
     // An approved-but-unapplied request must never exist: the request is
     // cancelled instead, with the reason recorded.
@@ -493,12 +503,155 @@ final class ApprovalRequestApiTest extends WebTestCase
   }
   // #endregion
 
+  #[Test]
+  public function requesterMayWithdrawAndKeepsTheRecordedHistory(): void
+  {
+    $client = static::createClient();
+    $this->authenticateRequests($client, self::ADMIN_USER_ID);
+    $this->seed();
+    // ADMIN is the author of SELF_REQUEST and may not approve it: withdrawal is independent.
+    $this->loginAs($client, self::ADMIN_USER_ID, 'approval-admin@example.com');
+    $path = '/api/organizations/' . self::ORGANIZATION_ID . '/approval-requests/' . self::SELF_REQUEST_ID;
+    $client->request('GET', $path);
+    self::assertResponseIsSuccessful();
+    $body = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($body);
+    self::assertSame(['withdraw'], $body['allowedActions']);
+    $this->loginAs($client, self::ADMIN_USER_ID, 'approval-admin@example.com');
+    $client->request('POST', $path . '/withdraw', server: ['CONTENT_TYPE' => 'application/ld+json'], content: '{"decisionNote":"Request entered twice"}');
+    self::assertResponseStatusCodeSame(200);
+    $body = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($body);
+    self::assertSame('withdrawn', $body['status']);
+    self::assertSame(self::ADMIN_USER_ID, $body['decisionByUserId']);
+    self::assertSame(self::ADMIN_MEMBER_ID, $body['decisionByMemberId']);
+    self::assertSame('Request entered twice', $body['decisionNote']);
+    self::assertNotEmpty($body['decidedAt']);
+    self::assertSame([], $body['allowedActions']);
+    self::assertArrayNotHasKey('executedAt', $body);
+    $this->loginAs($client, self::ADMIN_USER_ID, 'approval-admin@example.com');
+    $client->request('GET', $path);
+    self::assertResponseIsSuccessful();
+    $body = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($body);
+    self::assertSame('withdrawn', $body['status']);
+    $this->loginAs($client, self::ADMIN_USER_ID, 'approval-admin@example.com');
+    $this->postDecision($client, self::SELF_REQUEST_ID, 'withdraw');
+    self::assertResponseStatusCodeSame(409);
+    $this->assertProblemCode($client, 'approval_not_pending');
+  }
+
+  #[Test]
+  public function requesterDoesNotNeedDecidePermissionToWithdraw(): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->loginAs($client, self::REQUESTER_USER_ID, 'approval-requester@example.com');
+    $this->postDecision($client, self::PENDING_REQUEST_ID, 'withdraw');
+    self::assertResponseStatusCodeSame(200);
+  }
+
+  #[Test]
+  #[DataProvider('withdrawalDenials')]
+  public function withdrawalRejectsOtherMembersAndHidesOtherScopes(string $userId, string $requestId, int $status, string $code): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->loginAs($client, $userId, 'approval-user@example.com');
+    $this->postDecision($client, $requestId, 'withdraw');
+    self::assertResponseStatusCodeSame($status);
+    $this->assertProblemCode($client, $code);
+  }
+
+  /**
+   * @return iterable<string, array{string, string, int, string}>
+   */
+  public static function withdrawalDenials(): iterable
+  {
+    yield 'other admin' => [self::ADMIN_USER_ID, self::PENDING_REQUEST_ID, 403, 'approval_withdrawal_forbidden'];
+    yield 'outsider' => [self::OUTSIDER_USER_ID, self::PENDING_REQUEST_ID, 404, 'approval_not_found'];
+    yield 'other organization path' => [self::ADMIN_USER_ID, self::OUTSIDER_REQUEST_ID, 404, 'approval_not_found'];
+    yield 'unknown id' => [self::ADMIN_USER_ID, self::DUMMY_UUID, 404, 'approval_not_found'];
+  }
+
+  #[Test]
+  public function withdrawalValidatesReasonAndUnknownQueryParameters(): void
+  {
+    $client = static::createClient();
+    $this->authenticateRequests($client, self::REQUESTER_USER_ID);
+    $this->seed();
+    $this->loginAs($client, self::REQUESTER_USER_ID, 'approval-requester@example.com');
+    $path = '/api/organizations/' . self::ORGANIZATION_ID . '/approval-requests/' . self::PENDING_REQUEST_ID . '/withdraw';
+    $client->request('POST', $path, server: ['CONTENT_TYPE' => 'application/ld+json'], content: json_encode(['decisionNote' => str_repeat('x', 2001)], JSON_THROW_ON_ERROR));
+    self::assertResponseStatusCodeSame(422);
+    $this->loginAs($client, self::REQUESTER_USER_ID, 'approval-requester@example.com');
+    $client->request('POST', $path . '?unknown=1', server: ['CONTENT_TYPE' => 'application/ld+json'], content: '{}');
+    self::assertResponseStatusCodeSame(400);
+  }
+
   // #region Helpers
+  #[Test]
+  #[DataProvider('decisionNames')]
+  public function expiresTheRequestBeforeReturningAConflict(string $decision): void
+  {
+    $client = static::createClient();
+    $this->seed();
+    $this->loginAs($client, 'withdraw' === $decision ? self::REQUESTER_USER_ID : self::ADMIN_USER_ID, 'approval-admin@example.com');
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $entityManager->getConnection()->executeStatement(
+      'UPDATE approval_requests SET expires_at = :deadline WHERE id = :id',
+      ['deadline' => '2000-01-01 00:00:00', 'id' => self::PENDING_REQUEST_ID],
+    );
+
+    $this->postDecision($client, self::PENDING_REQUEST_ID, $decision);
+
+    self::assertSame(409, $client->getResponse()->getStatusCode(), (string) $client->getResponse()->getContent());
+    /** @var EntityManagerInterface $currentManager */
+    $currentManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertSame('expired', $currentManager->getConnection()->fetchOne(
+      'SELECT status FROM approval_requests WHERE id = :id',
+      ['id' => self::PENDING_REQUEST_ID],
+    ));
+  }
+
+  /**
+   * Method decisionNames.
+   *
+   * @return iterable<string, array{string}>
+   */
+  public static function decisionNames(): iterable
+  {
+    yield 'approve' => ['approve'];
+    yield 'reject' => ['reject'];
+    yield 'withdraw' => ['withdraw'];
+  }
+
+  /**
+   * @param non-empty-string $userId the authenticated fixture user
+   */
+  private function authenticateRequests(KernelBrowser $client, string $userId): void
+  {
+    $client->disableReboot();
+    $users = $this->createStub(\User\Application\Port\Outbound\UserRepositoryPort::class);
+    $users->method('findById')->willReturnCallback(static fn (\User\Domain\ValueObject\UserId $id) => \Tests\Support\Factory\UserTestFactory::createActive((string) $id, (string) $id . '@corp.example'));
+    static::getContainer()->set(\User\Application\Port\Outbound\UserRepositoryPort::class, $users);
+    $client->setServerParameter('HTTP_AUTHORIZATION', 'Bearer ' . \Tests\Support\Auth\InteractiveTokenFactory::issue(static::getContainer(), $userId, $userId . '@corp.example'));
+  }
+
   private function postDecision(KernelBrowser $client, string $requestId, string $decision): void
   {
     $client->request('POST', '/api/organizations/' . self::ORGANIZATION_ID . '/approval-requests/' . $requestId . '/' . $decision, server: [
       'CONTENT_TYPE' => 'application/ld+json',
     ], content: '{}');
+  }
+
+  private function assertProblemCode(KernelBrowser $client, string $code): void
+  {
+    $body = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($body);
+    self::assertSame($code, $body['code'] ?? null);
+    self::assertSame('application/problem+json', $client->getResponse()->headers->get('Content-Type'));
   }
 
   /**
@@ -627,7 +780,7 @@ final class ApprovalRequestApiTest extends WebTestCase
     }
 
     $now = new DateTimeImmutable('2026-08-18T00:00:00+00:00');
-    $expiresAt = new DateTimeImmutable('2026-09-01T00:00:00+00:00');
+    $expiresAt = new DateTimeImmutable('+14 days');
 
     $entityManager->persist($this->approvalRequest(
       id: self::PENDING_REQUEST_ID,

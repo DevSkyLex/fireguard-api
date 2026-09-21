@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Infrastructure\Adapter\Inbox;
 
 use DateTimeImmutable;
-use Notification\Application\Contract\Inbox\InboxItem;
+use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
 use Notification\Application\Port\Outbound\{InboxSourceProviderPort, NotificationRepositoryPort};
 use Notification\Domain\Model\Notification\Notification;
 
@@ -57,7 +57,7 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
     return self::SOURCE_KEY;
   }
 
-  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): array
+  public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
     // Every parameter is passed explicitly (even where it is just the
     // default) so the intent is unambiguous: this adapter reuses the same
@@ -74,6 +74,7 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
       hideReadBefore: null,
       hiddenReadCategories: [],
       before: $before,
+      cursor: $cursor,
     );
 
     return array_map($this->toInboxItem(...), $notifications);

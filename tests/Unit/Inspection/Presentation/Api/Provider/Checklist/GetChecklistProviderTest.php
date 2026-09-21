@@ -39,6 +39,29 @@ final class GetChecklistProviderTest extends TestCase
   private const string CHECKLIST_ID = '550e8400-e29b-41d4-a716-446655440603';
 
   #[Test]
+  public function readOnlyMembersHaveNoMutationCapabilities(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturnCallback(static fn (string $user, string $org, string $permission): bool => 'organization.inspection.read' === $permission);
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturn(new GetChecklistResult(
+      self::CHECKLIST_ID,
+      self::ORG_ID,
+      'Readable',
+      '1.0',
+      'active',
+      [],
+      new DateTimeImmutable(),
+      new DateTimeImmutable(),
+      itemsEditable: true,
+    ));
+    $output = new GetChecklistProvider($queries, $authorization, $this->securityWithUser())->provide(new Get(), $this->uriVariables());
+    self::assertFalse($output->canEditMetadata);
+    self::assertFalse($output->canEditItems);
+    self::assertFalse($output->canCreateRevision);
+  }
+
+  #[Test]
   public function testProvideThrowsWhenNotAuthenticated(): void
   {
     $security = $this->createStub(Security::class);

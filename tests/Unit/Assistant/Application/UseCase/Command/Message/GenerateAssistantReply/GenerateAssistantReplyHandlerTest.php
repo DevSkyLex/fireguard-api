@@ -50,7 +50,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     $messages->method('findById')->willReturn(null);
 
     $logger = $this->createMock(LoggerPort::class);
-    $logger->expects(self::once())->method('error');
+    $logger->expects(self::never())->method('error');
 
     $client = $this->createMock(AssistantGenerationClientPort::class);
     $client->expects(self::never())->method('streamChat');
@@ -81,7 +81,7 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     $messages->method('findById')->willReturn($message);
     $messages->method('listByThread')->willReturn([]);
     $messages->method('countByThread')->willReturn(0);
-    $messages->expects(self::exactly(2))->method('save')->with($message);
+    $messages->expects(self::exactly(4))->method('save')->with($message);
 
     $thread = $this->thread();
     $threads = $this->createMock(AssistantThreadRepositoryPort::class);
@@ -131,37 +131,15 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testARetryThatFindsTheMessageAlreadyStreamingDoesNotDuplicateAndStillCompletes(): void
+  public function testDuplicateWorkerCannotTakeOverAStreamingAttempt(): void
   {
-    // Simulates a previous attempt that crashed after markStreaming() but
-    // before markComplete(): the message is loaded already STREAMING.
     $message = $this->streamingMessage();
-
     $messages = $this->createStub(AssistantMessageRepositoryPort::class);
     $messages->method('findById')->willReturn($message);
-    $messages->method('listByThread')->willReturn([]);
-    $messages->method('countByThread')->willReturn(0);
-
-    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
-    $threads->method('findById')->willReturn($this->thread());
-
-    $client = $this->createStub(AssistantGenerationClientPort::class);
-    $client->method('streamChat')->willReturnCallback(
-      static function (string $model, array $promptMessages, float $temperature, int $timeout, callable $onFragment): AssistantGenerationOutcome {
-        $onFragment('Re-hel');
-        $onFragment('Re-hello');
-
-        return new AssistantGenerationOutcome('Re-hello', 3);
-      },
-    );
-
-    // markStreaming() is never re-invoked (it would throw, since the legal
-    // transition only accepts pending -> streaming) — this does not throw
-    // and the message settles complete.
-    $this->handler(messages: $messages, threads: $threads, client: $client)(self::command());
-
-    self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
-    self::assertSame('Re-hello', $message->body());
+    $client = $this->createMock(AssistantGenerationClientPort::class);
+    $client->expects(self::never())->method('streamChat');
+    $this->handler(messages: $messages, client: $client)(self::command());
+    self::assertSame(AssistantMessageStatus::STREAMING, $message->status());
   }
 
   #[Test]
@@ -590,12 +568,11 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
       messages: $messages,
       threads: $threads,
       client: $client,
-      realtime: $realtime,
       promptBuilder: $promptBuilder,
       clock: $clock,
-      eventDispatcher: $eventDispatcher,
       logger: $logger,
       organizationSettings: $organizationSettings,
+      attempts: new \Assistant\Application\Service\AssistantAttemptWriter(new \Tests\Support\Assistant\ImmediateAttemptLock(), $messages, $threads, $realtime, $clock, $eventDispatcher, $logger),
       defaultModel: $defaultModel,
       timeoutSeconds: 30,
     );

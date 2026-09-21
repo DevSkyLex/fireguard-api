@@ -243,13 +243,10 @@ final class OAuth2AuthenticatorTest extends TestCase
   public function testAuthenticateWithJwtValidationFiltersScopes(): void
   {
     $lookup = $this->createMock(AccessTokenLookupPort::class);
-    $lookup->expects(self::once())
-      ->method('find')
-      ->with('token-123')
-      ->willReturn(null);
+    $lookup->expects(self::never())->method('find');
 
     $authenticator = $this->createAuthenticator($lookup);
-    $token = $this->buildRsaToken(scopes: ['read', 123, 'write', null]);
+    $token = $this->buildRsaToken(scopes: ['read', 123, 'write', null], fireguardTokenUse: 'auth_session');
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer ' . $token);
@@ -259,6 +256,19 @@ final class OAuth2AuthenticatorTest extends TestCase
 
     self::assertInstanceOf(SecurityUser::class, $user);
     self::assertSame(['read', 'write'], $user->getScopes());
+  }
+
+  #[Test]
+  public function testSignedButUnregisteredOAuthTokenCannotAuthenticate(): void
+  {
+    $lookup = $this->createStub(AccessTokenLookupPort::class);
+    $lookup->method('find')->willReturn(null);
+    $authenticator = $this->createAuthenticator($lookup);
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $this->buildRsaToken());
+    $this->expectException(CustomUserMessageAuthenticationException::class);
+    $this->expectExceptionMessage('Access token is not registered');
+    $authenticator->authenticate($request);
   }
 
   #[Test]
@@ -288,9 +298,9 @@ final class OAuth2AuthenticatorTest extends TestCase
 
     $sessionStatus = $this->createMock(SessionStatusPort::class);
     $sessionStatus->expects(self::once())
-      ->method('isAccessTokenRevoked')
-      ->with('token-123')
-      ->willReturn(true);
+      ->method('activeSessionId')
+      ->with('token-123', 'user-123')
+      ->willReturn(null);
 
     $authenticator = $this->createAuthenticator($lookup, $sessionStatus);
     $token = $this->buildRsaToken(scopes: ['read'], fireguardTokenUse: 'auth_session');
@@ -299,22 +309,20 @@ final class OAuth2AuthenticatorTest extends TestCase
     $request->headers->set('Authorization', 'Bearer ' . $token);
 
     $this->expectException(CustomUserMessageAuthenticationException::class);
-    $this->expectExceptionMessage('Token has been revoked');
+    $this->expectExceptionMessage('Session is no longer active');
 
     $authenticator->authenticate($request);
   }
 
   #[Test]
-  public function testAuthenticateAcceptsLoginJwtWhoseSessionIsNotTracked(): void
+  public function testAuthenticateRejectsLoginJwtWhoseSessionIsNotTracked(): void
   {
-    // Session recording is best-effort at every issuance site, so an absent
-    // row must not read as a revocation — that would lock the user out for the
-    // whole token lifetime after a transient failure they never saw.
+    // Untracked and rotated tokens cannot bypass revocation.
     $sessionStatus = $this->createMock(SessionStatusPort::class);
     $sessionStatus->expects(self::once())
-      ->method('isAccessTokenRevoked')
-      ->with('token-123')
-      ->willReturn(false);
+      ->method('activeSessionId')
+      ->with('token-123', 'user-123')
+      ->willReturn(null);
 
     $authenticator = $this->createAuthenticator(
       $this->createStub(AccessTokenLookupPort::class),
@@ -325,10 +333,8 @@ final class OAuth2AuthenticatorTest extends TestCase
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer ' . $token);
 
-    $user = $authenticator->authenticate($request)->getUser();
-
-    self::assertInstanceOf(SecurityUser::class, $user);
-    self::assertSame(['read'], $user->getScopes());
+    $this->expectException(CustomUserMessageAuthenticationException::class);
+    $authenticator->authenticate($request);
   }
 
   #[Test]
@@ -413,7 +419,7 @@ final class OAuth2AuthenticatorTest extends TestCase
     $request->headers->set('Authorization', 'Bearer not-a-jwt');
 
     $this->expectException(CustomUserMessageAuthenticationException::class);
-    $this->expectExceptionMessageMatches('/^Invalid access token:/');
+    $this->expectExceptionMessage('Invalid access token');
 
     $authenticator->authenticate($request);
   }
@@ -458,10 +464,15 @@ final class OAuth2AuthenticatorTest extends TestCase
     AccessTokenLookupPort $lookup,
     ?SessionStatusPort $sessionStatus = null,
   ): OAuth2Authenticator {
+    if (null === $sessionStatus) {
+      $sessionStatus = $this->createStub(SessionStatusPort::class);
+      $sessionStatus->method('activeSessionId')->willReturn('current-session');
+    }
+
     return new OAuth2Authenticator(
       accessTokenLookup: $lookup,
       userProvider: $this->createUserProvider(),
-      sessionStatus: $sessionStatus ?? $this->createStub(SessionStatusPort::class),
+      sessionStatus: $sessionStatus,
       publicKeyPath: $this->getPublicKeyPath(),
     );
   }

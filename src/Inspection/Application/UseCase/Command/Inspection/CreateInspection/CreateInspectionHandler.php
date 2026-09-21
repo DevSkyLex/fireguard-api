@@ -55,6 +55,7 @@ final readonly class CreateInspectionHandler implements CommandHandler
    * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
+    private \Inspection\Application\Port\Outbound\ChecklistLockPort $locks,
     private InspectionRepositoryPort $inspectionRepository,
     private EquipmentValidationPort $equipmentValidation,
     private FacilityValidationPort $facilityValidation,
@@ -85,10 +86,6 @@ final readonly class CreateInspectionHandler implements CommandHandler
 
       if (null !== $command->facilityId) {
         $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
-      }
-
-      if (null !== $command->checklistId) {
-        $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
       }
 
       $organizationId = InspectionOrganizationId::fromString($command->organizationId);
@@ -144,7 +141,12 @@ final readonly class CreateInspectionHandler implements CommandHandler
     // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
     $this->transactionManager->transactional(function () use ($command, $inspection): void {
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::INSPECTIONS);
-      $this->inspectionRepository->save($inspection);
+      $this->locks->withLock($command->organizationId, $command->checklistId, function () use ($command, $inspection): void {
+        if (null !== $command->checklistId) {
+          $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
+        }
+        $this->inspectionRepository->save($inspection);
+      });
     });
 
     return new CreateInspectionResult(

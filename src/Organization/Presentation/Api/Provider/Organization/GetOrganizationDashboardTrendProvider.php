@@ -134,7 +134,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $metric = $this->resolveMetric($operation);
     $this->assertMetricsPermissions($user->getId(), $organizationId, [$metric]);
 
-    $filters = $this->normalizeFilters($context['filters'] ?? []);
+    $filters = $this->normalizeFilters(\Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context));
 
     $periodFrom = $this->extractDateFilter($filters, 'from');
     $periodTo = $this->extractDateFilter($filters, 'to');

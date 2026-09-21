@@ -18,6 +18,11 @@ use ApiPlatform\Metadata\ApiProperty;
 final class ImportJobOutput
 {
   /**
+   * True only when the current member may resume and no live worker owns the job.
+   */
+  public bool $canResume = false;
+
+  /**
    * Property id.
    *
    * @since 1.0.0
@@ -139,4 +144,8 @@ final class ImportJobOutput
    * @since 1.0.0
    */
   public string $updatedAt = '';
+
+  public bool $canConfirm = false;
+
+  public ?string $confirmedJobId = null;
 }

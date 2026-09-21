@@ -68,7 +68,7 @@ final readonly class MarkAllNotificationsAsReadProcessor implements ProcessorInt
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    $organizationId = $this->toNullableString($this->requestStack->getCurrentRequest()?->query->get('organization'));
+    $organizationId = $this->toNullableString(\Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest())->get('organization'));
 
     /** @var MarkAllNotificationsAsReadResult $result */
     $result = $this->commandBus->dispatch(new MarkAllNotificationsAsReadCommand(

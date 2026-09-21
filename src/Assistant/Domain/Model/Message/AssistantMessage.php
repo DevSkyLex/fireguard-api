@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Assistant\Domain\Model\Message;
 
-use Assistant\Domain\Exception\{AssistantMessageIllegalStatusTransitionException, AssistantValidationException};
+use Assistant\Domain\Exception\{AssistantAttemptConflictException, AssistantMessageIllegalStatusTransitionException, AssistantValidationException};
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use DateTimeImmutable;
 
@@ -59,6 +59,12 @@ final class AssistantMessage
     private ?int $tokenCount,
     private readonly DateTimeImmutable $createdAt,
     private ?DateTimeImmutable $completedAt,
+    private ?string $attemptId = null,
+    private int $attemptNumber = 0,
+    private int $attemptSequence = 0,
+    private ?DateTimeImmutable $attemptExpiresAt = null,
+    private ?string $questionMessageId = null,
+    private ?float $temperature = null,
   ) {
   }
   // #endregion
@@ -180,6 +186,12 @@ final class AssistantMessage
     ?int $tokenCount,
     DateTimeImmutable $createdAt,
     ?DateTimeImmutable $completedAt,
+    ?string $attemptId = null,
+    int $attemptNumber = 0,
+    int $attemptSequence = 0,
+    ?DateTimeImmutable $attemptExpiresAt = null,
+    ?string $questionMessageId = null,
+    ?float $temperature = null,
   ): self {
     return new self(
       id: $id,
@@ -192,6 +204,12 @@ final class AssistantMessage
       tokenCount: $tokenCount,
       createdAt: $createdAt,
       completedAt: $completedAt,
+      attemptId: $attemptId,
+      attemptNumber: $attemptNumber,
+      attemptSequence: $attemptSequence,
+      attemptExpiresAt: $attemptExpiresAt,
+      questionMessageId: $questionMessageId,
+      temperature: $temperature,
     );
   }
 
@@ -343,6 +361,7 @@ final class AssistantMessage
     $this->assertTransition(AssistantMessageStatus::STREAMING);
 
     $this->status = AssistantMessageStatus::STREAMING;
+    ++$this->attemptSequence;
   }
 
   /**
@@ -369,6 +388,7 @@ final class AssistantMessage
     $this->tokenCount = $tokenCount;
     $this->errorCode = null;
     $this->completedAt = $now;
+    ++$this->attemptSequence;
   }
 
   /**
@@ -391,6 +411,7 @@ final class AssistantMessage
     $this->status = AssistantMessageStatus::FAILED;
     $this->errorCode = $errorCode;
     $this->completedAt = $now;
+    ++$this->attemptSequence;
   }
 
   /**
@@ -398,10 +419,118 @@ final class AssistantMessage
    *
    * @since 1.0.0
    *
-   * @param AssistantMessageStatus $target the candidate target status
-   *
    * @throws AssistantMessageIllegalStatusTransitionException when the transition is not legal
    */
+  /**
+   * Establishes the first attempt for a new or legacy queued reply.
+   */
+  public function initializeAttempt(string $questionMessageId, ?float $temperature, DateTimeImmutable $now): void
+  {
+    if (null !== $this->attemptId || !$this->isPending()) {
+      return;
+    }
+    $this->questionMessageId = $questionMessageId;
+    $this->temperature = $temperature;
+    $this->attemptId = (string) $this->id;
+    $this->attemptNumber = 1;
+    $this->attemptExpiresAt = $now->modify('+5 minutes');
+  }
+
+  public function attemptId(): ?string
+  {
+    return $this->attemptId;
+  }
+
+  public function attemptNumber(): int
+  {
+    return $this->attemptNumber;
+  }
+
+  public function attemptSequence(): int
+  {
+    return $this->attemptSequence;
+  }
+
+  public function attemptExpiresAt(): ?DateTimeImmutable
+  {
+    return $this->attemptExpiresAt;
+  }
+
+  public function questionMessageId(): ?string
+  {
+    return $this->questionMessageId;
+  }
+
+  public function temperature(): ?float
+  {
+    return $this->temperature;
+  }
+
+  public function isExpired(DateTimeImmutable $now): bool
+  {
+    return null !== $this->attemptExpiresAt && $this->attemptExpiresAt <= $now;
+  }
+
+  public function matchesAttempt(string $attemptId): bool
+  {
+    return ($this->attemptId ?? (string) $this->id) === $attemptId;
+  }
+
+  public function canCancel(): bool
+  {
+    return AssistantMessageRole::ASSISTANT === $this->role && !$this->status->isTerminal();
+  }
+
+  public function canRetry(): bool
+  {
+    return null !== $this->questionMessageId && (AssistantMessageStatus::FAILED === $this->status || AssistantMessageStatus::CANCELLED === $this->status);
+  }
+
+  public function cancel(string $expectedAttemptId, DateTimeImmutable $now): void
+  {
+    if (!$this->matchesAttempt($expectedAttemptId)) {
+      throw AssistantAttemptConflictException::stale();
+    }
+    if (AssistantMessageStatus::CANCELLED === $this->status) {
+      return;
+    }
+    if (!$this->canCancel()) {
+      throw AssistantAttemptConflictException::stale();
+    }
+    $this->status = AssistantMessageStatus::CANCELLED;
+    $this->errorCode = null;
+    $this->completedAt = $now;
+    ++$this->attemptSequence;
+  }
+
+  public function retry(string $expectedAttemptId, string $newAttemptId, DateTimeImmutable $now): void
+  {
+    if (!$this->matchesAttempt($expectedAttemptId)) {
+      throw AssistantAttemptConflictException::stale();
+    }
+    if (!$this->canRetry() && !($this->canCancel() && $this->isExpired($now) && null !== $this->questionMessageId)) {
+      throw AssistantAttemptConflictException::notRetryable();
+    }
+    $this->attemptId = $newAttemptId;
+    ++$this->attemptNumber;
+    $this->attemptSequence = 0;
+    $this->attemptExpiresAt = $now->modify('+5 minutes');
+    $this->status = AssistantMessageStatus::PENDING;
+    $this->body = '';
+    $this->errorCode = null;
+    $this->tokenCount = null;
+    $this->completedAt = null;
+  }
+
+  public function recordFragment(string $body): void
+  {
+    if (AssistantMessageStatus::STREAMING !== $this->status) {
+      throw AssistantAttemptConflictException::stale();
+    }
+    $this->body = $body;
+    ++$this->attemptSequence;
+  }
+
   private function assertTransition(AssistantMessageStatus $target): void
   {
     if (!$this->status->canTransitionTo($target)) {

@@ -6,6 +6,7 @@ namespace Approval\Presentation\Api\Factory;
 
 use Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest\ApproveApprovalRequestResult;
 use Approval\Application\UseCase\Command\Decision\RejectApprovalRequest\RejectApprovalRequestResult;
+use Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest\WithdrawApprovalRequestResult;
 use Approval\Application\UseCase\Query\Request\GetApprovalRequest\GetApprovalRequestResult;
 use Approval\Presentation\Api\Dto\Output\ApprovalRequestOutput;
 
@@ -26,11 +27,11 @@ final class ApprovalRequestOutputFactory
    *
    * @since 1.0.0
    *
-   * @param GetApprovalRequestResult|ApproveApprovalRequestResult|RejectApprovalRequestResult $view the query/command result view
+   * @param GetApprovalRequestResult|ApproveApprovalRequestResult|RejectApprovalRequestResult|WithdrawApprovalRequestResult $view the query/command result view
    *
    * @return ApprovalRequestOutput the mapped output
    */
-  public function fromView(GetApprovalRequestResult|ApproveApprovalRequestResult|RejectApprovalRequestResult $view): ApprovalRequestOutput
+  public function fromView(GetApprovalRequestResult|ApproveApprovalRequestResult|RejectApprovalRequestResult|WithdrawApprovalRequestResult $view): ApprovalRequestOutput
   {
     $output = new ApprovalRequestOutput();
     $output->id = $view->id;
@@ -49,6 +50,8 @@ final class ApprovalRequestOutputFactory
     $output->decidedAt = $view->decidedAt?->format('c');
     $output->executedAt = $view->executedAt?->format('c');
     $output->executionError = $view->executionError;
+    $output->allowedActions = $view instanceof GetApprovalRequestResult ? $view->allowedActions : [];
+    $output->decisionBlockReason = $view instanceof GetApprovalRequestResult ? $view->decisionBlockReason : 'approval_not_pending';
 
     return $output;
   }

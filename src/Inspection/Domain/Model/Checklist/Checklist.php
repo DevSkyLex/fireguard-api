@@ -53,9 +53,15 @@ final class Checklist
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
     private ?string $referenceCode = null,
+    private ?ChecklistId $previousChecklistId = null,
   ) {
   }
   // #endregion
+
+  public function previousChecklistId(): ?ChecklistId
+  {
+    return $this->previousChecklistId;
+  }
 
   // #region Methods
   /**
@@ -81,6 +87,7 @@ final class Checklist
     string $version,
     array $items = [],
     ?string $referenceCode = null,
+    ?ChecklistId $previousChecklistId = null,
   ): self {
     $normalizedVersion = trim($version);
     if ('' === $normalizedVersion) {
@@ -105,6 +112,7 @@ final class Checklist
       createdAt: $now,
       updatedAt: $now,
       referenceCode: self::normalizeReferenceCode($referenceCode),
+      previousChecklistId: $previousChecklistId,
     );
   }
 
@@ -137,6 +145,7 @@ final class Checklist
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
     ?string $referenceCode = null,
+    ?ChecklistId $previousChecklistId = null,
   ): self {
     return new self(
       id: $id,
@@ -148,6 +157,7 @@ final class Checklist
       createdAt: $createdAt,
       updatedAt: $updatedAt,
       referenceCode: $referenceCode,
+      previousChecklistId: $previousChecklistId,
     );
   }
 

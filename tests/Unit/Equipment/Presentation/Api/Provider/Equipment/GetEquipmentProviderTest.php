@@ -70,10 +70,9 @@ final class GetEquipmentProviderTest extends TestCase
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
     $provider = new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($queryBus, new EquipmentOutputFactory()),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -109,9 +108,8 @@ final class GetEquipmentProviderTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
+    $queryBus->expects(self::exactly(2))
       ->method('ask')
-      ->with(self::isInstanceOf(GetEquipmentQuery::class))
       ->willReturn(new GetEquipmentResult(
         equipmentId: $equipmentId,
         organizationId: $organizationId,
@@ -129,13 +127,12 @@ final class GetEquipmentProviderTest extends TestCase
         createdAt: $now,
         updatedAt: $now,
         maintenanceDueStatus: 'due_soon',
-      ));
+      ), new \Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\GetCanonicalEquipmentResult(new \Equipment\Application\Contract\Equipment\CanonicalEquipmentView($equipmentId, $organizationId, 'published', null, 7)));
 
     $provider = new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($queryBus, new EquipmentOutputFactory()),
     );
 
     $output = $provider->provide(
@@ -146,6 +143,7 @@ final class GetEquipmentProviderTest extends TestCase
       ],
     );
 
+    self::assertSame(7, $output->revision);
     self::assertInstanceOf(EquipmentOutput::class, $output);
     self::assertSame($equipmentId, $output->id);
     self::assertSame('fire_extinguisher', $output->type);
@@ -166,10 +164,9 @@ final class GetEquipmentProviderTest extends TestCase
     $security->method('getUser')->willReturn(null);
 
     $provider = new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -187,10 +184,9 @@ final class GetEquipmentProviderTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
 
     $provider = new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -208,10 +204,9 @@ final class GetEquipmentProviderTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $provider = new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -232,10 +227,9 @@ final class GetEquipmentProviderTest extends TestCase
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
 
     $provider = new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->createStub(QueryBusPort::class), new EquipmentOutputFactory()),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -314,10 +308,9 @@ final class GetEquipmentProviderTest extends TestCase
     $queryBus->method('ask')->willThrowException($exception);
 
     return new GetEquipmentProvider(
-      outputFactory: new EquipmentOutputFactory(),
-      queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($queryBus, new EquipmentOutputFactory()),
     );
   }
 

@@ -187,6 +187,9 @@ services:
   # maintenance-log entry per serviced equipment. Must never fail the
   # publication (see class docblock).
   Equipment\Infrastructure\EventSubscriber\InterventionServiceHistorySubscriber: ~
+  Equipment\Infrastructure\EventSubscriber\EquipmentChangeOutboxListener:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
 
   Equipment\Application\UseCase\Command\Equipment\CreateEquipment\CreateEquipmentHandler:
     arguments:
@@ -280,3 +283,7 @@ services:
   Equipment\Application\UseCase\Query\ExportEquipmentLabels\ExportEquipmentLabelsHandler:
     tags: ['messenger.message_handler']
 
+
+  Equipment\Infrastructure\EventSubscriber\EquipmentPlanAuditListener:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'

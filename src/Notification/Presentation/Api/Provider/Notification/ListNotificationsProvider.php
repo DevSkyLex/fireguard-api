@@ -77,7 +77,7 @@ final readonly class ListNotificationsProvider implements ProviderInterface
     }
 
     /** @var array<string, mixed> $filters */
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
 
     $onlyUnread = $this->toBool($filters['unreadOnly'] ?? false);
     $type = $this->toNullableString($filters['type'] ?? null);

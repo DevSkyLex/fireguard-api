@@ -50,6 +50,12 @@ final readonly class AssistantMessageView
     public ?int $tokenCount,
     public DateTimeImmutable $createdAt,
     public ?DateTimeImmutable $completedAt,
+    public ?string $attemptId = null,
+    public int $attemptNumber = 0,
+    public int $attemptSequence = 0,
+    public ?DateTimeImmutable $attemptExpiresAt = null,
+    public bool $canCancel = false,
+    public bool $canRetry = false,
   ) {
   }
   // #endregion
@@ -79,6 +85,12 @@ final readonly class AssistantMessageView
       tokenCount: $message->tokenCount(),
       createdAt: $message->createdAt(),
       completedAt: $message->completedAt(),
+      attemptId: $message->attemptId() ?? ($message->canCancel() ? (string) $message->id() : null),
+      attemptNumber: $message->attemptNumber(),
+      attemptSequence: $message->attemptSequence(),
+      attemptExpiresAt: $message->attemptExpiresAt(),
+      canCancel: $message->canCancel(),
+      canRetry: $message->canRetry(),
     );
   }
   // #endregion

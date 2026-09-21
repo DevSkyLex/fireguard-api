@@ -226,6 +226,14 @@ final class SendDueRemindersHandlerTest extends TestCase
     $adminMembers->method('findByOrganizationId')->willReturn([]);
     $admins = new InterventionRecurrenceRecipientResolver($adminMembers, $this->createStub(OrganizationAuthorizationPort::class));
 
-    return new InterventionNotificationService($notifications, $members, $policy, $reviewers, $admins);
+    return new InterventionNotificationService(
+      $notifications,
+      $members,
+      $policy,
+      $reviewers,
+      $admins,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
+    );
   }
 }

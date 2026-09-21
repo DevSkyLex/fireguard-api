@@ -85,6 +85,16 @@ final class FakeStripeGatewayAdapter implements StripeGatewayPort
     return new StripeEvent(type: 'fake.event');
   }
 
+  public function isLiveMode(): bool
+  {
+    return false;
+  }
+
+  public function listSubscriptions(string $customerId): array
+  {
+    return [];
+  }
+
   /**
    * {@inheritDoc}
    */

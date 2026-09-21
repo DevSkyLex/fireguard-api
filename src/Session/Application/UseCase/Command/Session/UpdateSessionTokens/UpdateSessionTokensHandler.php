@@ -49,29 +49,17 @@ final readonly class UpdateSessionTokensHandler implements CommandHandler
   public function __invoke(UpdateSessionTokensCommand $command): UpdateSessionTokensResult
   {
     $refreshTokenId = trim($command->currentRefreshTokenId);
-    $accessTokenId = $command->currentAccessTokenId ? trim($command->currentAccessTokenId) : null;
-
-    $session = null;
-    if ('' !== $refreshTokenId) {
-      $session = $this->sessionRepository->findByRefreshTokenId($refreshTokenId);
-    }
-
-    if (null === $session && null !== $accessTokenId && '' !== $accessTokenId) {
-      $session = $this->sessionRepository->findByAccessTokenId($accessTokenId);
-    }
-
-    if (null === $session) {
+    $accessTokenId = trim($command->currentAccessTokenId ?? '');
+    if ('' === $refreshTokenId || '' === $accessTokenId || '' === $command->newAccessTokenId || '' === $command->newRefreshTokenId) {
       return new UpdateSessionTokensResult(updated: false);
     }
 
-    $session->updateTokens(
-      accessTokenId: $command->newAccessTokenId,
-      refreshTokenId: $command->newRefreshTokenId,
-    );
-
-    $this->sessionRepository->save(session: $session);
-
-    return new UpdateSessionTokensResult(updated: true);
+    return new UpdateSessionTokensResult(updated: $this->sessionRepository->rotateTokens(
+      $refreshTokenId,
+      $accessTokenId,
+      $command->newAccessTokenId,
+      $command->newRefreshTokenId,
+    ));
   }
   // #endregion
 }

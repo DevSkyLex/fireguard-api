@@ -117,6 +117,46 @@ services:
       - no-new-privileges:true
     logging: *default-logging
 
+  # Main-owned transactions enqueue workflow work and durable domain events here.
+  # Run messenger:setup-transports before starting consumers after deployment.
+  async_worker:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+      MERCURE_PUBLIC_URL: ${MERCURE_PUBLIC_URL:?Set MERCURE_PUBLIC_URL}
+      DEFAULT_URI: ${DEFAULT_URI:?Set DEFAULT_URI}
+    command:
+      ["php", "bin/console", "messenger:consume", "main_outbox", "async", "webhook", "--time-limit=3600", "--memory-limit=256M"]
+    volumes:
+      - app_var:/var/www/html/var
+      - jwt_keys:/var/www/html/config/jwt:ro
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q main_outbox /proc/1/cmdline"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mercure:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=false"
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
   app_var_init:
     image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
     profiles: ["tools"]

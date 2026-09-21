@@ -11,7 +11,6 @@ use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
-use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
@@ -224,13 +223,16 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
     );
 
+    $detail = static::getContainer()->get(\Facility\Presentation\Api\Factory\FacilityDetailOutputFactory::class);
+    self::assertInstanceOf(\Facility\Presentation\Api\Factory\FacilityDetailOutputFactory::class, $detail);
+
     return new CanonicalFacilityProvider(
       $this->entityManager,
-      new FacilityRepository($this->entityManager),
       $authorization,
       $security,
       $requestStack,
       new InterventionResourceManager($resources),
+      detail: $detail,
     );
   }
 

@@ -1,4 +1,10 @@
 services:
+  OAuth\Application\Port\Outbound\SessionRotationPort:
+    alias: OAuth\Infrastructure\Adapter\Session\SessionRotationAdapter
+
+  OAuth\Infrastructure\Adapter\Session\SessionRotationAdapter:
+    autowire: true
+
   _defaults:
     autowire: true
     autoconfigure: true

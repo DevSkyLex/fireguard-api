@@ -63,10 +63,10 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $severity = $request?->query->get('severity');
-    $status = $request?->query->get('status');
+    $severity = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('severity');
+    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

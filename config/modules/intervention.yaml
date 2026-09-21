@@ -209,9 +209,14 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Intervention\Application\UseCase\Command\Publication\RequestPublication\RequestPublicationHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Query\Publication\GetPublication\GetPublicationHandler:

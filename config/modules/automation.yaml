@@ -30,4 +30,21 @@ services:
 
   # Command handlers
   Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+    tags: ['messenger.message_handler']
+
+  Automation\Application\Port\Outbound\AutomationRunHistoryPort:
+    alias: Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository
+
+  Automation\Presentation\:
+    resource: '../../src/Automation/Presentation'
+
+  Automation\Application\UseCase\Query\ListAutomationAttempts\ListAutomationAttemptsHandler:
+    tags: ['messenger.message_handler']
+
+  Automation\Application\UseCase\Command\RetryAutomationAttempt\RetryAutomationAttemptHandler:
+    arguments:
+      $transactions: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
     tags: ['messenger.message_handler']

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Maintenance\Presentation\Api\Service;
 
+use DateTimeImmutable;
+use Exception;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 use function array_keys;
 use function is_string;
@@ -13,16 +16,7 @@ use function is_string;
 /**
  * Service MaintenanceScheduleExportCriteriaFactory.
  *
- * Builds the filter shape {@see \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort::countForExport()}/
- * {@see \Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort::listExportCandidates()}
- * expect, from the export controller's raw `Request` query string — only the
- * cheap, indexed filter subset (`facility`, `equipmentType`, `dueStatus`) of
- * the larger set {@see \Maintenance\Presentation\Api\Provider\MaintenanceScheduleProvider}
- * parses inline for the list endpoint. `dueBefore` is deliberately not
- * exposed here: it is not part of the schedule's indexed
- * `(organization_id, due_status, next_due_at)` filter and would force a
- * range scan across the whole export candidate set. Mirrors
- * `Intervention\...\InterventionExportCriteriaFactory`.
+ * Shares the list date parsing and applies every list filter to the CSV export.
  *
  * @category Service
  *
@@ -40,7 +34,7 @@ final class MaintenanceScheduleExportCriteriaFactory
    *
    * @param Request $request the incoming HTTP request
    *
-   * @return array{facilityId: ?string, equipmentType: ?string, dueStatus: ?string} the parsed filters
+   * @return array{facilityId: ?string, equipmentType: ?string, dueStatus: ?string, dueBefore: ?DateTimeImmutable} the parsed filters
    */
   public function fromRequest(Request $request): array
   {
@@ -54,6 +48,7 @@ final class MaintenanceScheduleExportCriteriaFactory
       'facilityId' => is_string($facility) && '' !== $facility ? ResourceIriParser::id($facility, 'facilities') : null,
       'equipmentType' => is_string($equipmentType) && '' !== $equipmentType ? $equipmentType : null,
       'dueStatus' => is_string($dueStatus) && '' !== $dueStatus ? $dueStatus : null,
+      'dueBefore' => self::parseDueBefore($query->get('dueBefore')),
     ];
   }
 
@@ -66,7 +61,7 @@ final class MaintenanceScheduleExportCriteriaFactory
    *
    * @since 1.0.0
    *
-   * @param array{facilityId: ?string, equipmentType: ?string, dueStatus: ?string} $filters the resolved filters
+   * @param array{facilityId: ?string, equipmentType: ?string, dueStatus: ?string, dueBefore: ?DateTimeImmutable} $filters the resolved filters
    *
    * @return list<string> the applied filter field names
    */
@@ -80,6 +75,22 @@ final class MaintenanceScheduleExportCriteriaFactory
     }
 
     return $applied;
+  }
+
+  /**
+   * Parse the same inclusive upper bound for lists and exports.
+   */
+  public static function parseDueBefore(mixed $value): ?DateTimeImmutable
+  {
+    if (!is_string($value) || '' === $value) {
+      return null;
+    }
+
+    try {
+      return new DateTimeImmutable($value);
+    } catch (Exception $exception) {
+      throw new BadRequestHttpException('Invalid "dueBefore" filter.', $exception);
+    }
   }
   // #endregion
 }

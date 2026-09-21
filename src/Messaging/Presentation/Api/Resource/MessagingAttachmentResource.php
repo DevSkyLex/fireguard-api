@@ -61,14 +61,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
+      parameters: [
+        'page' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+        'itemsPerPage' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'integer'],
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
+        ),
+      ],
       openapi: new Operation(
         tags: ['Messaging'],
         summary: 'List a conversation\'s attachments (Files tab)',
         description: 'Lists the attachments posted in a conversation, most recently uploaded first.',
-        parameters: [
-          new Parameter(name: 'page', in: 'query', required: false, schema: ['type' => 'integer']),
-          new Parameter(name: 'itemsPerPage', in: 'query', required: false, schema: ['type' => 'integer']),
-        ],
+        parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),

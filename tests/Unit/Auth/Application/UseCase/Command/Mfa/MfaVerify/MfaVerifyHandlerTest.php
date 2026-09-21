@@ -321,7 +321,7 @@ final class MfaVerifyHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeSucceedsWhenSessionTrackingFails(): void
+  public function testInvokeDoesNotReturnTokensWhenSessionTrackingFails(): void
   {
     /** @var JwtTokenServicePort&MockObject $jwt */
     $jwt = $this->createMock(JwtTokenServicePort::class);
@@ -366,7 +366,7 @@ final class MfaVerifyHandlerTest extends TestCase
     $sessionTracking->expects(self::once())
       ->method('recordSession')
       ->willReturnCallback(static function () use (&$methodRecorded): never {
-        self::assertTrue($methodRecorded, 'The sign-in method must be persisted before best-effort tracking.');
+        self::assertTrue($methodRecorded, 'The sign-in method must be persisted before session tracking.');
 
         throw new RuntimeException('session store unavailable');
       });
@@ -379,10 +379,8 @@ final class MfaVerifyHandlerTest extends TestCase
       users: $users,
     );
 
-    $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
-
-    $this->assertTrue($result->success);
-    $this->assertSame('access', $result->accessToken);
+    $this->expectException(RuntimeException::class);
+    $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
   }
   // #endregion
 }

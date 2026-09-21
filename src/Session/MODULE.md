@@ -103,18 +103,20 @@ token: those tokens are not rows in the OAuth2 token table, so the session is
 the only place their revocation state lives. Before it existed, revoking a
 session left the access token usable until it expired.
 
-**An untracked token answers `false`, not `true`.** Session recording is
-best-effort at every issuance site — `LoginHandler::recordSession()` wraps the
-call in `catch (Throwable)` with "login must not fail" — so a missing row means
-"we never recorded this", not "this was revoked". Reading it as a revocation
-would convert a transient tracking failure the user never saw into a lockout
-lasting the whole token lifetime. The distinction is carried explicitly by
-`GetSessionByAccessTokenResult::$tracked`, kept separate from `$revoked` for
-exactly this reason.
+Interactive authentication uses `activeSessionId(accessTokenId, userId)` and fails
+closed unless a current, non-revoked session belongs to the signed subject.
+`isAccessTokenRevoked` remains a diagnostic lookup for known revocations; its
+`false` for an untracked token is never authorization. Mandatory issuance records
+the anchor before returning tokens. Deployment of this change can require a fresh
+login for legacy untracked tokens, without changing TOTP enrollments.
 
-The lookup rides `idx_session_access_token_id`, and `UpdateSessionTokens` keeps
-`access_token_id` current across refreshes, so a rotated token resolves to the
-same session.
+`rotateTokens` uses one conditional update on both current token IDs and
+`revoked_at IS NULL`. Refreshes and revocations serialize on that row; a replay
+cannot fall back to an access-token lookup. Rotation invalidates the old access
+token. ORM reads refresh records after SQL mutations to avoid stale revocation
+state. The authenticator sets `_fireguard_session_id` only after signature and
+owner checks; list/current-device and revoke-others read that verified attribute.
+An unresolved current session cannot silently turn revoke-others into revoke-all.
 
 ## Configuration
 

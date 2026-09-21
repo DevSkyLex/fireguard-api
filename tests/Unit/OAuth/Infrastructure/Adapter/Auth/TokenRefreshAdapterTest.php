@@ -56,7 +56,7 @@ final class TokenRefreshAdapterTest extends TestCase
   }
 
   #[Test]
-  public function testRefreshReturnsFailedResultWhenQueryFails(): void
+  public function testRefreshPreservesTechnicalFailure(): void
   {
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
@@ -66,9 +66,8 @@ final class TokenRefreshAdapterTest extends TestCase
 
     $adapter = new TokenRefreshAdapter($queryBus);
 
-    $result = $adapter->refresh('refresh-token');
-
-    self::assertFalse($result->success);
+    $this->expectException(RuntimeException::class);
+    $adapter->refresh('refresh-token');
   }
 
   #[Test]

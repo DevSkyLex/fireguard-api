@@ -55,6 +55,29 @@ final class MaintenanceScheduleExportApiTest extends WebTestCase
   private const string SCHEDULE_ID = '770e8400-e29b-41d4-a716-446655441030';
 
   #[Test]
+  #[\PHPUnit\Framework\Attributes\DataProvider('dateBoundPaths')]
+  public function invalidDateBoundReturnsTheSameValidationStatusForListAndExport(string $path): void
+  {
+    $client = static::createClient();
+    $this->seedOrganizations();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'maintenance-export-admin@example.com');
+    $client->request('GET', $path . '?' . http_build_query([
+      'organization' => '/api/organizations/' . self::ORGANIZATION_ID,
+      'dueBefore' => 'not-a-date',
+    ]));
+    self::assertSame(400, $client->getResponse()->getStatusCode());
+  }
+
+  /**
+   * @return iterable<string, array{string}>
+   */
+  public static function dateBoundPaths(): iterable
+  {
+    yield 'list' => ['/api/maintenance/schedules'];
+    yield 'export' => ['/api/maintenance/schedules/export'];
+  }
+
+  #[Test]
   public function testExportReturns200WithCsvContentTypeAndAttachmentDisposition(): void
   {
     $client = static::createClient();

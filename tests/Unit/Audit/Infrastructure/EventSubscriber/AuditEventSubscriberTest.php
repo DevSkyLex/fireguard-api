@@ -94,6 +94,8 @@ final class AuditEventSubscriberTest extends TestCase
       'facility.facility_archived_event' => 'onFacilityArchived',
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
+      'facility.facility_plan_geometry_changed_event' => 'onFacilityPlanGeometryChanged',
+      'equipment.equipment_plan_position_changed_event' => 'onEquipmentPlanPositionChanged',
       'facility.facility_updated_event' => 'onFacilityUpdated',
       'facility.facility_subtree_duplicated_event' => 'onFacilitySubtreeDuplicated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
@@ -134,6 +136,7 @@ final class AuditEventSubscriberTest extends TestCase
       'approval.approval_requested_event' => 'onApprovalRequested',
       'approval.approval_approved_event' => 'onApprovalApproved',
       'approval.approval_rejected_event' => 'onApprovalRejected',
+      'approval.approval_withdrawn_event' => 'onApprovalWithdrawn',
       'approval.approval_expired_event' => 'onApprovalExpired',
       'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
       'audit.audit_events_exported_event' => 'onAuditEventsExported',
@@ -189,6 +192,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: $requestStack,
       security: $this->securityWithUser(null),
       logger: $logger,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onUserLoggedIn(new UserLoggedInEvent(
@@ -224,6 +229,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $logger,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onLoginFailed(new LoginFailedEvent(
@@ -251,6 +258,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onTotpEnrollmentConfirmed(new TotpEnrollmentConfirmedEvent(userId: 'user-123'));
@@ -274,6 +283,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onTotpEnrollmentDisabled(new TotpEnrollmentDisabledEvent(userId: 'user-123'));
@@ -309,6 +320,8 @@ final class AuditEventSubscriberTest extends TestCase
         password: 'irrelevant',
       )),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onOrganizationRoleCreated(new OrganizationRoleCreatedEvent(
@@ -344,6 +357,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onOrganizationMemberRemoved(new OrganizationMemberRemovedEvent(
@@ -384,6 +399,8 @@ final class AuditEventSubscriberTest extends TestCase
         password: 'irrelevant',
       )),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onOrganizationInvitationSent(new OrganizationInvitationSentEvent(
@@ -420,6 +437,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onOrganizationLastAdminLockoutPrevented(new OrganizationLastAdminLockoutPreventedEvent(
@@ -451,6 +470,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onTeamCreated(new TeamCreatedEvent(
@@ -483,6 +504,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onTeamMemberAdded(new TeamMemberAddedEvent(
@@ -520,6 +543,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onCalendarEventCreated(new CalendarEventCreatedEvent(
@@ -556,6 +581,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onCalendarEventUpdated(new CalendarEventUpdatedEvent(
@@ -586,6 +613,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onCalendarEventDeleted(new CalendarEventDeletedEvent(
@@ -620,6 +649,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onWebhookSubscriptionCreated(new WebhookSubscriptionCreatedEvent(
@@ -652,6 +683,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onWebhookSubscriptionDeleted(new WebhookSubscriptionDeletedEvent(
@@ -687,6 +720,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onAuditEventsExported(new AuditEventsExportedEvent(
@@ -725,6 +760,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
@@ -759,6 +796,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
@@ -790,6 +829,8 @@ final class AuditEventSubscriberTest extends TestCase
       requestStack: new RequestStack(),
       security: $this->securityWithUser(null),
       logger: $this->createStub(LoggerInterface::class),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
     $subscriber->onOrganizationJoinChanged(new OrganizationJoinChangedEvent('organization', 'reviewer', 'approve', 'request'));
   }

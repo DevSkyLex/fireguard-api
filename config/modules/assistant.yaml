@@ -92,6 +92,9 @@ services:
     tags: ['messenger.message_handler']
 
   Assistant\Application\UseCase\Command\Message\AskAssistantQuestion\AskAssistantQuestionHandler:
+    arguments:
+      $transaction: '@Shared\Infrastructure\Messaging\Outbox\DbalTransactionManagerAdapter'
+      $eventDispatcher: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
     tags: ['messenger.message_handler']
 
   # L2.3: consumes the dedicated `assistant` Messenger transport
@@ -104,4 +107,18 @@ services:
     tags: ['messenger.message_handler']
 
   Assistant\Application\UseCase\Query\Thread\GetAssistantThread\GetAssistantThreadHandler:
+    tags: ['messenger.message_handler']
+
+  Assistant\Application\Port\Outbound\AssistantAttemptLockPort:
+    alias: Assistant\Infrastructure\Adapter\Lock\PostgresAssistantAttemptLockAdapter
+
+  Assistant\Infrastructure\Adapter\Lock\PostgresAssistantAttemptLockAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Assistant\Application\Service\AssistantAttemptWriter:
+    arguments:
+      $events: '@Shared\Infrastructure\Messaging\Outbox\TransactionalEventDispatcher'
+
+  Assistant\Application\UseCase\Command\Message\ControlAssistantAttempt\ControlAssistantAttemptHandler:
     tags: ['messenger.message_handler']

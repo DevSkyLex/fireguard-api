@@ -8,7 +8,6 @@ use Auth\Application\Port\Outbound\TokenRefreshPort;
 use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult as AuthRefreshTokenResult;
 use OAuth\Application\UseCase\Query\Token\RefreshToken\{RefreshTokenQuery, RefreshTokenResult as OAuthRefreshTokenResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Throwable;
 
 /**
  * Adapter TokenRefreshAdapter.
@@ -40,15 +39,11 @@ final readonly class TokenRefreshAdapter implements TokenRefreshPort
   // #region Methods
   public function refresh(string $refreshToken, ?string $ipAddress = null): AuthRefreshTokenResult
   {
-    try {
-      /** @var OAuthRefreshTokenResult $result */
-      $result = $this->queryBus->ask(new RefreshTokenQuery(
-        refreshToken: $refreshToken,
-        ipAddress: $ipAddress,
-      ));
-    } catch (Throwable $exception) {
-      return AuthRefreshTokenResult::failed($exception->getMessage());
-    }
+    /** @var OAuthRefreshTokenResult $result */
+    $result = $this->queryBus->ask(new RefreshTokenQuery(
+      refreshToken: $refreshToken,
+      ipAddress: $ipAddress,
+    ));
 
     if (!$result->success) {
       return AuthRefreshTokenResult::failed($result->errorMessage ?? 'Invalid refresh token');

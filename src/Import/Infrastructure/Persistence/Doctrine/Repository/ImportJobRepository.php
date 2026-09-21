@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Import\Infrastructure\Persistence\Doctrine\Repository;
 
-use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Import\Application\Port\Outbound\ImportJobRepositoryPort;
 use Import\Domain\Model\ImportJob\ImportJob;
@@ -70,12 +69,18 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
   public function findById(ImportJobId $id): ?ImportJob
   {
     $record = $this->repository->find((string) $id);
+    if ($record instanceof ImportJobRecord) {
+      $this->entityManager->refresh($record);
+    }
 
     return $record instanceof ImportJobRecord ? ImportJobMapper::toDomain($record) : null;
   }
 
-  public function listByOrganization(string $organizationId, ?ImportKind $kind, int $limit, int $offset): array
+  public function listByOrganization(string $organizationId, ?ImportKind $kind, int $limit, int $offset, ?array $allowedKinds = null): array
   {
+    if ([] === $allowedKinds) {
+      return [];
+    }
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('j')
       ->from(ImportJobRecord::class, 'j')
@@ -90,14 +95,22 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
       $queryBuilder->andWhere('j.kind = :kind')->setParameter('kind', $kind->value);
     }
 
+    if (null !== $allowedKinds) {
+      $queryBuilder->andWhere('j.kind IN (:allowedKinds)')
+        ->setParameter('allowedKinds', array_map(static fn (ImportKind $allowed): string => $allowed->value, $allowedKinds));
+    }
+
     /** @var list<ImportJobRecord> $records */
     $records = $queryBuilder->getQuery()->getResult();
 
     return array_map(ImportJobMapper::toDomain(...), $records);
   }
 
-  public function countByOrganization(string $organizationId, ?ImportKind $kind): int
+  public function countByOrganization(string $organizationId, ?ImportKind $kind, ?array $allowedKinds = null): int
   {
+    if ([] === $allowedKinds) {
+      return 0;
+    }
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('COUNT(j.id)')
       ->from(ImportJobRecord::class, 'j')
@@ -108,31 +121,13 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
       $queryBuilder->andWhere('j.kind = :kind')->setParameter('kind', $kind->value);
     }
 
+    if (null !== $allowedKinds) {
+      $queryBuilder->andWhere('j.kind IN (:allowedKinds)')
+        ->setParameter('allowedKinds', array_map(static fn (ImportKind $allowed): string => $allowed->value, $allowedKinds));
+    }
+
     return (int) $queryBuilder->getQuery()->getSingleScalarResult();
   }
 
-  public function claim(ImportJobId $id): bool
-  {
-    // A raw DBAL statement — not the ORM's find()/flush() — mirrors
-    // `AutomationRunRepository::reserveRun()`: claiming is a conditional
-    // UPDATE guarded by a WHERE clause, not an exceptional path, and running
-    // it outside the UnitOfWork keeps a concurrent/redelivered claim attempt
-    // from ever touching the EntityManager's identity map.
-    $now = new DateTimeImmutable();
-
-    $affected = $this->entityManager->getConnection()->executeStatement(
-      'UPDATE import_jobs '
-      . 'SET status = :processing, started_at = COALESCE(started_at, :now), updated_at = :now '
-      . "WHERE id = :id AND status IN ('pending', 'processing')",
-      [
-        'processing' => 'processing',
-        'now' => $now,
-        'id' => (string) $id,
-      ],
-      ['now' => 'datetime_immutable'],
-    );
-
-    return $affected > 0;
-  }
   // #endregion
 }

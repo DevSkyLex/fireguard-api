@@ -16,6 +16,8 @@ use Import\Application\UseCase\Command\ProcessImportJob\{ProcessImportJobCommand
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportStatus};
+use InvalidArgumentException;
+use LogicException;
 use Organization\Application\Contract\Provisioning\{ProvisionMemberInvitationRequest, ProvisionMemberInvitationResult, ProvisionOutcome as MemberProvisionOutcome};
 use Organization\Application\Port\Inbound\MemberInvitationProvisioningPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -140,7 +142,7 @@ final class ProcessImportJobHandlerTest extends TestCase
       ->method('dispatch')
       ->with(self::callback(static function (ImportJobFailedEvent $event): bool {
         self::assertSame(self::JOB_ID, $event->importJobId);
-        self::assertStringContainsString('blob missing', $event->jobError);
+        self::assertSame('Unable to read the uploaded CSV file.', $event->jobError);
 
         return true;
       }));
@@ -264,12 +266,11 @@ final class ProcessImportJobHandlerTest extends TestCase
   }
 
   #[Test]
-  public function itLogsAndStopsWhenTheClaimedJobCannotBeReloaded(): void
+  public function itDoesNotProcessAnAbsentJob(): void
   {
     // claim() succeeded but the row vanished — should not happen, but the
     // handler must degrade to a logged no-op rather than dereference null.
     $repository = $this->createStub(ImportJobRepositoryPort::class);
-    $repository->method('claim')->willReturn(true);
     $repository->method('findById')->willReturn(null);
 
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -279,9 +280,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $eventDispatcher->expects(self::never())->method('dispatch');
 
     $logger = $this->createMock(LoggerInterface::class);
-    $logger->expects(self::once())
-      ->method('error')
-      ->with('Import job claimed but not found.', ['import_job_id' => self::JOB_ID]);
+    $logger->expects(self::never())->method('error');
 
     $handler = $this->handler(
       $repository,
@@ -303,7 +302,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $repository = new InMemoryImportJobRepositoryFake($job);
 
     $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
-    $csvStreamer->method('countDataRows')->willThrowException(new RuntimeException('malformed header'));
+    $csvStreamer->method('countDataRows')->willThrowException(new InvalidArgumentException('malformed header'));
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())
@@ -315,7 +314,7 @@ final class ProcessImportJobHandlerTest extends TestCase
       }));
 
     $logger = $this->createMock(LoggerInterface::class);
-    $logger->expects(self::once())->method('error')->with('Import job processing failed.', self::anything());
+    $logger->expects(self::never())->method('error');
 
     $handler = $this->handler(
       $repository,
@@ -332,7 +331,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
     self::assertInstanceOf(ImportJob::class, $reloaded);
     self::assertSame(ImportStatus::FAILED, $reloaded->status());
-    self::assertStringContainsString('Unable to process the CSV file', (string) $reloaded->jobError());
+    self::assertStringContainsString('malformed header', (string) $reloaded->jobError());
   }
 
   #[Test]
@@ -732,6 +731,88 @@ final class ProcessImportJobHandlerTest extends TestCase
     self::assertSame('unknown_role', $errors[1]->code);
   }
 
+  #[Test]
+  public function itRebuildsTheDryRunQuotaAndParentCodesFromConfirmedRows(): void
+  {
+    $job = ImportJob::create(
+      ImportJobId::fromString(self::JOB_ID),
+      self::ORGANIZATION_ID,
+      ImportKind::FACILITY,
+      'simulation.csv',
+      'simulation.csv',
+      self::CREATED_BY,
+      true,
+    );
+    $job->markProcessing(new DateTimeImmutable());
+    $job->recordRowSuccess(new \Import\Domain\ValueObject\ImportRowError(1, 'would_create', 'Would create parent'));
+    $repository = new InMemoryImportJobRepositoryFake($job);
+    $csv = $this->createStub(CsvRowStreamerPort::class);
+    $csv->method('countDataRows')->willReturn(2);
+    $csv->method('rows')->willReturn($this->generatorFrom([
+      1 => ['type' => 'site', 'name' => 'Parent', 'code' => 'HQ'],
+      2 => ['type' => 'building', 'name' => 'Child', 'parentCode' => 'HQ'],
+    ]));
+    $facilities = $this->createMock(FacilityProvisioningPort::class);
+    $facilities->expects(self::once())->method('provision')->with(self::callback(static function (ProvisionFacilityRequest $request): bool {
+      self::assertTrue($request->dryRun);
+      self::assertSame(1, $request->quotaProjectionOffset);
+      self::assertSame(['HQ'], $request->knownPendingCodes);
+
+      return true;
+    }))->willReturn(new ProvisionFacilityResult(FacilityProvisionOutcome::CREATED));
+    $this->handler($repository, $csv, $this->neverCalledEquipmentPort(), $facilities, $this->createStub(EventDispatcherPort::class))
+      ->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+    self::assertSame(2, $repository->findById($job->id())?->successfulRows());
+  }
+
+  #[Test]
+  public function itLeavesAnImportUntouchedWhenTheQueuedActorHasLostAccess(): void
+  {
+    $job = $this->pendingEquipmentJob();
+    $repository = new InMemoryImportJobRepositoryFake($job);
+    $authorization = $this->createMock(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')
+      ->with(self::CREATED_BY, self::ORGANIZATION_ID, 'organization.equipment.write')
+      ->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::OUTSIDE_SCOPE);
+    $storage = $this->createMock(FileStoragePort::class);
+    $storage->expects(self::never())->method('read');
+    $this->handler(
+      $repository,
+      $this->createStub(CsvRowStreamerPort::class),
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $this->createStub(EventDispatcherPort::class),
+      $storage,
+      authorization: $authorization,
+    )
+      ->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+    self::assertSame(ImportStatus::PENDING, $job->status());
+    self::assertSame(0, $job->processedRows());
+  }
+
+  #[Test]
+  public function itUsesTheAuthorizedResumingMemberForNewInvitations(): void
+  {
+    $actor = '018f0b68-6758-7a12-8a1d-3f0d97f65a04';
+    $repository = new InMemoryImportJobRepositoryFake($this->pendingMemberJob());
+    $csv = $this->createStub(CsvRowStreamerPort::class);
+    $csv->method('countDataRows')->willReturn(1);
+    $csv->method('rows')->willReturn($this->generatorFrom([1 => ['email' => 'member@example.test']]));
+    $members = $this->createMock(MemberInvitationProvisioningPort::class);
+    $members->expects(self::once())->method('provision')->with(self::callback(
+      static fn (ProvisionMemberInvitationRequest $request): bool => $actor === $request->invitedByUserId,
+    ))->willReturn(new ProvisionMemberInvitationResult(MemberProvisionOutcome::CREATED, resourceId: 'invitation'));
+    $this->handler(
+      $repository,
+      $csv,
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $this->createStub(EventDispatcherPort::class),
+      memberInvitationProvisioning: $members,
+    )
+      ->__invoke(new ProcessImportJobCommand(self::JOB_ID, $actor));
+  }
+
   /**
    * @param array<int, array<string, string>> $rows
    *
@@ -802,6 +883,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     ?FileStoragePort $fileStorage = null,
     ?LoggerInterface $logger = null,
     ?MemberInvitationProvisioningPort $memberInvitationProvisioning = null,
+    ?\Organization\Application\Port\Inbound\OrganizationAuthorizationPort $authorization = null,
   ): ProcessImportJobHandler {
     if (null === $fileStorage) {
       $fileStorage = $this->createStub(FileStoragePort::class);
@@ -812,9 +894,13 @@ final class ProcessImportJobHandlerTest extends TestCase
 
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn(new DateTimeImmutable('2026-01-05T00:00:00+00:00'));
+    if (null === $authorization) {
+      $authorization = $this->createStub(\Organization\Application\Port\Inbound\OrganizationAuthorizationPort::class);
+      $authorization->method('resolveAccess')->willReturn(\Organization\Application\Contract\Authorization\OrganizationAccessDecision::GRANTED);
+    }
 
     return new ProcessImportJobHandler(
-      repository: $repository,
+      execution: new InMemoryImportExecutionFake($repository),
       fileStorage: $fileStorage,
       csvStreamer: $csvStreamer,
       equipmentRowFactory: new EquipmentRowFactory(),
@@ -826,6 +912,9 @@ final class ProcessImportJobHandlerTest extends TestCase
       eventDispatcher: $eventDispatcher,
       clock: $clock,
       logger: $logger ?? new NullLogger(),
+      ids: $this->createStub(\Shared\Application\Factory\UuidFactory::class),
+      repository: $repository,
+      authorization: $authorization,
     );
   }
 }
@@ -843,6 +932,51 @@ final class ProcessImportJobHandlerTest extends TestCase
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+final class InMemoryImportExecutionFake implements \Import\Application\Port\Outbound\ImportExecutionPort
+{
+  public function __construct(private ImportJobRepositoryPort $repository)
+  {
+  }
+
+  public function canResume(ImportJobId $id): bool
+  {
+    return false;
+  }
+
+  public function resume(ImportJobId $id, callable $enqueue): ImportJob
+  {
+    throw new LogicException('Not used by processing tests.');
+  }
+
+  public function claim(ImportJobId $id, string $owner): ?ImportJob
+  {
+    $job = $this->repository->findById($id);
+    if (null === $job || $job->status()->isTerminal()) {
+      return null;
+    }
+    if (ImportStatus::PENDING === $job->status()) {
+      $job->markProcessing(new DateTimeImmutable());
+    }
+
+    return $job;
+  }
+
+  public function run(ImportJobId $id, string $owner, callable $operation, ?int $rowNumber = null): ImportJob
+  {
+    $job = clone ($this->repository->findById($id) ?? throw new RuntimeException('Missing job'));
+    if (null === $rowNumber || $rowNumber > $job->processedRows()) {
+      $operation($job);
+      $this->repository->save($job);
+    }
+
+    return $job;
+  }
+
+  public function release(ImportJobId $id, string $owner): void
+  {
+  }
+}
+
 final class InMemoryImportJobRepositoryFake implements ImportJobRepositoryPort
 {
   private ImportJob $job;
@@ -862,12 +996,12 @@ final class InMemoryImportJobRepositoryFake implements ImportJobRepositoryPort
     return (string) $this->job->id() === (string) $id ? $this->job : null;
   }
 
-  public function listByOrganization(string $organizationId, ?ImportKind $kind, int $limit, int $offset): array
+  public function listByOrganization(string $organizationId, ?ImportKind $kind, int $limit, int $offset, ?array $allowedKinds = null): array
   {
     return [$this->job];
   }
 
-  public function countByOrganization(string $organizationId, ?ImportKind $kind): int
+  public function countByOrganization(string $organizationId, ?ImportKind $kind, ?array $allowedKinds = null): int
   {
     return 1;
   }

@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityResult};
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Factory\FacilityDetailOutputFactory;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
@@ -38,6 +39,7 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
 
   // #region Constructor
   public function __construct(
+    private FacilityDetailOutputFactory $detail,
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
@@ -107,20 +109,7 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
       throw $exception;
     }
 
-    $output = new FacilityOutput();
-    $output->id = $result->facilityId;
-    $output->organizationId = $result->organizationId;
-    $output->parentFacilityId = $result->parentFacilityId;
-    $output->type = $result->type;
-    $output->name = $result->name;
-    $output->code = $result->code;
-    $output->status = $result->status;
-    $output->address = $result->address;
-    $output->metadata = $result->metadata;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->detail->read($organizationId, $result->facilityId);
   }
 
   /**

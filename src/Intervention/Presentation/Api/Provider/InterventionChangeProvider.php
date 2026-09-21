@@ -88,14 +88,14 @@ final readonly class InterventionChangeProvider implements ProviderInterface
 
       return $this->mapper->fromView($result->view);
     }
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $intervention = $query?->get('intervention');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $intervention = $query->get('intervention');
     if (!is_string($intervention) || '' === $intervention) {
       throw new BadRequestHttpException('The intervention filter is required.');
     }
     $filters = [];
     foreach (['resource', 'status', 'search'] as $filter) {
-      $value = $query?->get($filter);
+      $value = $query->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;
       }
@@ -108,8 +108,8 @@ final readonly class InterventionChangeProvider implements ProviderInterface
         'change',
         ResourceIriParser::id($intervention, 'interventions'),
         $filters,
-        max(1, $query?->getInt('page', 1) ?? 1),
-        max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30)),
+        max(1, $query->getInt('page', 1)),
+        max(1, min(100, $query->getInt('itemsPerPage', 30))),
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

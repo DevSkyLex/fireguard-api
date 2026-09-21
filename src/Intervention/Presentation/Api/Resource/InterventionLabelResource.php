@@ -47,9 +47,18 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-      ]),
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Organization IRI.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     new Patch(
       name: InterventionOperations::UPDATE_INTERVENTION_LABEL,

@@ -109,7 +109,7 @@ final readonly class LogoutProcessor implements ProcessorInterface
     if (null !== $request) {
       $refreshToken = $this->cookieService->getRefreshTokenFromRequest(request: $request);
 
-      $authHeader = $request->headers->get(
+      $authHeader = \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get(
         key: 'Authorization',
         default: '',
       );

@@ -201,6 +201,10 @@ final class OrganizationPermissionCatalog
   public static function definitions(): array
   {
     return [
+      // Automation execution history and explicit recovery
+      ['name' => 'organization.automation.read', 'description' => 'View automation rules and execution history'],
+      ['name' => 'organization.automation.manage', 'description' => 'Retry failed automation actions'],
+
       // Organization general
       ['name' => 'organization.read', 'description' => 'View organization details'],
       ['name' => 'organization.dashboard.read', 'description' => 'View organization dashboard analytics and KPIs'],

@@ -169,6 +169,7 @@ final class PresentationExceptionStatusTest extends TestCase
     'FloorPlanAttachmentNotFoundException' => 'NotFoundHttpException',
     'ImportAccessDeniedException' => 'AccessDeniedHttpException',
     'ImportJobNotFoundException' => 'NotFoundHttpException',
+    'ImportLeaseUnavailable' => 'ConflictHttpException',
     'InspectionAccessDeniedException' => 'AccessDeniedHttpException',
     'InspectionAlreadyCancelledException' => 'ConflictHttpException',
     'InspectionAlreadyClosedException' => 'ConflictHttpException',

@@ -11,6 +11,7 @@ use Intervention\Domain\ValueObject\PublicationStatus;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 use function array_filter;
 
@@ -44,6 +45,7 @@ final readonly class RequestPublicationHandler implements CommandHandler
     private InterventionIssueFinder $issueFinder,
     private OrganizationAuthorizationPort $authorization,
     private UuidFactory $uuidFactory,
+    private TransactionManagerPort $transactions,
   ) {
   }
 
@@ -59,6 +61,11 @@ final readonly class RequestPublicationHandler implements CommandHandler
    * @return RequestPublicationResult the   invoke result
    */
   public function __invoke(RequestPublicationCommand $command): RequestPublicationResult
+  {
+    return $this->transactions->transactional(fn (): RequestPublicationResult => $this->request($command));
+  }
+
+  private function request(RequestPublicationCommand $command): RequestPublicationResult
   {
     $context = $this->publications->interventionContext($command->interventionId);
     if (null === $context) {

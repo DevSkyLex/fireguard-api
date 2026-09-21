@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Command\Checklist\UpdateChecklist;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, InspectionRepositoryPort};
+use Inspection\Application\Port\Outbound\{ChecklistLockPort, ChecklistRepositoryPort};
 use Inspection\Domain\Exception\{ChecklistInUseException, ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
 use Inspection\Domain\Model\Checklist\ChecklistItem;
-use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, InspectionOrganizationId};
+use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -41,8 +41,8 @@ final readonly class UpdateChecklistHandler implements CommandHandler
 {
   // #region Constructor
   public function __construct(
+    private ChecklistLockPort $locks,
     private ChecklistRepositoryPort $checklistRepository,
-    private InspectionRepositoryPort $inspectionRepository,
     private UuidFactory $uuidFactory,
   ) {
   }
@@ -55,6 +55,11 @@ final readonly class UpdateChecklistHandler implements CommandHandler
    * @since 1.0.0
    */
   public function __invoke(UpdateChecklistCommand $command): UpdateChecklistResult
+  {
+    return $this->locks->withLock($command->organizationId, $command->checklistId, fn (): UpdateChecklistResult => $this->execute($command));
+  }
+
+  private function execute(UpdateChecklistCommand $command): UpdateChecklistResult
   {
     $checklistId = ChecklistId::fromString($command->checklistId);
     $organizationId = ChecklistOrganizationId::fromString($command->organizationId);
@@ -70,12 +75,7 @@ final readonly class UpdateChecklistHandler implements CommandHandler
     }
 
     if ($command->hasItems) {
-      $referencingInspections = $this->inspectionRepository->countByOrganizationId(
-        InspectionOrganizationId::fromString($command->organizationId),
-        checklistId: $command->checklistId,
-      );
-
-      if ($referencingInspections > 0) {
+      if ([] !== $this->checklistRepository->referencedIds($organizationId, [$command->checklistId])) {
         throw ChecklistInUseException::withId($command->checklistId);
       }
     }

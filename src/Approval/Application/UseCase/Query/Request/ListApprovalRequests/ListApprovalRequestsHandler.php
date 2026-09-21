@@ -40,6 +40,7 @@ final readonly class ListApprovalRequestsHandler implements QueryHandler
   public function __construct(
     private ApprovalRequestRepositoryPort $requests,
     private OrganizationAuthorizationPort $authorization,
+    private \Approval\Application\Service\ApprovalRequestViewFactory $views,
   ) {
   }
   // #endregion
@@ -71,7 +72,7 @@ final readonly class ListApprovalRequestsHandler implements QueryHandler
     $total = $this->requests->countByOrganization($query->organizationId, $query->status, $query->actionType);
 
     return new ListApprovalRequestsResult(
-      items: array_map(GetApprovalRequestResult::fromDomain(...), $requests),
+      items: array_map(fn ($request): GetApprovalRequestResult => $this->views->forUser($request, $query->userId), $requests),
       page: $query->page,
       itemsPerPage: $itemsPerPage,
       total: $total,

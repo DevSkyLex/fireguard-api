@@ -49,10 +49,27 @@ use Symfony\Component\HttpFoundation\Response;
       provider: GetPresenceProvider::class,
       paginationEnabled: false,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'memberIds', in: 'query', description: 'Comma-separated organization member ids to check presence for (max 100). Required — there is no "list all online members" mode.', required: true, schema: ['type' => 'string']),
-      ]),
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Organization IRI.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        ),
+        'memberIds' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Comma-separated organization member ids to check presence for (max 100). Required — there is no "list all online members" mode.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'memberIds', in: 'query', description: 'Comma-separated organization member ids to check presence for (max 100). Required — there is no "list all online members" mode.', required: true, schema: ['type' => 'string']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
   ],
 )]

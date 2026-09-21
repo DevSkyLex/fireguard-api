@@ -79,9 +79,12 @@ final readonly class SubscriptionRepository implements SubscriptionRepositoryPor
    *
    * @return ?Subscription the subscription when found
    */
-  public function findByOrganizationId(string $organizationId): ?Subscription
+  public function findByOrganizationId(string $organizationId, bool $refresh = false): ?Subscription
   {
     $record = $this->repository->findOneBy(['organizationId' => $organizationId]);
+    if ($refresh && $record instanceof SubscriptionRecord) {
+      $this->entityManager->refresh($record);
+    }
 
     return $record instanceof SubscriptionRecord ? SubscriptionMapper::toDomain($record) : null;
   }

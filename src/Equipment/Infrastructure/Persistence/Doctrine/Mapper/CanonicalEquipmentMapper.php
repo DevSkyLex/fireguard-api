@@ -87,7 +87,7 @@ final class CanonicalEquipmentMapper
     $record->locationLabel = $equipment->locationLabel();
     $record->status = $equipment->status()->value;
     $record->commissionedAt = $equipment->commissionedAt();
-    $record->revision = $equipment->revision();
+    // Doctrine increments and compares the persisted version in the same UPDATE.
     $record->updatedAt = $equipment->updatedAt();
   }
   // #endregion

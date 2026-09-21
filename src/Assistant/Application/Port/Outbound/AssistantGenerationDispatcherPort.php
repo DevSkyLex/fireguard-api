@@ -65,6 +65,7 @@ interface AssistantGenerationDispatcherPort
     string $assistantMessageId,
     ?string $model = null,
     ?float $temperature = null,
+    ?string $attemptId = null,
   ): void;
   // #endregion
 }

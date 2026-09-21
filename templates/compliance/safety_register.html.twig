@@ -23,6 +23,14 @@
         <td>{{ generatedAtFormatted }}</td>
       </tr>
       <tr>
+        <td class="meta-label">{{ 'compliance.meta.evaluatedAt'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ dataEvaluatedAtFormatted|default('—') }}</td>
+      </tr>
+      <tr>
+        <td class="meta-label">{{ 'compliance.meta.unevaluated'|trans({}, 'pdf', lang) }}</td>
+        <td>{{ totals.unevaluatedEquipmentCount|default('—') }}</td>
+      </tr>
+      <tr>
         <td class="meta-label">{{ 'compliance.meta.organization'|trans({}, 'pdf', lang) }}</td>
         <td>{{ org.name }}</td>
       </tr>

@@ -60,10 +60,14 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
       'recordStatus' => 'published',
     ]);
 
+    if ($record instanceof EquipmentRecord) {
+      $this->entityManager->refresh($record);
+    }
+
     return $record instanceof EquipmentRecord ? $this->view($record) : null;
   }
 
-  public function listEquipmentPage(int $limit, int $offset): array
+  public function listEquipmentPage(int $limit, int $offset, ?string $organizationId = null): array
   {
     $qb = $this->entityManager->createQueryBuilder()
       ->select('e')
@@ -73,6 +77,10 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
       ->orderBy('e.id', 'ASC')
       ->setFirstResult(max(0, $offset))
       ->setMaxResults(max(1, $limit));
+
+    if (null !== $organizationId) {
+      $qb->andWhere('IDENTITY(e.organization) = :organization')->setParameter('organization', $organizationId);
+    }
 
     /** @var list<EquipmentRecord> $records */
     $records = $qb->getQuery()->getResult();

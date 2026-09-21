@@ -38,6 +38,8 @@ services:
   Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort:
     alias: Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter
 
+  Auth\Infrastructure\Adapter\Shared\CurrentActorAdapter: ~
+
   # Adapters
   Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
   Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~

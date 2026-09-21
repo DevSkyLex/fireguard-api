@@ -91,27 +91,27 @@ final readonly class InterventionWorkItemProvider implements ProviderInterface
 
       return $this->mapper->fromView($result->view, $user->getId());
     }
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $intervention = $query?->get('intervention');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $intervention = $query->get('intervention');
     if (!is_string($intervention) || '' === $intervention) {
       throw new BadRequestHttpException('The intervention filter is required.');
     }
     $filters = [];
     foreach (['source', 'action', 'search'] as $filter) {
-      $value = $query?->get($filter);
+      $value = $query->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;
       }
     }
-    $statuses = $this->multiValue($query?->all()['status'] ?? null);
+    $statuses = $this->multiValue($query->all()['status'] ?? null);
     if ([] !== $statuses) {
       $filters['status'] = $statuses;
     }
-    $assignee = $query?->get('assignee');
+    $assignee = $query->get('assignee');
     if (is_string($assignee) && '' !== $assignee) {
       $filters['assigneeId'] = ResourceIriParser::memberId($assignee);
     }
-    $prioritizeAssignee = $query?->get('prioritizeAssignee');
+    $prioritizeAssignee = $query->get('prioritizeAssignee');
     if (is_string($prioritizeAssignee) && '' !== $prioritizeAssignee) {
       $filters['prioritizeAssigneeId'] = ResourceIriParser::memberId($prioritizeAssignee);
     }
@@ -123,8 +123,8 @@ final readonly class InterventionWorkItemProvider implements ProviderInterface
         'work_item',
         ResourceIriParser::id($intervention, 'interventions'),
         $filters,
-        max(1, $query?->getInt('page', 1) ?? 1),
-        max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30)),
+        max(1, $query->getInt('page', 1)),
+        max(1, min(100, $query->getInt('itemsPerPage', 30))),
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

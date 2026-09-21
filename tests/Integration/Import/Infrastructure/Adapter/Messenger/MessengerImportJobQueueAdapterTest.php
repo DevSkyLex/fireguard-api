@@ -24,7 +24,7 @@ use function count;
 final class MessengerImportJobQueueAdapterTest extends KernelTestCase
 {
   #[Test]
-  public function itEnqueuesTheProcessCommandOnTheAsyncTransportWithoutThrowing(): void
+  public function itEnqueuesTheProcessCommandOnTheMainOutboxTransportWithoutThrowing(): void
   {
     self::bootKernel();
     $container = self::getContainer();
@@ -33,14 +33,14 @@ final class MessengerImportJobQueueAdapterTest extends KernelTestCase
     $queue = $container->get(ImportJobQueuePort::class);
 
     /** @var InMemoryTransport $transport */
-    $transport = $container->get('messenger.transport.async');
+    $transport = $container->get('messenger.transport.main_outbox');
     $before = count($transport->getSent());
 
     // Must not throw: this is the exact fire-and-forget call CreateImportJobHandler makes.
     $queue->dispatch('990e8400-e29b-41d4-a716-4466554d0abc');
 
     $sent = $transport->getSent();
-    self::assertCount($before + 1, $sent, 'the import job processing must reach the async transport');
+    self::assertCount($before + 1, $sent, 'the import job processing must reach the main outbox transport');
 
     $message = $sent[count($sent) - 1]->getMessage();
     self::assertInstanceOf(ProcessImportJobCommand::class, $message);

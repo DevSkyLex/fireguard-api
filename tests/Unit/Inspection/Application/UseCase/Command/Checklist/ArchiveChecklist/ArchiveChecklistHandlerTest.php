@@ -42,7 +42,7 @@ final class ArchiveChecklistHandlerTest extends TestCase
     $repository->method('findById')->willReturn($checklist);
     $repository->expects(self::once())->method('save')->with($checklist);
 
-    $handler = new ArchiveChecklistHandler(checklistRepository: $repository);
+    $handler = new ArchiveChecklistHandler(locks: new \Tests\Support\Inspection\PassthroughChecklistLock(), checklistRepository: $repository);
 
     $result = $handler->__invoke(new ArchiveChecklistCommand(
       organizationId: self::ORG_ID,
@@ -61,7 +61,7 @@ final class ArchiveChecklistHandlerTest extends TestCase
     $repository = $this->createStub(ChecklistRepositoryPort::class);
     $repository->method('findById')->willReturn(null);
 
-    $handler = new ArchiveChecklistHandler(checklistRepository: $repository);
+    $handler = new ArchiveChecklistHandler(locks: new \Tests\Support\Inspection\PassthroughChecklistLock(), checklistRepository: $repository);
 
     $this->expectException(ChecklistNotFoundException::class);
 
@@ -77,7 +77,7 @@ final class ArchiveChecklistHandlerTest extends TestCase
     $repository = $this->createStub(ChecklistRepositoryPort::class);
     $repository->method('findById')->willReturn($this->makeChecklist());
 
-    $handler = new ArchiveChecklistHandler(checklistRepository: $repository);
+    $handler = new ArchiveChecklistHandler(locks: new \Tests\Support\Inspection\PassthroughChecklistLock(), checklistRepository: $repository);
 
     $this->expectException(ChecklistNotFoundException::class);
 
@@ -92,7 +92,7 @@ final class ArchiveChecklistHandlerTest extends TestCase
   {
     $repository = $this->createStub(ChecklistRepositoryPort::class);
 
-    $handler = new ArchiveChecklistHandler(checklistRepository: $repository);
+    $handler = new ArchiveChecklistHandler(locks: new \Tests\Support\Inspection\PassthroughChecklistLock(), checklistRepository: $repository);
 
     $this->expectException(InvalidValueException::class);
 
@@ -111,7 +111,7 @@ final class ArchiveChecklistHandlerTest extends TestCase
     $repository = $this->createStub(ChecklistRepositoryPort::class);
     $repository->method('findById')->willReturn($checklist);
 
-    $handler = new ArchiveChecklistHandler(checklistRepository: $repository);
+    $handler = new ArchiveChecklistHandler(locks: new \Tests\Support\Inspection\PassthroughChecklistLock(), checklistRepository: $repository);
 
     $this->expectException(ChecklistArchivedException::class);
 

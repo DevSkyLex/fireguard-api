@@ -97,14 +97,14 @@ final readonly class InterventionProvider implements ProviderInterface
       return $this->mapper->fromViewForCaller($result->view, $user->getId());
     }
 
-    $query = $this->requestStack->getCurrentRequest()?->query;
-    $organization = $query?->get('organization');
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $organization = $query->get('organization');
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }
     $filters = [];
     foreach (['name', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
-      $value = $query?->get($filter);
+      $value = $query->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;
       }
@@ -117,7 +117,7 @@ final readonly class InterventionProvider implements ProviderInterface
       'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
     ];
     foreach ($enumGuards as $filter => [$tryFrom, $message]) {
-      $values = $this->multiValue($query?->all()[$filter] ?? null);
+      $values = $this->multiValue($query->all()[$filter] ?? null);
       if ([] === $values) {
         continue;
       }
@@ -128,34 +128,34 @@ final readonly class InterventionProvider implements ProviderInterface
       }
       $filters[$filter] = $values;
     }
-    $due = $query?->get('due');
+    $due = $query->get('due');
     if (is_string($due) && '' !== $due) {
       if ('overdue' !== $due) {
         throw new BadRequestHttpException('The due filter must be: overdue.');
       }
       $filters['due'] = $due;
     }
-    $responsibles = $this->multiValue($query?->all()['responsible'] ?? null);
+    $responsibles = $this->multiValue($query->all()['responsible'] ?? null);
     if ([] !== $responsibles) {
       $filters['responsibleId'] = array_map(ResourceIriParser::memberId(...), $responsibles);
     }
     foreach (['participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
-      $value = $query?->get($filter);
+      $value = $query->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$target] = ResourceIriParser::memberId($value);
       }
     }
-    $sites = $this->multiValue($query?->all()['site'] ?? null);
+    $sites = $this->multiValue($query->all()['site'] ?? null);
     if ([] !== $sites) {
       $filters['siteId'] = array_map(static fn (string $site): string => ResourceIriParser::id($site, 'facilities'), $sites);
     }
-    $labels = $this->multiValue($query?->all()['label'] ?? null);
+    $labels = $this->multiValue($query->all()['label'] ?? null);
     if ([] !== $labels) {
       $filters['labelId'] = array_map(static fn (string $label): string => ResourceIriParser::id($label, 'intervention-labels'), $labels);
     }
     // Accept the client's `FG-` prefix and strip it before validating the
     // remainder is numeric, mirroring the priority guard above.
-    $number = $query?->get('number');
+    $number = $query->get('number');
     if (is_string($number) && '' !== $number) {
       $number = 0 === stripos($number, 'FG-') ? substr($number, 3) : $number;
       if (!ctype_digit($number)) {
@@ -163,8 +163,8 @@ final readonly class InterventionProvider implements ProviderInterface
       }
       $filters['number'] = (int) $number;
     }
-    $page = max(1, $query?->getInt('page', 1) ?? 1);
-    $itemsPerPage = max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30));
+    $page = max(1, $query->getInt('page', 1));
+    $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
     try {
       /** @var ListInterventionWorkflowResult $result */

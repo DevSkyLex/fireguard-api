@@ -18,6 +18,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 use function explode;
 use function hash;
+use function is_string;
 use function max;
 use function sprintf;
 use function substr;
@@ -93,10 +94,10 @@ final readonly class CheckConsentProvider implements ProviderInterface
       );
     }
 
-    $clientId = $request->query->get(key: 'client_id', default: null);
-    $scope = $request->query->get(key: 'scope', default: null);
+    $clientId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get(key: 'client_id', default: null);
+    $scope = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get(key: 'scope', default: null);
 
-    if (empty($clientId)) {
+    if (!is_string($clientId) || empty($clientId)) {
       throw new BadRequestHttpException(
         message: 'Missing client_id parameter',
       );
@@ -104,7 +105,7 @@ final readonly class CheckConsentProvider implements ProviderInterface
 
     $this->enforceRateLimit($user->getId(), $clientId);
 
-    $requestedScopes = !empty($scope)
+    $requestedScopes = is_string($scope) && !empty($scope)
       ? explode(' ', $scope)
       : [];
 

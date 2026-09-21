@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Application\UseCase\Query\Feed\GetCalendarFeed;
 
-use Calendar\Application\Contract\Feed\CalendarFeedItem;
+use Calendar\Application\Contract\Feed\{CalendarFeedItem, CalendarFeedSourceState};
 use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
 
@@ -28,11 +28,14 @@ final readonly class GetCalendarFeedResult implements ResultMessage
    * @param list<CalendarFeedItem> $items the merged, chronologically ordered feed items
    * @param DateTimeImmutable $from the resolved inclusive range lower bound
    * @param DateTimeImmutable $to the resolved inclusive range upper bound
+   * @param list<CalendarFeedSourceState> $sources authorized source states
    */
   public function __construct(
     public array $items,
     public DateTimeImmutable $from,
     public DateTimeImmutable $to,
+    public array $sources = [],
+    public bool $complete = true,
   ) {
   }
   // #endregion

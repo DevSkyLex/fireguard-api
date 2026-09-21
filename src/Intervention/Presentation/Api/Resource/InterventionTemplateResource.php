@@ -52,10 +52,27 @@ use Symfony\Component\HttpFoundation\Response;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
-        new Parameter(name: 'search', in: 'query', description: 'Case-insensitive partial match on the template name.', required: false, schema: ['type' => 'string']),
-      ]),
+      parameters: [
+        'organization' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Organization IRI.',
+          required: true,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        ),
+        'search' => new \ApiPlatform\Metadata\QueryParameter(
+          schema: ['type' => 'string'],
+          description: 'Case-insensitive partial match on the template name.',
+          required: false,
+          castToArray: false,
+          castToNativeType: false,
+          constraints: [],
+          openApi: new Parameter(name: 'search', in: 'query', description: 'Case-insensitive partial match on the template name.', required: false, schema: ['type' => 'string']),
+        ),
+      ],
+      openapi: new Operation(parameters: []),
     ),
     new Get(
       name: InterventionOperations::GET_INTERVENTION_TEMPLATE,

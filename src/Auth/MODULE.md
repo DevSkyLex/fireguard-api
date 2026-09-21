@@ -273,8 +273,9 @@ sequenceDiagram
 - Refresh token TTLs:
   - Short: `REFRESH_TOKEN_LIFETIME_SHORT` (default for non-remembered sessions).
   - Long: `REFRESH_TOKEN_LIFETIME_LONG` (used when `remember_me=true`).
-- Refresh responses may rotate the refresh token when the OAuth server issues a new one.
-  When a new refresh token is returned, session tracking updates the session identifiers.
+- Interactive refresh consumes the previous access/refresh pair with one conditional
+  update in `auth`. Only a live session can rotate; concurrent or replayed refreshes
+  receive no tokens. The old access token stops authenticating after rotation.
 - Logout revokes refresh tokens and clears the refresh token cookie.
 
 ## MFA & OTP
@@ -352,11 +353,14 @@ The order matters, and each step exists because skipping it was a defect:
    - `_fireguard_token_use: auth_session` (login flow) — resolved through
      `Auth\Application\Port\Outbound\SessionStatusPort`, since these tokens have
      no row in the OAuth2 token table and the session carries their revocation
-     state. An **untracked** token is accepted, not rejected: session recording
-     is best-effort by design, so an absent row means "never recorded", not
-     "revoked". See `src/Session/MODULE.md`.
+     state. A current, non-revoked session must match both the token identifier
+     and the signed user identifier. Issuance persists that anchor before exposing
+     tokens or announcing login success. Missing or rotated tokens are rejected.
+     See `src/Session/MODULE.md`.
    - everything else (OAuth2 flow) — resolved through `AccessTokenLookupPort`,
-     which is also authoritative on an expiry preceding the token's own.
+     which requires an existing record and is also authoritative on an expiry
+     preceding the token's own. MFA `pre_auth` tokens cannot authenticate an API
+     request. Inactive user accounts are rejected when loading the passport.
 
 ## Configuration
 

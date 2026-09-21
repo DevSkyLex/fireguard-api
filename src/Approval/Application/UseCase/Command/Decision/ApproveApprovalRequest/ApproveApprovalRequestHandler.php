@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest;
 
 use Approval\Application\Contract\Execution\DeferredActionContext;
-use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
+use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
 use Approval\Application\Service\ApprovalActionExecutorRegistry;
 use Approval\Domain\Event\Request\{ApprovalApprovedEvent, ApprovalExecutionFailedEvent};
+use Approval\Domain\Event\Request\ApprovalExpiredEvent;
 use Approval\Domain\Exception\{
   ApprovalAccessDeniedException,
   ApprovalRequestNotFoundException,
@@ -20,6 +21,7 @@ use Approval\Domain\ValueObject\ApprovalRequestId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
+use Throwable;
 
 /**
  * UseCase ApproveApprovalRequestHandler.
@@ -55,6 +57,7 @@ final readonly class ApproveApprovalRequestHandler implements CommandHandler
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param ClockPort $clock the clock port
+   * @param ApprovalDecisionLockPort $decisions the transactional decision lock
    */
   public function __construct(
     private ApprovalRequestRepositoryPort $requests,
@@ -64,6 +67,7 @@ final readonly class ApproveApprovalRequestHandler implements CommandHandler
     private OrganizationAuthorizationPort $authorization,
     private EventDispatcherPort $eventDispatcher,
     private ClockPort $clock,
+    private ApprovalDecisionLockPort $decisions,
   ) {
   }
   // #endregion
@@ -79,6 +83,25 @@ final readonly class ApproveApprovalRequestHandler implements CommandHandler
    * @return ApproveApprovalRequestResult the use case result
    */
   public function __invoke(ApproveApprovalRequestCommand $command): ApproveApprovalRequestResult
+  {
+    $result = $this->decisions->synchronized($command->requestId, fn () => $this->decide($command));
+    if ($result instanceof Throwable) {
+      throw $result;
+    }
+
+    return $result;
+  }
+
+  /**
+   * Method decide.
+   *
+   * @since 1.0.0
+   *
+   * @param ApproveApprovalRequestCommand $command the decision payload
+   *
+   * @return ApproveApprovalRequestResult|ApprovalRequestNotPendingException|DeferredActionNoLongerApplicableException the committed result or business refusal
+   */
+  private function decide(ApproveApprovalRequestCommand $command): ApproveApprovalRequestResult|ApprovalRequestNotPendingException|DeferredActionNoLongerApplicableException
   {
     $request = $this->requests->findById(ApprovalRequestId::fromString($command->requestId));
 
@@ -115,6 +138,18 @@ final readonly class ApproveApprovalRequestHandler implements CommandHandler
     }
 
     $now = $this->clock->now();
+    if ($request->expiresAt() <= $now) {
+      $request->expire($now);
+      $this->requests->save($request);
+      $this->eventDispatcher->dispatch(new ApprovalExpiredEvent(
+        organizationId: $request->organizationId(),
+        requestId: (string) $request->id(),
+        actionType: $request->actionType(),
+        subjectId: $request->subjectId(),
+      ));
+
+      return ApprovalRequestNotPendingException::withId($command->requestId);
+    }
 
     try {
       $this->executors->execute(new DeferredActionContext(
@@ -136,7 +171,7 @@ final readonly class ApproveApprovalRequestHandler implements CommandHandler
         decisionByUserId: $command->actorUserId,
       ));
 
-      throw $exception;
+      return $exception;
     }
 
     $request->approve($approverMemberId, $command->actorUserId, $command->decisionNote, $now);

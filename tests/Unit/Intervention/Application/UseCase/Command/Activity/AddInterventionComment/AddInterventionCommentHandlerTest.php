@@ -237,6 +237,8 @@ final class AddInterventionCommentHandlerTest extends TestCase
       $policy,
       $reviewers,
       $admins,
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
   }
 

@@ -99,7 +99,7 @@ services:
       dockerfile: Dockerfile
       target: dev
     command:
-      ["php", "bin/console", "messenger:consume", "async", "webhook", "--time-limit=3600", "-vv"]
+      ["php", "bin/console", "messenger:consume", "main_outbox", "async", "webhook", "--time-limit=3600", "-vv"]
     restart: unless-stopped
     volumes:
       - .:/var/www/html:cached

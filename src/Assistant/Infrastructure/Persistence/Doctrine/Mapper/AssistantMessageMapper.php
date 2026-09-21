@@ -49,6 +49,12 @@ final class AssistantMessageMapper
       tokenCount: $record->tokenCount,
       createdAt: $record->createdAt,
       completedAt: $record->completedAt,
+      attemptId: $record->attemptId,
+      attemptNumber: $record->attemptNumber,
+      attemptSequence: $record->attemptSequence,
+      attemptExpiresAt: $record->attemptExpiresAt,
+      questionMessageId: $record->questionMessageId,
+      temperature: $record->temperature,
     );
   }
 
@@ -73,6 +79,13 @@ final class AssistantMessageMapper
     $record->tokenCount = $message->tokenCount();
     $record->createdAt = $message->createdAt();
     $record->completedAt = $message->completedAt();
+    $record->attemptId = $message->attemptId();
+    $record->attemptNumber = $message->attemptNumber();
+    $record->attemptSequence = $message->attemptSequence();
+    $record->attemptExpiresAt = $message->attemptExpiresAt();
+    $record->questionMessageId = $message->questionMessageId();
+    $record->temperature = $message->temperature();
+
   }
   // #endregion
 }

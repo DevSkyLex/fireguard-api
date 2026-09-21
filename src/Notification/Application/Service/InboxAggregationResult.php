@@ -33,6 +33,7 @@ final readonly class InboxAggregationResult
   public function __construct(
     public array $items,
     public bool $hasMore,
+    public bool $complete = true,
   ) {
   }
   // #endregion

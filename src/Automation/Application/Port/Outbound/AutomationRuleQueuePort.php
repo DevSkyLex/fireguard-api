@@ -34,5 +34,5 @@ interface AutomationRuleQueuePort
    * @param string $subjectId the triggering subject identifier (idempotence key)
    * @param array<string, mixed> $triggerPayload the trigger payload
    */
-  public function enqueue(string $ruleKey, string $organizationId, string $subjectId, array $triggerPayload = []): void;
+  public function enqueue(string $ruleKey, string $organizationId, string $subjectId, array $triggerPayload = [], ?string $attemptId = null): void;
 }

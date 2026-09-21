@@ -86,6 +86,7 @@ final class CanonicalFacilityRepositoryTest extends KernelTestCase
 
     $this->entityManager->persist($this->newFacility(self::GRANDCHILD_ID, $organization, $child, $now));
     $this->entityManager->flush();
+    $this->entityManager->getConnection()->executeStatement('UPDATE facilities SET revision = 4 WHERE id = ?', [$child->id]);
     $this->entityManager->clear();
   }
 

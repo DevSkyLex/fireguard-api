@@ -25,17 +25,9 @@ use const DIRECTORY_SEPARATOR;
 /**
  * Test CrossModuleDomainBoundaryTest.
  *
- * `ARCHITECTURE.md` states that a module may depend on another module's **Port
- * and `Application\Contract` types only** — never on its `Domain`. deptrac
- * CANNOT enforce this: its collectors match a LAYER directory pattern across
- * every module, so an `Application → Application` or `Application → Domain`
- * edge BETWEEN two modules satisfies every declared rule and reports zero
- * violations.
- *
- * The codebase currently violates the rule in 115 places across 41 module
- * pairs. Fixing that is a deliberate, repo-wide refactor (promote a stable
- * access-denied contract, expose permission dependencies through
- * `Application\Contract`, publish event contracts) and is NOT attempted here.
+ * Complements deptrac.modules.php with the historical Domain-import count
+ * ratchet. The Deptrac module gate now checks exact class pairs across all
+ * private layers, including fully qualified references.
  *
  * What this test does instead is turn an unbounded, invisible debt into a
  * bounded, visible one: it pins the current count per module pair and fails
@@ -170,8 +162,7 @@ final class CrossModuleDomainBoundaryTest extends TestCase
       self::assertLessThanOrEqual($allowed, $count, sprintf(
         'Cross-module Domain boundary regression: "%s" now has %d import(s), baseline allows %d. '
         . 'ARCHITECTURE.md permits depending on another module\'s Port and Application\Contract types only, '
-        . 'never its Domain. deptrac cannot catch this (its collectors are layer-shaped, not module-shaped), '
-        . 'which is why this ratchet exists. Introduce a Port or a Contract type instead of importing the '
+        . 'never its Domain. Introduce a Port or a Contract type instead of importing the '
         . 'foreign Domain class. If the import is genuinely unavoidable, raise the baseline DELIBERATELY and '
         . 'say why in the module\'s MODULE.md.',
         $pair,

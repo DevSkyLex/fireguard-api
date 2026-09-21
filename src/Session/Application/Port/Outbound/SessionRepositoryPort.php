@@ -20,6 +20,11 @@ use Session\Domain\ValueObject\SessionId;
  */
 interface SessionRepositoryPort
 {
+  /**
+   * Atomically rotate the current pair of a live session; a replay returns false.
+   */
+  public function rotateTokens(string $currentRefreshTokenId, string $currentAccessTokenId, string $newAccessTokenId, string $newRefreshTokenId): bool;
+
   // #region Methods
   /**
    * Method save.

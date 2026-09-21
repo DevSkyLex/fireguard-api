@@ -67,6 +67,8 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     private FacilityArchivalGuardPort $archivalGuard,
     private FacilityRepositoryPort $facilityRepository,
     private FacilityMetadataSchemaGuard $metadataSchemaGuard,
+    private \Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort $attachments,
+    private \Facility\Application\Service\FacilityAttachmentAncestryGuard $planAncestry,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
   ) {
@@ -177,7 +179,6 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     $record->clientId = $clientId;
     $record->interventionId = $interventionId;
     $record->recordStatus = null === $interventionId ? 'published' : 'draft';
-    $record->revision = 1;
     $this->entityManager->flush();
 
     return new InterventionResourceAssignment($interventionId, $record->recordStatus, $record->revision);
@@ -392,7 +393,10 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       }
     }
 
-    ++$record->revision;
+    if (null !== $record->planGeometry && (array_key_exists('planGeometry', $patch) || array_key_exists('parent', $patch))) {
+      $this->assertPlanUsable($record);
+    }
+
     $record->updatedAt = new DateTimeImmutable();
   }
 
@@ -407,15 +411,20 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
    */
   public function publishDrafts(string $interventionId): void
   {
-    $this->entityManager->createQueryBuilder()
-      ->update(FacilityRecord::class, 'record')
-      ->set('record.recordStatus', ':published')
-      ->set('record.revision', 'record.revision + 1')
-      ->where('record.interventionId = :interventionId')
-      ->setParameter('published', 'published')
-      ->setParameter('interventionId', $interventionId)
-      ->getQuery()
-      ->execute();
+    // ORM writes keep revision fencing and the transactional audit listeners active.
+    /** @var list<FacilityRecord> $records */
+    $records = $this->entityManager->getRepository(FacilityRecord::class)->findBy([
+      'interventionId' => $interventionId,
+      'recordStatus' => 'draft',
+    ]);
+    foreach ($records as $record) {
+      if (null !== $record->planGeometry) {
+        $this->assertPlanUsable($record);
+      }
+      $record->recordStatus = 'published';
+      $record->updatedAt = new DateTimeImmutable();
+    }
+    $this->entityManager->flush();
   }
 
   /**
@@ -438,6 +447,24 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  private function assertPlanUsable(FacilityRecord $record): void
+  {
+    if (null === $record->planGeometry || null === $record->organization) {
+      return;
+    }
+
+    try {
+      $attachment = $this->attachments->findById(\Facility\Domain\ValueObject\FacilityAttachmentId::fromString($record->planGeometry['attachmentId']));
+      if (null === $attachment || \Facility\Domain\ValueObject\AttachmentKind::FLOOR_PLAN !== $attachment->kind()) {
+        throw new InterventionConflictException('The proposed floor plan is unavailable.');
+      }
+      $facility = \Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper::toDomain($record);
+      $this->planAncestry->assertBelongsToFacilityOrAncestor($facility, $attachment, $facility->organizationId());
+    } catch (\Facility\Domain\Exception\FacilityAttachmentNotAncestorException|InvalidValueException) {
+      throw new InterventionConflictException('The proposed floor plan does not belong to the facility ancestry.');
+    }
   }
 
   /**

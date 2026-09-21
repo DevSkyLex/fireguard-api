@@ -118,3 +118,28 @@ Domain validation uses the shared invalid-value contract (422). Missing organiza
 or task is 404; insufficient member permissions are 403. Planning overload is 409
 with `code=workload_confirmation_required` and a typed assessment. Intervention
 operational revisions and time-entry revisions remain separate (412 when stale).
+
+### Projection measurement (2026-09-21)
+
+The opt-in PostgreSQL benchmark uses an isolated test clone with 500 members, 1,000
+interventions, 20,000 tasks and 20,000 time entries across a 30-day view. Terminal and
+cancelled rows leave 14,770 demand contributions and 19,802 actuals. Run it with:
+
+```sh
+php -d memory_limit=1G -d xdebug.mode=off vendor/bin/phpunit --no-coverage tests/Performance/WorkloadProjectionBenchmarkTest.php
+```
+
+The median of three local runs changed from 1,443 ms to 248 ms for contribution reads
+and 3,555 ms to 834 ms for the complete projection (reads included). The old reads
+managed 40,753 ORM entities; scalar projection reads manage zero. Statistics already
+took approximately 9 ms and did not justify a rewrite. These are local measurements,
+not production latency guarantees; source fixtures use real PostgreSQL while workforce
+and capacity ports provide deterministic inputs. Setup time is excluded. Repeat under
+production-like concurrency before adopting a latency budget.
+
+The projector indexes complete task, time and capacity reads by member/scope once,
+without truncating contributions. Local dates are materialized once for every member.
+The before/after view hash and input fingerprint were identical for all three runs;
+unknown effort, unassigned work, draft demand and independent task/time revisions are
+preserved. Output pagination, permission scope and overload confirmations remain unchanged.
+The benchmark writes ignored measurement evidence to `var/workload-benchmark.json`.

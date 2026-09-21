@@ -120,5 +120,23 @@ class AssistantMessageRecord
    */
   #[ORM\Column(name: 'completed_at', type: 'datetime_immutable', nullable: true)]
   public ?DateTimeImmutable $completedAt = null;
+
   // #endregion
+  #[ORM\Column(name: 'attempt_id', type: 'string', length: 36, nullable: true)]
+  public ?string $attemptId = null;
+
+  #[ORM\Column(name: 'attempt_number', type: 'integer', options: ['default' => 0])]
+  public int $attemptNumber = 0;
+
+  #[ORM\Column(name: 'attempt_sequence', type: 'integer', options: ['default' => 0])]
+  public int $attemptSequence = 0;
+
+  #[ORM\Column(name: 'attempt_expires_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $attemptExpiresAt = null;
+
+  #[ORM\Column(name: 'question_message_id', type: 'string', length: 36, nullable: true)]
+  public ?string $questionMessageId = null;
+
+  #[ORM\Column(name: 'temperature', type: 'float', nullable: true)]
+  public ?float $temperature = null;
 }

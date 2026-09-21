@@ -76,14 +76,14 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $includeArchived = $request?->query->getBoolean('includeArchived', false) ?? false;
-    $type = $request?->query->get('type');
-    $status = $request?->query->get('status');
-    $parentFacilityId = $request?->query->get('parentFacilityId');
-    $rootsOnly = $request?->query->getBoolean('rootsOnly', false) ?? false;
-    $code = $request?->query->get('code');
-    $hasCoordinates = $request?->query->has('hasCoordinates')
-      ? $request->query->getBoolean('hasCoordinates')
+    $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
+    $type = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('type');
+    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
+    $parentFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('parentFacilityId');
+    $rootsOnly = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('rootsOnly', false);
+    $code = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('code');
+    $hasCoordinates = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->has('hasCoordinates')
+      ? \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('hasCoordinates')
       : null;
 
     $pagination = PaginationExtractor::fromContext($context);

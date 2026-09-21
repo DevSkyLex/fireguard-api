@@ -410,7 +410,14 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       $authorization,
       $security,
       $requestStack,
-      new CanonicalEquipmentProvider($this->entityManager(), $authorization, $security, $requestStack, $manager),
+      new CanonicalEquipmentProvider(
+        $this->entityManager(),
+        $authorization,
+        $security,
+        $requestStack,
+        $manager,
+        detail: new \Equipment\Presentation\Api\Factory\EquipmentDetailOutputFactory($this->detailQueries(), new \Equipment\Presentation\Api\Factory\EquipmentOutputFactory()),
+      ),
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
@@ -509,4 +516,30 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     };
   }
   // #endregion
+
+  private function detailQueries(): QueryBusPort
+  {
+    $queries = $this->createStub(QueryBusPort::class);
+    $queries->method('ask')->willReturnCallback(static fn (\Shared\Application\Message\QueryMessage $query): ResultMessage => $query instanceof \Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentQuery
+      ? new \Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult(
+        equipmentId: self::EQUIPMENT_ID,
+        organizationId: self::ORGANIZATION_ID,
+        facilityId: null,
+        type: 'fire_extinguisher',
+        subType: null,
+        brand: null,
+        model: null,
+        serialNumber: null,
+        locationLabel: null,
+        status: 'in_stock',
+        installedAt: null,
+        commissionedAt: null,
+        tags: [],
+        createdAt: new DateTimeImmutable('2026-09-20'),
+        updatedAt: new DateTimeImmutable('2026-09-20'),
+      )
+      : new GetCanonicalEquipmentResult(new CanonicalEquipmentView(self::EQUIPMENT_ID, self::ORGANIZATION_ID, 'published', null, 3)));
+
+    return $queries;
+  }
 }

@@ -354,6 +354,7 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
       authorization: $authorization,
       eventDispatcher: $eventDispatcher,
       clock: $clock,
+      decisions: new \Tests\Support\Approval\ImmediateApprovalDecisionLock(),
     );
   }
 }

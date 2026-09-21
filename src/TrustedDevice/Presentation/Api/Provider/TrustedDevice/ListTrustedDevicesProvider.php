@@ -51,7 +51,7 @@ final readonly class ListTrustedDevicesProvider implements ProviderInterface
       throw new BadRequestHttpException('Authenticated user type is not supported.');
     }
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

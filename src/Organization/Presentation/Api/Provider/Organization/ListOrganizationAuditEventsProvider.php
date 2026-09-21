@@ -140,7 +140,7 @@ final readonly class ListOrganizationAuditEventsProvider implements ProviderInte
       return new TraversablePaginator(new ArrayIterator([]), 1, 30, 0);
     }
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pagination = PaginationExtractor::fromContext($context);
     $itemsPerPage = min($pagination->itemsPerPage, self::MAX_ITEMS_PER_PAGE);

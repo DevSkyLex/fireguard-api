@@ -381,7 +381,7 @@ final class LoginHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeSucceedsWhenSessionTrackingFails(): void
+  public function testInvokeDoesNotReturnTokensWhenSessionTrackingFails(): void
   {
     $command = new LoginCommand(
       email: 'user@example.com',
@@ -436,7 +436,7 @@ final class LoginHandlerTest extends TestCase
     $sessionTracking->expects(self::once())
       ->method('recordSession')
       ->willReturnCallback(static function () use (&$methodRecorded): never {
-        self::assertTrue($methodRecorded, 'The sign-in method must be persisted before best-effort tracking.');
+        self::assertTrue($methodRecorded, 'The sign-in method must be persisted before session tracking.');
 
         throw new RuntimeException('tracking failed');
       });
@@ -456,8 +456,8 @@ final class LoginHandlerTest extends TestCase
 
     $result = $handler->__invoke($command);
 
-    $this->assertTrue($result->authenticated);
-    $this->assertSame('access', $result->accessToken);
+    $this->assertFalse($result->authenticated);
+    $this->assertNull($result->accessToken);
   }
 
   #[Test]

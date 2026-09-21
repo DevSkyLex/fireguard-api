@@ -55,6 +55,7 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
       ->method('listEquipmentPage')
       ->with(200, 0)
       ->willReturn([$newEquipment, $decommissioned]);
+    $directory->method('findEquipment')->willReturnCallback(static fn (string $id) => 'equip-new' === $id ? $newEquipment : $decommissioned);
 
     $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
     $schedules->method('findByOrganizationAndEquipment')->willReturn(null);
@@ -86,6 +87,16 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
       new MaintenanceScheduleRecomputePolicy(),
       $this->notifier($notifications),
       $this->clock(),
+      new \Maintenance\Application\Service\MaintenanceScheduleService(
+        $schedules,
+        $directory,
+        $compliancePolicy,
+        new MaintenanceScheduleRecomputePolicy(),
+        $this->clock(),
+        new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+        $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
+      ),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $result = $handler->__invoke(new RecomputeMaintenanceSchedulesCommand());
@@ -104,6 +115,7 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
 
     $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
     $schedules->method('pageForSweep')->willReturn(new MaintenanceSchedulePage([$dueSchedule], 0, 200, 0));
+    $schedules->method('findByOrganizationAndEquipment')->willReturn($dueSchedule);
     $schedules->expects(self::once())
       ->method('save')
       ->with(self::callback(function (MaintenanceScheduleSnapshot $snapshot): bool {
@@ -136,6 +148,16 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
       new MaintenanceScheduleRecomputePolicy(),
       $this->notifier($notifications),
       $clock,
+      new \Maintenance\Application\Service\MaintenanceScheduleService(
+        $schedules,
+        $directory,
+        $compliancePolicy,
+        new MaintenanceScheduleRecomputePolicy(),
+        $clock,
+        new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+        $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
+      ),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $handler->__invoke(new RecomputeMaintenanceSchedulesCommand());
@@ -152,6 +174,7 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
 
     $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
     $schedules->method('pageForSweep')->willReturn(new MaintenanceSchedulePage([$alreadyReminded], 0, 200, 0));
+    $schedules->method('findByOrganizationAndEquipment')->willReturn($alreadyReminded);
     $schedules->expects(self::never())->method('save');
 
     $compliancePolicy = $this->createStub(MaintenanceCompliancePolicyPort::class);
@@ -172,13 +195,23 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
       new MaintenanceScheduleRecomputePolicy(),
       $this->notifier($notifications),
       $clock,
+      new \Maintenance\Application\Service\MaintenanceScheduleService(
+        $schedules,
+        $directory,
+        $compliancePolicy,
+        new MaintenanceScheduleRecomputePolicy(),
+        $clock,
+        new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+        $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
+      ),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     $handler->__invoke(new RecomputeMaintenanceSchedulesCommand());
   }
 
   #[Test]
-  public function testInvokeSkipsBootstrappingEquipmentThatAlreadyHasASchedule(): void
+  public function testInvokeReevaluatesExistingScheduleEvenWhenTheDueStatusDoesNotChange(): void
   {
     $equipment = new TrackableEquipment('equip-1', self::ORG_ID, 'facility-1', 'fire_extinguisher', 'operational');
 
@@ -186,18 +219,19 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
     $directory->expects(self::once())
       ->method('listEquipmentPage')
       ->willReturn([$equipment]);
+    $directory->method('findEquipment')->willReturn($equipment);
 
     $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
     $schedules->expects(self::once())
       ->method('findByOrganizationAndEquipment')
       ->with(self::ORG_ID, 'equip-1')
       ->willReturn($this->makeSchedule('equip-1', null, 'overdue', null));
-    $schedules->expects(self::never())->method('save');
+    $schedules->expects(self::once())->method('save')->with(self::callback(static fn (MaintenanceScheduleSnapshot $value): bool => null !== $value->evaluatedAt))->willReturn($this->makeSchedule('equip-1', null, 'overdue', null));
     $schedules->expects(self::never())->method('removeByOrganizationAndEquipment');
     $schedules->method('pageForSweep')->willReturn(new MaintenanceSchedulePage([], 0, 200, 0));
 
-    $compliancePolicy = $this->createMock(MaintenanceCompliancePolicyPort::class);
-    $compliancePolicy->expects(self::never())->method('compliancePolicy');
+    $compliancePolicy = $this->createStub(MaintenanceCompliancePolicyPort::class);
+    $compliancePolicy->method('compliancePolicy')->willReturn(new MaintenanceCompliancePolicy(['fire_extinguisher' => 'P90D'], 14));
 
     $notifications = $this->createMock(NotificationPort::class);
     $notifications->expects(self::never())->method('send');
@@ -209,6 +243,16 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
       new MaintenanceScheduleRecomputePolicy(),
       $this->notifier($notifications),
       $this->clock(),
+      new \Maintenance\Application\Service\MaintenanceScheduleService(
+        $schedules,
+        $directory,
+        $compliancePolicy,
+        new MaintenanceScheduleRecomputePolicy(),
+        $this->clock(),
+        new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
+        $this->createStub(\Maintenance\Application\Port\Outbound\Schedule\MaintenanceInspectionHistoryPort::class),
+      ),
+      new \Tests\Support\Maintenance\PassthroughMaintenanceScheduleLock(),
     );
 
     self::assertInstanceOf(VoidResult::class, $handler->__invoke(new RecomputeMaintenanceSchedulesCommand()));

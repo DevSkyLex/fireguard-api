@@ -13,6 +13,8 @@ compliance:
     organization: "Rapport d'organisation"
     facility: "Rapport d'établissement"
   meta:
+    evaluatedAt: "Évaluation la plus ancienne"
+    unevaluated: "Équipements non encore évalués"
     generatedAt: "Généré le"
     organization: "Organisation"
     facility: "Établissement"
@@ -39,7 +41,7 @@ compliance:
     equipment: "Équipements (à jour / échéance proche / en retard / non planifiés)"
     openNonConformities: "NC ouvertes (faible/moy./haute/critique)"
     lastInspection: "Dernière inspection"
-  note: "Données au %date%. Le statut d'échéance des équipements est rafraîchi par le balayage de maintenance horaire et peut avoir jusqu'à une heure de retard. Ce document est un instantané à date : il n'est pas conservé et peut être régénéré à tout moment depuis le registre en direct."
+  note: "Registre généré le %date%. La fraîcheur des évaluations et les équipements en attente sont indiqués séparément. Le registre courant peut évoluer ; les archives conservent leur document original."
 
 intervention:
   title: "Rapport d'intervention — FG-%number%"

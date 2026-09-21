@@ -6,6 +6,7 @@ namespace Audit\Application\UseCase\Query\GetAuditEvent;
 
 use Audit\Application\Contract\AuditEventView;
 use Audit\Application\Port\Outbound\AuditEventRepositoryPort;
+use Audit\Domain\Exception\AuditEventNotFoundException;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\EntityNotFoundException;
 
@@ -55,10 +56,7 @@ final readonly class GetAuditEventHandler implements QueryHandler
     $event = $this->repository->findById(id: $query->eventId);
 
     if (null === $event) {
-      throw EntityNotFoundException::forId(
-        entityType: 'AuditEvent',
-        id: $query->eventId,
-      );
+      throw AuditEventNotFoundException::withId($query->eventId);
     }
 
     return $event;

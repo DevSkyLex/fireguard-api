@@ -33,6 +33,6 @@ interface ImportJobQueuePort
    *
    * @param string $importJobId the import job identifier
    */
-  public function dispatch(string $importJobId): void;
+  public function dispatch(string $importJobId, ?string $requestedBy = null): void;
   // #endregion
 }

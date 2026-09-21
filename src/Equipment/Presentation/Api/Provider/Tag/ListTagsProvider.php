@@ -75,9 +75,9 @@ final readonly class ListTagsProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $search = $request?->query->get('search');
+    $search = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('search');
 
-    $filters = $context['filters'] ?? [];
+    $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
     $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;

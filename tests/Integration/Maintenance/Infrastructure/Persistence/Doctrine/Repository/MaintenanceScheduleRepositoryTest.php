@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Factory\UuidFactory;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function array_column;
 use function array_map;
 
 /**
@@ -291,20 +292,33 @@ final class MaintenanceScheduleRepositoryTest extends KernelTestCase
   }
 
   #[Test]
-  public function testViewRejectsAScheduleThatLostItsOrganizationAssociation(): void
+  public function testFindRefreshesAStaleManagedScheduleAfterAcquiringTheWriterLock(): void
   {
     $created = $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_A, 'overdue', null));
     $this->entityManager->clear();
 
-    // Detach the association on the managed instance only: findById() resolves
-    // through the identity map, so the repository sees the orphaned record.
+    // A managed object must not hide the current database state after a writer waits.
     $record = $this->entityManager->find(MaintenanceScheduleRecord::class, $created->id);
     self::assertInstanceOf(MaintenanceScheduleRecord::class, $record);
     $record->organization = null;
 
-    $this->expectException(MaintenanceNotFoundException::class);
+    $found = $this->repository->findById($created->id);
+    self::assertSame(self::ORGANIZATION_ID, $found?->organizationId);
+  }
 
-    $this->repository->findById($created->id);
+  #[Test]
+  public function dateBoundIncludesTheBoundaryAndAppliesIdenticallyToListExportAndCount(): void
+  {
+    $boundary = new DateTimeImmutable('2026-06-30T00:00:00+00:00');
+    $included = $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_A, 'overdue', $boundary));
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_B, 'overdue', $boundary->modify('+1 second')));
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_C, 'overdue', null));
+    $list = $this->repository->list(self::ORGANIZATION_ID, null, null, 'overdue', $boundary, 1, 100);
+    $export = $this->repository->listExportCandidates(self::ORGANIZATION_ID, null, null, 'overdue', $boundary);
+    self::assertSame(1, $list->total);
+    self::assertSame(1, $this->repository->countForExport(self::ORGANIZATION_ID, null, null, 'overdue', $boundary));
+    self::assertSame([$included->id], array_column($export, 'id'));
+    self::assertSame($list->items[0]->id, $export[0]->id);
   }
 
   private function snapshot(

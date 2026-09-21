@@ -1,0 +1,1803 @@
+# Existing exact class-pair exceptions captured 2026-09-21.
+# Remove repaired entries; never regenerate this file to accept a new private dependency.
+deptrac:
+  skip_violations:
+    Approval\Application\Service\ApprovalGate:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Application\Factory\UuidFactory
+    Approval\Presentation\Api\Processor\ApproveApprovalRequestProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Approval\Presentation\Api\Processor\RejectApprovalRequestProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Approval\Presentation\Api\Provider\GetApprovalRequestProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Approval\Presentation\Api\Provider\ListApprovalRequestsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Approval\Presentation\Api\Trait\ApprovalExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Assistant\Application\UseCase\Command\Message\AskAssistantQuestion\AskAssistantQuestionHandler:
+      - Shared\Application\Factory\UuidFactory
+    Assistant\Application\UseCase\Command\Thread\StartAssistantThread\StartAssistantThreadHandler:
+      - Shared\Application\Factory\UuidFactory
+    Assistant\Presentation\Api\Processor\AskAssistantQuestionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Assistant\Presentation\Api\Processor\StartAssistantThreadProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Assistant\Presentation\Api\Provider\GetAssistantThreadProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Assistant\Presentation\Api\Provider\GetAssistantThreadSubscriptionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Assistant\Presentation\Api\Provider\ListAssistantThreadsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Audit\Application\UseCase\Command\RecordAuditEvent\RecordAuditEventHandler:
+      - Shared\Application\Factory\UuidFactory
+    Audit\Infrastructure\EventSubscriber\AuditEventSubscriber:
+      - Approval\Domain\Event\Request\ApprovalApprovedEvent
+      - Approval\Domain\Event\Request\ApprovalExecutionFailedEvent
+      - Approval\Domain\Event\Request\ApprovalExpiredEvent
+      - Approval\Domain\Event\Request\ApprovalRejectedEvent
+      - Approval\Domain\Event\Request\ApprovalRequestedEvent
+      - Auth\Domain\Event\Session\LoginFailedEvent
+      - Auth\Domain\Event\Session\UserLoggedInEvent
+      - Auth\Domain\Event\Session\UserLoggedOutEvent
+      - Auth\Domain\Event\Token\TokenIssuedEvent
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Automation\Domain\Event\Rule\AutomationRuleExecutedEvent
+      - Automation\Domain\Event\Rule\AutomationRuleFailedEvent
+      - Calendar\Domain\Event\CalendarEventCreatedEvent
+      - Calendar\Domain\Event\CalendarEventDeletedEvent
+      - Calendar\Domain\Event\CalendarEventUpdatedEvent
+      - Calendar\Domain\Event\CalendarFeedTokenCreatedEvent
+      - Calendar\Domain\Event\CalendarFeedTokenRevokedEvent
+      - Compliance\Domain\Event\SafetyRegisterExportedEvent
+      - Compliance\Domain\Event\SafetyRegisterSnapshotCreatedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent
+      - Equipment\Domain\Event\Equipment\EquipmentReturnedToStockEvent
+      - Equipment\Domain\Event\Export\EquipmentLabelsExportedEvent
+      - Equipment\Domain\Event\Export\EquipmentReportExportedEvent
+      - Equipment\Domain\Event\Export\EquipmentsExportedEvent
+      - Facility\Domain\Event\Export\FacilitiesExportedEvent
+      - Facility\Domain\Event\Facility\FacilityArchivedEvent
+      - Facility\Domain\Event\Facility\FacilityCreatedEvent
+      - Facility\Domain\Event\Facility\FacilityMovedEvent
+      - Facility\Domain\Event\Facility\FacilityRestoredEvent
+      - Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent
+      - Facility\Domain\Event\Facility\FacilityUpdatedEvent
+      - Import\Domain\Event\ImportJobCompletedEvent
+      - Import\Domain\Event\ImportJobFailedEvent
+      - Inspection\Domain\Event\Export\InspectionReportExportedEvent
+      - Inspection\Domain\Event\Export\InspectionsExportedEvent
+      - Inspection\Domain\Event\Export\NonConformitiesExportedEvent
+      - Inspection\Domain\Event\Export\NonConformitiesReportExportedEvent
+      - Inspection\Domain\Event\Inspection\InspectionCancelledEvent
+      - Inspection\Domain\Event\Inspection\InspectionClosedEvent
+      - Inspection\Domain\Event\Inspection\InspectionSubmittedEvent
+      - Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent
+      - Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent
+      - Intervention\Domain\Event\Export\InterventionsExportedEvent
+      - Intervention\Domain\Event\InterventionReportExportedEvent
+      - Intervention\Domain\Event\Publication\InterventionPublicationFailedEvent
+      - Intervention\Domain\Event\Publication\InterventionPublishedEvent
+      - Intervention\Domain\Event\Recurrence\InterventionRecurrenceCreatedEvent
+      - Intervention\Domain\Event\Recurrence\InterventionRecurrenceDeletedEvent
+      - Intervention\Domain\Event\Recurrence\InterventionRecurrenceMaterializedEvent
+      - Intervention\Domain\Event\Recurrence\InterventionRecurrenceUpdatedEvent
+      - Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent
+      - Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent
+      - Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent
+      - Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent
+      - Messaging\Domain\Event\Channel\MessagingChannelCreatedEvent
+      - Messaging\Domain\Event\Channel\MessagingChannelParentChangedEvent
+      - Messaging\Domain\Event\Channel\MessagingChannelParticipantAddedEvent
+      - Messaging\Domain\Event\Channel\MessagingChannelParticipantRemovedEvent
+      - Messaging\Domain\Event\Channel\MessagingChannelTeamBindingChangedEvent
+      - Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent
+      - Messaging\Domain\Event\Message\MessagingMessageModeratedEvent
+      - Messaging\Domain\Event\Message\MessagingMessageUnpinModeratedEvent
+      - OAuth\Domain\Event\Consent\ConsentGrantedEvent
+      - OAuth\Domain\Event\Token\TokenIssueFailedEvent
+      - OAuth\Domain\Event\Token\TokenIssuedEvent
+      - OAuth\Domain\Event\Token\TokenRefreshFailedEvent
+      - OAuth\Domain\Event\Token\TokenRefreshedEvent
+      - OAuth\Domain\Event\Token\TokenRevokedEvent
+      - Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent
+      - Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent
+      - Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent
+      - Organization\Domain\Event\Join\OrganizationJoinChangedEvent
+      - Organization\Domain\Event\Member\OrganizationMemberAddedEvent
+      - Organization\Domain\Event\Member\OrganizationMemberRemovedEvent
+      - Organization\Domain\Event\Organization\OrganizationArchivedEvent
+      - Organization\Domain\Event\Organization\OrganizationCreatedEvent
+      - Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent
+      - Organization\Domain\Event\Organization\OrganizationRestoredEvent
+      - Organization\Domain\Event\Organization\OrganizationSuspendedEvent
+      - Organization\Domain\Event\Plan\OrganizationPlanChangedEvent
+      - Organization\Domain\Event\Role\OrganizationRoleAssignedEvent
+      - Organization\Domain\Event\Role\OrganizationRoleCreatedEvent
+      - Organization\Domain\Event\Role\OrganizationRoleDeletedEvent
+      - Organization\Domain\Event\Role\OrganizationRoleUnassignedEvent
+      - Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent
+      - Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent
+      - Organization\Domain\Event\Security\OrganizationPermissionGrantDeniedEvent
+      - Organization\Domain\Event\Team\TeamCreatedEvent
+      - Organization\Domain\Event\Team\TeamDeletedEvent
+      - Organization\Domain\Event\Team\TeamMemberAddedEvent
+      - Organization\Domain\Event\Team\TeamMemberRemovedEvent
+      - Organization\Domain\Event\Team\TeamUpdatedEvent
+      - Otp\Domain\Event\Totp\TotpEnrollmentConfirmedEvent
+      - Otp\Domain\Event\Totp\TotpEnrollmentDisabledEvent
+      - User\Domain\Event\UserEmailChangeCancelledEvent
+      - User\Domain\Event\UserEmailChangeConfirmedEvent
+      - User\Domain\Event\UserEmailChangeRequestedEvent
+      - Webhook\Domain\Event\Subscription\WebhookSubscriptionCreatedEvent
+      - Webhook\Domain\Event\Subscription\WebhookSubscriptionDeletedEvent
+    Audit\Presentation\Api\Controller\ExportAuditEventsController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+    Audit\Presentation\Api\Provider\AuditEvent\ListAuditEventsProvider:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendHandler:
+      - Otp\Application\Service\ChallengeResendPolicy
+      - Otp\Domain\ValueObject\ChallengeToken
+    Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange\ConfirmPasswordChangeHandler:
+      - Otp\Domain\Exception\OtpExpiredException
+      - Otp\Domain\Exception\OtpMaxAttemptsException
+      - Otp\Domain\ValueObject\ChallengeToken
+      - User\Domain\ValueObject\HashedPassword
+      - User\Domain\ValueObject\UserId
+    Auth\Application\UseCase\Command\PasswordChange\RequestPasswordChange\RequestPasswordChangeHandler:
+      - User\Domain\Exception\InvalidPasswordException
+      - User\Domain\Exception\InvalidUserException
+      - User\Domain\ValueObject\UserId
+    Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\ConfirmPasswordResetHandler:
+      - Otp\Domain\Exception\OtpExpiredException
+      - Otp\Domain\Exception\OtpMaxAttemptsException
+      - Otp\Domain\ValueObject\ChallengeToken
+      - User\Domain\ValueObject\HashedPassword
+      - User\Domain\ValueObject\UserId
+    Auth\Application\UseCase\Command\PasswordReset\RequestPasswordReset\RequestPasswordResetHandler:
+      - Otp\Application\Service\ChallengeResendPolicy
+    Auth\Application\UseCase\Command\PasswordReset\ResendPasswordReset\ResendPasswordResetHandler:
+      - Otp\Application\Service\ChallengeResendPolicy
+      - Otp\Domain\ValueObject\ChallengeToken
+    Auth\Application\UseCase\Command\Registration\ConfirmRegistration\ConfirmRegistrationHandler:
+      - Otp\Domain\Exception\OtpExpiredException
+      - Otp\Domain\Exception\OtpMaxAttemptsException
+      - Otp\Domain\ValueObject\ChallengeToken
+      - User\Domain\ValueObject\UserId
+    Auth\Application\UseCase\Command\Registration\RegisterUser\RegisterUserHandler:
+      - Otp\Application\Service\ChallengeResendPolicy
+      - User\Application\UseCase\Command\User\CreateUser\CreateUserCommand
+      - User\Application\UseCase\Command\User\CreateUser\CreateUserResult
+      - User\Domain\ValueObject\Username
+    Auth\Application\UseCase\Command\Registration\ResendRegistration\ResendRegistrationHandler:
+      - Otp\Application\Service\ChallengeResendPolicy
+      - Otp\Domain\ValueObject\ChallengeToken
+    Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter:
+      - Authorization\Application\Service\AuthorizationService
+    Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter:
+      - User\Application\UseCase\Query\User\AuthenticateUser\AuthenticateUserQuery
+      - User\Application\UseCase\Query\User\AuthenticateUser\AuthenticateUserResult
+    Auth\Infrastructure\Console\CleanupAuthDataCommand:
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\AccessTokenRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\AuthCodeRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\ConsentRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\RefreshTokenRecord
+      - Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord
+      - Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord
+      - TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord
+    Auth\Infrastructure\Security\User\SecurityUserProvider:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Auth\Presentation\Api\Processor\Auth\LoginProcessor:
+      - Otp\Application\Service\ChallengeResendPolicy
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService
+    Auth\Presentation\Api\Processor\Auth\LogoutProcessor:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Auth\Presentation\Api\Processor\Auth\MfaResendProcessor:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Auth\Presentation\Api\Processor\Federation\FederatedCompleteProcessor:
+      - Otp\Application\Service\ChallengeResendPolicy
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService
+    Auth\Presentation\Api\Processor\Registration\ConfirmRegistrationProcessor:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Authorization\Application\EventHandler\AssignDefaultRoleOnUserCreatedHandler:
+      - Shared\Application\Factory\UuidFactory
+      - User\Domain\Event\UserCreatedEvent
+    Authorization\Application\Service\AuthorizationCacheInvalidator:
+      - Auth\Application\Service\SecurityUserCacheInvalidator
+    Authorization\Application\UseCase\Command\Permission\CreatePermission\CreatePermissionHandler:
+      - Shared\Application\Factory\UuidFactory
+    Authorization\Application\UseCase\Command\Role\CreateRole\CreateRoleHandler:
+      - Shared\Application\Factory\UuidFactory
+    Authorization\Infrastructure\Console\AssignRoleCommand:
+      - User\Infrastructure\Persistence\Doctrine\Record\UserRecord
+    Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord:
+      - Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt
+    Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord:
+      - Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt
+    Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord:
+      - Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt
+    Authorization\Infrastructure\Security\Voter\PermissionVoter:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Authorization\Infrastructure\Security\Voter\RoleVoter:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Authorization\Presentation\Api\Provider\Role\ListRolesProvider:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Automation\Infrastructure\EventSubscriber\AutomationTriggerSubscriber:
+      - Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent
+    Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository:
+      - Shared\Application\Factory\UuidFactory
+    Billing\Application\UseCase\Command\HandleStripeWebhook\HandleStripeWebhookHandler:
+      - Shared\Application\Factory\UuidFactory
+    Billing\Application\UseCase\Command\StartCheckout\StartCheckoutHandler:
+      - Shared\Application\Factory\UuidFactory
+    Billing\Presentation\Api\Processor\CancelSubscriptionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Billing\Presentation\Api\Processor\ResumeSubscriptionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Billing\Presentation\Api\Processor\StartCheckoutProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Billing\Presentation\Api\Processor\StartPortalProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Billing\Presentation\Api\Provider\GetInvoicesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Billing\Presentation\Api\Provider\GetPaymentMethodProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Billing\Presentation\Api\Provider\GetSubscriptionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Billing\Presentation\Controller\StripeWebhookController:
+      - Shared\Application\Exception\MessengerRuntimeException
+    Calendar\Application\UseCase\Command\Event\CreateCalendarEvent\CreateCalendarEventHandler:
+      - Shared\Application\Factory\UuidFactory
+    Calendar\Application\UseCase\Command\FeedToken\RotateCalendarFeedToken\RotateCalendarFeedTokenHandler:
+      - Shared\Application\Factory\UuidFactory
+    Calendar\Infrastructure\DataFixtures\CalendarFixtures:
+      - Facility\Infrastructure\DataFixtures\FacilityFixtures
+      - Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationMemberRecord
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+    Calendar\Presentation\Api\Controller\GetCalendarFeedIcsController:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Processor\Event\CreateCalendarEventProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Processor\Event\DeleteCalendarEventProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Processor\Event\UpdateCalendarEventProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\MergePatchFields
+    Calendar\Presentation\Api\Processor\FeedToken\RevokeCalendarFeedTokenProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Processor\FeedToken\RotateCalendarFeedTokenProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Provider\Event\GetCalendarEventProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Provider\FeedToken\GetCalendarFeedTokenProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Calendar\Presentation\Api\Provider\Feed\GetCalendarFeedProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Application\Service\SafetyRegisterContextBuilder:
+      - Shared\Application\Document\DocumentDateFormatter
+    Compliance\Application\UseCase\Command\Snapshot\CreateSafetyRegisterSnapshot\CreateSafetyRegisterSnapshotHandler:
+      - Shared\Application\Factory\UuidFactory
+    Compliance\Application\UseCase\Query\GetComplianceOverview\GetComplianceOverviewHandler:
+      - Organization\Domain\Catalog\OrganizationPermissionCatalog
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Application\UseCase\Query\GetFacilityCompliance\GetFacilityComplianceHandler:
+      - Organization\Domain\Catalog\OrganizationPermissionCatalog
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Application\UseCase\Query\GetFacilityTree\GetFacilityTreeHandler:
+      - Organization\Domain\Catalog\OrganizationPermissionCatalog
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter:
+      - Organization\Domain\Catalog\OrganizationPermissionCatalog
+    Compliance\Presentation\Api\Controller\DownloadSafetyRegisterSnapshotController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Compliance\Presentation\Api\Controller\ExportSafetyRegisterController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Presentation\Api\Processor\Snapshot\CreateSafetyRegisterSnapshotProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Compliance\Presentation\Api\Provider\GetComplianceOverviewProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Presentation\Api\Provider\GetFacilityComplianceProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Presentation\Api\Provider\GetFacilityTreeProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Compliance\Presentation\Api\Provider\Snapshot\ListSafetyRegisterSnapshotsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Compliance\Presentation\Api\Trait\ComplianceExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Equipment\Application\Service\EquipmentMaintenanceLogSynchronizer:
+      - Shared\Application\Factory\UuidFactory
+    Equipment\Application\Service\EquipmentProvisioningService:
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Application\UseCase\Command\Equipment\AddAttachment\AddAttachmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment\AddTagToEquipmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Equipment\Application\UseCase\Command\Equipment\CreateEquipment\CreateEquipmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\PutUnderMaintenanceHandler:
+      - Organization\Domain\ValueObject\OrganizationId
+      - Shared\Application\Factory\UuidFactory
+    Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHistory\RecordInterventionServiceHistoryHandler:
+      - Shared\Application\Factory\UuidFactory
+    Equipment\Infrastructure\Adapter\Approval\EquipmentDecommissionExecutorAdapter:
+      - Approval\Domain\Exception\DeferredActionNoLongerApplicableException
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter:
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionResourceNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter:
+      - Messaging\Domain\ValueObject\MessagingSubjectType
+    Equipment\Infrastructure\Adapter\Organization\EquipmentSearchAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Equipment\Infrastructure\DataFixtures\EquipmentFixtures:
+      - Facility\Infrastructure\DataFixtures\FacilityFixtures
+      - Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+    Equipment\Infrastructure\EventSubscriber\InterventionServiceHistorySubscriber:
+      - Intervention\Domain\Event\Publication\InterventionPublishedEvent
+    Equipment\Infrastructure\Persistence\Doctrine\Mapper\CanonicalEquipmentMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Persistence\Doctrine\Mapper\TagMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Persistence\Doctrine\Record\TagRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Equipment\Presentation\Api\Controller\DownloadEquipmentAttachmentController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Infrastructure\Exception\FileStorageException
+      - Shared\Presentation\Api\Attachment\AttachmentDownloadResponder
+    Equipment\Presentation\Api\Controller\ExportEquipmentLabelsController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Equipment\Presentation\Api\Controller\ExportEquipmentReportController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Document\DocumentDateFormatter
+    Equipment\Presentation\Api\Controller\ExportEquipmentsController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Equipment\Presentation\Api\Processor\Equipment\AddAttachmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\AddTagToEquipmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\AssignToFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Equipment\Presentation\Api\Processor\Equipment\CommissionEquipmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\ClientResourceAlreadyExistsException
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Intervention\Domain\Exception\InterventionResourceNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Equipment\Presentation\Api\Processor\Equipment\DecommissionEquipmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\DeleteAttachmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\PutUnderMaintenanceProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\RemoveTagFromEquipmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\SetEquipmentPlanPositionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\UnassignFromFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Equipment\UpdateEquipmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Processor\Media\MediaProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\InterventionAccessDeniedException
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+      - Shared\Presentation\Api\Attachment\MultipartAttachmentGuard
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Equipment\Presentation\Api\Provider\Equipment\GetEquipmentKpisProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Provider\Equipment\GetEquipmentProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Provider\Equipment\ListEquipmentAttachmentsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Equipment\Presentation\Api\Provider\Equipment\ListEquipmentsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Equipment\Presentation\Api\Provider\Equipment\ListMaintenanceLogsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Equipment\Presentation\Api\Provider\Media\MediaProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Equipment\Presentation\Api\Provider\Tag\ListTagsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Facility\Application\Service\FacilityProvisioningService:
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\AddFacilityAttachmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Facility\Application\UseCase\Command\Facility\ArchiveFacility\ArchiveFacilityHandler:
+      - Organization\Domain\ValueObject\OrganizationId
+    Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
+      - Shared\Application\Factory\UuidFactory
+    Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\DuplicateFacilitySubtreeHandler:
+      - Shared\Application\Factory\UuidFactory
+    Facility\Application\UseCase\Command\MetadataField\CreateMetadataField\CreateMetadataFieldHandler:
+      - Shared\Application\Factory\UuidFactory
+    Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter:
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionResourceNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+    Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter:
+      - Messaging\Domain\ValueObject\MessagingSubjectType
+    Facility\Infrastructure\Adapter\Organization\FacilitySearchAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Facility\Infrastructure\Console\CreateFacilityConsoleCommand:
+      - Organization\Domain\ValueObject\OrganizationId
+    Facility\Infrastructure\DataFixtures\FacilityFixtures:
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+    Facility\Infrastructure\Persistence\Doctrine\Mapper\CanonicalFacilityMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMetadataFieldMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Facility\Infrastructure\Persistence\Doctrine\Record\FacilityMetadataFieldRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Facility\Presentation\Api\Controller\DownloadFacilityAttachmentController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Infrastructure\Exception\FileStorageException
+      - Shared\Presentation\Api\Attachment\AttachmentDownloadResponder
+    Facility\Presentation\Api\Controller\ExportFacilitiesController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Facility\Presentation\Api\Processor\Attachment\FacilityMediaProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Attachment\MultipartAttachmentGuard
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Facility\Presentation\Api\Processor\Attachment\SetPrimaryFacilityAttachmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\Facility\ArchiveFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\ClientResourceAlreadyExistsException
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Intervention\Domain\Exception\InterventionResourceNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Facility\Presentation\Api\Processor\Facility\DuplicateFacilitySubtreeProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\Facility\MoveFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\Facility\RestoreFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\Facility\SetFacilityPlanGeometryProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\Facility\UpdateFacilityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\MetadataField\CreateFacilityMetadataFieldProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\MetadataField\DeleteFacilityMetadataFieldProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Processor\MetadataField\UpdateFacilityMetadataFieldProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Facility\Presentation\Api\Provider\Facility\FacilityBuildingModelProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Facility\Presentation\Api\Provider\Facility\FacilityPlanOverlayProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Facility\Presentation\Api\Provider\Facility\GeocodeAddressProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Facility\Presentation\Api\Provider\Facility\GetFacilityProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Facility\Presentation\Api\Provider\Facility\ListFacilitiesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Pagination\PaginationExtractor
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Facility\Presentation\Api\Provider\Facility\ListFacilityChildrenProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Facility\Presentation\Api\Provider\Facility\ListFacilityDescendantsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Facility\Presentation\Api\Provider\Facility\SuggestAddressesProvider:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Facility\Presentation\Api\Provider\MetadataField\ListFacilityMetadataFieldsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Import\Application\UseCase\Command\CreateImportJob\CreateImportJobHandler:
+      - Shared\Application\Factory\UuidFactory
+    Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobHandler:
+      - Shared\Application\Factory\UuidFactory
+    Import\Presentation\Api\Processor\CreateImportJobProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Import\Presentation\Api\Processor\ResumeImportJobProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Import\Presentation\Api\Provider\ImportJobCollectionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Import\Presentation\Api\Provider\ImportJobProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Import\Presentation\Api\Trait\ImportExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Inspection\Application\Service\NonConformitySlaRecipientResolver:
+      - Organization\Domain\ValueObject\OrganizationId
+    Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachment\AddInspectionAttachmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Inspection\Application\UseCase\Command\Checklist\CreateChecklist\CreateChecklistHandler:
+      - Shared\Application\Factory\UuidFactory
+    Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistHandler:
+      - Shared\Application\Factory\UuidFactory
+    Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
+      - Shared\Application\Factory\UuidFactory
+    Inspection\Application\UseCase\Command\NonConformity\AddNonConformity\AddNonConformityHandler:
+      - Shared\Application\Factory\UuidFactory
+    Inspection\Application\UseCase\Command\Response\CreateInspectionResponse\CreateInspectionResponseHandler:
+      - Shared\Application\Factory\UuidFactory
+    Inspection\Infrastructure\Adapter\Approval\NonConformityWaiverExecutorAdapter:
+      - Approval\Domain\Exception\DeferredActionNoLongerApplicableException
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter:
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionResourceNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+    Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter:
+      - Messaging\Domain\ValueObject\MessagingSubjectType
+    Inspection\Infrastructure\Adapter\Organization\InspectionSearchAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Inspection\Infrastructure\Adapter\Organization\NonConformitySearchAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Inspection\Infrastructure\Adapter\Statistics\DoctrineNonConformityStatisticsGatewayAdapter:
+      - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\DataFixtures\InspectionFixtures:
+      - Equipment\Infrastructure\DataFixtures\EquipmentFixtures
+      - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord
+      - Facility\Infrastructure\DataFixtures\FacilityFixtures
+      - Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+    Inspection\Infrastructure\Persistence\Doctrine\Mapper\CanonicalInspectionMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Mapper\ChecklistMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionResponseMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Record\ChecklistRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionResponseRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Inspection\Presentation\Api\Controller\ExportInspectionReportController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Document\DocumentDateFormatter
+    Inspection\Presentation\Api\Controller\ExportInspectionsController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Inspection\Presentation\Api\Controller\ExportNonConformitiesController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Inspection\Presentation\Api\Controller\ExportNonConformitiesReportController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Document\DocumentDateFormatter
+    Inspection\Presentation\Api\Factory\InspectionOutputFactory:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Inspection\Presentation\Api\Processor\Attachment\InspectionMediaProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Attachment\MultipartAttachmentGuard
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Inspection\Presentation\Api\Processor\Checklist\ArchiveChecklistProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\Checklist\CreateChecklistProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\Checklist\UpdateChecklistProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\InterventionAccessDeniedException
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Inspection\Presentation\Api\Processor\Inspection\CancelInspectionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Inspection\Presentation\Api\Processor\Inspection\CloseInspectionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Intervention\Application\Service\InterventionResourceManager
+      - Intervention\Domain\Exception\ClientResourceAlreadyExistsException
+      - Intervention\Domain\Exception\InterventionConflictException
+      - Intervention\Domain\Exception\InterventionNotFoundException
+      - Intervention\Domain\Exception\InterventionResourceNotFoundException
+      - Intervention\Domain\ValueObject\InterventionResourceType
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Inspection\Presentation\Api\Processor\Inspection\EditInspectionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\Inspection\SubmitInspectionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\NonConformity\AddNonConformityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Processor\NonConformity\UpdateNonConformityStatusProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Provider\Attachment\InspectionMediaProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Provider\Checklist\GetChecklistProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Provider\Checklist\ListChecklistsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Inspection\Presentation\Api\Provider\Inspection\GetInspectionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Provider\Inspection\ListInspectionsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Inspection\Presentation\Api\Provider\NonConformity\GetNonConformityProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Inspection\Presentation\Api\Provider\NonConformity\ListNonConformitiesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Inspection\Presentation\Api\Provider\NonConformity\ListOrganizationNonConformitiesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Inspection\Presentation\Api\Provider\Statistics\GetNonConformityStatisticsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Intervention\Application\Service\InterventionMemberPolicy:
+      - Organization\Domain\ValueObject\OrganizationId
+      - Organization\Domain\ValueObject\OrganizationMemberId
+    Intervention\Application\Service\InterventionNotificationService:
+      - Organization\Domain\ValueObject\OrganizationMemberId
+      - Organization\Domain\ValueObject\OrganizationNotificationSettings
+    Intervention\Application\Service\InterventionRecurrenceNotifier:
+      - Organization\Domain\ValueObject\OrganizationMemberId
+    Intervention\Application\Service\InterventionRecurrenceRecipientResolver:
+      - Organization\Domain\ValueObject\OrganizationId
+    Intervention\Application\Service\InterventionReviewerRecipientResolver:
+      - Organization\Domain\ValueObject\OrganizationId
+    Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Intervention\Application\UseCase\Command\Publication\RequestPublication\RequestPublicationHandler:
+      - Shared\Application\Factory\UuidFactory
+    Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter:
+      - Shared\Application\Factory\UuidFactory
+    Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Label\DoctrineInterventionLabelAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Application\Factory\UuidFactory
+    Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter:
+      - Messaging\Domain\ValueObject\MessagingSubjectType
+    Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Publication\DoctrinePublicationAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Application\Factory\UuidFactory
+    Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Statistics\DoctrineInterventionStatisticsGatewayAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Application\Factory\UuidFactory
+    Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Application\Factory\UuidFactory
+      - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Intervention\Infrastructure\DataFixtures\InterventionFixtures:
+      - Equipment\Infrastructure\DataFixtures\EquipmentFixtures
+      - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord
+      - Facility\Infrastructure\DataFixtures\FacilityFixtures
+      - Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationMemberRecord
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+    Intervention\Infrastructure\DataFixtures\InterventionWorkloadFixtures:
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+    Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionLabelRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecurrenceRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionTemplateRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Presentation\Api\Controller\DownloadInterventionAttachmentController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Infrastructure\Exception\FileStorageException
+      - Shared\Presentation\Api\Attachment\AttachmentDownloadResponder
+    Intervention\Presentation\Api\Controller\ExportInterventionReportController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Document\DocumentDateFormatter
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Controller\ExportInterventionsController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Factory\InterventionOutputFactory:
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Factory\InterventionWorkItemOutputFactory:
+      - Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentQuery
+      - Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult
+      - Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityQuery
+      - Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult
+      - Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberQuery
+      - Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberResult
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Intervention\Presentation\Api\Processor\Assignment\AssignTeamToInterventionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Presentation\Api\Attachment\MultipartAttachmentGuard
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Intervention\Presentation\Api\Processor\InstantiateInterventionTemplateProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Processor\InterventionActivityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Intervention\Presentation\Api\Processor\InterventionChangeProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Intervention\Presentation\Api\Processor\InterventionLabelProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Processor\InterventionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Intervention\Presentation\Api\Processor\InterventionRecurrenceProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Processor\InterventionTemplateProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Processor\InterventionTimeProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Intervention\Presentation\Api\Processor\InterventionWorkItemProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+      - Shared\Presentation\Api\Http\MergePatchFields
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Intervention\Presentation\Api\Processor\PublicationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\InterventionActivityProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Intervention\Presentation\Api\Provider\InterventionChangeProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\InterventionIssueProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Intervention\Presentation\Api\Provider\InterventionLabelProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\InterventionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Intervention\Presentation\Api\Provider\InterventionRecurrenceProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\InterventionTemplateProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\InterventionTimeProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Intervention\Presentation\Api\Provider\InterventionWorkItemProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Provider\PublicationProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Intervention\Presentation\Api\Provider\Statistics\GetInterventionStatisticsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Intervention\Presentation\Api\Service\InterventionExportCriteriaFactory:
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Maintenance\Application\Service\MaintenanceReminderRecipientResolver:
+      - Organization\Domain\ValueObject\OrganizationId
+    Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures:
+      - Equipment\Infrastructure\DataFixtures\EquipmentFixtures
+      - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+    Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceScheduleRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Application\Factory\UuidFactory
+    Maintenance\Presentation\Api\Controller\ExportMaintenanceSchedulesController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Maintenance\Presentation\Api\Processor\GenerateInspectionCampaignProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Maintenance\Presentation\Api\Processor\MaintenanceScheduleProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Maintenance\Presentation\Api\Provider\MaintenanceScheduleProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Maintenance\Presentation\Api\Service\MaintenanceScheduleExportCriteriaFactory:
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Maintenance\Presentation\Api\Trait\MaintenanceExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment\AddMessageAttachmentHandler:
+      - Shared\Application\Factory\UuidFactory
+    Messaging\Application\UseCase\Command\Channel\CreateChannel\CreateChannelHandler:
+      - Shared\Application\Factory\UuidFactory
+    Messaging\Application\UseCase\Command\Message\PostMessage\PostMessageHandler:
+      - Shared\Application\Factory\UuidFactory
+    Messaging\Application\UseCase\Command\Message\PostReply\PostReplyHandler:
+      - Shared\Application\Factory\UuidFactory
+    Messaging\Infrastructure\DataFixtures\MessagingFixtures:
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Messaging\Infrastructure\EventSubscriber\SyncTeamChannelParticipantsSubscriber:
+      - Organization\Domain\Event\Member\OrganizationMemberRemovedEvent
+      - Organization\Domain\Event\Team\TeamDeletedEvent
+      - Organization\Domain\Event\Team\TeamMemberAddedEvent
+      - Organization\Domain\Event\Team\TeamMemberRemovedEvent
+    Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationRepository:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+      - Shared\Application\Factory\UuidFactory
+    Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingLinkRepository:
+      - Shared\Application\Factory\UuidFactory
+    Messaging\Presentation\Api\Controller\DownloadMessagingAttachmentController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Infrastructure\Exception\FileStorageException
+      - Shared\Presentation\Api\Attachment\AttachmentDownloadResponder
+    Messaging\Presentation\Api\Processor\Attachment\MessagingMediaProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Attachment\MultipartAttachmentGuard
+      - Shared\Presentation\Api\Http\RevisionGuard
+    Messaging\Presentation\Api\Processor\Channel\AddChannelParticipantProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Channel\BindChannelTeamProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Channel\CreateChannelProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Processor\Channel\DeleteChannelProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Channel\RemoveChannelParticipantProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Channel\SetChannelParentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Channel\UpdateChannelProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Conversation\ArchiveConversationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Conversation\FavoriteConversationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Conversation\GetOrCreateConversationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Processor\Conversation\GetOrCreateDirectConversationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Processor\Conversation\UnfavoriteConversationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\AddReactionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\DeleteMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\EditMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\PinMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\PostMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\PostReplyProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\PutMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException
+      - Shared\Presentation\Api\Http\CreationPreconditionGuard
+    Messaging\Presentation\Api\Processor\Message\RemoveReactionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\SaveMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\UnpinMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Message\UnsaveMessageProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Processor\Presence\PingPresenceProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Processor\ReadMarker\MarkConversationReadProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Provider\Attachment\MessagingMediaProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Messaging\Presentation\Api\Provider\Channel\GetChannelProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Provider\Channel\ListChannelParticipantsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Provider\Channel\ListChannelsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Provider\Conversation\GetConversationActivityProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Messaging\Presentation\Api\Provider\Conversation\GetConversationProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Provider\Conversation\ListConversationsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Provider\Conversation\ListDirectConversationsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Provider\Link\ListConversationLinksProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Messaging\Presentation\Api\Provider\Message\ListMessagesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Messaging\Presentation\Api\Provider\Message\ListPinnedMessagesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Messaging\Presentation\Api\Provider\Message\ListRepliesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Messaging\Presentation\Api\Provider\Message\ListSavedMessagesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Provider\Presence\GetPresenceProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Http\ResourceIriParser
+    Messaging\Presentation\Api\Provider\Subscription\GetMessagingSubscriptionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler:
+      - Shared\Application\Factory\UuidFactory
+    Notification\Presentation\Api\Processor\NotificationPreference\UpdateNotificationPreferencesProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Notification\Presentation\Api\Processor\Notification\MarkAllNotificationsAsReadProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Notification\Presentation\Api\Processor\Notification\MarkNotificationAsReadProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Notification\Presentation\Api\Provider\Inbox\GetInboxProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Notification\Presentation\Api\Provider\Inbox\GetInboxUnreadCountProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Notification\Presentation\Api\Provider\MercureSubscription\GetMercureSubscriptionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Notification\Presentation\Api\Provider\NotificationPreference\GetNotificationPreferencesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Notification\Presentation\Api\Provider\Notification\GetNotificationProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Notification\Presentation\Api\Provider\Notification\GetUnreadNotificationsCountProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Notification\Presentation\Api\Provider\Notification\ListNotificationsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Pagination\PaginationExtractor
+    OAuth\Application\UseCase\Command\Client\RegisterClient\RegisterClientHandler:
+      - Shared\Application\Factory\UuidFactory
+    OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentHandler:
+      - Shared\Application\Factory\UuidFactory
+    OAuth\Application\UseCase\Query\Token\RefreshToken\RefreshTokenHandler:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    OAuth\Infrastructure\Adapter\Auth\TokenRefreshAdapter:
+      - Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult
+    OAuth\Infrastructure\Console\Command\Client\CreateClientCommand:
+      - Shared\Application\Factory\UuidFactory
+    OAuth\Infrastructure\DataFixtures\ClientFixtures:
+      - Shared\Infrastructure\Service\UuidEventIdProvider
+      - Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter
+    OAuth\Infrastructure\OAuth2\League\Adapter\ClientRepositoryPortAdapter:
+      - Auth\Domain\Model\Client\Client
+      - Auth\Domain\ValueObject\Client\ClientIdentifier
+      - Auth\Domain\ValueObject\Scope\Scope
+      - Auth\Domain\ValueObject\Security\GrantType
+    OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    OAuth\Presentation\Api\EventSubscriber\OAuthErrorSubscriber:
+      - Shared\Application\Exception\MessengerRuntimeException
+    OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    OAuth\Presentation\Api\Processor\Session\EndSessionProcessor:
+      - Auth\Presentation\Api\Service\RefreshTokenCookieService
+    OAuth\Presentation\Api\Processor\Token\IssueTokenProcessor:
+      - Shared\Application\Exception\MessengerRuntimeException
+    OAuth\Presentation\Api\Provider\Client\ListClientsProvider:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    OAuth\Presentation\Api\Provider\Consent\CheckConsentProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    OAuth\Presentation\Api\Provider\Discovery\UserInfoProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Onboarding\Application\Service\OrganizationOnboardingFlowService:
+      - Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery
+      - Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery
+      - Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand
+      - Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult
+      - Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery
+      - Organization\Domain\Exception\OrganizationNotFoundException
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Application\Factory\UuidFactory
+    Onboarding\Infrastructure\DataFixtures\OnboardingFixtures:
+      - Organization\Infrastructure\DataFixtures\OrganizationFixtures
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+    Onboarding\Infrastructure\EventSubscriber\OnboardingNotificationSubscriber:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Onboarding\Presentation\Api\Processor\Onboarding\DismissOrganizationOnboardingProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Onboarding\Presentation\Api\Processor\Onboarding\ExecuteOrganizationOnboardingStepProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationNotFoundException
+      - Organization\Domain\Exception\OrganizationSlugAlreadyExistsException
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Onboarding\Presentation\Api\Processor\Onboarding\PrepareOrganizationSetupProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Onboarding\Presentation\Api\Processor\Onboarding\ResumeOrganizationOnboardingProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Onboarding\Presentation\Api\Processor\Onboarding\RollbackOrganizationOnboardingProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Onboarding\Presentation\Api\Processor\Onboarding\SkipOrganizationOnboardingStepProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Onboarding\Presentation\Api\Processor\Onboarding\StartOrganizationOnboardingProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Onboarding\Presentation\Api\Provider\Onboarding\OrganizationOnboardingProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Application\Service\MemberInvitationProvisioningService:
+      - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Application\Service\OrganizationWeeklyDigestNotifier:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler:
+      - Shared\Application\Factory\UuidFactory
+      - User\Domain\ValueObject\UserId
+    Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanHandler:
+      - User\Domain\ValueObject\UserId
+    Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\CreateOrganizationRoleHandler:
+      - Shared\Application\Factory\UuidFactory
+    Organization\Application\UseCase\Command\Organization\CreateOrganization\CreateOrganizationHandler:
+      - Shared\Application\Factory\UuidFactory
+      - User\Domain\ValueObject\UserId
+    Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\InviteOrganizationMemberHandler:
+      - Shared\Application\Factory\UuidFactory
+    Organization\Application\UseCase\Command\Plan\CreatePlan\CreatePlanHandler:
+      - Shared\Application\Factory\UuidFactory
+    Organization\Application\UseCase\Command\Team\CreateTeam\CreateTeamHandler:
+      - Shared\Application\Factory\UuidFactory
+    Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\GetOrganizationInvitationPreviewHandler:
+      - User\Domain\ValueObject\UserId
+    Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter:
+      - Shared\Infrastructure\Exception\FileStorageException
+    Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Infrastructure\Adapter\Workforce\OrganizationWorkforceDirectoryAdapter:
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Infrastructure\Console\AddOrganizationAdminConsoleCommand:
+      - User\Domain\ValueObject\UserId
+    Organization\Infrastructure\Console\CreateOrganizationConsoleCommand:
+      - User\Domain\ValueObject\UserId
+    Organization\Infrastructure\DataFixtures\OrganizationFixtures:
+      - Shared\Infrastructure\DataFixtures\SeedTimeline
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+      - User\Infrastructure\DataFixtures\UserFixtures
+    Organization\Infrastructure\Image\OrganizationLogoResizer:
+      - Intervention\Image\Drivers\Gd\Driver
+      - Intervention\Image\ImageManager
+    Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord:
+      - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord
+      - Equipment\Infrastructure\Persistence\Doctrine\Record\TagRecord
+      - Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord
+      - Inspection\Infrastructure\Persistence\Doctrine\Record\ChecklistRecord
+      - Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord
+    Organization\Presentation\Api\Controller\ExportOrganizationAuditEventsController:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Join\OrganizationJoinProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\AcceptOrganizationInvitationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\AddOrganizationMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\AssignOrganizationRoleToMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\ChangeOrganizationPlanProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\CreateOrganizationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\CreateOrganizationRoleProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\DeleteOrganizationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Organization\Presentation\Api\Processor\Organization\DeleteOrganizationRoleProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\InviteOrganizationMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\LeaveOrganizationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\ReactivateOrganizationMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\RemoveOrganizationLogoProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\RemoveOrganizationMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\RemoveOrganizationMembersProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\RemoveOrganizationRoleFromMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\ResendOrganizationInvitationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\RestoreOrganizationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\RevokeOrganizationInvitationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\SetOrganizationMemberRolesProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\SuspendOrganizationProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\TransferOrganizationOwnershipProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Organization\UpdateOrganizationRoleProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\UpdateOrganizationSettingsProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Organization\UploadOrganizationLogoProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Processor\Plan\CreatePlanProcessor:
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Plan\DeletePlanProcessor:
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Plan\UpdatePlanProcessor:
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Team\AddTeamMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Team\CreateTeamProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Team\DeleteTeamProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Team\RemoveTeamMemberProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Processor\Team\UpdateTeamProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+    Organization\Presentation\Api\Provider\Join\OrganizationJoinProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\GetCurrentOrganizationMemberProfileProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationDashboardProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Equipment\Domain\ValueObject\EquipmentStatus
+      - Equipment\Domain\ValueObject\EquipmentType
+      - Facility\Domain\ValueObject\FacilityType
+      - Inspection\Domain\ValueObject\InspectionResult
+      - Inspection\Domain\ValueObject\InspectionStatus
+      - Inspection\Domain\ValueObject\InspectorType
+      - Inspection\Domain\ValueObject\NonConformitySeverity
+      - Inspection\Domain\ValueObject\NonConformityStatus
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationDashboardTrendProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Equipment\Domain\ValueObject\EquipmentStatus
+      - Equipment\Domain\ValueObject\EquipmentType
+      - Facility\Domain\ValueObject\FacilityType
+      - Inspection\Domain\ValueObject\InspectionResult
+      - Inspection\Domain\ValueObject\InspectionStatus
+      - Inspection\Domain\ValueObject\InspectorType
+      - Inspection\Domain\ValueObject\NonConformitySeverity
+      - Inspection\Domain\ValueObject\NonConformityStatus
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationLogoProvider:
+      - Shared\Infrastructure\Exception\FileStorageException
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationMemberProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationNavigationCountersProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationQuotaProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\GetOrganizationRoleProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\ListOrganizationAuditEventsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Pagination\PaginationExtractor
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitationsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Pagination\PaginationExtractor
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Presentation\Api\Provider\Organization\ListOrganizationLegalTypesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Organization\ListOrganizationMembersProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Pagination\PaginationExtractor
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+      - User\Application\UseCase\Query\User\GetUser\GetUserQuery
+      - User\Application\UseCase\Query\User\GetUser\GetUserResult
+    Organization\Presentation\Api\Provider\Organization\ListOrganizationPermissionsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Organization\Presentation\Api\Provider\Organization\ListOrganizationRolesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Pagination\PaginationExtractor
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Organization\Presentation\Api\Provider\Organization\ListUserOrganizationsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Organization\Presentation\Api\Provider\Organization\SearchOrganizationProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Application\Exception\MessengerRuntimeException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Organization\Presentation\Api\Provider\Plan\GetPlanProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Plan\ListPlansProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Team\GetTeamProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Team\ListTeamMembersProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Organization\Presentation\Api\Provider\Team\ListTeamsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Otp\Application\Exception\OtpNotFoundException:
+      - Shared\Application\Exception\ApplicationException
+    Otp\Application\Exception\ResendNotAllowedException:
+      - Shared\Application\Exception\ApplicationException
+    Otp\Application\Exception\TotpEnrollmentNotEnabledException:
+      - Shared\Application\Exception\ApplicationException
+    Otp\Application\Exception\TotpPendingEnrollmentNotFoundException:
+      - Shared\Application\Exception\ApplicationException
+    Otp\Application\UseCase\Command\Challenge\GenerateOtp\GenerateOtpHandler:
+      - Shared\Application\Factory\UuidFactory
+    Otp\Presentation\Api\Processor\Challenge\ResendChallengeProcessor:
+      - Shared\Application\Exception\MessengerRuntimeException
+    Otp\Presentation\Api\Processor\Totp\DisableTotpProcessor:
+      - Shared\Application\Exception\MessengerRuntimeException
+    Session\Application\UseCase\Command\Session\CreateSession\CreateSessionHandler:
+      - Shared\Application\Factory\UuidFactory
+    Session\Presentation\Api\Processor\Session\RevokeAllSessionsProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Session\Presentation\Api\Processor\Session\RevokeOtherSessionsProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Session\Presentation\Api\Provider\Session\ListUserSessionsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Tenant\Application\UseCase\Command\Tenant\ActivateTenant\ActivateTenantHandler:
+      - Shared\Application\Factory\UuidFactory
+    Tenant\Application\UseCase\Command\Tenant\CreateTenant\CreateTenantHandler:
+      - Shared\Application\Factory\UuidFactory
+    Tenant\Application\UseCase\Command\Tenant\DeactivateTenant\DeactivateTenantHandler:
+      - Shared\Application\Factory\UuidFactory
+    Tenant\Application\UseCase\Command\Tenant\UpdateTenant\UpdateTenantHandler:
+      - Shared\Application\Factory\UuidFactory
+    Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter:
+      - Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt
+    Tenant\Presentation\Api\Provider\Tenant\ListTenantsProvider:
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice\TrustDeviceHandler:
+      - Shared\Application\Factory\UuidFactory
+    TrustedDevice\Presentation\Api\Processor\TrustedDevice\RevokeAllDevicesProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    TrustedDevice\Presentation\Api\Processor\TrustedDevice\RevokeDeviceProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    TrustedDevice\Presentation\Api\Processor\TrustedDevice\TrustDeviceProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    TrustedDevice\Presentation\Api\Provider\TrustedDevice\ListTrustedDevicesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\CollectionSearcher
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\CollectionSorter
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    User\Application\Service\FederatedUserService:
+      - Shared\Application\Factory\UuidFactory
+    User\Application\UseCase\Command\User\CreateUser\CreateUserHandler:
+      - Shared\Application\Factory\UuidFactory
+    User\Infrastructure\Adapter\User\UserDataPurgeAdapter:
+      - Authorization\Domain\ValueObject\SubjectType
+      - Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\AccessTokenRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\AuthCodeRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\ConsentRecord
+      - OAuth\Infrastructure\Persistence\Doctrine\Record\RefreshTokenRecord
+      - Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord
+      - Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord
+      - TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord
+    User\Infrastructure\DataFixtures\UserFixtures:
+      - Authorization\Domain\ValueObject\SubjectType
+      - Authorization\Infrastructure\DataFixtures\AuthorizationFixtures
+      - Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord
+      - Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+      - Shared\Infrastructure\Service\UuidEventIdProvider
+      - Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter
+    User\Infrastructure\Image\AvatarResizer:
+      - Intervention\Image\Drivers\Gd\Driver
+      - Intervention\Image\ImageManager
+    User\Infrastructure\Persistence\Doctrine\Record\UserRecord:
+      - Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord
+    User\Infrastructure\Persistence\Doctrine\Repository\UserRepository:
+      - Auth\Application\Service\SecurityUserCacheInvalidator
+    User\Presentation\Api\Processor\EmailChange\CancelEmailChangeProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    User\Presentation\Api\Processor\EmailChange\RequestEmailChangeProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    User\Presentation\Api\Processor\User\DeactivateCurrentUserProfileProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    User\Presentation\Api\Processor\User\UpdateCurrentUserProfileProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    User\Presentation\Api\Processor\User\UploadCurrentUserAvatarProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    User\Presentation\Api\Provider\User\GetCurrentUserProfileProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    User\Presentation\Api\Provider\User\GetUserAvatarProvider:
+      - Shared\Infrastructure\Exception\FileStorageException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    User\Presentation\Api\Provider\User\ListUsersProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader
+      - Shared\Presentation\Api\Search\SearchExtractor
+      - Shared\Presentation\Api\Sorting\SortingExtractor
+    Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventHandler:
+      - Shared\Application\Factory\UuidFactory
+    Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription\CreateWebhookSubscriptionHandler:
+      - Shared\Application\Factory\UuidFactory
+    Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscription\PingWebhookSubscriptionHandler:
+      - Shared\Application\Factory\UuidFactory
+    Webhook\Infrastructure\EventSubscriber\WebhookEventSubscriber:
+      - Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent
+      - Equipment\Domain\Event\Equipment\EquipmentReturnedToStockEvent
+      - Facility\Domain\Event\Facility\FacilityArchivedEvent
+      - Facility\Domain\Event\Facility\FacilityCreatedEvent
+      - Facility\Domain\Event\Facility\FacilityRestoredEvent
+      - Facility\Domain\Event\Facility\FacilityUpdatedEvent
+      - Inspection\Domain\Event\Inspection\InspectionClosedEvent
+      - Inspection\Domain\Event\Inspection\InspectionSubmittedEvent
+      - Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent
+      - Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent
+      - Intervention\Domain\Event\Publication\InterventionPublishedEvent
+      - Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent
+      - Shared\Application\Factory\UuidFactory
+    Webhook\Presentation\Api\Processor\CreateWebhookSubscriptionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Processor\DeleteWebhookSubscriptionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Processor\PingWebhookSubscriptionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Processor\RedeliverWebhookProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Processor\RotateWebhookSecretProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Processor\UpdateWebhookSubscriptionProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Provider\GetWebhookSubscriptionProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Webhook\Presentation\Api\Provider\ListWebhookDeliveriesProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Webhook\Presentation\Api\Provider\ListWebhookSubscriptionsProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+      - Shared\Presentation\Api\Http\OperationParameterReader
+    Webhook\Presentation\Api\Trait\WebhookExceptionMapperTrait:
+      - Organization\Domain\Exception\OrganizationAccessDeniedException
+    Workload\Infrastructure\DataFixtures\WorkloadFixtures:
+      - Shared\Infrastructure\DataFixtures\SeedUuid
+    Workload\Presentation\Api\Processor\CapacityProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Workload\Presentation\Api\Processor\WorkloadAssessmentProcessor:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Workload\Presentation\Api\Provider\CapacityProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+    Workload\Presentation\Api\Provider\WorkloadProvider:
+      - Auth\Infrastructure\Security\User\SecurityUser
+      - Shared\Presentation\Api\Http\OperationParameterReader

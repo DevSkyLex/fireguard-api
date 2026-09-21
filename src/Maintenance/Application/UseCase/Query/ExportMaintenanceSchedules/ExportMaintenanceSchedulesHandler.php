@@ -94,12 +94,12 @@ final readonly class ExportMaintenanceSchedulesHandler implements QueryHandler
       throw new MaintenanceAccessDeniedException('Missing organization.maintenance.read permission.');
     }
 
-    $total = $this->schedules->countForExport($query->organizationId, $query->facilityId, $query->equipmentType, $query->dueStatus);
+    $total = $this->schedules->countForExport($query->organizationId, $query->facilityId, $query->equipmentType, $query->dueStatus, $query->dueBefore);
     if ($total > self::MAX_EXPORT_ROWS) {
       throw MaintenanceExportTooLargeException::exceedsCap(matched: $total, maxRows: self::MAX_EXPORT_ROWS);
     }
 
-    $candidates = $this->schedules->listExportCandidates($query->organizationId, $query->facilityId, $query->equipmentType, $query->dueStatus);
+    $candidates = $this->schedules->listExportCandidates($query->organizationId, $query->facilityId, $query->equipmentType, $query->dueStatus, $query->dueBefore);
 
     $equipmentSerials = $this->equipmentNaming->findSerialNumbersByIds($this->uniqueEquipmentIds($candidates));
     $facilityNames = $this->facilityNaming->findNamesByIds($this->uniqueIds($candidates, static fn (MaintenanceScheduleExportCandidate $candidate): ?string => $candidate->facilityId));

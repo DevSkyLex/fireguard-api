@@ -6,6 +6,7 @@ namespace Inspection\Application\UseCase\Command\Inspection\EditInspection;
 
 use DateTimeImmutable;
 use Exception;
+use Inspection\Application\Port\Outbound\ChecklistLockPort;
 use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionEquipmentId, InspectionFacilityId, InspectionId, InspectionOrganizationId, InspectionResult};
@@ -17,6 +18,7 @@ use ValueError;
 final readonly class EditInspectionHandler implements CommandHandler
 {
   public function __construct(
+    private ChecklistLockPort $locks,
     private InspectionRepositoryPort $inspectionRepository,
     private EquipmentValidationPort $equipmentValidation,
     private FacilityValidationPort $facilityValidation,
@@ -25,6 +27,11 @@ final readonly class EditInspectionHandler implements CommandHandler
   }
 
   public function __invoke(EditInspectionCommand $command): EditInspectionResult
+  {
+    return $this->locks->withLock($command->organizationId, $command->hasChecklistId ? $command->checklistId : null, fn (): EditInspectionResult => $this->execute($command));
+  }
+
+  private function execute(EditInspectionCommand $command): EditInspectionResult
   {
     try {
       $inspectionId = InspectionId::fromString($command->inspectionId);

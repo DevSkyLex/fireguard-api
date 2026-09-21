@@ -161,6 +161,10 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
     $output->referenceCode = $result->referenceCode;
+    $output->previousChecklistId = $result->previousChecklistId;
+    $output->canEditMetadata = 'archived' !== $result->status;
+    $output->canEditItems = $output->canEditMetadata && $result->itemsEditable;
+    $output->canCreateRevision = true;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');

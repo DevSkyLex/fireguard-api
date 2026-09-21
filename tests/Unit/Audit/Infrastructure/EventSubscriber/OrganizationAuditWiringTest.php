@@ -7,9 +7,10 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
-use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
+use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationRestoredEvent, OrganizationSuspendedEvent};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
 use Organization\Domain\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
@@ -107,6 +108,8 @@ final class OrganizationAuditWiringTest extends TestCase
       requestStack: new RequestStack(),
       security: $security,
       logger: new NullLogger(),
+      eventContext: new \Shared\Infrastructure\Messaging\Outbox\DurableEventContext(),
+      eventConsumer: new \App\Tests\Support\Shared\ImmediateIdempotentConsumer(),
     );
 
     $symfonyDispatcher = new EventDispatcher();

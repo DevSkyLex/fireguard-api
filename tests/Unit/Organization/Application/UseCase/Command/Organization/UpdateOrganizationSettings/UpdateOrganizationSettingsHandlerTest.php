@@ -6,6 +6,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Updat
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{
   UpdateOrganizationSettingsCommand,
@@ -14,7 +15,6 @@ use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSett
 };
 use Organization\Domain\Event\Organization\{
   OrganizationRestoredEvent,
-  OrganizationSettingsUpdatedEvent,
   OrganizationSuspendedEvent
 };
 use Organization\Domain\Exception\{
