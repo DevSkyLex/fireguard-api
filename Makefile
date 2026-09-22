@@ -31,7 +31,7 @@ APP_LOG_DIR ?= $(TMP_DIR)/$(PROJECT_NAME)/log/$(APP_ENV)
 export APP_CACHE_DIR
 export APP_LOG_DIR
 
-.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures seed-fixtures-docker test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint openapi-check schema-check cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean test-cache-clean seed-fixtures seed-fixtures-docker test cs-fix cs-lint coverage coverage-html coverage-check mutation docker-up docker-down docker-build docker-shell docker-logs
 
 # Run the whole suite: unit, architecture, integration, functional and E2E.
 
@@ -190,6 +190,13 @@ coverage-html: export XDEBUG_MODE = coverage
 coverage-html:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --coverage-html=var/coverage/html --coverage-clover=var/coverage/clover.xml
 	@echo "Coverage report generated at var/coverage/html/index.html"
+
+# All five suites contribute to one report over every PHP file in src/.
+# Do not reuse unit-only reports or continue to the threshold after failed tests.
+coverage-check: export XDEBUG_MODE = coverage
+coverage-check:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PARATEST_BIN) -c phpunit.dist.xml -p $(PARALLEL_WORKERS) --coverage-clover=var/coverage/full/clover.xml --coverage-text=var/coverage/full/coverage.txt --only-summary-for-coverage-text
+	$(PHP) bin/check-coverage.php var/coverage/full/clover.xml 90
 
 # Run mutation testing with Infection (configuration in infection.json5)
 # --only-covering-test-cases: run only the test cases that cover the mutated line, not the whole
