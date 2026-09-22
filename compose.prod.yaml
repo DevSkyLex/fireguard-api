@@ -284,14 +284,30 @@ services:
     logging: *default-logging
 
   mercure:
-    image: dunglas/mercure:latest
+    # Pin the hub and opt into its compatibility mode for the current clients.
+    image: dunglas/mercure:v1.0.0@sha256:33223c37ec29fd705f4de78e6dd38f403664b3669a34bf368b14cb98540016bb
     restart: unless-stopped
     environment:
       SERVER_NAME: ":80"
       MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:?Set MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:?Set MERCURE_JWT_SECRET}
+      MERCURE_PUBLISHER_JWT_ALG: HS256
+      MERCURE_SUBSCRIBER_JWT_ALG: HS256
       MERCURE_EXTRA_DIRECTIVES: |
+        protocol_version_compatibility 8
         cors_origins ${MERCURE_CORS_ORIGINS:?Set MERCURE_CORS_ORIGINS}
+      CADDY_SERVER_EXTRA_DIRECTIVES: |
+        log {
+          format filter {
+            fields {
+              request>uri query {
+                replace authorization REDACTED
+              }
+            }
+          }
+        }
+        log_skip /healthz
+        respond /healthz 200
     networks:
       - default
       - traefik_proxy
@@ -310,12 +326,7 @@ services:
       - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.priority=20"
       - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.service=${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}"
       - "traefik.http.services.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.loadbalancer.server.port=80"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    # Use the image's transport-aware readiness check on the local admin API.
     logging: *default-logging
 
 volumes:

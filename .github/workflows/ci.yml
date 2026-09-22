@@ -414,6 +414,7 @@ jobs:
   deployment:
     name: Deployment Configuration
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       FIREGUARD_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci
       FIREGUARD_FIXTURES_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci-fixtures
@@ -453,6 +454,9 @@ jobs:
           touch .env
           docker compose -f compose.prod.yaml config --quiet
           docker compose -f compose.prod.yaml -f compose.dev.yaml config --quiet
+
+      - name: Verify Mercure client compatibility and denial paths
+        run: python3 scripts/check-mercure-contract.py
 
   # ==========================================================================
   # Mutation Testing (manual opt-in only)
