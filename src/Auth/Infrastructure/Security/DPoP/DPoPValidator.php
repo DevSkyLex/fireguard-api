@@ -492,6 +492,9 @@ final readonly class DPoPValidator implements DPoPValidatorPort
 
   private function asn1Integer(string $data): string
   {
+    // JOSE integers have a fixed width; DER requires a minimal signed encoding.
+    $data = ltrim($data, "\x00");
+
     if ('' === $data) {
       $data = "\x00";
     }

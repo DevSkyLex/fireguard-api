@@ -5,23 +5,32 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Infrastructure\Security\DPoP;
 
 use Auth\Infrastructure\Security\DPoP\DPoPValidator;
+use Lcobucci\JWT\Signer\Ecdsa\{Sha256, Sha384, Sha512};
+use Lcobucci\JWT\Signer\Key\InMemory;
+use LogicException;
 use OpenSSLAsymmetricKey;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\{CacheItemInterface, CacheItemPoolInterface};
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
+use function base64_decode;
 use function base64_encode;
 use function hash;
 use function json_encode;
+use function openssl_pkey_export;
 use function openssl_pkey_get_details;
 use function openssl_pkey_new;
 use function openssl_sign;
 use function rtrim;
+use function str_repeat;
 use function strtr;
+use function substr;
 use function time;
 
 use const JSON_UNESCAPED_SLASHES;
 use const OPENSSL_ALGO_SHA256;
+use const OPENSSL_KEYTYPE_EC;
 use const OPENSSL_KEYTYPE_RSA;
 
 /**
@@ -405,6 +414,175 @@ final class DPoPValidatorTest extends TestCase
   }
 
   /**
+   * Verify real EC signatures, reject tampering and prevent replay after acceptance.
+   *
+   * @since 1.0.0
+   *
+   * @param string $curve the OpenSSL curve
+   * @param string $jwkCurve the public JWK curve
+   * @param string $algorithm the declared signature algorithm
+   */
+  #[Test]
+  #[DataProvider('ecAlgorithmProvider')]
+  public function testEcProofVerifiesSignatureAndRejectsReplay(string $curve, string $jwkCurve, string $algorithm): void
+  {
+    $validator = new DPoPValidator(cache: new ArrayAdapter());
+    [$header, $key] = $this->createEcHeaderAndKey($curve, $jwkCurve, $algorithm);
+    $payload = ['jti' => 'ec-proof', 'htm' => 'GET', 'htu' => 'https://api.example.com/resource', 'iat' => time()];
+    $encodedHeader = json_encode($header);
+    $encodedPayload = json_encode($payload);
+    self::assertIsString($encodedHeader);
+    self::assertIsString($encodedPayload);
+    $data = $this->base64UrlEncode($encodedHeader) . '.' . $this->base64UrlEncode($encodedPayload);
+    $signer = match ($algorithm) {
+      'ES256' => new Sha256(),
+      'ES384' => new Sha384(),
+      'ES512' => new Sha512(),
+      default => throw new LogicException('Unsupported test signature algorithm.'),
+    };
+    $signature = $signer->sign($data, InMemory::plainText($key));
+    $token = $data . '.' . $this->base64UrlEncode($signature);
+    $tamperedSignature = $signature;
+    $tamperedSignature[0] = $signature[0] ^ "\x01";
+
+    self::assertNull($validator->validateProof($data . '.' . $this->base64UrlEncode($tamperedSignature), 'GET', $payload['htu']));
+    self::assertNull($validator->validateProof($data . '.' . $this->base64UrlEncode(substr($signature, 1)), 'GET', $payload['htu']));
+    self::assertNull($validator->validateProof($token, 'GET', 'https://api.example.com/different-resource'));
+
+    $proof = $validator->validateProof($token, 'GET', $payload['htu']);
+
+    self::assertNotNull($proof);
+    self::assertSame('ec-proof', $proof->jti);
+    self::assertSame($validator->calculateThumbprint($token), $proof->thumbprint);
+    self::assertNull($validator->validateProof($token, 'GET', $payload['htu']));
+  }
+
+  /**
+   * Verify fixed public signatures before rejecting their deliberately expired claims.
+   *
+   * A JOSE integer's redundant leading zero must not survive DER conversion.
+   * The replay lookup occurs only after signature verification; expiry must then
+   * reject the proof without recording its JTI. No private key or clock mock is used.
+   *
+   * @since 1.0.0
+   *
+   * @param string $signature the fixed base64url JOSE signature
+   */
+  #[Test]
+  #[DataProvider('paddedEcSignatureProvider')]
+  public function testEcProofWithPaddedJoseIntegerReachesExpiryCheck(string $signature): void
+  {
+    $header = [
+      'typ' => 'dpop+jwt',
+      'alg' => 'ES512',
+      'jwk' => [
+        'kty' => 'EC',
+        'crv' => 'P-521',
+        'x' => 'ATXbVUNZ6YPEv6DCVHxtKaB3EZNYPtzy8wgzEo1gPvBPdVqUq6MkTwcGZddjiCCuMN8ezLqf_fkXLi4uNiDM7NUi',
+        'y' => 'z5DoA7e1KadlTzLbS8qs9RljnC7A2MIf5v3AFY4vfyFN5hW3eAfhI_-UENenAyS-342DqQNmg8VLxnAg9k-A0UY',
+      ],
+    ];
+    $payload = ['jti' => 'der-padding-regression', 'htm' => 'GET', 'htu' => 'https://api.example.com/resource', 'iat' => 0, 'nonce' => 'fixed-fixture-nonce'];
+    $encodedHeader = json_encode($header);
+    $encodedPayload = json_encode($payload);
+    self::assertIsString($encodedHeader);
+    self::assertIsString($encodedPayload);
+    $data = $this->base64UrlEncode($encodedHeader) . '.' . $this->base64UrlEncode($encodedPayload);
+    $rawSignature = base64_decode(strtr($signature, '-_', '+/'), true);
+    self::assertIsString($rawSignature);
+    if ('' === $rawSignature) {
+      self::fail('The fixed JOSE signature must not be empty.');
+    }
+    $publicKey = <<<'PEM'
+      -----BEGIN PUBLIC KEY-----
+      MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQBNdtVQ1npg8S/oMJUfG0poHcRk1g+
+      3PLzCDMSjWA+8E91WpSroyRPBwZl12OIIK4w3x7Mup/9+RcuLi42IMzs1SIAz5Do
+      A7e1KadlTzLbS8qs9RljnC7A2MIf5v3AFY4vfyFN5hW3eAfhI/+UENenAyS+342D
+      qQNmg8VLxnAg9k+A0UY=
+      -----END PUBLIC KEY-----
+      PEM;
+    self::assertTrue(new Sha512()->verify($rawSignature, $data, InMemory::plainText($publicKey)));
+    self::assertLessThan(time() - 300, $payload['iat']);
+
+    $item = $this->createMock(CacheItemInterface::class);
+    $item->expects(self::once())->method('isHit')->willReturn(false);
+    $cache = $this->createMock(CacheItemPoolInterface::class);
+    $cache->expects(self::once())->method('getItem')->with('dpop_jti_der-padding-regression')->willReturn($item);
+    $cache->expects(self::never())->method('save');
+    $validator = new DPoPValidator(cache: $cache);
+
+    self::assertNull($validator->validateProof($data . '.' . $signature, 'GET', $payload['htu'], $payload['nonce']));
+  }
+
+  /**
+   * Supply signatures with redundant unsigned padding in each ECDSA integer.
+   *
+   * @since 1.0.0
+   *
+   * @return iterable<string, array{string}>
+   */
+  public static function paddedEcSignatureProvider(): iterable
+  {
+    yield 'leading zero in r' => ['ACmW4hW4RNzEr8BpNsAO2KSiLpQHvtsrLGtpDmrrBsZ3f5vxXBZNYp1u4i4swTQjE_ux20_Ap-UiZd3ZnU_ZlNXyAd7UgZ7RwdQ7idV9pcOYpsxXoDCieQXxvtYOr1hMCkGs-45ysPqBp_HxD5i9TRg3TF3T50TXubOslSyzaIBYsHPy'];
+    yield 'leading zero in s' => ['AVdxpdmY22WcgS_1aLzi0h-H0r4axDtVV5GXbuZ2aNr6okQZgMzwWNHAuS2lW5X9JD2YUDY9w7QJaEs2KT1aanxMAFr0i24vP_PNJUt02or95yL52_juBYeJdiLrdPE5lijJDx_cl-9z6zqNWMiuHaUrdXzJ_sjguPqn0E5hhW84wU7c'];
+  }
+
+  /**
+   * Reject unusable public keys and algorithm/curve confusion before accepting claims.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $jwk the malformed public key
+   * @param string $algorithm the declared signature algorithm
+   */
+  #[Test]
+  #[DataProvider('invalidEcKeyProvider')]
+  public function testEcProofRejectsInvalidKeyAndAlgorithm(array $jwk, string $algorithm): void
+  {
+    $validator = new DPoPValidator(cache: new ArrayAdapter());
+    $header = json_encode(['typ' => 'dpop+jwt', 'alg' => $algorithm, 'jwk' => $jwk]);
+    $payload = json_encode(['jti' => 'invalid-ec', 'htm' => 'GET', 'htu' => 'https://api.example.com/resource', 'iat' => time()]);
+    self::assertIsString($header);
+    self::assertIsString($payload);
+    $token = $this->base64UrlEncode($header) . '.' . $this->base64UrlEncode($payload) . '.' . $this->base64UrlEncode(str_repeat("\x01", 64));
+
+    self::assertNull($validator->validateProof($token, 'GET', 'https://api.example.com/resource'));
+  }
+
+  /**
+   * Exercise the supported EC algorithms with keys generated only in test memory.
+   *
+   * @since 1.0.0
+   *
+   * @return iterable<string, array{string, string, string}>
+   */
+  public static function ecAlgorithmProvider(): iterable
+  {
+    yield 'P-256 / ES256' => ['prime256v1', 'P-256', 'ES256'];
+    yield 'P-384 / ES384' => ['secp384r1', 'P-384', 'ES384'];
+    yield 'P-521 / ES512' => ['secp521r1', 'P-521', 'ES512'];
+  }
+
+  /**
+   * Supply malformed public keys without using production key material.
+   *
+   * @since 1.0.0
+   *
+   * @return iterable<string, array{array<string, mixed>, string}>
+   */
+  public static function invalidEcKeyProvider(): iterable
+  {
+    $key = ['kty' => 'EC', 'crv' => 'P-256', 'x' => 'AQ', 'y' => 'AQ'];
+    yield 'RSA algorithm with EC key' => [$key, 'RS256'];
+    yield 'unsupported algorithm' => [$key, 'ES999'];
+    yield 'curve and algorithm mismatch' => [$key, 'ES384'];
+    yield 'unsupported curve' => [['crv' => 'P-999'] + $key, 'ES256'];
+    yield 'missing coordinate' => [['x' => null] + $key, 'ES256'];
+    yield 'invalid coordinate encoding' => [['x' => '###'] + $key, 'ES256'];
+    yield 'oversized coordinate' => [['x' => str_repeat('A', 48)] + $key, 'ES256'];
+  }
+
+  /**
    * @return array<string, array{0: array<string, mixed>}>
    */
   public static function invalidHeaderProvider(): array
@@ -443,6 +621,41 @@ final class DPoPValidatorTest extends TestCase
         ],
       ],
     ];
+  }
+
+  /**
+   * Create an ephemeral EC keypair and the corresponding public-only JWK.
+   *
+   * @since 1.0.0
+   *
+   * @param string $curve the OpenSSL curve
+   * @param string $jwkCurve the JWK curve
+   * @param string $algorithm the signature algorithm
+   *
+   * @return array{array<string, mixed>, non-empty-string}
+   */
+  private function createEcHeaderAndKey(string $curve, string $jwkCurve, string $algorithm): array
+  {
+    $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => $curve]);
+    self::assertInstanceOf(OpenSSLAsymmetricKey::class, $key);
+    $details = openssl_pkey_get_details($key);
+    self::assertIsArray($details);
+    $coordinates = $details['ec'] ?? null;
+    self::assertIsArray($coordinates);
+    self::assertIsString($coordinates['x']);
+    self::assertIsString($coordinates['y']);
+    $privateKey = '';
+    self::assertTrue(openssl_pkey_export($key, $privateKey));
+    self::assertIsString($privateKey);
+    if ('' === $privateKey) {
+      throw new LogicException('The test EC key must contain private key material.');
+    }
+
+    return [[
+      'typ' => 'dpop+jwt',
+      'alg' => $algorithm,
+      'jwk' => ['kty' => 'EC', 'crv' => $jwkCurve, 'x' => $this->base64UrlEncode($coordinates['x']), 'y' => $this->base64UrlEncode($coordinates['y'])],
+    ], $privateKey];
   }
 
   /**
