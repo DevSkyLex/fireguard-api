@@ -21,6 +21,8 @@ Le préfixe `back` conserve les volumes de production créés avant l’introduc
 
 Ansible vérifie au moins 2,5 Gio de mémoire disponible et 10 Gio de disque libre avant de modifier la stack. Il conserve les sauvegardes, migrations additives des bases `auth` et `main`, synchronisation RBAC, contrôles JWT, contrôle 401 des routes protégées et santé publique.
 
+Après le démarrage des dépendances, Redis et Mercure doivent atteindre l’état Docker `healthy` avant les étapes d’arrêt applicatif et de migration. Redis utilise `redis-cli ping` ; Mercure utilise `wget --spider` sur `/healthz`, disponible dans son image. En cas d’échec, le déploiement s’arrête et affiche uniquement leur état `State.Health` et l’historique borné des sondes, sans inspection complète des conteneurs ni variables d’environnement. Un échec du démarrage applicatif déclenche également le diagnostic déjà prévu pour l’application et son worker.
+
 ## Configuration GitHub
 
 `production` accepte uniquement `main`. `development` accepte uniquement `develop`. Les secrets de connexion sont enregistrés dans chaque environnement, même lorsqu’ils ont temporairement la même valeur.

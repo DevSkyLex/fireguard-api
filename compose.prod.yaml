@@ -311,7 +311,7 @@ services:
       - "traefik.http.routers.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.service=${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}"
       - "traefik.http.services.${TRAEFIK_MERCURE_ROUTER_NAME:?Set TRAEFIK_MERCURE_ROUTER_NAME}.loadbalancer.server.port=80"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3

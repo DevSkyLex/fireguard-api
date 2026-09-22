@@ -438,6 +438,49 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
 
+    # Check the same Docker health state required by app's depends_on before
+    # stopping the app or applying migrations. A running container is not enough.
+    - name: Verify Redis and Mercure health before changing the application
+      block:
+        - name: Wait for dependency Docker health
+          ansible.builtin.shell: |
+            set -eu
+            container_id=$({{ fireguard_compose_command }} ps --all --quiet {{ item }})
+            test -n "$container_id"
+            docker inspect --format '{{ "{{json .State.Health}}" }}' "$container_id"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+            executable: /bin/sh
+          loop:
+            - redis
+            - mercure
+          register: fireguard_dependency_health
+          changed_when: false
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: >-
+            fireguard_dependency_health.rc == 0 and
+            (fireguard_dependency_health.stdout | from_json | default({}, true)).get('Status') == 'healthy'
+      rescue:
+        # These probes contain no credentials. Never inspect Config.Env or the
+        # full container: only publish the bounded Docker health-check history.
+        - name: Report dependency Docker health
+          ansible.builtin.debug:
+            msg:
+              - "{{ item.item }}"
+              - "{{ item.stdout | default('No Docker health state was returned.') }}"
+              - "{{ item.stderr | default('') }}"
+          loop: "{{ fireguard_dependency_health.results | default([]) }}"
+          loop_control:
+            label: "{{ item.item }}"
+
+        - name: Stop deployment before application shutdown on unhealthy dependencies
+          ansible.builtin.fail:
+            msg: >-
+              Redis or Mercure did not become healthy. Their Docker health states
+              are reported above. Deployment stopped before the application
+              shutdown and schema migration steps.
+
     - name: Wait for Mailpit in development
       ansible.builtin.command: "{{ fireguard_compose_command }} exec -T mailpit /mailpit readyz"
       args:
@@ -792,13 +835,13 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
 
-    - name: Start application service
-      ansible.builtin.command: "{{ fireguard_compose_command }} up -d app assistant_worker"
-      args:
-        chdir: "{{ fireguard_app_dir }}"
-
-    - name: Verify internal application health
+    - name: Start application and verify internal health
       block:
+        - name: Start application service
+          ansible.builtin.command: "{{ fireguard_compose_command }} up -d app assistant_worker"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+
         - name: Wait for internal application health
           ansible.builtin.command: "{{ fireguard_compose_command }} exec -T app curl -fsS http://localhost:8000/api/health"
           args:
@@ -915,7 +958,7 @@
         - name: Fail the deploy after surfacing service logs
           ansible.builtin.fail:
             msg: >-
-              The application surface checks or the assistant worker health check failed.
+              Application startup, the surface checks or the assistant worker health check failed.
               The app container and assistant worker logs were dumped in the previous task.
               If the worker never reached Docker's healthy state, inspect its startup error
               or restart loop. A startup EnvNotFoundException
