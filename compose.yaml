@@ -183,25 +183,33 @@ services:
 
 ###> symfony/mercure-bundle ###
   mercure:
-    image: dunglas/mercure
+    # Pin the hub and opt into its compatibility mode for the current clients.
+    image: dunglas/mercure:v1.0.0@sha256:33223c37ec29fd705f4de78e6dd38f403664b3669a34bf368b14cb98540016bb
     restart: unless-stopped
     environment:
       # Uncomment the following line to disable HTTPS,
       SERVER_NAME: ':80'
       MERCURE_PUBLISHER_JWT_KEY: '!ChangeThisMercureHubJWTSecretKey!'
       MERCURE_SUBSCRIBER_JWT_KEY: '!ChangeThisMercureHubJWTSecretKey!'
+      MERCURE_PUBLISHER_JWT_ALG: HS256
+      MERCURE_SUBSCRIBER_JWT_ALG: HS256
       # Set the URL of your Symfony project (without trailing slash!) as value of the cors_origins directive
       MERCURE_EXTRA_DIRECTIVES: |
+        protocol_version_compatibility 8
         cors_origins http://localhost:8000 http://localhost:4200 http://localhost:4300 http://localhost:4310 http://localhost:4273
-    # Comment the following line to disable the development mode
-    command: /usr/bin/caddy run --config /etc/caddy/dev.Caddyfile
-    # `wget`, not `curl`: the Caddy-based image ships busybox and has no curl,
-    # so the probe could never run and the hub was permanently `unhealthy`.
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+      CADDY_SERVER_EXTRA_DIRECTIVES: |
+        log {
+          format filter {
+            fields {
+              request>uri query {
+                replace authorization REDACTED
+              }
+            }
+          }
+        }
+        log_skip /healthz
+        respond /healthz 200
+    # Use the image's transport-aware readiness check on the local admin API.
     volumes:
       - mercure_data:/data
       - mercure_config:/config
