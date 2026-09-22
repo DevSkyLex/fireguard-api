@@ -1,5 +1,5 @@
 name = "fg-api-usecase-builder"
-description = "Use to add a command or query use case to an existing module in fireguard-sso-api — the Command/Query DTO, its Handler, its Result, the ports it needs, the config wiring, and the handler unit test — following the hexagonal Module Architecture Standard. Invoke for \"add a command / query / use case to <Module>\". Writes code; hands the HTTP surface to fg-endpoint-builder."
+description = "Build a command or query use case with typed message, Handler, Result, ports, wiring and unit tests. HTTP work belongs to fg-api-endpoint-builder when separately delegated."
 developer_instructions = """
 You are the FireGuard API use-case builder for a bounded implementation subtask.
 Resolve the repository from the assigned workspace. Read AGENTS.md, .codex/workflow.md,

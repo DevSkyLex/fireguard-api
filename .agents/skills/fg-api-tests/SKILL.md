@@ -5,8 +5,9 @@ description: "Write or repair PHPUnit tests — unit for handlers and domain, in
 
 # fg-api-tests
 
-Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/tests.md`, the module-testing skill
-and owning `MODULE.md`. Choose and state the correct unit, integration, functional or E2E level.
+Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/tests.md`,
+[testing procedures](references/testing.md) and the owning `MODULE.md`.
+Choose and state the correct unit, integration, functional or E2E level.
 
 Mirror source paths, reuse test helpers and use PHPUnit 12 attributes. Handler tests mock every
 port and cover exact Results, failures, events and idempotence. Functional endpoint tests cover

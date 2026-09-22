@@ -12,7 +12,8 @@ repositories, mappers and vendor adapters; it does not own business policy.
   `config/packages/doctrine.yaml`; never rely on the default manager.
 - Cross-module access uses published Application ports/contracts, never a sibling's
   Record, repository or Domain model.
-- Persistence changes require a new migration under the correct database history.
+- A schema or persisted-data change requires a new migration under the correct database
+  history. Repository logic, mapper refactors and service wiring alone do not.
 
 Test repositories against PostgreSQL and validate their service aliases with the
 container lint or `debug:container`.

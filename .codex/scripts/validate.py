@@ -4,6 +4,13 @@ import json
 import re
 import tomllib
 
+from check_links import check_links
+
+from agent_profiles import (
+    load_profiles, validate_global_policy, validate_native_agent, validate_native_references,
+    validate_profile_coverage,
+)
+
 
 def validate(root: Path) -> dict[str, int | str]:
     skills_root = root / '.agents/skills'
@@ -25,7 +32,7 @@ def validate(root: Path) -> dict[str, int | str]:
                 assert (skill / relative).resolve().is_file(), f'Broken reference in {skill.name}: {relative}'
 
     config = tomllib.loads((root / '.codex/config.toml').read_text(encoding='utf-8'))
-    assert not {'model', 'approval_policy', 'sandbox_mode', 'projects'} & config.keys(), 'Project config overrides user policy'
+    validate_global_policy(config)
 
     agents: set[str] = set()
     for path in sorted((root / '.codex/agents').glob('*.toml')):
@@ -33,10 +40,13 @@ def validate(root: Path) -> dict[str, int | str]:
         for key in ['name', 'description', 'developer_instructions']:
             assert isinstance(data.get(key), str) and data[key], f'Missing {key}: {path.name}'
         assert data['name'] not in agents, f'Duplicate agent: {data["name"]}'
-        assert 'model' not in data, f'Forced model: {path.name}'
+        validate_native_agent(data, path.name)
         agents.add(data['name'])
-        for relative in re.findall(r'\.agents/skills/[\w-]+/SKILL\.md', data['developer_instructions']):
-            assert (root / relative).is_file(), f'Missing agent skill: {relative}'
+        validate_native_references(data['developer_instructions'], root)
+
+    profiles = load_profiles(root / '.codex/agent-profiles.toml')
+    validate_profile_coverage(profiles, agents)
+    check_links(root)
 
     rules = (root / '.codex/rules.md').read_text(encoding='utf-8')
     for relative in re.findall(r'\]\((rules/[^)]+\.md)\)', rules):

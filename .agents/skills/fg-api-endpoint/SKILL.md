@@ -8,7 +8,8 @@ description: "Add or change an API Platform endpoint — Resource, Operation con
 Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/presentation.md`,
 `ARCHITECTURE.md` and the owning `MODULE.md`. Build the complete API Platform contract:
 Resource/security, operation constant, DTOs, Processor or Provider, validation/error mapping,
-and functional success plus denial tests.
+and functional success plus denial tests. Read the detailed
+[API Platform contract](references/api-platform-contract.md) when shaping or reviewing the HTTP surface.
 
 Move business decisions into an Application handler. Verify organization ownership beyond
 route roles, use explicit status codes, keep Domain types out of Output DTOs and preserve exact

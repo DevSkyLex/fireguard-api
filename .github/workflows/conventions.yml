@@ -31,7 +31,7 @@ jobs:
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
-          pattern='^(feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$'
+          pattern='^(feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert|hotfix|codex)/[a-z0-9]+(-[a-z0-9]+)*$'
           exempt='^(main|develop|claude/.+|release/[0-9]+\.[0-9]+\.[0-9]+)$'
 
           if printf '%s' "$BRANCH" | grep -Eq "$exempt"; then
@@ -40,7 +40,7 @@ jobs:
           fi
 
           if ! printf '%s' "$BRANCH" | grep -Eq "$pattern"; then
-            echo "::error::Branch name '$BRANCH' does not follow <type>/<description-kebab>, e.g. feat/organization-invitations. Type is one of: feat fix chore refactor docs test perf ci build style revert hotfix."
+            echo "::error::Branch name '$BRANCH' does not follow <type>/<description-kebab>, e.g. feat/organization-invitations. Type is one of: feat fix chore refactor docs test perf ci build style revert hotfix codex."
             exit 1
           fi
           echo "Branch '$BRANCH' is fine."

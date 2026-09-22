@@ -5,11 +5,13 @@ description: "Generate, apply, or review a Doctrine migration on the correct dat
 
 # fg-api-migrate
 
-Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/migrations.md`, the dual-database
-skill and owning `MODULE.md`. Confirm the Record namespace's auth/main mapping before running
+Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/migrations.md`,
+[dual-database ownership](references/dual-database.md) and the owning `MODULE.md`.
+Confirm the Record namespace's auth/main mapping before running
 anything. Every console command uses `php -d memory_limit=1G` and the explicit migration
 configuration.
 
+Only schema or persisted-data changes require a migration; a query or mapper-only refactor does not.
 Generate a new migration; never edit an existing one. Read the generated file and verify folder,
 namespace, scope, symmetric reversal and absence of cross-database constraints. Highlight any
 destructive SQL before applying it. Show status before and after through the correct history.

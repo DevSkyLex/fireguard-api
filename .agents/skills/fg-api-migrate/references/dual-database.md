@@ -1,9 +1,4 @@
----
-name: fg-api-dual-database
-description: "The auth/main two-database split in fireguard-sso-api — which modules live where, the explicit $entityManager wiring every repository needs, the migration commands per database, and the test-database setup. Use before wiring a repository, generating a migration, or debugging data that went to the wrong place."
----
-
-# fg-api-dual-database
+# Dual-database ownership and operations
 
 Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/module-config.md` and
 `.codex/rules/migrations.md` from the API root.

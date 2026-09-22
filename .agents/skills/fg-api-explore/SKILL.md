@@ -18,5 +18,6 @@ This workflow is read-only. Produce a usable map rather than a directory listing
 8. test coverage and denial gaps;
 9. three to five concrete files worth mirroring.
 
-Use `debug:router` when available and symbol references for code relationships. Report latent
+Use existing `debug:router` output when available and symbol references for code relationships.
+Ask the parent for fresh runtime evidence rather than booting cache-writing commands. Report latent
 wrong-manager or boundary defects, but do not modify code or present a file catalog as analysis.

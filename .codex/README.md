@@ -1,103 +1,101 @@
 # FireGuard API dans Codex
 
-Cette configuration est autonome. Codex lit `AGENTS.md`, `.codex/workflow.md`, les
-règles locales applicables et les skills de `.agents/skills/`. Aucun agent, skill ou
-hook Codex ne dépend de la configuration d'un autre client.
+La configuration du dépôt regroupe **14 skills et 20 agents spécialisés**. Les versions de
+modèles ne sont pas inscrites dans les rôles : le parent résout leur catégorie et leur effort
+au lancement à partir du catalogue disponible. Les profils sont dans
+[agent-profiles.toml](agent-profiles.toml), avec le protocole dans le [workflow](workflow.md).
 
-## Activer
+## Démarrage
 
-Ouvrir `fireguard-sso-api/` dans Codex et démarrer une nouvelle tâche.
-Invoquer les skills avec `$nom` ou via le sélecteur. Les noms API/Web sont préfixés
-pour éviter les collisions. Les agents natifs sont dans `.codex/agents/`, sans
-modèle imposé ; les reviewers sont configurés en lecture seule.
+Ouvrir `fireguard-sso-api/` dans Codex et démarrer une nouvelle tâche. Lire `AGENTS.md`,
+le [workflow](workflow.md) et le [routage des règles](rules.md), puis le contrat du module.
+Invoquer un skill avec `$nom` ou le sélecteur. Les règles sont des consignes à lire,
+pas un mécanisme d'activation automatique.
 
-Le projet doit être approuvé comme fiable pour charger sa configuration locale.
-Examiner et approuver les hooks avec `/hooks` dans le CLI. Ils ne sont PAS actifs
-simplement parce que leurs fichiers existent. Aucun réglage de confiance, modèle,
-sandbox, approbation ou configuration utilisateur n'a été modifié.
+L'outillage local utilise Python 3.11+ et Node.js. Le développement et les tests API demandent
+les versions PHP/Composer déclarées dans `composer.json`, Make et l'infrastructure PostgreSQL
+décrite dans `OPERATIONS.md`. Serena est facultatif : vérifier ses outils dans la session et
+utiliser `rg` en repli s'il n'est pas connecté.
 
-## Organisation
-
-| Élément | Emplacement |
-| --- | --- |
-| instructions | `AGENTS.md` + [workflow Codex](workflow.md) |
-| procédures | skills autonomes dans `.agents/skills/` |
-| agents | rôles TOML natifs dans `agents/` |
-| règles par chemin | [routage explicite](rules.md) avant édition |
-| MCP | `config.toml` local au projet |
-| garde et formatage | `hooks.json` + scripts locaux dans `hooks/` |
-
-Les contre-expertises restent explicites et bornées : aucun `codex exec` imbriqué,
-aucune récursion et aucun modèle imposé.
-
-## Skills
-
-- `$fg-api-arch-review`
-- `$fg-api-contract-review`
-- `$fg-api-domain`
-- `$fg-api-endpoint`
-- `$fg-api-explore`
-- `$fg-api-migrate`
-- `$fg-api-module`
-- `$fg-api-port`
-- `$fg-api-quality`
-- `$fg-api-security-review`
-- `$fg-api-tests`
-- `$fg-api-usecase`
-- `$fg-api-workflow-review`
-- `$fg-api-api-platform-contract`
-- `$fg-api-codex-challenge`
-- `$fg-api-dual-database`
-- `$fg-api-hexagonal-layout`
-- `$fg-api-module-md`
-- `$fg-api-module-testing`
-- `$fg-api-security-checklist`
-- `$fg-api-usecase-patterns`
-
-## Connexions et portabilité
-
-Les chemins MCP de `config.toml` sont liés au checkout. Après clone, déplacement ou
-création d'un worktree, les actualiser avant activation :
+Après clone ou déplacement, depuis la racine :
 
 ```powershell
-python .codex/scripts/configure.py
-python .codex/scripts/configure.py --check
+python -B .codex/scripts/configure.py
+python -B .codex/scripts/configure.py --check
+python -B .codex/scripts/validate.py
 ```
 
-Prérequis : Node.js, Python 3.11+, PHP/Composer et `serena` sur PATH. Depuis le
-checkout, `codex mcp list` vérifie le chargement de la configuration, pas la connexion
-effective. Une panne MCP doit être annoncée et une recherche locale peut servir de repli.
+Le projet doit être reconnu comme fiable pour charger sa configuration. Examiner les hooks
+avec `/hooks` dans le CLI avant activation : leur présence ne prouve pas qu'ils sont actifs.
+`codex mcp list` vérifie le chargement déclaré, pas la connexion effective. Aucun de ces
+fichiers ne doit modifier la confiance, les approbations ou les paramètres personnels.
+Le [guide de maintenance](maintenance.md) détaille contrôles, diagnostic et anciennes invocations.
 
-## Hooks et validation
+## Choisir un parcours
 
-`node --test .codex/hooks/adapter.test.mjs` vérifie les patches sans modifier le code
-métier. Le hook inspecte source et destination lors d'un déplacement, applique les
-gardes locaux, puis formate le PHP touché avec le binaire du projet.
+Chaque nom ci-dessous est complet. Les reviewers, auditeurs et explorers sont en lecture seule ;
+leurs validations désignent les preuves à inspecter ou à demander au parent si une commande écrit.
+Les builders reçoivent un périmètre de fichiers précis et héritent des permissions de la session.
+La matrice n'impose ni délégation systématique ni lancement de tous les rôles.
 
-Ces gardes ne remplacent pas le sandbox ni les approbations. Les règles et exclusions
-restent obligatoires même si les hooks ne sont pas chargés.
+| Tâche | Skill ou référence | Agent | Validation pertinente |
+| --- | --- | --- | --- |
+| Comprendre un module | `fg-api-explore` | `fg-api-module-explorer` | Sources, mapping auth/main, routes et contrat |
+| Créer un module | `fg-api-module` | `fg-api-module-builder` | Tests ciblés, PHPStan, Deptrac, lint |
+| Modèle métier ou invariant | `fg-api-domain` | `fg-api-domain-builder` | Tests Domain, PHPStan, Deptrac |
+| Commande ou requête | `fg-api-usecase` | `fg-api-usecase-builder` | Tests handler, échecs/rejeu, lint |
+| Port et adaptateur | `fg-api-port` | `fg-api-port-builder` | Tests du port, alias, managers, lint |
+| Endpoint et DTO | `fg-api-endpoint` | `fg-api-endpoint-builder` | Succès/refus, OpenAPI, route, lint |
+| Migration de schéma/données | `fg-api-migrate` | `fg-api-migration-builder` | SQL, configuration/historique, schémas auth/main |
+| Couverture PHPUnit | `fg-api-tests` | `fg-api-test-writer` | Fichier ou filtre ciblé, PostgreSQL |
+| Architecture et frontières | `fg-api-arch-review` | `fg-api-architecture-reviewer` | Deux analyses Deptrac, invariants observés |
+| Contrat API | `fg-api-contract-review` | `fg-api-contract-reviewer` | DTO, statuts, OpenAPI et compatibilité |
+| Sécurité transversale | `fg-api-security-review` | `fg-api-security-auditor` | Scénarios d'abus et preuves de refus |
+| CI et déploiement | `fg-api-workflow-review` | `fg-api-workflow-reviewer` | Permissions, triggers, secrets, jobs et deux bases |
+| Records, repositories, mappers, verrous | `fg-api-port` → `references/persistence.md` | `fg-api-persistence-builder` | Intégration PostgreSQL, mapping, atomicité |
+| Coût des requêtes | `fg-api-arch-review` → `references/query-performance.md` | `fg-api-query-performance-reviewer` | Volumes/plans disponibles, pagination, N+1 |
+| Injection et enregistrement des handlers | `fg-api-arch-review` → `references/service-wiring.md` | `fg-api-service-wiring-reviewer` | Alias, tags, transports, managers explicites |
+| Authentification, sessions, MFA | `fg-api-security-review` → checklist auth | `fg-api-auth-reviewer` | Signatures, rotation, révocation, rejeu |
+| RBAC et accès aux objets | `fg-api-security-review` → checklist authorization | `fg-api-authorization-reviewer` | Tenant/organisation, objet, chemins bulk et async |
+| Messenger, Scheduler, outbox | `fg-api-usecase` → `references/usecase-patterns.md` | `fg-api-async-builder` | Commit/rollback, retry, reçus, leases, reprise |
+| Services externes et webhooks | `fg-api-port` → `references/integrations.md` | `fg-api-integration-builder` | Doubles, délais, erreurs, signatures, doublons |
+| Contrat documentaire assigné | `fg-api-module` → `references/module-docs.md` | `fg-api-module-documenter` | Sept sections, faits prouvés, liens locaux |
+| Gate de qualité | `fg-api-quality` | Parent ou spécialiste déjà assigné | Contrôles proportionnés au changement |
+| Contre-expertise demandée | `fg-api-codex-challenge` | Reviewer adapté à la question | Avis indépendant borné, sans récursion |
 
-## Vérification
+## Modèles et efforts
+
+Les profils associent Luna aux recherches bornées, Terra aux tâches courantes, Sol aux
+implémentations structurantes et Astra aux revues à fort enjeu. L'effort est propre au rôle,
+pas à un numéro de modèle. Le résolveur choisit la version visible la plus récente acceptant
+cet effort dans la catégorie ; il n'abaisse pas l'effort en silence.
+
+Le parent fournit un catalogue réel et transmet le résultat à l'outil de délégation, avec un
+contexte borné. Un lancement direct sans résolution hérite du modèle et de l'effort du parent.
+Il n'existe pas d'alias FireGuard natif `astra-latest` ou `sol-latest`.
+
+## Contrôles de l'outillage
 
 ```powershell
-python .codex/scripts/validate.py
-python .codex/scripts/configure.py --check
+python -B .codex/scripts/validate.py
+python -B .codex/scripts/configure.py --check
+python -B -m unittest discover -s .codex/scripts -p 'test_*.py'
 node --test .codex/hooks/adapter.test.mjs
 ```
 
-Le validateur contrôle les manifests, les agents, les skills, leurs références et
-l'absence de chemins hérités. Pour une modification limitée à cet outillage, ces
-contrôles remplacent les tests métier PHP.
+Ces contrôles vérifient agents, profils, résolution simulée, skills, références et gardes.
+Pour des changements limités à cet outillage, les suites applicatives ne sont pas nécessaires.
+Les compteurs sont calculés à partir des fichiers, pas figés dans les validateurs.
+Une nouvelle session reste nécessaire pour vérifier la découverte effective du catalogue modifié.
 
-## Développement
+## Repères
 
-API : http://localhost:8000 ; Mailpit : http://localhost:8025 ; Mercure :
-http://localhost:3000. Ce sont des cibles d'attachement, pas des services démarrés.
-Lire Makefile et OPERATIONS.md pour le lancement de l'infrastructure.
+Les paramètres MCP sont dans `config.toml`, les gardes et le formatage dans `hooks.json`
+et `hooks/`. Ils complètent le sandbox et les approbations. Les URL locales documentées
+dans `OPERATIONS.md` sont des cibles d'attachement, pas des services démarrés par Codex.
 
-## Sources officielles
-
-- [Skills](https://developers.openai.com/codex/skills)
-- [Agents](https://developers.openai.com/codex/subagents)
-- [Hooks](https://developers.openai.com/codex/hooks)
-- [MCP](https://developers.openai.com/codex/mcp)
+Sources officielles : [skills](https://developers.openai.com/codex/skills),
+[agents](https://developers.openai.com/codex/subagents),
+[hooks](https://developers.openai.com/codex/hooks),
+[MCP](https://developers.openai.com/codex/mcp) et
+[catalogue des modèles](https://learn.chatgpt.com/docs/app-server#models).

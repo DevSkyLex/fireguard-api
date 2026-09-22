@@ -1,9 +1,4 @@
----
-name: fg-api-api-platform-contract
-description: "The API Platform surface in fireguard-sso-api — the six-item endpoint checklist, Resource/Operation/DTO/Processor/Provider layout, the reference-catalog decision, security placement, error mapping, and which status codes carry meaning. Use when adding or changing an endpoint."
----
-
-# fg-api-api-platform-contract
+# API Platform contract
 
 Work from the API root. Read `AGENTS.md`, `.codex/workflow.md`,
 `.codex/rules/presentation.md`, `ARCHITECTURE.md` and the owning `MODULE.md`.

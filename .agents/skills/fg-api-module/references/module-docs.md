@@ -1,9 +1,4 @@
----
-name: fg-api-module-md
-description: "How to write and keep current a src/Module/MODULE.md in fireguard-sso-api — the seven required sections, what belongs in each, and the changes that make an update mandatory in the same commit. Use whenever a module gains an endpoint, a flow, an error code, or a configuration requirement."
----
-
-# fg-api-module-md
+# Module documentation
 
 Maintain `src/<Module>/MODULE.md` as the normative module contract. Read `AGENTS.md`,
 `ARCHITECTURE.md` and a comparable module document before editing.
