@@ -490,6 +490,9 @@ final class DPoPValidatorTest extends TestCase
     $data = $this->base64UrlEncode($encodedHeader) . '.' . $this->base64UrlEncode($encodedPayload);
     $rawSignature = base64_decode(strtr($signature, '-_', '+/'), true);
     self::assertIsString($rawSignature);
+    if ('' === $rawSignature) {
+      self::fail('The fixed JOSE signature must not be empty.');
+    }
     $publicKey = <<<'PEM'
       -----BEGIN PUBLIC KEY-----
       MIGbMBAGByqGSM49AgEGBSuBBAAjA4GGAAQBNdtVQ1npg8S/oMJUfG0poHcRk1g+
