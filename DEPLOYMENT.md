@@ -11,13 +11,30 @@ Le préfixe `back` conserve les volumes de production créés avant l’introduc
 
 ## Pipeline
 
-`.github/workflows/deploy-vps.yml` s’exécute sur `main` et `develop` :
+`.github/workflows/deploy-vps.yml` réagit à la fin de la CI déclenchée par
+un push sur `main` ou `develop`, ainsi qu’à un lancement manuel sur ces branches :
 
-1. exécution de la CI réutilisable ;
-2. publication d’une image immuable `sha-*` ;
-3. mise à jour du canal `latest` pour `main` ou `develop` pour `develop` ;
-4. sélection de l’environnement GitHub depuis la branche ;
-5. exécution du playbook Ansible dans le répertoire propre à l’environnement.
+1. vérification de l’exécution CI, de sa branche, de son SHA et du quality gate
+   SonarQube correspondant ; refus si la baseline n’a pas été activée ;
+2. exclusion des pushes contenant uniquement des fichiers Markdown ou `docs/**` ;
+3. lancement d’une seconde exécution du workflow sur la branche validée :
+   GitHub applique ainsi la restriction `main`/`develop` de l’environnement ;
+   cette exécution revérifie le même identifiant CI et refuse une branche avancée ;
+4. construction du commit validé et publication d’une image étiquetée
+   `sha-<SHA complet>` avec la provenance OCI du dépôt et du commit ;
+5. déploiement du digest immuable de l’image, dans l’environnement GitHub
+   choisi selon la branche validée, via le playbook Ansible.
+
+Le tag mobile `latest` sur `main` et `develop` sur `develop` reste publié,
+mais n’est jamais la référence passée à Ansible. La CI manuelle sert au
+diagnostic et ne provoque aucun déploiement automatique ; une livraison
+manuelle vérifie à nouveau la preuve CI du commit ou de l’image demandée.
+L’entrée `source_run_id` est transmise automatiquement entre les deux
+exécutions du workflow ; il faut la laisser vide pour un lancement manuel.
+Les variables GitHub `SONAR_READY_MAIN` et `SONAR_READY_DEVELOP` doivent être
+activées séparément après validation des premiers scans (voir
+[SONARQUBE.md](SONARQUBE.md)). Avant cela, le workflow refuse tout déploiement
+du branchement concerné, même si une CI réussit.
 
 Ansible vérifie au moins 2,5 Gio de mémoire disponible et 10 Gio de disque libre avant de modifier la stack. Il conserve les sauvegardes, migrations additives des bases `auth` et `main`, synchronisation RBAC, contrôles JWT, contrôle 401 des routes protégées et santé publique.
 
@@ -68,6 +85,14 @@ La demande est refusée pour tout environnement autre que `development`. L’ima
 
 ## Rollback
 
-Relancer le workflow depuis la branche concernée avec l’ancien commit ou republier son tag `sha-*`. Les chemins, projets et volumes étant distincts, un rollback du dev ne touche ni les conteneurs ni les bases de production.
+Lancer manuellement `Deploy VPS` sur la branche correspondant à
+l’environnement et fournir son ancienne image dans `image_ref` (tag
+`sha-<SHA complet>` ou digest). Le workflow vérifie les labels OCI du dépôt et
+du SHA, retrouve une CI et un gate SonarQube verts sur **cette branche et ce
+commit**, puis déploie le digest résolu. Une image sans provenance ou validée
+sur l’autre branche est refusée. Sans `image_ref`, la livraison manuelle
+reconstruit le commit actuellement sélectionné. Les chemins, projets et
+volumes étant distincts, un rollback du dev ne touche ni les conteneurs ni
+les bases de production.
 
 Les sauvegardes avant migration restent dans `VPS_APP_DIR/backups/<timestamp>/`.
