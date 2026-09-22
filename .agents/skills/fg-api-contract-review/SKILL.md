@@ -6,13 +6,16 @@ description: "Review the API Platform contract — resource metadata, DTOs, seri
 # fg-api-contract-review
 
 Read `AGENTS.md`, `.codex/workflow.md`, `.codex/rules/presentation.md` and affected
-module contracts. Review without editing.
+module contracts and the [endpoint contract reference](../fg-api-endpoint/references/api-platform-contract.md).
+Review without editing.
 
 Identify breaking field removals/renames, narrowed types, required inputs, enum-literal drift and
 status-code changes. Check Output DTO boundaries, serialization groups, bounded pagination,
 filters, reference-catalog ownership, security and centralized RFC 7807 errors. Explain 403/404
 information-disclosure consequences.
 
-Generate or inspect fresh OpenAPI and `debug:router` when possible. Rank findings with breaking
+Inspect committed OpenAPI and existing router evidence when possible. Ask the parent for fresh
+generated evidence if needed; a read-only review does not regenerate repository artifacts or
+boot a console that writes cache. Rank findings with breaking
 changes first, cite exact evidence and consumer impact, then classify the final contract as stable,
 additive or breaking. State tools or runtime checks that were unavailable.

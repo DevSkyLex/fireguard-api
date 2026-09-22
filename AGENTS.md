@@ -7,6 +7,13 @@ For Codex, read [.codex/workflow.md](.codex/workflow.md) and the matching entrie
 `.agents/skills/`; native subagents live in `.codex/agents/`. Setup and validation
 are documented in [.codex/README.md](.codex/README.md).
 
+Before delegating, resolve the assigned role's category and effort from
+`.codex/agent-profiles.toml` using `.codex/scripts/resolve_agent.py` and the current
+callable model catalog, as described in the workflow. Profiles are a FireGuard
+convention, not native model aliases. Native agent files intentionally inherit unless
+the parent supplies the resolved values. Setup and migration procedures live in
+[.codex/maintenance.md](.codex/maintenance.md).
+
 Do not read or write secret environment files (except `.env.example`/`.env.dist`),
 API `config/jwt/`, or web `src/environments/environment*.ts`. Do not hand-edit
 generated/dependency trees. Preserve user changes and the existing Claude setup.
@@ -173,14 +180,17 @@ The single most expensive thing to get wrong here, because **it fails silently**
   handlers and value objects · PHPDoc with `@category`, `@version`, `@author` on classes and
   `@since`/`@param`/`@return` on methods · grouped imports with explicit `use function` ·
   typed class constants.
-- `make cs-fix` rewrites files rather than merely checking them; run it before the gate.
+- `make cs-fix` rewrites the entire configured PHP finder, not only touched files.
+  Use the project fixer with explicit assigned paths for scoped formatting; `make cs-lint`
+  checks formatting without rewriting. Preserve unrelated worktree changes.
 
 ## Verification
 
 - A bare `php bin/console …` dies building the container
   (`Allowed memory size of 134217728 bytes exhausted`). Always
   `php -d memory_limit=1G bin/console …`, as every Makefile target does.
-- Run the narrowest useful check first, widening as the blast radius grows: `make cs-fix`,
+- Run the narrowest useful check first, widening as the blast radius grows: scoped formatting
+  or `make cs-lint`,
   `make phpstan`, `make deptrac`, `make lint`, `make phpunit-fast`, then `make test`
   (`cs-lint phpstan deptrac lint openapi-check schema-check phpunit-parallel`).
 - Two of those are easy to forget and have both drawn blood: `make openapi-check` fails when

@@ -1,9 +1,4 @@
----
-name: fg-api-hexagonal-layout
-description: "Where each kind of backend file goes and what it may import — the four-layer module tree, the deptrac dependency rules, the naming scheme, and the house code style (two-space indent, regions, PHPDoc). Use before creating any file under src/."
----
-
-# fg-api-hexagonal-layout
+# Hexagonal layout
 
 Read `AGENTS.md`, `ARCHITECTURE.md`, `.codex/workflow.md` and the owning module's
 `MODULE.md`. Apply the dependency direction exactly:

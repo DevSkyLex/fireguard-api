@@ -13,6 +13,11 @@ Application folder. Implement it in Infrastructure as an Adapter, or Repository 
 Keep vendor and Doctrine types behind the boundary; cross-module ports exchange Application
 contracts, never Domain types.
 
+For Records, repositories, mappers or locks, read [persistence.md](references/persistence.md).
+For external adapters and webhooks, read [integrations.md](references/integrations.md).
+Persistence implementation can extend an existing port; do not create a new capability solely
+to satisfy this skill's name.
+
 For Doctrine, confirm auth/main ownership from `doctrine.yaml`, add both the port alias and the
 explicit entity-manager argument. Decline needless ports that isolate nothing. Add focused tests,
 then run PHPStan, Deptrac, container/YAML lint and `debug:container` for the port FQCN.

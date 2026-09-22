@@ -1,0 +1,82 @@
+# FireGuard delegation policy; this is not native Codex configuration.
+# Native agent files inherit unless the parent resolves and passes these settings.
+
+[agents."fg-api-module-explorer"]
+category = "luna"
+effort = "medium"
+
+[agents."fg-api-test-writer"]
+category = "terra"
+effort = "high"
+
+[agents."fg-api-workflow-reviewer"]
+category = "terra"
+effort = "high"
+
+[agents."fg-api-module-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-domain-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-usecase-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-port-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-endpoint-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-contract-reviewer"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-migration-builder"]
+category = "sol"
+effort = "xhigh"
+
+[agents."fg-api-architecture-reviewer"]
+category = "astra"
+effort = "high"
+
+[agents."fg-api-security-auditor"]
+category = "astra"
+effort = "xhigh"
+
+[agents."fg-api-persistence-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-query-performance-reviewer"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-service-wiring-reviewer"]
+category = "terra"
+effort = "high"
+
+[agents."fg-api-auth-reviewer"]
+category = "astra"
+effort = "high"
+
+[agents."fg-api-authorization-reviewer"]
+category = "astra"
+effort = "high"
+
+[agents."fg-api-async-builder"]
+category = "sol"
+effort = "xhigh"
+
+[agents."fg-api-integration-builder"]
+category = "sol"
+effort = "high"
+
+[agents."fg-api-module-documenter"]
+category = "terra"
+effort = "medium"

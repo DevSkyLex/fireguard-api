@@ -1,7 +1,8 @@
 # Using code intelligence
 
-Use symbol-aware navigation for declarations and references when Serena is connected;
-use `rg` for literals, YAML service wiring, migrations and documentation.
+Serena over MCP with Intelephense is optional. Inspect the active tools before relying on it;
+configuration is not proof of a connected server. Use symbol-aware navigation for declarations
+and references when connected, and `rg` for literals, YAML service wiring, migrations and docs.
 
 - Before changing a signature, constant, enum case, port or DTO field, inspect its
   references and visit each affected consumer.
@@ -12,5 +13,8 @@ use `rg` for literals, YAML service wiring, migrations and documentation.
 - Treat a first empty result from a cold index as inconclusive. Retry once and compare
   it with a text search.
 
-Language-server results accelerate review; PHPStan, Deptrac, container lint and tests
-remain the gates.
+The free Intelephense implementation may have incomplete navigation support while its index
+warms. If unavailable, continue with repository search and report that fallback. Empty text
+results do not prove absence of consumers: aliases, namespaces and metadata may hide them.
+Language-server results accelerate review; PHPStan, both Deptrac configurations, container
+lint and tests remain the gates.
