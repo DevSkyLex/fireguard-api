@@ -436,7 +436,7 @@ jobs:
         with:
           args: >-
             -Dsonar.projectKey=fireguard-api-${{ github.ref_name }}
-            -Dsonar.projectName=FireGuard-API-${{ github.ref_name }}
+            -Dsonar.projectName=fireguard-api-${{ github.ref_name }}
             -Dsonar.scm.revision=${{ github.sha }}
             -Dsonar.qualitygate.wait=false
 
