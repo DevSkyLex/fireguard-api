@@ -3,8 +3,7 @@
 The hosted Community Build uses one project per analyzed branch. Private
 projects `fireguard-api-main` and `fireguard-api-develop` exist on the VPS instance
 (`https://sonarqube.valentin-fortin.pro/`). Each repository branch is analyzed
-as the project's main branch; do not configure `sonar.branch.name`. The legacy
-`Fireguard-SSO` project remains separate pending provenance confirmation.
+as the project's main branch; do not configure `sonar.branch.name`.
 
 Use the built-in **Sonar way** quality profile and quality gate on both projects.
 The CI's independent 90% executable-line requirement remains in force. The
@@ -28,17 +27,27 @@ The two project-scoped analysis tokens expire on **2026-12-21**. Rotate each
 token before that date and replace only its matching GitHub secret. Never
 commit or display a token.
 
-Both readiness variables are currently `false`. The four initial scans across
-the front and API, their new-code baselines, and the first validated gates are
-still pending; neither API deployment branch is activated. The scanner and
-quality-gate action fail a branch CI if the report, connection, token, analysis
-or gate fails. Deployment refuses that branch until its readiness variable is
-exactly `true`. This permits the initial analyses to be inspected without
-allowing an automatic VPS deployment. Once the first scan of each project is
-correct (scope, complete coverage and quality gate), set that scan as the
-project's **new code baseline** in SonarQube, resolve any issues preventing
-the intended gate, and rerun CI for a fresh valid result before enabling its
-readiness variable. Baseline and issue triage are independent per project.
+Initialize both readiness variables to `false`. Check the current GitHub
+repository variables, branch CI runs and each SonarQube project's analysis and
+baseline to determine its rollout state. The scanner and quality-gate action
+fail a branch CI if the report, connection, token, analysis or gate fails.
+Deployment refuses that branch until its readiness variable is exactly `true`,
+so diagnostic analyses can run before delivery is activated.
+
+After a project's first analysis has finished processing, verify its scope,
+resolved coverage paths and complete coverage report. An administrator sets that
+verified analysis as the fixed **new code baseline** using the public
+`POST /api/new_code_periods/set` with `project=<project-key>`,
+`branch=<SonarQube-main-branch-name>`, `type=SPECIFIC_ANALYSIS` and
+`value=<verified-analysis-id>`. Verify the stored type and analysis ID with
+`GET /api/new_code_periods/show?project=<project-key>&branch=<SonarQube-main-branch-name>`;
+include `branch` when reading back the baseline. This is the SonarQube project's
+main branch name, including for the project analyzing Git `develop`.
+Do not use a sliding window or reset the baseline on every build.
+
+Resolve issues preventing the intended gate, rerun CI and confirm the new run
+and its SonarQube gate pass before setting the matching readiness variable to
+`true`. Baseline and issue triage are independent per project.
 
 The deployment verifier requires a successful push or manual CI for the exact
 repository, branch and SHA, including the named SonarQube gate job. A manual
