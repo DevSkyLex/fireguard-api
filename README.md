@@ -530,7 +530,10 @@ active there is usually nothing left for it to change.
 
 ### SonarQube
 
-SonarQube support is wired via Docker Compose:
+The VPS-hosted SonarQube analyzes `main` and `develop` as two independent
+Community Build projects after the complete 90%-line-coverage check. See
+[SONARQUBE.md](SONARQUBE.md) for project setup, CI secrets, baseline and
+deployment readiness. The local Docker Compose scanner remains available:
 ```bash
 make sonar-up
 make sonar-scan
@@ -544,6 +547,9 @@ GitHub Actions workflows are configured for:
 - **VPS deployment** (`.github/workflows/deploy-vps.yml`): `main` to production and `develop` to an isolated dev Compose stack on the shared VPS
 
 The CI pipeline runs on every push and pull request to `main` and `develop` branches.
+Pushes run all test suites and SonarQube; pull requests retain the existing
+checks without SonarQube. The VPS workflow waits for the successful push CI
+and verifies the SonarQube gate for the exact branch and commit before delivery.
 See `DEPLOYMENT.md` for VPS setup, required GitHub secrets, and rollback notes.
 
 ## Operations
@@ -557,6 +563,5 @@ Security-sensitive configuration and guidance is documented in `SECURITY.md`.
 ## License
 
 This project is proprietary. See internal licensing guidance for distribution and use.
-
 
 
