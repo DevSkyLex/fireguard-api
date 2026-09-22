@@ -54,6 +54,13 @@ test('blocks destructive Git command', () => assert.equal(invoke('Bash', { comma
 test('accepts exec command cmd alias', () => assert.equal(invoke('exec_command', { cmd: 'git status --short' }).status, 0));
 test('enforces commit naming', () => assert.equal(invoke('Bash', { command: 'git commit -m "Bad message"' }).status, 2));
 test('allows the Codex branch prefix', () => assert.equal(invoke('Bash', { command: 'git switch -c codex/api-tooling' }).status, 0));
+
+test('applies kebab-case validation to Codex branch descriptions', () => {
+  for (const branch of ['codex/', 'codex/Uppercase', 'codex/has_underscore', 'codex/-leading', 'codex/trailing-', 'codex/double--dash', 'codex/nested/path']) {
+    const result = invoke('Bash', { command: `git switch -c ${branch}` });
+    assert.equal(result.status, 2, branch);
+  }
+});
 test('post hook skips removed files', () => assert.equal(invoke('apply_patch', patch('*** Delete File: docs/not-present.xyz'), 'post').status, 0));
 test('manifest hook resolves from a nested working directory', () => {
   const manifest = JSON.parse(readFileSync(path.join(root, '.codex/hooks.json'), 'utf8'));

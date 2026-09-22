@@ -13,8 +13,8 @@
  *     what the history of both repos already does, and what git-cliff reads to
  *     build the release notes.
  *
- * Two exemptions are load-bearing:
- *  - `codex/*` branches are the local convention for Codex worktrees and tasks.
+ * Codex work uses `codex/<description-kebab>` with the same shape as other work branches.
+ * Long-lived branch exemptions are load-bearing:
  *  - `main`, `develop` and `release/x.y.z` are the long-lived branches; `git checkout
  *    -b develop origin/develop` is a legitimate local re-creation, not a new feature.
  *
@@ -37,10 +37,10 @@ if (OWNER) {
 const TYPES = 'feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert';
 
 /** `<type>/<description-kebab>` — lowercase, digits, single hyphens, no trailing hyphen. */
-const BRANCH_OK = new RegExp(`^(?:${TYPES}|hotfix)/[a-z0-9]+(?:-[a-z0-9]+)*$`);
+const BRANCH_OK = new RegExp(`^(?:${TYPES}|hotfix|codex)/[a-z0-9]+(?:-[a-z0-9]+)*$`);
 
 /** Names no convention should ever reject. */
-const BRANCH_EXEMPT = /^(?:main|develop|codex\/.+|release\/\d+\.\d+\.\d+)$/;
+const BRANCH_EXEMPT = /^(?:main|develop|release\/\d+\.\d+\.\d+)$/;
 
 /**
  * `<type>(<scope>)!: <subject>` — scope optional, subject starts lowercase.
@@ -124,7 +124,7 @@ for (const pattern of CREATED) {
     deny(
       `branch name "${name}" — ${command}`,
       'Branches follow <type>/<description-kebab>, e.g. feat/organization-invitations or ' +
-        `fix/otp-expiry.\nType is one of: ${TYPES.split('|').join(', ')}, hotfix. ` +
+        `fix/otp-expiry.\nType is one of: ${TYPES.split('|').join(', ')}, hotfix, codex. ` +
         'The description is lowercase words joined by single hyphens.',
     );
   }

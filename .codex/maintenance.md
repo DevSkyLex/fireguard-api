@@ -70,6 +70,11 @@ Préserver les gardes sur secrets, migrations historiques, arbres générés et 
 destructrices. Inspecter source et destination d'un déplacement. Les hooks ne remplacent pas
 le sandbox ; tester les protections avec leurs fixtures, sans ouvrir de fichier secret.
 
+Les branches de travail Codex suivent `codex/<description-kebab>` : minuscules, chiffres et
+mots séparés par un seul tiret. Le garde Codex, le hook Git `pre-push` et la CI acceptent ce
+préfixe tout en rejetant les descriptions invalides. `codex` n'est pas un type de commit :
+conserver les types Conventional Commits existants.
+
 Après évolution d'un skill, vérifier appels et références conditionnelles avec un parcours
 réaliste borné. Après modification du catalogue, démarrer une nouvelle session et vérifier la
 découverte effective des rôles et skills ; la session courante peut conserver l'ancien catalogue.
