@@ -1,13 +1,20 @@
 name: Deploy VPS
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main, develop]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
   workflow_dispatch:
     inputs:
+      source_run_id:
+        description: 'CI run ID supplied by the automatic deployment router (leave blank for manual deployment)'
+        required: false
+        type: string
+      image_ref:
+        description: 'Existing API image tag or digest to roll back to (leave empty to build this branch)'
+        required: false
+        type: string
       reset_development_fixtures:
         description: 'Purge both development databases and reload the fixture baseline'
         required: false
@@ -15,7 +22,7 @@ on:
         type: boolean
 
 concurrency:
-  group: deploy-vps-${{ github.ref_name }}
+  group: deploy-vps-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -25,15 +32,141 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  preflight:
-    name: Preflight
-    uses: ./.github/workflows/ci.yml
-    secrets: inherit
+  guard:
+    name: Verify source CI and image provenance
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      source-branch: ${{ steps.context.outputs.source-branch }}
+      source-sha: ${{ steps.image.outputs.source-sha || steps.context.outputs.source-sha }}
+      deploy-environment: ${{ steps.context.outputs.deploy-environment }}
+      image-ref: ${{ steps.image.outputs.image-ref }}
+      verified-run-id: ${{ steps.verify.outputs.verified-run-id }}
+      should-deploy: ${{ steps.changes.outputs.should-deploy || 'true' }}
+    steps:
+      - name: Checkout trusted deployment verifier
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js for deployment verification
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve deployment event
+        id: context
+        run: node .github/scripts/deployment-context.mjs
+
+      - name: Require SonarQube deployment readiness
+        env:
+          SONAR_DEPLOYMENTS_READY: ${{ vars[steps.context.outputs.source-branch == 'main' && 'SONAR_READY_MAIN' || 'SONAR_READY_DEVELOP'] }}
+        run: |
+          test "$SONAR_DEPLOYMENTS_READY" = 'true' || {
+            echo 'SonarQube baseline is not approved for this branch (SONAR_READY_MAIN/DEVELOP must be true).'
+            exit 1
+          }
+
+      - name: Validate rollback option
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          IMAGE_INPUT: ${{ inputs.image_ref }}
+          RESET_DEVELOPMENT_FIXTURES: ${{ inputs.reset_development_fixtures && 'true' || 'false' }}
+          SOURCE_BRANCH: ${{ steps.context.outputs.source-branch }}
+        run: |
+          if [ -n "$IMAGE_INPUT" ] && [ "$RESET_DEVELOPMENT_FIXTURES" = true ]; then
+            echo 'Fixture reset requires a freshly built development image.'
+            exit 1
+          fi
+          if [ "$RESET_DEVELOPMENT_FIXTURES" = true ] && [ "$SOURCE_BRANCH" != develop ]; then
+            echo 'Fixture reset is restricted to develop.'
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx for image inspection
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.image_ref != '' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry for image inspection
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.image_ref != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve and verify existing image for rollback
+        id: image
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.image_ref != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ inputs.image_ref }}
+          SOURCE_BRANCH: ${{ steps.context.outputs.source-branch }}
+        run: node .github/scripts/resolve-image.mjs
+
+      - name: Verify exact CI and SonarQube gate
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_BRANCH: ${{ steps.context.outputs.source-branch }}
+          SOURCE_SHA: ${{ steps.image.outputs.source-sha || steps.context.outputs.source-sha }}
+          EXPECTED_RUN_ID: ${{ github.event_name == 'workflow_run' && steps.context.outputs.run-id || inputs.source_run_id }}
+          SONAR_PROJECT_PREFIX: fireguard-api
+          SONAR_DEPLOYMENTS_READY: ${{ vars[steps.context.outputs.source-branch == 'main' && 'SONAR_READY_MAIN' || 'SONAR_READY_DEVELOP'] }}
+        run: node .github/scripts/verify-ci.mjs
+
+      - name: Download original push context
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-push-context
+          path: ci-push-context
+          run-id: ${{ steps.context.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Exclude documentation-only pushes
+        id: changes
+        if: ${{ github.event_name == 'workflow_run' }}
+        env:
+          CI_CONTEXT_PATH: ci-push-context/ci-push-context.json
+          SOURCE_SHA: ${{ steps.context.outputs.source-sha }}
+          SOURCE_BRANCH: ${{ steps.context.outputs.source-branch }}
+        run: node .github/scripts/changed-files.mjs
+
+  # workflow_run executes from the default branch, which cannot enter a
+  # development environment restricted to develop. Dispatch a fresh run at
+  # the verified source branch so GitHub enforces its environment policy.
+  route:
+    name: Route validated push to its deployment branch
+    if: ${{ github.event_name == 'workflow_run' && needs.guard.result == 'success' && needs.guard.outputs.should-deploy == 'true' }}
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch branch-bound deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_BRANCH: ${{ needs.guard.outputs.source-branch }}
+          VERIFIED_RUN_ID: ${{ needs.guard.outputs.verified-run-id }}
+        run: |
+          test -n "$VERIFIED_RUN_ID"
+          gh workflow run deploy-vps.yml --repo "$GITHUB_REPOSITORY" --ref "$SOURCE_BRANCH" -f "source_run_id=$VERIFIED_RUN_ID"
 
   build:
     name: Build & Push Image
     runs-on: ubuntu-latest
-    needs: preflight
+    needs: guard
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' && needs.guard.outputs.should-deploy == 'true' &&
+      needs.guard.outputs.image-ref == '' }}
     permissions:
       contents: read
       packages: write
@@ -44,6 +177,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.source-sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -67,67 +202,86 @@ jobs:
         with:
           images: ${{ steps.image_name.outputs.name }}
           tags: |
-            type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
-            type=raw,value=develop,enable=${{ github.ref_name == 'develop' }}
+            type=raw,value=sha-${{ needs.guard.outputs.source-sha }}
+            type=raw,value=latest,enable=${{ needs.guard.outputs.source-branch == 'main' }}
+            type=raw,value=develop,enable=${{ needs.guard.outputs.source-branch == 'develop' }}
 
       - name: Build and push Docker image
+        id: prod_image
         uses: docker/build-push-action@v5
         with:
           context: .
           target: prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.guard.outputs.source-sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Extract fixture image metadata
         id: fixture_meta
-        if: github.ref_name == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
+        if: needs.guard.outputs.source-branch == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.image_name.outputs.name }}
-          tags: type=sha,format=short,suffix=-fixtures
+          tags: type=raw,value=sha-${{ needs.guard.outputs.source-sha }}-fixtures
 
       - name: Build and push fixture image
-        if: github.ref_name == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
+        id: fixtures_image
+        if: needs.guard.outputs.source-branch == 'develop' && github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures
         uses: docker/build-push-action@v5
         with:
           context: .
           target: fixtures
           push: true
           tags: ${{ steps.fixture_meta.outputs.tags }}
-          labels: ${{ steps.fixture_meta.outputs.labels }}
+          labels: |
+            ${{ steps.fixture_meta.outputs.labels }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ needs.guard.outputs.source-sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Select deployed image
         id: image
         env:
+          PROD_DIGEST: ${{ steps.prod_image.outputs.digest }}
+          FIXTURES_DIGEST: ${{ steps.fixtures_image.outputs.digest }}
           RESET_DEVELOPMENT_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures && 'true' || 'false' }}
         run: |
           image_name="${{ steps.image_name.outputs.name }}"
-          echo "ref=${image_name}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          test -n "$PROD_DIGEST"
+          echo "ref=${image_name}@${PROD_DIGEST}" >> "$GITHUB_OUTPUT"
           if [ "$RESET_DEVELOPMENT_FIXTURES" = "true" ]; then
-            echo "fixture-ref=${image_name}:sha-${GITHUB_SHA::7}-fixtures" >> "$GITHUB_OUTPUT"
+            test -n "$FIXTURES_DIGEST"
+            echo "fixture-ref=${image_name}@${FIXTURES_DIGEST}" >> "$GITHUB_OUTPUT"
           else
-            echo "fixture-ref=${image_name}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "fixture-ref=${image_name}@${PROD_DIGEST}" >> "$GITHUB_OUTPUT"
           fi
 
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
-    needs: build
-    environment: ${{ github.ref_name == 'develop' && 'development' || 'production' }}
+    needs: [guard, build]
+    if: >-
+      ${{ always() && github.event_name == 'workflow_dispatch' &&
+      needs.guard.result == 'success' && needs.guard.outputs.should-deploy == 'true' &&
+      (needs.build.result == 'success' ||
+      (needs.build.result == 'skipped' && needs.guard.outputs.image-ref != '')) }}
+    environment: ${{ needs.guard.outputs.deploy-environment }}
     permissions:
       contents: read
       packages: read
 
     env:
-      DEPLOY_ENVIRONMENT: ${{ github.ref_name == 'develop' && 'development' || 'production' }}
-      IMAGE_REF: ${{ needs.build.outputs.image-ref }}
-      FIXTURE_IMAGE_REF: ${{ needs.build.outputs.fixture-image-ref }}
+      DEPLOY_ENVIRONMENT: ${{ needs.guard.outputs.deploy-environment }}
+      SOURCE_BRANCH: ${{ needs.guard.outputs.source-branch }}
+      SOURCE_SHA: ${{ needs.guard.outputs.source-sha }}
+      IMAGE_REF: ${{ needs.guard.outputs.image-ref || needs.build.outputs.image-ref }}
+      FIXTURE_IMAGE_REF: ${{ needs.build.outputs.fixture-image-ref || needs.guard.outputs.image-ref }}
       RESET_DEVELOPMENT_FIXTURES: ${{ github.event_name == 'workflow_dispatch' && inputs.reset_development_fixtures && 'true' || 'false' }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_PORT: ${{ vars.VPS_PORT || '22' }}
@@ -194,12 +348,14 @@ jobs:
     steps:
       - name: Checkout deployment files
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.guard.outputs.source-sha }}
 
       - name: Validate required deployment configuration
         run: |
-          case "$GITHUB_REF_NAME" in
+          case "$SOURCE_BRANCH" in
             main|develop) ;;
-            *) echo "Unsupported deployment branch: $GITHUB_REF_NAME"; exit 1 ;;
+            *) echo "Unsupported deployment branch: $SOURCE_BRANCH"; exit 1 ;;
           esac
 
           case "$RESET_DEVELOPMENT_FIXTURES" in

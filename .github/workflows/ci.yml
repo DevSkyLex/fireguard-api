@@ -10,11 +10,13 @@ on:
         type: boolean
         default: false
       run_e2e:
-        description: Run the end-to-end test job
+        description: Run end-to-end tests on non-deployment branches (always run on main/develop)
         required: false
         type: boolean
         default: false
   pull_request:
+    branches: [main, develop]
+  push:
     branches: [main, develop]
 
 concurrency:
@@ -127,20 +129,37 @@ jobs:
       - name: Run unit and architecture tests with coverage
         run: |
           vendor/bin/phpunit \
+            -c phpunit.dist.xml \
             --testsuite="Architecture Unit Tests,General Unit Tests" \
             --coverage-clover=var/coverage/unit-and-architecture.xml \
+            --coverage-php=var/coverage/unit-and-architecture.php \
             --coverage-text \
             --only-summary-for-coverage-text
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: github.event_name != 'workflow_call'
+      - name: Preserve unit and architecture coverage
+        uses: actions/upload-artifact@v4
         with:
-          files: var/coverage/unit-and-architecture.xml
-          flags: unit
-          fail_ci_if_error: false
-          verbose: true
-        continue-on-error: true
+          name: api-coverage-unit
+          path: var/coverage/unit-and-architecture.php
+          if-no-files-found: error
+          retention-days: 3
+
+      # workflow_run cannot read the original push's `before`. Keep the exact
+      # range alongside this CI run so deployment can skip documentation pushes.
+      - name: Preserve push context for deployment
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          jq '{before, after, ref, repository: .repository.full_name}' \
+            "$GITHUB_EVENT_PATH" > ci-push-context.json
+
+      - name: Upload push context for deployment
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-push-context
+          path: ci-push-context.json
+          if-no-files-found: error
+          retention-days: 7
 
   tests-integration:
     name: Integration and Functional Tests
@@ -180,20 +199,20 @@ jobs:
       - name: Run integration and functional tests with coverage
         run: |
           vendor/bin/phpunit \
+            -c phpunit.dist.xml \
             --testsuite="General Integration Tests,General Functional Tests" \
             --coverage-clover=var/coverage/integration-and-functional.xml \
+            --coverage-php=var/coverage/integration-and-functional.php \
             --coverage-text \
             --only-summary-for-coverage-text
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: github.event_name != 'workflow_call'
+      - name: Preserve integration and functional coverage
+        uses: actions/upload-artifact@v4
         with:
-          files: var/coverage/integration-and-functional.xml
-          flags: integration
-          fail_ci_if_error: false
-          verbose: true
-        continue-on-error: true
+          name: api-coverage-integration
+          path: var/coverage/integration-and-functional.php
+          if-no-files-found: error
+          retention-days: 3
 
   # ==========================================================================
   # End-to-End Flow Tests
@@ -206,12 +225,15 @@ jobs:
   # whole suite, averaging 2.8s each. That is affordable as a gate only in
   # parallel, hence paratest below rather than phpunit.
   #
-  # Still skipped in the release/deploy preflight (workflow_call) to keep
-  # deploys fast — the code being deployed already passed this gate on its PR.
+  # A push to either deployment branch now runs the full suite and must pass
+  # before that exact commit can be deployed. Tag release preflight remains fast.
   tests-end-to-end:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_e2e == true)
+    if: >-
+      ${{ github.event_name == 'pull_request' || github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+      (inputs.run_e2e == true || github.ref_name == 'main' || github.ref_name == 'develop')) }}
     env:
       APP_ENV: test
       APP_DEBUG: 0
@@ -273,18 +295,188 @@ jobs:
             -c phpunit.e2e.xml \
             --processes="$(nproc)" \
             --coverage-clover=var/coverage/e2e.xml \
+            --coverage-php=var/coverage/e2e.php \
             --coverage-text \
             --only-summary-for-coverage-text
 
+      - name: Preserve end-to-end coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage-e2e
+          path: var/coverage/e2e.php
+          if-no-files-found: error
+          retention-days: 3
+
+  # Merge execution data from the same run, never percentages or older uploads.
+  coverage:
+    # A skipped partial/manual run must not satisfy the required full-coverage check.
+    name: >-
+      ${{ (github.event_name == 'pull_request' || github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+      (inputs.run_e2e == true || github.ref_name == 'main' || github.ref_name == 'develop'))) &&
+      'Application Coverage (90% lines)' || 'Application Coverage (not requested)' }}
+    runs-on: ubuntu-latest
+    needs: [tests-unit, tests-integration, tests-end-to-end]
+    if: >-
+      ${{ always() && (github.event_name == 'pull_request' || github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+      (inputs.run_e2e == true || github.ref_name == 'main' || github.ref_name == 'develop'))) }}
+    steps:
+      - name: Require all test suites to pass
+        if: always() && (needs.tests-unit.result != 'success' || needs.tests-integration.result != 'success' || needs.tests-end-to-end.result != 'success')
+        run: |
+          echo "All five test suites must pass before checking complete coverage."
+          exit 1
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+
+      # Exact names, no run-id/token override: only this workflow run is trusted.
+      # Ubuntu jobs use the same checkout path embedded in PHPUnit's reports.
+      - name: Download unit and architecture coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: api-coverage-unit
+          path: var/coverage/parts
+
+      - name: Download integration and functional coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: api-coverage-integration
+          path: var/coverage/parts
+
+      - name: Download end-to-end coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: api-coverage-e2e
+          path: var/coverage/parts
+
+      - name: Merge complete application coverage
+        id: merge
+        run: |
+          php -d memory_limit=1G bin/merge-coverage.php \
+            var/coverage/full/clover.xml \
+            var/coverage/parts/unit-and-architecture.php \
+            var/coverage/parts/integration-and-functional.php \
+            var/coverage/parts/e2e.php
+
+      - name: Enforce 90 percent executable-line coverage
+        run: php bin/check-coverage.php var/coverage/full/clover.xml 90
+
+      - name: Preserve complete coverage report
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage-complete
+          path: var/coverage/full/clover.xml
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
-        if: github.event_name != 'workflow_call'
+        if: ${{ !cancelled() && steps.merge.outcome == 'success' }}
         with:
-          files: var/coverage/e2e.xml
-          flags: e2e
+          files: var/coverage/full/clover.xml
+          disable_search: true
+          flags: application
           fail_ci_if_error: false
           verbose: true
         continue-on-error: true
+
+  # Community Build has a single branch per project. The selected key and
+  # project-scoped token bind this checkout to its independent branch history.
+  sonarqube:
+    name: SonarQube Quality Gate (fireguard-api-${{ github.ref_name }})
+    if: >-
+      ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [coverage]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout analyzed commit with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download complete coverage from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: api-coverage-complete
+          path: var/coverage/full
+
+      - name: Require nonempty complete Clover report
+        run: |
+          test -s var/coverage/full/clover.xml
+          grep -q '<coverage ' var/coverage/full/clover.xml
+
+      - name: Require SonarQube host configuration
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets[github.ref_name == 'main' && 'SONAR_TOKEN_MAIN' || 'SONAR_TOKEN_DEVELOP'] }}
+        run: |
+          test -n "$SONAR_HOST_URL" || { echo 'SONAR_HOST_URL is required'; exit 1; }
+          test -n "$SONAR_TOKEN" || { echo 'Branch SonarQube token is required'; exit 1; }
+
+      - name: Run SonarQube scan
+        id: scan
+        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets[github.ref_name == 'main' && 'SONAR_TOKEN_MAIN' || 'SONAR_TOKEN_DEVELOP'] }}
+        with:
+          args: >-
+            -Dsonar.projectKey=fireguard-api-${{ github.ref_name }}
+            -Dsonar.projectName=FireGuard-API-${{ github.ref_name }}
+            -Dsonar.scm.revision=${{ github.sha }}
+            -Dsonar.qualitygate.wait=false
+
+      - name: Enforce SonarQube quality gate
+        id: gate
+        uses: SonarSource/sonarqube-quality-gate-action@7a5fffe8e523c40e0c740b6bc2712ab503e52efa # v1.2.1
+        with:
+          pollingTimeoutSec: 600
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets[github.ref_name == 'main' && 'SONAR_TOKEN_MAIN' || 'SONAR_TOKEN_DEVELOP'] }}
+
+      - name: Require a passed SonarQube quality gate
+        env:
+          GATE_STATUS: ${{ steps.gate.outputs.quality-gate-status }}
+        run: test "$GATE_STATUS" = PASSED
+
+      - name: Summarize SonarQube result
+        if: always()
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        run: |
+          {
+            echo '### SonarQube API'
+            echo "- Projet : fireguard-api-${GITHUB_REF_NAME}"
+            echo "- Branche : ${GITHUB_REF_NAME}"
+            echo "- SHA : ${GITHUB_SHA}"
+            echo "- Gate : ${{ steps.gate.outputs.quality-gate-status || steps.gate.outcome }}"
+            echo "- Rapport : ${SONAR_HOST_URL%/}/dashboard?id=fireguard-api-${GITHUB_REF_NAME}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The deployment verifier is security-sensitive: exercise its denial paths
+  # independently of live GitHub/SonarQube services on each CI run.
+  deployment-verifier-tests:
+    name: Deployment Verifier Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test .github/scripts/*.test.mjs
 
   # ==========================================================================
   # Symfony Container Lint
@@ -334,6 +526,7 @@ jobs:
   deployment:
     name: Deployment Configuration
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       FIREGUARD_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci
       FIREGUARD_FIXTURES_IMAGE: ghcr.io/devskylex/fireguard-api:sha-ci-fixtures

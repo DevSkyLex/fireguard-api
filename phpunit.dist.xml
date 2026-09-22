@@ -61,9 +61,6 @@
         <include>
             <directory>src</directory>
         </include>
-        <exclude>
-            <directory suffix="Resource.php">src</directory>
-        </exclude>
 
         <deprecationTrigger>
             <method>Doctrine\Deprecations\Deprecation::trigger</method>
@@ -72,7 +69,7 @@
         </deprecationTrigger>
     </source>
 
-    <coverage>
+    <coverage includeUncoveredFiles="true" disableCodeCoverageIgnore="true">
         <report>
             <clover outputFile="var/coverage/clover.xml"/>
             <text outputFile="var/coverage/coverage.txt" showOnlySummary="true"/>
