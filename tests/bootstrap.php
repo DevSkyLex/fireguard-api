@@ -310,6 +310,26 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
   $testToken = $hasExternalToken ? $providedToken : bin2hex(random_bytes(6));
   $_SERVER['TEST_TOKEN'] = $_ENV['TEST_TOKEN'] = $testToken;
 
+  // Database clones are private to each worker; files must be private too.
+  // The fixture baseline can be loaded again by tests, and uploads otherwise
+  // collide with files left in the developer's local://var/storage directory.
+  // A random directory also avoids a later run inheriting files from a killed
+  // worker with the same ParaTest token.
+  $storageRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'test-storage';
+  $storageDir = $storageRoot . DIRECTORY_SEPARATOR . bin2hex(random_bytes(8));
+  $_SERVER['STORAGE_DSN'] = $_ENV['STORAGE_DSN'] = 'local://var/test-storage/' . basename($storageDir);
+  register_shutdown_function(static function () use ($storageRoot, $storageDir): void {
+    if (!str_starts_with($storageDir, $storageRoot . DIRECTORY_SEPARATOR) || !is_dir($storageDir)) {
+      return;
+    }
+
+    try {
+      new Symfony\Component\Filesystem\Filesystem()->remove($storageDir);
+    } catch (Throwable) {
+      // A locked test file may outlive PHP on Windows; the directory is ignored.
+    }
+  });
+
   // Every run gets its own database copy, not just paratest workers: a plain
   // `phpunit` run sharing `fireguard_*_test` with whatever else is running is
   // exactly how the E2E suite's exact-count assertions drift.

@@ -80,15 +80,13 @@ cs-lint:
 # the contract-of-record the frontend and /fg-contract-check read; it silently
 # went eight endpoints stale once, so freshness is part of the gate now.
 #
-# Compared with `cmp`, not `git diff --no-index`: the latter also compares FILE
-# MODES, and the checked-in openapi.json reads 100755 through the Docker
-# bind-mount on Windows while the freshly generated one is 100644. The gate then
-# failed on the executable bit alone, contents byte-identical — a permanent
-# false red that teaches people to ignore it.
+# Clear the dedicated cache before exporting: a branch switch can leave compiled
+# API metadata from the previous checkout in APP_CACHE_DIR. Compare bytes in PHP
+# so the check also works on Windows without cmp and ignores file mode bits.
 openapi-check:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) cache:clear --no-warmup
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) api:openapi:export --output=$(TMP_DIR)/openapi.fresh.json
-	@cmp -s openapi.json $(TMP_DIR)/openapi.fresh.json \
-		|| (echo "openapi.json is stale - run: php -d memory_limit=1G bin/console api:openapi:export --output=openapi.json" && exit 1)
+	$(PHP) bin/check-openapi.php openapi.json $(TMP_DIR)/openapi.fresh.json
 
 cs-fix:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --using-cache=no
