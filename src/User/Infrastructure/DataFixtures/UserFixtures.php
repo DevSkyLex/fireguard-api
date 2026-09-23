@@ -53,19 +53,6 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
   public const string PREVENTION_OWNER_REFERENCE = 'user-seed-prevention-owner';
 
   /**
-   * Constant STAFF_PASSWORD.
-   *
-   * Shared plaintext credential for every seeded staff account, so a demo
-   * can sign in as any of them without hunting through this file. Only the
-   * `admin`/`testuser` accounts keep their own historical passwords.
-   *
-   * @since 1.1.0
-   *
-   * @var string
-   */
-  public const string STAFF_PASSWORD = 'Staff123!';
-
-  /**
    * Constant STAFF_SEEDS.
    *
    * The FireGuard demo workforce. One row per account the organization
@@ -259,6 +246,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
   // #region Constructor
   public function __construct(
     private readonly UserMapper $userMapper,
+    private readonly FixtureUserPasswords $passwords,
   ) {
   }
   // #endregion
@@ -288,7 +276,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
       email: 'admin@fireguard.local',
       firstName: 'Admin',
       lastName: 'User',
-      password: password_hash('Admin123!', PASSWORD_BCRYPT),
+      password: password_hash($this->passwords->admin, PASSWORD_BCRYPT),
     );
     $adminRecord = $this->userMapper->toRecord($adminUser);
     $adminRecord->status = UserStatus::ACTIVE->value;
@@ -304,7 +292,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
       email: 'test@fireguard.local',
       firstName: 'Test',
       lastName: 'User',
-      password: password_hash('Test123!', PASSWORD_BCRYPT),
+      password: password_hash($this->passwords->test, PASSWORD_BCRYPT),
     );
     $testRecord = $this->userMapper->toRecord($testUser);
     $testRecord->status = UserStatus::ACTIVE->value;
@@ -328,7 +316,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
         email: $userData[1],
         firstName: $userData[2],
         lastName: $userData[3],
-        password: password_hash('Demo123!', PASSWORD_BCRYPT),
+        password: password_hash($this->passwords->demo, PASSWORD_BCRYPT),
       );
       $record = $this->userMapper->toRecord($user);
       $manager->persist($record);
@@ -343,7 +331,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
         email: $seed['email'],
         firstName: $seed['firstName'],
         lastName: $seed['lastName'],
-        password: password_hash(self::STAFF_PASSWORD, PASSWORD_BCRYPT),
+        password: password_hash($this->passwords->staff, PASSWORD_BCRYPT),
       );
       $staffRecord = $this->userMapper->toRecord($staffUser);
       $staffRecord->status = $seed['status']->value;
@@ -367,7 +355,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
         email: $seed['email'],
         firstName: $seed['firstName'],
         lastName: $seed['lastName'],
-        password: password_hash(self::STAFF_PASSWORD, PASSWORD_BCRYPT),
+        password: password_hash($this->passwords->staff, PASSWORD_BCRYPT),
       );
       $ownerRecord = $this->userMapper->toRecord($ownerUser);
       $ownerRecord->status = UserStatus::ACTIVE->value;
@@ -386,7 +374,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
         email: self::bulkStaffEmail($i),
         firstName: self::bulkStaffFirstName($i),
         lastName: self::bulkStaffLastName($i),
-        password: password_hash(self::STAFF_PASSWORD, PASSWORD_BCRYPT),
+        password: password_hash($this->passwords->staff, PASSWORD_BCRYPT),
       );
       $bulkRecord = $this->userMapper->toRecord($bulkUser);
       $bulkRecord->status = UserStatus::ACTIVE->value;
@@ -402,7 +390,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
       email: 'dev.client@fireguard.local',
       firstName: 'Dev',
       lastName: 'Client',
-      password: password_hash('DevClient123!', PASSWORD_BCRYPT),
+      password: password_hash($this->passwords->devClient, PASSWORD_BCRYPT),
     );
     $clientUserRecord = $this->userMapper->toRecord($clientUser);
     $manager->persist($clientUserRecord);
