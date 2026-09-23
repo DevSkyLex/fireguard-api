@@ -1,108 +1,163 @@
-# Déploiement VPS
+# VPS deployment
 
-Fireguard API utilise le même VPS pour la production et le développement, avec des répertoires, projets Compose, volumes, bases, clés et URL distincts.
+FireGuard API uses the same VPS for production and development, with separate
+directories, Compose projects, volumes, databases, keys, and URLs.
 
-| Environnement GitHub | Branche   | API                                     | Mercure                                     | Mailpit                                  | Répertoire VPS                         | Projet Docker               | Préfixe de volumes   |
-| -------------------- | --------- | --------------------------------------- | ------------------------------------------- | ---------------------------------------- | -------------------------------------- | --------------------------- | -------------------- |
-| `production`         | `main`    | `api.fireguard.valentin-fortin.pro`     | `mercure.fireguard.valentin-fortin.pro`     | —                                        | `/srv/apps/fireguard/production/back`  | `fireguard-production-back` | `back`               |
-| `development`        | `develop` | `dev.api.fireguard.valentin-fortin.pro` | `dev.mercure.fireguard.valentin-fortin.pro` | `dev.mail.fireguard.valentin-fortin.pro` | `/srv/apps/fireguard/development/back` | `fireguard-dev-back`        | `fireguard-dev-back` |
+| GitHub environment | Branch | API | Mercure | Mailpit | VPS directory | Docker project | Volume prefix |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `production` | `main` | `api.fireguard.valentin-fortin.pro` | `mercure.fireguard.valentin-fortin.pro` | — | `/srv/apps/fireguard/production/back` | `fireguard-production-back` | `back` |
+| `development` | `develop` | `dev.api.fireguard.valentin-fortin.pro` | `dev.mercure.fireguard.valentin-fortin.pro` | `dev.mail.fireguard.valentin-fortin.pro` | `/srv/apps/fireguard/development/back` | `fireguard-dev-back` | `fireguard-dev-back` |
 
-Le préfixe `back` conserve les volumes de production créés avant l’introduction du nom explicite du projet Compose. Il ne doit pas être modifié sans migration de volumes. Lors du premier déploiement de cette version, Ansible télécharge d’abord les images, arrête l’ancien projet Compose `back` sans supprimer ses volumes, puis démarre `fireguard-production-back` sur ces mêmes volumes.
+The `back` prefix preserves production volumes created before the explicit Compose
+project name was introduced. Do not change it without a volume migration. On the
+first deployment of this version, Ansible pulls the images, stops the old `back`
+Compose project without deleting its volumes, then starts
+`fireguard-production-back` using those same volumes.
 
 ## Pipeline
 
-`.github/workflows/deploy-vps.yml` réagit à la fin de la CI déclenchée par
-un push sur `main` ou `develop`, ainsi qu’à un lancement manuel sur ces branches :
+`.github/workflows/deploy-vps.yml` reacts to completion of CI triggered by a
+push to `main` or `develop`, and to manual runs on those branches:
 
-1. vérification de l’exécution CI, de sa branche, de son SHA et du quality gate
-   SonarQube correspondant ; refus si la baseline n’a pas été activée ;
-2. exclusion des pushes contenant uniquement des fichiers Markdown ou `docs/**` ;
-3. lancement d’une seconde exécution du workflow sur la branche validée :
-   GitHub applique ainsi la restriction `main`/`develop` de l’environnement ;
-   cette exécution revérifie le même identifiant CI et refuse une branche avancée ;
-4. construction du commit validé et publication d’une image étiquetée
-   `sha-<SHA complet>` avec la provenance OCI du dépôt et du commit ;
-5. déploiement du digest immuable de l’image, dans l’environnement GitHub
-   choisi selon la branche validée, via le playbook Ansible.
+1. Verify the CI run, its branch and SHA, and the corresponding SonarQube quality
+   gate; reject the run if the baseline has not been activated.
+2. Exclude pushes that change only Markdown files or `docs/**`.
+3. Start a second workflow run on the validated branch: GitHub then enforces the
+   `main`/`develop` restriction of the environment. This run checks the same CI
+   run ID again and rejects a branch that has advanced.
+4. Build the validated commit and publish an image tagged `sha-<full SHA>` with
+   OCI provenance for the repository and commit.
+5. Deploy the image's immutable digest to the GitHub environment selected from
+   the validated branch through the Ansible playbook.
 
-Le tag mobile `latest` sur `main` et `develop` sur `develop` reste publié,
-mais n’est jamais la référence passée à Ansible. La CI manuelle sert au
-diagnostic et ne provoque aucun déploiement automatique ; une livraison
-manuelle vérifie à nouveau la preuve CI du commit ou de l’image demandée.
-L’entrée `source_run_id` est transmise automatiquement entre les deux
-exécutions du workflow ; il faut la laisser vide pour un lancement manuel.
-Les variables GitHub `SONAR_READY_MAIN` et `SONAR_READY_DEVELOP` doivent être
-activées séparément après validation des premiers scans (voir
-[SONARQUBE.md](SONARQUBE.md)). Avant cela, le workflow refuse tout déploiement
-du branchement concerné, même si une CI réussit.
+The moving `latest` tag on `main` and `develop` tag on `develop` are still
+published, but Ansible never receives them as the deployment reference.
+Manual CI runs serve diagnostics and do not trigger automatic deployment; a
+manual deployment rechecks the CI evidence for the requested commit or image.
+`source_run_id` is passed automatically between the two workflow runs; leave it
+empty for a manual run. The GitHub variables `SONAR_READY_MAIN` and
+`SONAR_READY_DEVELOP` must be enabled separately after the initial scans are
+validated (see [SONARQUBE.md](SONARQUBE.md)). Until then, the workflow rejects
+deployment from the corresponding branch even if CI succeeds.
 
-Ansible vérifie au moins 2,5 Gio de mémoire disponible et 10 Gio de disque libre avant de modifier la stack. Il conserve les sauvegardes, migrations additives des bases `auth` et `main`, synchronisation RBAC, contrôles JWT, contrôle 401 des routes protégées et santé publique.
+Ansible checks for at least 2.5 GiB of available memory and 10 GiB of free disk
+space before changing the stack. It retains backups, additive migrations of the
+`auth` and `main` databases, RBAC synchronization, JWT checks, a 401 check on
+protected routes, and public health checks.
 
-Après le démarrage des dépendances, Redis et Mercure doivent atteindre l’état Docker `healthy` avant les étapes d’arrêt applicatif et de migration. Redis utilise `redis-cli ping` ; Mercure hérite de la sonde de son image sur l’API d’administration locale `/mercure/health/ready`, qui vérifie aussi le transport persistant. En cas d’échec, le déploiement s’arrête et affiche uniquement leur état `State.Health` et l’historique borné des sondes, sans inspection complète des conteneurs ni variables d’environnement. Un échec du démarrage applicatif déclenche également le diagnostic déjà prévu pour l’application et son worker.
+After dependencies start, Redis and Mercure must reach Docker's `healthy` state
+before application shutdown and migration steps. Redis uses `redis-cli ping`;
+Mercure inherits its image's health probe against the local administration API
+`/mercure/health/ready`, which also checks persistent transport. On failure,
+deployment stops and displays only their `State.Health` status and bounded probe
+history, without a full container inspection or environment variables. An
+application startup failure also triggers the existing diagnostics for the
+application and its worker.
 
-Les compositions locale et déployée épinglent Mercure `v1.0.0` par digest et activent explicitement `protocol_version_compatibility 8` pour les clients actuels : claims JWT `mercure.publish` / `mercure.subscribe` et paramètres `topic` / `authorization`. Les signatures restent limitées à HS256 et la valeur `authorization` est masquée dans les journaux. La route publique historique `/healthz` est conservée pour les sondes externes ; elle ne remplace pas la sonde interne du transport. Le fichier Caddy standard remplace l’ancien `dev.Caddyfile` supprimé de l’image.
+Local and deployed Compose configurations pin Mercure `v1.0.0` by digest and
+explicitly enable `protocol_version_compatibility 8` for current clients: JWT
+`mercure.publish` / `mercure.subscribe` claims and `topic` / `authorization`
+parameters. Signatures remain limited to HS256, and the `authorization` value is
+redacted from logs. The historical public `/healthz` route remains for external
+probes; it does not replace the internal transport probe. The standard Caddy
+file replaces the old `dev.Caddyfile` removed from the image.
 
-Ce mode transitoire conserve les règles JWT 0.x, sans exiger les nouveaux claims `iss` / `aud`. Son retrait nécessite une migration coordonnée des émetteurs de jetons et du client web vers les contrats natifs 1.x. Toute mise à jour de l’image doit vérifier publication, abonnement privé, refus d’accès, masquage des jetons et reprise de l’historique avant déploiement. Voir le [guide de migration versionné Mercure 1.0](https://github.com/dunglas/mercure/blob/v1.0.0/docs/UPGRADE.md#compatibility-mode).
+This transitional mode preserves the 0.x JWT rules without requiring the new
+`iss` / `aud` claims. Removing it requires a coordinated migration of token
+issuers and the web client to the native 1.x contracts. Any image update must
+verify publishing, private subscriptions, access denial, token redaction, and
+history replay before deployment. See the [versioned Mercure 1.0 migration guide](https://github.com/dunglas/mercure/blob/v1.0.0/docs/UPGRADE.md#compatibility-mode).
 
-`python3 scripts/check-mercure-contract.py` teste les configurations versionnées avec des clés factices et des ressources Docker isolées : santé, publication et abonnement privés, reprise sur un hub actif, refus d’accès et masquage des jetons. La CI exécute ce contrôle sans accès aux secrets applicatifs.
+`python3 scripts/check-mercure-contract.py` tests the versioned configurations
+with dummy keys and isolated Docker resources: health, private publishing and
+subscriptions, replay on a running hub, access denial, and token redaction.
+CI runs this check without application secrets.
 
-**Limite amont connue :** Mercure 1.0.0, comme 0.24.2, ne restitue pas l’historique Bolt immédiatement après un redémarrage tant qu’aucune nouvelle publication n’a eu lieu. Les événements restent persistés ; la borne interne `lastSeq` n’est pas restaurée à l’ouverture ([implémentation 1.0.0](https://github.com/dunglas/mercure/blob/v1.0.0/bolt.go)). Le diagnostic strict `python3 scripts/check-mercure-contract.py --check-restart-history` reproduit cet échec et ne fait pas partie du contrôle de compatibilité par défaut. Aucune publication artificielle ne masque le défaut. La reprise immédiate après redémarrage reste à corriger ou à revalider avec une version amont corrigée ; une sonde de santé verte ne la garantit pas.
+**Known upstream limitation:** Mercure 1.0.0, like 0.24.2, does not return Bolt
+history immediately after a restart until a new publication occurs. Events
+remain persisted; the internal `lastSeq` bound is not restored at open
+([1.0.0 implementation](https://github.com/dunglas/mercure/blob/v1.0.0/bolt.go)).
+The strict `python3 scripts/check-mercure-contract.py --check-restart-history`
+diagnostic reproduces this failure and is not part of the default compatibility
+check. No artificial publication masks the defect. Immediate replay after a
+restart still needs a fix or validation against a corrected upstream version;
+a green health probe does not guarantee it.
 
-## Configuration GitHub
+## GitHub configuration
 
-`production` accepte uniquement `main`. `development` accepte uniquement `develop`. Les secrets de connexion sont enregistrés dans chaque environnement, même lorsqu’ils ont temporairement la même valeur.
+`production` accepts only `main`. `development` accepts only `develop`.
+Connection secrets are stored in each environment even when they temporarily
+have the same value.
 
-Secrets de déploiement :
+Deployment secrets:
 
 - `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
-- `GHCR_TOKEN` si le jeton du workflow ne suffit pas
+- `GHCR_TOKEN` if the workflow token is insufficient
 
-Secrets applicatifs propres à chaque environnement :
+Application secrets specific to each environment:
 
 - `APP_SECRET`
 - `POSTGRES_AUTH_PASSWORD`, `POSTGRES_MAIN_PASSWORD`
 - `MERCURE_JWT_SECRET`
 - `OAUTH_ENCRYPTION_KEY`, `WEBHOOK_ENCRYPTION_KEY`
-- `BASIC_AUTH_USERS`, `BASIC_AUTH_CREDENTIALS` dans `development`
+- `BASIC_AUTH_USERS`, `BASIC_AUTH_CREDENTIALS` in `development`
 - `SECURITY_LOG_PII_SALT`
-- `GOOGLE_OIDC_CLIENT_SECRET`, `MICROSOFT_OIDC_CLIENT_SECRET` lorsque les fournisseurs sont activés
+- `GOOGLE_OIDC_CLIENT_SECRET`, `MICROSOFT_OIDC_CLIENT_SECRET` when the providers are enabled
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
 
-Les variables `API_HOST`, `MERCURE_HOST`, `MAILPIT_HOST`, `DEFAULT_URI`, `MERCURE_PUBLIC_URL`, `TRAEFIK_API_ROUTER_NAME`, `TRAEFIK_MERCURE_ROUTER_NAME`, `TRAEFIK_MAILPIT_ROUTER_NAME`, `DOCKER_PROJECT_NAME` et `VOLUME_PREFIX` pilotent Compose et Traefik. `VPS_APP_DIR` et `VPS_HEALTHCHECK_URL` pilotent Ansible.
+The `API_HOST`, `MERCURE_HOST`, `MAILPIT_HOST`, `DEFAULT_URI`,
+`MERCURE_PUBLIC_URL`, `TRAEFIK_API_ROUTER_NAME`,
+`TRAEFIK_MERCURE_ROUTER_NAME`, `TRAEFIK_MAILPIT_ROUTER_NAME`,
+`DOCKER_PROJECT_NAME`, and `VOLUME_PREFIX` variables control Compose and
+Traefik. `VPS_APP_DIR` and `VPS_HEALTHCHECK_URL` control Ansible.
 
-Le mode géré `FIREGUARD_MANAGED_ENV=true` rend `.env` depuis les variables et secrets GitHub. Le déploiement refuse toute valeur requise absente, vide ou dangereuse avant l’arrêt de l’application et avant les migrations.
+Managed mode (`FIREGUARD_MANAGED_ENV=true`) renders `.env` from GitHub variables
+and secrets. Deployment rejects any missing, empty, or unsafe required value
+before stopping the application or running migrations.
 
-## Développement et Mailpit
+## Development and Mailpit
 
-`compose.dev.yaml` ajoute Mailpit avec un volume persistant. Son serveur SMTP est joignable par l’application à `smtp://mailpit:1025`.
+`compose.dev.yaml` adds Mailpit with a persistent volume. The application can
+reach its SMTP server at `smtp://mailpit:1025`.
 
-L’interface est disponible sur `https://dev.mail.fireguard.valentin-fortin.pro` depuis tout réseau. Traefik termine TLS, impose Basic Auth et ajoute `X-Robots-Tag: noindex,nofollow,noarchive` ainsi que `Cache-Control: private,no-store`. Le port `8025` n’est pas publié sur l’hôte et le serveur SMTP `1025` reste limité au réseau Docker.
+The UI is available at `https://dev.mail.fireguard.valentin-fortin.pro` from
+any network. Traefik terminates TLS, requires Basic Auth, and adds
+`X-Robots-Tag: noindex,nofollow,noarchive` and `Cache-Control: private,no-store`.
+Port `8025` is not published on the host, and the SMTP server on port `1025`
+remains limited to the Docker network.
 
-## Fixtures de développement
+## Development fixtures
 
-Les fixtures ne sont jamais chargées par un push ou un déploiement ordinaire. Elles purgent puis reconstruisent les bases `auth` et `main`, y compris les comptes et données créés manuellement.
+Fixtures are never loaded by a push or ordinary deployment. They clear and
+rebuild the `auth` and `main` databases, including manually created accounts
+and data.
 
-Pour initialiser ou réinitialiser les données de démonstration, lancer manuellement le workflow `Deploy VPS` sur la branche `develop` en activant l’entrée `reset_development_fixtures`. Le workflow construit alors une image temporaire contenant les dépendances de fixtures, sauvegarde les deux bases, arrête les processus applicatifs, applique les migrations, recharge la baseline puis exécute les contrôles de santé habituels.
+To initialize or reset demo data, manually run the `Deploy VPS` workflow on
+`develop` with `reset_development_fixtures` enabled. The workflow then builds
+a temporary image containing fixture dependencies, backs up both databases,
+stops application processes, applies migrations, reloads the baseline, and
+runs the usual health checks.
 
-La demande est refusée pour tout environnement autre que `development`. L’image applicative de production reste construite avec `--no-dev` et ne contient pas le chargeur de fixtures.
+Requests for any environment other than `development` are rejected. The
+production application image is still built with `--no-dev` and does not
+contain the fixture loader.
 
-## OAuth, cookies et Stripe
+## OAuth, cookies, and Stripe
 
-- Les clients Google et Microsoft du dev utilisent uniquement les callbacks `dev.*` et restent désactivés tant que leurs identifiants dédiés ne sont pas enregistrés.
-- Stripe utilise une clé, un webhook et des Price IDs en mode test propres au dev.
-- Les cookies sont host-only et `Secure`, ce qui empêche leur partage entre `api.*` et `dev.api.*`.
-- `CORS_ALLOW_ORIGIN` et `MERCURE_CORS_ORIGINS` n’autorisent que le frontend du même environnement.
+- Development Google and Microsoft clients use only `dev.*` callbacks and remain disabled until their dedicated credentials are configured.
+- Stripe uses a development-specific key, webhook, and test-mode Price IDs.
+- Cookies are host-only and `Secure`, preventing sharing between `api.*` and `dev.api.*`.
+- `CORS_ALLOW_ORIGIN` and `MERCURE_CORS_ORIGINS` allow only the frontend of the same environment.
 
 ## Rollback
 
-Lancer manuellement `Deploy VPS` sur la branche correspondant à
-l’environnement et fournir son ancienne image dans `image_ref` (tag
-`sha-<SHA complet>` ou digest). Le workflow vérifie les labels OCI du dépôt et
-du SHA, retrouve une CI et un gate SonarQube verts sur **cette branche et ce
-commit**, puis déploie le digest résolu. Une image sans provenance ou validée
-sur l’autre branche est refusée. Sans `image_ref`, la livraison manuelle
-reconstruit le commit actuellement sélectionné. Les chemins, projets et
-volumes étant distincts, un rollback du dev ne touche ni les conteneurs ni
-les bases de production.
+Manually run `Deploy VPS` on the branch for the target environment and provide
+the older image in `image_ref` (a `sha-<full SHA>` tag or digest). The workflow
+checks the repository and SHA OCI labels, finds a successful CI run and green
+SonarQube gate for **that branch and commit**, then deploys the resolved digest.
+An image without provenance or validated on the other branch is rejected.
+Without `image_ref`, manual delivery rebuilds the currently selected commit.
+Because paths, projects, and volumes are separate, a development rollback
+does not affect production containers or databases.
 
-Les sauvegardes avant migration restent dans `VPS_APP_DIR/backups/<timestamp>/`.
+Pre-migration backups remain in `VPS_APP_DIR/backups/<timestamp>/`.

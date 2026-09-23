@@ -1,23 +1,23 @@
-# FireGuard API dans Codex
+# FireGuard API in Codex
 
-La configuration du dépôt regroupe **14 skills et 20 agents spécialisés**. Les versions de
-modèles ne sont pas inscrites dans les rôles : le parent résout leur catégorie et leur effort
-au lancement à partir du catalogue disponible. Les profils sont dans
-[agent-profiles.toml](agent-profiles.toml), avec le protocole dans le [workflow](workflow.md).
+The repository configuration includes **14 skills and 20 specialist agents**. Agent roles
+do not pin model versions: the parent resolves the model category and effort at invocation
+time from the available catalog. Profiles are in [agent-profiles.toml](agent-profiles.toml),
+with the protocol in the [workflow](workflow.md).
 
-## Démarrage
+## Getting started
 
-Ouvrir `fireguard-sso-api/` dans Codex et démarrer une nouvelle tâche. Lire `AGENTS.md`,
-le [workflow](workflow.md) et le [routage des règles](rules.md), puis le contrat du module.
-Invoquer un skill avec `$nom` ou le sélecteur. Les règles sont des consignes à lire,
-pas un mécanisme d'activation automatique.
+Open `fireguard-sso-api/` in Codex and start a new task. Read `AGENTS.md`, the
+[workflow](workflow.md), and the [rule routing](rules.md), then the module contract.
+Invoke a skill by `$name` or through the selector. Rules are instructions to read,
+not an automatic activation mechanism.
 
-L'outillage local utilise Python 3.11+ et Node.js. Le développement et les tests API demandent
-les versions PHP/Composer déclarées dans `composer.json`, Make et l'infrastructure PostgreSQL
-décrite dans `OPERATIONS.md`. Serena est facultatif : vérifier ses outils dans la session et
-utiliser `rg` en repli s'il n'est pas connecté.
+The local tooling uses Python 3.11+ and Node.js. API development and testing require
+the PHP/Composer versions declared in `composer.json`, Make, and the PostgreSQL
+infrastructure described in `OPERATIONS.md`. Serena is optional: check whether its
+tools are available in the session and fall back to `rg` if it is not connected.
 
-Après clone ou déplacement, depuis la racine :
+After cloning or moving the checkout, run from the repository root:
 
 ```powershell
 python -B .codex/scripts/configure.py
@@ -25,56 +25,57 @@ python -B .codex/scripts/configure.py --check
 python -B .codex/scripts/validate.py
 ```
 
-Le projet doit être reconnu comme fiable pour charger sa configuration. Examiner les hooks
-avec `/hooks` dans le CLI avant activation : leur présence ne prouve pas qu'ils sont actifs.
-`codex mcp list` vérifie le chargement déclaré, pas la connexion effective. Aucun de ces
-fichiers ne doit modifier la confiance, les approbations ou les paramètres personnels.
-Le [guide de maintenance](maintenance.md) détaille contrôles, diagnostic et anciennes invocations.
+The project must be trusted to load its local configuration. Review hooks with
+`/hooks` in the CLI before activation: their presence does not prove they are active.
+`codex mcp list` checks the declared configuration, not the live connection. None
+of these files should change trust, approvals, or personal settings.
+The [maintenance guide](maintenance.md) covers checks, diagnostics, and older invocations.
 
-## Choisir un parcours
+## Choose a workflow
 
-Chaque nom ci-dessous est complet. Les reviewers, auditeurs et explorers sont en lecture seule ;
-leurs validations désignent les preuves à inspecter ou à demander au parent si une commande écrit.
-Les builders reçoivent un périmètre de fichiers précis et héritent des permissions de la session.
-La matrice n'impose ni délégation systématique ni lancement de tous les rôles.
+Every name below is complete. Reviewers, auditors, and explorers are read-only;
+their validation entries identify evidence to inspect or request from the parent
+if a command writes files. Builders receive a precise file scope and inherit the
+session's permissions. The matrix does not require systematic delegation or
+invocation of every role.
 
-| Tâche | Skill ou référence | Agent | Validation pertinente |
+| Task | Skill or reference | Agent | Relevant validation |
 | --- | --- | --- | --- |
-| Comprendre un module | `fg-api-explore` | `fg-api-module-explorer` | Sources, mapping auth/main, routes et contrat |
-| Créer un module | `fg-api-module` | `fg-api-module-builder` | Tests ciblés, PHPStan, Deptrac, lint |
-| Modèle métier ou invariant | `fg-api-domain` | `fg-api-domain-builder` | Tests Domain, PHPStan, Deptrac |
-| Commande ou requête | `fg-api-usecase` | `fg-api-usecase-builder` | Tests handler, échecs/rejeu, lint |
-| Port et adaptateur | `fg-api-port` | `fg-api-port-builder` | Tests du port, alias, managers, lint |
-| Endpoint et DTO | `fg-api-endpoint` | `fg-api-endpoint-builder` | Succès/refus, OpenAPI, route, lint |
-| Migration de schéma/données | `fg-api-migrate` | `fg-api-migration-builder` | SQL, configuration/historique, schémas auth/main |
-| Couverture PHPUnit | `fg-api-tests` | `fg-api-test-writer` | Fichier ou filtre ciblé, PostgreSQL |
-| Architecture et frontières | `fg-api-arch-review` | `fg-api-architecture-reviewer` | Deux analyses Deptrac, invariants observés |
-| Contrat API | `fg-api-contract-review` | `fg-api-contract-reviewer` | DTO, statuts, OpenAPI et compatibilité |
-| Sécurité transversale | `fg-api-security-review` | `fg-api-security-auditor` | Scénarios d'abus et preuves de refus |
-| CI et déploiement | `fg-api-workflow-review` | `fg-api-workflow-reviewer` | Permissions, triggers, secrets, jobs et deux bases |
-| Records, repositories, mappers, verrous | `fg-api-port` → `references/persistence.md` | `fg-api-persistence-builder` | Intégration PostgreSQL, mapping, atomicité |
-| Coût des requêtes | `fg-api-arch-review` → `references/query-performance.md` | `fg-api-query-performance-reviewer` | Volumes/plans disponibles, pagination, N+1 |
-| Injection et enregistrement des handlers | `fg-api-arch-review` → `references/service-wiring.md` | `fg-api-service-wiring-reviewer` | Alias, tags, transports, managers explicites |
-| Authentification, sessions, MFA | `fg-api-security-review` → checklist auth | `fg-api-auth-reviewer` | Signatures, rotation, révocation, rejeu |
-| RBAC et accès aux objets | `fg-api-security-review` → checklist authorization | `fg-api-authorization-reviewer` | Tenant/organisation, objet, chemins bulk et async |
-| Messenger, Scheduler, outbox | `fg-api-usecase` → `references/usecase-patterns.md` | `fg-api-async-builder` | Commit/rollback, retry, reçus, leases, reprise |
-| Services externes et webhooks | `fg-api-port` → `references/integrations.md` | `fg-api-integration-builder` | Doubles, délais, erreurs, signatures, doublons |
-| Contrat documentaire assigné | `fg-api-module` → `references/module-docs.md` | `fg-api-module-documenter` | Sept sections, faits prouvés, liens locaux |
-| Gate de qualité | `fg-api-quality` | Parent ou spécialiste déjà assigné | Contrôles proportionnés au changement |
-| Contre-expertise demandée | `fg-api-codex-challenge` | Reviewer adapté à la question | Avis indépendant borné, sans récursion |
+| Understand a module | `fg-api-explore` | `fg-api-module-explorer` | Sources, auth/main mapping, routes, and contract |
+| Create a module | `fg-api-module` | `fg-api-module-builder` | Targeted tests, PHPStan, Deptrac, lint |
+| Domain model or invariant | `fg-api-domain` | `fg-api-domain-builder` | Domain tests, PHPStan, Deptrac |
+| Command or query | `fg-api-usecase` | `fg-api-usecase-builder` | Handler tests, failures/replay, lint |
+| Port and adapter | `fg-api-port` | `fg-api-port-builder` | Port tests, aliases, managers, lint |
+| Endpoint and DTO | `fg-api-endpoint` | `fg-api-endpoint-builder` | Success/denial, OpenAPI, route, lint |
+| Schema/data migration | `fg-api-migrate` | `fg-api-migration-builder` | SQL, configuration/history, auth/main schemas |
+| PHPUnit coverage | `fg-api-tests` | `fg-api-test-writer` | Targeted file or filter, PostgreSQL |
+| Architecture and boundaries | `fg-api-arch-review` | `fg-api-architecture-reviewer` | Two Deptrac analyses, observed invariants |
+| API contract | `fg-api-contract-review` | `fg-api-contract-reviewer` | DTOs, statuses, OpenAPI, compatibility |
+| Cross-cutting security | `fg-api-security-review` | `fg-api-security-auditor` | Abuse scenarios and denial evidence |
+| CI and deployment | `fg-api-workflow-review` | `fg-api-workflow-reviewer` | Permissions, triggers, secrets, jobs, and both databases |
+| Records, repositories, mappers, locks | `fg-api-port` → `references/persistence.md` | `fg-api-persistence-builder` | PostgreSQL integration, mapping, atomicity |
+| Query cost | `fg-api-arch-review` → `references/query-performance.md` | `fg-api-query-performance-reviewer` | Available volumes/plans, pagination, N+1 |
+| Handler injection and registration | `fg-api-arch-review` → `references/service-wiring.md` | `fg-api-service-wiring-reviewer` | Aliases, tags, transports, explicit managers |
+| Authentication, sessions, MFA | `fg-api-security-review` → auth checklist | `fg-api-auth-reviewer` | Signatures, rotation, revocation, replay |
+| RBAC and object access | `fg-api-security-review` → authorization checklist | `fg-api-authorization-reviewer` | Tenant/organization, object, bulk and async paths |
+| Messenger, Scheduler, outbox | `fg-api-usecase` → `references/usecase-patterns.md` | `fg-api-async-builder` | Commit/rollback, retry, receipts, leases, recovery |
+| External services and webhooks | `fg-api-port` → `references/integrations.md` | `fg-api-integration-builder` | Test doubles, timeouts, errors, signatures, duplicates |
+| Assigned module documentation contract | `fg-api-module` → `references/module-docs.md` | `fg-api-module-documenter` | Seven sections, verified facts, local links |
+| Quality gate | `fg-api-quality` | Parent or already assigned specialist | Checks proportional to the change |
+| Requested second opinion | `fg-api-codex-challenge` | Reviewer suited to the question | Bounded independent opinion, no recursion |
 
-## Modèles et efforts
+## Models and effort
 
-Les profils associent Luna aux recherches bornées, Terra aux tâches courantes, Sol aux
-implémentations structurantes et Astra aux revues à fort enjeu. L'effort est propre au rôle,
-pas à un numéro de modèle. Le résolveur choisit la version visible la plus récente acceptant
-cet effort dans la catégorie ; il n'abaisse pas l'effort en silence.
+Profiles associate Luna with bounded research, Terra with routine tasks, Sol with
+structural implementation, and Astra with high-stakes reviews. Effort belongs to
+the role, not a model number. The resolver chooses the newest visible version
+that supports the effort in that category; it does not silently lower effort.
 
-Le parent fournit un catalogue réel et transmet le résultat à l'outil de délégation, avec un
-contexte borné. Un lancement direct sans résolution hérite du modèle et de l'effort du parent.
-Il n'existe pas d'alias FireGuard natif `astra-latest` ou `sol-latest`.
+The parent supplies a real catalog and passes the result to the delegation tool
+with bounded context. A direct invocation without resolution inherits the parent's
+model and effort. There is no native FireGuard alias `astra-latest` or `sol-latest`.
 
-## Contrôles de l'outillage
+## Tooling checks
 
 ```powershell
 python -B .codex/scripts/validate.py
@@ -83,19 +84,19 @@ python -B -m unittest discover -s .codex/scripts -p 'test_*.py'
 node --test .codex/hooks/adapter.test.mjs
 ```
 
-Ces contrôles vérifient agents, profils, résolution simulée, skills, références et gardes.
-Pour des changements limités à cet outillage, les suites applicatives ne sont pas nécessaires.
-Les compteurs sont calculés à partir des fichiers, pas figés dans les validateurs.
-Une nouvelle session reste nécessaire pour vérifier la découverte effective du catalogue modifié.
+These checks cover agents, profiles, simulated resolution, skills, references, and
+guards. Application suites are unnecessary for changes limited to this tooling.
+Counts are derived from files rather than hard-coded in the validators.
+A new session is still needed to verify actual discovery of the updated catalog.
 
-## Repères
+## Reference points
 
-Les paramètres MCP sont dans `config.toml`, les gardes et le formatage dans `hooks.json`
-et `hooks/`. Ils complètent le sandbox et les approbations. Les URL locales documentées
-dans `OPERATIONS.md` sont des cibles d'attachement, pas des services démarrés par Codex.
+MCP settings are in `config.toml`; guards and formatting are in `hooks.json` and
+`hooks/`. They complement the sandbox and approvals. Local URLs documented in
+`OPERATIONS.md` are attachment targets, not services started by Codex.
 
-Sources officielles : [skills](https://developers.openai.com/codex/skills),
+Official sources: [skills](https://developers.openai.com/codex/skills),
 [agents](https://developers.openai.com/codex/subagents),
 [hooks](https://developers.openai.com/codex/hooks),
-[MCP](https://developers.openai.com/codex/mcp) et
-[catalogue des modèles](https://learn.chatgpt.com/docs/app-server#models).
+[MCP](https://developers.openai.com/codex/mcp), and the
+[model catalog](https://learn.chatgpt.com/docs/app-server#models).
