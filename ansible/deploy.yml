@@ -75,23 +75,6 @@
         fail_msg: >-
           Fixture reset is restricted to development and requires a dedicated fixture image.
 
-    - name: Require development fixture passwords before changing any service
-      ansible.builtin.assert:
-        that:
-          - lookup('env', 'FIXTURE_USER_PASSWORDS_JSON') | length > 0
-        fail_msg: The development fixture password secret is required for a reset.
-      when: fireguard_reset_development_fixtures
-      no_log: true
-
-    - name: Validate development fixture passwords before changing any service
-      ansible.builtin.command: "python3 {{ playbook_dir }}/validate-fixture-passwords.py"
-      environment:
-        FIXTURE_USER_PASSWORDS_JSON: "{{ lookup('env', 'FIXTURE_USER_PASSWORDS_JSON') }}"
-      delegate_to: localhost
-      changed_when: false
-      when: fireguard_reset_development_fixtures
-      no_log: true
-
     - name: Validate Docker Compose is available
       ansible.builtin.command: docker compose version
       changed_when: false
@@ -832,13 +815,10 @@
       when: fireguard_reset_development_fixtures
 
     - name: Purge and reload development fixture baseline
-      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm --no-deps --env FIXTURE_USER_PASSWORDS_JSON fixture_loader"
+      ansible.builtin.command: "{{ fireguard_compose_command }} --profile tools run --rm --no-deps fixture_loader"
       args:
         chdir: "{{ fireguard_app_dir }}"
-      environment:
-        FIXTURE_USER_PASSWORDS_JSON: "{{ lookup('env', 'FIXTURE_USER_PASSWORDS_JSON') }}"
       when: fireguard_reset_development_fixtures
-      no_log: true
 
     - name: Clear production cache
       ansible.builtin.command: "{{ fireguard_compose_command }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"

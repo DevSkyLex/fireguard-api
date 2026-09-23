@@ -74,7 +74,7 @@ final class DeployEnvContractTest extends TestCase
    *
    * @var list<string>
    */
-  private const array DEPLOYMENT_ONLY_KEYS = ['BASIC_AUTH_CREDENTIALS', 'FIXTURE_USER_PASSWORDS_JSON'];
+  private const array DEPLOYMENT_ONLY_KEYS = ['BASIC_AUTH_CREDENTIALS'];
   // #endregion
 
   // #region Tests
@@ -188,8 +188,6 @@ final class DeployEnvContractTest extends TestCase
     $root = dirname(__DIR__, 3);
     $workflow = (string) file_get_contents($root . '/.github/workflows/deploy-vps.yml');
     $playbook = (string) file_get_contents($root . '/ansible/deploy.yml');
-    $productionCompose = (string) file_get_contents($root . '/compose.prod.yaml');
-    $developmentCompose = (string) file_get_contents($root . '/compose.dev.yaml');
 
     self::assertStringContainsString('reset_development_fixtures:', $workflow);
     self::assertStringContainsString(
@@ -201,11 +199,6 @@ final class DeployEnvContractTest extends TestCase
       $playbook,
     );
     self::assertStringContainsString('when: fireguard_reset_development_fixtures', $playbook);
-    self::assertStringContainsString('--env FIXTURE_USER_PASSWORDS_JSON fixture_loader', $playbook);
-    self::assertStringContainsString('no_log: true', $playbook);
-    self::assertStringContainsString('secrets.DEVELOPMENT_FIXTURE_USER_PASSWORDS_JSON', $workflow);
-    self::assertStringNotContainsString('FIXTURE_USER_PASSWORDS_JSON', $productionCompose);
-    self::assertStringNotContainsString('FIXTURE_USER_PASSWORDS_JSON', $developmentCompose);
   }
 
   /**

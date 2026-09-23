@@ -419,18 +419,32 @@ Other Docker commands:
 | `make migrate-main` | Apply main database migrations |
 | `make migrate-all` | Apply auth + main migrations |
 | `make seed-fixtures` | Load the repository seed fixtures into both databases safely |
+| `make seed-fixtures-docker` | Reload local development fixtures inside the running app container |
 | `make coverage` | Run tests with code coverage (text output) |
 | `make coverage-html` | Run tests with HTML coverage report |
 | `make mutation` | Run mutation testing with Infection |
 
 Use `make seed-fixtures` or `php bin/console app:fixtures:load` for seeded sample data in `dev` and `test`. The command purges then reloads both databases in a coordinated two-pass load. Avoid `doctrine:fixtures:load` directly in this repository because auth and business fixtures target different entity managers.
 
-For local `dev` seeding, supply `FIXTURE_USER_PASSWORDS_JSON` from a private
-secret source before running the command. Its five keys are `admin`, `test`,
-`demo`, `staff` and `dev_client`; each value must be unique and contain 16 to 72 bytes without NUL.
-The repository provides deterministic credentials only for `test`. See
-[OPERATIONS.md](OPERATIONS.md#development-fixture-credentials-and-rotation)
-for the deployment reset and rotation procedure.
+For a local Docker development reset, start the services with `make docker-up`.
+Keep a JSON object under the gitignored `var/` directory with a file ACL limited
+to your Windows account. Its five keys must be exactly `admin`, `test`, `demo`,
+`staff` and `dev_client`; each password must be distinct and contain 16 to 72
+bytes without NUL. Retain this file or import the credentials into your password
+manager before resetting, so the new logins remain recoverable. In PowerShell,
+load the JSON into the current process only and clear it after the one-off seed:
+
+```powershell
+$env:FIXTURE_USER_PASSWORDS_JSON = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath 'var/fixture-user-passwords.local.json').Path)
+try { make seed-fixtures-docker } finally { Remove-Item Env:\FIXTURE_USER_PASSWORDS_JSON -ErrorAction SilentlyContinue }
+```
+
+Docker Compose passes the variable to this one-off fixture process inside the
+running `app` container, without changing the app service's environment. Do not
+place the JSON in Docker Compose configuration or in shell history. The command
+purges and reloads both local development databases. Afterward, verify the old
+credentials fail and the new ones work. The repository provides deterministic
+credentials only for `test`.
 
 ## Testing
 

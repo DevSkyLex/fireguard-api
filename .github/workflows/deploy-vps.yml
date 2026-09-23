@@ -354,8 +354,6 @@ jobs:
           ref: ${{ needs.guard.outputs.source-sha }}
 
       - name: Validate required deployment configuration
-        env:
-          FIXTURE_USER_PASSWORDS_JSON: ${{ inputs.reset_development_fixtures && secrets.DEVELOPMENT_FIXTURE_USER_PASSWORDS_JSON || '' }}
         run: |
           case "$SOURCE_BRANCH" in
             main|develop) ;;
@@ -384,7 +382,6 @@ jobs:
 
           if [ "$RESET_DEVELOPMENT_FIXTURES" = "true" ]; then
             test -n "$FIXTURE_IMAGE_REF" || { echo "FIXTURE_IMAGE_REF is required to reset development fixtures."; exit 1; }
-            python3 ansible/validate-fixture-passwords.py
           fi
 
       - name: Configure SSH
@@ -409,6 +406,4 @@ jobs:
           } > .deploy/inventory.ini
 
       - name: Run Ansible deployment
-        env:
-          FIXTURE_USER_PASSWORDS_JSON: ${{ inputs.reset_development_fixtures && secrets.DEVELOPMENT_FIXTURE_USER_PASSWORDS_JSON || '' }}
         run: ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml

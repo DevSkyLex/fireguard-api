@@ -156,7 +156,7 @@ test-cache-clean:
 seed-fixtures:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
-# Same seed, run inside the app container.
+# Same seed, run as a one-off command inside the existing app container.
 #
 # `app_var` is a named volume mounted over /var/www/html/var, so the host's var/
 # and the container's are different filesystems. Seeding from the host writes
@@ -164,7 +164,7 @@ seed-fixtures:
 # answers 404 and the plan viewer spins on an image that exists, on the wrong
 # disk. Use this whenever the seeded *files* matter, not just the rows.
 seed-fixtures-docker:
-	docker compose exec -T --env FIXTURE_USER_PASSWORDS_JSON app php -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
+	docker compose exec -T --env FIXTURE_USER_PASSWORDS_JSON app php -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --env=dev --no-interaction
 
 # Mapping vs database, on BOTH entity managers, against the test databases the
 # suite runs on. CI has always run this inside the "Prepare PostgreSQL test

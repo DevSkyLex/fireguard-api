@@ -75,31 +75,6 @@ This document provides operational procedures, runbooks, and monitoring guidance
    php -r "echo 'base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"
    ```
 
-### Development fixture credentials and rotation
-
-The `app:fixtures:load` command purges both the development auth and main
-databases. Before a reset, set the GitHub Actions **development environment**
-secret `DEVELOPMENT_FIXTURE_USER_PASSWORDS_JSON` to a single JSON object with
-exactly `admin`, `test`, `demo`, `staff`, and `dev_client` keys. Generate five
-distinct random passwords of 16 to 72 bytes without NUL and keep the JSON outside the
-repository and deployment `.env`. The deployment workflow validates the JSON
-before connecting to the VPS; Ansible passes it only to the one-off
-`fixture_loader` process. For a local `dev` seed, inject the same JSON through
-`FIXTURE_USER_PASSWORDS_JSON` from a private secret source.
-
-After the code reaches `develop`, run **Deploy VPS** manually from `develop`
-with `reset_development_fixtures=true`, after confirming the development data
-can be replaced. Check that the old admin, test, demo, staff and client-user
-passwords fail, and the newly provisioned credentials work for active accounts.
-A code deployment without that reset leaves the existing password hashes live.
-The deterministic test passwords remain in `config/services_test.yaml` and
-must never be used in development.
-
-The versioned Traefik configuration applies Basic Auth to development Mailpit,
-but the development API router has no corresponding Basic Auth middleware.
-Confirm the effective VPS/network access policy before exposing seeded accounts;
-the repository alone does not establish an external network restriction.
-
 ### Database Migrations
 
 **Pre-deployment check**:
