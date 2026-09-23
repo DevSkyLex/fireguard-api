@@ -222,7 +222,11 @@ Decisions, recorded:
   `<frontend>/account/email-change/confirm?token=...`.
 - Fixtures: `User\Infrastructure\DataFixtures\UserFixtures` — `admin` /
   `testuser`, three legacy demo accounts, the client-credentials user, and the
-  `STAFF_SEEDS` demo workforce (password `UserFixtures::STAFF_PASSWORD`).
+  `STAFF_SEEDS` demo workforce. The five password groups (`admin`, `test`,
+  `demo`, `staff`, `dev_client`) are injected from `FIXTURE_USER_PASSWORDS_JSON`
+  in `dev`; the `test` service configuration alone defines deterministic test
+  credentials. The JSON must be complete and valid before either database is
+  purged. Development credentials must be distinct, contain 16 to 72 bytes each and exclude NUL.
   The workforce deliberately covers every `UserStatus`: a directory of nothing
   but active accounts never exercises the "cannot log in" and "awaiting
   verification" paths the admin screens are built around.

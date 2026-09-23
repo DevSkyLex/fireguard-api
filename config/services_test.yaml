@@ -1,2 +1,8 @@
 imports:
   - { resource: 'services_fixtures.yaml' }
+
+services:
+  User\Infrastructure\DataFixtures\FixtureUserPasswords:
+    factory: ['User\Infrastructure\DataFixtures\FixtureUserPasswords', 'fromJson']
+    arguments:
+      $json: '{"admin":"Admin123!","test":"Test123!","demo":"Demo123!","staff":"Staff123!","dev_client":"DevClient123!"}'

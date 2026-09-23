@@ -8,7 +8,6 @@ use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
-use User\Infrastructure\DataFixtures\UserFixtures;
 
 use function hash;
 use function is_array;
@@ -41,7 +40,7 @@ final class ComplianceSnapshotFlowTest extends OAuth2WebTestCase
   // FREE-plan secondary organization owner (see UserFixtures::SECONDARY_ORG_OWNER_SEEDS).
   private const string VIGILANCE_OWNER_EMAIL = 'pierre.lambert@groupevigilance.example';
 
-  private const string VIGILANCE_OWNER_PASSWORD = UserFixtures::STAFF_PASSWORD;
+  private const string VIGILANCE_OWNER_PASSWORD = 'Staff123!';
 
   // Seeded "Paris Headquarters" site belonging to the seeded organization.
   private const string SEEDED_FACILITY_ID = '22222222-2222-4222-8222-222222222221';

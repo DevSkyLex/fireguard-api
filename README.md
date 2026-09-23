@@ -425,6 +425,13 @@ Other Docker commands:
 
 Use `make seed-fixtures` or `php bin/console app:fixtures:load` for seeded sample data in `dev` and `test`. The command purges then reloads both databases in a coordinated two-pass load. Avoid `doctrine:fixtures:load` directly in this repository because auth and business fixtures target different entity managers.
 
+For local `dev` seeding, supply `FIXTURE_USER_PASSWORDS_JSON` from a private
+secret source before running the command. Its five keys are `admin`, `test`,
+`demo`, `staff` and `dev_client`; each value must be unique and contain 16 to 72 bytes without NUL.
+The repository provides deterministic credentials only for `test`. See
+[OPERATIONS.md](OPERATIONS.md#development-fixture-credentials-and-rotation)
+for the deployment reset and rotation procedure.
+
 ## Testing
 
 - Unit: `tests/Unit`
@@ -563,5 +570,3 @@ Security-sensitive configuration and guidance is documented in `SECURITY.md`.
 ## License
 
 This project is proprietary. See internal licensing guidance for distribution and use.
-
-
