@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\Authenticator;
 
-use Auth\Application\Contract\Token\AccessTokenStatus;
 use Auth\Application\Port\Outbound\{AccessTokenLookupPort, SessionStatusPort};
 use Auth\Infrastructure\Security\User\SecurityUserProvider;
 use DateTimeImmutable;
@@ -156,79 +155,8 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         );
       }
 
-      // The signature is verified for EVERY token, before anything reads a
-      // claim as trusted. Both issuance paths sign with config/jwt/private.key
-      // — the login flow through JwtTokenAdapter, the OAuth2 flow through
-      // League's AuthorizationServer (config/modules/oauth.yaml) — so one
-      // verification key covers both. Verifying only on the fall-through
-      // branch let an unsigned token carrying a known `jti` and an arbitrary
-      // `sub` authenticate as any user, because the database lookup keys on
-      // `jti` alone and never binds it back to the subject.
-      $validator = new Validator();
-
-      if (
-        !$validator->validate($parsedToken, new SignedWith(
-          $this->jwtConfig->signer(),
-          $this->jwtConfig->verificationKey(),
-        ))
-      ) {
-        throw new CustomUserMessageAuthenticationException(
-          message: 'Invalid token signature',
-        );
-      }
-
-      if ($parsedToken->isExpired(new DateTimeImmutable())) {
-        throw new CustomUserMessageAuthenticationException(
-          message: 'Token has expired',
-        );
-      }
-
-      if ('pre_auth' === $claims->get('scope', null)) {
-        throw new CustomUserMessageAuthenticationException('Second factor verification is required');
-      }
-
-      $accessToken = null;
-      if (self::ACCESS_TOKEN_USE_AUTH_SESSION === $claims->get('_fireguard_token_use', null)) {
-        // Login-flow tokens are not rows in the OAuth2 token table; the session
-        // that issued them is what carries their revocation state. Without this
-        // check, revoking a session — "sign out everywhere", a password change,
-        // a password reset — left the access token usable until it expired.
-        $sessionId = $this->sessionStatus->activeSessionId($tokenId, $userId);
-        if (null === $sessionId) {
-          throw new CustomUserMessageAuthenticationException(
-            message: 'Session is no longer active',
-          );
-        }
-        $request->attributes->set('_fireguard_session_id', $sessionId);
-      } else {
-        // OAuth2 tokens must keep database-backed revocation and expiry checks.
-        $accessToken = $this->accessTokenLookup->find($tokenId);
-        if (null === $accessToken) {
-          throw new CustomUserMessageAuthenticationException('Access token is not registered');
-        }
-      }
-
-      if ($accessToken instanceof AccessTokenStatus) {
-        // OAuth2 flow: the database is authoritative on revocation and on an
-        // expiry that may precede the one stamped in the token.
-        if ($accessToken->revoked) {
-          throw new CustomUserMessageAuthenticationException(
-            message: 'Token has been revoked',
-          );
-        }
-
-        if ($accessToken->expired) {
-          throw new CustomUserMessageAuthenticationException(
-            message: 'Token has expired',
-          );
-        }
-
-        $scopes = $accessToken->scopes;
-      } else {
-        // A registered interactive session: scopes come from its signed claims.
-        $scopesClaim = $claims->get('scopes', []);
-        $scopes = is_array($scopesClaim) ? array_values(array_filter($scopesClaim, 'is_string')) : [];
-      }
+      $this->assertVerifiedAccessToken($parsedToken);
+      $scopes = $this->resolveScopes($request, $parsedToken, $tokenId, $userId);
 
       $userBadge = new UserBadge(
         userIdentifier: $userId,
@@ -294,6 +222,52 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       status: Response::HTTP_UNAUTHORIZED,
       headers: ['WWW-Authenticate' => 'Bearer error="invalid_token"'],
     );
+  }
+
+  private function assertVerifiedAccessToken(UnencryptedToken $parsedToken): void
+  {
+    // Verify every signature before trusting claims for either token family.
+    $validator = new Validator();
+    if (!$validator->validate($parsedToken, new SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()))) {
+      throw new CustomUserMessageAuthenticationException(message: 'Invalid token signature');
+    }
+    if ($parsedToken->isExpired(new DateTimeImmutable())) {
+      throw new CustomUserMessageAuthenticationException(message: 'Token has expired');
+    }
+    if ('pre_auth' === $parsedToken->claims()->get('scope', null)) {
+      throw new CustomUserMessageAuthenticationException('Second factor verification is required');
+    }
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function resolveScopes(Request $request, UnencryptedToken $parsedToken, string $tokenId, string $userId): array
+  {
+    if (self::ACCESS_TOKEN_USE_AUTH_SESSION === $parsedToken->claims()->get('_fireguard_token_use', null)) {
+      // Interactive tokens use the issuing session for revocation, not the OAuth table.
+      $sessionId = $this->sessionStatus->activeSessionId($tokenId, $userId);
+      if (null === $sessionId) {
+        throw new CustomUserMessageAuthenticationException(message: 'Session is no longer active');
+      }
+      $request->attributes->set('_fireguard_session_id', $sessionId);
+      $scopesClaim = $parsedToken->claims()->get('scopes', []);
+
+      return is_array($scopesClaim) ? array_values(array_filter($scopesClaim, 'is_string')) : [];
+    }
+    // OAuth2 tokens keep database-backed revocation and expiry checks.
+    $accessToken = $this->accessTokenLookup->find($tokenId);
+    if (null === $accessToken) {
+      throw new CustomUserMessageAuthenticationException('Access token is not registered');
+    }
+    if ($accessToken->revoked) {
+      throw new CustomUserMessageAuthenticationException(message: 'Token has been revoked');
+    }
+    if ($accessToken->expired) {
+      throw new CustomUserMessageAuthenticationException(message: 'Token has expired');
+    }
+
+    return $accessToken->scopes;
   }
   // #endregion
 }
