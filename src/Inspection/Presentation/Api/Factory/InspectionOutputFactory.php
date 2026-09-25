@@ -61,28 +61,7 @@ final class InspectionOutputFactory
    */
   public function fromGetResult(GetInspectionResult $result): InspectionOutput
   {
-    return $this->map(
-      inspectionId: $result->inspectionId,
-      organizationId: $result->organizationId,
-      equipmentId: $result->equipmentId,
-      facilityId: $result->facilityId,
-      result: $result->result,
-      status: $result->status,
-      performedAt: $result->performedAt,
-      inspectorType: $result->inspectorType,
-      inspectorName: $result->inspectorName,
-      inspectorUserId: $result->inspectorUserId,
-      inspectorOrganizationName: $result->inspectorOrganizationName,
-      checklistId: $result->checklistId,
-      notes: $result->notes,
-      signature: $result->signature,
-      nonConformitiesCount: $result->nonConformitiesCount,
-      createdAt: $result->createdAt->format('c'),
-      updatedAt: $result->updatedAt->format('c'),
-      equipmentSerialNumber: $result->equipmentSerialNumber,
-      facilityName: $result->facilityName,
-      checklistName: $result->checklistName,
-    );
+    return $this->map($result);
   }
 
   /**
@@ -98,25 +77,7 @@ final class InspectionOutputFactory
    */
   public function fromCreateResult(CreateInspectionResult $result): InspectionOutput
   {
-    return $this->map(
-      inspectionId: $result->inspectionId,
-      organizationId: $result->organizationId,
-      equipmentId: $result->equipmentId,
-      facilityId: $result->facilityId,
-      result: $result->result,
-      status: $result->status,
-      performedAt: $result->performedAt,
-      inspectorType: $result->inspectorType,
-      inspectorName: $result->inspectorName,
-      inspectorUserId: $result->inspectorUserId,
-      inspectorOrganizationName: $result->inspectorOrganizationName,
-      checklistId: $result->checklistId,
-      notes: $result->notes,
-      signature: $result->signature,
-      nonConformitiesCount: 0,
-      createdAt: $result->createdAt->format('c'),
-      updatedAt: $result->updatedAt->format('c'),
-    );
+    return $this->map($result);
   }
 
   /**
@@ -126,69 +87,30 @@ final class InspectionOutputFactory
    *
    * @since 1.0.0
    *
-   * @param string $inspectionId the inspection id value
-   * @param string $organizationId the organization id value
-   * @param string $equipmentId the equipment id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $equipmentSerialNumber the resolved equipment serial number, when known
-   * @param ?string $facilityName the resolved facility display name, when known
-   * @param ?string $checklistName the resolved checklist display name, when known
-   * @param string $result the result value
-   * @param string $status the status value
-   * @param string $performedAt the performed at value
-   * @param string $inspectorType the inspector type value
-   * @param string $inspectorName the inspector name value
-   * @param ?string $inspectorUserId the inspector user id value
-   * @param ?string $inspectorOrganizationName the inspector organization name value
-   * @param ?string $checklistId the checklist id value
-   * @param ?string $notes the notes value
-   * @param ?string $signature the signature value
-   * @param int $nonConformitiesCount the non conformities count value
-   * @param string $createdAt the created at value
-   * @param string $updatedAt the updated at value
+   * @param GetInspectionResult|CreateInspectionResult $result the application result
    *
    * @return InspectionOutput the map result
    */
-  private function map(
-    string $inspectionId,
-    string $organizationId,
-    string $equipmentId,
-    ?string $facilityId,
-    string $result,
-    string $status,
-    string $performedAt,
-    string $inspectorType,
-    string $inspectorName,
-    ?string $inspectorUserId,
-    ?string $inspectorOrganizationName,
-    ?string $checklistId,
-    ?string $notes,
-    ?string $signature,
-    int $nonConformitiesCount,
-    string $createdAt,
-    string $updatedAt,
-    ?string $equipmentSerialNumber = null,
-    ?string $facilityName = null,
-    ?string $checklistName = null,
-  ): InspectionOutput {
+  private function map(GetInspectionResult|CreateInspectionResult $result): InspectionOutput
+  {
     $output = new InspectionOutput();
-    $output->id = $inspectionId;
-    $output->organizationId = $organizationId;
-    $output->equipmentId = $equipmentId;
-    $output->facilityId = $facilityId;
-    $output->equipmentSerialNumber = $equipmentSerialNumber;
-    $output->facilityName = $facilityName;
-    $output->checklistName = $checklistName;
-    $output->result = $result;
-    $output->status = $status;
-    $output->performedAt = $performedAt;
-    $output->inspector = $this->mapInspector($inspectorType, $inspectorName, $inspectorUserId, $inspectorOrganizationName);
-    $output->checklistId = $checklistId;
-    $output->notes = $notes;
-    $output->signature = $signature;
-    $output->nonConformitiesCount = $nonConformitiesCount;
-    $output->createdAt = $createdAt;
-    $output->updatedAt = $updatedAt;
+    $output->id = $result->inspectionId;
+    $output->organizationId = $result->organizationId;
+    $output->equipmentId = $result->equipmentId;
+    $output->facilityId = $result->facilityId;
+    $output->equipmentSerialNumber = $result instanceof GetInspectionResult ? $result->equipmentSerialNumber : null;
+    $output->facilityName = $result instanceof GetInspectionResult ? $result->facilityName : null;
+    $output->checklistName = $result instanceof GetInspectionResult ? $result->checklistName : null;
+    $output->result = $result->result;
+    $output->status = $result->status;
+    $output->performedAt = $result->performedAt;
+    $output->inspector = $this->mapInspector($result->inspectorType, $result->inspectorName, $result->inspectorUserId, $result->inspectorOrganizationName);
+    $output->checklistId = $result->checklistId;
+    $output->notes = $result->notes;
+    $output->signature = $result->signature;
+    $output->nonConformitiesCount = $result instanceof GetInspectionResult ? $result->nonConformitiesCount : 0;
+    $output->createdAt = $result->createdAt->format('c');
+    $output->updatedAt = $result->updatedAt->format('c');
 
     return $output;
   }

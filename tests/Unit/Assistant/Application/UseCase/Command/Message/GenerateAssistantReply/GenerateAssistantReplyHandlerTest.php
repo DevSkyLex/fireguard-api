@@ -102,8 +102,11 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     $realtime = $this->createMock(AssistantRealtimePublisherPort::class);
     $realtime->expects(self::exactly(3))
       ->method('publishGenerationEvent')
-      ->willReturnCallback(static function (...$args) use (&$publishedEvents): void {
-        $publishedEvents[] = $args;
+      ->willReturnCallback(static function (AssistantMessage $publishedMessage) use (&$publishedEvents): void {
+        $publishedEvents[] = [
+          'body' => $publishedMessage->body(),
+          'status' => $publishedMessage->status()->value,
+        ];
       });
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
@@ -124,10 +127,10 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
     self::assertSame(5, $message->tokenCount());
 
     // Every published event's body is the FULL accumulated text so far.
-    self::assertSame('Hel', $publishedEvents[0][4]);
-    self::assertSame('Hello', $publishedEvents[1][4]);
-    self::assertSame('Hello', $publishedEvents[2][4]);
-    self::assertSame('complete', $publishedEvents[2][3]);
+    self::assertSame('Hel', $publishedEvents[0]['body']);
+    self::assertSame('Hello', $publishedEvents[1]['body']);
+    self::assertSame('Hello', $publishedEvents[2]['body']);
+    self::assertSame('complete', $publishedEvents[2]['status']);
   }
 
   #[Test]

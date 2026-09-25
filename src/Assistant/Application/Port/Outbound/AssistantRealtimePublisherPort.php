@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Assistant\Application\Port\Outbound;
 
+use Assistant\Domain\Model\Message\AssistantMessage;
+
 /**
  * Port AssistantRealtimePublisherPort.
  *
@@ -37,26 +39,8 @@ interface AssistantRealtimePublisherPort
    *
    * @since 1.0.0
    *
-   * @param string $organizationId the owning organization identifier
-   * @param string $threadId the assistant thread identifier
-   * @param string $messageId the assistant message identifier
-   * @param string $status the current {@see \Assistant\Domain\ValueObject\AssistantMessageStatus} value
-   * @param string $body the full accumulated reply body so far
-   * @param ?int $tokenCount the generated token count, once known
-   * @param ?string $errorCode the failure code, once failed
+   * @param AssistantMessage $message the persisted generation state to publish
    */
-  public function publishGenerationEvent(
-    string $organizationId,
-    string $threadId,
-    string $messageId,
-    string $status,
-    string $body,
-    ?int $tokenCount = null,
-    ?string $errorCode = null,
-    ?string $attemptId = null,
-    int $attemptNumber = 0,
-    int $attemptSequence = 0,
-    ?string $attemptExpiresAt = null,
-  ): void;
+  public function publishGenerationEvent(AssistantMessage $message): void;
   // #endregion
 }

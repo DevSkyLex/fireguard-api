@@ -111,15 +111,13 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     ?DateTimeImmutable $before = null,
     ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null,
   ): array {
-    $qb = $this->filteredQueryBuilder(
-      userId: $userId,
-      onlyUnread: $onlyUnread,
-      type: $type,
-      category: $category,
-      organizationId: $organizationId,
-      hideReadBefore: $hideReadBefore,
-      hiddenReadCategories: $hiddenReadCategories,
-      before: $before,
+    $qb = $this->applyTypeAndVisibilityFilters(
+      $this->userQueryBuilder($userId, $onlyUnread, $organizationId, $before),
+      $onlyUnread,
+      $type,
+      $category,
+      $hideReadBefore,
+      $hiddenReadCategories,
     )
       ->orderBy('n.createdAt', 'DESC')
       // Unique tiebreaker: without it rows tied on the sort above are ordered
@@ -157,14 +155,13 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     ?DateTimeImmutable $hideReadBefore = null,
     array $hiddenReadCategories = [],
   ): int {
-    $qb = $this->filteredQueryBuilder(
-      userId: $userId,
-      onlyUnread: $onlyUnread,
-      type: $type,
-      category: $category,
-      organizationId: $organizationId,
-      hideReadBefore: $hideReadBefore,
-      hiddenReadCategories: $hiddenReadCategories,
+    $qb = $this->applyTypeAndVisibilityFilters(
+      $this->userQueryBuilder($userId, $onlyUnread, $organizationId),
+      $onlyUnread,
+      $type,
+      $category,
+      $hideReadBefore,
+      $hiddenReadCategories,
     )->select('COUNT(n.id)');
 
     return (int) $qb->getQuery()->getSingleScalarResult();
@@ -214,33 +211,24 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
   }
 
   /**
-   * Method filteredQueryBuilder.
+   * Method userQueryBuilder.
    *
-   * Builds the shared base query (selecting `n`) applying every list filter,
-   * so {@see self::findByUserId()} and {@see self::countByUserId()} stay in
-   * sync (the count must reflect the exact same rows the list would return).
+   * Applies user, unread, organization and cursor boundaries shared by the
+   * list and count queries. The count omits only the pagination cursor.
    *
    * @since 1.1.0
    *
    * @param string $userId the user identifier
    * @param bool $onlyUnread whether to restrict to unread notifications
-   * @param string|null $type exact type filter
-   * @param string|null $category category prefix filter
    * @param string|null $organizationId exact organization filter
-   * @param DateTimeImmutable|null $hideReadBefore hides read notifications older than this cutoff for selected categories
-   * @param list<string> $hiddenReadCategories category prefixes subject to read-history masking
    * @param DateTimeImmutable|null $before cursor: restricts results to notifications created strictly before this instant
    *
    * @return QueryBuilder the filtered query builder
    */
-  private function filteredQueryBuilder(
+  private function userQueryBuilder(
     string $userId,
     bool $onlyUnread,
-    ?string $type,
-    ?string $category,
     ?string $organizationId,
-    ?DateTimeImmutable $hideReadBefore,
-    array $hiddenReadCategories,
     ?DateTimeImmutable $before = null,
   ): QueryBuilder {
     $qb = $this->entityManager->createQueryBuilder()
@@ -261,6 +249,29 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
       $qb->andWhere(self::ORGANIZATION_PREDICATE)->setParameter('organizationId', $organizationId);
     }
 
+    return $qb;
+  }
+
+  /**
+   * Applies the shared type and read-history filters to both list and count.
+   *
+   * @since 1.1.0
+   *
+   * @param string|null $type exact type filter
+   * @param string|null $category category prefix filter
+   * @param DateTimeImmutable|null $hideReadBefore hides read notifications older than this cutoff for selected categories
+   * @param list<string> $hiddenReadCategories category prefixes subject to read-history masking
+   *
+   * @return QueryBuilder the filtered query builder
+   */
+  private function applyTypeAndVisibilityFilters(
+    QueryBuilder $qb,
+    bool $onlyUnread,
+    ?string $type,
+    ?string $category,
+    ?DateTimeImmutable $hideReadBefore,
+    array $hiddenReadCategories,
+  ): QueryBuilder {
     if (null !== $type) {
       $qb->andWhere('n.type = :type')->setParameter('type', $type);
     } elseif (null !== $category) {

@@ -14,6 +14,7 @@ use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionAttachmentRecord, InterventionChangeRecord, InterventionLabelRecord, InterventionNumberCounterRecord, InterventionRecord, InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateItemRecord, InterventionTemplateRecord, InterventionWorkItemRecord, PublicationRecord};
+use LogicException;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
 use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
@@ -985,12 +986,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $manager->persist($this->activity(
         SeedUuid::from(sprintf('intervention-activity:%d', $activityIndex++)),
         $intervention,
-        $organization,
         $responsibleId,
-        'system',
         'created',
-        null,
-        null,
         $createdAt,
       ));
 
@@ -999,13 +996,11 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
         $manager->persist($this->activity(
           SeedUuid::from(sprintf('intervention-activity:%d', $activityIndex++)),
           $intervention,
-          $organization,
           $responsibleId,
-          'system',
           'status_changed',
+          $createdAt->modify(sprintf('+%d days', ($hop + 1) * 2)),
           null,
           ['from' => $from, 'to' => $to],
-          $createdAt->modify(sprintf('+%d days', ($hop + 1) * 2)),
         ));
         $from = $to;
       }
@@ -1139,13 +1134,10 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $manager->persist($this->activity(
         SeedUuid::from(sprintf('intervention-comment:%d', $index)),
         $interventions[$seed['interventionNumber']],
-        $organization,
         $this->memberId($seed['authorReference']),
         'comment',
-        'comment',
-        $seed['body'],
-        null,
         SeedTimeline::fromNow($seed['dayOffset'], 14),
+        $seed['body'],
       ));
     }
   }
@@ -1218,12 +1210,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $manager->persist($this->activity(
         SeedUuid::from(sprintf('intervention-bulk-activity-created:%d', $i)),
         $intervention,
-        $organization,
         $responsibleId,
-        'system',
         'created',
-        null,
-        null,
         $createdAt,
       ));
 
@@ -1233,13 +1221,11 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
         $manager->persist($this->activity(
           SeedUuid::from(sprintf('intervention-bulk-activity-status:%d:%d', $i, $hop)),
           $intervention,
-          $organization,
           $responsibleId,
-          'system',
           'status_changed',
+          $createdAt->modify(sprintf('+%d hours', ($hop + 1) * 6)),
           null,
           ['from' => $from, 'to' => $to],
-          $createdAt->modify(sprintf('+%d hours', ($hop + 1) * 6)),
         ));
         $from = $to;
         ++$hop;
@@ -1331,33 +1317,34 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    *
    * @param string $id the activity identifier
    * @param InterventionRecord $intervention the owning intervention
-   * @param OrganizationRecord $organization the owning organization
    * @param string $actorId the acting member identifier
-   * @param string $kind either `comment` or `system`
    * @param string $event the event name
+   * @param DateTimeImmutable $createdAt the instant the entry was written
    * @param ?string $body the comment body, null for system events
    * @param ?array<string, mixed> $payload the structured event data
-   * @param DateTimeImmutable $createdAt the instant the entry was written
    *
    * @return InterventionActivityRecord the activity row
    */
   private function activity(
     string $id,
     InterventionRecord $intervention,
-    OrganizationRecord $organization,
     string $actorId,
-    string $kind,
     string $event,
-    ?string $body,
-    ?array $payload,
     DateTimeImmutable $createdAt,
+    ?string $body = null,
+    ?array $payload = null,
   ): InterventionActivityRecord {
+    $organization = $intervention->organization;
+    if (!$organization instanceof OrganizationRecord) {
+      throw new LogicException('Seeded intervention must belong to an organization before activity creation.');
+    }
+
     $activity = new InterventionActivityRecord();
     $activity->id = $id;
     $activity->intervention = $intervention;
     $activity->organizationId = $organization->id;
     $activity->actorId = $actorId;
-    $activity->kind = $kind;
+    $activity->kind = 'comment' === $event ? 'comment' : 'system';
     $activity->event = $event;
     $activity->body = $body;
     $activity->payload = $payload;
