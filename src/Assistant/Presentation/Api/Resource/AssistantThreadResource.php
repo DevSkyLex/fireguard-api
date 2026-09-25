@@ -56,7 +56,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: ControlAssistantAttemptProcessor::class,
       denormalizationContext: ['groups' => [AssistantSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(tags: ['Assistant'], summary: 'Cancel the current generation attempt', responses: [200 => new Response(description: 'Current reply state'), 409 => new Response(description: 'Attempt changed or action unavailable')]),
     ),
     new Post(
@@ -70,7 +70,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: ControlAssistantAttemptProcessor::class,
       denormalizationContext: ['groups' => [AssistantSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(tags: ['Assistant'], summary: 'Retry the current generation attempt', responses: [200 => new Response(description: 'Current reply state'), 409 => new Response(description: 'Attempt changed or action unavailable')]),
     ),
 
@@ -85,7 +85,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Assistant'],
         summary: 'List my assistant threads',
@@ -101,7 +101,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: StartAssistantThreadProcessor::class,
       denormalizationContext: ['groups' => [AssistantSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Assistant'],
         summary: 'Start an assistant thread',
@@ -114,14 +114,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: AssistantThreadDetailOutput::class,
       provider: GetAssistantThreadProvider::class,
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Assistant'],
         summary: 'Get an assistant thread',
         description: 'Returns a single assistant thread together with a page of its messages, oldest first. Requires organization.assistant.use; the thread must belong to the requesting member.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Assistant thread retrieved'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or assistant thread not found (including a thread belonging to another member)'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::THREAD_NOT_FOUND),
         ],
       ),
     ),
@@ -134,14 +134,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AskAssistantQuestionProcessor::class,
       denormalizationContext: ['groups' => [AssistantSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Assistant'],
         summary: 'Ask a question',
         description: 'Persists the question and a placeholder pending assistant reply, then enqueues generation. Requires organization.assistant.use; the thread must belong to the requesting member. The assistant reply is returned with status "pending" until the async `assistant` Messenger transport drives it through streaming to complete/failed.',
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Question persisted, reply generation enqueued'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or assistant thread not found (including a thread belonging to another member)'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::THREAD_NOT_FOUND),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Blank question body'),
         ],
       ),
@@ -152,14 +152,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: AssistantThreadSubscriptionOutput::class,
       provider: GetAssistantThreadSubscriptionProvider::class,
       normalizationContext: ['groups' => [AssistantSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Assistant'],
         summary: 'Get a Mercure subscription for an assistant thread',
         description: 'Mints a Mercure subscriber JWT scoped to ONE thread\'s private generation-stream topic, after re-running the same authorization a GET on the thread would apply. Requires organization.assistant.use; the thread must belong to the requesting member.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Subscription token minted'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or assistant thread not found (including a thread belonging to another member)'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::THREAD_NOT_FOUND),
         ],
       ),
     ),
@@ -167,4 +167,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class AssistantThreadResource
 {
+  private const USER_SECURITY = "is_granted('ROLE_USER')";
+
+  private const THREAD_NOT_FOUND = 'Organization or assistant thread not found (including a thread belonging to another member)';
 }
