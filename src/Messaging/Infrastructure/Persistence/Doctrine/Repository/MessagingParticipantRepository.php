@@ -112,24 +112,20 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
 
   public function listMemberIds(string $conversationId): array
   {
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT member_id FROM messaging_participants WHERE conversation_id = :conversationId',
       ['conversationId' => $conversationId],
     );
-
-    return $ids;
   }
 
   public function listChannelIdsForMember(string $organizationId, string $memberId): array
   {
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT conversation_id FROM messaging_participants WHERE organization_id = :organizationId AND member_id = :memberId',
       ['organizationId' => $organizationId, 'memberId' => $memberId],
     );
-
-    return $ids;
   }
 
   public function findCounterpartMemberIds(array $conversationIds, string $excludingMemberId): array
@@ -138,14 +134,12 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
       return [];
     }
 
-    /** @var array<string, string> $map */
-    $map = $this->entityManager->getConnection()->fetchAllKeyValue(
+    /** @var array<string, string> */
+    return $this->entityManager->getConnection()->fetchAllKeyValue(
       'SELECT conversation_id, member_id FROM messaging_participants WHERE conversation_id IN (:conversationIds) AND member_id != :excludingMemberId',
       ['conversationIds' => $conversationIds, 'excludingMemberId' => $excludingMemberId],
       ['conversationIds' => ArrayParameterType::STRING],
     );
-
-    return $map;
   }
 
   public function replaceParticipants(string $conversationId, string $organizationId, array $memberIds): void

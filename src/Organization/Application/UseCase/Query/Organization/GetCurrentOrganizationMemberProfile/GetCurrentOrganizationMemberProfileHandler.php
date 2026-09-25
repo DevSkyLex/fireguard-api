@@ -100,7 +100,7 @@ final readonly class GetCurrentOrganizationMemberProfileHandler implements Query
       );
     }
 
-    $result = new GetCurrentOrganizationMemberProfileResult(
+    return new GetCurrentOrganizationMemberProfileResult(
       id: (string) $member->id(),
       organizationId: (string) $member->organizationId(),
       userId: $member->userId(),
@@ -109,8 +109,6 @@ final readonly class GetCurrentOrganizationMemberProfileHandler implements Query
       roles: $roleResults,
       permissions: $this->authorization->getUserPermissions($query->userId, $query->organizationId),
     );
-
-    return $result;
   }
 
   // #endregion

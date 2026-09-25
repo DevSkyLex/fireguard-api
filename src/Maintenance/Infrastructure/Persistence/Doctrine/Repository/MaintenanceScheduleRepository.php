@@ -265,13 +265,10 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
   {
     $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
 
-    /** @var ?MaintenanceScheduleRecord $record */
-    $record = $this->entityManager->getRepository(MaintenanceScheduleRecord::class)->findOneBy([
+    return $this->entityManager->getRepository(MaintenanceScheduleRecord::class)->findOneBy([
       'organization' => $organization,
       'equipmentId' => $equipmentId,
     ]);
-
-    return $record;
   }
 
   /**

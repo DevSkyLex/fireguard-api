@@ -193,8 +193,8 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     string $userId,
   ): CreateEquipmentResult {
     try {
-      /** @var CreateEquipmentResult $result */
-      $result = $this->commandBus->dispatch(new CreateEquipmentCommand(
+      /** @var CreateEquipmentResult */
+      return $this->commandBus->dispatch(new CreateEquipmentCommand(
         setupContext: OrganizationSetupContext::fromOptional($userId, $data->onboardingSessionId, $data->onboardingItemKey),
         facilityId: null !== $data->onboardingSessionId && null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
         organizationId: $organizationId,
@@ -206,8 +206,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         locationLabel: $data->locationLabel,
         resourceId: $resourceId,
       ));
-
-      return $result;
     } catch (EquipmentSerialNumberAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

@@ -170,10 +170,8 @@ final readonly class InspectionAssistantContextProviderAdapter implements Assist
       ->setParameter('medium', 'medium')
       ->setMaxResults(self::MAX_ITEMS);
 
-    /** @var list<array{description: string, severity: string, status: string, dueAt: ?DateTimeImmutable}> $rows */
-    $rows = $qb->getQuery()->getArrayResult();
-
-    return $rows;
+    /** @var list<array{description: string, severity: string, status: string, dueAt: ?DateTimeImmutable}> */
+    return $qb->getQuery()->getArrayResult();
   }
   // #endregion
 }

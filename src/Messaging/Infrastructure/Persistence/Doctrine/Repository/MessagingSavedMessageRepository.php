@@ -72,14 +72,12 @@ final readonly class MessagingSavedMessageRepository implements MessagingSavedMe
       return [];
     }
 
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT message_id FROM messaging_saved_messages WHERE member_id = :memberId AND message_id IN (:messageIds)',
       ['memberId' => $memberId, 'messageIds' => $messageIds],
       ['messageIds' => ArrayParameterType::STRING],
     );
-
-    return $ids;
   }
   // #endregion
 }

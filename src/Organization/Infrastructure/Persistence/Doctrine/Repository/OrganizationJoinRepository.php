@@ -142,10 +142,8 @@ final readonly class OrganizationJoinRepository implements OrganizationJoinRepos
 
   public function invitationIds(string $email): array
   {
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn("SELECT i.id FROM organization_invitations i JOIN organizations o ON o.id = i.organization_id WHERE LOWER(i.email) = LOWER(:email) AND i.status = 'pending' AND i.expires_at > :now AND o.status = 'active' ORDER BY i.created_at", ['email' => $email, 'now' => new DateTimeImmutable()->format('Y-m-d H:i:s')]);
-
-    return $ids;
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn("SELECT i.id FROM organization_invitations i JOIN organizations o ON o.id = i.organization_id WHERE LOWER(i.email) = LOWER(:email) AND i.status = 'pending' AND i.expires_at > :now AND o.status = 'active' ORDER BY i.created_at", ['email' => $email, 'now' => new DateTimeImmutable()->format('Y-m-d H:i:s')]);
   }
 
   /**

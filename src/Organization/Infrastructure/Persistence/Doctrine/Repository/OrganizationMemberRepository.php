@@ -473,15 +473,11 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $organizations = array_map(
       function (OrganizationId $organizationId): OrganizationRecord {
-        /**
-         * @var OrganizationRecord $reference
-         */
-        $reference = $this->entityManager->getReference(
+        /** @var OrganizationRecord */
+        return $this->entityManager->getReference(
           OrganizationRecord::class,
           (string) $organizationId,
         );
-
-        return $reference;
       },
       $organizationIds,
     );
@@ -805,12 +801,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   private function getOrganizationReference(OrganizationId $organizationId): OrganizationRecord
   {
-    /**
-     * @var OrganizationRecord $organization
-     */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-
-    return $organization;
+    /** @var OrganizationRecord */
+    return $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
   }
 
   /**

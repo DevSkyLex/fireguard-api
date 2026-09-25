@@ -226,10 +226,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function rollbackLastStep(string $userId): OrganizationOnboardingSessionState
   {
-    /**
-     * @var OrganizationOnboardingSessionState $state
-     */
-    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+    return $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
       $session = $this->sessionRepository->findByUserId($userId);
       if (!$session instanceof OrganizationOnboardingSession) {
         throw new LogicException('No onboarding session found to rollback.');
@@ -249,8 +246,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
 
       return $this->buildState($session, $computed);
     });
-
-    return $state;
   }
 
   /**
@@ -347,10 +342,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function dismiss(string $userId): OrganizationOnboardingSessionState
   {
-    /**
-     * @var OrganizationOnboardingSessionState $state
-     */
-    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+    return $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
       $session->dismiss();
@@ -358,8 +350,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
 
       return $this->buildState($session, $computed);
     });
-
-    return $state;
   }
 
   /**
@@ -375,10 +365,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   public function resume(string $userId): OrganizationOnboardingSessionState
   {
-    /**
-     * @var OrganizationOnboardingSessionState $state
-     */
-    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+    return $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
       $session->resume();
@@ -386,8 +373,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
 
       return $this->buildState($session, $computed);
     });
-
-    return $state;
   }
 
   /**
