@@ -145,17 +145,7 @@ final readonly class SetOrganizationMemberRolesHandler implements CommandHandler
       // closure would release its lock before the unassignment it authorized ever
       // committed, and a concurrent removal could still strand the organization.
       $this->transactionManager->transactional(function () use ($command, $memberId, $toAssign, $toUnassign): void {
-        foreach ($toUnassign as $roleId) {
-          $this->lastAdminGuard->assertCanUnassignRole($command->organizationId, $command->memberId, $roleId);
-        }
-
-        foreach ($toAssign as $roleId) {
-          $this->memberRepository->assignRole($memberId, OrganizationRoleId::fromString($roleId));
-        }
-
-        foreach ($toUnassign as $roleId) {
-          $this->memberRepository->unassignRole($memberId, OrganizationRoleId::fromString($roleId));
-        }
+        $this->persistRoleChanges($command, $memberId, $toAssign, $toUnassign);
       });
     }
 
@@ -186,6 +176,27 @@ final readonly class SetOrganizationMemberRolesHandler implements CommandHandler
       isActive: $member->isActive(),
       joinedAt: $member->joinedAt(),
     );
+  }
+
+  /**
+   * @param list<string> $toAssign
+   * @param list<string> $toUnassign
+   */
+  private function persistRoleChanges(
+    SetOrganizationMemberRolesCommand $command,
+    OrganizationMemberId $memberId,
+    array $toAssign,
+    array $toUnassign,
+  ): void {
+    foreach ($toUnassign as $roleId) {
+      $this->lastAdminGuard->assertCanUnassignRole($command->organizationId, $command->memberId, $roleId);
+    }
+    foreach ($toAssign as $roleId) {
+      $this->memberRepository->assignRole($memberId, OrganizationRoleId::fromString($roleId));
+    }
+    foreach ($toUnassign as $roleId) {
+      $this->memberRepository->unassignRole($memberId, OrganizationRoleId::fromString($roleId));
+    }
   }
   // #endregion
 }
