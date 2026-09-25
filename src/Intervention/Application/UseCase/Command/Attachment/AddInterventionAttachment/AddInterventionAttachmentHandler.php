@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment;
 
+use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
@@ -95,41 +96,14 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       throw InterventionNotFoundException::withId($command->interventionId);
     }
 
-    // Scope gate BEFORE the permission is derived: mutationPermission() reads
-    // the intervention's phase and can itself throw (a conflict on a
-    // published intervention, a member-policy denial), which would tell a
-    // caller outside the owning organization both that this intervention
-    // exists and what state it is in.
-    if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
-      throw InterventionNotFoundException::withId($command->interventionId);
-    }
-
-    $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
-
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
-      throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
-    }
-
-    if (
-      null !== $command->workItemId
-      && !$this->interventionResourceManager->workItemBelongsToIntervention($command->workItemId, $command->interventionId)
-    ) {
-      throw new InterventionValidationException('Attachments can only reference work items from the same intervention.');
-    }
+    $this->authorizeAttachment($command, $context);
 
     $kind = InterventionAttachmentKind::tryFrom($command->kind);
     if (null === $kind) {
       throw new InterventionValidationException(sprintf('Unknown attachment kind "%s".', $command->kind));
     }
 
-    if (InterventionAttachmentKind::SIGNATURE === $kind) {
-      if (!in_array($context->status, ['in_progress', 'changes_requested'], true)) {
-        throw new InterventionConflictException('The completion signature can only be uploaded while the intervention is in progress or changes are requested.');
-      }
-      if (!in_array($command->mimeType, AttachmentCategory::IMAGE->allowedMimeTypes(), true)) {
-        throw new InterventionValidationException(sprintf('MIME type "%s" is not allowed for a signature attachment.', $command->mimeType));
-      }
-    }
+    self::assertSignatureAllowed($command, $context, $kind);
 
     try {
       /** @var InterventionAttachmentId $attachmentId */
@@ -150,13 +124,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
 
     // A client-supplied id that already exists is a retry overwriting its own
     // row, not a new attachment — it must not be rejected at the cap.
-    if (null === $this->attachmentRepository->findById($attachmentId)) {
-      $currentCount = $this->attachmentRepository->countByInterventionId($command->interventionId);
-      if (null !== $previousSignature) {
-        --$currentCount;
-      }
-      AttachmentConstraints::validateCount($currentCount);
-    }
+    $this->assertAttachmentCapacity($command->interventionId, $attachmentId, $previousSignature);
 
     $storagePath = StoragePathScheme::build(
       module: 'intervention',
@@ -213,6 +181,50 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       workItemId: $attachment->workItemId(),
       kind: $attachment->kind()->value,
     );
+  }
+
+  private function authorizeAttachment(AddInterventionAttachmentCommand $command, InterventionAssignmentContext $context): void
+  {
+    // Scope gate BEFORE mutationPermission(): its phase check can reveal
+    // whether an intervention exists to a caller outside the organization.
+    if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+
+    $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
+    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
+      throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+    }
+
+    if (null !== $command->workItemId && !$this->interventionResourceManager->workItemBelongsToIntervention($command->workItemId, $command->interventionId)) {
+      throw new InterventionValidationException('Attachments can only reference work items from the same intervention.');
+    }
+  }
+
+  private static function assertSignatureAllowed(AddInterventionAttachmentCommand $command, InterventionAssignmentContext $context, InterventionAttachmentKind $kind): void
+  {
+    if (InterventionAttachmentKind::SIGNATURE !== $kind) {
+      return;
+    }
+    if (!in_array($context->status, ['in_progress', 'changes_requested'], true)) {
+      throw new InterventionConflictException('The completion signature can only be uploaded while the intervention is in progress or changes are requested.');
+    }
+    if (!in_array($command->mimeType, AttachmentCategory::IMAGE->allowedMimeTypes(), true)) {
+      throw new InterventionValidationException(sprintf('MIME type "%s" is not allowed for a signature attachment.', $command->mimeType));
+    }
+  }
+
+  private function assertAttachmentCapacity(string $interventionId, InterventionAttachmentId $attachmentId, ?InterventionAttachment $previousSignature): void
+  {
+    // A retry overwrites its own row, while a replaced signature frees one slot.
+    if (null !== $this->attachmentRepository->findById($attachmentId)) {
+      return;
+    }
+    $currentCount = $this->attachmentRepository->countByInterventionId($interventionId);
+    if (null !== $previousSignature) {
+      --$currentCount;
+    }
+    AttachmentConstraints::validateCount($currentCount);
   }
   // #endregion
 }

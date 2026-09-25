@@ -55,11 +55,23 @@ final readonly class InterventionIssueFinder
     ?InterventionWorkItemSummary $workItems = null,
     ?InterventionValidationContext $context = null,
   ): array {
-    $issues = [];
     $summary ??= $this->resources->summary($interventionId);
     $workItems ??= $this->resources->workItemSummary($interventionId);
     $context ??= $this->resources->validationContext($interventionId);
 
+    return [
+      ...$this->siteSetupIssues($interventionId, $summary, $context),
+      ...$this->workItemIssues($interventionId, $summary, $workItems, $context),
+      ...$this->equipmentIssues($interventionId),
+    ];
+  }
+
+  /**
+   * @return list<InterventionIssue>
+   */
+  private function siteSetupIssues(string $interventionId, InterventionResourceSummary $summary, ?InterventionValidationContext $context): array
+  {
+    $issues = [];
     if ('site_setup' === ($context->type ?? 'site_setup') && 0 === $summary->facilities) {
       $issues[] = new InterventionIssue('blocker', 'intervention', $interventionId, null, 'At least one facility is required.');
     }
@@ -72,6 +84,19 @@ final readonly class InterventionIssueFinder
       $issues[] = new InterventionIssue('warning', 'intervention', $interventionId, null, 'No initial inspection has been recorded yet.');
     }
 
+    return $issues;
+  }
+
+  /**
+   * @return list<InterventionIssue>
+   */
+  private function workItemIssues(
+    string $interventionId,
+    InterventionResourceSummary $summary,
+    InterventionWorkItemSummary $workItems,
+    ?InterventionValidationContext $context,
+  ): array {
+    $issues = [];
     if (0 === $workItems->total) {
       $severity = in_array($context?->type, ['inventory', 'inspection_campaign'], true) ? 'blocker' : 'warning';
       $issues[] = new InterventionIssue($severity, 'intervention', $interventionId, null, 'No explicit work item has been prepared yet.');
@@ -99,6 +124,15 @@ final readonly class InterventionIssueFinder
       $issues[] = new InterventionIssue('recommendation', 'intervention', $interventionId, null, 'Capture the completion signature before submitting.');
     }
 
+    return $issues;
+  }
+
+  /**
+   * @return list<InterventionIssue>
+   */
+  private function equipmentIssues(string $interventionId): array
+  {
+    $issues = [];
     foreach ($this->resources->equipmentDrafts($interventionId) as $item) {
       if (null === $item->facilityId) {
         $issues[] = new InterventionIssue('blocker', 'equipment', $item->id, 'facility', 'Equipment must be assigned to a facility.');

@@ -60,47 +60,7 @@ final readonly class OrganizationSetupService implements OrganizationSetupPort
   public function prepare(string $userId, string $sessionId, string $stepKey, array $items): void
   {
     $this->transactionManager->transactional(function () use ($userId, $sessionId, $stepKey, $items): void {
-      $session = $this->requireSession(new OrganizationSetupContext($userId, $sessionId, ''));
-      if (!isset(self::FIELDS[$stepKey]) || [] === $items || count($items) > 5) {
-        throw OrganizationSetupConflict::because('Invalid setup batch.');
-      }
-      $submittedKeys = [];
-      foreach ($items as $item) {
-        if (!is_array($item)) {
-          throw OrganizationSetupConflict::because('Invalid batch item.');
-        }
-        $submittedKeys[] = $item['itemKey'] ?? null;
-      }
-      $operations = array_values(array_filter($session->operations, static fn (OrganizationSetupOperation $operation): bool => $operation->stepKey !== $stepKey || null !== $operation->resourceId || in_array($operation->itemKey, $submittedKeys, true)));
-      foreach ($items as $item) {
-        if (!is_array($item) || !is_string($item['itemKey'] ?? null) || !is_array($item['payload'] ?? null) || 1 !== preg_match('/^[a-zA-Z0-9_-]{1,80}$/D', $item['itemKey'])) {
-          throw OrganizationSetupConflict::because('Invalid item key or input.');
-        }
-        $payload = $this->normalize($stepKey, $item['payload']);
-        $existing = $this->findOperation($operations, $stepKey, $item['itemKey']);
-        if (null !== $existing) {
-          if ($this->normalize($stepKey, $existing->payload) !== $payload) {
-            throw OrganizationSetupConflict::because('An operation key cannot be reused with different input.');
-          }
-
-          continue;
-        }
-        if ($session->nextStep !== $stepKey || 'in_progress' !== $session->state) {
-          throw OrganizationSetupConflict::because('This step is not available.');
-        }
-        $operations[] = new OrganizationSetupOperation($stepKey, $item['itemKey'], $payload);
-      }
-      $stepCount = 0;
-      foreach ($operations as $operation) {
-        if ($stepKey === $operation->stepKey) {
-          ++$stepCount;
-        }
-      }
-      $limit = in_array($stepKey, ['create_organization', 'create_first_equipment'], true) ? 1 : 5;
-      if ($stepCount > $limit) {
-        throw OrganizationSetupConflict::because('The setup item limit has been reached.');
-      }
-      $this->repository->saveOperations($sessionId, $operations);
+      $this->prepareLocked($userId, $sessionId, $stepKey, $items);
     });
   }
 
@@ -148,6 +108,84 @@ final readonly class OrganizationSetupService implements OrganizationSetupPort
     }
 
     throw OrganizationSetupConflict::because('The prepared operation is missing.');
+  }
+
+  /**
+   * @param list<mixed> $items
+   */
+  private function prepareLocked(string $userId, string $sessionId, string $stepKey, array $items): void
+  {
+    $session = $this->requireSession(new OrganizationSetupContext($userId, $sessionId, ''));
+    $submittedKeys = self::submittedKeys($stepKey, $items);
+    $operations = array_values(array_filter($session->operations, static fn (OrganizationSetupOperation $operation): bool => $operation->stepKey !== $stepKey || null !== $operation->resourceId || in_array($operation->itemKey, $submittedKeys, true)));
+
+    foreach ($items as $item) {
+      $this->addPreparedOperation($operations, $session, $stepKey, $item);
+    }
+
+    self::assertStepLimit($operations, $stepKey);
+    $this->repository->saveOperations($sessionId, $operations);
+  }
+
+  /**
+   * @param list<mixed> $items
+   *
+   * @return list<mixed>
+   */
+  private static function submittedKeys(string $stepKey, array $items): array
+  {
+    if (!isset(self::FIELDS[$stepKey]) || [] === $items || count($items) > 5) {
+      throw OrganizationSetupConflict::because('Invalid setup batch.');
+    }
+    $submittedKeys = [];
+    foreach ($items as $item) {
+      if (!is_array($item)) {
+        throw OrganizationSetupConflict::because('Invalid batch item.');
+      }
+      $submittedKeys[] = $item['itemKey'] ?? null;
+    }
+
+    return $submittedKeys;
+  }
+
+  /**
+   * @param list<OrganizationSetupOperation> $operations
+   */
+  private function addPreparedOperation(array &$operations, OrganizationSetupSession $session, string $stepKey, mixed $item): void
+  {
+    if (!is_array($item) || !is_string($item['itemKey'] ?? null) || !is_array($item['payload'] ?? null) || 1 !== preg_match('/^[a-zA-Z0-9_-]{1,80}$/D', $item['itemKey'])) {
+      throw OrganizationSetupConflict::because('Invalid item key or input.');
+    }
+    $payload = $this->normalize($stepKey, $item['payload']);
+    $existing = $this->findOperation($operations, $stepKey, $item['itemKey']);
+    if (null !== $existing) {
+      if ($this->normalize($stepKey, $existing->payload) !== $payload) {
+        throw OrganizationSetupConflict::because('An operation key cannot be reused with different input.');
+      }
+
+      return;
+    }
+    if ($session->nextStep !== $stepKey || 'in_progress' !== $session->state) {
+      throw OrganizationSetupConflict::because('This step is not available.');
+    }
+    $operations[] = new OrganizationSetupOperation($stepKey, $item['itemKey'], $payload);
+  }
+
+  /**
+   * @param list<OrganizationSetupOperation> $operations
+   */
+  private static function assertStepLimit(array $operations, string $stepKey): void
+  {
+    $stepCount = 0;
+    foreach ($operations as $operation) {
+      if ($stepKey === $operation->stepKey) {
+        ++$stepCount;
+      }
+    }
+    $limit = in_array($stepKey, ['create_organization', 'create_first_equipment'], true) ? 1 : 5;
+    if ($stepCount > $limit) {
+      throw OrganizationSetupConflict::because('The setup item limit has been reached.');
+    }
   }
 
   /**

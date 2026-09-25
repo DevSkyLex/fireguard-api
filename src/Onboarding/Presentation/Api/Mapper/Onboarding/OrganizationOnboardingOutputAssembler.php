@@ -155,45 +155,12 @@ final class OrganizationOnboardingOutputAssembler
       );
       $step->skippable = $meta['skippable'];
 
-      $isCompleted = in_array($stepKey, $state->completedSteps, true);
-      $isSkipped = in_array($stepKey, $state->skippedSteps, true);
-
-      if ($isCompleted) {
-        $step->status = 'completed';
-        $step->required = false;
-        $step->available = true;
-      } elseif ($isSkipped) {
-        $step->status = 'skipped';
-        $step->required = false;
-        $step->available = true;
-      } elseif (!$isCreateCompleted) {
-        // Before create_organization is confirmed, all subsequent steps are blocked
-        if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $stepKey) {
-          $step->status = 'pending';
-          $step->required = true;
-          $step->available = true;
-        } else {
-          $step->status = 'blocked';
-          $step->required = $meta['required'];
-          $step->available = false;
-          $step->reason = 'organization_required';
-        }
-      } elseif ($stepKey === $state->nextStep) {
-        $step->status = 'pending';
-        $step->required = $meta['required'];
-        $step->available = true;
-      } else {
-        // Future step not yet reachable
-        $step->status = 'blocked';
-        $step->required = $meta['required'];
-        $step->available = false;
-        $step->reason = 'previous_step_required';
-      }
+      $isTerminal = self::hydrateStepState($step, $meta['required'], $state, $isCreateCompleted);
 
       // Only expose completedAt for steps that are actually confirmed or skipped;
       // history entries from a rolled-back or externally-reset session must not
       // leak a timestamp for a step that is no longer in a terminal state.
-      $step->completedAt = ($isCompleted || $isSkipped)
+      $step->completedAt = $isTerminal
         ? ($completedAtByStep[$stepKey] ?? null)
         : null;
 
@@ -212,6 +179,54 @@ final class OrganizationOnboardingOutputAssembler
     $output->rollbackPath = $state->canRollback ? self::ROLLBACK_PATH : null;
 
     return $output;
+  }
+
+  private static function hydrateStepState(
+    OrganizationOnboardingStepOutput $step,
+    bool $required,
+    OrganizationOnboardingSessionState $state,
+    bool $isCreateCompleted,
+  ): bool {
+    if (in_array($step->key, $state->completedSteps, true)) {
+      $step->status = 'completed';
+      $step->required = false;
+      $step->available = true;
+
+      return true;
+    }
+    if (in_array($step->key, $state->skippedSteps, true)) {
+      $step->status = 'skipped';
+      $step->required = false;
+      $step->available = true;
+
+      return true;
+    }
+    if (!$isCreateCompleted) {
+      // Before create_organization is confirmed, all subsequent steps are blocked.
+      $isFirstStep = OrganizationOnboardingStep::CREATE_ORGANIZATION === $step->key;
+      $step->status = $isFirstStep ? 'pending' : 'blocked';
+      $step->required = $isFirstStep || $required;
+      $step->available = $isFirstStep;
+      if (!$isFirstStep) {
+        $step->reason = 'organization_required';
+      }
+
+      return false;
+    }
+    if ($step->key === $state->nextStep) {
+      $step->status = 'pending';
+      $step->required = $required;
+      $step->available = true;
+
+      return false;
+    }
+
+    $step->status = 'blocked';
+    $step->required = $required;
+    $step->available = false;
+    $step->reason = 'previous_step_required';
+
+    return false;
   }
 
   /**

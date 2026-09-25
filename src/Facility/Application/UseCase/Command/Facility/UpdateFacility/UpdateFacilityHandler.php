@@ -100,41 +100,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     $previousLevelIndex = $facility->levelIndex();
 
     try {
-      if ($command->hasType) {
-        if (null === $command->type) {
-          throw InvalidValueException::because('Field "type" cannot be null when provided.');
-        }
-
-        $facility->changeType(FacilityType::from($command->type));
-      }
-
-      if ($command->hasName) {
-        if (null === $command->name) {
-          throw InvalidValueException::because('Field "name" cannot be null when provided.');
-        }
-
-        $facility->rename(new FacilityName($command->name));
-      }
-
-      if ($command->hasCode) {
-        $facility->changeCode($command->code);
-      }
-
-      if ($command->hasAddress) {
-        $facility->changeAddress($command->address);
-      }
-
-      if ($command->hasLatitude || $command->hasLongitude) {
-        $facility->changeCoordinates($this->resolveCoordinates($command));
-      }
-
-      if ($command->hasMetadata) {
-        $facility->changeMetadata($command->metadata ?? []);
-      }
-
-      if ($command->hasLevelIndex) {
-        $facility->changeLevelIndex($command->levelIndex);
-      }
+      $this->applyChanges($facility, $command);
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
@@ -202,6 +168,45 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       longitude: $facility->coordinates()?->longitude(),
       levelIndex: $facility->levelIndex(),
     );
+  }
+
+  private function applyChanges(Facility $facility, UpdateFacilityCommand $command): void
+  {
+    if ($command->hasType) {
+      if (null === $command->type) {
+        throw InvalidValueException::because('Field "type" cannot be null when provided.');
+      }
+
+      $facility->changeType(FacilityType::from($command->type));
+    }
+
+    if ($command->hasName) {
+      if (null === $command->name) {
+        throw InvalidValueException::because('Field "name" cannot be null when provided.');
+      }
+
+      $facility->rename(new FacilityName($command->name));
+    }
+
+    if ($command->hasCode) {
+      $facility->changeCode($command->code);
+    }
+
+    if ($command->hasAddress) {
+      $facility->changeAddress($command->address);
+    }
+
+    if ($command->hasLatitude || $command->hasLongitude) {
+      $facility->changeCoordinates($this->resolveCoordinates($command));
+    }
+
+    if ($command->hasMetadata) {
+      $facility->changeMetadata($command->metadata ?? []);
+    }
+
+    if ($command->hasLevelIndex) {
+      $facility->changeLevelIndex($command->levelIndex);
+    }
   }
 
   /**
