@@ -6,6 +6,8 @@ namespace Notification\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
+use Notification\Application\Contract\Inbox\InboxCursor;
+use Notification\Application\Contract\Notification\NotificationListCriteria;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
@@ -100,24 +102,19 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
 
   public function findByUserId(
     string $userId,
-    bool $onlyUnread = false,
+    NotificationListCriteria $criteria = new NotificationListCriteria(),
     int $limit = 50,
     int $offset = 0,
-    ?string $type = null,
-    ?string $category = null,
-    ?string $organizationId = null,
-    ?DateTimeImmutable $hideReadBefore = null,
-    array $hiddenReadCategories = [],
     ?DateTimeImmutable $before = null,
-    ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null,
+    ?InboxCursor $cursor = null,
   ): array {
     $qb = $this->applyTypeAndVisibilityFilters(
-      $this->userQueryBuilder($userId, $onlyUnread, $organizationId, $before),
-      $onlyUnread,
-      $type,
-      $category,
-      $hideReadBefore,
-      $hiddenReadCategories,
+      $this->userQueryBuilder($userId, $criteria->onlyUnread, $criteria->organizationId, $before),
+      $criteria->onlyUnread,
+      $criteria->type,
+      $criteria->category,
+      $criteria->hideReadBefore,
+      $criteria->hiddenReadCategories,
     )
       ->orderBy('n.createdAt', 'DESC')
       // Unique tiebreaker: without it rows tied on the sort above are ordered
@@ -148,20 +145,15 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
 
   public function countByUserId(
     string $userId,
-    bool $onlyUnread = false,
-    ?string $type = null,
-    ?string $category = null,
-    ?string $organizationId = null,
-    ?DateTimeImmutable $hideReadBefore = null,
-    array $hiddenReadCategories = [],
+    NotificationListCriteria $criteria = new NotificationListCriteria(),
   ): int {
     $qb = $this->applyTypeAndVisibilityFilters(
-      $this->userQueryBuilder($userId, $onlyUnread, $organizationId),
-      $onlyUnread,
-      $type,
-      $category,
-      $hideReadBefore,
-      $hiddenReadCategories,
+      $this->userQueryBuilder($userId, $criteria->onlyUnread, $criteria->organizationId),
+      $criteria->onlyUnread,
+      $criteria->type,
+      $criteria->category,
+      $criteria->hideReadBefore,
+      $criteria->hiddenReadCategories,
     )->select('COUNT(n.id)');
 
     return (int) $qb->getQuery()->getSingleScalarResult();

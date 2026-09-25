@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Application\UseCase\Query\Notification\ListUserNotifications;
 
 use DateTimeImmutable;
-use Notification\Application\Contract\Notification\NotificationType;
+use Notification\Application\Contract\Notification\{NotificationListCriteria, NotificationType};
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsHandler, ListUserNotificationsQuery, ListUserNotificationsResult};
@@ -37,27 +37,19 @@ final class ListUserNotificationsHandlerTest extends TestCase
       ->method('findByUserId')
       ->with(
         '550e8400-e29b-41d4-a716-446655442301',
-        false,
-        100,
-        0,
-        null,
-        null,
-        null,
-        self::callback(static function (?DateTimeImmutable $hideReadBefore): bool {
-          if (!$hideReadBefore instanceof DateTimeImmutable) {
+        self::callback(static function (NotificationListCriteria $criteria): bool {
+          if ($criteria->onlyUnread || !($criteria->hideReadBefore instanceof DateTimeImmutable)) {
             return false;
           }
 
-          $ageInSeconds = new DateTimeImmutable()->getTimestamp() - $hideReadBefore->getTimestamp();
+          $ageInSeconds = new DateTimeImmutable()->getTimestamp() - $criteria->hideReadBefore->getTimestamp();
 
           return $ageInSeconds >= 29 * 24 * 60 * 60
-            && $ageInSeconds <= 31 * 24 * 60 * 60;
+            && $ageInSeconds <= 31 * 24 * 60 * 60
+            && [NotificationType::CATEGORY_USER, NotificationType::CATEGORY_FACILITY, NotificationType::CATEGORY_EQUIPMENT] === $criteria->hiddenReadCategories;
         }),
-        [
-          NotificationType::CATEGORY_USER,
-          NotificationType::CATEGORY_FACILITY,
-          NotificationType::CATEGORY_EQUIPMENT,
-        ],
+        100,
+        0,
       )
       ->willReturn([$notification]);
     $repository->expects(self::once())
@@ -90,14 +82,9 @@ final class ListUserNotificationsHandlerTest extends TestCase
       ->method('findByUserId')
       ->with(
         '550e8400-e29b-41d4-a716-446655442302',
-        true,
+        new NotificationListCriteria(onlyUnread: true),
         5,
         0,
-        null,
-        null,
-        null,
-        null,
-        [],
       )
       ->willReturn([]);
     $repository->expects(self::once())
@@ -128,26 +115,20 @@ final class ListUserNotificationsHandlerTest extends TestCase
       ->method('findByUserId')
       ->with(
         '550e8400-e29b-41d4-a716-446655442303',
-        false,
+        self::callback(static fn (NotificationListCriteria $criteria): bool => !$criteria->onlyUnread
+          && '550e8400-e29b-41d4-a716-446655442399' === $criteria->organizationId
+          && $criteria->hideReadBefore instanceof DateTimeImmutable),
         10,
         20,
-        null,
-        null,
-        '550e8400-e29b-41d4-a716-446655442399',
-        self::isInstanceOf(DateTimeImmutable::class),
-        self::isArray(),
       )
       ->willReturn([]);
     $repository->expects(self::once())
       ->method('countByUserId')
       ->with(
         '550e8400-e29b-41d4-a716-446655442303',
-        false,
-        null,
-        null,
-        '550e8400-e29b-41d4-a716-446655442399',
-        self::isInstanceOf(DateTimeImmutable::class),
-        self::isArray(),
+        self::callback(static fn (NotificationListCriteria $criteria): bool => !$criteria->onlyUnread
+          && '550e8400-e29b-41d4-a716-446655442399' === $criteria->organizationId
+          && $criteria->hideReadBefore instanceof DateTimeImmutable),
       )
       ->willReturn(37);
 

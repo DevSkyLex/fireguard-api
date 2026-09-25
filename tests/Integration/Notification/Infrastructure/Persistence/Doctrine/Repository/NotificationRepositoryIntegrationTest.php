@@ -7,7 +7,7 @@ namespace Tests\Integration\Notification\Infrastructure\Persistence\Doctrine\Rep
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Notification\Application\Contract\Inbox\InboxCursor;
-use Notification\Application\Contract\Notification\NotificationType;
+use Notification\Application\Contract\Notification\{NotificationListCriteria, NotificationType};
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
@@ -122,13 +122,15 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
 
     $notifications = $this->repository->findByUserId(
       userId: '550e8400-e29b-41d4-a716-446655442399',
+      criteria: new NotificationListCriteria(
+        hideReadBefore: new DateTimeImmutable('2026-03-02T00:00:00+00:00'),
+        hiddenReadCategories: [
+          NotificationType::CATEGORY_USER,
+          NotificationType::CATEGORY_FACILITY,
+          NotificationType::CATEGORY_EQUIPMENT,
+        ],
+      ),
       limit: 10,
-      hideReadBefore: new DateTimeImmutable('2026-03-02T00:00:00+00:00'),
-      hiddenReadCategories: [
-        NotificationType::CATEGORY_USER,
-        NotificationType::CATEGORY_FACILITY,
-        NotificationType::CATEGORY_EQUIPMENT,
-      ],
     );
 
     self::assertCount(3, $notifications);
@@ -313,10 +315,10 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
     ));
 
     self::assertSame(3, $this->repository->countByUserId($userId));
-    self::assertSame(2, $this->repository->countByUserId($userId, onlyUnread: true));
-    self::assertSame(1, $this->repository->countByUserId($userId, type: NotificationType::USER_EMAIL_VERIFIED));
-    self::assertSame(2, $this->repository->countByUserId($userId, category: NotificationType::CATEGORY_ORGANIZATION));
-    self::assertSame(2, $this->repository->countByUserId($userId, organizationId: $organizationA));
+    self::assertSame(2, $this->repository->countByUserId($userId, new NotificationListCriteria(onlyUnread: true)));
+    self::assertSame(1, $this->repository->countByUserId($userId, new NotificationListCriteria(type: NotificationType::USER_EMAIL_VERIFIED)));
+    self::assertSame(2, $this->repository->countByUserId($userId, new NotificationListCriteria(category: NotificationType::CATEGORY_ORGANIZATION)));
+    self::assertSame(2, $this->repository->countByUserId($userId, new NotificationListCriteria(organizationId: $organizationA)));
     self::assertSame(2, $this->repository->countUnreadByUserId($userId));
     self::assertSame(1, $this->repository->countUnreadByUserId($userId, $organizationA));
     self::assertSame(1, $this->repository->countUnreadByUserId($userId, $organizationB));
@@ -324,19 +326,20 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
     // A type filter wins over the category filter when both are supplied.
     self::assertSame(1, $this->repository->countByUserId(
       $userId,
-      type: NotificationType::ORGANIZATION_MEMBER_ADDED,
-      category: NotificationType::CATEGORY_USER,
+      new NotificationListCriteria(type: NotificationType::ORGANIZATION_MEMBER_ADDED, category: NotificationType::CATEGORY_USER),
     ));
 
     // onlyUnread short-circuits the read-history masking branch entirely.
     self::assertSame(2, $this->repository->countByUserId(
       $userId,
-      onlyUnread: true,
-      hideReadBefore: new DateTimeImmutable('2026-06-10T00:00:00+00:00'),
-      hiddenReadCategories: [NotificationType::CATEGORY_ORGANIZATION],
+      new NotificationListCriteria(
+        onlyUnread: true,
+        hideReadBefore: new DateTimeImmutable('2026-06-10T00:00:00+00:00'),
+        hiddenReadCategories: [NotificationType::CATEGORY_ORGANIZATION],
+      ),
     ));
 
-    $unreadOnly = $this->repository->findByUserId($userId, onlyUnread: true, limit: 10);
+    $unreadOnly = $this->repository->findByUserId($userId, new NotificationListCriteria(onlyUnread: true), limit: 10);
 
     self::assertSame(['Organization unread', 'User unread'], array_map(
       static fn (Notification $notification): string => $notification->subject(),
