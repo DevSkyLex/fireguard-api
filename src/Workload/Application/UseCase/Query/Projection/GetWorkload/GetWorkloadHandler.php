@@ -76,46 +76,10 @@ final readonly class GetWorkloadHandler implements QueryHandler
     if ($query->from > $query->to || new DateTimeImmutable($query->from)->diff(new DateTimeImmutable($query->to))->days > 92) {
       throw InvalidValueException::because('Request a workload period of at most 93 days.');
     }
-    $members = null;
-    if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.workload.read')) {
-      $callerId = null;
-      foreach ($this->workforce->members($query->organizationId) as $member) {
-        if ($member->active && $member->userId === $query->userId) {
-          $callerId = $member->id;
-
-          break;
-        }
-      }
-      if (null === $callerId || null !== $query->teamId || (null !== $query->memberId && $callerId !== $query->memberId)) {
-        throw new WorkloadAccessDeniedException('Team workload access is required.');
-      }
-      $members = [$callerId];
-    } elseif (null !== $query->teamId) {
-      if (null === $this->teams->resolveTeam($query->organizationId, $query->teamId)) {
-        throw new WorkloadNotFoundException('Team not found.');
-      }
-      $members = $this->teams->listActiveMemberIds($query->organizationId, $query->teamId);
-    }
-    if (null !== $query->memberId) {
-      $members = null === $members || in_array($query->memberId, $members, true) ? [$query->memberId] : [];
-    }
+    $members = $this->authorizedMemberIds($query);
     $view = $this->projector->project($query->organizationId, $query->from, $query->to, $members)->view;
     if ($query->overloadedOnly) {
-      $filtered = array_values(array_filter($view->members, static function ($member): bool {
-        foreach ($member->days as $day) {
-          if (($day->overloadMinutes ?? 0) > 0) {
-            return true;
-          }
-        }
-        foreach ($member->unallocated as $task) {
-          if ('no_available_day' === $task->reason && 'committed' === $task->commitment) {
-            return true;
-          }
-        }
-
-        return false;
-      }));
-      $view = new WorkloadProjectionView($view->startsOn, $view->endsOn, $view->today, $view->timezone, $view->firstDayOfWeek, $view->calculatedAt, $filtered, $view->unassigned, $view->completeness);
+      $view = self::onlyOverloaded($view);
     }
     $canReadTeam = $this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.workload.read');
     $canManageCapacity = $this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.workload.manage');
@@ -150,5 +114,62 @@ final readonly class GetWorkloadHandler implements QueryHandler
       $page,
       $query->pageSize,
     );
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @return ?list<string> authorized member identifiers, or all members for a team reader
+   */
+  private function authorizedMemberIds(GetWorkloadQuery $query): ?array
+  {
+    $members = null;
+    if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.workload.read')) {
+      $callerId = null;
+      foreach ($this->workforce->members($query->organizationId) as $member) {
+        if ($member->active && $member->userId === $query->userId) {
+          $callerId = $member->id;
+
+          break;
+        }
+      }
+      if (null === $callerId || null !== $query->teamId || (null !== $query->memberId && $callerId !== $query->memberId)) {
+        throw new WorkloadAccessDeniedException('Team workload access is required.');
+      }
+      $members = [$callerId];
+    } elseif (null !== $query->teamId) {
+      if (null === $this->teams->resolveTeam($query->organizationId, $query->teamId)) {
+        throw new WorkloadNotFoundException('Team not found.');
+      }
+      $members = $this->teams->listActiveMemberIds($query->organizationId, $query->teamId);
+    }
+    if (null !== $query->memberId) {
+      $members = null === $members || in_array($query->memberId, $members, true) ? [$query->memberId] : [];
+    }
+
+    return $members;
+  }
+
+  /**
+   * @since 1.0.0
+   */
+  private static function onlyOverloaded(WorkloadProjectionView $view): WorkloadProjectionView
+  {
+    $filtered = array_values(array_filter($view->members, static function ($member): bool {
+      foreach ($member->days as $day) {
+        if (($day->overloadMinutes ?? 0) > 0) {
+          return true;
+        }
+      }
+      foreach ($member->unallocated as $task) {
+        if ('no_available_day' === $task->reason && 'committed' === $task->commitment) {
+          return true;
+        }
+      }
+
+      return false;
+    }));
+
+    return new WorkloadProjectionView($view->startsOn, $view->endsOn, $view->today, $view->timezone, $view->firstDayOfWeek, $view->calculatedAt, $filtered, $view->unassigned, $view->completeness);
   }
 }

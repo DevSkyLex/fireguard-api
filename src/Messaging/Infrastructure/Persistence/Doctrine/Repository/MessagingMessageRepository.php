@@ -31,6 +31,10 @@ use function sprintf;
  */
 final readonly class MessagingMessageRepository implements MessagingMessageRepositoryPort
 {
+  // #region Constants
+  private const string MESSAGE_COUNT_EXPRESSION = 'COUNT(m.id)';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -107,7 +111,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       ->setParameter('conversation', $conversation);
 
     $total = (int) (clone $qb)
-      ->select('COUNT(m.id)')
+      ->select(self::MESSAGE_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
@@ -135,7 +139,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       ->setParameter('parent', $parent);
 
     $total = (int) (clone $qb)
-      ->select('COUNT(m.id)')
+      ->select(self::MESSAGE_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
@@ -179,7 +183,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       ->setParameter('conversation', $conversation);
 
     $total = (int) (clone $qb)
-      ->select('COUNT(m.id)')
+      ->select(self::MESSAGE_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
@@ -217,7 +221,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       ->setParameter('organizationId', $organizationId);
 
     $total = (int) (clone $qb)
-      ->select('COUNT(m.id)')
+      ->select(self::MESSAGE_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 

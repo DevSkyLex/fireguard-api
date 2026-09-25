@@ -87,7 +87,11 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
     $method = $this->requestStack->getCurrentRequest()?->getMethod() ?? 'PATCH';
     $user = $this->user();
     $id = is_string($uriVariables['id'] ?? null) ? $uriVariables['id'] : null;
-    $action = in_array($method, ['POST', 'PUT'], true) ? 'create' : ('DELETE' === $method ? 'delete' : 'update');
+    $action = match ($method) {
+      'POST', 'PUT' => 'create',
+      'DELETE' => 'delete',
+      default => 'update',
+    };
     $createOnly = 'PUT' === $method;
     if ($createOnly) {
       $this->creationPreconditionGuard->assertCreateOnly();
@@ -95,8 +99,9 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
     $expectedRevision = in_array($method, ['PATCH', 'DELETE'], true)
       ? $this->revisionGuard->expectedRevision()
       : null;
-    $payload = $data instanceof CreateInterventionWorkItemInput
-      ? [
+    $payload = [];
+    if ($data instanceof CreateInterventionWorkItemInput) {
+      $payload = [
         'interventionId' => ResourceIriParser::id($data->intervention, 'interventions'),
         'action' => $data->action,
         'target' => $data->target,
@@ -108,8 +113,10 @@ final readonly class InterventionWorkItemProcessor implements ProcessorInterface
         'workloadConfirmationToken' => $data->workloadConfirmationToken,
         'workStartsOn' => $data->workStartsOn,
         'workEndsOn' => $data->workEndsOn,
-      ]
-      : ($data instanceof UpdateInterventionWorkItemInput ? $this->updatePayload($data) : []);
+      ];
+    } elseif ($data instanceof UpdateInterventionWorkItemInput) {
+      $payload = $this->updatePayload($data);
+    }
 
     try {
       /** @var MutateInterventionWorkflowResult $result */

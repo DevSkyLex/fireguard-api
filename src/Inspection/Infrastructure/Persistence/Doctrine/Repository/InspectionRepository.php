@@ -11,14 +11,14 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Inspection\Application\Contract\Export\InspectionExportCandidate;
-use Inspection\Application\Contract\Inspection\InspectionScope;
+use Inspection\Application\Contract\Inspection\{InspectionListCriteria, InspectionScope};
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
+use Inspection\Infrastructure\Exception\{InvalidStorageTimeZoneException, StoredDateTimeReinterpretationException};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -37,6 +37,16 @@ use function strtoupper;
  */
 final readonly class InspectionRepository implements InspectionRepositoryPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 'i.organization = :organization';
+
+  private const string STATUS_PREDICATE = 'i.status = :status';
+
+  private const string RESULT_PREDICATE = 'i.result = :result';
+
+  private const string INSPECTOR_TYPE_PREDICATE = 'i.inspectorType = :inspectorType';
+  // #endregion
+
   /**
    * @var EntityRepository<InspectionRecord>
    */
@@ -193,16 +203,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
-   * @param ?string $equipmentId the equipment id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $result the result value
-   * @param ?string $status the status value
-   * @param ?string $performedAtFrom the performed at from value
-   * @param ?string $performedAtTo the performed at to value
-   * @param ?string $inspectorUserId the inspector user id value
-   * @param ?string $inspectorType the inspector type value
-   * @param ?string $checklistId the checklist id value
-   * @param ?string $search the search value
+   * @param InspectionListCriteria $criteria the filters shared by list and count
    * @param Sorting $sorting the sorting value
    * @param int $limit the limit value
    * @param int $offset the offset value
@@ -211,16 +212,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    */
   public function findByOrganizationId(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $inspectorType = null,
-    ?string $checklistId = null,
-    ?string $search = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
@@ -228,16 +220,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     /** @var list<InspectionRecord> $records */
     $records = $this->createListQueryBuilder(
       $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      $inspectorUserId,
-      $inspectorType,
-      $checklistId,
-      $search,
+      $criteria,
     )
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('i.id', 'ASC')
@@ -260,44 +243,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
-   * @param ?string $equipmentId the equipment id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $result the result value
-   * @param ?string $status the status value
-   * @param ?string $performedAtFrom the performed at from value
-   * @param ?string $performedAtTo the performed at to value
-   * @param ?string $inspectorUserId the inspector user id value
-   * @param ?string $inspectorType the inspector type value
-   * @param ?string $checklistId the checklist id value
-   * @param ?string $search the search value
+   * @param InspectionListCriteria $criteria the list filter groups
    *
    * @return int the count by organization id result
    */
   public function countByOrganizationId(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $inspectorType = null,
-    ?string $checklistId = null,
-    ?string $search = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      $inspectorUserId,
-      $inspectorType,
-      $checklistId,
-      $search,
+      $criteria,
     )
       ->select('COUNT(i.id)')
       ->getQuery()
@@ -346,40 +302,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @since 1.6.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
-   * @param ?string $equipmentId the equipment id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $result the result value
-   * @param ?string $status the status value
-   * @param ?string $performedAtFrom the performed at from value
-   * @param ?string $performedAtTo the performed at to value
-   * @param ?string $inspectorUserId the inspector user id value
-   * @param ?string $checklistId the checklist id value
+   * @param InspectionListCriteria $criteria filters restricted to the CSV subset
    *
    * @return int the count export candidates result
    */
   public function countExportCandidates(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $checklistId = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      $inspectorUserId,
-      null,
-      $checklistId,
-      null,
+      $criteria->forExport(),
     )
       ->select('COUNT(i.id)')
       ->getQuery()
@@ -396,41 +329,18 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @since 1.6.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
-   * @param ?string $equipmentId the equipment id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $result the result value
-   * @param ?string $status the status value
-   * @param ?string $performedAtFrom the performed at from value
-   * @param ?string $performedAtTo the performed at to value
-   * @param ?string $inspectorUserId the inspector user id value
-   * @param ?string $checklistId the checklist id value
+   * @param InspectionListCriteria $criteria filters restricted to the CSV subset
    *
    * @return list<InspectionExportCandidate> the list export candidates result
    */
   public function listExportCandidates(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $checklistId = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
   ): array {
     /** @var list<InspectionRecord> $records */
     $records = $this->createListQueryBuilder(
       $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      $inspectorUserId,
-      null,
-      $checklistId,
-      null,
+      $criteria->forExport(),
     )
       ->orderBy('i.updatedAt', 'DESC')
       ->addOrderBy('i.id', 'ASC')
@@ -491,7 +401,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
         'COALESCE(SUM(CASE WHEN i.result = :partialResult THEN 1 ELSE 0 END), 0) AS partial',
       )
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('draftStatus', 'draft')
       ->setParameter('submittedStatus', 'submitted')
@@ -501,13 +411,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->setParameter('partialResult', 'partial');
 
     if (null !== $status) {
-      $queryBuilder->andWhere('i.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
     if (null !== $result) {
-      $queryBuilder->andWhere('i.result = :result')->setParameter('result', $result);
+      $queryBuilder->andWhere(self::RESULT_PREDICATE)->setParameter('result', $result);
     }
     if (null !== $inspectorType) {
-      $queryBuilder->andWhere('i.inspectorType = :inspectorType')->setParameter('inspectorType', $inspectorType);
+      $queryBuilder->andWhere(self::INSPECTOR_TYPE_PREDICATE)->setParameter('inspectorType', $inspectorType);
     }
 
     /** @var array{total?: int|string|null, draft?: int|string|null, submitted?: int|string|null, closed?: int|string|null, pass?: int|string|null, fail?: int|string|null, partial?: int|string|null} $row */
@@ -540,16 +450,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     /** @var list<array{status: string, inspectionCount: int|string}> $rows */
     $rows = $this->createListQueryBuilder(
       $organizationId,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      new InspectionListCriteria(),
     )
       ->select('i.status AS status, COUNT(i.id) AS inspectionCount')
       ->groupBy('i.status')
@@ -580,16 +481,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     /** @var list<array{result: string, inspectionCount: int|string}> $rows */
     $rows = $this->createListQueryBuilder(
       $organizationId,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      new InspectionListCriteria(),
     )
       ->select('i.result AS result, COUNT(i.id) AS inspectionCount')
       ->groupBy('i.result')
@@ -620,16 +512,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     /** @var list<array{inspectorType: string, inspectionCount: int|string}> $rows */
     $rows = $this->createListQueryBuilder(
       $organizationId,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      new InspectionListCriteria(),
     )
       ->select('i.inspectorType AS inspectorType, COUNT(i.id) AS inspectionCount')
       ->groupBy('i.inspectorType')
@@ -753,7 +636,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
         'COALESCE(SUM(CASE WHEN i.result = :partialResult THEN 1 ELSE 0 END), 0) AS partial',
       )
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('i.performedAt >= :performedAtFrom')
       ->andWhere('i.performedAt <= :performedAtTo')
       ->setParameter('organization', $organization)
@@ -765,13 +648,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->setParameter('partialResult', 'partial');
 
     if (null !== $status) {
-      $queryBuilder->andWhere('i.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
     if (null !== $result) {
-      $queryBuilder->andWhere('i.result = :result')->setParameter('result', $result);
+      $queryBuilder->andWhere(self::RESULT_PREDICATE)->setParameter('result', $result);
     }
     if (null !== $inspectorType) {
-      $queryBuilder->andWhere('i.inspectorType = :inspectorType')->setParameter('inspectorType', $inspectorType);
+      $queryBuilder->andWhere(self::INSPECTOR_TYPE_PREDICATE)->setParameter('inspectorType', $inspectorType);
     }
 
     /** @var array{total?: int|string|null, closed?: int|string|null, pass?: int|string|null, fail?: int|string|null, partial?: int|string|null} $row */
@@ -794,31 +677,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization id value
-   * @param ?string $equipmentId the equipment id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $result the result value
-   * @param ?string $status the status value
-   * @param ?string $performedAtFrom the performed at from value
-   * @param ?string $performedAtTo the performed at to value
-   * @param ?string $inspectorUserId the inspector user id value
-   * @param ?string $inspectorType the inspector type value
-   * @param ?string $checklistId the checklist id value
-   * @param ?string $search the search value
+   * @param InspectionListCriteria $criteria the list filter groups
    *
    * @return QueryBuilder the create list query builder result
    */
   private function createListQueryBuilder(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId,
-    ?string $facilityId,
-    ?string $result,
-    ?string $status,
-    ?string $performedAtFrom,
-    ?string $performedAtTo,
-    ?string $inspectorUserId,
-    ?string $inspectorType,
-    ?string $checklistId,
-    ?string $search,
+    InspectionListCriteria $criteria,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -826,69 +691,69 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('i')
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('i.recordStatus = :publishedRecordStatus')
       ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
-    if (null !== $equipmentId) {
+    if (null !== $criteria->subject->equipmentId) {
       $queryBuilder
         ->andWhere('i.equipmentId = :equipmentId')
-        ->setParameter('equipmentId', $equipmentId);
+        ->setParameter('equipmentId', $criteria->subject->equipmentId);
     }
 
-    if (null !== $facilityId) {
+    if (null !== $criteria->subject->facilityId) {
       $queryBuilder
         ->andWhere('i.facilityId = :facilityId')
-        ->setParameter('facilityId', $facilityId);
+        ->setParameter('facilityId', $criteria->subject->facilityId);
     }
 
-    if (null !== $result) {
+    if (null !== $criteria->execution->result) {
       $queryBuilder
-        ->andWhere('i.result = :result')
-        ->setParameter('result', $result);
+        ->andWhere(self::RESULT_PREDICATE)
+        ->setParameter('result', $criteria->execution->result);
     }
 
-    if (null !== $status) {
+    if (null !== $criteria->execution->status) {
       $queryBuilder
-        ->andWhere('i.status = :status')
-        ->setParameter('status', $status);
+        ->andWhere(self::STATUS_PREDICATE)
+        ->setParameter('status', $criteria->execution->status);
     }
 
-    if (null !== $performedAtFrom) {
+    if (null !== $criteria->execution->performedAtFrom) {
       $queryBuilder
         ->andWhere('i.performedAt >= :performedAtFrom')
-        ->setParameter('performedAtFrom', $this->normalizeTimestampToStorageDateTime($performedAtFrom), Types::DATETIME_IMMUTABLE);
+        ->setParameter('performedAtFrom', $this->normalizeTimestampToStorageDateTime($criteria->execution->performedAtFrom), Types::DATETIME_IMMUTABLE);
     }
 
-    if (null !== $performedAtTo) {
+    if (null !== $criteria->execution->performedAtTo) {
       $queryBuilder
         ->andWhere('i.performedAt <= :performedAtTo')
-        ->setParameter('performedAtTo', $this->normalizeTimestampToStorageDateTime($performedAtTo), Types::DATETIME_IMMUTABLE);
+        ->setParameter('performedAtTo', $this->normalizeTimestampToStorageDateTime($criteria->execution->performedAtTo), Types::DATETIME_IMMUTABLE);
     }
 
-    if (null !== $inspectorUserId) {
+    if (null !== $criteria->inspector->userId) {
       $queryBuilder
         ->andWhere('i.inspectorUserId = :inspectorUserId')
-        ->setParameter('inspectorUserId', $inspectorUserId);
+        ->setParameter('inspectorUserId', $criteria->inspector->userId);
     }
 
-    if (null !== $inspectorType) {
+    if (null !== $criteria->inspector->type) {
       $queryBuilder
-        ->andWhere('i.inspectorType = :inspectorType')
-        ->setParameter('inspectorType', $inspectorType);
+        ->andWhere(self::INSPECTOR_TYPE_PREDICATE)
+        ->setParameter('inspectorType', $criteria->inspector->type);
     }
 
-    if (null !== $checklistId) {
+    if (null !== $criteria->subject->checklistId) {
       $queryBuilder
         ->andWhere('i.checklistId = :checklistId')
-        ->setParameter('checklistId', $checklistId);
+        ->setParameter('checklistId', $criteria->subject->checklistId);
     }
 
     TrigramSearchExpression::apply(
       $queryBuilder,
       'search',
-      $search,
+      $criteria->search,
       'i.result',
       'i.status',
       'i.inspectorName',
@@ -997,7 +862,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 
@@ -1054,7 +919,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     );
 
     if (false === $normalized) {
-      throw new RuntimeException('Unable to reinterpret a stored inspection datetime.');
+      throw new StoredDateTimeReinterpretationException('Unable to reinterpret a stored inspection datetime.');
     }
 
     return $normalized;

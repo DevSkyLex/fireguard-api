@@ -12,7 +12,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ObjectManager;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionRecord, InterventionTimeEntryRecord, InterventionTimeEntryVersionRecord, InterventionWorkItemAssignmentRecord, InterventionWorkItemRecord};
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
-use RuntimeException;
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
@@ -91,12 +90,12 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   public function load(ObjectManager $manager): void
   {
     if (!$manager instanceof EntityManagerInterface) {
-      throw new RuntimeException('Workload fixtures require the main ORM entity manager.');
+      throw new InterventionWorkloadFixtureException('Workload fixtures require the main ORM entity manager.');
     }
     $context = $this->workforce->context(self::ORGANIZATION);
     $source = $manager->getRepository(InterventionRecord::class)->findOneBy(['organization' => self::ORGANIZATION], ['number' => 'ASC']);
     if (null === $context || null === $source || null === $source->organization || null === $source->siteId) {
-      throw new RuntimeException('Workload fixtures require the existing seed organization and an intervention with a site. No baseline is auto-loaded.');
+      throw new InterventionWorkloadFixtureException('Workload fixtures require the existing seed organization and an intervention with a site. No baseline is auto-loaded.');
     }
     $active = [];
     foreach ($this->workforce->members(self::ORGANIZATION) as $member) {
@@ -106,7 +105,7 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     }
     foreach (array_keys(self::TASKS) as $memberId) {
       if (!isset($active[$memberId])) {
-        throw new RuntimeException('A required workload demo member is missing or inactive: ' . $memberId);
+        throw new InterventionWorkloadFixtureException('A required workload demo member is missing or inactive: ' . $memberId);
       }
     }
 
@@ -115,37 +114,57 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     $today = $now->setTimezone(new DateTimeZone($context->timezone))->setTime(0, 0);
     $monday = $today->modify('monday this week');
     foreach ([0, 7] as $offset) {
-      $start = $monday->modify('+' . $offset . ' days');
-      $intervention = $this->intervention($manager, $source, 'operations:' . $start->format('Y-m-d'), 'Workload demo - field operations - ' . $start->format('Y-m-d'), 0 === $offset ? 'in_progress' : 'planned', $start, $start->modify('+6 days'), $now);
-      if (null === $intervention) {
-        continue;
-      }
-      for ($day = 0; $day < 5; ++$day) {
-        $date = $start->modify('+' . $day . ' days');
-        $isToday = $date->format('Y-m-d') === $today->format('Y-m-d');
-        $index = 0;
-        foreach (self::TASKS as $memberId => $label) {
-          $remaining = 120 + (($day + $index++) % 4) * 60;
-          if (self::OWNER === $memberId) {
-            $remaining = $isToday ? 360 : (0 === $day ? 480 : 240);
-          } elseif (self::FIELD_TECHNICIAN === $memberId && 2 === $day) {
-            $remaining = 300;
-          }
-          $item = $this->task($manager, $intervention, $memberId . ':' . $date->format('Y-m-d'), $label, $memberId, $remaining, $date, $date, $now);
-          if ($date < $today) {
-            $item->status = 'completed';
-            $item->remainingMinutes = 0;
-            $this->time($manager, $item, $memberId, $date, $remaining - 30, $now);
-          } elseif ($isToday) {
-            $item->status = 'in_progress';
-            $this->time($manager, $item, $memberId, $date, 120, $now, self::OWNER === $memberId);
-          }
-        }
-      }
-      $this->task($manager, $intervention, 'unestimated', 'Additional equipment survey - estimate needed', self::COORDINATOR, null, $start, $start->modify('+4 days'), $now);
-      $this->task($manager, $intervention, 'unassigned', 'Loading bay inventory - assignment needed', null, 180, $start, $start->modify('+4 days'), $now);
+      $this->seedWeek($manager, $source, $monday, $today, $now, $offset);
     }
 
+    $this->seedOtherScenarios($manager, $source, $monday, $now);
+    $manager->flush();
+  }
+
+  private function seedWeek(EntityManagerInterface $manager, InterventionRecord $source, DateTimeImmutable $monday, DateTimeImmutable $today, DateTimeImmutable $now, int $offset): void
+  {
+    $start = $monday->modify('+' . $offset . ' days');
+    $intervention = $this->intervention($manager, $source, 'operations:' . $start->format('Y-m-d'), 'Workload demo - field operations - ' . $start->format('Y-m-d'), 0 === $offset ? 'in_progress' : 'planned', $start, $start->modify('+6 days'), $now);
+    if (null === $intervention) {
+      return;
+    }
+    for ($day = 0; $day < 5; ++$day) {
+      $this->seedDay($manager, $intervention, $start->modify('+' . $day . ' days'), $today, $now, $day);
+    }
+    $this->task($manager, $intervention, 'unestimated', 'Additional equipment survey - estimate needed', self::COORDINATOR, null, $start, $start->modify('+4 days'), $now);
+    $this->task($manager, $intervention, 'unassigned', 'Loading bay inventory - assignment needed', null, 180, $start, $start->modify('+4 days'), $now);
+  }
+
+  private function seedDay(ObjectManager $manager, InterventionRecord $intervention, DateTimeImmutable $date, DateTimeImmutable $today, DateTimeImmutable $now, int $day): void
+  {
+    $isToday = $date->format('Y-m-d') === $today->format('Y-m-d');
+    $index = 0;
+    foreach (self::TASKS as $memberId => $label) {
+      $remaining = 120 + (($day + $index++) % 4) * 60;
+      if (self::OWNER === $memberId) {
+        $remaining = 240;
+        if ($isToday) {
+          $remaining = 360;
+        } elseif (0 === $day) {
+          $remaining = 480;
+        }
+      } elseif (self::FIELD_TECHNICIAN === $memberId && 2 === $day) {
+        $remaining = 300;
+      }
+      $item = $this->task($manager, $intervention, $memberId . ':' . $date->format('Y-m-d'), $label, $memberId, $remaining, $date, $date, $now);
+      if ($date < $today) {
+        $item->status = 'completed';
+        $item->remainingMinutes = 0;
+        $this->time($manager, $item, $memberId, $date, $remaining - 30, $now);
+      } elseif ($isToday) {
+        $item->status = 'in_progress';
+        $this->time($manager, $item, $memberId, $date, 120, $now, self::OWNER === $memberId);
+      }
+    }
+  }
+
+  private function seedOtherScenarios(EntityManagerInterface $manager, InterventionRecord $source, DateTimeImmutable $monday, DateTimeImmutable $now): void
+  {
     $draft = $this->intervention($manager, $source, 'forecast:' . $monday->format('Y-m-d'), 'Workload demo - upcoming campaign (draft)', 'draft', $monday, $monday->modify('+13 days'), $now);
     if (null !== $draft) {
       $this->task($manager, $draft, 'forecast', 'Prepare the next inventory campaign', self::OWNER, 300, $monday, $monday->modify('+11 days'), $now);
@@ -158,7 +177,6 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     if (null !== $overdue) {
       $this->task($manager, $overdue, 'overdue', 'Finish the previous inventory report', self::PARIS_TECHNICIAN, 90, null, null, $now);
     }
-    $manager->flush();
   }
 
   /**
@@ -188,7 +206,7 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
       ['organization' => self::ORGANIZATION],
     );
     if (!is_numeric($number)) {
-      throw new RuntimeException('Could not allocate a workload demo intervention number.');
+      throw new InterventionWorkloadFixtureException('Could not allocate a workload demo intervention number.');
     }
     $intervention = new InterventionRecord();
     $intervention->id = $id;

@@ -97,48 +97,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
      * @var OrganizationRole $role
      */
     $role = $this->transactionManager->transactional(
-      function () use ($command, $organizationId, $roleId, $permissions): OrganizationRole {
-        $this->joinAccess?->assertRoleChange($command->organizationId, $command->roleId, $permissions);
-        $this->lastAdminGuard->assertCanUpdateRolePermissions(
-          $command->organizationId,
-          $command->roleId,
-          $permissions,
-        );
-
-        $role = $this->roleRepository->findById($roleId);
-
-        if (null === $role || (string) $role->organizationId() !== $command->organizationId) {
-          throw OrganizationRoleNotFoundException::withId($command->roleId);
-        }
-
-        if ($role->isSystem()) {
-          throw OrganizationSystemRoleImmutableException::cannotBeModified();
-        }
-
-        if (null !== $command->name) {
-          $newName = new OrganizationRoleName($command->name);
-
-          if (!$newName->equals($role->name())) {
-            $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $newName);
-
-            if (null !== $existing) {
-              throw OrganizationRoleNameAlreadyExistsException::create();
-            }
-
-            $role->rename($newName);
-          }
-        }
-
-        $role->updatePermissions($permissions);
-
-        if (null !== $command->description) {
-          $role->updateDescription($command->description);
-        }
-
-        $this->roleRepository->save($role);
-
-        return $role;
-      },
+      fn (): OrganizationRole => $this->updateRole($command, $organizationId, $roleId, $permissions),
     );
 
     $this->eventDispatcher->dispatch(new OrganizationRoleUpdatedEvent(
@@ -157,6 +116,45 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
       createdAt: $role->createdAt(),
       description: $role->description(),
     );
+  }
+
+  /**
+   * @param list<string> $permissions
+   */
+  private function updateRole(
+    UpdateOrganizationRoleCommand $command,
+    OrganizationId $organizationId,
+    OrganizationRoleId $roleId,
+    array $permissions,
+  ): OrganizationRole {
+    $this->joinAccess?->assertRoleChange($command->organizationId, $command->roleId, $permissions);
+    $this->lastAdminGuard->assertCanUpdateRolePermissions($command->organizationId, $command->roleId, $permissions);
+
+    $role = $this->roleRepository->findById($roleId);
+    if (null === $role || (string) $role->organizationId() !== $command->organizationId) {
+      throw OrganizationRoleNotFoundException::withId($command->roleId);
+    }
+    if ($role->isSystem()) {
+      throw OrganizationSystemRoleImmutableException::cannotBeModified();
+    }
+    if (null !== $command->name) {
+      $newName = new OrganizationRoleName($command->name);
+      if (!$newName->equals($role->name())) {
+        $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $newName);
+        if (null !== $existing) {
+          throw OrganizationRoleNameAlreadyExistsException::create();
+        }
+        $role->rename($newName);
+      }
+    }
+
+    $role->updatePermissions($permissions);
+    if (null !== $command->description) {
+      $role->updateDescription($command->description);
+    }
+    $this->roleRepository->save($role);
+
+    return $role;
   }
   // #endregion
 }

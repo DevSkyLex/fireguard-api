@@ -18,6 +18,10 @@ use Messaging\Presentation\Api\Dto\Output\{ChannelOutput, ChannelParticipantOutp
  */
 final class ChannelOutputFactory
 {
+  // #region Constants
+  private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
+  // #endregion
+
   // #region Methods
   /**
    * Method fromView.
@@ -34,10 +38,10 @@ final class ChannelOutputFactory
   {
     $output = new ChannelOutput();
     $output->id = $view->id;
-    $output->organization = '/api/organizations/' . $view->organizationId;
+    $output->organization = self::ORGANIZATION_IRI_PREFIX . $view->organizationId;
     $output->name = $view->name;
-    $output->team = null === $view->teamId ? null : '/api/organizations/' . $view->organizationId . '/teams/' . $view->teamId;
-    $output->createdByMember = null === $view->createdByMemberId ? null : '/api/organizations/' . $view->organizationId . '/members/' . $view->createdByMemberId;
+    $output->team = null === $view->teamId ? null : self::ORGANIZATION_IRI_PREFIX . $view->organizationId . '/teams/' . $view->teamId;
+    $output->createdByMember = null === $view->createdByMemberId ? null : self::ORGANIZATION_IRI_PREFIX . $view->organizationId . '/members/' . $view->createdByMemberId;
     $output->participantCount = $view->participantCount;
     $output->isArchived = $view->isArchived;
     $output->lastMessageAt = $view->lastMessageAt?->format('c');

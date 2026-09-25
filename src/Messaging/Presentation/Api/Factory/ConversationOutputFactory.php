@@ -37,6 +37,8 @@ final class ConversationOutputFactory
     'non_conformity' => 'non-conformities',
     'channel' => 'channels',
   ];
+
+  private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
   // #endregion
 
   // #region Methods
@@ -58,7 +60,7 @@ final class ConversationOutputFactory
   {
     $output = new ConversationOutput();
     $output->id = $view->id;
-    $output->organization = '/api/organizations/' . $view->organizationId;
+    $output->organization = self::ORGANIZATION_IRI_PREFIX . $view->organizationId;
     $output->subjectType = $view->subjectType;
     $output->subject = null === $view->subjectId
       ? null
@@ -73,10 +75,10 @@ final class ConversationOutputFactory
     $output->updatedAt = $view->updatedAt->format('c');
     $output->isChannel = 'channel' === $view->subjectType;
     $output->name = $view->name;
-    $output->team = null === $view->teamId ? null : '/api/organizations/' . $view->organizationId . '/teams/' . $view->teamId;
+    $output->team = null === $view->teamId ? null : self::ORGANIZATION_IRI_PREFIX . $view->organizationId . '/teams/' . $view->teamId;
     $output->isFavorite = $isFavorite;
     $output->parentConversationId = $view->parentConversationId;
-    $output->counterpartMember = null === $counterpartMemberId ? null : '/api/organizations/' . $view->organizationId . '/members/' . $counterpartMemberId;
+    $output->counterpartMember = null === $counterpartMemberId ? null : self::ORGANIZATION_IRI_PREFIX . $view->organizationId . '/members/' . $counterpartMemberId;
 
     return $output;
   }

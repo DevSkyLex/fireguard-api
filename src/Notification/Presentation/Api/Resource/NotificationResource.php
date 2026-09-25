@@ -44,7 +44,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 20,
       normalizationContext: ['groups' => [NotificationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'unreadOnly' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
@@ -145,7 +145,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notifications retrieved successfully'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -156,7 +156,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: MercureSubscriptionOutput::class,
       provider: GetMercureSubscriptionProvider::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::MERCURE_SUBSCRIPTION]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'Get Mercure subscription token',
@@ -164,7 +164,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Mercure subscription token returned successfully'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -177,7 +177,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: UnreadNotificationsCountOutput::class,
       provider: GetUnreadNotificationsCountProvider::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::UNREAD_COUNT]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'uuid'],
@@ -203,7 +203,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Unread notification count returned successfully'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -214,7 +214,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: MarkAllNotificationsAsReadOutput::class,
       processor: MarkAllNotificationsAsReadProcessor::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::MARK_ALL_AS_READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'uuid'],
@@ -240,7 +240,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notifications marked as read'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -253,7 +253,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: NotificationPreferencesOutput::class,
       provider: GetNotificationPreferencesProvider::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::PREFERENCES]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'Get notification preferences',
@@ -261,7 +261,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notification preferences retrieved successfully'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -273,7 +273,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateNotificationPreferencesProcessor::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::PREFERENCES]],
       denormalizationContext: ['groups' => [NotificationSerializationGroup::PREFERENCES_WRITE]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'Update notification preferences',
@@ -282,7 +282,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notification preferences updated successfully'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - validation failed'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -293,7 +293,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: NotificationOutput::class,
       provider: GetNotificationProvider::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'Get notification',
@@ -302,7 +302,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notification retrieved successfully'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Notification not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -314,7 +314,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: GetNotificationProvider::class,
       processor: MarkNotificationAsReadProcessor::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'Mark notification as read',
@@ -323,7 +323,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notification marked as read'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Notification not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -331,4 +331,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class NotificationResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+  // #endregion
 }

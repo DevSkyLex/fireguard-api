@@ -60,6 +60,10 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
 {
   use UnwrapsOrganizationBusFailures;
 
+  // #region Constants
+  private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
+  // #endregion
+
   /**
    * @var array<string, string>
    */
@@ -152,17 +156,16 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
       $this->assertMetricsPermissions($user->getId(), $organizationId, $additionalMetrics);
     }
 
-    $this->assertMetricScopedFilters(
-      metric: $metric,
-      facilityType: $facilityType,
-      equipmentType: $equipmentType,
-      equipmentStatus: $equipmentStatus,
-      inspectionStatus: $inspectionStatus,
-      inspectionResult: $inspectionResult,
-      inspectorType: $inspectorType,
-      nonConformityStatus: $nonConformityStatus,
-      nonConformitySeverity: $nonConformitySeverity,
-    );
+    $this->assertMetricScopedFilters($metric, [
+      'facilityType' => $facilityType,
+      'equipmentType' => $equipmentType,
+      'equipmentStatus' => $equipmentStatus,
+      'inspectionStatus' => $inspectionStatus,
+      'inspectionResult' => $inspectionResult,
+      'inspectorType' => $inspectorType,
+      'nonConformityStatus' => $nonConformityStatus,
+      'nonConformitySeverity' => $nonConformitySeverity,
+    ]);
 
     try {
       /**
@@ -311,62 +314,55 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
    * Inspection trends accept only inspection filters, while
    * non-conformity trends accept only non-conformity filters.
    *
+   * @param array{facilityType: ?string, equipmentType: ?string, equipmentStatus: ?string, inspectionStatus: ?string, inspectionResult: ?string, inspectorType: ?string, nonConformityStatus: ?string, nonConformitySeverity: ?string} $filters
+   *
    * @throws BadRequestHttpException when a filter unsupported by the selected metric is provided
    */
-  private function assertMetricScopedFilters(
-    string $metric,
-    ?string $facilityType,
-    ?string $equipmentType,
-    ?string $equipmentStatus,
-    ?string $inspectionStatus,
-    ?string $inspectionResult,
-    ?string $inspectorType,
-    ?string $nonConformityStatus,
-    ?string $nonConformitySeverity,
-  ): void {
+  private function assertMetricScopedFilters(string $metric, array $filters): void
+  {
     match ($metric) {
       GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED => $this->assertUnsupportedMetricFilters(
         'inspection trend',
         [
-          'facilityType' => $facilityType,
-          'equipmentType' => $equipmentType,
-          'equipmentStatus' => $equipmentStatus,
-          'nonConformityStatus' => $nonConformityStatus,
-          'nonConformitySeverity' => $nonConformitySeverity,
+          'facilityType' => $filters['facilityType'],
+          'equipmentType' => $filters['equipmentType'],
+          'equipmentStatus' => $filters['equipmentStatus'],
+          'nonConformityStatus' => $filters['nonConformityStatus'],
+          'nonConformitySeverity' => $filters['nonConformitySeverity'],
         ],
       ),
       GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED => $this->assertUnsupportedMetricFilters(
         'equipment-created trend',
         [
-          'facilityType' => $facilityType,
-          'inspectionStatus' => $inspectionStatus,
-          'inspectionResult' => $inspectionResult,
-          'inspectorType' => $inspectorType,
-          'nonConformityStatus' => $nonConformityStatus,
-          'nonConformitySeverity' => $nonConformitySeverity,
+          'facilityType' => $filters['facilityType'],
+          'inspectionStatus' => $filters['inspectionStatus'],
+          'inspectionResult' => $filters['inspectionResult'],
+          'inspectorType' => $filters['inspectorType'],
+          'nonConformityStatus' => $filters['nonConformityStatus'],
+          'nonConformitySeverity' => $filters['nonConformitySeverity'],
         ],
       ),
       GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED => $this->assertUnsupportedMetricFilters(
         'facilities-created trend',
         [
-          'equipmentType' => $equipmentType,
-          'equipmentStatus' => $equipmentStatus,
-          'inspectionStatus' => $inspectionStatus,
-          'inspectionResult' => $inspectionResult,
-          'inspectorType' => $inspectorType,
-          'nonConformityStatus' => $nonConformityStatus,
-          'nonConformitySeverity' => $nonConformitySeverity,
+          'equipmentType' => $filters['equipmentType'],
+          'equipmentStatus' => $filters['equipmentStatus'],
+          'inspectionStatus' => $filters['inspectionStatus'],
+          'inspectionResult' => $filters['inspectionResult'],
+          'inspectorType' => $filters['inspectorType'],
+          'nonConformityStatus' => $filters['nonConformityStatus'],
+          'nonConformitySeverity' => $filters['nonConformitySeverity'],
         ],
       ),
       default => $this->assertUnsupportedMetricFilters(
         'non-conformity trend',
         [
-          'facilityType' => $facilityType,
-          'equipmentType' => $equipmentType,
-          'equipmentStatus' => $equipmentStatus,
-          'inspectionStatus' => $inspectionStatus,
-          'inspectionResult' => $inspectionResult,
-          'inspectorType' => $inspectorType,
+          'facilityType' => $filters['facilityType'],
+          'equipmentType' => $filters['equipmentType'],
+          'equipmentStatus' => $filters['equipmentStatus'],
+          'inspectionStatus' => $filters['inspectionStatus'],
+          'inspectionResult' => $filters['inspectionResult'],
+          'inspectorType' => $filters['inspectorType'],
         ],
       ),
     };
@@ -438,7 +434,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     }
     if (!is_string($value)) {
       throw new BadRequestHttpException(sprintf(
-        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        self::INVALID_BOOLEAN_FILTER_MESSAGE,
         $name,
       ));
     }
@@ -446,7 +442,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $value = trim($value);
     if ('' === $value) {
       throw new BadRequestHttpException(sprintf(
-        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        self::INVALID_BOOLEAN_FILTER_MESSAGE,
         $name,
       ));
     }
@@ -457,7 +453,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     }
 
     throw new BadRequestHttpException(sprintf(
-      'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+      self::INVALID_BOOLEAN_FILTER_MESSAGE,
       $name,
     ));
   }

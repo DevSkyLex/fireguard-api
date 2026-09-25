@@ -9,6 +9,7 @@ use Intervention\Application\Port\Inbound\InterventionWorkloadContributionsPort;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationWorkforceDirectoryPort};
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
+use Workload\Application\Contract\Planning\WorkloadTaskProposal;
 use Workload\Application\Port\Inbound\WorkloadPlanningPort;
 use Workload\Domain\Exception\{WorkloadAccessDeniedException, WorkloadNotFoundException};
 use Workload\Domain\ValueObject\{LocalDate, WorkDemand};
@@ -72,11 +73,32 @@ final readonly class AssessWorkloadHandler implements QueryHandler
         $activeMembers[] = $member->id;
       }
     }
+    [$tasks, $replacements, $members] = $this->loadContributions($query, $context->timezone);
+    [$replacements, $members] = self::applyChanges($query->changes, $tasks, $replacements, $members, $activeMembers);
+    // Match the writer's parent-scoped coordination and confirmation scope.
+    $parents = array_map(static fn (InterventionWorkContribution $task): string => $task->interventionId, $replacements);
+    foreach ($tasks as $task) {
+      if (null !== $task->memberId && in_array($task->interventionId, $parents, true)) {
+        $members[] = $task->memberId;
+      }
+    }
+    $before = $this->planning->capture($query->organizationId, $members);
+
+    return new AssessWorkloadResult($this->planning->assess($before, array_values($replacements)));
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @return array{array<string, InterventionWorkContribution>, array<string, InterventionWorkContribution>, list<string>}
+   */
+  private function loadContributions(AssessWorkloadQuery $query, string $timezone): array
+  {
     $tasks = [];
     $replacements = [];
     $members = [];
     $foundDraft = null === $query->planInterventionId;
-    foreach ($this->contributions->tasks($query->organizationId, $context->timezone) as $task) {
+    foreach ($this->contributions->tasks($query->organizationId, $timezone) as $task) {
       $tasks[$task->taskId] = $task;
       if ($task->interventionId === $query->planInterventionId && 'draft' === $task->commitment) {
         $foundDraft = true;
@@ -99,7 +121,24 @@ final readonly class AssessWorkloadHandler implements QueryHandler
     if (!$foundDraft) {
       throw new WorkloadNotFoundException('Draft intervention not found.');
     }
-    foreach ($query->changes as $change) {
+
+    return [$tasks, $replacements, $members];
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param list<WorkloadTaskProposal> $changes
+   * @param array<string, InterventionWorkContribution> $tasks
+   * @param array<string, InterventionWorkContribution> $replacements
+   * @param list<string> $members
+   * @param list<string> $activeMembers
+   *
+   * @return array{array<string, InterventionWorkContribution>, list<string>}
+   */
+  private static function applyChanges(array $changes, array $tasks, array $replacements, array $members, array $activeMembers): array
+  {
+    foreach ($changes as $change) {
       $task = $tasks[$change->taskId] ?? null;
       if (null === $task) {
         throw new WorkloadNotFoundException('Editable work item not found.');
@@ -137,15 +176,7 @@ final readonly class AssessWorkloadHandler implements QueryHandler
         $members[] = $change->memberId;
       }
     }
-    // Match the writer's parent-scoped coordination and confirmation scope.
-    $parents = array_map(static fn (InterventionWorkContribution $task): string => $task->interventionId, $replacements);
-    foreach ($tasks as $task) {
-      if (null !== $task->memberId && in_array($task->interventionId, $parents, true)) {
-        $members[] = $task->memberId;
-      }
-    }
-    $before = $this->planning->capture($query->organizationId, $members);
 
-    return new AssessWorkloadResult($this->planning->assess($before, array_values($replacements)));
+    return [$replacements, $members];
   }
 }

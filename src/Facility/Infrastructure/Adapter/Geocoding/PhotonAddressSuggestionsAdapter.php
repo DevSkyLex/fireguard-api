@@ -140,51 +140,61 @@ final readonly class PhotonAddressSuggestionsAdapter implements AddressSuggestio
     $results = [];
     $seen = [];
     foreach ($features as $feature) {
-      if (!is_array($feature)) {
+      $suggestion = $this->parseFeature($feature);
+      if (null === $suggestion) {
         continue;
       }
-      $properties = $feature['properties'] ?? null;
-      $geometry = $feature['geometry'] ?? null;
-      if (!is_array($properties) || !is_array($geometry) || 'Point' !== ($geometry['type'] ?? null)) {
-        continue;
-      }
-      $coordinates = $geometry['coordinates'] ?? null;
-      if (!is_array($coordinates)) {
-        continue;
-      }
-      $longitude = $coordinates[0] ?? null;
-      $latitude = $coordinates[1] ?? null;
-      $street = $this->text($properties, 'street');
-      $city = $this->text($properties, 'city');
-      if ('' === $street || '' === $city || !is_numeric($latitude) || !is_numeric($longitude)) {
-        continue;
-      }
-      $lat = (float) $latitude;
-      $lon = (float) $longitude;
-      if (!is_finite($lat) || !is_finite($lon) || abs($lat) > 90 || abs($lon) > 180) {
-        continue;
-      }
-      $streetLine = trim($this->text($properties, 'housenumber') . ' ' . $street);
-      $region = $this->text($properties, 'state');
-      $postalCode = $this->text($properties, 'postcode');
-      $label = implode(', ', array_filter([
-        $streetLine,
-        trim($this->text($properties, 'postcode') . ' ' . $city),
-        $region,
-        $this->text($properties, 'country'),
-      ], static fn (string $part): bool => '' !== $part));
-      $identity = mb_strtolower($label);
+      $identity = mb_strtolower($suggestion->displayName);
       if (isset($seen[$identity])) {
         continue;
       }
       $seen[$identity] = true;
-      $results[] = new AddressSuggestion($label, $lat, $lon, $streetLine, $city, $region, $postalCode, $this->text($properties, 'country'), $this->text($properties, 'countrycode'));
+      $results[] = $suggestion;
       if (5 === count($results)) {
         break;
       }
     }
 
     return $results;
+  }
+
+  private function parseFeature(mixed $feature): ?AddressSuggestion
+  {
+    if (!is_array($feature)) {
+      return null;
+    }
+    $properties = $feature['properties'] ?? null;
+    $geometry = $feature['geometry'] ?? null;
+    if (!is_array($properties) || !is_array($geometry) || 'Point' !== ($geometry['type'] ?? null)) {
+      return null;
+    }
+    $coordinates = $geometry['coordinates'] ?? null;
+    if (!is_array($coordinates)) {
+      return null;
+    }
+    $longitude = $coordinates[0] ?? null;
+    $latitude = $coordinates[1] ?? null;
+    $street = $this->text($properties, 'street');
+    $city = $this->text($properties, 'city');
+    if ('' === $street || '' === $city || !is_numeric($latitude) || !is_numeric($longitude)) {
+      return null;
+    }
+    $lat = (float) $latitude;
+    $lon = (float) $longitude;
+    if (!is_finite($lat) || !is_finite($lon) || abs($lat) > 90 || abs($lon) > 180) {
+      return null;
+    }
+    $streetLine = trim($this->text($properties, 'housenumber') . ' ' . $street);
+    $region = $this->text($properties, 'state');
+    $postalCode = $this->text($properties, 'postcode');
+    $label = implode(', ', array_filter([
+      $streetLine,
+      trim($this->text($properties, 'postcode') . ' ' . $city),
+      $region,
+      $this->text($properties, 'country'),
+    ], static fn (string $part): bool => '' !== $part));
+
+    return new AddressSuggestion($label, $lat, $lon, $streetLine, $city, $region, $postalCode, $this->text($properties, 'country'), $this->text($properties, 'countrycode'));
   }
 
   /**

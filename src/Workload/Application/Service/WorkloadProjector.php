@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Workload\Application\Service;
 
 use DateTimeZone;
-use Intervention\Application\Contract\Workload\InterventionWorkContribution;
+use Intervention\Application\Contract\Workload\{InterventionTimeContribution, InterventionWorkContribution};
 use Intervention\Application\Port\Inbound\InterventionWorkloadContributionsPort;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
 use Shared\Application\Port\Outbound\ClockPort;
@@ -94,23 +94,7 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
     }
     ksort($tasks);
     $actuals = $this->contributions->actuals($organizationId, $from, $to);
-    $members = [];
-    foreach ($this->workforce->members($organizationId) as $member) {
-      if ($member->active && (null === $memberIds || in_array($member->id, $memberIds, true))) {
-        $members[$member->id] = true;
-      }
-    }
-    foreach ($tasks as $task) {
-      if (null !== $task->memberId && (null === $memberIds || in_array($task->memberId, $memberIds, true))) {
-        $members[$task->memberId] = true;
-      }
-    }
-    foreach ($actuals as $entry) {
-      if (null === $memberIds || in_array($entry->memberId, $memberIds, true)) {
-        $members[$entry->memberId] = true;
-      }
-    }
-    ksort($members);
+    $members = $this->selectedMembers($organizationId, $memberIds, $tasks, $actuals);
     $organizationWeeks = array_values(array_filter($weeks, static fn ($week): bool => $week->scopeId === $organizationId));
     $toChange = static fn (CapacityWeekView $week): CapacityChange => new CapacityChange(LocalDate::fromString($week->effectiveOn), new CapacityWeek($week->minutes));
     // Index complete source reads once. Member pagination remains outside this projection.
@@ -135,10 +119,8 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
     $organizationChanges = array_map($toChange, $organizationWeeks);
     $dates = iterator_to_array(self::dates($start, $end), false);
     $output = [];
-    $unassigned = [];
     $overall = 'complete';
     $hasKnownCapacity = false;
-    $policy = new WorkloadAllocationPolicy();
     foreach (array_keys($members) as $memberId) {
       $schedule = new CapacitySchedule(
         $organizationChanges,
@@ -148,70 +130,24 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
           $exceptionsByMember[$memberId] ?? [],
         ),
       );
-      /** @var array<string, list<array{taskId: string, kind: string, minutes: int, entryId: ?string, interventionId: ?string, label: ?string}>> $shares */
-      $shares = [];
-      $unallocated = [];
-      foreach ($tasksByMember[$memberId] ?? [] as $task) {
-        if (null !== $task->startsOn && $task->startsOn > $to) {
-          continue;
-        }
-        $allocation = $policy->allocate(new WorkDemand(
-          $task->taskId,
-          $task->memberId,
-          $task->remainingMinutes,
-          null === $task->startsOn ? null : LocalDate::fromString($task->startsOn),
-          null === $task->endsOn ? null : LocalDate::fromString($task->endsOn),
-          $task->commitment,
-        ), $schedule, $today);
-        if (null !== $allocation->unallocatedReason) {
-          $unallocated[] = self::unallocated($task, $allocation->unallocatedReason);
-        }
-        foreach ($allocation->dailyMinutes as $date => $minutes) {
-          if ($date >= $from && $date <= $to && $minutes > 0) {
-            $shares[$date][] = ['taskId' => $task->taskId, 'kind' => $task->commitment, 'minutes' => $minutes, 'entryId' => null, 'interventionId' => $task->interventionId, 'label' => $task->label];
-          }
-        }
-      }
-      foreach ($actualsByMember[$memberId] ?? [] as $entry) {
-        $shares[$entry->workedOn][] = ['taskId' => $entry->taskId, 'kind' => 'actual', 'minutes' => $entry->minutes, 'entryId' => $entry->entryId, 'interventionId' => $entry->interventionId, 'label' => $entry->label];
-      }
-      $days = [];
-      foreach ($dates as $date) {
-        $totals = ['actual' => 0, 'committed' => 0, 'draft' => 0];
-        foreach ($shares[$date->value] ?? [] as $share) {
-          $totals[$share['kind']] += $share['minutes'];
-        }
-        $capacity = $schedule->on($date);
-        $hasKnownCapacity = $hasKnownCapacity || null !== $capacity;
-        $daily = new DailyWorkload($capacity, $totals['actual'], $totals['committed'], $totals['draft'], $date->value >= $today->value && [] !== $unallocated);
-        if ('complete' !== $daily->completeness()) {
-          $overall = 'partial';
-        }
-        $days[] = new WorkloadDayView(
-          $date->value,
-          $daily->capacityMinutes,
-          $daily->actualMinutes,
-          $daily->remainingMinutes,
-          $daily->draftMinutes,
-          $daily->overloadMinutes(),
-          $daily->utilizationPercent(),
-          $daily->completeness(),
-          $daily->availability(),
-          $shares[$date->value] ?? [],
-        );
+      [$shares, $unallocated] = self::taskShares($tasksByMember[$memberId] ?? [], $actualsByMember[$memberId] ?? [], $schedule, $today, $from, $to);
+      [$days, $memberHasKnownCapacity, $memberComplete] = self::dayViews($dates, $shares, $schedule, $today, [] !== $unallocated);
+      $hasKnownCapacity = $hasKnownCapacity || $memberHasKnownCapacity;
+      if (!$memberComplete) {
+        $overall = 'partial';
       }
       $output[] = new MemberWorkloadView($memberId, $days, $unallocated);
     }
-    if (null === $memberIds) {
-      foreach ($tasks as $task) {
-        if (null === $task->memberId && 'none' !== $task->commitment && 0 !== $task->remainingMinutes) {
-          $unassigned[] = self::unallocated($task, 'unassigned');
-        }
-      }
-    }
+    $unassigned = self::unassignedTasks($tasks, $memberIds);
     $scopedTasks = array_values(array_filter($tasks, static fn ($task): bool => null === $memberIds || in_array($task->memberId, $memberIds, true)));
     $scopedActuals = array_values(array_filter($actuals, static fn ($entry): bool => null === $memberIds || in_array($entry->memberId, $memberIds, true)));
     $fingerprint = hash('sha256', json_encode([$scopedTasks, $scopedActuals, $weeks, $exceptions, $today->value], JSON_THROW_ON_ERROR));
+    $completeness = $overall;
+    if (!$hasKnownCapacity) {
+      $completeness = 'unavailable';
+    } elseif ([] !== $unassigned) {
+      $completeness = 'partial';
+    }
 
     return new WorkloadProjectionSnapshot(new WorkloadProjectionView(
       $from,
@@ -222,8 +158,151 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
       $now->format('c'),
       $output,
       $unassigned,
-      !$hasKnownCapacity ? 'unavailable' : ([] !== $unassigned ? 'partial' : $overall),
+      $completeness,
     ), $fingerprint);
+  }
+
+  /**
+   * Keep future remaining demand separate from factual time contributions.
+   *
+   * @since 1.0.0
+   *
+   * @param list<InterventionWorkContribution> $tasks
+   * @param list<InterventionTimeContribution> $actuals
+   *
+   * @return array{array<string, list<array{taskId: string, kind: string, minutes: int, entryId: ?string, interventionId: ?string, label: ?string}>>, list<UnallocatedWorkView>}
+   */
+  private static function taskShares(array $tasks, array $actuals, CapacitySchedule $schedule, LocalDate $today, string $from, string $to): array
+  {
+    $shares = [];
+    $unallocated = [];
+    $policy = new WorkloadAllocationPolicy();
+    foreach ($tasks as $task) {
+      if (null !== $task->startsOn && $task->startsOn > $to) {
+        continue;
+      }
+      $allocation = $policy->allocate(new WorkDemand(
+        $task->taskId,
+        $task->memberId,
+        $task->remainingMinutes,
+        null === $task->startsOn ? null : LocalDate::fromString($task->startsOn),
+        null === $task->endsOn ? null : LocalDate::fromString($task->endsOn),
+        $task->commitment,
+      ), $schedule, $today);
+      if (null !== $allocation->unallocatedReason) {
+        $unallocated[] = self::unallocated($task, $allocation->unallocatedReason);
+      }
+      foreach ($allocation->dailyMinutes as $date => $minutes) {
+        if ($date >= $from && $date <= $to && $minutes > 0) {
+          $shares[$date][] = ['taskId' => $task->taskId, 'kind' => $task->commitment, 'minutes' => $minutes, 'entryId' => null, 'interventionId' => $task->interventionId, 'label' => $task->label];
+        }
+      }
+    }
+    foreach ($actuals as $entry) {
+      $shares[$entry->workedOn][] = ['taskId' => $entry->taskId, 'kind' => 'actual', 'minutes' => $entry->minutes, 'entryId' => $entry->entryId, 'interventionId' => $entry->interventionId, 'label' => $entry->label];
+    }
+
+    return [$shares, $unallocated];
+  }
+
+  /**
+   * Materialize each local day from the complete, indexed contribution set.
+   *
+   * @since 1.0.0
+   *
+   * @param list<LocalDate> $dates
+   * @param array<string, list<array{taskId: string, kind: string, minutes: int, entryId: ?string, interventionId: ?string, label: ?string}>> $shares
+   *
+   * @return array{list<WorkloadDayView>, bool, bool} day views, known-capacity flag, completeness flag
+   */
+  private static function dayViews(array $dates, array $shares, CapacitySchedule $schedule, LocalDate $today, bool $hasUnallocated): array
+  {
+    $days = [];
+    $hasKnownCapacity = false;
+    $complete = true;
+    foreach ($dates as $date) {
+      $totals = ['actual' => 0, 'committed' => 0, 'draft' => 0];
+      foreach ($shares[$date->value] ?? [] as $share) {
+        $totals[$share['kind']] += $share['minutes'];
+      }
+      $capacity = $schedule->on($date);
+      $hasKnownCapacity = $hasKnownCapacity || null !== $capacity;
+      $daily = new DailyWorkload($capacity, $totals['actual'], $totals['committed'], $totals['draft'], $date->value >= $today->value && $hasUnallocated);
+      if ('complete' !== $daily->completeness()) {
+        $complete = false;
+      }
+      $days[] = new WorkloadDayView(
+        $date->value,
+        $daily->capacityMinutes,
+        $daily->actualMinutes,
+        $daily->remainingMinutes,
+        $daily->draftMinutes,
+        $daily->overloadMinutes(),
+        $daily->utilizationPercent(),
+        $daily->completeness(),
+        $daily->availability(),
+        $shares[$date->value] ?? [],
+      );
+    }
+
+    return [$days, $hasKnownCapacity, $complete];
+  }
+
+  /**
+   * Include active members and contributors retained in the projection history.
+   *
+   * @since 1.0.0
+   *
+   * @param ?list<string> $memberIds
+   * @param array<string, InterventionWorkContribution> $tasks
+   * @param list<InterventionTimeContribution> $actuals
+   *
+   * @return array<string, true>
+   */
+  private function selectedMembers(string $organizationId, ?array $memberIds, array $tasks, array $actuals): array
+  {
+    $members = [];
+    foreach ($this->workforce->members($organizationId) as $member) {
+      if ($member->active && (null === $memberIds || in_array($member->id, $memberIds, true))) {
+        $members[$member->id] = true;
+      }
+    }
+    foreach ($tasks as $task) {
+      if (null !== $task->memberId && (null === $memberIds || in_array($task->memberId, $memberIds, true))) {
+        $members[$task->memberId] = true;
+      }
+    }
+    foreach ($actuals as $entry) {
+      if (null === $memberIds || in_array($entry->memberId, $memberIds, true)) {
+        $members[$entry->memberId] = true;
+      }
+    }
+    ksort($members);
+
+    return $members;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param array<string, InterventionWorkContribution> $tasks
+   * @param ?list<string> $memberIds
+   *
+   * @return list<UnallocatedWorkView>
+   */
+  private static function unassignedTasks(array $tasks, ?array $memberIds): array
+  {
+    if (null !== $memberIds) {
+      return [];
+    }
+    $unassigned = [];
+    foreach ($tasks as $task) {
+      if (null === $task->memberId && 'none' !== $task->commitment && 0 !== $task->remainingMinutes) {
+        $unassigned[] = self::unallocated($task, 'unassigned');
+      }
+    }
+
+    return $unassigned;
   }
 
   /**

@@ -38,6 +38,7 @@ use Symfony\Component\HttpKernel\Exception\{
   ConflictHttpException,
   NotFoundHttpException
 };
+use Throwable;
 
 use function is_string;
 
@@ -91,11 +92,11 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     /** @var CreateInspectionInput $data */
     if (null !== $data->intervention && null !== $this->entityManager) {
       return $this->entityManager->wrapInTransaction(
-        fn (): InspectionOutput => $this->processCreation($data, $operation, $uriVariables, $context),
+        fn (): InspectionOutput => $this->processCreation($data, $uriVariables),
       );
     }
 
-    return $this->processCreation($data, $operation, $uriVariables, $context);
+    return $this->processCreation($data, $uriVariables);
   }
 
   /**
@@ -106,11 +107,9 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CreateInspectionInput $data the input data
-   * @param Operation $operation the operation value
    * @param array<string, mixed> $uriVariables the uri variables value
-   * @param array<string, mixed> $context the context value
    */
-  private function processCreation(CreateInspectionInput $data, Operation $operation, array $uriVariables, array $context): InspectionOutput
+  private function processCreation(CreateInspectionInput $data, array $uriVariables): InspectionOutput
   {
     $resourceId = $uriVariables['id'] ?? null;
     if (is_string($resourceId)) {
@@ -162,17 +161,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
-        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     $output = $this->outputMapper->fromCreateResult($result);
@@ -182,6 +171,32 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     $output->revision = $assignment->revision;
 
     return $output;
+  }
+
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps a wrapped command failure to its HTTP equivalent.
+   *
+   * @since 1.0.0
+   *
+   * @param MessengerRuntimeException $exception the wrapped command failure
+   *
+   * @return Throwable the mapped or original exception
+   */
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+    if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+      return new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

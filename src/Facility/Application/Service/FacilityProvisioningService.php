@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\Service;
 
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionFacilityResult, ProvisionOutcome};
 use Facility\Application\Port\Inbound\FacilityProvisioningPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
@@ -160,7 +161,7 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
     $matches = $this->facilityRepository->findByOrganizationId(
       organizationId: FacilityOrganizationId::fromString($organizationId),
       includeArchived: false,
-      code: $parentCode,
+      criteria: new FacilityListCriteria(code: $parentCode),
       limit: 1,
       offset: 0,
     );

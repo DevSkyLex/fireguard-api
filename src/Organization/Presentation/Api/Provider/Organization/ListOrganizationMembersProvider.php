@@ -163,41 +163,10 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       throw $exception;
     }
 
-    /** @var ListOrganizationRolesResult $rolesResult */
-    $rolesResult = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
-    $roleNamesById = [];
-    foreach ($rolesResult->roles as $role) {
-      $roleNamesById[$role->id] = $role->name;
-    }
-
+    $roleNamesById = $this->roleNamesById($organizationId);
     $outputs = [];
     foreach ($result->items as $member) {
-      $output = new OrganizationMemberOutput();
-      $output->id = $member->id;
-      $output->organizationId = $member->organizationId;
-      $output->userId = $member->userId;
-      $output->displayName = $member->userId;
-      $output->isActive = $member->isActive;
-      $output->isOwner = $member->isOwner;
-      $output->joinedAt = $member->joinedAt->format('c');
-      $output->roleIds = $member->roleIds;
-      $output->roleNames = array_values(array_filter(array_map(
-        static fn (string $roleId): ?string => $roleNamesById[$roleId] ?? null,
-        $member->roleIds,
-      )));
-
-      $userResult = $this->findUser($member->userId);
-      if ($userResult instanceof GetUserResult && null !== $userResult->user) {
-        $output->email = $userResult->user->email;
-        $output->firstName = $userResult->user->firstName;
-        $output->lastName = $userResult->user->lastName;
-        $output->displayName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
-          ?: $userResult->user->username
-          ?: $member->userId;
-        $output->avatarUrl = $userResult->user->avatarUrl;
-      }
-
-      $outputs[] = $output;
+      $outputs[] = $this->memberOutput($member, $roleNamesById);
     }
 
     return new TraversablePaginator(
@@ -206,6 +175,54 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       itemsPerPage: (float) $pagination->itemsPerPage,
       totalItems: (float) $result->total,
     );
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function roleNamesById(string $organizationId): array
+  {
+    /** @var ListOrganizationRolesResult $rolesResult */
+    $rolesResult = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
+    $roleNamesById = [];
+    foreach ($rolesResult->roles as $role) {
+      $roleNamesById[$role->id] = $role->name;
+    }
+
+    return $roleNamesById;
+  }
+
+  /**
+   * @param array<string, string> $roleNamesById
+   */
+  private function memberOutput(GetOrganizationMemberResult $member, array $roleNamesById): OrganizationMemberOutput
+  {
+    $output = new OrganizationMemberOutput();
+    $output->id = $member->id;
+    $output->organizationId = $member->organizationId;
+    $output->userId = $member->userId;
+    $output->displayName = $member->userId;
+    $output->isActive = $member->isActive;
+    $output->isOwner = $member->isOwner;
+    $output->joinedAt = $member->joinedAt->format('c');
+    $output->roleIds = $member->roleIds;
+    $output->roleNames = array_values(array_filter(array_map(
+      static fn (string $roleId): ?string => $roleNamesById[$roleId] ?? null,
+      $member->roleIds,
+    )));
+
+    $userResult = $this->findUser($member->userId);
+    if ($userResult instanceof GetUserResult && null !== $userResult->user) {
+      $output->email = $userResult->user->email;
+      $output->firstName = $userResult->user->firstName;
+      $output->lastName = $userResult->user->lastName;
+      $output->displayName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
+        ?: $userResult->user->username
+        ?: $member->userId;
+      $output->avatarUrl = $userResult->user->avatarUrl;
+    }
+
+    return $output;
   }
 
   /**

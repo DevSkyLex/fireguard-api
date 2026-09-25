@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Infrastructure\Logging;
 
+use Auth\Infrastructure\Exception\MissingPiiSaltException;
 use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 use function hash;
 use function hash_hmac;
@@ -72,7 +72,7 @@ final class SecurityLogSanitizerTest extends TestCase
     // fallback by name. A bare sha256 of an email is not a privacy measure -- the
     // input space is a wordlist, so anyone holding the logs can reverse it. The
     // salt was blank in every env file in the repository, so that is what shipped.
-    $this->expectException(RuntimeException::class);
+    $this->expectException(MissingPiiSaltException::class);
     $this->expectExceptionMessageMatches('/SECURITY_LOG_PII_SALT is blank/');
 
     new SecurityLogSanitizer(piiSalt: '   ');

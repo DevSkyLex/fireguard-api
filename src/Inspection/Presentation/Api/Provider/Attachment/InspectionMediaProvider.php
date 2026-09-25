@@ -40,6 +40,14 @@ final readonly class InspectionMediaProvider implements ProviderInterface
 {
   use MessengerExceptionUnwrapperTrait;
 
+  // #region Constants
+  private const string MISSING_READ_PERMISSION_MESSAGE = 'Missing organization.inspection.read permission.';
+
+  private const string NON_CONFORMITY_NOT_FOUND_MESSAGE = 'Non-conformity not found.';
+
+  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
+  // #endregion
+
   // #region Constructor
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -128,7 +136,7 @@ final readonly class InspectionMediaProvider implements ProviderInterface
       throw new NotFoundHttpException('Inspection not found.');
     }
     if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
+      throw new AccessDeniedHttpException(self::MISSING_READ_PERMISSION_MESSAGE);
     }
 
     return $this->ask($inspection->organization->id, $inspectionId, null, $inspectionId);
@@ -152,22 +160,22 @@ final readonly class InspectionMediaProvider implements ProviderInterface
 
     $nonConformity = $this->entityManager->find(NonConformityRecord::class, $nonConformityId);
     if (!$nonConformity instanceof NonConformityRecord || !$nonConformity->inspection instanceof InspectionRecord) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
 
     $inspection = $nonConformity->inspection;
     $organization = $inspection->organization;
     if (null === $organization) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
 
     $user = $this->user();
     $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
+      throw new AccessDeniedHttpException(self::MISSING_READ_PERMISSION_MESSAGE);
     }
 
     return $this->ask($organization->id, $inspection->id, $nonConformityId, $inspection->id);
@@ -236,21 +244,21 @@ final readonly class InspectionMediaProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $record = $this->entityManager->find(InspectionAttachmentRecord::class, $id);
     if (!$record instanceof InspectionAttachmentRecord || null === $record->inspection?->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $user = $this->user();
     $decision = $this->authorization->resolveAccess($user->getId(), $record->inspection->organization->id, 'organization.inspection.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
+      throw new AccessDeniedHttpException(self::MISSING_READ_PERMISSION_MESSAGE);
     }
 
     return self::output($record);

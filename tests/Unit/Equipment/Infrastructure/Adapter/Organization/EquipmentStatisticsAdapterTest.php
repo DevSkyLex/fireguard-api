@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Infrastructure\Adapter\Organization;
 
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter;
@@ -25,14 +26,12 @@ final class EquipmentStatisticsAdapterTest extends TestCase
       ->method('countByOrganizationId')
       ->willReturnCallback(static function (
         EquipmentOrganizationId $organizationId,
-        ?string $facilityId = null,
-        ?string $type = null,
-        ?string $status = null,
+        EquipmentListCriteria $criteria,
       ): int {
         self::assertSame(self::ORG_ID, (string) $organizationId);
-        self::assertNull($facilityId);
-        self::assertSame('fire_extinguisher', $type);
-        self::assertSame('operational', $status);
+        self::assertNull($criteria->facilityId);
+        self::assertSame('fire_extinguisher', $criteria->type);
+        self::assertSame('operational', $criteria->status);
 
         return 7;
       });
@@ -68,13 +67,11 @@ final class EquipmentStatisticsAdapterTest extends TestCase
       ->method('countByOrganizationId')
       ->willReturnCallback(static function (
         EquipmentOrganizationId $organizationId,
-        ?string $facilityId = null,
-        ?string $type = null,
-        ?string $status = null,
+        EquipmentListCriteria $criteria,
       ): int {
         self::assertSame(self::ORG_ID, (string) $organizationId);
 
-        return 'decommissioned' === $status ? 3 : 12;
+        return 'decommissioned' === $criteria->status ? 3 : 12;
       });
 
     $adapter = new EquipmentStatisticsAdapter($repository);

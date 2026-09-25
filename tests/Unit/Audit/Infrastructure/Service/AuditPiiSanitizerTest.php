@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Audit\Infrastructure\Service;
 
+use Audit\Infrastructure\Exception\MissingPiiSaltException;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 use function hash;
 use function hash_hmac;
@@ -95,7 +95,7 @@ final class AuditPiiSanitizerTest extends TestCase
     // sha256, which is not a privacy measure. The input space is a wordlist of
     // email addresses, so the digest is reversible by anyone holding the events.
     // It was blank in every env file in the repository, so that is what shipped.
-    $this->expectException(RuntimeException::class);
+    $this->expectException(MissingPiiSaltException::class);
     $this->expectExceptionMessageMatches('/SECURITY_LOG_PII_SALT is blank/');
 
     new AuditPiiSanitizer(includePii: false, piiSalt: '   ');

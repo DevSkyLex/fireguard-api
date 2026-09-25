@@ -43,7 +43,7 @@ final readonly class AssistantAttemptWriter
 
         return null;
       }
-      $message->markStreaming($now);
+      $message->markStreaming();
       $this->messages->save($message);
 
       return $message;
@@ -98,7 +98,7 @@ final readonly class AssistantAttemptWriter
   public function publish(AssistantMessage $message): void
   {
     try {
-      $this->realtime->publishGenerationEvent($message->organizationId(), $message->threadId(), (string) $message->id(), $message->status()->value, $message->body(), $message->tokenCount(), $message->errorCode(), $message->attemptId() ?? (string) $message->id(), $message->attemptNumber(), $message->attemptSequence(), $message->attemptExpiresAt()?->format('c'));
+      $this->realtime->publishGenerationEvent($message);
     } catch (Throwable $exception) {
       $this->logger->warning('Assistant realtime publish failed.', ['messageId' => (string) $message->id(), 'error' => $exception->getMessage()]);
     }

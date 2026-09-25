@@ -6,8 +6,8 @@ namespace Assistant\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
+use Assistant\Infrastructure\Exception\AssistantMessageThreadMissingException;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\{AssistantMessageRecord, AssistantThreadRecord};
-use RuntimeException;
 
 /**
  * Mapper AssistantMessageMapper.
@@ -35,7 +35,7 @@ final class AssistantMessageMapper
   public static function toDomain(AssistantMessageRecord $record): AssistantMessage
   {
     if (!$record->thread instanceof AssistantThreadRecord) {
-      throw new RuntimeException('An assistant message record must be associated with a thread.');
+      throw new AssistantMessageThreadMissingException('An assistant message record must be associated with a thread.');
     }
 
     return AssistantMessage::reconstitute(

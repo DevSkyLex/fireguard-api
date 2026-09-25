@@ -46,6 +46,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
 {
   use InvitationInvalidationTrait;
 
+  // #region Constants
+  private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
+  // #endregion
+
   private const string DEFAULT_MEMBER_ROLE = 'member';
 
   private const int DEFAULT_EXPIRATION_DAYS = 7;
@@ -103,7 +107,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
   public function __invoke(InviteOrganizationMemberCommand $command): InviteOrganizationMemberResult
   {
     if (null !== $command->setupContext && null === $this->setup) {
-      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+      throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
     $organizationId = OrganizationId::fromString($command->organizationId);
     $organization = $this->organizationRepository->findById($organizationId);
@@ -115,33 +119,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     $email = $this->normalizeEmail($command->email);
 
     $existingUser = $this->userRepository->findByEmail($email);
-    if (null === $command->setupContext) {
-      $pendingInvitation = $this->invitationRepository->findPendingByOrganizationAndEmail(
-        organizationId: $organizationId,
-        email: $email,
-      );
-
-      if (null !== $pendingInvitation) {
-        if ($pendingInvitation->isExpired()) {
-          $pendingInvitation->expire();
-          $this->invitationRepository->save($pendingInvitation);
-        } else {
-          throw OrganizationMembershipConflictException::pendingInvitationExists();
-        }
-      }
-
-      if (null !== $existingUser) {
-        $existingMember = $this->memberRepository->findByOrganizationAndUser(
-          organizationId: $organizationId,
-          userId: (string) $existingUser->id(),
-        );
-
-        if (null !== $existingMember && $existingMember->isActive()) {
-          throw OrganizationMembershipConflictException::alreadyAnActiveMember();
-        }
-      }
-    }
     $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
+    if (null === $command->setupContext) {
+      $this->assertCanInvite($organizationId, $email, $recipientUserId);
+    }
     $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
 
     /** @var list<string> $resolvedRoleIds */
@@ -182,72 +163,11 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       $roleIdsAsVo,
       $acceptUrl,
       $command,
-      $organizationId,
-      $email,
-      $existingUser,
+      $recipientUserId,
       $tokenHash,
       &$replayed,
     ): InviteOrganizationMemberResult {
-      if (null !== $command->setupContext) {
-        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'invite_members', $command->organizationId, ['email' => $command->email, 'roleIds' => $command->roleIds]);
-        if (null !== $operation->resourceId) {
-          $existing = $this->invitationRepository->findById(OrganizationInvitationId::fromString($operation->resourceId));
-          if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
-            throw OrganizationSetupConflict::because('The created invitation is no longer available.');
-          }
-          $replayed = true;
-
-          return $this->buildResult($existing);
-        }
-      }
-      if (null !== $command->setupContext) {
-        $pendingInvitation = $this->invitationRepository->findPendingByOrganizationAndEmail(
-          organizationId: $organizationId,
-          email: $email,
-        );
-
-        if (null !== $pendingInvitation) {
-          if ($pendingInvitation->isExpired()) {
-            $pendingInvitation->expire();
-            $this->invitationRepository->save($pendingInvitation);
-          } else {
-            throw OrganizationMembershipConflictException::pendingInvitationExists();
-          }
-        }
-
-        if (null !== $existingUser) {
-          $existingMember = $this->memberRepository->findByOrganizationAndUser(
-            organizationId: $organizationId,
-            userId: (string) $existingUser->id(),
-          );
-
-          if (null !== $existingMember && $existingMember->isActive()) {
-            throw OrganizationMembershipConflictException::alreadyAnActiveMember();
-          }
-        }
-      }
-      // Enforce the member cap inside the transaction (a pending invitation
-      // reserves a slot) so the advisory lock serializes it against concurrent
-      // adds/invitations (see OrganizationQuotaPort::assertCanAdd).
-      $this->quota->assertCanAdd((string) $invitation->organizationId(), OrganizationQuotaResource::MEMBERS);
-
-      $this->invitationRepository->save($invitation);
-      $this->invitationRepository->replaceRoleIds($invitation->id(), $roleIdsAsVo);
-      if ($command->deferDelivery) {
-        $this->deliveryQueue->enqueue((string) $invitation->id(), $acceptUrl, $tokenHash);
-        $this->eventDispatcher->dispatch(new OrganizationInvitationSentEvent(
-          organizationId: $command->organizationId,
-          invitationId: (string) $invitation->id(),
-          invitedEmail: $command->email,
-          invitedByUserId: $command->invitedByUserId,
-          resend: false,
-        ));
-      }
-      if (null !== $command->setupContext) {
-        ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'invite_members', (string) $invitation->id());
-      }
-
-      return $this->buildResult($invitation, $acceptUrl);
+      return $this->persistInvitation($command, $invitation, $roleIdsAsVo, $acceptUrl, $recipientUserId, $tokenHash, $replayed);
     });
 
     if ($replayed || $command->deferDelivery) {
@@ -262,17 +182,22 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       resend: false,
     ));
 
+    return $this->deliverInvitation($command, $invitation, (string) $organization->name(), $acceptUrl, $recipientUserId, $emailLocale, $tokenHash) ?? $result;
+  }
+
+  private function deliverInvitation(InviteOrganizationMemberCommand $command, OrganizationInvitation $invitation, string $organizationName, string $acceptUrl, ?string $recipientUserId, string $emailLocale, string $tokenHash): ?InviteOrganizationMemberResult
+  {
     $notification = null;
 
     try {
       $notification = $this->invitationNotifier->send(
-        organizationName: (string) $organization->name(),
+        organizationName: $organizationName,
         email: (string) $invitation->email(),
         acceptUrl: $acceptUrl,
         expiresAt: $invitation->expiresAt(),
         recipientUserId: $recipientUserId,
         locale: $emailLocale,
-        organizationId: (string) $organizationId,
+        organizationId: (string) $invitation->organizationId(),
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Invitation notification dispatch failed.', [
@@ -317,7 +242,77 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       ]);
     }
 
-    return $result;
+    return null;
+  }
+
+  private function assertCanInvite(OrganizationId $organizationId, Email $email, ?string $existingUserId): void
+  {
+    $pendingInvitation = $this->invitationRepository->findPendingByOrganizationAndEmail(
+      organizationId: $organizationId,
+      email: $email,
+    );
+
+    if (null !== $pendingInvitation) {
+      if ($pendingInvitation->isExpired()) {
+        $pendingInvitation->expire();
+        $this->invitationRepository->save($pendingInvitation);
+      } else {
+        throw OrganizationMembershipConflictException::pendingInvitationExists();
+      }
+    }
+
+    if (null !== $existingUserId) {
+      $existingMember = $this->memberRepository->findByOrganizationAndUser(
+        organizationId: $organizationId,
+        userId: $existingUserId,
+      );
+
+      if (null !== $existingMember && $existingMember->isActive()) {
+        throw OrganizationMembershipConflictException::alreadyAnActiveMember();
+      }
+    }
+  }
+
+  /**
+   * @param list<OrganizationRoleId> $roleIdsAsVo
+   */
+  private function persistInvitation(InviteOrganizationMemberCommand $command, OrganizationInvitation $invitation, array $roleIdsAsVo, string $acceptUrl, ?string $existingUserId, string $tokenHash, bool &$replayed): InviteOrganizationMemberResult
+  {
+    if (null !== $command->setupContext) {
+      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'invite_members', $command->organizationId, ['email' => $command->email, 'roleIds' => $command->roleIds]);
+      if (null !== $operation->resourceId) {
+        $existing = $this->invitationRepository->findById(OrganizationInvitationId::fromString($operation->resourceId));
+        if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
+          throw OrganizationSetupConflict::because('The created invitation is no longer available.');
+        }
+        $replayed = true;
+
+        return $this->buildResult($existing);
+      }
+      $this->assertCanInvite($invitation->organizationId(), $invitation->email(), $existingUserId);
+    }
+
+    // A pending invitation reserves a member slot, so enforce the cap inside
+    // the transaction serialized with concurrent adds and invitations.
+    $this->quota->assertCanAdd((string) $invitation->organizationId(), OrganizationQuotaResource::MEMBERS);
+
+    $this->invitationRepository->save($invitation);
+    $this->invitationRepository->replaceRoleIds($invitation->id(), $roleIdsAsVo);
+    if ($command->deferDelivery) {
+      $this->deliveryQueue->enqueue((string) $invitation->id(), $acceptUrl, $tokenHash);
+      $this->eventDispatcher->dispatch(new OrganizationInvitationSentEvent(
+        organizationId: $command->organizationId,
+        invitationId: (string) $invitation->id(),
+        invitedEmail: $command->email,
+        invitedByUserId: $command->invitedByUserId,
+        resend: false,
+      ));
+    }
+    if (null !== $command->setupContext) {
+      ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'invite_members', (string) $invitation->id());
+    }
+
+    return $this->buildResult($invitation, $acceptUrl);
   }
 
   /**

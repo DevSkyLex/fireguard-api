@@ -412,35 +412,51 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
       return null;
     }
 
-    $actionRules = null;
-    if (null !== $input->actionRules) {
-      $actionRules = [];
-      foreach ($input->actionRules as $actionType => $rule) {
-        if (null === $rule) {
-          $actionRules[$actionType] = null;
-
-          continue;
-        }
-
-        $mapped = [];
-        if (array_key_exists('enabled', $rule)) {
-          $mapped['enabled'] = $rule['enabled'];
-        }
-        if (array_key_exists('minApproverRole', $rule)) {
-          $mapped['min_approver_role'] = $rule['minApproverRole'];
-        }
-        if (array_key_exists('minSeverity', $rule)) {
-          $mapped['min_severity'] = $rule['minSeverity'];
-        }
-        $actionRules[$actionType] = $mapped;
-      }
-    }
-
     return [
-      'action_rules' => $actionRules,
+      'action_rules' => self::mapActionRules($input->actionRules),
       'allow_self_approval' => $input->allowSelfApproval,
       'approval_ttl_days' => $input->approvalTtlDays,
     ];
+  }
+
+  /**
+   * @param ?array<string, ?array{enabled?: bool, minApproverRole?: string, minSeverity?: ?string}> $rules
+   *
+   * @return ?array<string, ?array<string, mixed>>
+   */
+  private static function mapActionRules(?array $rules): ?array
+  {
+    if (null === $rules) {
+      return null;
+    }
+
+    $mapped = [];
+    foreach ($rules as $actionType => $rule) {
+      $mapped[$actionType] = null === $rule ? null : self::mapActionRule($rule);
+    }
+
+    return $mapped;
+  }
+
+  /**
+   * @param array{enabled?: bool, minApproverRole?: string, minSeverity?: ?string} $rule
+   *
+   * @return array<string, mixed>
+   */
+  private static function mapActionRule(array $rule): array
+  {
+    $mapped = [];
+    if (array_key_exists('enabled', $rule)) {
+      $mapped['enabled'] = $rule['enabled'];
+    }
+    if (array_key_exists('minApproverRole', $rule)) {
+      $mapped['min_approver_role'] = $rule['minApproverRole'];
+    }
+    if (array_key_exists('minSeverity', $rule)) {
+      $mapped['min_severity'] = $rule['minSeverity'];
+    }
+
+    return $mapped;
   }
 
   // #endregion

@@ -52,21 +52,21 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => 'getChallengeStatus',
                 'description' => 'Check the challenge status',
                 'parameters' => [
-                  'token' => '$response.body#/token',
+                  'token' => self::TOKEN_RESPONSE_LINK,
                 ],
               ],
               'VerifyChallenge' => [
                 'operationId' => 'verifyChallenge',
                 'description' => 'Verify the OTP code',
                 'parameters' => [
-                  'token' => '$response.body#/token',
+                  'token' => self::TOKEN_RESPONSE_LINK,
                 ],
               ],
               'ResendChallenge' => [
                 'operationId' => 'resendChallenge',
                 'description' => 'Resend the OTP if canResendIn is 0',
                 'parameters' => [
-                  'token' => '$response.body#/token',
+                  'token' => self::TOKEN_RESPONSE_LINK,
                 ],
               ],
             ]),
@@ -108,7 +108,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Challenge not found',
+            description: self::CHALLENGE_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -135,7 +135,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Invalid OTP code',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Challenge not found',
+            description: self::CHALLENGE_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_GONE => new Response(
             description: 'Challenge expired or max attempts reached',
@@ -165,7 +165,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'OTP resent successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Challenge not found',
+            description: self::CHALLENGE_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
             description: 'Resend cooldown not yet elapsed',
@@ -177,4 +177,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class ChallengeResource
 {
+  // #region Constants
+  private const string TOKEN_RESPONSE_LINK = '$response.body#/token';
+
+  private const string CHALLENGE_NOT_FOUND_DESCRIPTION = 'Challenge not found';
+  // #endregion
 }

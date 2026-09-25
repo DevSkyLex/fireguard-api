@@ -9,16 +9,17 @@ use DateTimeInterface;
 use DateTimeZone;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Contract\Export\EquipmentExportCandidate;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
+use Equipment\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Exception;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -40,6 +41,14 @@ use function strtoupper;
  */
 final readonly class EquipmentRepository implements EquipmentRepositoryPort
 {
+  // #region Constants
+  private const string EQUIPMENT_COUNT_EXPRESSION = 'COUNT(e.id)';
+
+  private const string ORGANIZATION_PREDICATE = 'e.organization = :organization';
+
+  private const string PUBLISHED_RECORD_PREDICATE = 'e.recordStatus = :publishedRecordStatus';
+  // #endregion
+
   // #region Properties
   /**
    * @var EntityRepository<EquipmentRecord>
@@ -141,27 +150,12 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function findByOrganizationId(
     EquipmentOrganizationId $organizationId,
-    ?string $facilityId = null,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $brand = null,
-    ?string $model = null,
-    ?string $subType = null,
-    ?string $search = null,
+    EquipmentListCriteria $criteria = new EquipmentListCriteria(),
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
   ): array {
-    $queryBuilder = $this->createListQueryBuilder(
-      $organizationId,
-      $facilityId,
-      $type,
-      $status,
-      $brand,
-      $model,
-      $subType,
-      $search,
-    );
+    $queryBuilder = $this->createListQueryBuilder($organizationId, $criteria);
 
     $sortField = match ($sorting->field) {
       'type' => 'e.type',
@@ -194,25 +188,10 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function countByOrganizationId(
     EquipmentOrganizationId $organizationId,
-    ?string $facilityId = null,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $brand = null,
-    ?string $model = null,
-    ?string $subType = null,
-    ?string $search = null,
+    EquipmentListCriteria $criteria = new EquipmentListCriteria(),
   ): int {
-    return (int) $this->createListQueryBuilder(
-      $organizationId,
-      $facilityId,
-      $type,
-      $status,
-      $brand,
-      $model,
-      $subType,
-      $search,
-    )
-      ->select('COUNT(e.id)')
+    return (int) $this->createListQueryBuilder($organizationId, $criteria)
+      ->select(self::EQUIPMENT_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
   }
@@ -244,7 +223,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
         'COALESCE(SUM(CASE WHEN e.status = :decommissionedStatus THEN 1 ELSE 0 END), 0) AS decommissioned',
       )
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('inStockStatus', 'in_stock')
       ->setParameter('operationalStatus', 'operational')
@@ -286,13 +265,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     /** @var list<array{status: string, equipmentCount: int|string}> $rows */
     $rows = $this->createListQueryBuilder(
       $organizationId,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      new EquipmentListCriteria(),
     )
       ->select('e.status AS status, COUNT(e.id) AS equipmentCount')
       ->groupBy('e.status')
@@ -323,13 +296,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     /** @var list<array{type: string, equipmentCount: int|string}> $rows */
     $rows = $this->createListQueryBuilder(
       $organizationId,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      new EquipmentListCriteria(),
     )
       ->select('e.type AS type, COUNT(e.id) AS equipmentCount')
       ->groupBy('e.type')
@@ -421,10 +388,10 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return (int) $this->entityManager->createQueryBuilder()
-      ->select('COUNT(e.id)')
+      ->select(self::EQUIPMENT_COUNT_EXPRESSION)
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published')
       ->getQuery()
@@ -447,8 +414,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $records = $this->entityManager->createQueryBuilder()
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published')
       ->orderBy('e.updatedAt', 'DESC')
@@ -487,7 +454,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId,
   ): int {
     $builder = $this->createLabelCandidateQueryBuilder($organizationId, $equipmentIds, $facilityId)
-      ->select('COUNT(e.id)');
+      ->select(self::EQUIPMENT_COUNT_EXPRESSION);
 
     return (int) $builder->getQuery()->getSingleScalarResult();
   }
@@ -558,8 +525,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
 
     $builder = $this->entityManager->createQueryBuilder()
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published');
 
@@ -582,25 +549,13 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
-   * @param ?string $facilityId the facility id value
-   * @param ?string $type the type value
-   * @param ?string $status the status value
-   * @param ?string $brand the brand value
-   * @param ?string $model the model value
-   * @param ?string $subType the sub type value
-   * @param ?string $search the search value
+   * @param EquipmentListCriteria $criteria the shared list and count filters
    *
    * @return QueryBuilder the create list query builder result
    */
   private function createListQueryBuilder(
     EquipmentOrganizationId $organizationId,
-    ?string $facilityId,
-    ?string $type,
-    ?string $status,
-    ?string $brand,
-    ?string $model,
-    ?string $subType,
-    ?string $search,
+    EquipmentListCriteria $criteria,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -608,51 +563,51 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
-    if (null !== $facilityId) {
+    if (null !== $criteria->facilityId) {
       $queryBuilder
         ->andWhere('e.facilityId = :facilityId')
-        ->setParameter('facilityId', $facilityId);
+        ->setParameter('facilityId', $criteria->facilityId);
     }
 
-    if (null !== $type) {
+    if (null !== $criteria->type) {
       $queryBuilder
         ->andWhere('e.type = :type')
-        ->setParameter('type', $type);
+        ->setParameter('type', $criteria->type);
     }
 
-    if (null !== $status) {
+    if (null !== $criteria->status) {
       $queryBuilder
         ->andWhere('e.status = :status')
-        ->setParameter('status', $status);
+        ->setParameter('status', $criteria->status);
     }
 
-    if (null !== $brand) {
+    if (null !== $criteria->brand) {
       $queryBuilder
         ->andWhere('e.brand = :brand')
-        ->setParameter('brand', $brand);
+        ->setParameter('brand', $criteria->brand);
     }
 
-    if (null !== $model) {
+    if (null !== $criteria->model) {
       $queryBuilder
         ->andWhere('e.model = :model')
-        ->setParameter('model', $model);
+        ->setParameter('model', $criteria->model);
     }
 
-    if (null !== $subType) {
+    if (null !== $criteria->subType) {
       $queryBuilder
         ->andWhere('e.subType = :subType')
-        ->setParameter('subType', $subType);
+        ->setParameter('subType', $criteria->subType);
     }
 
     TrigramSearchExpression::apply(
       $queryBuilder,
       'search',
-      $search,
+      $criteria->search,
       'e.type',
       'e.subType',
       'e.brand',
@@ -700,7 +655,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 

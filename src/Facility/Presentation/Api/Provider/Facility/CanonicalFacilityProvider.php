@@ -38,6 +38,10 @@ use function min;
  */
 final readonly class CanonicalFacilityProvider implements ProviderInterface
 {
+  // #region Constants
+  private const string FACILITY_NOT_FOUND_MESSAGE = 'Facility not found.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -78,10 +82,10 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     if (is_string($id) && '' !== $id) {
       $record = $this->entityManager->find(FacilityRecord::class, $id);
       if (!$record instanceof FacilityRecord) {
-        throw new NotFoundHttpException('Facility not found.');
+        throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
       }
       if (null === $record->organization) {
-        throw new NotFoundHttpException('Facility not found.');
+        throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
       }
       $this->assertRead($record->organization->id);
 
@@ -159,7 +163,12 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $organization = $this->organization($organizationValue, $intervention);
     $recordStatus = $request?->query->get('recordStatus');
 
-    return [$organization, $interventionId, is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (null !== $interventionId ? 'draft' : 'published')];
+    $resolvedRecordStatus = null !== $interventionId ? 'draft' : 'published';
+    if (is_string($recordStatus) && '' !== $recordStatus) {
+      $resolvedRecordStatus = $recordStatus;
+    }
+
+    return [$organization, $interventionId, $resolvedRecordStatus];
   }
 
   /**
@@ -176,11 +185,12 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    */
   private function organization(mixed $organizationValue, mixed $interventionValue): string
   {
-    $organizationId = is_string($organizationValue) && '' !== $organizationValue
-      ? ResourceIriParser::id($organizationValue, 'organizations')
-      : (is_string($interventionValue) && '' !== $interventionValue
-        ? $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId
-        : null);
+    $organizationId = null;
+    if (is_string($organizationValue) && '' !== $organizationValue) {
+      $organizationId = ResourceIriParser::id($organizationValue, 'organizations');
+    } elseif (is_string($interventionValue) && '' !== $interventionValue) {
+      $organizationId = $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId;
+    }
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
@@ -211,7 +221,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
 
     $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Facility not found.');
+      throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');

@@ -103,11 +103,11 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     /** @var CreateEquipmentInput $data */
     if (null !== $data->intervention && null !== $this->entityManager) {
       return $this->entityManager->wrapInTransaction(
-        fn (): EquipmentOutput => $this->processCreation($data, $operation, $uriVariables, $context),
+        fn (): EquipmentOutput => $this->processCreation($data, $uriVariables),
       );
     }
 
-    return $this->processCreation($data, $operation, $uriVariables, $context);
+    return $this->processCreation($data, $uriVariables);
   }
 
   /**
@@ -118,11 +118,9 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CreateEquipmentInput $data the input data
-   * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
-   * @param array<string, mixed> $context processing context values
    */
-  private function processCreation(CreateEquipmentInput $data, Operation $operation, array $uriVariables, array $context): EquipmentOutput
+  private function processCreation(CreateEquipmentInput $data, array $uriVariables): EquipmentOutput
   {
     $resourceId = $uriVariables['id'] ?? null;
     if (is_string($resourceId)) {
@@ -193,8 +191,8 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     string $userId,
   ): CreateEquipmentResult {
     try {
-      /** @var CreateEquipmentResult $result */
-      $result = $this->commandBus->dispatch(new CreateEquipmentCommand(
+      /** @var CreateEquipmentResult */
+      return $this->commandBus->dispatch(new CreateEquipmentCommand(
         setupContext: OrganizationSetupContext::fromOptional($userId, $data->onboardingSessionId, $data->onboardingItemKey),
         facilityId: null !== $data->onboardingSessionId && null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
         organizationId: $organizationId,
@@ -206,8 +204,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         locationLabel: $data->locationLabel,
         resourceId: $resourceId,
       ));
-
-      return $result;
     } catch (EquipmentSerialNumberAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

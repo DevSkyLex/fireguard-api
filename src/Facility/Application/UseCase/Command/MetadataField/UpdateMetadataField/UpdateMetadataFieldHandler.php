@@ -6,6 +6,7 @@ namespace Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField
 
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\FacilityMetadataFieldNotFoundException;
+use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldLabel,
@@ -60,38 +61,7 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
     }
 
     try {
-      if ($command->hasLabel) {
-        if (null === $command->label) {
-          throw InvalidValueException::because('Field "label" cannot be null when provided.');
-        }
-
-        $field->rename(new FacilityMetadataFieldLabel($command->label));
-      }
-
-      if ($command->hasFieldType) {
-        if (null === $command->fieldType) {
-          throw InvalidValueException::because('Field "fieldType" cannot be null when provided.');
-        }
-
-        $field->changeType(
-          FacilityMetadataFieldType::from($command->fieldType),
-          $command->hasOptions ? ($command->options ?? []) : $field->options(),
-        );
-      } elseif ($command->hasOptions) {
-        $field->changeOptions($command->options ?? []);
-      }
-
-      if ($command->hasRequired) {
-        $field->changeRequired($command->required ?? false);
-      }
-
-      if ($command->hasFacilityType) {
-        $field->changeFacilityType(null === $command->facilityType ? null : FacilityType::from($command->facilityType));
-      }
-
-      if ($command->hasUnit) {
-        $field->changeUnit($command->unit);
-      }
+      $this->applyChanges($field, $command);
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
@@ -111,6 +81,42 @@ final readonly class UpdateMetadataFieldHandler implements CommandHandler
       createdAt: $field->createdAt(),
       updatedAt: $field->updatedAt(),
     );
+  }
+
+  private function applyChanges(FacilityMetadataField $field, UpdateMetadataFieldCommand $command): void
+  {
+    if ($command->hasLabel) {
+      if (null === $command->label) {
+        throw InvalidValueException::because('Field "label" cannot be null when provided.');
+      }
+
+      $field->rename(new FacilityMetadataFieldLabel($command->label));
+    }
+
+    if ($command->hasFieldType) {
+      if (null === $command->fieldType) {
+        throw InvalidValueException::because('Field "fieldType" cannot be null when provided.');
+      }
+
+      $field->changeType(
+        FacilityMetadataFieldType::from($command->fieldType),
+        $command->hasOptions ? ($command->options ?? []) : $field->options(),
+      );
+    } elseif ($command->hasOptions) {
+      $field->changeOptions($command->options ?? []);
+    }
+
+    if ($command->hasRequired) {
+      $field->changeRequired($command->required ?? false);
+    }
+
+    if ($command->hasFacilityType) {
+      $field->changeFacilityType(null === $command->facilityType ? null : FacilityType::from($command->facilityType));
+    }
+
+    if ($command->hasUnit) {
+      $field->changeUnit($command->unit);
+    }
   }
   // #endregion
 }

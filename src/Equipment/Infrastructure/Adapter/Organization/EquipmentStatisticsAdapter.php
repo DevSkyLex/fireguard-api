@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Adapter\Organization;
 
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\ValueObject\{EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Organization\Application\Port\Outbound\EquipmentStatisticsPort;
@@ -31,8 +32,7 @@ final readonly class EquipmentStatisticsAdapter implements EquipmentStatisticsPo
   {
     return $this->equipmentRepository->countByOrganizationId(
       EquipmentOrganizationId::fromString($organizationId),
-      type: $type,
-      status: $status,
+      new EquipmentListCriteria(type: $type, status: $status),
     );
   }
 
@@ -43,11 +43,10 @@ final readonly class EquipmentStatisticsAdapter implements EquipmentStatisticsPo
   {
     $organization = EquipmentOrganizationId::fromString($organizationId);
 
-    $total = $this->equipmentRepository->countByOrganizationId($organization, type: $type);
+    $total = $this->equipmentRepository->countByOrganizationId($organization, new EquipmentListCriteria(type: $type));
     $decommissioned = $this->equipmentRepository->countByOrganizationId(
       $organization,
-      type: $type,
-      status: EquipmentStatus::DECOMMISSIONED->value,
+      new EquipmentListCriteria(type: $type, status: EquipmentStatus::DECOMMISSIONED->value),
     );
 
     return $total - $decommissioned;

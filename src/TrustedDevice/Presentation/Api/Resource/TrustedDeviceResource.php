@@ -30,7 +30,7 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
       normalizationContext: ['groups' => [TrustedDeviceSerializationGroup::READ]],
       security: "is_granted('trusted_devices.create')",
       openapi: new Operation(
-        tags: ['Trusted Devices'],
+        tags: [self::OPENAPI_TAG_TRUSTED_DEVICES],
         summary: 'Trust device',
         description: 'Register the current device as trusted.',
         security: [['bearerAuth' => []]],
@@ -42,10 +42,10 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
             description: 'Invalid request',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -63,7 +63,7 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
       normalizationContext: ['groups' => [TrustedDeviceSerializationGroup::READ]],
       security: "is_granted('trusted_devices.read')",
       openapi: new Operation(
-        tags: ['Trusted Devices'],
+        tags: [self::OPENAPI_TAG_TRUSTED_DEVICES],
         summary: 'List trusted devices',
         description: 'List all trusted devices for the current user.',
         security: [['bearerAuth' => []]],
@@ -72,10 +72,10 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
             description: 'List of trusted devices retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -88,7 +88,7 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
       processor: RevokeDeviceProcessor::class,
       security: "is_granted('trusted_devices.revoke')",
       openapi: new Operation(
-        tags: ['Trusted Devices'],
+        tags: [self::OPENAPI_TAG_TRUSTED_DEVICES],
         summary: 'Revoke trusted device',
         description: 'Revoke trust for a specific device.',
         security: [['bearerAuth' => []]],
@@ -100,10 +100,10 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
             description: 'Device not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -117,7 +117,7 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
       processor: RevokeAllDevicesProcessor::class,
       security: "is_granted('trusted_devices.revoke')",
       openapi: new Operation(
-        tags: ['Trusted Devices'],
+        tags: [self::OPENAPI_TAG_TRUSTED_DEVICES],
         summary: 'Revoke all trusted devices',
         description: 'Revoke trust for all devices.',
         security: [['bearerAuth' => []]],
@@ -126,10 +126,10 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
             description: 'All devices revoked successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -138,4 +138,11 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
 )]
 final class TrustedDeviceResource
 {
+  // #region Constants
+  private const string OPENAPI_TAG_TRUSTED_DEVICES = 'Trusted Devices';
+
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

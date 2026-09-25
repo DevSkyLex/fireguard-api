@@ -91,61 +91,21 @@ final readonly class IssueTokenHandler implements CommandHandler
         codeVerifier: $command->codeVerifier,
       );
 
-      $scopes = $this->parseScopes($result->scope);
-
-      $authCode = null;
-      $refreshToken = null;
-      $accessToken = null;
-      $userIdentifier = null;
-      $audience = $command->clientId;
-      $nonce = null;
-
-      if ('authorization_code' === $command->grantType && null !== $command->code) {
-        $authCode = $this->authCodeRepository->findByEncryptedCode($command->code);
-        if (null === $authCode) {
-          $authCode = $this->authCodeRepository->find($command->code);
-        }
-        if ([] === $scopes && null !== $authCode) {
-          $scopes = $authCode->scopes()->toArray();
-        }
-        if (null !== $authCode) {
-          $userIdentifier = $authCode->userIdentifier();
-          $audience = (string) $authCode->clientIdentifier();
-          $nonce = $authCode->nonce();
-        }
-      }
-
-      if ('refresh_token' === $command->grantType && null !== $command->refreshToken) {
-        $refreshToken = $this->refreshTokenRepository->findByEncryptedToken($command->refreshToken);
-        if (null === $refreshToken) {
-          $refreshToken = $this->refreshTokenRepository->find($command->refreshToken);
-        }
-        if (null !== $refreshToken) {
-          $audience = (string) $refreshToken->clientIdentifier();
-          $accessToken = $this->accessTokenRepository->find($refreshToken->accessTokenIdentifier());
-          if (null !== $accessToken) {
-            if ([] === $scopes) {
-              $scopes = $accessToken->scopes()->toArray();
-            }
-
-            if (null === $userIdentifier || '' === $userIdentifier) {
-              $userIdentifier = $accessToken->userIdentifier();
-            }
-          }
-        }
-      }
-
-      $normalizedUserId = (null !== $userIdentifier && '' !== $userIdentifier) ? $userIdentifier : null;
+      $context = $this->resolveTokenContext($command, $this->parseScopes($result->scope));
+      $scopes = $context['scopes'];
+      $normalizedUserId = (null !== $context['userIdentifier'] && '' !== $context['userIdentifier'])
+        ? $context['userIdentifier'] : null;
 
       $idToken = null;
       if ($this->shouldIssueIdToken($command->grantType, $scopes, $normalizedUserId)) {
         /** @var non-empty-string $normalizedUserId */
+        $audience = $context['audience'];
         /** @var non-empty-string $audience */
         $claims = $this->buildIdTokenClaims($normalizedUserId, $scopes);
         $idToken = $this->idTokenIssuer->issueIdToken(
           subject: $normalizedUserId,
           audience: $audience,
-          nonce: $nonce,
+          nonce: $context['nonce'],
           claims: $claims,
         );
       }
@@ -178,6 +138,75 @@ final readonly class IssueTokenHandler implements CommandHandler
 
       throw $exception;
     }
+  }
+
+  /**
+   * @param list<string> $scopes
+   *
+   * @return array{scopes: list<string>, userIdentifier: ?string, audience: string, nonce: ?string}
+   */
+  private function resolveTokenContext(IssueTokenCommand $command, array $scopes): array
+  {
+    if ('authorization_code' === $command->grantType && null !== $command->code) {
+      return $this->authorizationCodeContext($command->code, $command->clientId, $scopes);
+    }
+    if ('refresh_token' === $command->grantType && null !== $command->refreshToken) {
+      return $this->refreshTokenContext($command->refreshToken, $command->clientId, $scopes);
+    }
+
+    return ['scopes' => $scopes, 'userIdentifier' => null, 'audience' => $command->clientId, 'nonce' => null];
+  }
+
+  /**
+   * @param list<string> $scopes
+   *
+   * @return array{scopes: list<string>, userIdentifier: ?string, audience: string, nonce: ?string}
+   */
+  private function authorizationCodeContext(string $code, string $clientId, array $scopes): array
+  {
+    $authCode = $this->authCodeRepository->findByEncryptedCode($code);
+    if (null === $authCode) {
+      $authCode = $this->authCodeRepository->find($code);
+    }
+    if (null === $authCode) {
+      return ['scopes' => $scopes, 'userIdentifier' => null, 'audience' => $clientId, 'nonce' => null];
+    }
+
+    return [
+      'scopes' => [] === $scopes ? $authCode->scopes()->toArray() : $scopes,
+      'userIdentifier' => $authCode->userIdentifier(),
+      'audience' => (string) $authCode->clientIdentifier(),
+      'nonce' => $authCode->nonce(),
+    ];
+  }
+
+  /**
+   * @param list<string> $scopes
+   *
+   * @return array{scopes: list<string>, userIdentifier: ?string, audience: string, nonce: ?string}
+   */
+  private function refreshTokenContext(string $token, string $clientId, array $scopes): array
+  {
+    $refreshToken = $this->refreshTokenRepository->findByEncryptedToken($token);
+    if (null === $refreshToken) {
+      $refreshToken = $this->refreshTokenRepository->find($token);
+    }
+    if (null === $refreshToken) {
+      return ['scopes' => $scopes, 'userIdentifier' => null, 'audience' => $clientId, 'nonce' => null];
+    }
+
+    $audience = (string) $refreshToken->clientIdentifier();
+    $accessToken = $this->accessTokenRepository->find($refreshToken->accessTokenIdentifier());
+    if (null === $accessToken) {
+      return ['scopes' => $scopes, 'userIdentifier' => null, 'audience' => $audience, 'nonce' => null];
+    }
+
+    return [
+      'scopes' => [] === $scopes ? $accessToken->scopes()->toArray() : $scopes,
+      'userIdentifier' => $accessToken->userIdentifier(),
+      'audience' => $audience,
+      'nonce' => null,
+    ];
   }
 
   /**

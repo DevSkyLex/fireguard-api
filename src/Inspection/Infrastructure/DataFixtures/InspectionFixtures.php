@@ -33,6 +33,18 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
   public const string TREND_CHECKLIST_ID = 'e6f5fe61-910b-4cd0-8d09-72af38405c64';
 
+  private const string ADMIN_USER_NAME = 'Admin User';
+
+  private const string TEST_USER_NAME = 'Test User';
+
+  private const string EXTERNAL_SAFETY_SERVICES_NAME = 'External Safety Services';
+
+  private const string SAFE_CHECK_CONSULTANTS_NAME = 'SafeCheck Consultants';
+
+  private const string APRIL_ELEVENTH_DUE_AT = '2026-04-11T12:00:00+00:00';
+
+  private const string AQUAFIRE_MAINTENANCE_NAME = 'AquaFire Maintenance';
+
   public static function getGroups(): array
   {
     return ['inspection', 'main-seed'];
@@ -51,42 +63,26 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
-    /** @var EquipmentRecord $extinguisher */
-    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $detector */
-    $detector = $this->getReference(EquipmentFixtures::DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $hydrant */
-    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $sprinkler */
-    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $alarmPanel */
-    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $heatDetector */
-    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $siteEmergencyLighting */
-    $siteEmergencyLighting = $this->getReference(EquipmentFixtures::SITE_EMERGENCY_LIGHTING_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $buildingFireDoor */
-    $buildingFireDoor = $this->getReference(EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $floorOneCamera */
-    $floorOneCamera = $this->getReference(EquipmentFixtures::FLOOR_ONE_CAMERA_REFERENCE, EquipmentRecord::class);
-    /** @var EquipmentRecord $floorTwoGasDetector */
-    $floorTwoGasDetector = $this->getReference(EquipmentFixtures::FLOOR_TWO_GAS_DETECTOR_REFERENCE, EquipmentRecord::class);
-    /** @var FacilityRecord $site */
-    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $building */
-    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $floorOne */
-    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $floorTwo */
-    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $zone */
-    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $area */
-    $area = $this->getReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $zoneB */
-    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
-    /** @var FacilityRecord $storageRoom */
-    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
+
+    $checklist = $this->seedMonthlyChecklist($manager, $organization);
+    $coreInspections = $this->seedCoreInspections($manager, $organization, $checklist);
+    $this->seedAprilCoreInspections($manager, $organization, $checklist);
+    $this->seedAdditionalEquipmentInspections($manager, $organization, $checklist);
+    $this->seedCoreNonConformities($manager, $coreInspections);
+
+    $annualChecklist = $this->seedAnnualChecklist($manager, $organization);
+    $this->seedAnnualWinterInspections($manager, $organization, $annualChecklist);
+    $this->seedSpringInspections($manager, $organization, $checklist, $annualChecklist);
+    $this->seedJanuaryInspections($manager, $organization, $checklist, $annualChecklist);
+    $this->seedFebruaryInspections($manager, $organization, $checklist);
+    $this->seedMarchAprilInspections($manager, $organization, $checklist, $annualChecklist);
+
+    $manager->flush();
+  }
+
+  private function seedMonthlyChecklist(ObjectManager $manager, OrganizationRecord $organization): ChecklistRecord
+  {
+
 
     $checklist = new ChecklistRecord();
     $checklist->id = self::TREND_CHECKLIST_ID;
@@ -114,13 +110,28 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       $manager->persist($item);
     }
 
+    return $checklist;
+  }
+
+  /**
+   * @return array{partial: InspectionRecord, failing: InspectionRecord, lateFail: InspectionRecord, latePartial: InspectionRecord}
+   */
+  private function seedCoreInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): array
+  {
+    /** @var EquipmentRecord $extinguisher */
+    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $detector */
+    $detector = $this->getReference(EquipmentFixtures::DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zone */
+    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
+
     $passingInspection = $this->createInspection(
       id: '72caf154-79de-4216-92b8-347af0f0fe2c',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-05T09:00:00+00:00'),
@@ -137,7 +148,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-10T09:30:00+00:00'),
@@ -153,7 +164,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-14T11:00:00+00:00'),
@@ -169,13 +180,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'External Safety Services',
+      inspectorName: self::EXTERNAL_SAFETY_SERVICES_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-03-20T14:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Smoke detector signal did not trigger panel alert.',
-      inspectorOrganizationName: 'External Safety Services',
+      inspectorOrganizationName: self::EXTERNAL_SAFETY_SERVICES_NAME,
     );
     $manager->persist($failingInspection);
     $this->addReference(self::FAILING_INSPECTION_REFERENCE, $failingInspection);
@@ -186,13 +197,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'External Safety Services',
+      inspectorName: self::EXTERNAL_SAFETY_SERVICES_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-24T15:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Detector still failed the panel acknowledgment sequence.',
-      inspectorOrganizationName: 'External Safety Services',
+      inspectorOrganizationName: self::EXTERNAL_SAFETY_SERVICES_NAME,
     );
     $manager->persist($lateFailInspection);
 
@@ -202,7 +213,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-03-29T09:30:00+00:00'),
@@ -212,13 +223,44 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     );
     $manager->persist($latePartialInspection);
 
+    return [
+      'partial' => $partialInspection,
+      'failing' => $failingInspection,
+      'lateFail' => $lateFailInspection,
+      'latePartial' => $latePartialInspection,
+    ];
+  }
+
+  private function seedAprilCoreInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  {
+    /** @var EquipmentRecord $extinguisher */
+    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zone */
+    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $siteEmergencyLighting */
+    $siteEmergencyLighting = $this->getReference(EquipmentFixtures::SITE_EMERGENCY_LIGHTING_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $site */
+    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $buildingFireDoor */
+    $buildingFireDoor = $this->getReference(EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $building */
+    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $floorOneCamera */
+    $floorOneCamera = $this->getReference(EquipmentFixtures::FLOOR_ONE_CAMERA_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $floorOne */
+    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $floorTwoGasDetector */
+    $floorTwoGasDetector = $this->getReference(EquipmentFixtures::FLOOR_TWO_GAS_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $floorTwo */
+    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
+
     $recentPassInspection = $this->createInspection(
       id: '95a0d708-2f2e-4227-8533-ea24aaf12c42',
       organization: $organization,
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-01T08:30:00+00:00'),
@@ -234,7 +276,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $siteEmergencyLighting->id,
       facilityId: $site->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-04T08:00:00+00:00'),
@@ -250,13 +292,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $buildingFireDoor->id,
       facilityId: $building->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'SafeCheck Consultants',
+      inspectorName: self::SAFE_CHECK_CONSULTANTS_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-04-04T09:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Fire door closes correctly but the closer needs tension adjustment.',
-      inspectorOrganizationName: 'SafeCheck Consultants',
+      inspectorOrganizationName: self::SAFE_CHECK_CONSULTANTS_NAME,
     );
     $manager->persist($buildingFireDoorInspection);
 
@@ -266,7 +308,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $floorOneCamera->id,
       facilityId: $floorOne->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-04T10:15:00+00:00'),
@@ -282,13 +324,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $floorTwoGasDetector->id,
       facilityId: $floorTwo->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'External Safety Services',
+      inspectorName: self::EXTERNAL_SAFETY_SERVICES_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-04-04T11:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Gas detector calibration drift exceeded tolerance.',
-      inspectorOrganizationName: 'External Safety Services',
+      inspectorOrganizationName: self::EXTERNAL_SAFETY_SERVICES_NAME,
     );
     $manager->persist($floorTwoGasDetectorInspection);
 
@@ -312,86 +354,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       status: NonConformityStatus::IN_PROGRESS->value,
       createdAt: SeedTimeline::at('2026-04-04T11:20:00+00:00'),
       updatedAt: SeedTimeline::at('2026-04-04T11:20:00+00:00'),
-      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      dueAt: SeedTimeline::at(self::APRIL_ELEVENTH_DUE_AT),
       notes: 'Replacement sensor requested from vendor.',
     ));
+  }
 
-    $bulkInspectionIndex = 0;
-    $bulkNonConformityIndex = 0;
-    foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
-      /** @var EquipmentRecord $equipment */
-      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+  /**
+   * @param array{partial: InspectionRecord, failing: InspectionRecord, lateFail: InspectionRecord, latePartial: InspectionRecord} $inspections
+   */
+  private function seedCoreNonConformities(ObjectManager $manager, array $inspections): void
+  {
+    $partialInspection = $inspections['partial'];
+    $failingInspection = $inspections['failing'];
+    $lateFailInspection = $inspections['lateFail'];
+    $latePartialInspection = $inspections['latePartial'];
 
-      for ($inspectionIndex = 0; $inspectionIndex < 3; ++$inspectionIndex) {
-        $result = match (($equipmentIndex + $inspectionIndex) % 4) {
-          1 => InspectionResult::PARTIAL->value,
-          2 => InspectionResult::FAIL->value,
-          default => InspectionResult::PASS->value,
-        };
-        $status = InspectionResult::PASS->value === $result || 0 === $inspectionIndex
-          ? InspectionStatus::CLOSED->value
-          : InspectionStatus::SUBMITTED->value;
-        $inspectorType = 0 === ($equipmentIndex + $inspectionIndex) % 3
-          ? InspectorType::EXTERNAL->value
-          : InspectorType::USER->value;
-        $performedAt = SeedTimeline::at(sprintf(
-          '2026-04-%02dT%02d:00:00+00:00',
-          6 + intdiv($equipmentIndex, 4),
-          8 + $inspectionIndex,
-        ));
 
-        $inspection = $this->createInspection(
-          id: SeedUuid::from(sprintf('inspection-bulk:%d', $bulkInspectionIndex++)),
-          organization: $organization,
-          equipmentId: $equipment->id,
-          facilityId: $equipment->facilityId,
-          inspectorType: $inspectorType,
-          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : (0 === $inspectionIndex % 2 ? 'Admin User' : 'Test User'),
-          result: $result,
-          status: $status,
-          performedAt: $performedAt,
-          checklistId: $checklist->id,
-          notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $seed['locationLabel']),
-          inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
-          inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : null,
-        );
-        $manager->persist($inspection);
-
-        if (InspectionResult::PASS->value !== $result) {
-          $nonConformityIndex = $bulkNonConformityIndex++;
-
-          // Severity and status are spread deterministically across all four
-          // values so the register's severity breakdown is never a single
-          // flat bar — a FAIL still skews high/critical, a PARTIAL low/medium.
-          $severity = InspectionResult::FAIL->value === $result
-            ? (0 === $nonConformityIndex % 3 ? NonConformitySeverity::CRITICAL->value : NonConformitySeverity::HIGH->value)
-            : (0 === $nonConformityIndex % 2 ? NonConformitySeverity::LOW->value : NonConformitySeverity::MEDIUM->value);
-          $nonConformityStatus = match ($nonConformityIndex % 5) {
-            0 => NonConformityStatus::IN_PROGRESS->value,
-            3 => NonConformityStatus::DONE->value,
-            4 => NonConformityStatus::WAIVED->value,
-            default => NonConformityStatus::OPEN->value,
-          };
-          $isResolved = NonConformityStatus::DONE->value === $nonConformityStatus
-            || NonConformityStatus::WAIVED->value === $nonConformityStatus;
-
-          $manager->persist($this->createNonConformity(
-            id: SeedUuid::from(sprintf('non-conformity-bulk:%d', $nonConformityIndex)),
-            inspection: $inspection,
-            description: InspectionResult::FAIL->value === $result
-              ? sprintf('%s failed validation during seeded inspection.', $seed['locationLabel'])
-              : sprintf('%s requires follow-up adjustment after seeded inspection.', $seed['locationLabel']),
-            severity: $severity,
-            status: $nonConformityStatus,
-            createdAt: $performedAt->modify('+15 minutes'),
-            updatedAt: $performedAt->modify($isResolved ? '+6 days' : '+15 minutes'),
-            dueAt: $isResolved ? null : $performedAt->modify('+14 days'),
-            resolvedAt: $isResolved ? $performedAt->modify('+6 days') : null,
-            notes: 'Generated from dense seed fixture data.',
-          ));
-        }
-      }
-    }
 
     $manager->persist($this->createNonConformity(
       id: 'f261d7e4-48af-4bf7-8b2d-2c171e50b822',
@@ -464,6 +442,11 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       resolvedAt: SeedTimeline::at('2026-04-01T08:00:00+00:00'),
       notes: 'Resolved after recalibration and validation.',
     ));
+  }
+
+  private function seedAnnualChecklist(ObjectManager $manager, OrganizationRecord $organization): ChecklistRecord
+  {
+
 
     // Annual Safety Checklist
     $annualChecklist = new ChecklistRecord();
@@ -492,6 +475,20 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       $manager->persist($item);
     }
 
+    return $annualChecklist;
+  }
+
+  private function seedAnnualWinterInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $annualChecklist): void
+  {
+    /** @var EquipmentRecord $hydrant */
+    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $sprinkler */
+    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $alarmPanel */
+    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zoneB */
+    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
+
     // February – hydrant annual inspection (PASS, closed)
     $hydrantPassInspection = $this->createInspection(
       id: 'e5c40817-6dae-4095-b81d-7580db679237',
@@ -499,7 +496,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $hydrant->id,
       facilityId: null,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-10T10:00:00+00:00'),
@@ -516,13 +513,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-20T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Sprinkler head coverage confirmed, flow test passed.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($sprinklerPassInspection);
 
@@ -533,13 +530,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'SafeCheck Consultants',
+      inspectorName: self::SAFE_CHECK_CONSULTANTS_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-25T13:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Panel functional but event log exceeded manufacturer threshold.',
-      inspectorOrganizationName: 'SafeCheck Consultants',
+      inspectorOrganizationName: self::SAFE_CHECK_CONSULTANTS_NAME,
     );
     $manager->persist($alarmPanelInspection);
 
@@ -566,6 +563,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       dueAt: SeedTimeline::at('2026-04-10T12:00:00+00:00'),
       notes: 'Wiring inspection scheduled, intermittent fault under investigation.',
     ));
+  }
+
+  private function seedSpringInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
+  {
+    /** @var EquipmentRecord $heatDetector */
+    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $storageRoom */
+    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $extinguisher */
+    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $area */
+    $area = $this->getReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $sprinkler */
+    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zoneB */
+    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
 
     // March – heat detector in storage room (DRAFT, in progress)
     $heatDetectorDraftInspection = $this->createInspection(
@@ -574,7 +587,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::DRAFT->value,
       performedAt: SeedTimeline::at('2026-03-18T08:00:00+00:00'),
@@ -591,7 +604,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $area->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-02T09:00:00+00:00'),
@@ -608,7 +621,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-04-03T07:30:00+00:00'),
@@ -629,6 +642,26 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       dueAt: SeedTimeline::at('2026-04-17T12:00:00+00:00'),
       notes: 'Replacement part ordered, estimated delivery within 10 days.',
     ));
+  }
+
+  private function seedJanuaryInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
+  {
+    /** @var EquipmentRecord $extinguisher */
+    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zone */
+    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $detector */
+    $detector = $this->getReference(EquipmentFixtures::DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $area */
+    $area = $this->getReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $hydrant */
+    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $alarmPanel */
+    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zoneB */
+    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $sprinkler */
+    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
 
     // ── January ─────────────────────────────────────────────────────────────
 
@@ -639,7 +672,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-06T09:00:00+00:00'),
@@ -656,7 +689,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $area->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-12T10:30:00+00:00'),
@@ -673,13 +706,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $hydrant->id,
       facilityId: null,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-19T14:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Hydrant coupling thread worn, pressure drop observed.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($janHydrantInspection);
 
@@ -702,7 +735,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-23T11:00:00+00:00'),
@@ -719,15 +752,27 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-28T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Post-installation commissioning test passed.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($janSprinklerInspection);
+  }
+
+  private function seedFebruaryInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  {
+    /** @var EquipmentRecord $heatDetector */
+    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $storageRoom */
+    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $extinguisher */
+    $extinguisher = $this->getReference(EquipmentFixtures::EXTINGUISHER_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zone */
+    $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
 
     // ── February extras ──────────────────────────────────────────────────────
 
@@ -738,7 +783,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-05T08:30:00+00:00'),
@@ -755,7 +800,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-14T10:00:00+00:00'),
@@ -776,6 +821,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       resolvedAt: SeedTimeline::at('2026-02-15T09:00:00+00:00'),
       notes: 'Sticker updated and log corrected on site.',
     ));
+  }
+
+  private function seedMarchAprilInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist, ChecklistRecord $annualChecklist): void
+  {
+    /** @var EquipmentRecord $sprinkler */
+    $sprinkler = $this->getReference(EquipmentFixtures::SPRINKLER_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $zoneB */
+    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $alarmPanel */
+    $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $heatDetector */
+    $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $storageRoom */
+    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
+    /** @var EquipmentRecord $hydrant */
+    $hydrant = $this->getReference(EquipmentFixtures::HYDRANT_REFERENCE, EquipmentRecord::class);
 
     // ── March extras ─────────────────────────────────────────────────────────
 
@@ -786,7 +847,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-04T09:00:00+00:00'),
@@ -803,13 +864,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'SafeCheck Consultants',
+      inspectorName: self::SAFE_CHECK_CONSULTANTS_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-03-11T13:30:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Zone 2 failed to report to central panel during test sequence.',
-      inspectorOrganizationName: 'SafeCheck Consultants',
+      inspectorOrganizationName: self::SAFE_CHECK_CONSULTANTS_NAME,
     );
     $manager->persist($marAlarmFailInspection);
 
@@ -821,7 +882,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       status: NonConformityStatus::IN_PROGRESS->value,
       createdAt: SeedTimeline::at('2026-03-11T14:00:00+00:00'),
       updatedAt: SeedTimeline::at('2026-03-28T09:00:00+00:00'),
-      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      dueAt: SeedTimeline::at(self::APRIL_ELEVENTH_DUE_AT),
       notes: 'Wire pinched behind panel cabinet. Repair kit ordered.',
     ));
 
@@ -833,7 +894,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       status: NonConformityStatus::OPEN->value,
       createdAt: SeedTimeline::at('2026-03-11T14:05:00+00:00'),
       updatedAt: SeedTimeline::at('2026-03-11T14:05:00+00:00'),
-      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      dueAt: SeedTimeline::at(self::APRIL_ELEVENTH_DUE_AT),
       notes: 'Likely caused by same wiring fault. Pending repair validation.',
     ));
 
@@ -844,7 +905,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-17T10:00:00+00:00'),
@@ -873,13 +934,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $hydrant->id,
       facilityId: null,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-26T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Post-repair validation passed. Coupling threads confirmed sound.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($marHydrantInspection);
 
@@ -892,7 +953,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-03T08:00:00+00:00'),
@@ -901,8 +962,124 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
     );
     $manager->persist($aprHeatDetectorInspection);
+  }
 
-    $manager->flush();
+  private function seedAdditionalEquipmentInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  {
+    $indexes = ['inspection' => 0, 'nonConformity' => 0];
+    foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
+      /** @var EquipmentRecord $equipment */
+      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+      $context = [
+        'organization' => $organization,
+        'checklist' => $checklist,
+        'equipment' => $equipment,
+        'locationLabel' => $seed['locationLabel'],
+      ];
+
+      for ($inspectionIndex = 0; $inspectionIndex < 3; ++$inspectionIndex) {
+        $this->seedAdditionalInspection($manager, $context, $equipmentIndex, $inspectionIndex, $indexes);
+      }
+    }
+  }
+
+  /**
+   * @param array{organization: OrganizationRecord, checklist: ChecklistRecord, equipment: EquipmentRecord, locationLabel: string} $context
+   * @param array{inspection: int, nonConformity: int} $indexes
+   */
+  private function seedAdditionalInspection(ObjectManager $manager, array $context, int $equipmentIndex, int $inspectionIndex, array &$indexes): void
+  {
+    $result = match (($equipmentIndex + $inspectionIndex) % 4) {
+      1 => InspectionResult::PARTIAL->value,
+      2 => InspectionResult::FAIL->value,
+      default => InspectionResult::PASS->value,
+    };
+    $status = InspectionResult::PASS->value === $result || 0 === $inspectionIndex
+      ? InspectionStatus::CLOSED->value
+      : InspectionStatus::SUBMITTED->value;
+    $inspectorType = 0 === ($equipmentIndex + $inspectionIndex) % 3
+      ? InspectorType::EXTERNAL->value
+      : InspectorType::USER->value;
+    $performedAt = SeedTimeline::at(sprintf(
+      '2026-04-%02dT%02d:00:00+00:00',
+      6 + intdiv($equipmentIndex, 4),
+      8 + $inspectionIndex,
+    ));
+    $inspectorName = 0 === $inspectionIndex % 2 ? self::ADMIN_USER_NAME : self::TEST_USER_NAME;
+    if (InspectorType::EXTERNAL->value === $inspectorType) {
+      $inspectorName = self::SAFE_CHECK_CONSULTANTS_NAME;
+    }
+    $inspectorUserId = null;
+    if (InspectorType::USER->value === $inspectorType) {
+      $inspectorUserId = 0 === $inspectionIndex % 2
+        ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890'
+        : 'b2c3d4e5-f6a7-4901-8cde-f23456789012';
+    }
+
+    $inspection = $this->createInspection(
+      id: SeedUuid::from(sprintf('inspection-bulk:%d', $indexes['inspection']++)),
+      organization: $context['organization'],
+      equipmentId: $context['equipment']->id,
+      facilityId: $context['equipment']->facilityId,
+      inspectorType: $inspectorType,
+      inspectorName: $inspectorName,
+      result: $result,
+      status: $status,
+      performedAt: $performedAt,
+      checklistId: $context['checklist']->id,
+      notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $context['locationLabel']),
+      inspectorUserId: $inspectorUserId,
+      inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : null,
+    );
+    $manager->persist($inspection);
+
+    if (InspectionResult::PASS->value !== $result) {
+      $this->seedAdditionalNonConformity($manager, $inspection, $result, $performedAt, $context['locationLabel'], $indexes['nonConformity']++);
+    }
+  }
+
+  private function seedAdditionalNonConformity(
+    ObjectManager $manager,
+    InspectionRecord $inspection,
+    string $result,
+    DateTimeImmutable $performedAt,
+    string $locationLabel,
+    int $nonConformityIndex,
+  ): void {
+    // Severity and status are spread deterministically across all four
+    // values so the register's severity breakdown is never a single flat bar.
+    if (InspectionResult::FAIL->value === $result) {
+      $severity = 0 === $nonConformityIndex % 3
+        ? NonConformitySeverity::CRITICAL->value
+        : NonConformitySeverity::HIGH->value;
+    } else {
+      $severity = 0 === $nonConformityIndex % 2
+        ? NonConformitySeverity::LOW->value
+        : NonConformitySeverity::MEDIUM->value;
+    }
+    $nonConformityStatus = match ($nonConformityIndex % 5) {
+      0 => NonConformityStatus::IN_PROGRESS->value,
+      3 => NonConformityStatus::DONE->value,
+      4 => NonConformityStatus::WAIVED->value,
+      default => NonConformityStatus::OPEN->value,
+    };
+    $isResolved = NonConformityStatus::DONE->value === $nonConformityStatus
+      || NonConformityStatus::WAIVED->value === $nonConformityStatus;
+
+    $manager->persist($this->createNonConformity(
+      id: SeedUuid::from(sprintf('non-conformity-bulk:%d', $nonConformityIndex)),
+      inspection: $inspection,
+      description: InspectionResult::FAIL->value === $result
+        ? sprintf('%s failed validation during seeded inspection.', $locationLabel)
+        : sprintf('%s requires follow-up adjustment after seeded inspection.', $locationLabel),
+      severity: $severity,
+      status: $nonConformityStatus,
+      createdAt: $performedAt->modify('+15 minutes'),
+      updatedAt: $performedAt->modify($isResolved ? '+6 days' : '+15 minutes'),
+      dueAt: $isResolved ? null : $performedAt->modify('+14 days'),
+      resolvedAt: $isResolved ? $performedAt->modify('+6 days') : null,
+      notes: 'Generated from dense seed fixture data.',
+    ));
   }
 
   private function createInspection(

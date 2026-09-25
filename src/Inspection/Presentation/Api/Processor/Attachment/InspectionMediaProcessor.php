@@ -41,6 +41,12 @@ use function is_string;
  */
 final readonly class InspectionMediaProcessor implements ProcessorInterface
 {
+  // #region Constants
+  private const string MISSING_WRITE_PERMISSION_MESSAGE = 'Missing organization.inspection.write permission.';
+
+  private const string NON_CONFORMITY_NOT_FOUND_MESSAGE = 'Non-conformity not found.';
+  // #endregion
+
   // #region Constructor
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -103,7 +109,7 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
       throw new NotFoundHttpException('Inspection not found.');
     }
     if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.write permission.');
+      throw new AccessDeniedHttpException(self::MISSING_WRITE_PERMISSION_MESSAGE);
     }
 
     $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
@@ -138,22 +144,22 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
 
     $nonConformity = $this->entityManager->find(NonConformityRecord::class, $nonConformityId);
     if (!$nonConformity instanceof NonConformityRecord || !$nonConformity->inspection instanceof InspectionRecord) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
 
     $inspection = $nonConformity->inspection;
     $organization = $inspection->organization;
     if (null === $organization) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
 
     $user = $this->user();
     $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.write');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.write permission.');
+      throw new AccessDeniedHttpException(self::MISSING_WRITE_PERMISSION_MESSAGE);
     }
 
     $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
@@ -196,10 +202,10 @@ final readonly class InspectionMediaProcessor implements ProcessorInterface
     $user = $this->user();
     $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.inspection.write');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Non-conformity not found.');
+      throw new NotFoundHttpException(self::NON_CONFORMITY_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
-      throw new AccessDeniedHttpException('Missing organization.inspection.write permission.');
+      throw new AccessDeniedHttpException(self::MISSING_WRITE_PERMISSION_MESSAGE);
     }
 
     $this->revisionGuard->assertMatches($record->revision);

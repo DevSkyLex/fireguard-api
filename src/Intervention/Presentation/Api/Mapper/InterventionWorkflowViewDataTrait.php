@@ -25,6 +25,10 @@ use function is_string;
  */
 trait InterventionWorkflowViewDataTrait
 {
+  // #region Constants
+  private const string INVALID_LIST_MESSAGE_SUFFIX = ' must be a list of objects.';
+  // #endregion
+
   /**
    * Method string.
    *
@@ -191,16 +195,16 @@ trait InterventionWorkflowViewDataTrait
   {
     $value = $data[$key] ?? null;
     if (!is_array($value)) {
-      throw new LogicException($key . ' must be a list of objects.');
+      throw new LogicException($key . self::INVALID_LIST_MESSAGE_SUFFIX);
     }
 
     return array_values(array_map(function (mixed $item) use ($key): array {
       if (!is_array($item)) {
-        throw new LogicException($key . ' must be a list of objects.');
+        throw new LogicException($key . self::INVALID_LIST_MESSAGE_SUFFIX);
       }
       foreach (array_keys($item) as $itemKey) {
         if (!is_string($itemKey)) {
-          throw new LogicException($key . ' must be a list of objects.');
+          throw new LogicException($key . self::INVALID_LIST_MESSAGE_SUFFIX);
         }
       }
 

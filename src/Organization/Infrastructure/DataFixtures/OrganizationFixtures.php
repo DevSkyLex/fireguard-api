@@ -136,7 +136,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       'userId' => '21434c1d-0e91-4c89-a3bf-8f67b2d61f9d',
       'roleReference' => self::MEMBER_ROLE_REFERENCE,
       'isActive' => false,
-      'joinedAt' => '2026-03-10T09:00:00+00:00',
+      'joinedAt' => self::STAFF_JOINED_AT,
     ],
     [
       'reference' => 'organization-seed-locked-member',
@@ -275,7 +275,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       'legalType' => 'sole_proprietorship',
       'planId' => PlanFixtures::FREE_PLAN_ID,
       'ownerReference' => UserFixtures::VIGILANCE_OWNER_REFERENCE,
-      'createdAt' => '2026-03-01T09:00:00+00:00',
+      'createdAt' => self::MARCH_FIRST_AT,
       'extraMemberIndexes' => '5',
     ],
     [
@@ -305,6 +305,10 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       'extraMemberIndexes' => '',
     ],
   ];
+
+  private const string STAFF_JOINED_AT = '2026-03-10T09:00:00+00:00';
+
+  private const string MARCH_FIRST_AT = '2026-03-01T09:00:00+00:00';
 
   private const string OWNER_USER_ID = 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890';
 
@@ -413,6 +417,34 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       self::INSPECTOR_MEMBER_REFERENCE => $inspectorMember,
     ];
 
+    $this->seedStaffAndTeams($manager, $organization, $memberRole, $rolesByReference, $membersByReference);
+    $this->seedInvitations($manager, $organization, $memberRole, $inspectorRole);
+
+    $this->loadSecondaryOrganizations($manager);
+
+    $manager->flush();
+  }
+
+  /**
+   * Method bulkMemberReference.
+   *
+   * @since 1.2.0
+   *
+   * @param int $index the bulk member index, `0` to `BULK_MEMBER_COUNT - 1`
+   *
+   * @return string the fixture reference name
+   */
+  public static function bulkMemberReference(int $index): string
+  {
+    return sprintf('organization-seed-bulk-member-%02d', $index);
+  }
+
+  /**
+   * @param array<string, OrganizationRoleRecord> $rolesByReference
+   * @param array<string, OrganizationMemberRecord> $membersByReference
+   */
+  private function seedStaffAndTeams(ObjectManager $manager, OrganizationRecord $organization, OrganizationRoleRecord $memberRole, array $rolesByReference, array $membersByReference): void
+  {
     foreach (self::STAFF_MEMBER_SEEDS as $seed) {
       $joinedAt = SeedTimeline::at($seed['joinedAt']);
 
@@ -478,7 +510,10 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
         $manager->persist($teamMember);
       }
     }
+  }
 
+  private function seedInvitations(ObjectManager $manager, OrganizationRecord $organization, OrganizationRoleRecord $memberRole, OrganizationRoleRecord $inspectorRole): void
+  {
     $invitation = new OrganizationInvitationRecord();
     $invitation->id = '591ba6c4-0d03-4bf3-a15f-22653463478c';
     $invitation->organization = $organization;
@@ -487,8 +522,8 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $invitation->invitedByUserId = self::OWNER_USER_ID;
     $invitation->status = OrganizationInvitationStatus::PENDING->value;
     $invitation->expiresAt = SeedTimeline::at('2026-04-01T09:00:00+00:00');
-    $invitation->createdAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
-    $invitation->updatedAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
+    $invitation->createdAt = SeedTimeline::at(self::MARCH_FIRST_AT);
+    $invitation->updatedAt = SeedTimeline::at(self::MARCH_FIRST_AT);
     $manager->persist($invitation);
     $this->addReference(self::INVITATION_REFERENCE, $invitation);
 
@@ -510,9 +545,9 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $acceptedInvitation->acceptedByUserId = '21434c1d-0e91-4c89-a3bf-8f67b2d61f9d';
     $acceptedInvitation->status = OrganizationInvitationStatus::ACCEPTED->value;
     $acceptedInvitation->expiresAt = SeedTimeline::at('2026-04-05T09:00:00+00:00');
-    $acceptedInvitation->acceptedAt = SeedTimeline::at('2026-03-10T09:00:00+00:00');
+    $acceptedInvitation->acceptedAt = SeedTimeline::at(self::STAFF_JOINED_AT);
     $acceptedInvitation->createdAt = SeedTimeline::at('2026-03-06T09:00:00+00:00');
-    $acceptedInvitation->updatedAt = SeedTimeline::at('2026-03-10T09:00:00+00:00');
+    $acceptedInvitation->updatedAt = SeedTimeline::at(self::STAFF_JOINED_AT);
     $manager->persist($acceptedInvitation);
 
     $acceptedInvitationAssignment = new OrganizationInvitationRoleRecord();
@@ -538,24 +573,6 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $expiredInvitationAssignment->role = $inspectorRole;
     $expiredInvitationAssignment->assignedAt = SeedTimeline::at('2026-02-06T09:05:00+00:00');
     $manager->persist($expiredInvitationAssignment);
-
-    $this->loadSecondaryOrganizations($manager);
-
-    $manager->flush();
-  }
-
-  /**
-   * Method bulkMemberReference.
-   *
-   * @since 1.2.0
-   *
-   * @param int $index the bulk member index, `0` to `BULK_MEMBER_COUNT - 1`
-   *
-   * @return string the fixture reference name
-   */
-  public static function bulkMemberReference(int $index): string
-  {
-    return sprintf('organization-seed-bulk-member-%02d', $index);
   }
 
   /**

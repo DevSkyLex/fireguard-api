@@ -10,7 +10,6 @@ use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
 use Doctrine\Common\DataFixtures\FixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
-use RuntimeException;
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
@@ -76,7 +75,7 @@ final readonly class WorkloadFixtures implements FixtureInterface, FixtureGroupI
   {
     $context = $this->workforce->context(self::ORGANIZATION);
     if (null === $context) {
-      throw new RuntimeException('The seed organization is missing. Workload fixtures require the existing development seed baseline.');
+      throw new WorkloadFixtureException('The seed organization is missing. Workload fixtures require the existing development seed baseline.');
     }
     $members = [];
     foreach ($this->workforce->members(self::ORGANIZATION) as $member) {
@@ -86,7 +85,7 @@ final readonly class WorkloadFixtures implements FixtureInterface, FixtureGroupI
     }
     foreach ([self::OWNER, self::FIELD_TECHNICIAN, self::PARIS_TECHNICIAN, self::COORDINATOR] as $memberId) {
       if (!isset($members[$memberId])) {
-        throw new RuntimeException('A required workload demo member is missing or inactive: ' . $memberId);
+        throw new WorkloadFixtureException('A required workload demo member is missing or inactive: ' . $memberId);
       }
     }
 

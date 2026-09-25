@@ -122,30 +122,7 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      // Everything the handler throws arrives wrapped by the bus, so each
-      // mapping declared above has to be recovered here as well.
-      $quotaExceeded = $this->findWrappedException($exception, OrganizationQuotaExceededException::class);
-      if (null !== $quotaExceeded) {
-        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-      }
-
-      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
-      if (null !== $accessDenied) {
-        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
-      }
-
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
-      if (null !== $invalidArgument) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->rethrowWrappedFailure($exception);
     }
 
     $output = new OrganizationMemberOutput();
@@ -157,6 +134,33 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
     $output->roleIds = $result->roleIds;
 
     return $output;
+  }
+
+  private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
+  {
+    // The bus wraps handler failures; preserve the direct-catch status mapping.
+    $quotaExceeded = $this->findWrappedException($exception, OrganizationQuotaExceededException::class);
+    if (null !== $quotaExceeded) {
+      throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+    }
+
+    $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
+    if (null !== $accessDenied) {
+      throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
+    }
+
+    $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
+      ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
+    if (null !== $notFound) {
+      throw new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+    if (null !== $invalidArgument) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
   // #endregion
 }

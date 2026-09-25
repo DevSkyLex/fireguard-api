@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Application\UseCase\Query\Notification\ListUserNotifications;
 
 use DateTimeImmutable;
-use Notification\Application\Contract\Notification\NotificationType;
+use Notification\Application\Contract\Notification\{NotificationListCriteria, NotificationType};
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Domain\Model\Notification\Notification;
@@ -73,11 +73,8 @@ final readonly class ListUserNotificationsHandler implements QueryHandler
       : new DateTimeImmutable()->modify('-' . self::HIDE_READ_AFTER_DAYS . ' days');
     $hiddenReadCategories = $query->onlyUnread ? [] : self::HIDDEN_READ_CATEGORIES;
 
-    $notifications = $this->notificationRepository->findByUserId(
-      userId: $query->userId,
+    $criteria = new NotificationListCriteria(
       onlyUnread: $query->onlyUnread,
-      limit: $limit,
-      offset: $offset,
       type: $query->type,
       category: $query->category,
       organizationId: $query->organizationId,
@@ -85,14 +82,16 @@ final readonly class ListUserNotificationsHandler implements QueryHandler
       hiddenReadCategories: $hiddenReadCategories,
     );
 
+    $notifications = $this->notificationRepository->findByUserId(
+      userId: $query->userId,
+      criteria: $criteria,
+      limit: $limit,
+      offset: $offset,
+    );
+
     $total = $this->notificationRepository->countByUserId(
       userId: $query->userId,
-      onlyUnread: $query->onlyUnread,
-      type: $query->type,
-      category: $query->category,
-      organizationId: $query->organizationId,
-      hideReadBefore: $hideReadBefore,
-      hiddenReadCategories: $hiddenReadCategories,
+      criteria: $criteria,
     );
 
     $results = array_map(

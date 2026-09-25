@@ -57,7 +57,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       denormalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_WRITE]],
       security: "is_granted('clients.create')",
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Register Client',
         description: 'Register a new OAuth2 client application. The response includes the client secret which must be stored securely as it will never be shown again.',
         security: [['bearerAuth' => []]],
@@ -69,14 +69,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => 'get',
                 'description' => 'Get client details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::CLIENT_ID_RESPONSE_LINK,
                 ],
               ],
               'UpdateClient' => [
                 'operationId' => 'update',
                 'description' => 'Update client details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::CLIENT_ID_RESPONSE_LINK,
                 ],
               ],
             ]),
@@ -90,14 +90,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Get(
       name: ClientOperations::GET,
       description: 'Get details of a specific OAuth2 client. Secret is not included.',
-      uriTemplate: '/clients/{id}',
+      uriTemplate: self::CLIENT_URI_TEMPLATE,
       input: false,
       output: ClientOutput::class,
       provider: GetClientProvider::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
       security: "is_granted('clients.read')",
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Get Client Details',
         description: 'Retrieve detailed information about a specific OAuth2 client app.',
         security: [['bearerAuth' => []]],
@@ -109,27 +109,27 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => 'update',
                 'description' => 'Update this client',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::CLIENT_ID_RESPONSE_LINK,
                 ],
               ],
               'RegenerateSecret' => [
                 'operationId' => 'regenerate-secret',
                 'description' => 'Regenerate client secret',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::CLIENT_ID_RESPONSE_LINK,
                 ],
               ],
               'DeleteClient' => [
                 'operationId' => 'delete',
                 'description' => 'Delete this client',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::CLIENT_ID_RESPONSE_LINK,
                 ],
               ],
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found',
+            description: self::CLIENT_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -176,7 +176,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
       ],
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'List Clients',
         description: 'Retrieve a paginated list of all registered OAuth2 clients. Supports filtering by name and active status. Requires clients.read permission.',
         security: [['bearerAuth' => []]],
@@ -194,15 +194,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: ClientOperations::UPDATE,
       description: 'Updates name, redirect URIs, grant types, or scopes of an existing client.',
-      uriTemplate: '/clients/{id}',
+      uriTemplate: self::CLIENT_URI_TEMPLATE,
       input: ClientInput::class,
       output: ClientOutput::class,
       processor: UpdateClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_UPDATE]],
-      security: "is_granted('clients.update')",
+      security: self::SECURITY_CLIENTS_UPDATE,
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Update Client',
         description: 'Modify settings of an existing client application.',
         security: [['bearerAuth' => []]],
@@ -214,13 +214,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => 'get',
                 'description' => 'Get updated client details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::CLIENT_ID_RESPONSE_LINK,
                 ],
               ],
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found',
+            description: self::CLIENT_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
             description: 'Invalid input data',
@@ -237,9 +237,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ClientOutput::class,
       processor: RegenerateSecretProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ, OAuthSerializationGroup::CLIENT_SECRET]],
-      security: "is_granted('clients.update')",
+      security: self::SECURITY_CLIENTS_UPDATE,
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Regenerate Secret',
         description: 'Invalidate the current client secret and generate a new one. The new secret is verified in the response and must be saved immediately.',
         security: [['bearerAuth' => []]],
@@ -248,7 +248,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Secret regenerated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found',
+            description: self::CLIENT_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -262,9 +262,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       status: HttpResponse::HTTP_OK,
       processor: ActivateClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
-      security: "is_granted('clients.update')",
+      security: self::SECURITY_CLIENTS_UPDATE,
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Activate Client',
         description: 'Enable a deactivated client application, allowing it to request tokens again.',
         security: [['bearerAuth' => []]],
@@ -273,7 +273,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Client activated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found',
+            description: self::CLIENT_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -287,9 +287,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       status: HttpResponse::HTTP_OK,
       processor: DeactivateClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
-      security: "is_granted('clients.update')",
+      security: self::SECURITY_CLIENTS_UPDATE,
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Deactivate Client',
         description: 'Disable a client application. It will no longer be able to request tokens.',
         security: [['bearerAuth' => []]],
@@ -298,7 +298,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Client deactivated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found',
+            description: self::CLIENT_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -306,13 +306,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Delete(
       name: ClientOperations::DELETE,
       description: 'Permanently deletes an OAuth2 client. This action cannot be undone.',
-      uriTemplate: '/clients/{id}',
+      uriTemplate: self::CLIENT_URI_TEMPLATE,
       input: false,
       output: false,
       processor: DeleteClientProcessor::class,
       security: "is_granted('clients.delete')",
       openapi: new Operation(
-        tags: ['Client Management'],
+        tags: [self::OPENAPI_TAG_CLIENT_MANAGEMENT],
         summary: 'Delete Client',
         description: 'Permanently remove a client application and all its associated tokens/consents.',
         security: [['bearerAuth' => []]],
@@ -321,7 +321,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Client deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found',
+            description: self::CLIENT_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -330,4 +330,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class ClientResource
 {
+  // #region Constants
+  private const string OPENAPI_TAG_CLIENT_MANAGEMENT = 'Client Management';
+
+  private const string CLIENT_ID_RESPONSE_LINK = '$response.body#/id';
+
+  private const string CLIENT_URI_TEMPLATE = '/clients/{id}';
+
+  private const string CLIENT_NOT_FOUND_DESCRIPTION = 'Client not found';
+
+  private const string SECURITY_CLIENTS_UPDATE = "is_granted('clients.update')";
+  // #endregion
 }

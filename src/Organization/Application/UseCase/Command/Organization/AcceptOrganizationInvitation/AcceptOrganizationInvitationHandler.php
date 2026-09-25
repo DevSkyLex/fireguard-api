@@ -206,18 +206,21 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     ));
 
     $this->dispatchMercure(
-      type: NotificationType::ORGANIZATION_INVITATION_ACCEPTED,
-      subject: 'Invitation accepted',
-      body: sprintf('%s accepted your organization invitation.', $authenticatedEmail),
-      payload: [
-        'organizationId' => (string) $invitation->organizationId(),
-        'invitationId' => (string) $invitation->id(),
-        'acceptedUserId' => $command->userId,
-        'acceptedEmail' => $authenticatedEmail,
-        'acceptedAt' => $now->format('c'),
-      ],
-      recipientUserId: $invitation->invitedByUserId(),
-      organizationId: (string) $invitation->organizationId(),
+      new SendNotificationRequest(
+        type: NotificationType::ORGANIZATION_INVITATION_ACCEPTED,
+        subject: 'Invitation accepted',
+        body: sprintf('%s accepted your organization invitation.', $authenticatedEmail),
+        channels: [NotificationChannel::MERCURE],
+        payload: [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'acceptedUserId' => $command->userId,
+          'acceptedEmail' => $authenticatedEmail,
+          'acceptedAt' => $now->format('c'),
+        ],
+        recipientUserId: $invitation->invitedByUserId(),
+        organizationId: (string) $invitation->organizationId(),
+      ),
       failureMessage: 'Invitation accepted notification dispatch failed.',
       logContext: [
         'organizationId' => (string) $invitation->organizationId(),
@@ -231,19 +234,22 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
 
     if (null !== $organization && null !== $ownerUserId && $ownerUserId !== $command->userId && $ownerUserId !== $invitation->invitedByUserId()) {
       $this->dispatchMercure(
-        type: NotificationType::ORGANIZATION_MEMBER_JOINED,
-        subject: 'New member joined your organization',
-        body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
-        payload: [
-          'organizationId' => (string) $invitation->organizationId(),
-          'invitationId' => (string) $invitation->id(),
-          'memberId' => $result->memberId,
-          'joinedUserId' => $command->userId,
-          'joinedEmail' => $authenticatedEmail,
-          'joinedAt' => $result->joinedAt->format('c'),
-        ],
-        recipientUserId: $ownerUserId,
-        organizationId: (string) $invitation->organizationId(),
+        new SendNotificationRequest(
+          type: NotificationType::ORGANIZATION_MEMBER_JOINED,
+          subject: 'New member joined your organization',
+          body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
+          channels: [NotificationChannel::MERCURE],
+          payload: [
+            'organizationId' => (string) $invitation->organizationId(),
+            'invitationId' => (string) $invitation->id(),
+            'memberId' => $result->memberId,
+            'joinedUserId' => $command->userId,
+            'joinedEmail' => $authenticatedEmail,
+            'joinedAt' => $result->joinedAt->format('c'),
+          ],
+          recipientUserId: $ownerUserId,
+          organizationId: (string) $invitation->organizationId(),
+        ),
         failureMessage: 'Member joined notification dispatch failed.',
         logContext: [
           'organizationId' => (string) $invitation->organizationId(),
@@ -265,35 +271,17 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
    *
    * @since 1.0.0
    *
-   * @param string $type the notification type
-   * @param string $subject the notification subject
-   * @param string $body the notification body
-   * @param array<string, mixed> $payload the Mercure payload
-   * @param string $recipientUserId the recipient user identifier
-   * @param string $organizationId the organization the invitation/membership belongs to
+   * @param SendNotificationRequest $notification the Mercure notification to dispatch
    * @param string $failureMessage the log message written on dispatch failure
    * @param array<string, mixed> $logContext extra context added to the failure log
    */
   private function dispatchMercure(
-    string $type,
-    string $subject,
-    string $body,
-    array $payload,
-    string $recipientUserId,
-    string $organizationId,
+    SendNotificationRequest $notification,
     string $failureMessage,
     array $logContext,
   ): void {
     try {
-      $this->notificationPort->send(new SendNotificationRequest(
-        type: $type,
-        subject: $subject,
-        body: $body,
-        channels: [NotificationChannel::MERCURE],
-        payload: $payload,
-        recipientUserId: $recipientUserId,
-        organizationId: $organizationId,
-      ));
+      $this->notificationPort->send($notification);
     } catch (Throwable $exception) {
       $this->logger->warning($failureMessage, [...$logContext, 'error' => $exception->getMessage()]);
     }

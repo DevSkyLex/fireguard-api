@@ -39,7 +39,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       processor: CreateWebhookSubscriptionProcessor::class,
       denormalizationContext: ['groups' => [WebhookSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'Create webhook subscription',
@@ -63,7 +63,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'List webhook subscriptions',
@@ -72,11 +72,11 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
     ),
     new Get(
       name: WebhookOperations::GET_WEBHOOK_SUBSCRIPTION,
-      uriTemplate: '/{organizationId}/webhooks/{webhookId}',
+      uriTemplate: self::WEBHOOK_URI_TEMPLATE,
       output: WebhookSubscriptionOutput::class,
       provider: GetWebhookSubscriptionProvider::class,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'Get webhook subscription',
@@ -89,14 +89,14 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
     ),
     new Patch(
       name: WebhookOperations::UPDATE_WEBHOOK_SUBSCRIPTION,
-      uriTemplate: '/{organizationId}/webhooks/{webhookId}',
+      uriTemplate: self::WEBHOOK_URI_TEMPLATE,
       read: false,
       input: UpdateWebhookSubscriptionInput::class,
       output: WebhookSubscriptionOutput::class,
       processor: UpdateWebhookSubscriptionProcessor::class,
       denormalizationContext: ['groups' => [WebhookSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'Update webhook subscription',
@@ -105,12 +105,12 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
     ),
     new Delete(
       name: WebhookOperations::DELETE_WEBHOOK_SUBSCRIPTION,
-      uriTemplate: '/{organizationId}/webhooks/{webhookId}',
+      uriTemplate: self::WEBHOOK_URI_TEMPLATE,
       read: false,
       input: false,
       output: false,
       processor: DeleteWebhookSubscriptionProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'Delete webhook subscription',
@@ -130,7 +130,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       output: WebhookSecretOutput::class,
       processor: RotateWebhookSecretProcessor::class,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'Rotate webhook signing secret',
@@ -146,7 +146,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
       output: WebhookPingOutput::class,
       processor: PingWebhookSubscriptionProcessor::class,
       normalizationContext: ['groups' => [WebhookSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Webhooks'],
         summary: 'Send a test delivery',
@@ -160,4 +160,9 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
 )]
 final class WebhookSubscriptionResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string WEBHOOK_URI_TEMPLATE = '/{organizationId}/webhooks/{webhookId}';
+  // #endregion
 }

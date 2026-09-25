@@ -12,6 +12,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use function array_filter;
 use function array_keys;
 use function array_map;
+use function array_merge;
 use function array_values;
 use function is_array;
 use function is_string;
@@ -57,23 +58,7 @@ final class InterventionExportCriteriaFactory
       $filters['name'] = $name;
     }
 
-    $enumGuards = [
-      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
-      'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
-      'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
-    ];
-    foreach ($enumGuards as $filter => [$tryFrom, $message]) {
-      $values = $this->multiValue($query->all()[$filter] ?? null);
-      if ([] === $values) {
-        continue;
-      }
-      foreach ($values as $value) {
-        if (null === $tryFrom($value)) {
-          throw new BadRequestHttpException($message);
-        }
-      }
-      $filters[$filter] = $values;
-    }
+    $filters = array_merge($filters, $this->enumFilters($request));
 
     foreach (['dueAtAfter', 'dueAtBefore'] as $filter) {
       $value = $query->get($filter);
@@ -92,11 +77,8 @@ final class InterventionExportCriteriaFactory
       $filters['responsibleId'] = ResourceIriParser::memberId($responsible);
     }
 
-    $due = $query->get('due');
-    if (is_string($due) && '' !== $due) {
-      if ('overdue' !== $due) {
-        throw new BadRequestHttpException('The due filter must be: overdue.');
-      }
+    $due = self::validatedDue($query->get('due'));
+    if (null !== $due) {
       $filters['due'] = $due;
     }
 
@@ -119,6 +101,46 @@ final class InterventionExportCriteriaFactory
   public function appliedFilterKeys(array $filters): array
   {
     return array_keys($filters);
+  }
+
+  /**
+   * @return array<string, list<string>>
+   */
+  private function enumFilters(Request $request): array
+  {
+    $filters = [];
+    $queryValues = $request->query->all();
+    $enumGuards = [
+      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
+      'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
+      'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
+    ];
+    foreach ($enumGuards as $filter => [$tryFrom, $message]) {
+      $values = $this->multiValue($queryValues[$filter] ?? null);
+      if ([] === $values) {
+        continue;
+      }
+      foreach ($values as $value) {
+        if (null === $tryFrom($value)) {
+          throw new BadRequestHttpException($message);
+        }
+      }
+      $filters[$filter] = $values;
+    }
+
+    return $filters;
+  }
+
+  private static function validatedDue(mixed $due): ?string
+  {
+    if (!is_string($due) || '' === $due) {
+      return null;
+    }
+    if ('overdue' !== $due) {
+      throw new BadRequestHttpException('The due filter must be: overdue.');
+    }
+
+    return $due;
   }
 
   /**

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Console;
 
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationResult};
-use RuntimeException;
+use Organization\Infrastructure\Exception\OrganizationConsoleUserNotFoundException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\ValueObject\Email;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -190,7 +190,7 @@ HELP
    *
    * @param string $identifier the user ID or email
    *
-   * @throws RuntimeException if the user cannot be found
+   * @throws OrganizationConsoleUserNotFoundException if the user cannot be found
    *
    * @return string the resolved user ID
    */
@@ -203,7 +203,7 @@ HELP
     }
 
     if (null === $user) {
-      throw new RuntimeException(sprintf('User "%s" not found.', $identifier));
+      throw new OrganizationConsoleUserNotFoundException(sprintf('User "%s" not found.', $identifier));
     }
 
     return $user->id()->value;

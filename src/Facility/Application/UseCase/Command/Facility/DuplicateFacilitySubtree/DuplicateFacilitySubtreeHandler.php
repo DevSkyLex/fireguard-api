@@ -137,25 +137,7 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
     // assertCanAddMultiple takes a transaction-scoped advisory lock so no
     // concurrent create/duplicate can slip past the count between the check
     // and the inserts (see OrganizationQuotaPort::assertCanAddMultiple).
-    $this->transactionManager->transactional(function () use ($organizationId, $clones, $nodeCount): void {
-      $this->quota->assertCanAddMultiple((string) $organizationId, OrganizationQuotaResource::FACILITIES, $nodeCount);
-
-      foreach ($clones as $clone) {
-        try {
-          $this->facilityRepository->save($clone);
-        } catch (Throwable $exception) {
-          if ($this->isOrganizationConstraintViolation($exception)) {
-            throw FacilityOrganizationNotFoundException::create();
-          }
-
-          if ($this->isParentConstraintViolation($exception)) {
-            throw FacilityNotFoundException::withId((string) ($clone->parentFacilityId() ?? 'unknown'));
-          }
-
-          throw $exception;
-        }
-      }
-    });
+    $this->persistClones($organizationId, $clones, $nodeCount);
 
     // Emitted once, after the durable save, so a failed persistence leaves
     // no ledger row.
@@ -182,6 +164,37 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
       longitude: $newRoot->coordinates()?->longitude(),
       nodeCount: $nodeCount,
     );
+  }
+
+  /**
+   * @param list<Facility> $clones
+   */
+  private function persistClones(FacilityOrganizationId $organizationId, array $clones, int $nodeCount): void
+  {
+    $this->transactionManager->transactional(function () use ($organizationId, $clones, $nodeCount): void {
+      $this->quota->assertCanAddMultiple((string) $organizationId, OrganizationQuotaResource::FACILITIES, $nodeCount);
+
+      foreach ($clones as $clone) {
+        $this->saveClone($clone);
+      }
+    });
+  }
+
+  private function saveClone(Facility $clone): void
+  {
+    try {
+      $this->facilityRepository->save($clone);
+    } catch (Throwable $exception) {
+      if ($this->isOrganizationConstraintViolation($exception)) {
+        throw FacilityOrganizationNotFoundException::create();
+      }
+
+      if ($this->isParentConstraintViolation($exception)) {
+        throw FacilityNotFoundException::withId((string) ($clone->parentFacilityId() ?? 'unknown'));
+      }
+
+      throw $exception;
+    }
   }
 
   /**

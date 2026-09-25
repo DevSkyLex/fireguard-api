@@ -111,6 +111,13 @@ final readonly class ComplianceRegisterAggregator
     $nonConformitiesBySeverity = $this->inspectionStatistics->openNonConformitiesBySeverityByFacility($organizationId);
     $evaluations = $this->maintenanceStatistics->evaluationByFacility($organizationId);
     $equipmentInventory = $this->equipmentStatistics->equipmentInventoryByFacility($organizationId);
+    $statistics = [
+      'dueStatusCounts' => $dueStatusCounts,
+      'lastInspectionDates' => $lastInspectionDates,
+      'nonConformitiesBySeverity' => $nonConformitiesBySeverity,
+      'equipmentInventory' => $equipmentInventory,
+      'evaluations' => $evaluations,
+    ];
 
     $namesById = [];
     $parentById = [];
@@ -122,33 +129,24 @@ final readonly class ComplianceRegisterAggregator
     $views = [];
     foreach ($facilities as $facility) {
       $views[] = $this->buildView(
-        facilityId: $facility['id'],
-        name: $facility['name'],
-        type: $facility['type'],
-        parentFacilityId: $facility['parentFacilityId'],
+        facility: $facility,
         namesById: $namesById,
         parentById: $parentById,
-        dueStatusCounts: $dueStatusCounts,
-        lastInspectionDates: $lastInspectionDates,
-        nonConformitiesBySeverity: $nonConformitiesBySeverity,
-        equipmentInventory: $equipmentInventory,
-        evaluations: $evaluations,
+        statistics: $statistics,
       );
     }
 
     if ($this->hasUnassignedData($dueStatusCounts, $nonConformitiesBySeverity, $equipmentInventory)) {
       $views[] = $this->buildView(
-        facilityId: self::UNASSIGNED_FACILITY_KEY,
-        name: self::UNASSIGNED_FACILITY_LABEL,
-        type: self::UNASSIGNED_FACILITY_KEY,
-        parentFacilityId: null,
+        facility: [
+          'id' => self::UNASSIGNED_FACILITY_KEY,
+          'name' => self::UNASSIGNED_FACILITY_LABEL,
+          'type' => self::UNASSIGNED_FACILITY_KEY,
+          'parentFacilityId' => null,
+        ],
         namesById: $namesById,
         parentById: $parentById,
-        dueStatusCounts: $dueStatusCounts,
-        lastInspectionDates: $lastInspectionDates,
-        nonConformitiesBySeverity: $nonConformitiesBySeverity,
-        equipmentInventory: $equipmentInventory,
-        evaluations: $evaluations,
+        statistics: $statistics,
       );
     }
 
@@ -156,27 +154,29 @@ final readonly class ComplianceRegisterAggregator
   }
 
   /**
+   * @param array{id: string, name: string, type: string, parentFacilityId: ?string} $facility
    * @param array<string, string> $namesById
    * @param array<string, ?string> $parentById
-   * @param array<string, array{up_to_date: int, due_soon: int, overdue: int, unscheduled: int}> $dueStatusCounts
-   * @param array<string, string> $lastInspectionDates
-   * @param array<string, array{low: int, medium: int, high: int, critical: int}> $nonConformitiesBySeverity
-   * @param array<string, array{total: int, active: int}> $equipmentInventory
-   * @param array<string, array{evaluatedCount: int, oldestEvaluatedAt: ?string}> $evaluations
+   * @param array{
+   *   dueStatusCounts: array<string, array{up_to_date: int, due_soon: int, overdue: int, unscheduled: int}>,
+   *   lastInspectionDates: array<string, string>,
+   *   nonConformitiesBySeverity: array<string, array{low: int, medium: int, high: int, critical: int}>,
+   *   equipmentInventory: array<string, array{total: int, active: int}>,
+   *   evaluations: array<string, array{evaluatedCount: int, oldestEvaluatedAt: ?string}>
+   * } $statistics
    */
   private function buildView(
-    string $facilityId,
-    string $name,
-    string $type,
-    ?string $parentFacilityId,
+    array $facility,
     array $namesById,
     array $parentById,
-    array $dueStatusCounts,
-    array $lastInspectionDates,
-    array $nonConformitiesBySeverity,
-    array $equipmentInventory,
-    array $evaluations,
+    array $statistics,
   ): FacilityComplianceView {
+    $facilityId = $facility['id'];
+    $dueStatusCounts = $statistics['dueStatusCounts'];
+    $nonConformitiesBySeverity = $statistics['nonConformitiesBySeverity'];
+    $equipmentInventory = $statistics['equipmentInventory'];
+    $lastInspectionDates = $statistics['lastInspectionDates'];
+    $evaluations = $statistics['evaluations'];
     $due = $dueStatusCounts[$facilityId] ?? ['up_to_date' => 0, 'due_soon' => 0, 'overdue' => 0, 'unscheduled' => 0];
     $nonConformities = $nonConformitiesBySeverity[$facilityId] ?? ['low' => 0, 'medium' => 0, 'high' => 0, 'critical' => 0];
     $inventory = $equipmentInventory[$facilityId] ?? ['total' => 0, 'active' => 0];
@@ -184,10 +184,10 @@ final readonly class ComplianceRegisterAggregator
 
     return new FacilityComplianceView(
       facilityId: $facilityId,
-      name: $name,
-      type: $type,
-      parentFacilityId: $parentFacilityId,
-      path: self::UNASSIGNED_FACILITY_KEY === $facilityId ? $name : $this->buildPath($facilityId, $namesById, $parentById),
+      name: $facility['name'],
+      type: $facility['type'],
+      parentFacilityId: $facility['parentFacilityId'],
+      path: self::UNASSIGNED_FACILITY_KEY === $facilityId ? $facility['name'] : $this->buildPath($facilityId, $namesById, $parentById),
       status: ComplianceStatusPolicy::grade(
         overdueEquipmentCount: $due['overdue'],
         dueSoonEquipmentCount: $due['due_soon'],

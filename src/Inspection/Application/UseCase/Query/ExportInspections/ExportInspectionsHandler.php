@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Query\ExportInspections;
 
 use Inspection\Application\Contract\Export\{InspectionExportCandidate, InspectionExportRow};
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
 use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\{InspectionAccessDeniedException, InspectionExportTooLargeException, InspectionNotFoundException};
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
@@ -111,32 +112,18 @@ final readonly class ExportInspectionsHandler implements QueryHandler
     $inspectorUserId = $this->stringFilter($filters, 'inspectorUserId');
     $checklistId = $this->stringFilter($filters, 'checklistId');
 
-    $total = $this->inspectionRepository->countExportCandidates(
-      $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      $inspectorUserId,
-      $checklistId,
+    $criteria = new InspectionListCriteria(
+      subject: new InspectionSubjectCriteria($equipmentId, $facilityId, $checklistId),
+      execution: new InspectionExecutionCriteria($result, $status, $performedAtFrom, $performedAtTo),
+      inspector: new InspectionInspectorCriteria(userId: $inspectorUserId),
     );
+
+    $total = $this->inspectionRepository->countExportCandidates($organizationId, $criteria);
     if ($total > self::MAX_EXPORT_ROWS) {
       throw InspectionExportTooLargeException::exceedsCap(matched: $total, maxRows: self::MAX_EXPORT_ROWS);
     }
 
-    $candidates = $this->inspectionRepository->listExportCandidates(
-      $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      $inspectorUserId,
-      $checklistId,
-    );
+    $candidates = $this->inspectionRepository->listExportCandidates($organizationId, $criteria);
 
     $inspectionIds = array_map(static fn (InspectionExportCandidate $candidate): string => $candidate->id, $candidates);
     $facilityIds = $this->uniqueIds($candidates, static fn (InspectionExportCandidate $candidate): ?string => $candidate->facilityId);

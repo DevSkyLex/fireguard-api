@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Model\Facility\Facility;
@@ -63,31 +64,29 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       throw InvalidValueException::because('rootsOnly cannot be combined with parentFacilityId.');
     }
 
-    $facilities = $this->facilityRepository->findByOrganizationId(
-      organizationId: $organizationId,
-      includeArchived: $query->includeArchived,
+    $criteria = new FacilityListCriteria(
       type: $type,
       status: $status,
       parentFacilityId: $parentFacilityId,
       code: $query->code,
       search: $query->search,
+      rootsOnly: $query->rootsOnly,
+      hasCoordinates: $query->hasCoordinates,
+    );
+
+    $facilities = $this->facilityRepository->findByOrganizationId(
+      organizationId: $organizationId,
+      includeArchived: $query->includeArchived,
+      criteria: $criteria,
       sorting: $query->sorting,
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
-      rootsOnly: $query->rootsOnly,
-      hasCoordinates: $query->hasCoordinates,
     );
 
     $total = $this->facilityRepository->countByOrganizationId(
       organizationId: $organizationId,
       includeArchived: $query->includeArchived,
-      type: $type,
-      status: $status,
-      parentFacilityId: $parentFacilityId,
-      code: $query->code,
-      search: $query->search,
-      rootsOnly: $query->rootsOnly,
-      hasCoordinates: $query->hasCoordinates,
+      criteria: $criteria,
     );
 
     $childCounts = $this->facilityRepository->countChildrenByParentIds(

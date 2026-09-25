@@ -14,9 +14,9 @@ use Inspection\Application\Contract\Export\NonConformityExportCandidate;
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformityStatus};
+use Inspection\Infrastructure\Exception\{InvalidStorageTimeZoneException, StoredDateTimeReinterpretationException};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -25,6 +25,20 @@ use function str_replace;
 
 final readonly class NonConformityRepository implements NonConformityRepositoryPort
 {
+  // #region Constants
+  private const string NON_CONFORMITY_COUNT_EXPRESSION = 'COUNT(r.id)';
+
+  private const string ORGANIZATION_ID_PREDICATE = 'o.id = :organizationId';
+
+  private const string SEVERITY_PREDICATE = 'r.severity = :severity';
+
+  private const string STATUS_PREDICATE = 'r.status = :status';
+
+  private const string OPEN_STATUSES_PREDICATE = 'r.status IN (:openStatuses)';
+
+  private const string SEARCH_PLACEHOLDER = ':search';
+  // #endregion
+
   /**
    * @var EntityRepository<NonConformityRecord>
    */
@@ -119,7 +133,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $search = null,
   ): int {
     $qb = $this->createListQueryBuilder($inspectionId, $severity, $status, $search);
-    $qb->select('COUNT(r.id)');
+    $qb->select(self::NON_CONFORMITY_COUNT_EXPRESSION);
 
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
@@ -190,7 +204,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $search = null,
   ): int {
     $qb = $this->createOrganizationListQueryBuilder($organizationId, $severity, $status, $search);
-    $qb->select('COUNT(r.id)');
+    $qb->select(self::NON_CONFORMITY_COUNT_EXPRESSION);
 
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
@@ -214,7 +228,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->where('o.id = :organizationId')
+      ->where(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->setParameter('openStatus', 'open')
       ->setParameter('inProgressStatus', 'in_progress')
@@ -225,10 +239,10 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->setParameter('dueAtBefore', $this->normalizeTimestampToStorageDateTime($dueAtBefore), Types::DATETIME_IMMUTABLE);
 
     if (null !== $severity) {
-      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $queryBuilder->andWhere(self::SEVERITY_PREDICATE)->setParameter('severity', $severity);
     }
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     /** @var array{total?: int|string|null, openCount?: int|string|null, inProgressCount?: int|string|null, doneCount?: int|string|null, waivedCount?: int|string|null, overdueCount?: int|string|null, criticalOpenCount?: int|string|null} $row */
@@ -253,7 +267,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->groupBy('r.status')
       ->getQuery()
@@ -275,7 +289,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->groupBy('r.severity')
       ->getQuery()
@@ -296,24 +310,24 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $status = null,
   ): int {
     $queryBuilder = $this->entityManager->createQueryBuilder()
-      ->select('COUNT(r.id)')
+      ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere('r.dueAt IS NOT NULL')
       ->andWhere('r.dueAt < :dueAtBefore')
       ->setParameter('organizationId', (string) $organizationId)
       ->setParameter('dueAtBefore', $this->normalizeTimestampToStorageDateTime($dueAtBefore), Types::DATETIME_IMMUTABLE);
 
     if (null !== $severity) {
-      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $queryBuilder->andWhere(self::SEVERITY_PREDICATE)->setParameter('severity', $severity);
     }
 
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     } else {
-      $queryBuilder->andWhere('r.status IN (:openStatuses)')->setParameter('openStatuses', ['open', 'in_progress']);
+      $queryBuilder->andWhere(self::OPEN_STATUSES_PREDICATE)->setParameter('openStatuses', ['open', 'in_progress']);
     }
 
     return (int) $queryBuilder
@@ -324,12 +338,12 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   public function countSlaBreachedByOrganizationId(InspectionOrganizationId $organizationId): int
   {
     return (int) $this->entityManager->createQueryBuilder()
-      ->select('COUNT(r.id)')
+      ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
-      ->andWhere('r.status IN (:openStatuses)')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
+      ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->andWhere('r.slaBreachNotifiedAt IS NOT NULL')
       ->setParameter('organizationId', (string) $organizationId)
       ->setParameter('openStatuses', ['open', 'in_progress'])
@@ -344,22 +358,22 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $status = null,
   ): int {
     $queryBuilder = $this->entityManager->createQueryBuilder()
-      ->select('COUNT(r.id)')
+      ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere('r.createdAt < :at')
       ->andWhere('(r.resolvedAt IS NULL OR r.resolvedAt > :at)')
       ->setParameter('organizationId', (string) $organizationId)
       ->setParameter('at', $this->normalizeTimestampToStorageDateTime($at), Types::DATETIME_IMMUTABLE);
 
     if (null !== $severity) {
-      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $queryBuilder->andWhere(self::SEVERITY_PREDICATE)->setParameter('severity', $severity);
     }
 
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     return (int) $queryBuilder
@@ -491,7 +505,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->where('o.id = :organizationId')
+      ->where(self::ORGANIZATION_ID_PREDICATE)
       ->andWhere('(
         (r.createdAt >= :periodFrom AND r.createdAt <= :periodTo) OR
         (r.resolvedAt IS NOT NULL AND r.resolvedAt >= :periodFrom AND r.resolvedAt <= :periodTo) OR
@@ -503,10 +517,10 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->setParameter('activeAt', $activeAtDate, Types::DATETIME_IMMUTABLE);
 
     if (null !== $severity) {
-      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $queryBuilder->andWhere(self::SEVERITY_PREDICATE)->setParameter('severity', $severity);
     }
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     /** @var array{openedCount?: int|string|null, resolvedCount?: int|string|null, activeAtStartCount?: int|string|null} $row */
@@ -522,19 +536,19 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int
   {
     $queryBuilder = $this->entityManager->createQueryBuilder()
-      ->select('COUNT(r.id)')
+      ->select(self::NON_CONFORMITY_COUNT_EXPRESSION)
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
-      ->andWhere('r.severity = :severity')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
+      ->andWhere(self::SEVERITY_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId)
       ->setParameter('severity', 'critical');
 
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     } else {
-      $queryBuilder->andWhere('r.status IN (:openStatuses)')->setParameter('openStatuses', ['open', 'in_progress']);
+      $queryBuilder->andWhere(self::OPEN_STATUSES_PREDICATE)->setParameter('openStatuses', ['open', 'in_progress']);
     }
 
     return (int) $queryBuilder
@@ -564,7 +578,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->select('IDENTITY(r.inspection) AS inspectionId, COUNT(r.id) AS cnt')
       ->from(NonConformityRecord::class, 'r')
       ->where($qb->expr()->in('IDENTITY(r.inspection)', ':ids'))
-      ->andWhere('r.status IN (:openStatuses)')
+      ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->setParameter('ids', $inspectionIds)
       ->setParameter('openStatuses', ['open', 'in_progress'])
       ->groupBy('r.inspection')
@@ -591,7 +605,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   ): int {
     $qb = $this->createOrganizationListQueryBuilder($organizationId, $severity, $status, null);
 
-    return (int) $qb->select('COUNT(r.id)')->getQuery()->getSingleScalarResult();
+    return (int) $qb->select(self::NON_CONFORMITY_COUNT_EXPRESSION)->getQuery()->getSingleScalarResult();
   }
 
   /**
@@ -658,20 +672,20 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->setParameter('inspection', $inspection);
 
     if (null !== $severity) {
-      $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $qb->andWhere(self::SEVERITY_PREDICATE)->setParameter('severity', $severity);
     }
 
     if (null !== $status) {
-      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+      $qb->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     if (null !== $search && '' !== $search) {
       $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
       $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('r.description', ':search'),
-        $qb->expr()->like('r.severity', ':search'),
-        $qb->expr()->like('r.status', ':search'),
-        $qb->expr()->like('r.notes', ':search'),
+        $qb->expr()->like('r.description', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('r.severity', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('r.status', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('r.notes', self::SEARCH_PLACEHOLDER),
       ))->setParameter('search', '%' . $escaped . '%');
     }
 
@@ -697,24 +711,24 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->from(NonConformityRecord::class, 'r')
       ->innerJoin('r.inspection', 'i')
       ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
+      ->andWhere(self::ORGANIZATION_ID_PREDICATE)
       ->setParameter('organizationId', (string) $organizationId);
 
     if (null !== $severity) {
-      $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $qb->andWhere(self::SEVERITY_PREDICATE)->setParameter('severity', $severity);
     }
 
     if (null !== $status) {
-      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+      $qb->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     if (null !== $search && '' !== $search) {
       $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
       $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('r.description', ':search'),
-        $qb->expr()->like('r.severity', ':search'),
-        $qb->expr()->like('r.status', ':search'),
-        $qb->expr()->like('r.notes', ':search'),
+        $qb->expr()->like('r.description', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('r.severity', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('r.status', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('r.notes', self::SEARCH_PLACEHOLDER),
       ))->setParameter('search', '%' . $escaped . '%');
     }
 
@@ -766,7 +780,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 
@@ -799,7 +813,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     );
 
     if (false === $normalized) {
-      throw new RuntimeException('Unable to reinterpret a stored non-conformity datetime.');
+      throw new StoredDateTimeReinterpretationException('Unable to reinterpret a stored non-conformity datetime.');
     }
 
     return $normalized;

@@ -6,6 +6,7 @@ namespace Tests\Unit\Inspection\Infrastructure\Adapter\Calendar;
 
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use DateTimeImmutable;
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionEquipmentId, InspectionId, InspectionOrganizationId, InspectionResult, Inspector};
@@ -52,16 +53,7 @@ final class InspectionCalendarFeedAdapterTest extends TestCase
       ->method('findByOrganizationId')
       ->with(
         self::equalTo(InspectionOrganizationId::fromString(self::ORGANIZATION_ID)),
-        null,
-        null,
-        null,
-        null,
-        $from->format('c'),
-        $to->format('c'),
-        null,
-        null,
-        null,
-        null,
+        new InspectionListCriteria(execution: new InspectionExecutionCriteria(performedAtFrom: $from->format('c'), performedAtTo: $to->format('c'))),
         self::equalTo(new Sorting('performedAt')),
         500,
         0,

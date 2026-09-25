@@ -124,40 +124,20 @@ final readonly class InterventionActionPolicy
   {
     $base = $this->requiredPermission($resource, $action, $payload, $contextStatus);
     if ('work_item' === $resource && 'update' === $action && 'draft' !== $contextStatus) {
-      $planningFields = ['assigneeId', 'estimatedMinutes', 'workStartsOn', 'workEndsOn'];
-      $planning = [] !== array_intersect(array_keys($payload), $planningFields);
-      if ($planning) {
-        return [] === array_diff(array_keys($payload), [...$planningFields, 'workloadConfirmationToken'])
-          ? [self::PERMISSION_PLAN]
-          : [self::PERMISSION_PLAN, self::PERMISSION_EXECUTE];
+      $workItemPermissions = self::workItemPlanningPermissions($payload);
+      if (null !== $workItemPermissions) {
+        return $workItemPermissions;
       }
     }
     if ('intervention' !== $resource || 'create' === $action || 'draft' === $contextStatus) {
       return [$base];
     }
 
-    $touchesPlanning = false;
-    foreach (['siteId', 'responsibleId', 'participants', 'priority', 'plannedStartAt', 'dueAt'] as $field) {
-      if (array_key_exists($field, $payload)) {
-        $touchesPlanning = true;
-
-        break;
-      }
-    }
-    if (!$touchesPlanning) {
+    if (!self::touchesAny($payload, ['siteId', 'responsibleId', 'participants', 'priority', 'plannedStartAt', 'dueAt'])) {
       return [$base];
     }
 
-    $editsBeyondPlanning = false;
-    foreach (['status', 'name', 'description', 'reviewNote', 'labelIds'] as $field) {
-      if (array_key_exists($field, $payload)) {
-        $editsBeyondPlanning = true;
-
-        break;
-      }
-    }
-
-    return $editsBeyondPlanning
+    return self::touchesAny($payload, ['status', 'name', 'description', 'reviewNote', 'labelIds'])
       ? array_values(array_unique([$base, self::PERMISSION_PLAN]))
       : [self::PERMISSION_PLAN];
   }
@@ -202,6 +182,7 @@ final readonly class InterventionActionPolicy
     $callerMemberId = $this->memberPolicy->findMemberId($context->organizationId, $userId);
     $isResponsible = null !== $callerMemberId && null !== $context->responsibleId && $callerMemberId === $context->responsibleId;
     $isParticipant = null !== $callerMemberId && in_array($callerMemberId, $context->participants, true);
+    $isTeamMember = $isResponsible || $isParticipant;
     $isDraft = InterventionStatus::DRAFT === $status;
 
     $hasExecute = $this->hasPermission($context->organizationId, $userId, self::PERMISSION_EXECUTE);
@@ -216,29 +197,87 @@ final readonly class InterventionActionPolicy
         && $this->hasAllPermissions($context->organizationId, $userId, 'intervention', 'update', ['responsibleId' => null], $status),
       canEditPlanning: $this->mutabilityPolicy->isScheduleMutable($status)
         && $this->hasAllPermissions($context->organizationId, $userId, 'intervention', 'update', ['participants' => []], $status),
-      canMutateWorkItems: $this->mutabilityPolicy->isScheduleMutable($status)
-        && $this->hasAllPermissions($context->organizationId, $userId, 'work_item', 'create', [], $status)
-        && ($isDraft || $isResponsible || $isParticipant),
-      canMutateChanges: $hasExecute
-        && $this->isChangeCreationWindow($status)
-        && ($isResponsible || $isParticipant),
+      canMutateWorkItems: $this->canMutateWorkItems($context, $userId, $status, $isDraft, $isTeamMember),
+      canMutateChanges: $this->canMutateChanges($status, $hasExecute, $isTeamMember),
       canAssignTeam: $this->mutabilityPolicy->isScheduleMutable($status)
         && $this->hasAllPermissions($context->organizationId, $userId, 'intervention', 'update', ['participants' => []], $status),
-      canManageAttachments: $this->mutabilityPolicy->isScheduleMutable($status)
-        && ($isDraft
-          ? $this->hasPermission($context->organizationId, $userId, self::PERMISSION_PLAN)
-          : ($hasExecute && ($isResponsible || $isParticipant))),
-      canSubmit: $hasExecute
-        && $isResponsible
-        && in_array(InterventionStatus::SUBMITTED, $this->transitionPolicy->allowedFrom($status), true),
-      canWithdraw: $hasExecute
-        && $isResponsible
-        && InterventionStatus::SUBMITTED === $status
-        && in_array(InterventionStatus::IN_PROGRESS, $this->transitionPolicy->allowedFrom($status), true),
+      canManageAttachments: $this->canManageAttachments($context, $userId, $status, $isDraft, $hasExecute, $isTeamMember),
+      canSubmit: $this->canSubmit($status, $hasExecute, $isResponsible),
+      canWithdraw: $this->canWithdraw($status, $hasExecute, $isResponsible),
       canDelete: in_array($status, self::DELETABLE_STATUSES, true)
         && $this->hasAllPermissions($context->organizationId, $userId, 'intervention', 'delete', [], $status),
       canPublish: $hasPublish && InterventionStatus::SUBMITTED === $status,
     );
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   *
+   * @return ?non-empty-list<string>
+   */
+  private static function workItemPlanningPermissions(array $payload): ?array
+  {
+    $planningFields = ['assigneeId', 'estimatedMinutes', 'workStartsOn', 'workEndsOn'];
+    if ([] === array_intersect(array_keys($payload), $planningFields)) {
+      return null;
+    }
+
+    return [] === array_diff(array_keys($payload), [...$planningFields, 'workloadConfirmationToken'])
+      ? [self::PERMISSION_PLAN]
+      : [self::PERMISSION_PLAN, self::PERMISSION_EXECUTE];
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   * @param list<string> $fields
+   */
+  private static function touchesAny(array $payload, array $fields): bool
+  {
+    foreach ($fields as $field) {
+      if (array_key_exists($field, $payload)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private function canMutateWorkItems(InterventionWorkflowContext $context, string $userId, InterventionStatus $status, bool $isDraft, bool $isTeamMember): bool
+  {
+    return $this->mutabilityPolicy->isScheduleMutable($status)
+      && $this->hasAllPermissions($context->organizationId, $userId, 'work_item', 'create', [], $status)
+      && ($isDraft || $isTeamMember);
+  }
+
+  private function canMutateChanges(InterventionStatus $status, bool $hasExecute, bool $isTeamMember): bool
+  {
+    return $hasExecute && $this->isChangeCreationWindow($status) && $isTeamMember;
+  }
+
+  private function canManageAttachments(
+    InterventionWorkflowContext $context,
+    string $userId,
+    InterventionStatus $status,
+    bool $isDraft,
+    bool $hasExecute,
+    bool $isTeamMember,
+  ): bool {
+    return $this->mutabilityPolicy->isScheduleMutable($status)
+      && ($isDraft
+        ? $this->hasPermission($context->organizationId, $userId, self::PERMISSION_PLAN)
+        : ($hasExecute && $isTeamMember));
+  }
+
+  private function canSubmit(InterventionStatus $status, bool $hasExecute, bool $isResponsible): bool
+  {
+    return $hasExecute && $isResponsible
+      && in_array(InterventionStatus::SUBMITTED, $this->transitionPolicy->allowedFrom($status), true);
+  }
+
+  private function canWithdraw(InterventionStatus $status, bool $hasExecute, bool $isResponsible): bool
+  {
+    return $hasExecute && $isResponsible && InterventionStatus::SUBMITTED === $status
+      && in_array(InterventionStatus::IN_PROGRESS, $this->transitionPolicy->allowedFrom($status), true);
   }
 
   /**

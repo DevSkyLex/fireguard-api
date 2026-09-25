@@ -31,14 +31,7 @@ final readonly class RateLimitFailureSubscriber implements EventSubscriberInterf
     do {
       if ($error instanceof HttpExceptionInterface && Response::HTTP_TOO_MANY_REQUESTS === $error->getStatusCode()) {
         $headers = $error->getHeaders();
-        $rawDelay = $headers['Retry-After'] ?? $headers['retry-after'] ?? null;
-        $delay = is_int($rawDelay) ? (string) $rawDelay : (is_string($rawDelay) ? $rawDelay : null);
-        $retryAfter = null;
-        if (null !== $delay && ctype_digit((string) $delay)) {
-          $retryAfter = (int) $delay;
-        } elseif (null !== $delay && false !== ($deadline = strtotime((string) $delay))) {
-          $retryAfter = max(0, $deadline - time());
-        }
+        $retryAfter = self::retryAfterSeconds($headers['Retry-After'] ?? $headers['retry-after'] ?? null);
         $event->setResponse(new JsonResponse([
           'type' => '/errors/rate_limit_exceeded',
           'title' => 'Too Many Requests',
@@ -55,5 +48,22 @@ final readonly class RateLimitFailureSubscriber implements EventSubscriberInterf
       }
       $error = $error->getPrevious();
     } while (null !== $error);
+  }
+
+  private static function retryAfterSeconds(mixed $rawDelay): ?int
+  {
+    if (is_int($rawDelay)) {
+      $rawDelay = (string) $rawDelay;
+    }
+    if (!is_string($rawDelay)) {
+      return null;
+    }
+    if (ctype_digit($rawDelay)) {
+      return (int) $rawDelay;
+    }
+
+    $deadline = strtotime($rawDelay);
+
+    return false === $deadline ? null : max(0, $deadline - time());
   }
 }

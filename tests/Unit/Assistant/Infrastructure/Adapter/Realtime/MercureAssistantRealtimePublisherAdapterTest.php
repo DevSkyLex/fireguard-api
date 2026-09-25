@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Infrastructure\Adapter\Realtime;
 
+use Assistant\Domain\Model\Message\AssistantMessage;
+use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter;
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mercure\{HubInterface, Update};
@@ -32,6 +35,23 @@ final class MercureAssistantRealtimePublisherAdapterTest extends TestCase
   #[Test]
   public function testPublishGenerationEventPublishesAPrivateUpdateOnTheThreadsOwnTopic(): void
   {
+    $messageId = '00000000-0000-4000-8000-000000000001';
+    $message = AssistantMessage::reconstitute(
+      id: AssistantMessageId::fromString($messageId),
+      threadId: 'thread-1',
+      organizationId: 'org-1',
+      role: AssistantMessageRole::ASSISTANT,
+      body: 'Hello',
+      status: AssistantMessageStatus::STREAMING,
+      errorCode: null,
+      tokenCount: 3,
+      createdAt: new DateTimeImmutable('2026-09-25T12:00:00+00:00'),
+      completedAt: null,
+      attemptId: 'attempt-1',
+      attemptNumber: 2,
+      attemptSequence: 4,
+      attemptExpiresAt: new DateTimeImmutable('2026-09-25T12:05:00+00:00'),
+    );
     $hub = $this->createMock(HubInterface::class);
     $hub->expects(self::once())
       ->method('publish')
@@ -41,15 +61,21 @@ final class MercureAssistantRealtimePublisherAdapterTest extends TestCase
 
         $data = json_decode($update->getData(), true);
         self::assertIsArray($data);
-        self::assertSame('assistant-msg-1', $data['messageId']);
+        self::assertSame('00000000-0000-4000-8000-000000000001', $data['messageId']);
         self::assertSame('streaming', $data['status']);
         self::assertSame('Hello', $data['body']);
+        self::assertSame(3, $data['tokenCount']);
+        self::assertNull($data['errorCode']);
+        self::assertSame('attempt-1', $data['attemptId']);
+        self::assertSame(2, $data['attemptNumber']);
+        self::assertSame(4, $data['attemptSequence']);
+        self::assertSame('2026-09-25T12:05:00+00:00', $data['attemptExpiresAt']);
 
         return true;
       }));
 
     $adapter = new MercureAssistantRealtimePublisherAdapter($hub);
 
-    $adapter->publishGenerationEvent('org-1', 'thread-1', 'assistant-msg-1', 'streaming', 'Hello');
+    $adapter->publishGenerationEvent($message);
   }
 }

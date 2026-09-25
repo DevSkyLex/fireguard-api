@@ -76,7 +76,7 @@ final class AssistantMessageTest extends TestCase
   {
     $message = $this->pendingReply();
 
-    $message->markStreaming(new DateTimeImmutable('2026-01-01T00:00:01+00:00'));
+    $message->markStreaming();
 
     self::assertSame(AssistantMessageStatus::STREAMING, $message->status());
   }
@@ -85,7 +85,7 @@ final class AssistantMessageTest extends TestCase
   public function testStreamingToCompleteReplacesTheBodyInPlace(): void
   {
     $message = $this->pendingReply();
-    $message->markStreaming(new DateTimeImmutable('2026-01-01T00:00:01+00:00'));
+    $message->markStreaming();
 
     $completedAt = new DateTimeImmutable('2026-01-01T00:00:05+00:00');
     $message->markComplete('The final, full reply.', 42, $completedAt);
@@ -100,7 +100,7 @@ final class AssistantMessageTest extends TestCase
   public function testStreamingToFailedIsLegal(): void
   {
     $message = $this->pendingReply();
-    $message->markStreaming(new DateTimeImmutable('2026-01-01T00:00:01+00:00'));
+    $message->markStreaming();
 
     $message->markFailed('upstream_error', new DateTimeImmutable('2026-01-01T00:00:02+00:00'));
 
@@ -133,7 +133,7 @@ final class AssistantMessageTest extends TestCase
   public function testCompleteIsTerminalAndRejectsAnyFurtherTransition(): void
   {
     $message = $this->pendingReply();
-    $message->markStreaming(new DateTimeImmutable('2026-01-01T00:00:01+00:00'));
+    $message->markStreaming();
     $message->markComplete('done', 10, new DateTimeImmutable('2026-01-01T00:00:02+00:00'));
 
     $this->expectException(AssistantMessageIllegalStatusTransitionException::class);
@@ -152,7 +152,7 @@ final class AssistantMessageTest extends TestCase
 
     $this->expectException(AssistantMessageIllegalStatusTransitionException::class);
 
-    $message->markStreaming(new DateTimeImmutable('2026-01-01T00:00:02+00:00'));
+    $message->markStreaming();
   }
 
   private function pendingReply(): AssistantMessage

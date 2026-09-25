@@ -57,7 +57,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateOrganizationProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Create Organization',
@@ -79,7 +79,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['active', 'suspended', 'archived']],
@@ -106,12 +106,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Get(
       name: OrganizationOperations::GET_ORGANIZATION,
-      uriTemplate: '/{id}',
+      uriTemplate: self::ORGANIZATION_URI_TEMPLATE,
       input: false,
       output: OrganizationOutput::class,
       provider: GetOrganizationProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Get Organization',
@@ -120,14 +120,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Patch(
       name: OrganizationOperations::UPDATE_ORGANIZATION_SETTINGS,
-      uriTemplate: '/{id}',
+      uriTemplate: self::ORGANIZATION_URI_TEMPLATE,
       read: false,
       input: UpdateOrganizationSettingsInput::class,
       output: OrganizationOutput::class,
       processor: UpdateOrganizationSettingsProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Update Organization settings',
@@ -136,8 +136,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Organization updated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - validation failed'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Slug already in use'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::ORGANIZATION_NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -148,14 +148,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationQuotaOutput::class,
       provider: GetOrganizationQuotaProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Get Organization quota usage',
         description: 'Returns the current usage and plan limit of each capped resource (members, facilities, equipment, inspections). Requires the organization.read permission.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Quota usage retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
         ],
       ),
     ),
@@ -168,7 +168,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: ChangeOrganizationPlanProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Change Organization plan',
@@ -176,7 +176,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Organization plan updated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - plan not selectable'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or plan not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Paid plan requires the billing checkout flow, or current usage exceeds the selected plan limits (confirm with acknowledgeOveruse)'),
         ],
@@ -190,7 +190,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOutput::class,
       processor: UploadOrganizationLogoProcessor::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Upload Organization logo',
@@ -217,8 +217,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Logo uploaded — organization output with updated logoUrl returned'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Invalid file — missing, too large, or unsupported MIME type'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::ORGANIZATION_NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -247,7 +247,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: TransferOrganizationOwnershipProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Transfer Organization ownership',
@@ -263,11 +263,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Delete(
       name: OrganizationOperations::DELETE_ORGANIZATION,
-      uriTemplate: '/{id}',
+      uriTemplate: self::ORGANIZATION_URI_TEMPLATE,
       input: false,
       output: false,
       processor: DeleteOrganizationProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'slug' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -292,8 +292,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Organization archived'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::ORGANIZATION_NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Missing or mismatched slug confirmation'),
         ],
       ),
@@ -306,15 +306,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOutput::class,
       processor: SuspendOrganizationProcessor::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Suspend Organization',
         description: 'Suspends the organization as an explicit, dedicated action — coexists with (does not replace) the legacy isActive: false toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires. Idempotent when already suspended.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Organization suspended — refreshed organization output returned'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::ORGANIZATION_NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Organization is archived — restore it first'),
         ],
       ),
@@ -327,7 +327,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOutput::class,
       processor: RestoreOrganizationProcessor::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Restore Organization',
@@ -335,7 +335,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Organization restored — refreshed organization output returned'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions — and, for an archived organization, held by every caller who is not a platform administrator'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::ORGANIZATION_NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -346,15 +346,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: RemoveOrganizationLogoProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Remove Organization logo',
         description: 'Removes the organization logo. Requires the organization.settings.write permission (the same permission required to upload it). Idempotent when the organization has no logo.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Logo removed'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::ORGANIZATION_NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Organization is archived — restore it first'),
         ],
       ),
@@ -363,4 +363,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string ORGANIZATION_URI_TEMPLATE = '/{id}';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+
+  private const string ORGANIZATION_NOT_FOUND_DESCRIPTION = 'Organization not found';
+  // #endregion
 }

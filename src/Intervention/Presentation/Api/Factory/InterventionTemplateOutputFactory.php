@@ -20,6 +20,10 @@ use function array_map;
  */
 final class InterventionTemplateOutputFactory
 {
+  // #region Constants
+  private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
+  // #endregion
+
   /**
    * Method fromView.
    *
@@ -35,7 +39,7 @@ final class InterventionTemplateOutputFactory
   {
     $output = new InterventionTemplateOutput();
     $output->id = $view->id;
-    $output->organization = '/api/organizations/' . $view->organizationId;
+    $output->organization = self::ORGANIZATION_IRI_PREFIX . $view->organizationId;
     $output->name = $view->name;
     $output->description = $view->description;
     $output->type = $view->type;
@@ -43,7 +47,7 @@ final class InterventionTemplateOutputFactory
     $output->defaultSite = null === $view->defaultSiteId ? null : '/api/facilities/' . $view->defaultSiteId;
     $output->defaultResponsible = null === $view->defaultResponsibleId
       ? null
-      : '/api/organizations/' . $view->organizationId . '/members/' . $view->defaultResponsibleId;
+      : self::ORGANIZATION_IRI_PREFIX . $view->organizationId . '/members/' . $view->defaultResponsibleId;
     $output->duration = $view->duration;
     $output->labelIds = $view->labelIds;
     $output->items = array_map(
@@ -78,7 +82,7 @@ final class InterventionTemplateOutputFactory
     $output->estimatedMinutes = $item->estimatedMinutes;
     $output->defaultAssignee = null === $item->defaultAssigneeId
       ? null
-      : '/api/organizations/' . $organizationId . '/members/' . $item->defaultAssigneeId;
+      : self::ORGANIZATION_IRI_PREFIX . $organizationId . '/members/' . $item->defaultAssigneeId;
 
     return $output;
   }

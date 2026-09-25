@@ -265,133 +265,17 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     }
     $previousStatus = $record->status;
 
-    if (array_key_exists('type', $patch)) {
-      $type = $patch['type'];
-      if (!is_string($type) || !in_array($type, self::TYPES, true)) {
-        throw new InterventionConflictException('Proposed facility type is invalid.');
-      }
-      $record->type = $type;
-    }
-    if (array_key_exists('name', $patch)) {
-      $name = $patch['name'];
-      if (!is_string($name) || '' === trim($name)) {
-        throw new InterventionConflictException('Facility name cannot be empty.');
-      }
-      $record->name = trim($name);
-    }
-    foreach (['code', 'address'] as $property) {
-      if (array_key_exists($property, $patch)) {
-        $value = $patch[$property];
-        if (null !== $value && !is_string($value)) {
-          throw new InterventionConflictException(sprintf('Facility field "%s" must be a string or null.', $property));
-        }
-        $record->{$property} = is_string($value) ? trim($value) : null;
-      }
-    }
-    if (array_key_exists('latitude', $patch) || array_key_exists('longitude', $patch)) {
-      // Coordinates are pairwise, mirroring the canonical mutation processor.
-      if (array_key_exists('latitude', $patch) !== array_key_exists('longitude', $patch)) {
-        throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
-      }
-      $latitude = $patch['latitude'];
-      $longitude = $patch['longitude'];
-      if ((null === $latitude) !== (null === $longitude)) {
-        throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
-      }
-      if (null === $latitude) {
-        $record->latitude = null;
-        $record->longitude = null;
-      } else {
-        if (!is_int($latitude) && !is_float($latitude)) {
-          throw new InterventionConflictException('Facility latitude must be a number or null.');
-        }
-        if (!is_int($longitude) && !is_float($longitude)) {
-          throw new InterventionConflictException('Facility longitude must be a number or null.');
-        }
-        if ($latitude < -90.0 || $latitude > 90.0 || $longitude < -180.0 || $longitude > 180.0) {
-          throw new InterventionConflictException('Facility coordinates are out of range.');
-        }
-        $record->latitude = (float) $latitude;
-        $record->longitude = (float) $longitude;
-      }
-    }
-    if (array_key_exists('metadata', $patch)) {
-      if (!is_array($patch['metadata'])) {
-        throw new InterventionConflictException('Proposed facility metadata must be an object.');
-      }
-      /** @var array<string, mixed> $metadata */
-      $metadata = $patch['metadata'];
-
-      // required is enforced on CREATE only, mirroring the canonical PATCH
-      // surface and the command handlers.
-      try {
-        $this->metadataSchemaGuard->assertValid($organizationId, $metadata, $record->type, false);
-      } catch (FacilityMetadataValidationException $exception) {
-        throw new InterventionConflictException($exception->getMessage());
-      }
-      $record->metadata = $metadata;
-    }
-    if (array_key_exists('planGeometry', $patch)) {
-      $planGeometry = $patch['planGeometry'];
-      if (null === $planGeometry) {
-        $record->planGeometry = null;
-      } elseif (is_array($planGeometry)) {
-        try {
-          /** @var array{attachmentId?: mixed, points?: mixed} $planGeometry */
-          $record->planGeometry = PlanGeometry::fromArray($planGeometry)->toArray();
-        } catch (InvalidValueException $exception) {
-          throw new InterventionConflictException($exception->getMessage());
-        }
-      } else {
-        throw new InterventionConflictException('Proposed facility plan geometry must be an object or null.');
-      }
-    }
-    if (array_key_exists('status', $patch)) {
-      $status = $patch['status'];
-      if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
-        throw new InterventionConflictException('Proposed facility status is invalid.');
-      }
-      $record->status = $status;
-    }
-    if (array_key_exists('parent', $patch)) {
-      $parentIri = $patch['parent'];
-      if (null === $parentIri) {
-        $record->parentFacility = null;
-      } elseif (is_string($parentIri)) {
-        $parent = $this->entityManager->find(FacilityRecord::class, $this->id($parentIri));
-        if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $organizationId) {
-          throw new InterventionConflictException('Proposed parent facility is invalid.');
-        }
-        $this->assertNoParentCycle($record, $parent);
-        if ('archived' === $parent->status) {
-          throw new InterventionConflictException('Proposed parent facility is archived.');
-        }
-        $this->assertDepthWithinCap($record, $parent);
-        $record->parentFacility = $parent;
-      } else {
-        throw new InterventionConflictException('Proposed parent facility must be an IRI or null.');
-      }
-    }
+    $this->applyTypeAndName($record, $patch);
+    $this->applyText($record, $patch);
+    $this->applyCoordinates($record, $patch);
+    $this->applyMetadata($organizationId, $record, $patch);
+    $this->applyPlanGeometry($record, $patch);
+    $this->applyStatus($record, $patch);
+    $this->applyParent($organizationId, $record, $patch);
 
     // Restoring (archived -> active) is refused while the parent is archived,
     // mirroring the RestoreFacility use case and the canonical mutation processor.
-    if (
-      'archived' === $previousStatus
-      && 'active' === $record->status
-      && $record->parentFacility instanceof FacilityRecord
-      && 'archived' === $record->parentFacility->status
-    ) {
-      throw new InterventionConflictException('Cannot restore a facility while its parent is archived.');
-    }
-
-    // Archiving must not orphan a live dependent, mirroring the canonical surface.
-    if ('archived' !== $previousStatus && 'archived' === $record->status) {
-      try {
-        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
-      } catch (FacilityHasActiveDependentsException $exception) {
-        throw new InterventionConflictException($exception->getMessage());
-      }
-    }
+    $this->assertStatusChangeAllowed($organizationId, $record, $previousStatus);
 
     if (null !== $record->planGeometry && (array_key_exists('planGeometry', $patch) || array_key_exists('parent', $patch))) {
       $this->assertPlanUsable($record);
@@ -447,6 +331,201 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyTypeAndName(FacilityRecord $record, array $patch): void
+  {
+    if (array_key_exists('type', $patch)) {
+      $type = $patch['type'];
+      if (!is_string($type) || !in_array($type, self::TYPES, true)) {
+        throw new InterventionConflictException('Proposed facility type is invalid.');
+      }
+      $record->type = $type;
+    }
+    if (array_key_exists('name', $patch)) {
+      $name = $patch['name'];
+      if (!is_string($name) || '' === trim($name)) {
+        throw new InterventionConflictException('Facility name cannot be empty.');
+      }
+      $record->name = trim($name);
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyText(FacilityRecord $record, array $patch): void
+  {
+    foreach (['code', 'address'] as $property) {
+      if (array_key_exists($property, $patch)) {
+        $value = $patch[$property];
+        if (null !== $value && !is_string($value)) {
+          throw new InterventionConflictException(sprintf('Facility field "%s" must be a string or null.', $property));
+        }
+        $record->{$property} = is_string($value) ? trim($value) : null;
+      }
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyCoordinates(FacilityRecord $record, array $patch): void
+  {
+    if (!array_key_exists('latitude', $patch) && !array_key_exists('longitude', $patch)) {
+      return;
+    }
+    // Coordinates are pairwise, mirroring the canonical mutation processor.
+    if (array_key_exists('latitude', $patch) !== array_key_exists('longitude', $patch)) {
+      throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
+    }
+    $latitude = $patch['latitude'];
+    $longitude = $patch['longitude'];
+    if ((null === $latitude) !== (null === $longitude)) {
+      throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
+    }
+    if (null === $latitude) {
+      $record->latitude = null;
+      $record->longitude = null;
+
+      return;
+    }
+
+    [$latitude, $longitude] = self::coordinateValues($latitude, $longitude);
+    $record->latitude = $latitude;
+    $record->longitude = $longitude;
+  }
+
+  /**
+   * @return array{float, float}
+   */
+  private static function coordinateValues(mixed $latitude, mixed $longitude): array
+  {
+    if (!is_int($latitude) && !is_float($latitude)) {
+      throw new InterventionConflictException('Facility latitude must be a number or null.');
+    }
+    if (!is_int($longitude) && !is_float($longitude)) {
+      throw new InterventionConflictException('Facility longitude must be a number or null.');
+    }
+    if ($latitude < -90.0 || $latitude > 90.0 || $longitude < -180.0 || $longitude > 180.0) {
+      throw new InterventionConflictException('Facility coordinates are out of range.');
+    }
+
+    return [(float) $latitude, (float) $longitude];
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyMetadata(string $organizationId, FacilityRecord $record, array $patch): void
+  {
+    if (!array_key_exists('metadata', $patch)) {
+      return;
+    }
+    if (!is_array($patch['metadata'])) {
+      throw new InterventionConflictException('Proposed facility metadata must be an object.');
+    }
+    /** @var array<string, mixed> $metadata */
+    $metadata = $patch['metadata'];
+
+    // Required is enforced on CREATE only, mirroring the canonical PATCH
+    // surface and the command handlers.
+    try {
+      $this->metadataSchemaGuard->assertValid($organizationId, $metadata, $record->type, false);
+    } catch (FacilityMetadataValidationException $exception) {
+      throw new InterventionConflictException($exception->getMessage());
+    }
+    $record->metadata = $metadata;
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyPlanGeometry(FacilityRecord $record, array $patch): void
+  {
+    if (!array_key_exists('planGeometry', $patch)) {
+      return;
+    }
+    $planGeometry = $patch['planGeometry'];
+    if (null === $planGeometry) {
+      $record->planGeometry = null;
+    } elseif (is_array($planGeometry)) {
+      try {
+        /** @var array{attachmentId?: mixed, points?: mixed} $planGeometry */
+        $record->planGeometry = PlanGeometry::fromArray($planGeometry)->toArray();
+      } catch (InvalidValueException $exception) {
+        throw new InterventionConflictException($exception->getMessage());
+      }
+    } else {
+      throw new InterventionConflictException('Proposed facility plan geometry must be an object or null.');
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyStatus(FacilityRecord $record, array $patch): void
+  {
+    if (!array_key_exists('status', $patch)) {
+      return;
+    }
+    $status = $patch['status'];
+    if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
+      throw new InterventionConflictException('Proposed facility status is invalid.');
+    }
+    $record->status = $status;
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyParent(string $organizationId, FacilityRecord $record, array $patch): void
+  {
+    if (!array_key_exists('parent', $patch)) {
+      return;
+    }
+    $parentIri = $patch['parent'];
+    if (null === $parentIri) {
+      $record->parentFacility = null;
+    } elseif (is_string($parentIri)) {
+      $parent = $this->entityManager->find(FacilityRecord::class, $this->id($parentIri));
+      if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $organizationId) {
+        throw new InterventionConflictException('Proposed parent facility is invalid.');
+      }
+      $this->assertNoParentCycle($record, $parent);
+      if ('archived' === $parent->status) {
+        throw new InterventionConflictException('Proposed parent facility is archived.');
+      }
+      $this->assertDepthWithinCap($record, $parent);
+      $record->parentFacility = $parent;
+    } else {
+      throw new InterventionConflictException('Proposed parent facility must be an IRI or null.');
+    }
+  }
+
+  private function assertStatusChangeAllowed(string $organizationId, FacilityRecord $record, string $previousStatus): void
+  {
+    // Restoring (archived -> active) is refused while the parent is archived.
+    if (
+      'archived' === $previousStatus
+      && 'active' === $record->status
+      && $record->parentFacility instanceof FacilityRecord
+      && 'archived' === $record->parentFacility->status
+    ) {
+      throw new InterventionConflictException('Cannot restore a facility while its parent is archived.');
+    }
+
+    // Archiving must not orphan a live dependent, mirroring the canonical surface.
+    if ('archived' !== $previousStatus && 'archived' === $record->status) {
+      try {
+        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
+      } catch (FacilityHasActiveDependentsException $exception) {
+        throw new InterventionConflictException($exception->getMessage());
+      }
+    }
   }
 
   private function assertPlanUsable(FacilityRecord $record): void

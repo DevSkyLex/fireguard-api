@@ -111,40 +111,45 @@ final readonly class DuplicateFacilitySubtreeProcessor implements ProcessorInter
     } catch (FacilityHierarchyException|InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
-        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-      }
-
-      $notFound = $this->findFacilityNotFoundException($exception);
-      if ($notFound instanceof FacilityNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $archivedSource = $this->findException($exception, FacilitySubtreeSourceArchivedException::class);
-      if ($archivedSource instanceof FacilitySubtreeSourceArchivedException) {
-        throw new ConflictHttpException($archivedSource->getMessage(), $exception);
-      }
-
-      $tooLarge = $this->findException($exception, FacilitySubtreeTooLargeException::class);
-      if ($tooLarge instanceof FacilitySubtreeTooLargeException) {
-        throw new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception);
-      }
-
-      $hierarchy = $this->findException($exception, FacilityHierarchyException::class);
-      if ($hierarchy instanceof FacilityHierarchyException) {
-        throw new BadRequestHttpException($hierarchy->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     return $this->detail->read($organizationId, $result->facilityId);
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+    if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+      return new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+    }
+
+    $notFound = $this->findFacilityNotFoundException($exception);
+    if ($notFound instanceof FacilityNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $archivedSource = $this->findException($exception, FacilitySubtreeSourceArchivedException::class);
+    if ($archivedSource instanceof FacilitySubtreeSourceArchivedException) {
+      return new ConflictHttpException($archivedSource->getMessage(), $exception);
+    }
+
+    $tooLarge = $this->findException($exception, FacilitySubtreeTooLargeException::class);
+    if ($tooLarge instanceof FacilitySubtreeTooLargeException) {
+      return new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception);
+    }
+
+    $hierarchy = $this->findException($exception, FacilityHierarchyException::class);
+    if ($hierarchy instanceof FacilityHierarchyException) {
+      return new BadRequestHttpException($hierarchy->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

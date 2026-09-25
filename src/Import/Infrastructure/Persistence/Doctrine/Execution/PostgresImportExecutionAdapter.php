@@ -47,6 +47,9 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
     return $claimed > 0 ? $job : null;
   }
 
+  /**
+   * @param callable(ImportJob):?string $operation
+   */
   public function run(ImportJobId $id, string $owner, callable $operation, ?int $rowNumber = null): ImportJob
   {
     try {
@@ -75,20 +78,7 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
         $this->resetClosedManager();
         $this->repository->save($job);
         if (null !== $rowNumber) {
-          if ($job->processedRows() !== $rowNumber) {
-            throw new LogicException('The row operation must report exactly one outcome.');
-          }
-          $outcome = $job->isDryRun() ? 'would_create' : 'created';
-          if ($job->failedRows() > $failures) {
-            $report = $job->errorReport();
-            $last = array_key_last($report);
-            $outcome = null !== $last ? $report[$last]->code : 'invalid';
-          }
-          $this->connection->executeStatement(
-            'INSERT INTO import_row_receipts (import_job_id, row_number, outcome, resource_id, confirmed_at)
-             VALUES (:id, :row, :outcome, :resource, clock_timestamp())',
-            ['id' => (string) $id, 'row' => $rowNumber, 'outcome' => $outcome, 'resource' => $resourceId],
-          );
+          $this->confirmRow($id, $job, $rowNumber, $failures, $resourceId);
         }
         $this->connection->executeStatement(
           "UPDATE import_jobs SET lease_expires_at = clock_timestamp() + INTERVAL '120 seconds'
@@ -141,6 +131,24 @@ final readonly class PostgresImportExecutionAdapter implements ImportExecutionPo
 
       return $job;
     });
+  }
+
+  private function confirmRow(ImportJobId $id, ImportJob $job, int $rowNumber, int $previousFailures, ?string $resourceId): void
+  {
+    if ($job->processedRows() !== $rowNumber) {
+      throw new LogicException('The row operation must report exactly one outcome.');
+    }
+    $outcome = $job->isDryRun() ? 'would_create' : 'created';
+    if ($job->failedRows() > $previousFailures) {
+      $report = $job->errorReport();
+      $last = array_key_last($report);
+      $outcome = null !== $last ? $report[$last]->code : 'invalid';
+    }
+    $this->connection->executeStatement(
+      'INSERT INTO import_row_receipts (import_job_id, row_number, outcome, resource_id, confirmed_at)
+       VALUES (:id, :row, :outcome, :resource, clock_timestamp())',
+      ['id' => (string) $id, 'row' => $rowNumber, 'outcome' => $outcome, 'resource' => $resourceId],
+    );
   }
 
   private function resetClosedManager(): void

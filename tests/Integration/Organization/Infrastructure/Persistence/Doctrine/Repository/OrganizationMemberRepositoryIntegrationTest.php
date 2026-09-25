@@ -8,10 +8,10 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Organization\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -489,7 +489,7 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
   {
     $repository = new OrganizationMemberRepository($this->entityManager, null, 'Nowhere/Nothing');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
 
     $repository->countJoinedByDay(

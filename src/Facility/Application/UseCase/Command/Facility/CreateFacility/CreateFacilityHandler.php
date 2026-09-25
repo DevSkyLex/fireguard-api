@@ -52,6 +52,10 @@ use function strtolower;
  */
 final readonly class CreateFacilityHandler implements CommandHandler
 {
+  // #region Constants
+  private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -96,37 +100,12 @@ final readonly class CreateFacilityHandler implements CommandHandler
    */
   public function __invoke(CreateFacilityCommand $command): CreateFacilityResult
   {
-    if (null !== $command->setupContext && null === $this->setup) {
-      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
-    }
-
-    if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
-      throw OrganizationSetupConflict::because('Setup receipts cannot be combined with another creation protocol.');
-    }
+    $this->assertSetupProtocol($command);
 
     try {
       $organizationId = FacilityOrganizationId::fromString($command->organizationId);
       $parentId = $this->resolveParentId($command->parentFacilityId);
-
-      if (null !== $parentId) {
-        $parent = $this->facilityRepository->findById($parentId);
-        if (null === $parent) {
-          throw FacilityNotFoundException::withId((string) $parentId);
-        }
-
-        if ((string) $parent->organizationId() !== (string) $organizationId) {
-          throw FacilityHierarchyException::parentInAnotherOrganization();
-        }
-
-        if (!$parent->status()->isActive()) {
-          throw FacilityArchivedException::withId((string) $parentId);
-        }
-
-        // The new facility would sit one level below its parent.
-        if ($this->facilityRepository->depthOf($parentId) + 1 > $this->maxDepth) {
-          throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
-        }
-      }
+      $this->assertParent($parentId, $organizationId);
 
       /** @var FacilityId $facilityId */
       $facilityId = null === $command->resourceId
@@ -174,47 +153,8 @@ final readonly class CreateFacilityHandler implements CommandHandler
     // transaction-scoped advisory lock so two concurrent creates at the cap cannot
     // both pass the count and both insert (see OrganizationQuotaPort::assertCanAdd).
     $replayed = false;
-    $facility = $this->transactionManager->transactional(function () use ($command, $facility, $parentId, &$replayed): Facility {
-      if (null !== $command->setupContext) {
-        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_first_facility', $command->organizationId, [
-          'type' => $command->type, 'name' => $command->name, 'address' => $command->address,
-          'latitude' => $command->latitude, 'longitude' => $command->longitude, 'parentFacilityId' => $command->parentFacilityId,
-          'code' => $command->code, 'metadata' => $command->metadata, 'levelIndex' => $command->levelIndex,
-        ]);
-        if (null !== $operation->resourceId) {
-          $existing = $this->facilityRepository->findById(FacilityId::fromString($operation->resourceId));
-          if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
-            throw OrganizationSetupConflict::because('The created facility is no longer available.');
-          }
-          $replayed = true;
-
-          return $existing;
-        }
-      }
-      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
-
-      try {
-        $this->facilityRepository->save($facility);
-        if (null !== $command->setupContext) {
-          ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_first_facility', (string) $facility->id());
-        }
-      } catch (Throwable $exception) {
-        if ($this->isDuplicateCodeConstraintViolation($exception)) {
-          throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
-        }
-
-        if ($this->isOrganizationConstraintViolation($exception)) {
-          throw FacilityOrganizationNotFoundException::create();
-        }
-
-        if ($this->isParentConstraintViolation($exception)) {
-          throw FacilityNotFoundException::withId((string) ($parentId ?? 'unknown'));
-        }
-
-        throw $exception;
-      }
-
-      return $facility;
+    $facility = $this->transactionManager->transactional(function () use ($command, $facility, &$replayed): Facility {
+      return $this->persistFacility($command, $facility, $replayed);
     });
 
     if ($replayed) {
@@ -230,6 +170,84 @@ final readonly class CreateFacilityHandler implements CommandHandler
     ));
 
     return $this->toResult($facility);
+  }
+
+  private function assertSetupProtocol(CreateFacilityCommand $command): void
+  {
+    if (null !== $command->setupContext && null === $this->setup) {
+      throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
+    }
+    if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
+      throw OrganizationSetupConflict::because('Setup receipts cannot be combined with another creation protocol.');
+    }
+  }
+
+  private function assertParent(?FacilityId $parentId, FacilityOrganizationId $organizationId): void
+  {
+    if (null === $parentId) {
+      return;
+    }
+    $parent = $this->facilityRepository->findById($parentId);
+    if (null === $parent) {
+      throw FacilityNotFoundException::withId((string) $parentId);
+    }
+    if ((string) $parent->organizationId() !== (string) $organizationId) {
+      throw FacilityHierarchyException::parentInAnotherOrganization();
+    }
+    if (!$parent->status()->isActive()) {
+      throw FacilityArchivedException::withId((string) $parentId);
+    }
+    // The new facility would sit one level below its parent.
+    if ($this->facilityRepository->depthOf($parentId) + 1 > $this->maxDepth) {
+      throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
+    }
+  }
+
+  private function persistFacility(CreateFacilityCommand $command, Facility $facility, bool &$replayed): Facility
+  {
+    if (null !== $command->setupContext) {
+      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_facility', $command->organizationId, [
+        'type' => $command->type, 'name' => $command->name, 'address' => $command->address,
+        'latitude' => $command->latitude, 'longitude' => $command->longitude, 'parentFacilityId' => $command->parentFacilityId,
+        'code' => $command->code, 'metadata' => $command->metadata, 'levelIndex' => $command->levelIndex,
+      ]);
+      if (null !== $operation->resourceId) {
+        $existing = $this->facilityRepository->findById(FacilityId::fromString($operation->resourceId));
+        if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
+          throw OrganizationSetupConflict::because('The created facility is no longer available.');
+        }
+        $replayed = true;
+
+        return $existing;
+      }
+    }
+
+    $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
+    $this->saveFacility($command, $facility);
+
+    return $facility;
+  }
+
+  private function saveFacility(CreateFacilityCommand $command, Facility $facility): void
+  {
+    try {
+      $this->facilityRepository->save($facility);
+      if (null !== $command->setupContext) {
+        ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_first_facility', (string) $facility->id());
+      }
+    } catch (Throwable $exception) {
+      if ($this->isDuplicateCodeConstraintViolation($exception)) {
+        throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
+      }
+      if ($this->isOrganizationConstraintViolation($exception)) {
+        throw FacilityOrganizationNotFoundException::create();
+      }
+      if ($this->isParentConstraintViolation($exception)) {
+        throw FacilityNotFoundException::withId((string) ($facility->parentFacilityId() ?? 'unknown'));
+      }
+
+      throw $exception;
+    }
   }
 
   /**

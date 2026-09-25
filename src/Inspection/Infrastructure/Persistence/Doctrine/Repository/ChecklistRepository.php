@@ -19,6 +19,10 @@ use function str_replace;
 
 final readonly class ChecklistRepository implements ChecklistRepositoryPort
 {
+  // #region Constants
+  private const string SEARCH_PLACEHOLDER = ':search';
+  // #endregion
+
   /**
    * @var EntityRepository<ChecklistRecord>
    */
@@ -49,46 +53,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     $existing = $this->checklistRepository->find($record->id);
 
     if ($existing instanceof ChecklistRecord) {
-      $existing->organization = $organization;
-      $existing->name = $record->name;
-      $existing->referenceCode = $record->referenceCode;
-      $existing->version = $record->version;
-      $existing->status = $record->status;
-      $existing->updatedAt = $record->updatedAt;
-
-      // Upsert items: update existing, add new, remove deleted
-      $existingItems = $this->itemRepository->findBy(['checklist' => $existing]);
-      /** @var array<string, ChecklistItemRecord> $existingById */
-      $existingById = [];
-      foreach ($existingItems as $existingItem) {
-        $existingById[$existingItem->id] = $existingItem;
-      }
-
-      $newIds = [];
-      foreach ($itemRecords as $itemRecord) {
-        $newIds[] = $itemRecord->id;
-        if (isset($existingById[$itemRecord->id])) {
-          $existingById[$itemRecord->id]->label = $itemRecord->label;
-          $existingById[$itemRecord->id]->position = $itemRecord->position;
-          $existingById[$itemRecord->id]->required = $itemRecord->required;
-          $existingById[$itemRecord->id]->description = $itemRecord->description;
-        } else {
-          $itemRecord->checklist = $existing;
-          $this->entityManager->persist($itemRecord);
-        }
-      }
-
-      foreach ($existingItems as $existingItem) {
-        if (!in_array($existingItem->id, $newIds, true)) {
-          $this->entityManager->remove($existingItem);
-        }
-      }
+      $this->updateExistingRecord($existing, $record, $organization, $itemRecords);
     } else {
-      $this->entityManager->persist($record);
-      foreach ($itemRecords as $itemRecord) {
-        $itemRecord->checklist = $record;
-        $this->entityManager->persist($itemRecord);
-      }
+      $this->insertRecord($record, $itemRecords);
     }
 
     $this->entityManager->flush();
@@ -251,14 +218,65 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     }
 
     // Draft inspections already contain evidence; publication status never relaxes immutability.
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT DISTINCT checklist_id FROM inspections WHERE organization_id = :organization AND checklist_id IN (:ids)',
       ['organization' => (string) $organizationId, 'ids' => $checklistIds],
       ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING],
     );
+  }
 
-    return $ids;
+  /**
+   * @param list<ChecklistItemRecord> $itemRecords
+   */
+  private function updateExistingRecord(ChecklistRecord $existing, ChecklistRecord $record, OrganizationRecord $organization, array $itemRecords): void
+  {
+    $existing->organization = $organization;
+    $existing->name = $record->name;
+    $existing->referenceCode = $record->referenceCode;
+    $existing->version = $record->version;
+    $existing->status = $record->status;
+    $existing->updatedAt = $record->updatedAt;
+
+    // Upsert items: update existing, add new, remove deleted.
+    $existingItems = $this->itemRepository->findBy(['checklist' => $existing]);
+    /** @var array<string, ChecklistItemRecord> $existingById */
+    $existingById = [];
+    foreach ($existingItems as $existingItem) {
+      $existingById[$existingItem->id] = $existingItem;
+    }
+
+    $newIds = [];
+    foreach ($itemRecords as $itemRecord) {
+      $newIds[] = $itemRecord->id;
+      if (isset($existingById[$itemRecord->id])) {
+        $existingById[$itemRecord->id]->label = $itemRecord->label;
+        $existingById[$itemRecord->id]->position = $itemRecord->position;
+        $existingById[$itemRecord->id]->required = $itemRecord->required;
+        $existingById[$itemRecord->id]->description = $itemRecord->description;
+      } else {
+        $itemRecord->checklist = $existing;
+        $this->entityManager->persist($itemRecord);
+      }
+    }
+
+    foreach ($existingItems as $existingItem) {
+      if (!in_array($existingItem->id, $newIds, true)) {
+        $this->entityManager->remove($existingItem);
+      }
+    }
+  }
+
+  /**
+   * @param list<ChecklistItemRecord> $itemRecords
+   */
+  private function insertRecord(ChecklistRecord $record, array $itemRecords): void
+  {
+    $this->entityManager->persist($record);
+    foreach ($itemRecords as $itemRecord) {
+      $itemRecord->checklist = $record;
+      $this->entityManager->persist($itemRecord);
+    }
   }
 
   private function createListQueryBuilder(
@@ -282,9 +300,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     if (null !== $search && '' !== $search) {
       $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
       $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('c.name', ':search'),
-        $qb->expr()->like('c.version', ':search'),
-        $qb->expr()->like('c.status', ':search'),
+        $qb->expr()->like('c.name', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('c.version', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('c.status', self::SEARCH_PLACEHOLDER),
       ))->setParameter('search', '%' . $escaped . '%');
     }
 

@@ -14,9 +14,9 @@ use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Organization\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -41,6 +41,10 @@ use function strtoupper;
  */
 final readonly class OrganizationMemberRepository implements OrganizationMemberRepositoryPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 'organizationMember.organization = :organization';
+  // #endregion
+
   // #region Properties
   /**
    * @var EntityRepository<OrganizationMemberRecord>
@@ -473,15 +477,11 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $organizations = array_map(
       function (OrganizationId $organizationId): OrganizationRecord {
-        /**
-         * @var OrganizationRecord $reference
-         */
-        $reference = $this->entityManager->getReference(
+        /** @var OrganizationRecord */
+        return $this->entityManager->getReference(
           OrganizationRecord::class,
           (string) $organizationId,
         );
-
-        return $reference;
       },
       $organizationIds,
     );
@@ -535,7 +535,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return (int) $this->memberRepository
       ->createQueryBuilder('organizationMember')
       ->select('COUNT(organizationMember.id)')
-      ->where('organizationMember.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('organizationMember.joinedAt >= :joinedAtFrom')
       ->andWhere('organizationMember.joinedAt <= :joinedAtTo')
       ->setParameter('organization', $organization)
@@ -628,7 +628,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     $rows = $this->memberRepository
       ->createQueryBuilder('organizationMember')
       ->select('organizationMember.id AS id, organizationMember.userId AS userId')
-      ->where('organizationMember.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('organizationMember.id IN (:memberIds)')
       ->setParameter('organization', $organization)
       ->setParameter('memberIds', $memberIds)
@@ -783,7 +783,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 
@@ -805,12 +805,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   private function getOrganizationReference(OrganizationId $organizationId): OrganizationRecord
   {
-    /**
-     * @var OrganizationRecord $organization
-     */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-
-    return $organization;
+    /** @var OrganizationRecord */
+    return $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
   }
 
   /**
@@ -837,7 +833,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     ?OrganizationRoleId $roleId,
   ): QueryBuilder {
     $queryBuilder = $this->memberRepository->createQueryBuilder('organizationMember')
-      ->where('organizationMember.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization);
 
     if (null !== $isActive) {

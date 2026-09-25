@@ -164,74 +164,74 @@ HELP
         return Command::FAILURE;
       }
 
-      // Find existing assignment in role_assignments table
-      $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
-      /** @var RoleAssignmentRecord|null $existingAssignment */
-      $existingAssignment = $assignmentRepository->findOneBy([
-        'subjectType' => 'user',
-        'subjectId' => $user->id,
-        'roleId' => $role->id,
-      ]);
-
-      if ($remove) {
-        // Remove the role assignment
-        if (null === $existingAssignment) {
-          $io->warning(sprintf('User "%s" does not have role "%s".', $email, $roleName));
-
-          return Command::SUCCESS;
-        }
-
-        $this->entityManager->remove($existingAssignment);
-        $this->entityManager->flush();
-        $this->cacheInvalidator?->invalidateUser($user->id);
-
-        $io->success(sprintf('Role "%s" removed from user "%s".', $roleName, $email));
-      } else {
-        // Add the role assignment
-        if (null !== $existingAssignment) {
-          $io->warning(sprintf('User "%s" already has role "%s".', $email, $roleName));
-
-          return Command::SUCCESS;
-        }
-
-        $assignment = new RoleAssignmentRecord();
-        $assignment->id = Uuid::v7()->toRfc4122();
-        $assignment->roleId = $role->id;
-        $assignment->subjectType = 'user';
-        $assignment->subjectId = $user->id;
-        $assignment->assignedAt = new DateTimeImmutable();
-        $assignment->role = $role;
-
-        $this->entityManager->persist($assignment);
-        $this->entityManager->flush();
-        $this->cacheInvalidator?->invalidateUser($user->id);
-
-        $io->success(sprintf('Role "%s" assigned to user "%s".', $roleName, $email));
+      if (!$this->applyRoleAssignment($user, $role, (bool) $remove, $email, $roleName, $io)) {
+        return Command::SUCCESS;
       }
-
-      // Show current roles from role_assignments table
-      /** @var list<RoleAssignmentRecord> $userAssignments */
-      $userAssignments = $assignmentRepository->findBy([
-        'subjectType' => 'user',
-        'subjectId' => $user->id,
-      ]);
-
-      $currentRoles = [];
-      foreach ($userAssignments as $assignment) {
-        if (null !== $assignment->role) {
-          $currentRoles[] = $assignment->role->name;
-        }
-      }
-
-      if (!empty($currentRoles)) {
-        $io->info(sprintf('Current roles: %s', implode(', ', $currentRoles)));
-      }
+      $this->showCurrentRoles($user, $io);
 
       return Command::SUCCESS;
     } catch (Throwable $e) {
       $io->error(sprintf('Failed to assign role: %s', $e->getMessage()));
 
       return Command::FAILURE;
+    }
+  }
+
+  private function applyRoleAssignment(UserRecord $user, RoleRecord $role, bool $remove, string $email, string $roleName, SymfonyStyle $io): bool
+  {
+    $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
+    /** @var RoleAssignmentRecord|null $existingAssignment */
+    $existingAssignment = $assignmentRepository->findOneBy([
+      'subjectType' => 'user',
+      'subjectId' => $user->id,
+      'roleId' => $role->id,
+    ]);
+    if ($remove) {
+      if (null === $existingAssignment) {
+        $io->warning(sprintf('User "%s" does not have role "%s".', $email, $roleName));
+
+        return false;
+      }
+      $this->entityManager->remove($existingAssignment);
+      $this->entityManager->flush();
+      $this->cacheInvalidator?->invalidateUser($user->id);
+      $io->success(sprintf('Role "%s" removed from user "%s".', $roleName, $email));
+
+      return true;
+    }
+    if (null !== $existingAssignment) {
+      $io->warning(sprintf('User "%s" already has role "%s".', $email, $roleName));
+
+      return false;
+    }
+    $assignment = new RoleAssignmentRecord();
+    $assignment->id = Uuid::v7()->toRfc4122();
+    $assignment->roleId = $role->id;
+    $assignment->subjectType = 'user';
+    $assignment->subjectId = $user->id;
+    $assignment->assignedAt = new DateTimeImmutable();
+    $assignment->role = $role;
+    $this->entityManager->persist($assignment);
+    $this->entityManager->flush();
+    $this->cacheInvalidator?->invalidateUser($user->id);
+    $io->success(sprintf('Role "%s" assigned to user "%s".', $roleName, $email));
+
+    return true;
+  }
+
+  private function showCurrentRoles(UserRecord $user, SymfonyStyle $io): void
+  {
+    $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
+    /** @var list<RoleAssignmentRecord> $userAssignments */
+    $userAssignments = $assignmentRepository->findBy(['subjectType' => 'user', 'subjectId' => $user->id]);
+    $currentRoles = [];
+    foreach ($userAssignments as $assignment) {
+      if (null !== $assignment->role) {
+        $currentRoles[] = $assignment->role->name;
+      }
+    }
+    if (!empty($currentRoles)) {
+      $io->info(sprintf('Current roles: %s', implode(', ', $currentRoles)));
     }
   }
   // #endregion

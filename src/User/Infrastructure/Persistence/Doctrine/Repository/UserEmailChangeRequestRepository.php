@@ -25,6 +25,8 @@ use User\Infrastructure\Persistence\Doctrine\Record\UserEmailChangeRequestRecord
  */
 final readonly class UserEmailChangeRequestRepository implements EmailChangeRequestRepositoryPort
 {
+  private const string UNCONFIRMED_PREDICATE = 'r.confirmedAt IS NULL';
+
   // #region Constructor
   /**
    * Constructor.
@@ -70,7 +72,7 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
       ->select('r')
       ->from(UserEmailChangeRequestRecord::class, 'r')
       ->where('r.tokenHash = :tokenHash')
-      ->andWhere('r.confirmedAt IS NULL')
+      ->andWhere(self::UNCONFIRMED_PREDICATE)
       ->andWhere('r.expiresAt > :now')
       ->setParameter('tokenHash', $tokenHash)
       ->setParameter('now', $now)
@@ -90,7 +92,7 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
       ->update(UserEmailChangeRequestRecord::class, 'r')
       ->set('r.confirmedAt', ':now')
       ->where('r.id = :id')
-      ->andWhere('r.confirmedAt IS NULL')
+      ->andWhere(self::UNCONFIRMED_PREDICATE)
       ->andWhere('r.expiresAt > :now')
       ->setParameter('id', $requestId)
       ->setParameter('now', $now)
@@ -118,7 +120,7 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
       ->select('r')
       ->from(UserEmailChangeRequestRecord::class, 'r')
       ->where('r.userId = :userId')
-      ->andWhere('r.confirmedAt IS NULL')
+      ->andWhere(self::UNCONFIRMED_PREDICATE)
       ->andWhere('r.expiresAt > :now')
       ->setParameter('userId', $userId->value)
       ->setParameter('now', $now)
@@ -131,16 +133,14 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
 
   public function removePendingForUser(UserId $userId): int
   {
-    /** @var int $deleted */
-    $deleted = $this->entityManager->createQueryBuilder()
+    /** @var int */
+    return $this->entityManager->createQueryBuilder()
       ->delete(UserEmailChangeRequestRecord::class, 'r')
       ->where('r.userId = :userId')
-      ->andWhere('r.confirmedAt IS NULL')
+      ->andWhere(self::UNCONFIRMED_PREDICATE)
       ->setParameter('userId', $userId->value)
       ->getQuery()
       ->execute();
-
-    return $deleted;
   }
 
   /**

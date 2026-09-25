@@ -32,6 +32,12 @@ use function max;
  */
 final readonly class InterventionStatisticsAdapter implements InterventionStatisticsPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 'intervention.organization = :organization';
+
+  private const string OPEN_STATUS_PREDICATE = 'intervention.status NOT IN (:closed)';
+  // #endregion
+
   /**
    * The two end states. An intervention that reached either is over, so it is
    * neither open work nor something that can still become late.
@@ -60,7 +66,7 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
     $records = $this->entityManager->createQueryBuilder()
       ->select('intervention')
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization)
       ->orderBy('intervention.updatedAt', 'DESC')
       ->setMaxResults(max(1, $limit))
@@ -95,8 +101,8 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
     $records = $this->entityManager->createQueryBuilder()
       ->select('intervention')
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
-      ->andWhere('intervention.status NOT IN (:closed)')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::OPEN_STATUS_PREDICATE)
       ->andWhere('intervention.dueAt IS NOT NULL')
       ->andWhere('intervention.dueAt < :now')
       ->setParameter('organization', $organization)
@@ -134,19 +140,19 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
     $base = $this->entityManager->createQueryBuilder()
       ->select('COUNT(intervention.id)')
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization);
 
     $total = (int) (clone $base)->getQuery()->getSingleScalarResult();
 
     $open = (int) (clone $base)
-      ->andWhere('intervention.status NOT IN (:closed)')
+      ->andWhere(self::OPEN_STATUS_PREDICATE)
       ->setParameter('closed', self::CLOSED_STATUSES)
       ->getQuery()
       ->getSingleScalarResult();
 
     $overdue = (int) (clone $base)
-      ->andWhere('intervention.status NOT IN (:closed)')
+      ->andWhere(self::OPEN_STATUS_PREDICATE)
       ->andWhere('intervention.dueAt IS NOT NULL')
       ->andWhere('intervention.dueAt < :now')
       ->setParameter('closed', self::CLOSED_STATUSES)
@@ -168,7 +174,7 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
     return (int) $this->entityManager->createQueryBuilder()
       ->select('COUNT(intervention.id)')
       ->from(InterventionRecord::class, 'intervention')
-      ->where('intervention.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('intervention.status = :status')
       ->setParameter('organization', $organization)
       ->setParameter('status', InterventionStatus::SUBMITTED->value)

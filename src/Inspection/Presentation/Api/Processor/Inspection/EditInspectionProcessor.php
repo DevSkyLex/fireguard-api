@@ -136,24 +136,7 @@ final readonly class EditInspectionProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findInspectionNotFoundException($exception);
-      if ($notFound instanceof InspectionNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-      $closed = $this->findInspectionAlreadyClosedException($exception);
-      if ($closed instanceof InspectionAlreadyClosedException) {
-        throw new ConflictHttpException($closed->getMessage(), $exception);
-      }
-      $submitted = $this->findInspectionAlreadySubmittedException($exception);
-      if ($submitted instanceof InspectionAlreadySubmittedException) {
-        throw new ConflictHttpException($submitted->getMessage(), $exception);
-      }
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     /** @var GetInspectionResult $result */
@@ -163,6 +146,39 @@ final readonly class EditInspectionProcessor implements ProcessorInterface
     ));
 
     return $this->mapResult($result);
+  }
+
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps a wrapped command failure to its HTTP equivalent.
+   *
+   * @since 1.0.0
+   *
+   * @param MessengerRuntimeException $exception the wrapped command failure
+   *
+   * @return Throwable the mapped or original exception
+   */
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findInspectionNotFoundException($exception);
+    if ($notFound instanceof InspectionNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+    $closed = $this->findInspectionAlreadyClosedException($exception);
+    if ($closed instanceof InspectionAlreadyClosedException) {
+      return new ConflictHttpException($closed->getMessage(), $exception);
+    }
+    $submitted = $this->findInspectionAlreadySubmittedException($exception);
+    if ($submitted instanceof InspectionAlreadySubmittedException) {
+      return new ConflictHttpException($submitted->getMessage(), $exception);
+    }
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

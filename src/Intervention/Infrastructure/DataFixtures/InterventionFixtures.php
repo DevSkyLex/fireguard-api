@@ -14,6 +14,7 @@ use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Domain\ValueObject\InterventionStatus;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionAttachmentRecord, InterventionChangeRecord, InterventionLabelRecord, InterventionNumberCounterRecord, InterventionRecord, InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateItemRecord, InterventionTemplateRecord, InterventionWorkItemRecord, PublicationRecord};
+use LogicException;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
 use Shared\Infrastructure\DataFixtures\{SeedTimeline, SeedUuid};
@@ -196,7 +197,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['templateReference' => self::REGIONAL_AUDIT_TEMPLATE_REFERENCE, 'action' => 'inventory', 'target' => 'Reconcile the asset register', 'required' => 'no'],
     ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'site_setup', 'target' => 'Declare buildings, floors and zones', 'required' => 'yes'],
     ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'inventory', 'target' => 'Register the delivered equipment', 'required' => 'yes'],
-    ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'inspection', 'target' => 'Commissioning inspection', 'required' => 'yes'],
+    ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'inspection', 'target' => self::COMMISSIONING_INSPECTION_TARGET, 'required' => 'yes'],
   ];
 
   /**
@@ -511,7 +512,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['interventionNumber' => '1', 'action' => 'inventory', 'target' => 'Reconcile the Paris asset register', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'discovered', 'required' => 'no', 'assigneeReference' => OrganizationFixtures::OWNER_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '2', 'action' => 'site_setup', 'target' => 'Declare the warehouse and loading bay', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '2', 'action' => 'inventory', 'target' => 'Register the delivered equipment', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
-    ['interventionNumber' => '2', 'action' => 'inspection', 'target' => 'Commissioning inspection', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
+    ['interventionNumber' => '2', 'action' => 'inspection', 'target' => self::COMMISSIONING_INSPECTION_TARGET, 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '2', 'action' => 'inspection', 'target' => 'Fire door survey', 'equipmentReference' => '', 'status' => 'skipped', 'source' => 'discovered', 'required' => 'no', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => 'Door supplier had not finished the installation.'],
     ['interventionNumber' => '3', 'action' => 'inventory', 'target' => 'Warehouse aisles A to D', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '3', 'action' => 'inventory', 'target' => 'Cold store', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
@@ -521,7 +522,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['interventionNumber' => '4', 'action' => 'inventory', 'target' => 'Order the replacement sensors', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'discovered', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::SAFETY_MANAGER_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '5', 'action' => 'site_setup', 'target' => 'Declare the training block and burn room', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '5', 'action' => 'inventory', 'target' => 'Register the emergency lighting', 'equipmentReference' => '', 'status' => 'in_progress', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
-    ['interventionNumber' => '5', 'action' => 'inspection', 'target' => 'Commissioning inspection', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
+    ['interventionNumber' => '5', 'action' => 'inspection', 'target' => self::COMMISSIONING_INSPECTION_TARGET, 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '6', 'action' => 'inventory', 'target' => 'Depot racks', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '6', 'action' => 'inventory', 'target' => 'Dispatch zone', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '7', 'action' => 'inspection', 'target' => 'Suppression system discharge test', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::EXTERNAL_AUDITOR_MEMBER_REFERENCE, 'skipReason' => ''],
@@ -719,6 +720,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    * @var int
    */
   public const int BULK_INTERVENTION_COUNT = 40;
+
+  private const string COMMISSIONING_INSPECTION_TARGET = 'Commissioning inspection';
 
   /**
    * Constant BULK_STATUS_CYCLE.
@@ -983,12 +986,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $manager->persist($this->activity(
         SeedUuid::from(sprintf('intervention-activity:%d', $activityIndex++)),
         $intervention,
-        $organization,
         $responsibleId,
-        'system',
         'created',
-        null,
-        null,
         $createdAt,
       ));
 
@@ -997,13 +996,11 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
         $manager->persist($this->activity(
           SeedUuid::from(sprintf('intervention-activity:%d', $activityIndex++)),
           $intervention,
-          $organization,
           $responsibleId,
-          'system',
           'status_changed',
+          $createdAt->modify(sprintf('+%d days', ($hop + 1) * 2)),
           null,
           ['from' => $from, 'to' => $to],
-          $createdAt->modify(sprintf('+%d days', ($hop + 1) * 2)),
         ));
         $from = $to;
       }
@@ -1137,13 +1134,10 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $manager->persist($this->activity(
         SeedUuid::from(sprintf('intervention-comment:%d', $index)),
         $interventions[$seed['interventionNumber']],
-        $organization,
         $this->memberId($seed['authorReference']),
         'comment',
-        'comment',
-        $seed['body'],
-        null,
         SeedTimeline::fromNow($seed['dayOffset'], 14),
+        $seed['body'],
       ));
     }
   }
@@ -1216,12 +1210,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
       $manager->persist($this->activity(
         SeedUuid::from(sprintf('intervention-bulk-activity-created:%d', $i)),
         $intervention,
-        $organization,
         $responsibleId,
-        'system',
         'created',
-        null,
-        null,
         $createdAt,
       ));
 
@@ -1231,13 +1221,11 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
         $manager->persist($this->activity(
           SeedUuid::from(sprintf('intervention-bulk-activity-status:%d:%d', $i, $hop)),
           $intervention,
-          $organization,
           $responsibleId,
-          'system',
           'status_changed',
+          $createdAt->modify(sprintf('+%d hours', ($hop + 1) * 6)),
           null,
           ['from' => $from, 'to' => $to],
-          $createdAt->modify(sprintf('+%d hours', ($hop + 1) * 6)),
         ));
         $from = $to;
         ++$hop;
@@ -1329,33 +1317,34 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    *
    * @param string $id the activity identifier
    * @param InterventionRecord $intervention the owning intervention
-   * @param OrganizationRecord $organization the owning organization
    * @param string $actorId the acting member identifier
-   * @param string $kind either `comment` or `system`
    * @param string $event the event name
+   * @param DateTimeImmutable $createdAt the instant the entry was written
    * @param ?string $body the comment body, null for system events
    * @param ?array<string, mixed> $payload the structured event data
-   * @param DateTimeImmutable $createdAt the instant the entry was written
    *
    * @return InterventionActivityRecord the activity row
    */
   private function activity(
     string $id,
     InterventionRecord $intervention,
-    OrganizationRecord $organization,
     string $actorId,
-    string $kind,
     string $event,
-    ?string $body,
-    ?array $payload,
     DateTimeImmutable $createdAt,
+    ?string $body = null,
+    ?array $payload = null,
   ): InterventionActivityRecord {
+    $organization = $intervention->organization;
+    if (!$organization instanceof OrganizationRecord) {
+      throw new LogicException('Seeded intervention must belong to an organization before activity creation.');
+    }
+
     $activity = new InterventionActivityRecord();
     $activity->id = $id;
     $activity->intervention = $intervention;
     $activity->organizationId = $organization->id;
     $activity->actorId = $actorId;
-    $activity->kind = $kind;
+    $activity->kind = 'comment' === $event ? 'comment' : 'system';
     $activity->event = $event;
     $activity->body = $body;
     $activity->payload = $payload;

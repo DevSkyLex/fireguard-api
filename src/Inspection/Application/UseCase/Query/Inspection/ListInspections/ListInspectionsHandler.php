@@ -6,9 +6,11 @@ namespace Inspection\Application\UseCase\Query\Inspection\ListInspections;
 
 use DateTimeImmutable;
 use Exception;
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
 use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
+use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -75,37 +77,48 @@ final readonly class ListInspectionsHandler implements QueryHandler
       throw InvalidValueException::because('performedAtFrom cannot be after performedAtTo.');
     }
 
+    $criteria = new InspectionListCriteria(
+      subject: new InspectionSubjectCriteria($equipmentId, $facilityId, $checklistId),
+      execution: new InspectionExecutionCriteria(
+        $result,
+        $status,
+        $performedAtFrom?->format(DateTimeImmutable::ATOM),
+        $performedAtTo?->format(DateTimeImmutable::ATOM),
+      ),
+      inspector: new InspectionInspectorCriteria(userId: $inspectorUserId),
+      search: $query->search,
+    );
+
     $inspections = $this->inspectionRepository->findByOrganizationId(
-      $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom?->format(DateTimeImmutable::ATOM),
-      $performedAtTo?->format(DateTimeImmutable::ATOM),
-      $inspectorUserId,
-      null,
-      $checklistId,
-      $query->search,
-      $query->sorting,
-      $query->pagination->limit,
-      $query->pagination->offset,
+      organizationId: $organizationId,
+      criteria: $criteria,
+      sorting: $query->sorting,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
 
     $total = $this->inspectionRepository->countByOrganizationId(
       $organizationId,
-      $equipmentId,
-      $facilityId,
-      $result,
-      $status,
-      $performedAtFrom?->format(DateTimeImmutable::ATOM),
-      $performedAtTo?->format(DateTimeImmutable::ATOM),
-      $inspectorUserId,
-      null,
-      $checklistId,
-      $query->search,
+      $criteria,
     );
 
+    $results = $this->mapResults($inspections);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
+    );
+  }
+
+  /**
+   * @param list<Inspection> $inspections
+   *
+   * @return list<GetInspectionResult>
+   */
+  private function mapResults(array $inspections): array
+  {
     $results = [];
 
     $inspectionIds = [];
@@ -169,12 +182,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
       );
     }
 
-    return new PaginatedResult(
-      items: $results,
-      total: $total,
-      limit: $query->pagination->limit,
-      offset: $query->pagination->offset,
-    );
+    return $results;
   }
   // #endregion
 }

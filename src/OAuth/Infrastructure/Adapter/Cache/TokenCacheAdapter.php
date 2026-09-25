@@ -86,10 +86,8 @@ final readonly class TokenCacheAdapter implements TokenCachePort
       return null;
     }
 
-    /** @var array<string, mixed>|null $value */
-    $value = $item->get();
-
-    return $value;
+    /** @var array<string, mixed>|null */
+    return $item->get();
   }
 
   /**

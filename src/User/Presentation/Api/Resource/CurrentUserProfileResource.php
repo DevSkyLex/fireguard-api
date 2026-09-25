@@ -49,10 +49,10 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'Current user profile retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Authenticated user not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -65,7 +65,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       processor: UpdateCurrentUserProfileProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
       denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
-      security: "is_granted('profile.update')",
+      security: self::SECURITY_PROFILE_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Update current user profile',
@@ -79,13 +79,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'Invalid request - validation failed',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Authenticated user not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -97,7 +97,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: CurrentUserProfileOutput::class,
       processor: UploadCurrentUserAvatarProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      security: "is_granted('profile.update')",
+      security: self::SECURITY_PROFILE_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Upload current user avatar',
@@ -130,13 +130,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'Invalid file - missing, too large, or unsupported MIME type',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Authenticated user not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -149,7 +149,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       processor: DeactivateCurrentUserProfileProcessor::class,
       status: HttpResponse::HTTP_OK,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      security: "is_granted('profile.update')",
+      security: self::SECURITY_PROFILE_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Deactivate current user account',
@@ -160,13 +160,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'Account deactivated successfully — all sessions revoked',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Authenticated user not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
         ],
       ),
@@ -175,4 +175,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
 )]
 final class CurrentUserProfileResource
 {
+  // #region Constants
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+
+  private const string USER_NOT_FOUND_DESCRIPTION = 'Authenticated user not found';
+
+  private const string SECURITY_PROFILE_UPDATE = "is_granted('profile.update')";
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

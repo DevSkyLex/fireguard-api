@@ -321,8 +321,8 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     $accessible = [];
 
     foreach ($subjectTypesByConversation as $conversationId => $subjectType) {
-      if (MessagingSubjectType::CHANNEL->value === $subjectType || MessagingSubjectType::DIRECT->value === $subjectType) {
-        if ((MessagingSubjectType::CHANNEL->value === $subjectType && $manages) || in_array($conversationId, $channelIds, true)) {
+      if (self::isParticipantConversation($subjectType)) {
+        if (self::canReadParticipantConversation($subjectType, $conversationId, $manages, $channelIds)) {
           $accessible[] = $conversationId;
         }
 
@@ -345,6 +345,20 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     }
 
     return $accessible;
+  }
+
+  private static function isParticipantConversation(string $subjectType): bool
+  {
+    return MessagingSubjectType::CHANNEL->value === $subjectType || MessagingSubjectType::DIRECT->value === $subjectType;
+  }
+
+  /**
+   * @param list<string> $channelIds
+   */
+  private static function canReadParticipantConversation(string $subjectType, string $conversationId, bool $manages, array $channelIds): bool
+  {
+    return (MessagingSubjectType::CHANNEL->value === $subjectType && $manages)
+      || in_array($conversationId, $channelIds, true);
   }
 
   /**

@@ -122,41 +122,7 @@ final readonly class OrganizationApprovalSettings
    */
   public function mergedWith(array $partial): self
   {
-    $actionRules = $this->actionRules;
-
-    if (array_key_exists('action_rules', $partial) && is_array($partial['action_rules'])) {
-      foreach ($partial['action_rules'] as $actionType => $rule) {
-        if (!is_string($actionType)) {
-          continue;
-        }
-
-        if (null === $rule) {
-          unset($actionRules[$actionType]);
-
-          continue;
-        }
-
-        if (!is_array($rule)) {
-          continue;
-        }
-
-        $current = $actionRules[$actionType] ?? [
-          'enabled' => false,
-          'minApproverRole' => OrganizationApprovalDefaults::MIN_APPROVER_ROLE,
-          'minSeverity' => null,
-        ];
-
-        $actionRules[$actionType] = [
-          'enabled' => isset($rule['enabled']) && is_bool($rule['enabled']) ? $rule['enabled'] : $current['enabled'],
-          'minApproverRole' => isset($rule['min_approver_role']) && is_string($rule['min_approver_role']) && '' !== $rule['min_approver_role']
-            ? $rule['min_approver_role']
-            : $current['minApproverRole'],
-          'minSeverity' => array_key_exists('min_severity', $rule)
-            ? (is_string($rule['min_severity']) && '' !== $rule['min_severity'] ? $rule['min_severity'] : null)
-            : $current['minSeverity'],
-        ];
-      }
-    }
+    $actionRules = $this->mergeActionRules($partial);
 
     $allowSelfApproval = $this->allowSelfApproval;
     if (isset($partial['allow_self_approval']) && is_bool($partial['allow_self_approval'])) {
@@ -248,6 +214,59 @@ final readonly class OrganizationApprovalSettings
       allowSelfApproval: (bool) ($data['allow_self_approval'] ?? OrganizationApprovalDefaults::ALLOW_SELF_APPROVAL),
       approvalTtlDays: is_int($approvalTtlDays) ? $approvalTtlDays : OrganizationApprovalDefaults::APPROVAL_TTL_DAYS,
     );
+  }
+
+  /**
+   * @param array<string, mixed> $partial
+   *
+   * @return array<string, array{enabled: bool, minApproverRole: string, minSeverity: ?string}>
+   */
+  private function mergeActionRules(array $partial): array
+  {
+    $actionRules = $this->actionRules;
+    if (!array_key_exists('action_rules', $partial) || !is_array($partial['action_rules'])) {
+      return $actionRules;
+    }
+
+    foreach ($partial['action_rules'] as $actionType => $rule) {
+      if (!is_string($actionType)) {
+        continue;
+      }
+      if (null === $rule) {
+        unset($actionRules[$actionType]);
+
+        continue;
+      }
+      if (is_array($rule)) {
+        $actionRules[$actionType] = self::mergeActionRule($actionRules[$actionType] ?? $this->ruleFor($actionType), $rule);
+      }
+    }
+
+    return $actionRules;
+  }
+
+  /**
+   * @param array{enabled: bool, minApproverRole: string, minSeverity: ?string} $current
+   * @param array<array-key, mixed> $rule
+   *
+   * @return array{enabled: bool, minApproverRole: string, minSeverity: ?string}
+   */
+  private static function mergeActionRule(array $current, array $rule): array
+  {
+    $minSeverity = $current['minSeverity'];
+    if (array_key_exists('min_severity', $rule)) {
+      $minSeverity = is_string($rule['min_severity']) && '' !== $rule['min_severity']
+        ? $rule['min_severity']
+        : null;
+    }
+
+    return [
+      'enabled' => isset($rule['enabled']) && is_bool($rule['enabled']) ? $rule['enabled'] : $current['enabled'],
+      'minApproverRole' => isset($rule['min_approver_role']) && is_string($rule['min_approver_role']) && '' !== $rule['min_approver_role']
+        ? $rule['min_approver_role']
+        : $current['minApproverRole'],
+      'minSeverity' => $minSeverity,
+    ];
   }
 
   /**

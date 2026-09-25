@@ -212,6 +212,10 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     ['reference' => 'facility-seed-angers-zone', 'id' => 'c0763555-28b9-48d2-944e-4b1cac8d036a', 'parentReference' => 'facility-seed-angers-building', 'type' => 'zone', 'name' => 'Angers Operations Zone', 'code' => 'ZN-ANG', 'createdAt' => '2026-03-24T09:00:00+00:00'],
   ];
 
+  private const string PDF_MIME_TYPE = 'application/pdf';
+
+  private const string PARIS_BUILDING_ADDRESS = '12 Rue des Pompiers, 75011 Paris';
+
   /**
    * Documents and floor plans pinned to a facility.
    *
@@ -238,16 +242,16 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
    * }>
    */
   private const array ATTACHMENT_SEEDS = [
-    ['id' => '12ecfe97-2aa2-4abf-95e1-e2e5a896523a', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-site-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 1_248_576, 'label' => 'Site plan', 'uploadedAt' => '2026-03-03T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
-    ['id' => '39ef47f3-cfd1-469c-9bd5-4f38633f2554', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-fire-safety-certificate.pdf', 'mimeType' => 'application/pdf', 'size' => 312_480, 'label' => 'Fire safety certificate 2026', 'uploadedAt' => '2026-03-03T09:10:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
-    ['id' => 'e55da023-82f1-4b2c-b337-916986abfc22', 'facilityReference' => self::BUILDING_REFERENCE, 'fileName' => 'main-building-evacuation-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 856_320, 'label' => 'Evacuation plan', 'uploadedAt' => '2026-03-08T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '12ecfe97-2aa2-4abf-95e1-e2e5a896523a', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-site-plan.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 1_248_576, 'label' => 'Site plan', 'uploadedAt' => '2026-03-03T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '39ef47f3-cfd1-469c-9bd5-4f38633f2554', 'facilityReference' => self::SITE_REFERENCE, 'fileName' => 'paris-fire-safety-certificate.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 312_480, 'label' => 'Fire safety certificate 2026', 'uploadedAt' => '2026-03-03T09:10:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => 'e55da023-82f1-4b2c-b337-916986abfc22', 'facilityReference' => self::BUILDING_REFERENCE, 'fileName' => 'main-building-evacuation-plan.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 856_320, 'label' => 'Evacuation plan', 'uploadedAt' => '2026-03-08T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
     ['id' => self::FLOOR_ONE_PLAN_ID, 'facilityReference' => self::FLOOR_ONE_REFERENCE, 'fileName' => 'floor-1-layout.svg', 'mimeType' => 'image/svg+xml', 'size' => 0, 'label' => 'Floor 1 layout', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => 'floor-1-layout.svg', 'imageWidth' => 2400, 'imageHeight' => 1600],
     ['id' => self::FLOOR_TWO_PLAN_ID, 'facilityReference' => self::FLOOR_TWO_REFERENCE, 'fileName' => 'floor-2-layout.svg', 'mimeType' => 'image/svg+xml', 'size' => 0, 'label' => 'Floor 2 layout', 'uploadedAt' => '2026-03-16T09:00:00+00:00', 'assetFile' => 'floor-2-layout.svg', 'imageWidth' => 2400, 'imageHeight' => 1600],
-    ['id' => '45834581-2392-4d22-8699-a41eb5411b32', 'facilityReference' => self::AREA_REFERENCE, 'fileName' => 'server-room-suppression-spec.pdf', 'mimeType' => 'application/pdf', 'size' => 421_888, 'label' => 'Suppression system specification', 'uploadedAt' => '2026-03-29T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
-    ['id' => 'dfebc35b-f432-4fec-82b7-b09409335d57', 'facilityReference' => self::LYON_SITE_REFERENCE, 'fileName' => 'lyon-site-plan.pdf', 'mimeType' => 'application/pdf', 'size' => 987_136, 'label' => 'Site plan', 'uploadedAt' => '2026-03-09T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
-    ['id' => '7c4091fb-0fb7-4ab0-b279-54dd686e9a66', 'facilityReference' => self::MARSEILLE_SITE_REFERENCE, 'fileName' => 'marseille-port-permit.pdf', 'mimeType' => 'application/pdf', 'size' => 204_800, 'label' => 'Port authority permit', 'uploadedAt' => '2026-03-10T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
-    ['id' => '6e57d89f-b049-4ceb-b931-43c1aa038277', 'facilityReference' => self::BORDEAUX_SITE_REFERENCE, 'fileName' => 'bordeaux-training-programme.pdf', 'mimeType' => 'application/pdf', 'size' => 158_720, 'label' => 'Annual training programme', 'uploadedAt' => '2026-03-11T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
-    ['id' => '512b75e9-79dd-4beb-b228-f08a63b30584', 'facilityReference' => self::LILLE_SITE_REFERENCE, 'fileName' => 'lille-sprinkler-as-built.pdf', 'mimeType' => 'application/pdf', 'size' => 1_572_864, 'label' => 'Sprinkler as-built drawings', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '45834581-2392-4d22-8699-a41eb5411b32', 'facilityReference' => self::AREA_REFERENCE, 'fileName' => 'server-room-suppression-spec.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 421_888, 'label' => 'Suppression system specification', 'uploadedAt' => '2026-03-29T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => 'dfebc35b-f432-4fec-82b7-b09409335d57', 'facilityReference' => self::LYON_SITE_REFERENCE, 'fileName' => 'lyon-site-plan.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 987_136, 'label' => 'Site plan', 'uploadedAt' => '2026-03-09T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '7c4091fb-0fb7-4ab0-b279-54dd686e9a66', 'facilityReference' => self::MARSEILLE_SITE_REFERENCE, 'fileName' => 'marseille-port-permit.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 204_800, 'label' => 'Port authority permit', 'uploadedAt' => '2026-03-10T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '6e57d89f-b049-4ceb-b931-43c1aa038277', 'facilityReference' => self::BORDEAUX_SITE_REFERENCE, 'fileName' => 'bordeaux-training-programme.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 158_720, 'label' => 'Annual training programme', 'uploadedAt' => '2026-03-11T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
+    ['id' => '512b75e9-79dd-4beb-b228-f08a63b30584', 'facilityReference' => self::LILLE_SITE_REFERENCE, 'fileName' => 'lille-sprinkler-as-built.pdf', 'mimeType' => self::PDF_MIME_TYPE, 'size' => 1_572_864, 'label' => 'Sprinkler as-built drawings', 'uploadedAt' => '2026-03-12T09:00:00+00:00', 'assetFile' => null, 'imageWidth' => null, 'imageHeight' => null],
   ];
 
   public static function getGroups(): array
@@ -265,152 +269,9 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     /** @var OrganizationRecord $organization */
     $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
 
-    $site = $this->createFacility(
-      id: self::SITE_ID,
-      organization: $organization,
-      parentFacility: null,
-      type: FacilityType::SITE->value,
-      name: 'Paris Headquarters',
-      code: 'SITE-PAR',
-      createdAt: SeedTimeline::at(self::SITE_CREATED_AT),
-      address: '12 Rue des Pompiers, Paris',
-      metadata: ['city' => 'Paris', 'country' => 'FR'],
-      latitude: 48.8566,
-      longitude: 2.3522,
-    );
-    $this->addReference(self::SITE_REFERENCE, $site);
-    $manager->persist($site);
-
-    $building = $this->createFacility(
-      id: '22222222-2222-4222-8222-222222222222',
-      organization: $organization,
-      parentFacility: $site,
-      type: FacilityType::BUILDING->value,
-      name: 'Main Building',
-      code: 'BLD-MAIN',
-      createdAt: SeedTimeline::at('2026-03-08T08:05:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['usage' => 'office', 'city' => 'Paris'],
-      latitude: 48.8570,
-      longitude: 2.3527,
-    );
-    $this->addReference(self::BUILDING_REFERENCE, $building);
-    $manager->persist($building);
-
-    $floorOne = $this->createFacility(
-      id: '22222222-2222-4222-8222-222222222223',
-      organization: $organization,
-      parentFacility: $building,
-      type: FacilityType::FLOOR->value,
-      name: 'Floor 1',
-      code: 'FL-01',
-      createdAt: SeedTimeline::at('2026-03-12T08:10:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['level' => '1', 'city' => 'Paris'],
-      latitude: 48.8572,
-      longitude: 2.3531,
-      levelIndex: 0,
-      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.05, 0.08], [0.95, 0.08], [0.95, 0.92], [0.05, 0.92]]],
-    );
-    $this->addReference(self::FLOOR_ONE_REFERENCE, $floorOne);
-    $manager->persist($floorOne);
-
-    $floorTwo = $this->createFacility(
-      id: '99ea3fc6-1ee9-4e77-a59a-a2b20f1e295c',
-      organization: $organization,
-      parentFacility: $building,
-      type: FacilityType::FLOOR->value,
-      name: 'Floor 2',
-      code: 'FL-02',
-      createdAt: SeedTimeline::at('2026-03-16T08:11:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['level' => '2', 'city' => 'Paris'],
-      latitude: 48.8574,
-      longitude: 2.3535,
-      levelIndex: 1,
-      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.08, 0.10], [0.92, 0.10], [0.92, 0.90], [0.08, 0.90]]],
-    );
-    $this->addReference(self::FLOOR_TWO_REFERENCE, $floorTwo);
-    $manager->persist($floorTwo);
-
-    $zone = $this->createFacility(
-      id: '824f43e2-ffd0-4b23-a8e0-9a55152aef65',
-      organization: $organization,
-      parentFacility: $floorOne,
-      type: FacilityType::ZONE->value,
-      name: 'Zone A',
-      code: 'ZN-A',
-      createdAt: SeedTimeline::at('2026-03-22T08:15:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['sector' => 'north', 'city' => 'Paris'],
-      latitude: 48.8576,
-      longitude: 2.3539,
-      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.10, 0.14], [0.46, 0.14], [0.46, 0.55], [0.10, 0.55]]],
-    );
-    $this->addReference(self::ZONE_REFERENCE, $zone);
-    $manager->persist($zone);
-
-    $area = $this->createFacility(
-      id: 'ea8f2946-d377-4ffb-90a5-c15f859cb388',
-      organization: $organization,
-      parentFacility: $zone,
-      type: FacilityType::AREA->value,
-      name: 'Server Room',
-      code: 'AR-SRV',
-      createdAt: SeedTimeline::at('2026-03-29T08:20:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['restricted' => true, 'city' => 'Paris'],
-      latitude: 48.8578,
-      longitude: 2.3543,
-      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.14, 0.20], [0.40, 0.20], [0.40, 0.48], [0.14, 0.48]]],
-    );
-    $this->addReference(self::AREA_REFERENCE, $area);
-    $manager->persist($area);
-
-    $zoneB = $this->createFacility(
-      id: '3648ba52-4ef4-45c5-8613-caa7db756bb4',
-      organization: $organization,
-      parentFacility: $floorTwo,
-      type: FacilityType::ZONE->value,
-      name: 'Zone B',
-      code: 'ZN-B',
-      createdAt: SeedTimeline::at('2026-03-30T08:00:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['sector' => 'south', 'city' => 'Paris'],
-      latitude: 48.8580,
-      longitude: 2.3547,
-      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.52, 0.16], [0.88, 0.16], [0.88, 0.60], [0.52, 0.60]]],
-    );
-    $this->addReference(self::ZONE_B_REFERENCE, $zoneB);
-    $manager->persist($zoneB);
-
-    $storageRoom = $this->createFacility(
-      id: '0c99caad-984e-4589-9131-f11c27ca39d3',
-      organization: $organization,
-      parentFacility: $zoneB,
-      type: FacilityType::AREA->value,
-      name: 'Storage Room',
-      code: 'AR-STR',
-      createdAt: SeedTimeline::at('2026-03-30T08:05:00+00:00'),
-      address: '12 Rue des Pompiers, 75011 Paris',
-      metadata: ['restricted' => false, 'city' => 'Paris'],
-      latitude: 48.8582,
-      longitude: 2.3551,
-      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.56, 0.22], [0.82, 0.22], [0.82, 0.54], [0.56, 0.54]]],
-    );
-    $this->addReference(self::STORAGE_ROOM_REFERENCE, $storageRoom);
-    $manager->persist($storageRoom);
-
-    $facilitiesByReference = [
-      self::SITE_REFERENCE => $site,
-      self::BUILDING_REFERENCE => $building,
-      self::FLOOR_ONE_REFERENCE => $floorOne,
-      self::FLOOR_TWO_REFERENCE => $floorTwo,
-      self::ZONE_REFERENCE => $zone,
-      self::AREA_REFERENCE => $area,
-      self::ZONE_B_REFERENCE => $zoneB,
-      self::STORAGE_ROOM_REFERENCE => $storageRoom,
-    ];
+    $roots = $this->seedParisRoots($manager, $organization);
+    $rooms = $this->seedParisRooms($manager, $organization, $roots[self::FLOOR_ONE_REFERENCE], $roots[self::FLOOR_TWO_REFERENCE]);
+    $facilitiesByReference = [...$roots, ...$rooms];
 
     foreach (self::REGIONAL_SITE_SEEDS as $seed) {
       $regionalSite = $this->createFacility(
@@ -459,7 +320,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $archivedAnnex = $this->createFacility(
       id: '68402941-5767-4d8b-a373-fe15467a5649',
       organization: $organization,
-      parentFacility: $site,
+      parentFacility: $facilitiesByReference[self::SITE_REFERENCE],
       type: FacilityType::BUILDING->value,
       name: 'Old Annex',
       code: 'BLD-ANNEX',
@@ -514,6 +375,168 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     }
 
     $manager->flush();
+  }
+
+  /**
+   * @return array<string, FacilityRecord>
+   */
+  private function seedParisRoots(ObjectManager $manager, OrganizationRecord $organization): array
+  {
+    $site = $this->createFacility(
+      id: self::SITE_ID,
+      organization: $organization,
+      parentFacility: null,
+      type: FacilityType::SITE->value,
+      name: 'Paris Headquarters',
+      code: 'SITE-PAR',
+      createdAt: SeedTimeline::at(self::SITE_CREATED_AT),
+      address: '12 Rue des Pompiers, Paris',
+      metadata: ['city' => 'Paris', 'country' => 'FR'],
+      latitude: 48.8566,
+      longitude: 2.3522,
+    );
+    $this->addReference(self::SITE_REFERENCE, $site);
+    $manager->persist($site);
+
+    $building = $this->createFacility(
+      id: '22222222-2222-4222-8222-222222222222',
+      organization: $organization,
+      parentFacility: $site,
+      type: FacilityType::BUILDING->value,
+      name: 'Main Building',
+      code: 'BLD-MAIN',
+      createdAt: SeedTimeline::at('2026-03-08T08:05:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['usage' => 'office', 'city' => 'Paris'],
+      latitude: 48.8570,
+      longitude: 2.3527,
+    );
+    $this->addReference(self::BUILDING_REFERENCE, $building);
+    $manager->persist($building);
+
+    $floorOne = $this->createFacility(
+      id: '22222222-2222-4222-8222-222222222223',
+      organization: $organization,
+      parentFacility: $building,
+      type: FacilityType::FLOOR->value,
+      name: 'Floor 1',
+      code: 'FL-01',
+      createdAt: SeedTimeline::at('2026-03-12T08:10:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['level' => '1', 'city' => 'Paris'],
+      latitude: 48.8572,
+      longitude: 2.3531,
+      levelIndex: 0,
+      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.05, 0.08], [0.95, 0.08], [0.95, 0.92], [0.05, 0.92]]],
+    );
+    $this->addReference(self::FLOOR_ONE_REFERENCE, $floorOne);
+    $manager->persist($floorOne);
+
+    $floorTwo = $this->createFacility(
+      id: '99ea3fc6-1ee9-4e77-a59a-a2b20f1e295c',
+      organization: $organization,
+      parentFacility: $building,
+      type: FacilityType::FLOOR->value,
+      name: 'Floor 2',
+      code: 'FL-02',
+      createdAt: SeedTimeline::at('2026-03-16T08:11:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['level' => '2', 'city' => 'Paris'],
+      latitude: 48.8574,
+      longitude: 2.3535,
+      levelIndex: 1,
+      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.08, 0.10], [0.92, 0.10], [0.92, 0.90], [0.08, 0.90]]],
+    );
+    $this->addReference(self::FLOOR_TWO_REFERENCE, $floorTwo);
+    $manager->persist($floorTwo);
+
+    return [
+      self::SITE_REFERENCE => $site,
+      self::BUILDING_REFERENCE => $building,
+      self::FLOOR_ONE_REFERENCE => $floorOne,
+      self::FLOOR_TWO_REFERENCE => $floorTwo,
+    ];
+  }
+
+  /**
+   * @return array<string, FacilityRecord>
+   */
+  private function seedParisRooms(ObjectManager $manager, OrganizationRecord $organization, FacilityRecord $floorOne, FacilityRecord $floorTwo): array
+  {
+    $zone = $this->createFacility(
+      id: '824f43e2-ffd0-4b23-a8e0-9a55152aef65',
+      organization: $organization,
+      parentFacility: $floorOne,
+      type: FacilityType::ZONE->value,
+      name: 'Zone A',
+      code: 'ZN-A',
+      createdAt: SeedTimeline::at('2026-03-22T08:15:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['sector' => 'north', 'city' => 'Paris'],
+      latitude: 48.8576,
+      longitude: 2.3539,
+      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.10, 0.14], [0.46, 0.14], [0.46, 0.55], [0.10, 0.55]]],
+    );
+    $this->addReference(self::ZONE_REFERENCE, $zone);
+    $manager->persist($zone);
+
+    $area = $this->createFacility(
+      id: 'ea8f2946-d377-4ffb-90a5-c15f859cb388',
+      organization: $organization,
+      parentFacility: $zone,
+      type: FacilityType::AREA->value,
+      name: 'Server Room',
+      code: 'AR-SRV',
+      createdAt: SeedTimeline::at('2026-03-29T08:20:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['restricted' => true, 'city' => 'Paris'],
+      latitude: 48.8578,
+      longitude: 2.3543,
+      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.14, 0.20], [0.40, 0.20], [0.40, 0.48], [0.14, 0.48]]],
+    );
+    $this->addReference(self::AREA_REFERENCE, $area);
+    $manager->persist($area);
+
+    $zoneB = $this->createFacility(
+      id: '3648ba52-4ef4-45c5-8613-caa7db756bb4',
+      organization: $organization,
+      parentFacility: $floorTwo,
+      type: FacilityType::ZONE->value,
+      name: 'Zone B',
+      code: 'ZN-B',
+      createdAt: SeedTimeline::at('2026-03-30T08:00:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['sector' => 'south', 'city' => 'Paris'],
+      latitude: 48.8580,
+      longitude: 2.3547,
+      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.52, 0.16], [0.88, 0.16], [0.88, 0.60], [0.52, 0.60]]],
+    );
+    $this->addReference(self::ZONE_B_REFERENCE, $zoneB);
+    $manager->persist($zoneB);
+
+    $storageRoom = $this->createFacility(
+      id: '0c99caad-984e-4589-9131-f11c27ca39d3',
+      organization: $organization,
+      parentFacility: $zoneB,
+      type: FacilityType::AREA->value,
+      name: 'Storage Room',
+      code: 'AR-STR',
+      createdAt: SeedTimeline::at('2026-03-30T08:05:00+00:00'),
+      address: self::PARIS_BUILDING_ADDRESS,
+      metadata: ['restricted' => false, 'city' => 'Paris'],
+      latitude: 48.8582,
+      longitude: 2.3551,
+      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.56, 0.22], [0.82, 0.22], [0.82, 0.54], [0.56, 0.54]]],
+    );
+    $this->addReference(self::STORAGE_ROOM_REFERENCE, $storageRoom);
+    $manager->persist($storageRoom);
+
+    return [
+      self::ZONE_REFERENCE => $zone,
+      self::AREA_REFERENCE => $area,
+      self::ZONE_B_REFERENCE => $zoneB,
+      self::STORAGE_ROOM_REFERENCE => $storageRoom,
+    ];
   }
 
   /**

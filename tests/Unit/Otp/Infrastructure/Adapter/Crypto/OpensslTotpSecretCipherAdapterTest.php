@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Infrastructure\Adapter\Crypto;
 
 use Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter;
+use Otp\Infrastructure\Exception\TotpSecretCipherException;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 use function base64_encode;
 use function str_repeat;
@@ -44,7 +44,7 @@ final class OpensslTotpSecretCipherAdapterTest extends TestCase
   {
     $cipher = $this->cipher();
     $envelope = $cipher->encrypt('JBSWY3DPEHPK3PXP', 'user-1:active');
-    $this->expectException(RuntimeException::class);
+    $this->expectException(TotpSecretCipherException::class);
     $cipher->decrypt($envelope, $context);
   }
 
@@ -66,7 +66,7 @@ final class OpensslTotpSecretCipherAdapterTest extends TestCase
     $envelope = $cipher->encrypt('JBSWY3DPEHPK3PXP', 'user-1:active');
     $envelope = substr($envelope, 0, -8) . 'AAAAAAAA';
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(TotpSecretCipherException::class);
     $cipher->decrypt($envelope, 'user-1:active');
   }
 
@@ -84,14 +84,14 @@ final class OpensslTotpSecretCipherAdapterTest extends TestCase
     self::assertSame('JBSWY3DPEHPK3PXP', new OpensslTotpSecretCipherAdapter(['new' => $newKey], 'new')->decrypt($rotated, 'user-1:active'));
     self::assertFalse($new->needsRotation($rotated));
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(TotpSecretCipherException::class);
     new OpensslTotpSecretCipherAdapter(['new' => $newKey], 'new')->decrypt($envelope, 'user-1:active');
   }
 
   #[Test]
   public function rejectsWrongKeyLengthsInsteadOfAllowingOpenSslPadding(): void
   {
-    $this->expectException(RuntimeException::class);
+    $this->expectException(TotpSecretCipherException::class);
     new OpensslTotpSecretCipherAdapter(['bad' => base64_encode('too-short')], 'bad');
   }
 
@@ -100,7 +100,7 @@ final class OpensslTotpSecretCipherAdapterTest extends TestCase
   {
     $cipher = new OpensslTotpSecretCipherAdapter([], '');
     self::assertFalse($cipher->canEncrypt());
-    $this->expectException(RuntimeException::class);
+    $this->expectException(TotpSecretCipherException::class);
     $cipher->encrypt('JBSWY3DPEHPK3PXP', 'user-1:active');
   }
 

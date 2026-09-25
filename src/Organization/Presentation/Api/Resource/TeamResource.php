@@ -39,7 +39,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateTeamProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'Create team',
@@ -47,7 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Team created'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'A team with this name already exists in the organization'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
         ],
       ),
@@ -59,7 +59,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: TeamOutput::class,
       provider: ListTeamsProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'List teams',
@@ -68,11 +68,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Get(
       name: OrganizationOperations::GET_TEAM,
-      uriTemplate: '/{organizationId}/teams/{teamId}',
+      uriTemplate: self::TEAM_URI_TEMPLATE,
       output: TeamOutput::class,
       provider: GetTeamProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'Get team',
@@ -85,7 +85,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Patch(
       name: OrganizationOperations::UPDATE_TEAM,
-      uriTemplate: '/{organizationId}/teams/{teamId}',
+      uriTemplate: self::TEAM_URI_TEMPLATE,
       // `read: false`: this operation had a processor but no provider and no
       // explicit `read: false`, so API Platform's default pre-read step
       // (`read: true`) tried to resolve the current resource state through a
@@ -100,7 +100,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateTeamProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'Update team',
@@ -109,19 +109,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Delete(
       name: OrganizationOperations::DELETE_TEAM,
-      uriTemplate: '/{organizationId}/teams/{teamId}',
+      uriTemplate: self::TEAM_URI_TEMPLATE,
       read: false,
       input: false,
       output: false,
       processor: DeleteTeamProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'Delete team',
         description: 'Permanently deletes a team. All team member assignments are removed. Requires organization.teams.manage.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Team deleted'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or team not found'),
         ],
       ),
@@ -134,7 +134,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AddTeamMemberProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'Add team member',
@@ -142,7 +142,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Member added to the team'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Member is not active in this organization, or already part of the team'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization, team, or member not found'),
         ],
       ),
@@ -154,14 +154,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: RemoveTeamMemberProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'Remove team member',
         description: 'Removes a member from a team. Requires organization.teams.write.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Member removed from the team'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization, team, or membership not found'),
         ],
       ),
@@ -173,7 +173,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: TeamMemberOutput::class,
       provider: ListTeamMembersProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Teams'],
         summary: 'List team members',
@@ -184,4 +184,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class TeamResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+
+  private const string TEAM_URI_TEMPLATE = '/{organizationId}/teams/{teamId}';
+  // #endregion
 }

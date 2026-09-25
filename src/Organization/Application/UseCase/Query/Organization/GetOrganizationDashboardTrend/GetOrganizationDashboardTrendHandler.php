@@ -120,7 +120,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
       summary: ['total' => $currentTotal],
       series: $primarySeries,
       comparison: $this->buildComparison($metric, $query, $comparisonPeriod, $granularity, $currentTotal),
-      seriesByMetric: $this->buildSeriesByMetric($requestedMetrics, $metric, $primarySeries, $query, $periodStart, $periodEnd, $granularity, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName()),
+      seriesByMetric: $this->buildSeriesByMetric($requestedMetrics, $metric, $primarySeries, $query, $periodStart, $periodEnd, $granularity),
     );
     $this->writeCache($cacheKey, $result);
 
@@ -200,15 +200,15 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     DateTimeImmutable $periodStart,
     DateTimeImmutable $periodEnd,
     string $granularity,
-    string $periodStartFormatted,
-    string $periodEndFormatted,
-    string $timeZone,
   ): array {
     if (count($requestedMetrics) <= 1) {
       return [];
     }
 
     $seriesByMetric = [$primaryMetric => $primarySeries];
+    $periodStartFormatted = DashboardSeriesBuilder::formatIso8601($periodStart);
+    $periodEndFormatted = DashboardSeriesBuilder::formatIso8601($periodEnd);
+    $timeZone = $periodStart->getTimezone()->getName();
     foreach ($requestedMetrics as $additionalMetric) {
       if ($additionalMetric === $primaryMetric) {
         continue;

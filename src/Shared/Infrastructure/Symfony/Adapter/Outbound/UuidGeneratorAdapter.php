@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Closure;
-use RuntimeException;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
-use Shared\Infrastructure\Exception\UuidGenerationException;
+use Shared\Infrastructure\Exception\{InvalidUuidGeneratorResultException, UuidGenerationException};
 use Symfony\Component\Uid\Uuid;
 use Throwable;
 
@@ -56,7 +55,7 @@ final readonly class UuidGeneratorAdapter implements UuidGeneratorPort
       $uuid = $generator();
 
       if (!$uuid instanceof Uuid) {
-        throw new RuntimeException('Generator must return a Uuid instance');
+        throw new InvalidUuidGeneratorResultException('Generator must return a Uuid instance');
       }
 
       return $uuid->toRfc4122();

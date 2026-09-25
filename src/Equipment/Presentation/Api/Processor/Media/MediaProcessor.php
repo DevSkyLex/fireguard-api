@@ -42,6 +42,10 @@ use function is_string;
  */
 final readonly class MediaProcessor implements ProcessorInterface
 {
+  // #region Constants
+  private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -109,43 +113,22 @@ final readonly class MediaProcessor implements ProcessorInterface
       throw new BadRequestHttpException('Request payload is required.');
     }
 
-    $equipmentValue = $request->request->get('equipment');
-    $interventionValue = $request->request->get('intervention');
-    $clientId = $request->request->get('clientId');
-    if (!is_string($equipmentValue) || !$request->files->get('file') instanceof UploadedFile) {
-      throw new BadRequestHttpException('Multipart fields "equipment" and "file" are required.');
-    }
-    if (null !== $interventionValue && !is_string($interventionValue)) {
-      throw new BadRequestHttpException('Multipart field "intervention" must be a intervention IRI.');
-    }
-    if (null !== $clientId && !is_string($clientId)) {
-      throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.');
-    }
-    if (is_string($clientId) && '' !== $clientId) {
-      try {
-        $clientId = (string) AttachmentId::fromString($clientId);
-      } catch (InvalidValueException $exception) {
-        throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.', $exception);
-      }
-    }
+    [$equipmentValue, $interventionValue, $clientId] = self::uploadFields($request);
     $equipment = $this->entityManager->find(EquipmentRecord::class, ResourceIriParser::id($equipmentValue, 'equipment'));
     if (!$equipment instanceof EquipmentRecord || null === $equipment->organization) {
       throw new NotFoundHttpException('Equipment not found.');
     }
     $organizationId = $equipment->organization->id;
-    $interventionId = null === $interventionValue
-      ? ('draft' === $equipment->recordStatus ? $equipment->interventionId : null)
-      : ResourceIriParser::id($interventionValue, 'interventions');
+    $interventionId = null;
+    if (null !== $interventionValue) {
+      $interventionId = ResourceIriParser::id($interventionValue, 'interventions');
+    } elseif ('draft' === $equipment->recordStatus) {
+      $interventionId = $equipment->interventionId;
+    }
     $this->assertWrite($equipment, $interventionId);
-    if (is_string($clientId) && '' !== $clientId) {
-      $existing = $this->entityManager->find(EquipmentAttachmentRecord::class, $clientId);
-      if ($existing instanceof EquipmentAttachmentRecord) {
-        if ($existing->equipment?->id !== $equipment->id) {
-          throw new ConflictHttpException('Media client UUID is already assigned to another equipment.');
-        }
-
-        return MediaProvider::output($existing);
-      }
+    $replayed = $this->replayedUpload($clientId, $equipment);
+    if ($replayed instanceof AttachmentOutput) {
+      return $replayed;
     }
 
     // MIME/size validation happens LAST, only once the clientId dedup
@@ -164,7 +147,7 @@ final readonly class MediaProcessor implements ProcessorInterface
       mimeType: $uploaded->mimeType,
       size: $uploaded->size,
       label: $uploaded->label,
-      attachmentId: is_string($clientId) && '' !== $clientId ? $clientId : null,
+      attachmentId: null !== $clientId && '' !== $clientId ? $clientId : null,
     ));
     $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $result->attachmentId);
     if (!$record instanceof EquipmentAttachmentRecord) {
@@ -173,6 +156,51 @@ final readonly class MediaProcessor implements ProcessorInterface
     $this->interventionResourceManager->touchDraftIntervention($interventionId);
 
     return MediaProvider::output($record);
+  }
+
+  /**
+   * @return array{string, ?string, ?string}
+   */
+  private static function uploadFields(Request $request): array
+  {
+    $equipmentValue = $request->request->get('equipment');
+    $interventionValue = $request->request->get('intervention');
+    $clientId = $request->request->get('clientId');
+    if (!is_string($equipmentValue) || !$request->files->get('file') instanceof UploadedFile) {
+      throw new BadRequestHttpException('Multipart fields "equipment" and "file" are required.');
+    }
+    if (null !== $interventionValue && !is_string($interventionValue)) {
+      throw new BadRequestHttpException('Multipart field "intervention" must be a intervention IRI.');
+    }
+    if (null !== $clientId && !is_string($clientId)) {
+      throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.');
+    }
+    if (null !== $clientId && '' !== $clientId) {
+      try {
+        $clientId = (string) AttachmentId::fromString($clientId);
+      } catch (InvalidValueException $exception) {
+        throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.', $exception);
+      }
+    }
+
+    return [$equipmentValue, $interventionValue, $clientId];
+  }
+
+  private function replayedUpload(?string $clientId, EquipmentRecord $equipment): ?AttachmentOutput
+  {
+    if (null === $clientId || '' === $clientId) {
+      return null;
+    }
+
+    $existing = $this->entityManager->find(EquipmentAttachmentRecord::class, $clientId);
+    if (!$existing instanceof EquipmentAttachmentRecord) {
+      return null;
+    }
+    if ($existing->equipment?->id !== $equipment->id) {
+      throw new ConflictHttpException('Media client UUID is already assigned to another equipment.');
+    }
+
+    return MediaProvider::output($existing);
   }
 
   /**
@@ -188,15 +216,15 @@ final readonly class MediaProcessor implements ProcessorInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $id);
     if (!$record instanceof EquipmentAttachmentRecord || null === $record->equipment) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $equipment = $record->equipment;
     if (null === $equipment->organization) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $organization = $equipment->organization;
     $interventionId = 'draft' === $equipment->recordStatus ? $equipment->interventionId : null;

@@ -6,8 +6,8 @@ namespace Tests\Unit\Webhook\Infrastructure\Adapter\Crypto;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Webhook\Infrastructure\Adapter\Crypto\OpensslWebhookSecretCipherAdapter;
+use Webhook\Infrastructure\Exception\WebhookSecretCipherException;
 
 use function base64_encode;
 use function random_bytes;
@@ -58,7 +58,7 @@ final class OpensslWebhookSecretCipherAdapterTest extends TestCase
     // Flip the last base64 character to corrupt the GCM authentication tag.
     $tampered = substr($ciphertext, 0, -1) . ('A' === substr($ciphertext, -1) ? 'B' : 'A');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(WebhookSecretCipherException::class);
 
     $cipher->decrypt($tampered);
   }
@@ -71,7 +71,7 @@ final class OpensslWebhookSecretCipherAdapterTest extends TestCase
 
     $decryptingCipher = new OpensslWebhookSecretCipherAdapter(random_bytes(32));
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(WebhookSecretCipherException::class);
 
     $decryptingCipher->decrypt($ciphertext);
   }
@@ -81,7 +81,7 @@ final class OpensslWebhookSecretCipherAdapterTest extends TestCase
   {
     $cipher = new OpensslWebhookSecretCipherAdapter(random_bytes(32));
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(WebhookSecretCipherException::class);
 
     $cipher->decrypt(base64_encode('too-short'));
   }

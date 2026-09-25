@@ -48,6 +48,10 @@ use function is_string;
  */
 final class DownloadFacilityAttachmentController extends AbstractController
 {
+  // #region Constants
+  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -91,17 +95,17 @@ final class DownloadFacilityAttachmentController extends AbstractController
 
     $id = $request->attributes->get('id');
     if (!is_string($id) || '' === $id) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $record = $this->entityManager->find(FacilityAttachmentRecord::class, $id);
     if (!$record instanceof FacilityAttachmentRecord || null === $record->facility?->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $decision = $this->authorization->resolveAccess($user->getId(), $record->facility->organization->id, 'organization.facilities.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
