@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Infrastructure\Persistence\Doctrine\Mapper;
 
-use ReflectionClass;
-use Session\Domain\Model\Session\Session;
+use Session\Domain\Model\Session\{RestoredSessionLifecycle, RestoredSessionTokens, Session};
 use Session\Domain\ValueObject\{SessionId, SessionMetadata};
 use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
@@ -38,40 +37,22 @@ final class SessionMapper
    */
   public static function toDomain(SessionRecord $record): Session
   {
-    $reflection = new ReflectionClass(objectOrClass: Session::class);
-    $session = $reflection->newInstanceWithoutConstructor();
-
-    $idProperty = $reflection->getProperty(name: 'id');
-    $idProperty->setValue($session, new SessionId(value: $record->id->toRfc4122()));
-
-    $userIdProperty = $reflection->getProperty(name: 'userId');
-    $userIdProperty->setValue($session, $record->userId);
-
-    $accessTokenIdProperty = $reflection->getProperty(name: 'accessTokenId');
-    $accessTokenIdProperty->setValue($session, $record->accessTokenId);
-
-    $refreshTokenIdProperty = $reflection->getProperty(name: 'refreshTokenId');
-    $refreshTokenIdProperty->setValue($session, $record->refreshTokenId);
-
-    $ipAddressProperty = $reflection->getProperty(name: 'ipAddress');
-    $ipAddressProperty->setValue($session, new IpAddress(value: $record->ipAddress));
-
-    $userAgentProperty = $reflection->getProperty(name: 'userAgent');
-    $userAgentProperty->setValue($session, new UserAgent(value: $record->userAgent));
-
-    $metadataProperty = $reflection->getProperty(name: 'metadata');
-    $metadataProperty->setValue($session, SessionMetadata::fromArray(data: $record->metadata));
-
-    $createdAtProperty = $reflection->getProperty(name: 'createdAt');
-    $createdAtProperty->setValue($session, $record->createdAt);
-
-    $lastActivityAtProperty = $reflection->getProperty(name: 'lastActivityAt');
-    $lastActivityAtProperty->setValue($session, $record->lastActivityAt);
-
-    $revokedAtProperty = $reflection->getProperty(name: 'revokedAt');
-    $revokedAtProperty->setValue($session, $record->revokedAt);
-
-    return $session;
+    return Session::restore(
+      id: new SessionId(value: $record->id->toRfc4122()),
+      userId: $record->userId,
+      ipAddress: new IpAddress(value: $record->ipAddress),
+      userAgent: new UserAgent(value: $record->userAgent),
+      metadata: SessionMetadata::fromArray(data: $record->metadata),
+      tokens: new RestoredSessionTokens(
+        accessTokenId: $record->accessTokenId,
+        refreshTokenId: $record->refreshTokenId,
+      ),
+      lifecycle: new RestoredSessionLifecycle(
+        createdAt: $record->createdAt,
+        lastActivityAt: $record->lastActivityAt,
+        revokedAt: $record->revokedAt,
+      ),
+    );
   }
 
   /**
