@@ -47,7 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [PermissionSerializationGroup::READ]],
       security: "is_granted('permissions.read')",
       openapi: new Operation(
-        tags: ['Authorization - Permissions'],
+        tags: [self::TAG],
         summary: 'List all permissions',
         description: 'Returns a list of all available permissions in the system. Permissions follow the "resource.action" naming convention (e.g., users.create, posts.delete). Requires permissions.read permission.',
         security: [['bearerAuth' => []]],
@@ -56,7 +56,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'List of permissions retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions - permissions.read required',
@@ -66,14 +66,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Get(
       name: AuthorizationOperations::PERMISSION_GET,
-      uriTemplate: '/permissions/{id}',
+      uriTemplate: self::ITEM_URI,
       input: false,
       output: PermissionOutput::class,
       provider: GetPermissionProvider::class,
       normalizationContext: ['groups' => [PermissionSerializationGroup::READ]],
       security: "is_granted('permissions.read')",
       openapi: new Operation(
-        tags: ['Authorization - Permissions'],
+        tags: [self::TAG],
         summary: 'Get permission details',
         description: 'Returns details of a specific permission including its name, description, and creation date. Requires permissions.read permission.',
         security: [['bearerAuth' => []]],
@@ -85,23 +85,23 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::PERMISSION_UPDATE,
                 'description' => 'Update this permission',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'DeletePermission' => [
                 'operationId' => AuthorizationOperations::PERMISSION_DELETE,
                 'description' => 'Delete this permission',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Permission not found',
+            description: self::NOT_FOUND,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions - permissions.read required',
@@ -117,9 +117,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreatePermissionProcessor::class,
       normalizationContext: ['groups' => [PermissionSerializationGroup::READ]],
       denormalizationContext: ['groups' => [PermissionSerializationGroup::WRITE]],
-      security: "is_granted('permissions.manage')",
+      security: self::MANAGE_SECURITY,
       openapi: new Operation(
-        tags: ['Authorization - Permissions'],
+        tags: [self::TAG],
         summary: 'Create a new permission',
         description: 'Creates a new permission with a unique name following the "resource.action" format. Permission names must be unique across the system. Requires permissions.manage permission.',
         security: [['bearerAuth' => []]],
@@ -131,7 +131,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::PERMISSION_GET,
                 'description' => 'Get the created permission details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'AssignToRole' => [
@@ -147,25 +147,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission name already exists',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - permissions.manage required',
+            description: self::MANAGE_FORBIDDEN,
           ),
         ],
       ),
     ),
     new Patch(
       name: AuthorizationOperations::PERMISSION_UPDATE,
-      uriTemplate: '/permissions/{id}',
+      uriTemplate: self::ITEM_URI,
       input: PermissionInput::class,
       output: PermissionOutput::class,
       processor: UpdatePermissionProcessor::class,
       normalizationContext: ['groups' => [PermissionSerializationGroup::READ]],
       denormalizationContext: ['groups' => [PermissionSerializationGroup::UPDATE]],
-      security: "is_granted('permissions.manage')",
+      security: self::MANAGE_SECURITY,
       openapi: new Operation(
-        tags: ['Authorization - Permissions'],
+        tags: [self::TAG],
         summary: 'Update a permission',
         description: 'Updates the description of an existing permission. The permission name cannot be changed after creation to maintain integrity. Requires permissions.manage permission.',
         security: [['bearerAuth' => []]],
@@ -177,7 +177,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::PERMISSION_GET,
                 'description' => 'Get the updated permission details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
@@ -186,26 +186,26 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Invalid request - validation failed',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Permission not found',
+            description: self::NOT_FOUND,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - permissions.manage required',
+            description: self::MANAGE_FORBIDDEN,
           ),
         ],
       ),
     ),
     new Delete(
       name: AuthorizationOperations::PERMISSION_DELETE,
-      uriTemplate: '/permissions/{id}',
+      uriTemplate: self::ITEM_URI,
       input: false,
       output: false,
       processor: DeletePermissionProcessor::class,
-      security: "is_granted('permissions.manage')",
+      security: self::MANAGE_SECURITY,
       openapi: new Operation(
-        tags: ['Authorization - Permissions'],
+        tags: [self::TAG],
         summary: 'Delete a permission',
         description: 'Permanently deletes a permission. This will automatically remove the permission from all roles that have it assigned. Use with caution. Requires permissions.manage permission.',
         security: [['bearerAuth' => []]],
@@ -214,13 +214,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Permission not found',
+            description: self::NOT_FOUND,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - permissions.manage required',
+            description: self::MANAGE_FORBIDDEN,
           ),
         ],
       ),
@@ -229,4 +229,17 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class PermissionResource
 {
+  private const TAG = 'Authorization - Permissions';
+
+  private const AUTHENTICATION_REQUIRED = 'Authentication required - missing or invalid access token';
+
+  private const ITEM_URI = '/permissions/{id}';
+
+  private const RESPONSE_ID = '$response.body#/id';
+
+  private const NOT_FOUND = 'Permission not found';
+
+  private const MANAGE_SECURITY = "is_granted('permissions.manage')";
+
+  private const MANAGE_FORBIDDEN = 'Insufficient permissions - permissions.manage required';
 }
