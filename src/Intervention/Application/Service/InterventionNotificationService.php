@@ -376,57 +376,76 @@ final readonly class InterventionNotificationService
         $interventionId,
       );
 
-      $notifiedUserIds = [];
-      foreach (array_values(array_unique($memberIds)) as $memberId) {
-        $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
-        if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
-          continue;
-        }
-
-        $notifiedUserIds[] = $member->userId();
-
-        try {
-          $this->notifications->send(new SendNotificationRequest(
-            type: $type,
-            subject: $subject,
-            body: $body,
-            channels: $channels,
-            payload: ['interventionId' => $interventionId],
-            recipientUserId: $member->userId(),
-            organizationId: $organizationId,
-          ));
-        } catch (Throwable) {
-          // Best-effort per recipient: one failed delivery must not starve the others.
-        }
-      }
+      $message = new SendNotificationRequest(
+        type: $type,
+        subject: $subject,
+        body: $body,
+        channels: $channels,
+        payload: ['interventionId' => $interventionId],
+        organizationId: $organizationId,
+      );
+      $notifiedUserIds = $this->sendReminderToMembers($organizationId, $memberIds, $message);
 
       if (!$escalateToAdmins) {
         return;
       }
 
-      // Escalation: the organization's administrators, minus anyone already
-      // notified above as responsible or participant.
-      foreach ($this->admins->organizationAdministrators($organizationId) as $adminUserId) {
-        if (in_array($adminUserId, $notifiedUserIds, true)) {
-          continue;
-        }
-
-        try {
-          $this->notifications->send(new SendNotificationRequest(
-            type: $type,
-            subject: $subject,
-            body: $body,
-            channels: $channels,
-            payload: ['interventionId' => $interventionId],
-            recipientUserId: $adminUserId,
-            organizationId: $organizationId,
-          ));
-        } catch (Throwable) {
-          // Best-effort per recipient: one failed delivery must not starve the others.
-        }
-      }
+      $this->sendReminderToAdministrators($organizationId, $notifiedUserIds, $message);
     } catch (Throwable) {
       // Notifications must not make a successful reminder sweep fail.
+    }
+  }
+
+  /**
+   * @param list<string> $memberIds
+   *
+   * @return list<string> user ids attempted as ordinary reminder recipients
+   */
+  private function sendReminderToMembers(string $organizationId, array $memberIds, SendNotificationRequest $message): array
+  {
+    $notifiedUserIds = [];
+    foreach (array_values(array_unique($memberIds)) as $memberId) {
+      $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
+      if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
+        continue;
+      }
+
+      $notifiedUserIds[] = $member->userId();
+      $this->sendReminderToUser($member->userId(), $message);
+    }
+
+    return $notifiedUserIds;
+  }
+
+  /**
+   * @param list<string> $notifiedUserIds
+   */
+  private function sendReminderToAdministrators(string $organizationId, array $notifiedUserIds, SendNotificationRequest $message): void
+  {
+    // Escalation excludes anyone already notified as responsible or participant.
+    foreach ($this->admins->organizationAdministrators($organizationId) as $adminUserId) {
+      if (in_array($adminUserId, $notifiedUserIds, true)) {
+        continue;
+      }
+
+      $this->sendReminderToUser($adminUserId, $message);
+    }
+  }
+
+  private function sendReminderToUser(string $userId, SendNotificationRequest $message): void
+  {
+    try {
+      $this->notifications->send(new SendNotificationRequest(
+        type: $message->type,
+        subject: $message->subject,
+        body: $message->body,
+        channels: $message->channels,
+        payload: $message->payload,
+        recipientUserId: $userId,
+        organizationId: $message->organizationId,
+      ));
+    } catch (Throwable) {
+      // Best-effort per recipient: one failed delivery must not starve the others.
     }
   }
 
