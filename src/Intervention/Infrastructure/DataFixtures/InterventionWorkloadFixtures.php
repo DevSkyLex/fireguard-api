@@ -12,7 +12,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ObjectManager;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionActivityRecord, InterventionRecord, InterventionTimeEntryRecord, InterventionTimeEntryVersionRecord, InterventionWorkItemAssignmentRecord, InterventionWorkItemRecord};
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
-use RuntimeException;
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Infrastructure\DataFixtures\SeedUuid;
 use Workload\Application\Port\Inbound\WorkloadCoordinationPort;
@@ -91,12 +90,12 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   public function load(ObjectManager $manager): void
   {
     if (!$manager instanceof EntityManagerInterface) {
-      throw new RuntimeException('Workload fixtures require the main ORM entity manager.');
+      throw new InterventionWorkloadFixtureException('Workload fixtures require the main ORM entity manager.');
     }
     $context = $this->workforce->context(self::ORGANIZATION);
     $source = $manager->getRepository(InterventionRecord::class)->findOneBy(['organization' => self::ORGANIZATION], ['number' => 'ASC']);
     if (null === $context || null === $source || null === $source->organization || null === $source->siteId) {
-      throw new RuntimeException('Workload fixtures require the existing seed organization and an intervention with a site. No baseline is auto-loaded.');
+      throw new InterventionWorkloadFixtureException('Workload fixtures require the existing seed organization and an intervention with a site. No baseline is auto-loaded.');
     }
     $active = [];
     foreach ($this->workforce->members(self::ORGANIZATION) as $member) {
@@ -106,7 +105,7 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     }
     foreach (array_keys(self::TASKS) as $memberId) {
       if (!isset($active[$memberId])) {
-        throw new RuntimeException('A required workload demo member is missing or inactive: ' . $memberId);
+        throw new InterventionWorkloadFixtureException('A required workload demo member is missing or inactive: ' . $memberId);
       }
     }
 
@@ -207,7 +206,7 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
       ['organization' => self::ORGANIZATION],
     );
     if (!is_numeric($number)) {
-      throw new RuntimeException('Could not allocate a workload demo intervention number.');
+      throw new InterventionWorkloadFixtureException('Could not allocate a workload demo intervention number.');
     }
     $intervention = new InterventionRecord();
     $intervention->id = $id;
