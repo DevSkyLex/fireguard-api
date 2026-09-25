@@ -352,11 +352,9 @@ final class AssistantMessage
    *
    * @since 1.0.0
    *
-   * @param DateTimeImmutable $now the current time
-   *
    * @throws AssistantMessageIllegalStatusTransitionException when not currently `pending`
    */
-  public function markStreaming(DateTimeImmutable $now): void
+  public function markStreaming(): void
   {
     $this->assertTransition(AssistantMessageStatus::STREAMING);
 

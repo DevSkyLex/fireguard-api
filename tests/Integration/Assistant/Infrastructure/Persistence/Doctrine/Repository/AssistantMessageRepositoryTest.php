@@ -122,7 +122,7 @@ final class AssistantMessageRepositoryTest extends KernelTestCase
     );
     $repository->save($reply);
 
-    $reply->markStreaming(new DateTimeImmutable('2026-01-01T00:00:01+00:00'));
+    $reply->markStreaming();
     $repository->save($reply);
 
     $reply->markComplete('The final, full reply.', 42, new DateTimeImmutable('2026-01-01T00:00:02+00:00'));
