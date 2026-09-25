@@ -821,7 +821,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     $this->loadChanges($manager, $interventions);
     $this->loadPublications($manager, $interventions);
     $this->loadAttachments($manager, $interventions);
-    $this->loadComments($manager, $organization, $interventions);
+    $this->loadComments($manager, $interventions);
     $this->loadBulkInterventions($manager, $organization, $labels);
     $this->loadRecurrences($manager, $organization, $templates);
 
@@ -1125,10 +1125,9 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    * @since 1.0.0
    *
    * @param ObjectManager $manager the object manager
-   * @param OrganizationRecord $organization the owning organization
    * @param array<int, InterventionRecord> $interventions the interventions, keyed by number
    */
-  private function loadComments(ObjectManager $manager, OrganizationRecord $organization, array $interventions): void
+  private function loadComments(ObjectManager $manager, array $interventions): void
   {
     foreach (self::COMMENT_SEEDS as $index => $seed) {
       $manager->persist($this->activity(

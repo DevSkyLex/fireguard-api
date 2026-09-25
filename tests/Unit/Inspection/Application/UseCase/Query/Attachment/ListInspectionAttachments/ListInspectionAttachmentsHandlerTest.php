@@ -12,6 +12,7 @@ use Inspection\Domain\Model\Attachment\InspectionAttachment;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{
+  InspectionAttachmentFile,
   InspectionAttachmentId,
   InspectionEquipmentId,
   InspectionId,
@@ -20,8 +21,7 @@ use Inspection\Domain\ValueObject\{
   Inspector,
   NonConformityId,
   NonConformityInspectionId,
-  NonConformitySeverity,
-  RestoredInspectionAttachmentFile
+  NonConformitySeverity
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -45,7 +45,7 @@ final class ListInspectionAttachmentsHandlerTest extends TestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      file: new RestoredInspectionAttachmentFile(
+      file: new InspectionAttachmentFile(
         fileName: 'report.pdf',
         storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_report.pdf',
         mimeType: 'application/pdf',
@@ -93,7 +93,7 @@ final class ListInspectionAttachmentsHandlerTest extends TestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      file: new RestoredInspectionAttachmentFile(
+      file: new InspectionAttachmentFile(
         fileName: 'photo.jpg',
         storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_photo.jpg',
         mimeType: 'image/jpeg',

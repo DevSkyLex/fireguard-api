@@ -9,7 +9,7 @@ use Doctrine\DBAL\{Connection, Result};
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
-use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{InspectionEquipmentId, InspectionId, InspectionOrganizationId, InspectionResult, InspectionStatus, Inspector};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository;
@@ -123,11 +123,11 @@ final class InspectionRepositoryTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString('550e8400-e29b-41d4-a716-446655440021'),
       organizationId: InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440022'),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString('550e8400-e29b-41d4-a716-446655440023'),
         inspector: Inspector::forUser('550e8400-e29b-41d4-a716-446655440024', 'Inspector'),
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::PASS,
         status: InspectionStatus::DRAFT,
         performedAt: new DateTimeImmutable('2026-03-30T10:30:00+02:00'),

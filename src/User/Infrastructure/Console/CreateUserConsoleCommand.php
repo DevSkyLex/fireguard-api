@@ -174,20 +174,28 @@ HELP
     $avatarUrl = is_string($avatarRaw) ? $avatarRaw : null;
     $tenantId = is_string($tenantRaw) ? $tenantRaw : null;
 
-    try {
-      $command = new CreateUserCommand(
-        username: $username,
-        email: $email,
-        password: $password,
-        firstName: $firstName,
-        lastName: $lastName,
-        avatarUrl: $avatarUrl,
-        tenantId: $tenantId,
-      );
+    $command = new CreateUserCommand(
+      username: $username,
+      email: $email,
+      password: $password,
+      firstName: $firstName,
+      lastName: $lastName,
+      avatarUrl: $avatarUrl,
+      tenantId: $tenantId,
+    );
 
+    return $this->dispatchCreateUser($command, $io);
+  }
+
+  /**
+   * Dispatches a validated console request and reports its result.
+   */
+  private function dispatchCreateUser(CreateUserCommand $command, SymfonyStyle $io): int
+  {
+    try {
       $this->commandBus->dispatch($command);
 
-      $io->success(sprintf('User "%s" created successfully.', $email));
+      $io->success(sprintf('User "%s" created successfully.', $command->email));
 
       return Command::SUCCESS;
     } catch (Throwable $e) {

@@ -91,10 +91,7 @@ final class Plan
    * @param PlanKey $key the stable machine key
    * @param string $name the display name
    * @param array<string, int> $limits the per-resource quantity caps
-   * @param ?string $description the optional description
-   * @param bool $isActive whether the plan can be selected
-   * @param bool $isDefault whether the plan is the catalog default
-   * @param int $sortOrder the display order
+   * @param ?PlanCreationOptions $options optional catalog metadata
    *
    * @return self the created plan aggregate
    */
@@ -103,12 +100,10 @@ final class Plan
     PlanKey $key,
     string $name,
     array $limits,
-    ?string $description = null,
-    bool $isActive = true,
-    bool $isDefault = false,
-    int $sortOrder = 0,
+    ?PlanCreationOptions $options = null,
   ): self {
     $now = new DateTimeImmutable();
+    $options ??= new PlanCreationOptions();
 
     return new self(
       id: $id,
@@ -117,10 +112,10 @@ final class Plan
       limits: $limits,
       createdAt: $now,
       updatedAt: $now,
-      description: $description,
-      isActive: $isActive,
-      isDefault: $isDefault,
-      sortOrder: $sortOrder,
+      description: $options->description,
+      isActive: $options->isActive,
+      isDefault: $options->isDefault,
+      sortOrder: $options->sortOrder,
     );
   }
 

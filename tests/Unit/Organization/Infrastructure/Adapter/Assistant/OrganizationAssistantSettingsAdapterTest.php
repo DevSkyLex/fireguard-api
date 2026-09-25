@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Assistant;
 
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationAssistantSettings, OrganizationId, OrganizationName, OrganizationSettings, OrganizationSlug};
 use Organization\Infrastructure\Adapter\Assistant\OrganizationAssistantSettingsAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -76,11 +76,13 @@ final class OrganizationAssistantSettingsAdapterTest extends TestCase
       id: OrganizationId::fromString(self::ORG_ID),
       name: new OrganizationName('Fireguard Assistant Settings Org'),
       ownerUserId: '018f0b68-6758-7a12-8a1d-3f0d97f65199',
-      slug: new OrganizationSlug('fireguard-assistant-settings-org'),
-      settings: new OrganizationSettings(assistant: new OrganizationAssistantSettings(
-        enabled: $enabled,
-        includeBusinessContext: $includeBusinessContext,
-      )),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-assistant-settings-org'),
+        settings: new OrganizationSettings(assistant: new OrganizationAssistantSettings(
+          enabled: $enabled,
+          includeBusinessContext: $includeBusinessContext,
+        )),
+      ),
     );
   }
 }

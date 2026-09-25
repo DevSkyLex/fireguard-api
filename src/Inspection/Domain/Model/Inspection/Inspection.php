@@ -39,6 +39,24 @@ use function trim;
  */
 final class Inspection
 {
+  private InspectionEquipmentId $equipmentId;
+
+  private Inspector $inspector;
+
+  private InspectionResult $result;
+
+  private InspectionStatus $status;
+
+  private DateTimeImmutable $performedAt;
+
+  private ?InspectionFacilityId $facilityId;
+
+  private ?InspectionChecklistId $checklistId;
+
+  private ?string $notes;
+
+  private ?string $signature;
+
   // #region Constructor
   /**
    * Constructor.
@@ -47,33 +65,28 @@ final class Inspection
    *
    * @param InspectionId $id the inspection identifier
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param InspectionEquipmentId $equipmentId the equipment identifier
-   * @param Inspector $inspector the person who performed the inspection
-   * @param InspectionResult $result the inspection result
-   * @param InspectionStatus $status the inspection status
-   * @param DateTimeImmutable $performedAt when the inspection was performed
+   * @param InspectionReferences $references the equipment and inspector references
+   * @param InspectionFinding $finding the finding and lifecycle state
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param ?InspectionFacilityId $facilityId the optional facility identifier
-   * @param ?InspectionChecklistId $checklistId the optional checklist identifier
-   * @param ?string $notes optional free-form notes
-   * @param ?string $signature optional signature data
    */
   private function __construct(
     private InspectionId $id,
     private InspectionOrganizationId $organizationId,
-    private InspectionEquipmentId $equipmentId,
-    private Inspector $inspector,
-    private InspectionResult $result,
-    private InspectionStatus $status,
-    private DateTimeImmutable $performedAt,
+    InspectionReferences $references,
+    InspectionFinding $finding,
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
-    private ?InspectionFacilityId $facilityId = null,
-    private ?InspectionChecklistId $checklistId = null,
-    private ?string $notes = null,
-    private ?string $signature = null,
   ) {
+    $this->equipmentId = $references->equipmentId;
+    $this->inspector = $references->inspector;
+    $this->facilityId = $references->facilityId;
+    $this->checklistId = $references->checklistId;
+    $this->result = $finding->result;
+    $this->status = $finding->status;
+    $this->performedAt = $finding->performedAt;
+    $this->notes = $finding->notes;
+    $this->signature = $finding->signature;
   }
   // #endregion
 
@@ -91,10 +104,7 @@ final class Inspection
    * @param Inspector $inspector the person who performed the inspection
    * @param InspectionResult $result the inspection result
    * @param DateTimeImmutable $performedAt when the inspection was performed
-   * @param ?InspectionFacilityId $facilityId the optional facility identifier
-   * @param ?InspectionChecklistId $checklistId the optional checklist identifier
-   * @param ?string $notes optional free-form notes
-   * @param ?string $signature optional signature data
+   * @param ?InspectionCreationOptions $options optional references and text
    *
    * @return self the created inspection aggregate
    */
@@ -105,27 +115,24 @@ final class Inspection
     Inspector $inspector,
     InspectionResult $result,
     DateTimeImmutable $performedAt,
-    ?InspectionFacilityId $facilityId = null,
-    ?InspectionChecklistId $checklistId = null,
-    ?string $notes = null,
-    ?string $signature = null,
+    ?InspectionCreationOptions $options = null,
   ): self {
     $now = new DateTimeImmutable();
+    $options ??= new InspectionCreationOptions();
 
     return new self(
       id: $id,
       organizationId: $organizationId,
-      equipmentId: $equipmentId,
-      inspector: $inspector,
-      result: $result,
-      status: InspectionStatus::DRAFT,
-      performedAt: $performedAt,
+      references: new InspectionReferences($equipmentId, $inspector, $options->facilityId, $options->checklistId),
+      finding: new InspectionFinding(
+        $result,
+        InspectionStatus::DRAFT,
+        $performedAt,
+        self::normalizeText($options->notes, 'notes', 5000),
+        $options->signature,
+      ),
       createdAt: $now,
       updatedAt: $now,
-      facilityId: $facilityId,
-      checklistId: $checklistId,
-      notes: self::normalizeText($notes, 'notes', 5000),
-      signature: $signature,
     );
   }
 
@@ -138,8 +145,8 @@ final class Inspection
    *
    * @param InspectionId $id the inspection identifier
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param RestoredInspectionReferences $references the persisted equipment and inspector references
-   * @param RestoredInspectionFinding $finding the persisted finding and lifecycle
+   * @param InspectionReferences $references the persisted equipment and inspector references
+   * @param InspectionFinding $finding the persisted finding and lifecycle
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
    *
@@ -148,25 +155,18 @@ final class Inspection
   public static function reconstitute(
     InspectionId $id,
     InspectionOrganizationId $organizationId,
-    RestoredInspectionReferences $references,
-    RestoredInspectionFinding $finding,
+    InspectionReferences $references,
+    InspectionFinding $finding,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
-      equipmentId: $references->equipmentId,
-      inspector: $references->inspector,
-      result: $finding->result,
-      status: $finding->status,
-      performedAt: $finding->performedAt,
+      references: $references,
+      finding: $finding,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      facilityId: $references->facilityId,
-      checklistId: $references->checklistId,
-      notes: $finding->notes,
-      signature: $finding->signature,
     );
   }
 

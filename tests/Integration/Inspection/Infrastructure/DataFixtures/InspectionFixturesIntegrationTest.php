@@ -94,9 +94,21 @@ final class InspectionFixturesIntegrationTest extends KernelTestCase
 
     self::assertSame('pass', $passingInspection->result);
     self::assertSame(SeedTimeline::at('2026-03-05T09:00:00+00:00')->format('Y-m-d'), $passingInspection->performedAt->format('Y-m-d'));
+    self::assertSame('a1b2c3d4-e5f6-4890-8bcd-ef1234567890', $passingInspection->inspectorUserId);
+    self::assertNull($passingInspection->inspectorOrganizationName);
+    self::assertSame('Monthly extinguisher inspection completed successfully.', $passingInspection->notes);
+    self::assertEquals($passingInspection->performedAt->modify('+1 hour'), $passingInspection->updatedAt);
     self::assertSame('submitted', $failingInspection->status);
     self::assertSame(SeedTimeline::at('2026-03-20T14:00:00+00:00')->format('Y-m-d'), $failingInspection->performedAt->format('Y-m-d'));
+    self::assertSame('External Safety Services', $failingInspection->inspectorOrganizationName);
+    self::assertNull($failingInspection->inspectorUserId);
     self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $failingInspection->organization?->id);
+    /** @var NonConformityRecord|null $resolvedFinding */
+    $resolvedFinding = $this->entityManager->getRepository(NonConformityRecord::class)->find('f261d7e4-48af-4bf7-8b2d-2c171e50b822');
+    self::assertNotNull($resolvedFinding);
+    self::assertSame('done', $resolvedFinding->status);
+    self::assertEquals(SeedTimeline::at('2026-03-16T09:00:00+00:00'), $resolvedFinding->resolvedAt);
+    self::assertNull($resolvedFinding->dueAt);
     self::assertCount(41, array_unique($inspectionDays));
     self::assertCount(28, array_unique($openedDays));
     self::assertCount(24, array_unique($resolvedDays));

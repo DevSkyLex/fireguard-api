@@ -10,7 +10,7 @@ use Organization\Application\UseCase\Command\Plan\DeletePlan\{DeletePlanCommand,
 use Organization\Application\UseCase\Command\Plan\UpdatePlan\{UpdatePlanCommand, UpdatePlanHandler};
 use Organization\Domain\Exception\DefaultPlanCannotBeDeletedException;
 use Organization\Domain\Exception\{PlanKeyAlreadyExistsException, PlanNotFoundException};
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -286,10 +286,12 @@ final class PlanUseCaseHandlersTest extends TestCase
       key: new PlanKey('pro'),
       name: 'Pro',
       limits: ['members' => 50],
-      description: 'Pro tier',
-      isActive: true,
-      isDefault: $isDefault,
-      sortOrder: 3,
+      options: new PlanCreationOptions(
+        description: 'Pro tier',
+        isActive: true,
+        isDefault: $isDefault,
+        sortOrder: 3,
+      ),
     );
   }
   // #endregion

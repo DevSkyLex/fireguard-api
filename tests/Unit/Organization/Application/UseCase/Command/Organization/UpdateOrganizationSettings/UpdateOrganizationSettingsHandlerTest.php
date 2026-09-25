@@ -22,7 +22,7 @@ use Organization\Domain\Exception\{
   OrganizationNotFoundException,
   OrganizationSlugAlreadyExistsException
 };
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -45,7 +45,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -112,7 +114,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -173,7 +177,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -267,7 +273,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -318,7 +326,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
     $organization->archive();
 
@@ -368,7 +378,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -411,7 +423,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
     $organization->archive();
 
@@ -452,7 +466,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -502,7 +518,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -543,7 +561,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -603,7 +623,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -655,7 +677,9 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Lyon'),
       ownerUserId: self::OWNER_USER_ID,
-      slug: new OrganizationSlug('fireguard-lyon'),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('fireguard-lyon'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

@@ -117,13 +117,9 @@ final readonly class PermissionName implements Stringable
       return '*' === $thisParts[0] || $thisParts[0] === $requiredParts[0];
     }
 
-    // Resource wildcard (e.g., users.* matches users.create)
-    if ($thisParts[0] === $requiredParts[0] && '*' === $thisParts[1]) {
-      return true;
-    }
-
-    // Action wildcard for all resources (e.g., *.read matches users.read)
-    return (bool) ('*' === $thisParts[0] && $thisParts[1] === $requiredParts[1]);
+    // Resource wildcard (users.*) or action wildcard for all resources (*.read).
+    return ($thisParts[0] === $requiredParts[0] && '*' === $thisParts[1])
+      || ('*' === $thisParts[0] && $thisParts[1] === $requiredParts[1]);
   }
 
   /**

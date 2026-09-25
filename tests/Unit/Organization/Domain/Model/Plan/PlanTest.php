@@ -6,6 +6,7 @@ namespace Tests\Unit\Organization\Domain\Model\Plan;
 
 use DateTimeImmutable;
 use Organization\Domain\Model\Plan\{Plan, RestoredPlanMetadata};
+use Organization\Domain\Model\Plan\PlanCreationOptions;
 use Organization\Domain\ValueObject\{OrganizationQuotaResource, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -24,7 +25,9 @@ final class PlanTest extends TestCase
       key: new PlanKey('pro'),
       name: 'Pro',
       limits: ['members' => 50, 'facilities' => 25],
-      description: 'Advanced plan',
+      options: new PlanCreationOptions(
+        description: 'Advanced plan',
+      ),
     );
 
     self::assertSame(self::PLAN_ID, (string) $plan->id());

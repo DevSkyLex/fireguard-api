@@ -25,7 +25,7 @@ use Organization\Domain\Exception\{
 use Organization\Domain\Exception\PlanNotAvailableException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -599,7 +599,9 @@ final class ChangeOrganizationPlanHandlerTest extends TestCase
       key: new PlanKey('pro'),
       name: 'Pro',
       limits: ['members' => 50, 'facilities' => 3],
-      isActive: $isActive,
+      options: new PlanCreationOptions(
+        isActive: $isActive,
+      ),
     );
   }
 }

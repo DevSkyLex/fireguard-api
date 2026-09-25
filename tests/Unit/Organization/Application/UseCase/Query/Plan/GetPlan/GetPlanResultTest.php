@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Plan\GetPlan;
 
 use Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanResult;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -105,7 +105,9 @@ final class GetPlanResultTest extends TestCase
       key: new PlanKey($key),
       name: 'Pro',
       limits: ['members' => 50],
-      description: 'The professional plan',
+      options: new PlanCreationOptions(
+        description: 'The professional plan',
+      ),
     );
   }
 }

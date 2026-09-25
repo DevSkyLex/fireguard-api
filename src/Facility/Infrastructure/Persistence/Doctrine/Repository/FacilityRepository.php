@@ -733,10 +733,8 @@ final readonly class FacilityRepository extends FacilityOrganizationQueryReposit
   // #region Methods
   protected function organizationReference(FacilityOrganizationId $organizationId): OrganizationRecord
   {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-
-    return $organization;
+    /** @var OrganizationRecord */
+    return $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
   }
 
   protected function applyFacilitySearch(QueryBuilder $queryBuilder, ?string $search): void

@@ -11,7 +11,7 @@ use Inspection\Domain\Exception\{
   InspectionAlreadySubmittedException,
   InspectionNotSubmittedException
 };
-use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionCreationOptions, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -76,7 +76,7 @@ final class InspectionTest extends TestCase
       inspector: Inspector::forUser(userId: 'user-1', name: 'John Doe'),
       result: InspectionResult::FAIL,
       performedAt: $performedAt,
-      notes: '  Some notes  ',
+      options: new InspectionCreationOptions(notes: '  Some notes  '),
     );
 
     self::assertSame(self::INSP_ID, (string) $inspection->id());
@@ -97,7 +97,7 @@ final class InspectionTest extends TestCase
       inspector: Inspector::forUser(userId: 'user-1', name: 'John Doe'),
       result: InspectionResult::PASS,
       performedAt: new DateTimeImmutable(),
-      notes: '   ',
+      options: new InspectionCreationOptions(notes: '   '),
     );
 
     self::assertNull($inspection->notes());
@@ -116,7 +116,7 @@ final class InspectionTest extends TestCase
       inspector: Inspector::forUser(userId: 'user-1', name: 'John Doe'),
       result: InspectionResult::PASS,
       performedAt: new DateTimeImmutable(),
-      notes: str_repeat('x', 5001),
+      options: new InspectionCreationOptions(notes: str_repeat('x', 5001)),
     );
   }
 
@@ -229,13 +229,13 @@ final class InspectionTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSP_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORG_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIP_ID),
         inspector: Inspector::forUser(userId: 'user-1', name: 'Jane Roe'),
         facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
         checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::PARTIAL,
         status: InspectionStatus::SUBMITTED,
         performedAt: $performedAt,
@@ -387,10 +387,12 @@ final class InspectionTest extends TestCase
       inspector: Inspector::forUser(userId: 'user-1', name: 'John Doe'),
       result: InspectionResult::PASS,
       performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
-      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
-      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
-      notes: 'Original notes',
-      signature: 'original-signature',
+      options: new InspectionCreationOptions(
+        facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+        checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+        notes: 'Original notes',
+        signature: 'original-signature',
+      ),
     );
 
     $inspection->edit(

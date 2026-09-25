@@ -7,7 +7,7 @@ namespace Inspection\Application\UseCase\Command\Inspection\CreateInspection;
 use DateTimeImmutable;
 use Exception;
 use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionCreationOptions};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -121,10 +121,12 @@ final readonly class CreateInspectionHandler implements CommandHandler
         inspector: $inspector,
         result: $result,
         performedAt: $performedAt,
-        facilityId: $facilityId,
-        checklistId: $checklistId,
-        notes: $command->notes,
-        signature: $command->signature,
+        options: new InspectionCreationOptions(
+          facilityId: $facilityId,
+          checklistId: $checklistId,
+          notes: $command->notes,
+          signature: $command->signature,
+        ),
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);

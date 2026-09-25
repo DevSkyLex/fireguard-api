@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\PlanRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -54,10 +54,12 @@ final class PlanRepositoryIntegrationTest extends KernelTestCase
       key: new PlanKey('plan-repo-roundtrip'),
       name: 'Round Trip',
       limits: ['members' => 12, 'facilities' => 4],
-      description: 'Round trip fixture',
-      isActive: true,
-      isDefault: false,
-      sortOrder: 42,
+      options: new PlanCreationOptions(
+        description: 'Round trip fixture',
+        isActive: true,
+        isDefault: false,
+        sortOrder: 42,
+      ),
     );
 
     $this->repository->save($plan);
@@ -154,14 +156,18 @@ final class PlanRepositoryIntegrationTest extends KernelTestCase
       key: new PlanKey('plan-repo-active'),
       name: 'Active Plan',
       limits: [],
-      isActive: true,
+      options: new PlanCreationOptions(
+        isActive: true,
+      ),
     );
     $inactivePlan = Plan::create(
       id: PlanId::fromString('f1000000-0000-4000-8000-000000000042'),
       key: new PlanKey('plan-repo-inactive'),
       name: 'Inactive Plan',
       limits: [],
-      isActive: false,
+      options: new PlanCreationOptions(
+        isActive: false,
+      ),
     );
     $this->repository->save($activePlan);
     $this->repository->save($inactivePlan);
@@ -181,14 +187,18 @@ final class PlanRepositoryIntegrationTest extends KernelTestCase
       key: new PlanKey('plan-repo-order-b'),
       name: 'Order B',
       limits: [],
-      sortOrder: 920,
+      options: new PlanCreationOptions(
+        sortOrder: 920,
+      ),
     );
     $first = Plan::create(
       id: PlanId::fromString('f1000000-0000-4000-8000-000000000052'),
       key: new PlanKey('plan-repo-order-a'),
       name: 'Order A',
       limits: [],
-      sortOrder: 910,
+      options: new PlanCreationOptions(
+        sortOrder: 910,
+      ),
     );
     $this->repository->save($second);
     $this->repository->save($first);
@@ -211,8 +221,10 @@ final class PlanRepositoryIntegrationTest extends KernelTestCase
       key: new PlanKey('plan-repo-default'),
       name: 'Default Plan',
       limits: [],
-      isDefault: true,
-      sortOrder: 0,
+      options: new PlanCreationOptions(
+        isDefault: true,
+        sortOrder: 0,
+      ),
     );
     $this->repository->save($default);
     $this->entityManager->clear();

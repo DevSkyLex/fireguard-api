@@ -7,7 +7,7 @@ namespace Tests\Integration\Inspection\Infrastructure\Persistence\Doctrine\Repos
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId};
+use Inspection\Domain\ValueObject\{InspectionAttachmentFile, InspectionAttachmentId, InspectionId, NonConformityId};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -105,10 +105,12 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     $attachment = InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new InspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+      ),
     );
 
     $this->repository->save($attachment);
@@ -126,10 +128,12 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     $attachment = InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::NON_CONFORMITY_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'photo.jpg',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
+      file: new InspectionAttachmentFile(
+        fileName: 'photo.jpg',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
+        mimeType: 'image/jpeg',
+        size: 512,
+      ),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
     );
 
@@ -148,18 +152,22 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new InspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+      ),
     ));
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::NON_CONFORMITY_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'photo.jpg',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
+      file: new InspectionAttachmentFile(
+        fileName: 'photo.jpg',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
+        mimeType: 'image/jpeg',
+        size: 512,
+      ),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
     ));
 
@@ -180,18 +188,22 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new InspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+      ),
     ));
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::NON_CONFORMITY_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'photo.jpg',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
+      file: new InspectionAttachmentFile(
+        fileName: 'photo.jpg',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
+        mimeType: 'image/jpeg',
+        size: 512,
+      ),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
     ));
 
@@ -208,10 +220,12 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new InspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+      ),
     ));
 
     $this->repository->delete(InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID));
@@ -237,21 +251,25 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'draft.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/draft.pdf',
-      mimeType: 'application/pdf',
-      size: 128,
+      file: new InspectionAttachmentFile(
+        fileName: 'draft.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/draft.pdf',
+        mimeType: 'application/pdf',
+        size: 128,
+      ),
     ));
     $this->entityManager->clear();
 
     $this->repository->save(InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'proof.jpg',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/proof.jpg',
-      mimeType: 'image/jpeg',
-      size: 6144,
-      label: 'Field proof',
+      file: new InspectionAttachmentFile(
+        fileName: 'proof.jpg',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/proof.jpg',
+        mimeType: 'image/jpeg',
+        size: 6144,
+        label: 'Field proof',
+      ),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
     ));
     $this->entityManager->clear();

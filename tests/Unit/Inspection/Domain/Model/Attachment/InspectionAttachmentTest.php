@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Domain\Model\Attachment;
 
 use DateTimeImmutable;
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
+use Inspection\Domain\ValueObject\{InspectionAttachmentFile, InspectionAttachmentId, InspectionId, NonConformityId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -32,10 +32,12 @@ final class InspectionAttachmentTest extends TestCase
     $attachment = InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspections/org-1/report.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new InspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspections/org-1/report.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+      ),
     );
 
     self::assertSame(self::ATTACHMENT_ID, (string) $attachment->id());
@@ -55,12 +57,14 @@ final class InspectionAttachmentTest extends TestCase
     $attachment = InspectionAttachment::create(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'proof.jpg',
-      storagePath: 'inspections/org-1/proof.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
+      file: new InspectionAttachmentFile(
+        fileName: 'proof.jpg',
+        storagePath: 'inspections/org-1/proof.jpg',
+        mimeType: 'image/jpeg',
+        size: 512,
+        label: 'Cracked valve',
+      ),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
-      label: 'Cracked valve',
     );
 
     self::assertNotNull($attachment->nonConformityId());
@@ -76,7 +80,7 @@ final class InspectionAttachmentTest extends TestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      file: new RestoredInspectionAttachmentFile(
+      file: new InspectionAttachmentFile(
         fileName: 'report.pdf',
         storagePath: 'inspections/org-1/report.pdf',
         mimeType: 'application/pdf',

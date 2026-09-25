@@ -56,6 +56,7 @@ final class BackfillMessageLinksCommand extends Command
     $processed = 0;
     $extracted = 0;
     $unexpectedResult = false;
+    $failed = false;
 
     try {
       do {
@@ -80,13 +81,15 @@ final class BackfillMessageLinksCommand extends Command
       } while ($result->hasMore && null !== $cursor);
     } catch (Throwable $error) {
       $io->error(sprintf('Messaging link backfill failed after %d message(s): %s', $processed, $error->getMessage()));
-
-      return Command::FAILURE;
+      $failed = true;
     }
 
     if ($unexpectedResult) {
       $io->error('The messaging link backfill returned an unexpected result.');
+      $failed = true;
+    }
 
+    if ($failed) {
       return Command::FAILURE;
     }
 

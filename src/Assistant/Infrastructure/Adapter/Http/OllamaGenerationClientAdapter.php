@@ -8,7 +8,7 @@ use Assistant\Application\Contract\Generation\AssistantGenerationOutcome;
 use Assistant\Application\Port\Outbound\AssistantGenerationClientPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\{HttpClientInterface, ResponseInterface};
 
 use function is_array;
 use function is_int;
@@ -86,6 +86,16 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
       return new AssistantGenerationOutcome('', null, 'ollama_http_error', sprintf('Unexpected HTTP status %d.', $statusCode));
     }
 
+    return $this->consumeStream($response, $onFragment);
+  }
+
+  /**
+   * Reads fragments from an accepted Ollama response and always closes it.
+   *
+   * @param callable $onFragment callback for cumulative text updates
+   */
+  private function consumeStream(ResponseInterface $response, callable $onFragment): AssistantGenerationOutcome
+  {
     $body = '';
     $tokenCount = null;
     $buffer = '';
@@ -110,11 +120,9 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
       $response->cancel();
     }
 
-    if ('' === $body) {
-      return new AssistantGenerationOutcome('', null, 'ollama_empty_response', 'The model returned an empty response.');
-    }
-
-    return new AssistantGenerationOutcome($body, $tokenCount);
+    return '' === $body
+      ? new AssistantGenerationOutcome('', null, 'ollama_empty_response', 'The model returned an empty response.')
+      : new AssistantGenerationOutcome($body, $tokenCount);
   }
 
   /**

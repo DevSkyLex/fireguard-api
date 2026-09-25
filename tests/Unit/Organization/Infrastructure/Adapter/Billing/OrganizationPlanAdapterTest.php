@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Adapter\Billing;
 
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug, PlanId, PlanKey};
 use Organization\Infrastructure\Adapter\Billing\OrganizationPlanAdapter;
@@ -107,9 +107,11 @@ final class OrganizationPlanAdapterTest extends TestCase
     return Organization::create(
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Acme'),
-      slug: new OrganizationSlug('acme'),
       ownerUserId: '550e8400-e29b-41d4-a716-446655440099',
-      planId: $planId,
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('acme'),
+        planId: $planId,
+      ),
     );
   }
 }

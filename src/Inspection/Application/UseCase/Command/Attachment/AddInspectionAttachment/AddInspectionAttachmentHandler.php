@@ -7,7 +7,7 @@ namespace Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachm
 use Inspection\Application\Port\Outbound\{InspectionAttachmentRepositoryPort, InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, InspectionOrganizationId, NonConformityId};
+use Inspection\Domain\ValueObject\{InspectionAttachmentFile, InspectionAttachmentId, InspectionId, InspectionOrganizationId, NonConformityId};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -92,12 +92,14 @@ final readonly class AddInspectionAttachmentHandler implements CommandHandler
     $attachment = InspectionAttachment::create(
       id: $attachmentId,
       inspectionId: $inspectionId,
-      fileName: $command->fileName,
-      storagePath: $storagePath,
-      mimeType: $command->mimeType,
-      size: $command->size,
+      file: new InspectionAttachmentFile(
+        fileName: $command->fileName,
+        storagePath: $storagePath,
+        mimeType: $command->mimeType,
+        size: $command->size,
+        label: $command->label,
+      ),
       nonConformityId: $nonConformityId,
-      label: $command->label,
     );
 
     $this->fileStorage->write($storagePath, $command->contents);

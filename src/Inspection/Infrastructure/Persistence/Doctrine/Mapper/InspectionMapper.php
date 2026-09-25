@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -31,7 +31,7 @@ final class InspectionMapper
     return Inspection::reconstitute(
       id: InspectionId::fromString($record->id),
       organizationId: InspectionOrganizationId::fromString($record->organization->id),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString($record->equipmentId),
         inspector: Inspector::reconstitute(
           type: InspectorType::from($record->inspectorType),
@@ -42,7 +42,7 @@ final class InspectionMapper
         facilityId: null !== $record->facilityId ? InspectionFacilityId::fromString($record->facilityId) : null,
         checklistId: null !== $record->checklistId ? InspectionChecklistId::fromString($record->checklistId) : null,
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::from($record->result),
         status: InspectionStatus::from($record->status),
         performedAt: $record->performedAt,

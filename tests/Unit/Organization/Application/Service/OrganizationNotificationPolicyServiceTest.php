@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\Service;
 
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Application\Service\OrganizationNotificationPolicyService;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{
   OrganizationId,
   OrganizationName,
@@ -28,8 +28,10 @@ final class OrganizationNotificationPolicyServiceTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Acme'),
       ownerUserId: '018f0b68-6758-7a12-8a1d-3f0d97f63c13',
-      settings: new OrganizationSettings(
-        notifications: OrganizationNotificationSettings::fromArray(['email_enabled' => false, 'intervention_published' => false]),
+      options: new OrganizationCreationOptions(
+        settings: new OrganizationSettings(
+          notifications: OrganizationNotificationSettings::fromArray(['email_enabled' => false, 'intervention_published' => false]),
+        ),
       ),
     );
 

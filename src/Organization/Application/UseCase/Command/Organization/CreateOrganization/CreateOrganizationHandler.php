@@ -12,7 +12,7 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Event\Organization\OrganizationCreatedEvent;
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName, OrganizationSlug};
@@ -128,8 +128,10 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       id: $organizationId,
       name: new OrganizationName($command->name),
       ownerUserId: $command->ownerUserId,
-      slug: null !== $normalizedSlug ? new OrganizationSlug($normalizedSlug) : null,
-      planId: $defaultPlan?->id(),
+      options: new OrganizationCreationOptions(
+        slug: null !== $normalizedSlug ? new OrganizationSlug($normalizedSlug) : null,
+        planId: $defaultPlan?->id(),
+      ),
     );
 
     $ownerRole = OrganizationRole::create(

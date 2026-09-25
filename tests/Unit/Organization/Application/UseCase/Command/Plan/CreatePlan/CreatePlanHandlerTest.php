@@ -11,7 +11,7 @@ use Organization\Application\UseCase\Command\Plan\CreatePlan\{
   CreatePlanResult
 };
 use Organization\Domain\Exception\PlanKeyAlreadyExistsException;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -121,7 +121,9 @@ final class CreatePlanHandlerTest extends TestCase
       key: new PlanKey($key),
       name: 'Existing',
       limits: [],
-      isDefault: $isDefault,
+      options: new PlanCreationOptions(
+        isDefault: $isDefault,
+      ),
     );
   }
 

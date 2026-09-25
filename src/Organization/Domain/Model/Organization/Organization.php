@@ -109,12 +109,7 @@ final class Organization
    * @param OrganizationId $id the organization identifier
    * @param OrganizationName $name the organization name
    * @param string $ownerUserId the owner user identifier
-   * @param ?OrganizationSlug $slug the optional organization slug
-   * @param ?string $createdByUserId the optional creator user identifier
-   * @param ?string $description the optional organization description
-   * @param ?string $logoUrl the optional organization logo URL
-   * @param ?OrganizationSettings $settings the optional structured organization settings
-   * @param ?PlanId $planId the optional assigned subscription plan identifier
+   * @param ?OrganizationCreationOptions $options optional slug, creator, profile, and plan
    *
    * @return self the created organization aggregate
    */
@@ -122,28 +117,24 @@ final class Organization
     OrganizationId $id,
     OrganizationName $name,
     string $ownerUserId,
-    ?OrganizationSlug $slug = null,
-    ?string $createdByUserId = null,
-    ?string $description = null,
-    ?string $logoUrl = null,
-    ?OrganizationSettings $settings = null,
-    ?PlanId $planId = null,
+    ?OrganizationCreationOptions $options = null,
   ): self {
     $now = new DateTimeImmutable();
+    $options ??= new OrganizationCreationOptions();
 
     return new self(
       id: $id,
       name: $name,
-      slug: $slug ?? OrganizationSlug::fromName((string) $name),
+      slug: $options->slug ?? OrganizationSlug::fromName((string) $name),
       ownerUserId: $ownerUserId,
-      createdByUserId: $createdByUserId ?? $ownerUserId,
+      createdByUserId: $options->createdByUserId ?? $ownerUserId,
       status: OrganizationStatus::ACTIVE,
       createdAt: $now,
       updatedAt: $now,
-      description: $description,
-      logoUrl: $logoUrl,
-      settings: $settings,
-      planId: $planId,
+      description: $options->description,
+      logoUrl: $options->logoUrl,
+      settings: $options->settings,
+      planId: $options->planId,
     );
   }
 

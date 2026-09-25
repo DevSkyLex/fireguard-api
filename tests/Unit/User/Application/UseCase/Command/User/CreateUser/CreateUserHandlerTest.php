@@ -147,5 +147,33 @@ final class CreateUserHandlerTest extends TestCase
     $this->assertInstanceOf(CreateUserResult::class, $result);
     $this->assertEquals($userId, $result->userId);
   }
+
+  #[Test]
+  public function testCreatesUserInRequestedTenant(): void
+  {
+    $tenantId = '123e4567-e89b-12d3-a456-426614174001';
+    $command = new CreateUserCommand(
+      username: 'tenant-user',
+      email: 'tenant-user@example.com',
+      password: 'password123',
+      firstName: 'Tenant',
+      lastName: 'User',
+      tenantId: $tenantId,
+    );
+
+    $this->uuidFactory->method('create')->with(UserId::class)
+      ->willReturn(new UserId('123e4567-e89b-12d3-a456-426614174000'));
+    $this->hashing->expects(self::once())->method('hash')
+      ->with('password123')->willReturn(new HashedSecret('$2y$10$hashedpassword'));
+    $this->userRepository->expects(self::once())->method('save')
+      ->with(self::callback(static function (User $user) use ($tenantId): bool {
+        self::assertSame($tenantId, (string) $user->tenantId());
+
+        return true;
+      }));
+    $this->eventBus->expects(self::once())->method('publish');
+
+    ($this->handler)($command);
+  }
   // #endregion
 }

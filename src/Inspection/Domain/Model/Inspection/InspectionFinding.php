@@ -7,8 +7,8 @@ namespace Inspection\Domain\Model\Inspection;
 use DateTimeImmutable;
 use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus};
 
-/** Persisted finding and lifecycle state without normalization on reload. */
-final readonly class RestoredInspectionFinding
+/** Finding and lifecycle state, with restored text kept as persisted. */
+final readonly class InspectionFinding
 {
   public function __construct(
     public InspectionResult $result,

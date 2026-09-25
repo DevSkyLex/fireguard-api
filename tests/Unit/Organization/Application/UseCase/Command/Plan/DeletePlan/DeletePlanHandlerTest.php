@@ -10,7 +10,7 @@ use Organization\Application\UseCase\Command\Plan\DeletePlan\{
   DeletePlanHandler
 };
 use Organization\Domain\Exception\{DefaultPlanCannotBeDeletedException, PlanNotFoundException};
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -85,7 +85,9 @@ final class DeletePlanHandlerTest extends TestCase
       key: new PlanKey('pro'),
       name: 'Pro',
       limits: [],
-      isDefault: $isDefault,
+      options: new PlanCreationOptions(
+        isDefault: $isDefault,
+      ),
     );
   }
 
