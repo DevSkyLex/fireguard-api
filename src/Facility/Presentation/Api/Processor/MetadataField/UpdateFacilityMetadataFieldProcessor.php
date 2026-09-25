@@ -124,17 +124,7 @@ final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorIn
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, FacilityMetadataFieldNotFoundException::class);
-      if ($notFound instanceof FacilityMetadataFieldNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     $output = new FacilityMetadataFieldOutput();
@@ -148,6 +138,21 @@ final readonly class UpdateFacilityMetadataFieldProcessor implements ProcessorIn
     $output->unit = $result->unit;
 
     return $output;
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findException($exception, FacilityMetadataFieldNotFoundException::class);
+    if ($notFound instanceof FacilityMetadataFieldNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

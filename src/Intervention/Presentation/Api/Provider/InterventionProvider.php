@@ -21,12 +21,13 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\{InputBag, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
 use function array_filter;
 use function array_map;
+use function array_merge;
 use function array_values;
 use function ctype_digit;
 use function is_array;
@@ -102,67 +103,7 @@ final readonly class InterventionProvider implements ProviderInterface
     if (!is_string($organization) || '' === $organization) {
       throw new BadRequestHttpException('The organization filter is required.');
     }
-    $filters = [];
-    foreach (['name', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
-      $value = $query->get($filter);
-      if (is_string($value) && '' !== $value) {
-        $filters[$filter] = $value;
-      }
-    }
-    // Reject an unknown enum value up front: the gateway's IN() filter would
-    // otherwise return a silently empty collection instead of a client error.
-    $enumGuards = [
-      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
-      'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
-      'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
-    ];
-    foreach ($enumGuards as $filter => [$tryFrom, $message]) {
-      $values = $this->multiValue($query->all()[$filter] ?? null);
-      if ([] === $values) {
-        continue;
-      }
-      foreach ($values as $value) {
-        if (null === $tryFrom($value)) {
-          throw new BadRequestHttpException($message);
-        }
-      }
-      $filters[$filter] = $values;
-    }
-    $due = $query->get('due');
-    if (is_string($due) && '' !== $due) {
-      if ('overdue' !== $due) {
-        throw new BadRequestHttpException('The due filter must be: overdue.');
-      }
-      $filters['due'] = $due;
-    }
-    $responsibles = $this->multiValue($query->all()['responsible'] ?? null);
-    if ([] !== $responsibles) {
-      $filters['responsibleId'] = array_map(ResourceIriParser::memberId(...), $responsibles);
-    }
-    foreach (['participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
-      $value = $query->get($filter);
-      if (is_string($value) && '' !== $value) {
-        $filters[$target] = ResourceIriParser::memberId($value);
-      }
-    }
-    $sites = $this->multiValue($query->all()['site'] ?? null);
-    if ([] !== $sites) {
-      $filters['siteId'] = array_map(static fn (string $site): string => ResourceIriParser::id($site, 'facilities'), $sites);
-    }
-    $labels = $this->multiValue($query->all()['label'] ?? null);
-    if ([] !== $labels) {
-      $filters['labelId'] = array_map(static fn (string $label): string => ResourceIriParser::id($label, 'intervention-labels'), $labels);
-    }
-    // Accept the client's `FG-` prefix and strip it before validating the
-    // remainder is numeric, mirroring the priority guard above.
-    $number = $query->get('number');
-    if (is_string($number) && '' !== $number) {
-      $number = 0 === stripos($number, 'FG-') ? substr($number, 3) : $number;
-      if (!ctype_digit($number)) {
-        throw new BadRequestHttpException('The number filter must be a positive integer, optionally prefixed with FG-.');
-      }
-      $filters['number'] = (int) $number;
-    }
+    $filters = $this->filters($query);
     $page = max(1, $query->getInt('page', 1));
     $itemsPerPage = max(1, min(100, $query->getInt('itemsPerPage', 30)));
 
@@ -195,6 +136,142 @@ final readonly class InterventionProvider implements ProviderInterface
       (float) $result->page->itemsPerPage,
       (float) $result->page->total,
     );
+  }
+
+  /**
+   * @param InputBag<bool|float|int|string> $query
+   *
+   * @return array<string, mixed>
+   */
+  private function filters(InputBag $query): array
+  {
+    return array_merge(
+      self::textFilters($query),
+      $this->enumFilters($query),
+      self::dueFilter($query),
+      $this->relationFilters($query),
+      self::numberFilter($query),
+    );
+  }
+
+  /**
+   * @param InputBag<bool|float|int|string> $query
+   *
+   * @return array<string, string>
+   */
+  private static function textFilters(InputBag $query): array
+  {
+    $filters = [];
+    foreach (['name', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
+      $value = $query->get($filter);
+      if (is_string($value) && '' !== $value) {
+        $filters[$filter] = $value;
+      }
+    }
+
+    return $filters;
+  }
+
+  /**
+   * @param InputBag<bool|float|int|string> $query
+   *
+   * @return array<string, list<string>>
+   */
+  private function enumFilters(InputBag $query): array
+  {
+    $filters = [];
+    // Reject an unknown enum value up front: the gateway's IN() filter would
+    // otherwise return a silently empty collection instead of a client error.
+    $enumGuards = [
+      'type' => [InterventionType::tryFrom(...), 'The type filter must be one of: site_setup, inventory, inspection_campaign.'],
+      'status' => [InterventionStatus::tryFrom(...), 'The status filter must be a known intervention status.'],
+      'priority' => [InterventionPriority::tryFrom(...), 'The priority filter must be one of: low, normal, high, urgent.'],
+    ];
+    foreach ($enumGuards as $filter => [$tryFrom, $message]) {
+      $values = $this->multiValue($query->all()[$filter] ?? null);
+      if ([] === $values) {
+        continue;
+      }
+      foreach ($values as $value) {
+        if (null === $tryFrom($value)) {
+          throw new BadRequestHttpException($message);
+        }
+      }
+      $filters[$filter] = $values;
+    }
+
+    return $filters;
+  }
+
+  /**
+   * @param InputBag<bool|float|int|string> $query
+   *
+   * @return array{due?: string}
+   */
+  private static function dueFilter(InputBag $query): array
+  {
+    $due = $query->get('due');
+    if (is_string($due) && '' !== $due) {
+      if ('overdue' !== $due) {
+        throw new BadRequestHttpException('The due filter must be: overdue.');
+      }
+
+      return ['due' => $due];
+    }
+
+    return [];
+  }
+
+  /**
+   * @param InputBag<bool|float|int|string> $query
+   *
+   * @return array<string, mixed>
+   */
+  private function relationFilters(InputBag $query): array
+  {
+    $filters = [];
+    $responsibles = $this->multiValue($query->all()['responsible'] ?? null);
+    if ([] !== $responsibles) {
+      $filters['responsibleId'] = array_map(ResourceIriParser::memberId(...), $responsibles);
+    }
+    foreach (['participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
+      $value = $query->get($filter);
+      if (is_string($value) && '' !== $value) {
+        $filters[$target] = ResourceIriParser::memberId($value);
+      }
+    }
+    $sites = $this->multiValue($query->all()['site'] ?? null);
+    if ([] !== $sites) {
+      $filters['siteId'] = array_map(static fn (string $site): string => ResourceIriParser::id($site, 'facilities'), $sites);
+    }
+    $labels = $this->multiValue($query->all()['label'] ?? null);
+    if ([] !== $labels) {
+      $filters['labelId'] = array_map(static fn (string $label): string => ResourceIriParser::id($label, 'intervention-labels'), $labels);
+    }
+
+    return $filters;
+  }
+
+  /**
+   * @param InputBag<bool|float|int|string> $query
+   *
+   * @return array{number?: int}
+   */
+  private static function numberFilter(InputBag $query): array
+  {
+    // Accept the client's `FG-` prefix and strip it before validating the
+    // remainder is numeric, mirroring the priority guard above.
+    $number = $query->get('number');
+    if (is_string($number) && '' !== $number) {
+      $number = 0 === stripos($number, 'FG-') ? substr($number, 3) : $number;
+      if (!ctype_digit($number)) {
+        throw new BadRequestHttpException('The number filter must be a positive integer, optionally prefixed with FG-.');
+      }
+
+      return ['number' => (int) $number];
+    }
+
+    return [];
   }
 
   /**

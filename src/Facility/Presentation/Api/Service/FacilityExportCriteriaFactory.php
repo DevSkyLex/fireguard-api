@@ -49,17 +49,13 @@ final class FacilityExportCriteriaFactory
 
     $type = $query->get('type');
     if (is_string($type) && '' !== $type) {
-      if (null === FacilityType::tryFrom($type)) {
-        throw new BadRequestHttpException('The type filter must be one of: site, building, floor, zone, area.');
-      }
+      self::assertKnownType($type);
       $filters['type'] = $type;
     }
 
     $status = $query->get('status');
     if (is_string($status) && '' !== $status) {
-      if (null === FacilityStatus::tryFrom($status)) {
-        throw new BadRequestHttpException('The status filter must be one of: active, archived.');
-      }
+      self::assertKnownStatus($status);
       $filters['status'] = $status;
     }
 
@@ -109,6 +105,20 @@ final class FacilityExportCriteriaFactory
     unset($filters['includeArchived']);
 
     return array_keys($filters);
+  }
+
+  private static function assertKnownType(string $type): void
+  {
+    if (null === FacilityType::tryFrom($type)) {
+      throw new BadRequestHttpException('The type filter must be one of: site, building, floor, zone, area.');
+    }
+  }
+
+  private static function assertKnownStatus(string $status): void
+  {
+    if (null === FacilityStatus::tryFrom($status)) {
+      throw new BadRequestHttpException('The status filter must be one of: active, archived.');
+    }
   }
   // #endregion
 }

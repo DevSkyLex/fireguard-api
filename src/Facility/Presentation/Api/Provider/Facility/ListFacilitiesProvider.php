@@ -75,34 +75,12 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 
-    $request = $this->requestStack->getCurrentRequest();
-    $includeArchived = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('includeArchived', false);
-    $type = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('type');
-    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
-    $parentFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('parentFacilityId');
-    $rootsOnly = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('rootsOnly', false);
-    $code = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('code');
-    $hasCoordinates = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->has('hasCoordinates')
-      ? \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->getBoolean('hasCoordinates')
-      : null;
-
     $pagination = PaginationExtractor::fromContext($context);
+    $query = $this->listQuery($operation, $context, $organizationId, $pagination->offset, $pagination->itemsPerPage);
 
     try {
       /** @var PaginatedResult<GetFacilityResult> $result */
-      $result = $this->queryBus->ask(new ListFacilitiesQuery(
-        organizationId: $organizationId,
-        includeArchived: $includeArchived,
-        pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
-        type: is_string($type) && '' !== $type ? $type : null,
-        status: is_string($status) && '' !== $status ? $status : null,
-        parentFacilityId: is_string($parentFacilityId) && '' !== $parentFacilityId ? $parentFacilityId : null,
-        rootsOnly: $rootsOnly,
-        code: is_string($code) && '' !== $code ? $code : null,
-        hasCoordinates: $hasCoordinates,
-        search: SearchExtractor::fromContext($context),
-        sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'updatedAt', 'code'], 'name'),
-      ));
+      $result = $this->queryBus->ask($query);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
@@ -124,6 +102,32 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
       currentPage: (float) $pagination->page,
       itemsPerPage: (float) $pagination->itemsPerPage,
       totalItems: (float) $result->total,
+    );
+  }
+
+  /**
+   * @param array<string, mixed> $context
+   */
+  private function listQuery(Operation $operation, array $context, string $organizationId, int $offset, int $itemsPerPage): ListFacilitiesQuery
+  {
+    $query = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $type = $query->get('type');
+    $status = $query->get('status');
+    $parentFacilityId = $query->get('parentFacilityId');
+    $code = $query->get('code');
+
+    return new ListFacilitiesQuery(
+      organizationId: $organizationId,
+      includeArchived: $query->getBoolean('includeArchived', false),
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+      type: is_string($type) && '' !== $type ? $type : null,
+      status: is_string($status) && '' !== $status ? $status : null,
+      parentFacilityId: is_string($parentFacilityId) && '' !== $parentFacilityId ? $parentFacilityId : null,
+      rootsOnly: $query->getBoolean('rootsOnly', false),
+      code: is_string($code) && '' !== $code ? $code : null,
+      hasCoordinates: $query->has('hasCoordinates') ? $query->getBoolean('hasCoordinates') : null,
+      search: SearchExtractor::fromContext($context),
+      sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'updatedAt', 'code'], 'name'),
     );
   }
 
