@@ -80,18 +80,33 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (is_string($id) && '' !== $id) {
-      $record = $this->entityManager->find(EquipmentRecord::class, $id);
-      if (!$record instanceof EquipmentRecord) {
-        throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
-      }
-      if (null === $record->organization) {
-        throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
-      }
-      $this->assertRead($record->organization->id, self::EQUIPMENT_NOT_FOUND_MESSAGE);
-
-      return $this->detail->read($record->organization->id, $record->id);
+      return $this->provideItem($id);
     }
 
+    return $this->provideCollection($operation, $context);
+  }
+
+  private function provideItem(string $id): EquipmentOutput
+  {
+    $record = $this->entityManager->find(EquipmentRecord::class, $id);
+    if (!$record instanceof EquipmentRecord) {
+      throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
+    }
+    if (null === $record->organization) {
+      throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
+    }
+    $this->assertRead($record->organization->id, self::EQUIPMENT_NOT_FOUND_MESSAGE);
+
+    return $this->detail->read($record->organization->id, $record->id);
+  }
+
+  /**
+   * @param array<string, mixed> $context
+   *
+   * @return TraversablePaginator<EquipmentOutput>
+   */
+  private function provideCollection(Operation $operation, array $context): TraversablePaginator
+  {
     $request = $this->requestStack->getCurrentRequest();
     $intervention = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('intervention');
     $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
