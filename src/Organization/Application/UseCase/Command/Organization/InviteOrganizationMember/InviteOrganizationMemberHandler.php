@@ -25,7 +25,6 @@ use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\Model\User\User;
 
 use function array_map;
 use function array_unique;
@@ -120,10 +119,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     $email = $this->normalizeEmail($command->email);
 
     $existingUser = $this->userRepository->findByEmail($email);
-    if (null === $command->setupContext) {
-      $this->assertCanInvite($organizationId, $email, $existingUser);
-    }
     $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
+    if (null === $command->setupContext) {
+      $this->assertCanInvite($organizationId, $email, $recipientUserId);
+    }
     $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
 
     /** @var list<string> $resolvedRoleIds */
@@ -164,11 +163,11 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       $roleIdsAsVo,
       $acceptUrl,
       $command,
-      $existingUser,
+      $recipientUserId,
       $tokenHash,
       &$replayed,
     ): InviteOrganizationMemberResult {
-      return $this->persistInvitation($command, $invitation, $roleIdsAsVo, $acceptUrl, $existingUser, $tokenHash, $replayed);
+      return $this->persistInvitation($command, $invitation, $roleIdsAsVo, $acceptUrl, $recipientUserId, $tokenHash, $replayed);
     });
 
     if ($replayed || $command->deferDelivery) {
@@ -241,7 +240,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     return $result;
   }
 
-  private function assertCanInvite(OrganizationId $organizationId, Email $email, ?User $existingUser): void
+  private function assertCanInvite(OrganizationId $organizationId, Email $email, ?string $existingUserId): void
   {
     $pendingInvitation = $this->invitationRepository->findPendingByOrganizationAndEmail(
       organizationId: $organizationId,
@@ -257,10 +256,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       }
     }
 
-    if (null !== $existingUser) {
+    if (null !== $existingUserId) {
       $existingMember = $this->memberRepository->findByOrganizationAndUser(
         organizationId: $organizationId,
-        userId: (string) $existingUser->id(),
+        userId: $existingUserId,
       );
 
       if (null !== $existingMember && $existingMember->isActive()) {
@@ -272,7 +271,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
   /**
    * @param list<OrganizationRoleId> $roleIdsAsVo
    */
-  private function persistInvitation(InviteOrganizationMemberCommand $command, OrganizationInvitation $invitation, array $roleIdsAsVo, string $acceptUrl, ?User $existingUser, string $tokenHash, bool &$replayed): InviteOrganizationMemberResult
+  private function persistInvitation(InviteOrganizationMemberCommand $command, OrganizationInvitation $invitation, array $roleIdsAsVo, string $acceptUrl, ?string $existingUserId, string $tokenHash, bool &$replayed): InviteOrganizationMemberResult
   {
     if (null !== $command->setupContext) {
       $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'invite_members', $command->organizationId, ['email' => $command->email, 'roleIds' => $command->roleIds]);
@@ -285,7 +284,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
 
         return $this->buildResult($existing);
       }
-      $this->assertCanInvite($invitation->organizationId(), $invitation->email(), $existingUser);
+      $this->assertCanInvite($invitation->organizationId(), $invitation->email(), $existingUserId);
     }
 
     // A pending invitation reserves a member slot, so enforce the cap inside

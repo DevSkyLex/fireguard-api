@@ -61,6 +61,7 @@ final class RateLimitFailureSubscriberTest extends TestCase
     $response = $event->getResponse();
     self::assertInstanceOf(JsonResponse::class, $response);
     $body = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    self::assertIsArray($body);
     self::assertSame(0, $body['retryAfterSeconds']);
   }
 
@@ -79,6 +80,7 @@ final class RateLimitFailureSubscriberTest extends TestCase
     $response = $limited->getResponse();
     self::assertInstanceOf(JsonResponse::class, $response);
     $body = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    self::assertIsArray($body);
     self::assertNull($body['retryAfterSeconds']);
     self::assertNull($unrelated->getResponse());
   }
