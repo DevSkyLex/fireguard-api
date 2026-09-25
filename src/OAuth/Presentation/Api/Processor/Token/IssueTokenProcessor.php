@@ -122,43 +122,38 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
 
       return $tokenResponse;
 
-    } catch (AuthorizationException $exception) {
-      throw $exception;
-    } catch (OAuthServerException $exception) {
+    } catch (AuthorizationException|OAuthServerException $exception) {
       throw $exception;
     } catch (MessengerRuntimeException $exception) {
-      $previous = $exception->getPrevious();
-      if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof AuthorizationException || $nestedException instanceof OAuthServerException) {
-            throw $nestedException;
-          }
-        }
-      }
-
-      while ($previous) {
-        if ($previous instanceof AuthorizationException || $previous instanceof OAuthServerException) {
-          throw $previous;
-        }
-
-        $previous = $previous->getPrevious();
-      }
+      $this->rethrowNestedOAuthException($exception);
 
       throw $exception;
     } catch (Throwable $exception) {
-      $previous = $exception->getPrevious();
-      while ($previous) {
-        if ($previous instanceof AuthorizationException || $previous instanceof OAuthServerException) {
-          throw $previous;
-        }
-
-        $previous = $previous->getPrevious();
-      }
+      $this->rethrowNestedOAuthException($exception);
 
       throw AuthorizationException::serverError(
         message: 'Authorization server error.',
         previous: $exception,
       );
+    }
+  }
+
+  private function rethrowNestedOAuthException(Throwable $exception): void
+  {
+    $previous = $exception->getPrevious();
+    if ($exception instanceof MessengerRuntimeException && $previous instanceof HandlerFailedException) {
+      foreach ($previous->getWrappedExceptions() as $nestedException) {
+        if ($nestedException instanceof AuthorizationException || $nestedException instanceof OAuthServerException) {
+          throw $nestedException;
+        }
+      }
+    }
+
+    while (null !== $previous) {
+      if ($previous instanceof AuthorizationException || $previous instanceof OAuthServerException) {
+        throw $previous;
+      }
+      $previous = $previous->getPrevious();
     }
   }
 
