@@ -17,9 +17,9 @@ use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilitySta
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
@@ -1373,7 +1373,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 

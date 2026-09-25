@@ -11,8 +11,8 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
@@ -489,7 +489,7 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
   {
     $repository = new OrganizationMemberRepository($this->entityManager, null, 'Nowhere/Nothing');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
 
     $repository->countJoinedByDay(

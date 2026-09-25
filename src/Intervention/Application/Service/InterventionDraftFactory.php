@@ -10,10 +10,10 @@ use Intervention\Application\Contract\Draft\{
   InterventionDraftWorkItem
 };
 use Intervention\Application\Contract\Workflow\InterventionWorkflowMutation;
+use Intervention\Application\Exception\InterventionDraftCreationException;
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 
 use function count;
 use function is_int;
@@ -106,7 +106,7 @@ final readonly class InterventionDraftFactory implements InterventionDraftFactor
     $interventionId = $view?->data['id'] ?? null;
     $number = $view?->data['number'] ?? null;
     if (!is_string($interventionId) || !is_int($number)) {
-      throw new RuntimeException('The workflow gateway returned no intervention view on creation.');
+      throw new InterventionDraftCreationException('The workflow gateway returned no intervention view on creation.');
     }
 
     foreach ($request->workItems as $workItem) {

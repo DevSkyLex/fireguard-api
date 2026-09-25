@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Console;
 
-use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\ValueObject\Email;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -16,6 +15,7 @@ use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Application\UseCase\Command\User\DeleteUser\DeleteUserCommand;
 use User\Domain\ValueObject\UserId;
+use User\Infrastructure\Exception\UserConsoleNotFoundException;
 
 use function is_string;
 use function sprintf;
@@ -164,7 +164,7 @@ HELP
       $user = $this->userRepository->findByEmail(email: $email);
 
       if (null === $user) {
-        throw new RuntimeException(sprintf('User with email "%s" not found.', $identifier));
+        throw new UserConsoleNotFoundException(sprintf('User with email "%s" not found.', $identifier));
       }
 
       return [$user->id()->value, (string) $user->email()];
@@ -174,7 +174,7 @@ HELP
     $user = $this->userRepository->findById(id: $userId);
 
     if (null === $user) {
-      throw new RuntimeException(sprintf('User with ID "%s" not found.', $identifier));
+      throw new UserConsoleNotFoundException(sprintf('User with ID "%s" not found.', $identifier));
     }
 
     return [$user->id()->value, (string) $user->email()];

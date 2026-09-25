@@ -19,8 +19,8 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
@@ -385,7 +385,7 @@ final class NonConformityRepositoryStatisticsTest extends KernelTestCase
   {
     $repository = new NonConformityRepository($this->entityManager, 'Not/AZone');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
 
     $repository->countOverdueByOrganizationId(

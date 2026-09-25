@@ -19,12 +19,13 @@ use Inspection\Domain\ValueObject\{
   InspectionStatus,
   Inspector
 };
+use Inspection\Infrastructure\Exception\StoredDateTimeReinterpretationException;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
@@ -512,7 +513,7 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
   {
     $repository = new InspectionRepository($this->entityManager, 'Nowhere/Nothing');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
 
     $repository->countByPerformedDayForOrganizationId(
@@ -546,7 +547,7 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $record->performedAt = new DateTimeImmutable('9999-12-31 00:00:00')->modify('+2 days');
 
     try {
-      $this->expectException(RuntimeException::class);
+      $this->expectException(StoredDateTimeReinterpretationException::class);
       $this->expectExceptionMessage('Unable to reinterpret a stored inspection datetime.');
 
       $this->repository->findById(InspectionId::fromString(self::INSPECTION_A_ID));

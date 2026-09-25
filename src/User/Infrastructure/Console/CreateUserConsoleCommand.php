@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Console;
 
-use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -15,6 +14,7 @@ use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Throwable;
 use User\Application\UseCase\Command\User\CreateUser\CreateUserCommand;
+use User\Infrastructure\Exception\UserConsolePasswordException;
 
 use function is_string;
 use function sprintf;
@@ -163,10 +163,10 @@ HELP
       $question->setHiddenFallback(false);
       $question->setValidator(function (mixed $value): string {
         if (!is_string($value) || '' === trim($value)) {
-          throw new RuntimeException('Password cannot be empty');
+          throw new UserConsolePasswordException('Password cannot be empty');
         }
         if (strlen($value) < 8) {
-          throw new RuntimeException('Password must be at least 8 characters');
+          throw new UserConsolePasswordException('Password must be at least 8 characters');
         }
 
         return $value;

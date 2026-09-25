@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Logging;
 
-use RuntimeException;
+use Shared\Infrastructure\Exception\MissingPiiSaltException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function hash_hmac;
@@ -49,7 +49,7 @@ final readonly class SecurityLogSanitizer
     // that is what shipped. There is no safe fallback to pick here -- an unsalted
     // digest and no digest at all are both worse than not starting.
     if ('' === trim($this->piiSalt)) {
-      throw new RuntimeException(
+      throw new MissingPiiSaltException(
         'SECURITY_LOG_PII_SALT is blank. It keys the HMAC that hashes personal data in '
         . 'audit events and security logs; without it the digest is a plain sha256 of the '
         . 'value and trivially reversible. Set it to a random secret.',

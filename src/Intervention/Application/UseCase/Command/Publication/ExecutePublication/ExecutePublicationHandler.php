@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Command\Publication\ExecutePublication;
 
 use Intervention\Application\Contract\Publication\{InterventionPublicationContext, PublicationView};
+use Intervention\Application\Exception\PublicationExecutionException;
 use Intervention\Application\Port\Outbound\PublicationRepositoryPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use Intervention\Domain\Exception\PublicationNotFoundException;
 use Intervention\Domain\ValueObject\PublicationStatus;
-use RuntimeException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;
@@ -93,14 +93,14 @@ final readonly class ExecutePublicationHandler implements CommandHandler
       throw PublicationNotFoundException::withId($publication->id);
     }
     if ('submitted' !== $context->status || $context->revision !== $publication->interventionRevision) {
-      throw new RuntimeException('Intervention changed before publication execution.');
+      throw new PublicationExecutionException('Intervention changed before publication execution.');
     }
     $blockers = array_filter(
       $this->issueFinder->find($publication->interventionId),
       static fn ($issue): bool => 'blocker' === $issue->severity,
     );
     if ([] !== $blockers) {
-      throw new RuntimeException('Intervention contains blocking validation issues.');
+      throw new PublicationExecutionException('Intervention contains blocking validation issues.');
     }
 
     $this->publications->markProcessing($publication->id);

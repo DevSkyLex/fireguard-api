@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Adapter\Maintenance;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\Exception\EquipmentOrganizationMissingException;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Maintenance\Application\Contract\Directory\TrackableEquipment;
 use Maintenance\Application\Port\Outbound\Directory\MaintenanceEquipmentDirectoryPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use RuntimeException;
 
 use function array_map;
 use function max;
@@ -100,7 +100,7 @@ final readonly class EquipmentMaintenanceDirectoryAdapter implements Maintenance
   private function view(EquipmentRecord $record): TrackableEquipment
   {
     if (!$record->organization instanceof OrganizationRecord) {
-      throw new RuntimeException('Equipment organization is missing.');
+      throw new EquipmentOrganizationMissingException('Equipment organization is missing.');
     }
 
     return new TrackableEquipment(

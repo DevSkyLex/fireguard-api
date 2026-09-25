@@ -6,12 +6,12 @@ namespace Tests\Unit\Assistant\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Assistant\Domain\Model\Message\AssistantMessage;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
+use Assistant\Infrastructure\Exception\AssistantMessageThreadMissingException;
 use Assistant\Infrastructure\Persistence\Doctrine\Mapper\AssistantMessageMapper;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\{AssistantMessageRecord, AssistantThreadRecord};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * Test AssistantMessageMapperTest.
@@ -60,7 +60,7 @@ final class AssistantMessageMapperTest extends TestCase
     $record = $this->record(new DateTimeImmutable('2026-02-02T10:00:00+00:00'), null);
     $record->thread = null;
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(AssistantMessageThreadMissingException::class);
     $this->expectExceptionMessage('An assistant message record must be associated with a thread.');
 
     AssistantMessageMapper::toDomain($record);

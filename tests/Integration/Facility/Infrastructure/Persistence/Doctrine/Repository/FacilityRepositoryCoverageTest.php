@@ -20,8 +20,8 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function ksort;
@@ -529,7 +529,7 @@ final class FacilityRepositoryCoverageTest extends KernelTestCase
   {
     $repository = new FacilityRepository($this->entityManager, 'Nowhere/Nothing');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
 
     $repository->countByCreatedDayForOrganizationId(

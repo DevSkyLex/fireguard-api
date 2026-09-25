@@ -17,6 +17,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Tests\Support\Doctrine\FlushFailingEntityManager;
 
@@ -309,7 +310,7 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
   {
     $repository = new EquipmentRepository($this->entityManager, 'Nowhere/Nothing');
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InvalidStorageTimeZoneException::class);
     $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
 
     $repository->countByCreatedDayForOrganizationId(

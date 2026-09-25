@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation;
 
 use Notification\Application\Contract\Notification\NotificationChannel;
+use Organization\Application\Exception\OrganizationInvitationDeliveryException;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationNotifier;
 use Organization\Domain\ValueObject\OrganizationInvitationId;
-use RuntimeException;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\IdempotentConsumerPort;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -52,7 +52,7 @@ final readonly class DeliverOrganizationInvitationHandler implements CommandHand
       if (!$notification->isDelivered(NotificationChannel::EMAIL)) {
         // No consumption receipt: Messenger retries and ultimately retains the
         // failed delivery for an explicit operator retry. Never log its URL.
-        throw new RuntimeException('The invitation email could not be delivered.');
+        throw new OrganizationInvitationDeliveryException('The invitation email could not be delivered.');
       }
     });
 

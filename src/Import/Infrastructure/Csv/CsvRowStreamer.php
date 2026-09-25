@@ -6,8 +6,8 @@ namespace Import\Infrastructure\Csv;
 
 use Generator;
 use Import\Application\Port\Outbound\CsvRowStreamerPort;
+use Import\Infrastructure\Exception\CsvStreamOpenException;
 use InvalidArgumentException;
-use RuntimeException;
 
 use function array_map;
 use function fclose;
@@ -175,7 +175,7 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
 
     $stream = fopen('php://temp', 'r+b');
     if (false === $stream) {
-      throw new RuntimeException('Unable to open an in-memory stream to parse the CSV file.');
+      throw new CsvStreamOpenException('Unable to open an in-memory stream to parse the CSV file.');
     }
 
     fwrite($stream, $body);

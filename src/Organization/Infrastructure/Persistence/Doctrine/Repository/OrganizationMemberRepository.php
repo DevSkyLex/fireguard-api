@@ -16,8 +16,8 @@ use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function addcslashes;
@@ -783,7 +783,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 

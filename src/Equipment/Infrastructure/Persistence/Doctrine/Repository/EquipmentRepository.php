@@ -19,9 +19,9 @@ use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Exception;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
@@ -655,7 +655,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 

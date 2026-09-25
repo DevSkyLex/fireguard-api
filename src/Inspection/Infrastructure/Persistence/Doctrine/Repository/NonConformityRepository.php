@@ -14,10 +14,11 @@ use Inspection\Application\Contract\Export\NonConformityExportCandidate;
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformityStatus};
+use Inspection\Infrastructure\Exception\StoredDateTimeReinterpretationException;
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
@@ -780,7 +781,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 
@@ -813,7 +814,7 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     );
 
     if (false === $normalized) {
-      throw new RuntimeException('Unable to reinterpret a stored non-conformity datetime.');
+      throw new StoredDateTimeReinterpretationException('Unable to reinterpret a stored non-conformity datetime.');
     }
 
     return $normalized;

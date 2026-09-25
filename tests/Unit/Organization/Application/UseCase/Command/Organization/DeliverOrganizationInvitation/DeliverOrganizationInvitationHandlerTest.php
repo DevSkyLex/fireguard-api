@@ -7,6 +7,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Deliv
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\SentNotification;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Exception\OrganizationInvitationDeliveryException;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\DeliverOrganizationInvitation\{DeliverOrganizationInvitationCommand, DeliverOrganizationInvitationHandler};
@@ -14,7 +15,6 @@ use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationName};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Shared\Application\Port\Outbound\IdempotentConsumerPort;
 use Shared\Domain\ValueObject\Email;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -37,7 +37,7 @@ final class DeliverOrganizationInvitationHandlerTest extends TestCase
     try {
       $handler($command);
       self::fail('A failed email must remain retryable.');
-    } catch (RuntimeException $exception) {
+    } catch (OrganizationInvitationDeliveryException $exception) {
       self::assertSame('The invitation email could not be delivered.', $exception->getMessage());
     }
     $handler($command);

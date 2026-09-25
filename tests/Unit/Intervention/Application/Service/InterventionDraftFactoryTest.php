@@ -10,12 +10,12 @@ use Intervention\Application\Contract\Draft\{
   InterventionDraftWorkItem
 };
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowMutation, InterventionWorkflowView};
+use Intervention\Application\Exception\InterventionDraftCreationException;
 use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Application\Service\InterventionDraftFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
-use RuntimeException;
 
 use function count;
 
@@ -111,7 +111,7 @@ final class InterventionDraftFactoryTest extends TestCase
 
     $factory = new InterventionDraftFactory($gateway, new NullLogger());
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(InterventionDraftCreationException::class);
 
     $factory->create(new CreateInterventionDraftRequest(
       organizationId: self::ORGANIZATION_ID,

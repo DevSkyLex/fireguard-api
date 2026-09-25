@@ -7,12 +7,12 @@ namespace Tests\Unit\Equipment\Infrastructure\Adapter\Maintenance;
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
 use Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter;
+use Equipment\Infrastructure\Exception\EquipmentOrganizationMissingException;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Maintenance\Application\Contract\Directory\TrackableEquipment;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * Test EquipmentMaintenanceDirectoryAdapterTest.
@@ -80,7 +80,7 @@ final class EquipmentMaintenanceDirectoryAdapterTest extends TestCase
     $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('getRepository')->willReturn($repository);
 
-    $this->expectException(RuntimeException::class);
+    $this->expectException(EquipmentOrganizationMissingException::class);
     $this->expectExceptionMessage('Equipment organization is missing.');
 
     new EquipmentMaintenanceDirectoryAdapter($entityManager)->findEquipment(self::EQUIPMENT_ID);

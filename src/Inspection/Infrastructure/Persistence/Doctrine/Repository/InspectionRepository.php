@@ -15,12 +15,13 @@ use Inspection\Application\Contract\Inspection\{InspectionListCriteria, Inspecti
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
+use Inspection\Infrastructure\Exception\StoredDateTimeReinterpretationException;
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
+use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
@@ -862,7 +863,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     try {
       return new DateTimeZone($this->storageTimeZone);
     } catch (Exception $exception) {
-      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
   }
 
@@ -919,7 +920,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     );
 
     if (false === $normalized) {
-      throw new RuntimeException('Unable to reinterpret a stored inspection datetime.');
+      throw new StoredDateTimeReinterpretationException('Unable to reinterpret a stored inspection datetime.');
     }
 
     return $normalized;
