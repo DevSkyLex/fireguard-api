@@ -8,6 +8,8 @@ use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
+use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;
@@ -135,34 +137,7 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
 
     $results = [];
     foreach ($organizations as $organization) {
-      $organizationId = (string) $organization->id();
-      $planId = $organization->planId();
-      $plan = null !== $planId ? ($plans[(string) $planId] ?? null) : null;
-      $plan ??= $defaultPlan;
-      $results[] = new GetOrganizationResult(
-        id: $organizationId,
-        name: (string) $organization->name(),
-        slug: (string) $organization->slug(),
-        ownerUserId: $organization->ownerUserId(),
-        createdByUserId: $organization->createdByUserId(),
-        status: $organization->status()->value,
-        isActive: $organization->isActive(),
-        createdAt: $organization->createdAt(),
-        updatedAt: $organization->updatedAt(),
-        memberCount: $memberCounts[$organizationId] ?? 0,
-        description: $organization->description(),
-        logoUrl: $organization->logoUrl(),
-        settings: $organization->settings(),
-        country: null !== $organization->country() ? (string) $organization->country() : null,
-        legalType: $organization->legalType()?->value,
-        legalName: $organization->legalName(),
-        registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
-        vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
-        planId: $plan instanceof Plan ? (string) $plan->id() : null,
-        planName: $plan instanceof Plan ? $plan->name() : null,
-        isOwner: $this->callerMembership->isOwner($organization->ownerUserId(), $query->userId),
-        roles: $this->callerMembership->resolveRoles($organization->id(), $membershipsByOrganizationId[$organizationId] ?? null),
-      );
+      $results[] = $this->organizationResult($organization, $plans, $defaultPlan, $memberCounts, $membershipsByOrganizationId, $query->userId);
     }
 
     return new PaginatedResult(
@@ -170,6 +145,50 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       total: $total,
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
+    );
+  }
+
+  /**
+   * @param array<string, Plan> $plans
+   * @param array<string, int> $memberCounts
+   * @param array<string, OrganizationMember> $membershipsByOrganizationId
+   */
+  private function organizationResult(
+    Organization $organization,
+    array $plans,
+    ?Plan $defaultPlan,
+    array $memberCounts,
+    array $membershipsByOrganizationId,
+    string $userId,
+  ): GetOrganizationResult {
+    $organizationId = (string) $organization->id();
+    $planId = $organization->planId();
+    $plan = null !== $planId ? ($plans[(string) $planId] ?? null) : null;
+    $plan ??= $defaultPlan;
+
+    return new GetOrganizationResult(
+      id: $organizationId,
+      name: (string) $organization->name(),
+      slug: (string) $organization->slug(),
+      ownerUserId: $organization->ownerUserId(),
+      createdByUserId: $organization->createdByUserId(),
+      status: $organization->status()->value,
+      isActive: $organization->isActive(),
+      createdAt: $organization->createdAt(),
+      updatedAt: $organization->updatedAt(),
+      memberCount: $memberCounts[$organizationId] ?? 0,
+      description: $organization->description(),
+      logoUrl: $organization->logoUrl(),
+      settings: $organization->settings(),
+      country: null !== $organization->country() ? (string) $organization->country() : null,
+      legalType: $organization->legalType()?->value,
+      legalName: $organization->legalName(),
+      registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
+      vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
+      planId: $plan instanceof Plan ? (string) $plan->id() : null,
+      planName: $plan instanceof Plan ? $plan->name() : null,
+      isOwner: $this->callerMembership->isOwner($organization->ownerUserId(), $userId),
+      roles: $this->callerMembership->resolveRoles($organization->id(), $membershipsByOrganizationId[$organizationId] ?? null),
     );
   }
   // #endregion
