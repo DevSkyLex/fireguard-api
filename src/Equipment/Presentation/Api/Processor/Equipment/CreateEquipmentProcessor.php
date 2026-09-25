@@ -151,10 +151,51 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     }
     $this->assertOfflineCreate($data->clientId, null !== $resourceId);
 
+    $result = $this->dispatchCreation($data, $organizationId, $resourceId, $user->getId());
+
+    $output = $this->outputFactory->fromView($result);
+    if (null !== $data->facility && null === $data->onboardingSessionId) {
+      /** @var AssignToFacilityResult $assigned */
+      $assigned = $this->commandBus->dispatch(new AssignToFacilityCommand(
+        organizationId: $organizationId,
+        equipmentId: $result->equipmentId,
+        facilityId: ResourceIriParser::id($data->facility, 'facilities'),
+      ));
+      $output->facilityId = $assigned->facilityId;
+      $output->facilityName = $assigned->facilityName;
+      $output->installedAt = $assigned->installedAt;
+      $output->updatedAt = $assigned->updatedAt->format('c');
+    }
+    $assignment = $this->attachToIntervention($result->equipmentId, $organizationId, $data->intervention, $data->clientId);
+    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
+    $output->recordStatus = $assignment->recordStatus;
+    $output->revision = $assignment->revision;
+
+    return $output;
+  }
+
+  /**
+   * Dispatches the creation command and preserves its HTTP error mapping.
+   *
+   * @since 1.0.0
+   *
+   * @param CreateEquipmentInput $data the validated input
+   * @param string $organizationId the target organization ID
+   * @param ?string $resourceId the optional offline resource ID
+   * @param string $userId the authenticated creator ID
+   *
+   * @return CreateEquipmentResult the created equipment
+   */
+  private function dispatchCreation(
+    CreateEquipmentInput $data,
+    string $organizationId,
+    ?string $resourceId,
+    string $userId,
+  ): CreateEquipmentResult {
     try {
       /** @var CreateEquipmentResult $result */
       $result = $this->commandBus->dispatch(new CreateEquipmentCommand(
-        setupContext: OrganizationSetupContext::fromOptional($user->getId(), $data->onboardingSessionId, $data->onboardingItemKey),
+        setupContext: OrganizationSetupContext::fromOptional($userId, $data->onboardingSessionId, $data->onboardingItemKey),
         facilityId: null !== $data->onboardingSessionId && null !== $data->facility ? ResourceIriParser::id($data->facility, 'facilities') : null,
         organizationId: $organizationId,
         type: $data->type,
@@ -165,6 +206,8 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
         locationLabel: $data->locationLabel,
         resourceId: $resourceId,
       ));
+
+      return $result;
     } catch (EquipmentSerialNumberAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
@@ -187,26 +230,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
 
       throw $exception;
     }
-
-    $output = $this->outputFactory->fromView($result);
-    if (null !== $data->facility && null === $data->onboardingSessionId) {
-      /** @var AssignToFacilityResult $assigned */
-      $assigned = $this->commandBus->dispatch(new AssignToFacilityCommand(
-        organizationId: $organizationId,
-        equipmentId: $result->equipmentId,
-        facilityId: ResourceIriParser::id($data->facility, 'facilities'),
-      ));
-      $output->facilityId = $assigned->facilityId;
-      $output->facilityName = $assigned->facilityName;
-      $output->installedAt = $assigned->installedAt;
-      $output->updatedAt = $assigned->updatedAt->format('c');
-    }
-    $assignment = $this->attachToIntervention($result->equipmentId, $organizationId, $data->intervention, $data->clientId);
-    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
-    $output->recordStatus = $assignment->recordStatus;
-    $output->revision = $assignment->revision;
-
-    return $output;
   }
 
   /**

@@ -353,6 +353,50 @@ final class CreateEquipmentProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessKeepsPreparedOnboardingFacilityInTheCreationCommand(): void
+  {
+    $input = $this->makeInput();
+    $input->organization = '/api/organizations/' . self::ORG_ID;
+    $input->facility = '/api/facilities/' . self::FACILITY_ID;
+    $input->onboardingSessionId = self::CLIENT_ID;
+    $input->onboardingItemKey = 'prepared-equipment';
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(function (CreateEquipmentCommand $command): CreateEquipmentResult {
+        self::assertSame(self::ORG_ID, $command->organizationId);
+        self::assertSame(self::FACILITY_ID, $command->facilityId);
+        self::assertNull($command->resourceId);
+        self::assertNotNull($command->setupContext);
+        self::assertSame(self::USER_ID, $command->setupContext->userId);
+        self::assertSame(self::CLIENT_ID, $command->setupContext->sessionId);
+        self::assertSame('prepared-equipment', $command->setupContext->itemKey);
+
+        return $this->makeResult();
+      });
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORG_ID, 'organization.equipment.write')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
+
+    $processor = new CreateEquipmentProcessor(
+      outputFactory: new EquipmentOutputFactory(),
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->authenticatedSecurity(),
+    );
+
+    $output = $processor->process(data: $input, operation: new Post());
+
+    self::assertSame(self::EQUIPMENT_ID, $output->id);
+  }
+
+  #[Test]
   public function testProcessAdoptsTheUriIdentifierAsTheClientIdAndAssertsCreateOnly(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
