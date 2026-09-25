@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationJoinAccessPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationJoinRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Exception\OrganizationJoinException;
+use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\OrganizationJoin\{OrganizationAccessPolicy, OrganizationDomain};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationJoinMode};
 use Shared\Application\Message\QueryHandler;
 use User\Application\Port\Inbound\EmailOwnershipPort;
@@ -75,7 +77,19 @@ final readonly class ReadOrganizationJoinHandler implements QueryHandler
       return new ReadOrganizationJoinResult($result);
     }
     $now = new DateTimeImmutable();
-    foreach ($this->joins->invitationIds($proof->email) as $id) {
+    $result['invitations'] = $this->invitationViews($proof->email, $now);
+    $result['organizations'] = $this->organizationViews($proof->email, $now, $result['invitations'], $requests, $query->userId);
+
+    return new ReadOrganizationJoinResult($result);
+  }
+
+  /**
+   * @return list<array<string, mixed>>
+   */
+  private function invitationViews(string $email, DateTimeImmutable $now): array
+  {
+    $invitations = [];
+    foreach ($this->joins->invitationIds($email) as $id) {
       $invitation = $this->invitations->findById(OrganizationInvitationId::fromString($id));
       if (null === $invitation || !$invitation->status()->isPending() || $invitation->isExpired($now)) {
         continue;
@@ -84,44 +98,87 @@ final readonly class ReadOrganizationJoinHandler implements QueryHandler
       if (null === $org || !$org->status()->isActive()) {
         continue;
       }
-      $result['invitations'][] = ['id' => $id, 'organizationId' => (string) $org->id(), 'organizationName' => (string) $org->name(), 'expiresAt' => $invitation->expiresAt()->format('c')];
+      $invitations[] = ['id' => $id, 'organizationId' => (string) $org->id(), 'organizationName' => (string) $org->name(), 'expiresAt' => $invitation->expiresAt()->format('c')];
     }
-    $emailDomain = strtolower(substr($proof->email, strrpos($proof->email, '@') + 1));
+
+    return $invitations;
+  }
+
+  /**
+   * @param list<array<string, mixed>> $invitations
+   * @param list<array<string, mixed>> $requests
+   *
+   * @return list<array<string, mixed>>
+   */
+  private function organizationViews(string $email, DateTimeImmutable $now, array $invitations, array $requests, string $userId): array
+  {
+    $organizations = [];
+    $emailDomain = strtolower(substr($email, strrpos($email, '@') + 1));
     foreach ($this->joins->domainsForName($emailDomain) as $domain) {
-      if (!$domain->isUsable($now)) {
-        continue;
+      $view = $this->organizationView($domain, $now, $invitations, $requests, $userId);
+      if (null !== $view) {
+        $organizations[] = $view;
       }
-      $org = $this->organizations->findById(OrganizationId::fromString($domain->organizationId));
-      if (null === $org || !$org->status()->isActive() || in_array($domain->organizationId, array_column($result['invitations'], 'organizationId'), true)) {
-        continue;
-      }
-      $policy = $this->joins->policy($domain->organizationId);
-      if (OrganizationJoinMode::INVITATION_ONLY === $policy->mode) {
-        continue;
-      }
-      $member = $this->members->findByOrganizationAndUser($org->id(), $query->userId);
-      $actions = ['request'];
-      $roleLabel = null;
-      if (null !== $member && $member->isActive()) {
-        $actions = ['open'];
-      } elseif (OrganizationJoinMode::AUTOMATIC === $policy->mode && null === $member && null !== $policy->roleId) {
-        try {
-          $roleLabel = $this->access->assertEligibleRole($domain->organizationId, $policy->roleId);
-          $actions = ['join'];
-        } catch (OrganizationJoinException) {
-          continue;
-        }
-      }
-      foreach ($requests as $request) {
-        if ($request['organizationId'] === $domain->organizationId && 'pending' === $request['status']) {
-          $actions = ['view_request'];
-
-          break;
-        }
-      }
-      $result['organizations'][] = ['id' => $domain->organizationId, 'name' => (string) $org->name(), 'logoUrl' => $org->logoUrl(), 'domain' => $domain->domain, 'roleLabel' => $roleLabel, 'actions' => $actions];
     }
 
-    return new ReadOrganizationJoinResult($result);
+    return $organizations;
+  }
+
+  /**
+   * @param list<array<string, mixed>> $invitations
+   * @param list<array<string, mixed>> $requests
+   *
+   * @return array<string, mixed>|null
+   */
+  private function organizationView(OrganizationDomain $domain, DateTimeImmutable $now, array $invitations, array $requests, string $userId): ?array
+  {
+    if (!$domain->isUsable($now)) {
+      return null;
+    }
+    $organization = $this->organizations->findById(OrganizationId::fromString($domain->organizationId));
+    if (null === $organization || !$organization->status()->isActive() || in_array($domain->organizationId, array_column($invitations, 'organizationId'), true)) {
+      return null;
+    }
+    $policy = $this->joins->policy($domain->organizationId);
+    if (OrganizationJoinMode::INVITATION_ONLY === $policy->mode) {
+      return null;
+    }
+    $access = $this->joinAccess($domain, $organization, $policy, $requests, $userId);
+    if (null === $access) {
+      return null;
+    }
+
+    return ['id' => $domain->organizationId, 'name' => (string) $organization->name(), 'logoUrl' => $organization->logoUrl(), 'domain' => $domain->domain, 'roleLabel' => $access['roleLabel'], 'actions' => $access['actions']];
+  }
+
+  /**
+   * @param list<array<string, mixed>> $requests
+   *
+   * @return array{roleLabel: ?string, actions: list<string>}|null
+   */
+  private function joinAccess(OrganizationDomain $domain, Organization $organization, OrganizationAccessPolicy $policy, array $requests, string $userId): ?array
+  {
+    $member = $this->members->findByOrganizationAndUser($organization->id(), $userId);
+    $actions = ['request'];
+    $roleLabel = null;
+    if (null !== $member && $member->isActive()) {
+      $actions = ['open'];
+    } elseif (OrganizationJoinMode::AUTOMATIC === $policy->mode && null === $member && null !== $policy->roleId) {
+      try {
+        $roleLabel = $this->access->assertEligibleRole($domain->organizationId, $policy->roleId);
+        $actions = ['join'];
+      } catch (OrganizationJoinException) {
+        return null;
+      }
+    }
+    foreach ($requests as $request) {
+      if ($request['organizationId'] === $domain->organizationId && 'pending' === $request['status']) {
+        $actions = ['view_request'];
+
+        break;
+      }
+    }
+
+    return ['roleLabel' => $roleLabel, 'actions' => $actions];
   }
 }
