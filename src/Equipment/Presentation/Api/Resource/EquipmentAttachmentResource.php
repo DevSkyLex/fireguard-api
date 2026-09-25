@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: AttachmentOutput::class,
       provider: ListEquipmentAttachmentsProvider::class,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'List attachments',
@@ -43,7 +43,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment not found'),
         ],
       ),
@@ -56,7 +56,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AddAttachmentProcessor::class,
       denormalizationContext: ['groups' => [EquipmentSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'Add attachment',
@@ -64,7 +64,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Attachment uploaded'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment not found'),
         ],
       ),
@@ -76,7 +76,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: DeleteAttachmentProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'Delete attachment',
@@ -84,7 +84,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Attachment deleted'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment or attachment not found'),
         ],
       ),
@@ -93,4 +93,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class EquipmentAttachmentResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

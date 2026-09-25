@@ -23,11 +23,14 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'Media',
   description: 'Multipart media attached to operational resources.',
   operations: [
-    new Post(uriTemplate: '/media', deserialize: false, input: false, output: AttachmentOutput::class, processor: MediaProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Get(uriTemplate: '/media/{id}', output: AttachmentOutput::class, provider: MediaProvider::class, security: "is_granted('ROLE_USER')"),
-    new Delete(uriTemplate: '/media/{id}', read: false, input: false, output: false, processor: MediaProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Post(uriTemplate: '/media', deserialize: false, input: false, output: AttachmentOutput::class, processor: MediaProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Get(uriTemplate: '/media/{id}', output: AttachmentOutput::class, provider: MediaProvider::class, security: self::SECURITY_ROLE_USER),
+    new Delete(uriTemplate: '/media/{id}', read: false, input: false, output: false, processor: MediaProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class MediaResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }
