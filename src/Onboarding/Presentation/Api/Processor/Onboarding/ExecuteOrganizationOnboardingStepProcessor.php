@@ -98,38 +98,38 @@ final readonly class ExecuteOrganizationOnboardingStepProcessor implements Proce
     } catch (LogicException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $slugConflict = $this->findException($exception, OrganizationSlugAlreadyExistsException::class);
-      if ($slugConflict instanceof OrganizationSlugAlreadyExistsException) {
-        throw new ConflictHttpException($slugConflict->getMessage(), $exception);
-      }
-
-      $notFound = $this->findException($exception, OrganizationNotFoundException::class);
-      if ($notFound instanceof OrganizationNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      $invalidValue = $this->findException($exception, InvalidValueException::class);
-      if ($invalidValue instanceof InvalidValueException) {
-        throw new BadRequestHttpException($invalidValue->getMessage(), $exception);
-      }
-
-      $valueError = $this->findException($exception, ValueError::class);
-      if ($valueError instanceof ValueError) {
-        throw new BadRequestHttpException($valueError->getMessage(), $exception);
-      }
-
-      $logicException = $this->findException($exception, LogicException::class);
-      if ($logicException instanceof LogicException) {
-        throw new ConflictHttpException($logicException->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->rethrowMessengerFailure($exception);
     }
+  }
+
+  private function rethrowMessengerFailure(MessengerRuntimeException $exception): never
+  {
+    $slugConflict = $this->findException($exception, OrganizationSlugAlreadyExistsException::class);
+    if ($slugConflict instanceof OrganizationSlugAlreadyExistsException) {
+      throw new ConflictHttpException($slugConflict->getMessage(), $exception);
+    }
+    $notFound = $this->findException($exception, OrganizationNotFoundException::class);
+    if ($notFound instanceof OrganizationNotFoundException) {
+      throw new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+    $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+    $invalidValue = $this->findException($exception, InvalidValueException::class);
+    if ($invalidValue instanceof InvalidValueException) {
+      throw new BadRequestHttpException($invalidValue->getMessage(), $exception);
+    }
+    $valueError = $this->findException($exception, ValueError::class);
+    if ($valueError instanceof ValueError) {
+      throw new BadRequestHttpException($valueError->getMessage(), $exception);
+    }
+    $logicException = $this->findException($exception, LogicException::class);
+    if ($logicException instanceof LogicException) {
+      throw new ConflictHttpException($logicException->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
   // #endregion
 }
