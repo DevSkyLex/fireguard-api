@@ -166,46 +166,7 @@ final readonly class SendNotificationHandler implements CommandHandler
       ? $this->preferenceRepository->findByUserIdAndCategory($recipientUserId, NotificationType::category($type))
       : null;
 
-    $channelDelivery = [];
-    foreach ($channels as $channel) {
-      if ($this->isChannelSuppressedByPreference($channel, $preference)) {
-        $channelDelivery[$channel->value] = false;
-
-        $this->logger->info('Notification channel delivery skipped: disabled by user preference.', [
-          'notificationId' => (string) $notification->id(),
-          'channel' => $channel->value,
-          'category' => NotificationType::category($type),
-          'recipientUserId' => $recipientUserId,
-        ]);
-
-        continue;
-      }
-
-      $channelPayload = $this->extractChannelPayload($command->deliveryPayload, $channel->value);
-
-      try {
-        match ($channel) {
-          NotificationChannel::EMAIL => $this->emailChannel->send($notification, $channelPayload),
-          NotificationChannel::MERCURE => $this->mercureChannel->publish($notification, $channelPayload),
-        };
-
-        $channelDelivery[$channel->value] = true;
-      } catch (Throwable $exception) {
-        $channelDelivery[$channel->value] = false;
-
-        $this->logger->warning('Notification channel delivery failed.', [
-          'notificationId' => (string) $notification->id(),
-          'channel' => $channel->value,
-          'type' => $notification->type(),
-          'recipientUserId' => $notification->recipientUserId(),
-          'recipientEmail' => null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
-          'error' => $exception->getMessage(),
-          'cause' => $exception->getPrevious()?->getMessage(),
-        ]);
-
-        // Best-effort delivery: notification creation must not fail on channel errors.
-      }
-    }
+    $channelDelivery = $this->deliverChannels($notification, $channels, $preference, $command->deliveryPayload);
 
     return new SendNotificationResult(
       id: (string) $notification->id(),
@@ -220,6 +181,54 @@ final readonly class SendNotificationHandler implements CommandHandler
       recipientEmail: null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
       organizationId: $notification->organizationId(),
     );
+  }
+
+  /**
+   * @param list<NotificationChannel> $channels
+   * @param array<string, mixed> $deliveryPayload
+   *
+   * @return array<string, bool> delivery outcome for each requested channel
+   */
+  private function deliverChannels(Notification $notification, array $channels, ?NotificationPreference $preference, array $deliveryPayload): array
+  {
+    $channelDelivery = [];
+    foreach ($channels as $channel) {
+      if ($this->isChannelSuppressedByPreference($channel, $preference)) {
+        $channelDelivery[$channel->value] = false;
+        $this->logger->info('Notification channel delivery skipped: disabled by user preference.', [
+          'notificationId' => (string) $notification->id(),
+          'channel' => $channel->value,
+          'category' => NotificationType::category($notification->type()),
+          'recipientUserId' => $notification->recipientUserId(),
+        ]);
+
+        continue;
+      }
+
+      $channelPayload = $this->extractChannelPayload($deliveryPayload, $channel->value);
+
+      try {
+        match ($channel) {
+          NotificationChannel::EMAIL => $this->emailChannel->send($notification, $channelPayload),
+          NotificationChannel::MERCURE => $this->mercureChannel->publish($notification, $channelPayload),
+        };
+        $channelDelivery[$channel->value] = true;
+      } catch (Throwable $exception) {
+        $channelDelivery[$channel->value] = false;
+        $this->logger->warning('Notification channel delivery failed.', [
+          'notificationId' => (string) $notification->id(),
+          'channel' => $channel->value,
+          'type' => $notification->type(),
+          'recipientUserId' => $notification->recipientUserId(),
+          'recipientEmail' => null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
+          'error' => $exception->getMessage(),
+          'cause' => $exception->getPrevious()?->getMessage(),
+        ]);
+        // Best-effort delivery: notification creation must not fail on channel errors.
+      }
+    }
+
+    return $channelDelivery;
   }
 
   /**
