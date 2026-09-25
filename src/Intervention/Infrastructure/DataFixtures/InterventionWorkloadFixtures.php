@@ -143,7 +143,12 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     foreach (self::TASKS as $memberId => $label) {
       $remaining = 120 + (($day + $index++) % 4) * 60;
       if (self::OWNER === $memberId) {
-        $remaining = $isToday ? 360 : (0 === $day ? 480 : 240);
+        $remaining = 240;
+        if ($isToday) {
+          $remaining = 360;
+        } elseif (0 === $day) {
+          $remaining = 480;
+        }
       } elseif (self::FIELD_TECHNICIAN === $memberId && 2 === $day) {
         $remaining = 300;
       }

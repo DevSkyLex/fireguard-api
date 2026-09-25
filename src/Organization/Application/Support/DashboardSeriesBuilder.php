@@ -254,7 +254,14 @@ final class DashboardSeriesBuilder
     }
     $days = (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1;
 
-    return $days > 180 ? 'month' : ($days > 45 ? 'week' : 'day');
+    if ($days > 180) {
+      return 'month';
+    }
+    if ($days > 45) {
+      return 'week';
+    }
+
+    return 'day';
   }
 
   /**

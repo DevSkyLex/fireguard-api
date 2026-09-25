@@ -163,7 +163,12 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $organization = $this->organization($organizationValue, $intervention);
     $recordStatus = $request?->query->get('recordStatus');
 
-    return [$organization, $interventionId, is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (null !== $interventionId ? 'draft' : 'published')];
+    $resolvedRecordStatus = null !== $interventionId ? 'draft' : 'published';
+    if (is_string($recordStatus) && '' !== $recordStatus) {
+      $resolvedRecordStatus = $recordStatus;
+    }
+
+    return [$organization, $interventionId, $resolvedRecordStatus];
   }
 
   /**
@@ -180,11 +185,12 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    */
   private function organization(mixed $organizationValue, mixed $interventionValue): string
   {
-    $organizationId = is_string($organizationValue) && '' !== $organizationValue
-      ? ResourceIriParser::id($organizationValue, 'organizations')
-      : (is_string($interventionValue) && '' !== $interventionValue
-        ? $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId
-        : null);
+    $organizationId = null;
+    if (is_string($organizationValue) && '' !== $organizationValue) {
+      $organizationId = ResourceIriParser::id($organizationValue, 'organizations');
+    } elseif (is_string($interventionValue) && '' !== $interventionValue) {
+      $organizationId = $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId;
+    }
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }

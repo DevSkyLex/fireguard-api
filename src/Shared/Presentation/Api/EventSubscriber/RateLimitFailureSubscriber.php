@@ -32,7 +32,12 @@ final readonly class RateLimitFailureSubscriber implements EventSubscriberInterf
       if ($error instanceof HttpExceptionInterface && Response::HTTP_TOO_MANY_REQUESTS === $error->getStatusCode()) {
         $headers = $error->getHeaders();
         $rawDelay = $headers['Retry-After'] ?? $headers['retry-after'] ?? null;
-        $delay = is_int($rawDelay) ? (string) $rawDelay : (is_string($rawDelay) ? $rawDelay : null);
+        $delay = null;
+        if (is_int($rawDelay)) {
+          $delay = (string) $rawDelay;
+        } elseif (is_string($rawDelay)) {
+          $delay = $rawDelay;
+        }
         $retryAfter = null;
         if (null !== $delay && ctype_digit((string) $delay)) {
           $retryAfter = (int) $delay;

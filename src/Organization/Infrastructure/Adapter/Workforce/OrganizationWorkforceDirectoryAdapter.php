@@ -124,9 +124,13 @@ final readonly class OrganizationWorkforceDirectoryAdapter implements Organizati
       /** @var \User\Application\UseCase\Query\User\GetUser\GetUserResult $result */
       $result = $this->queries->ask(new \User\Application\UseCase\Query\User\GetUser\GetUserQuery($member->userId));
       $profile = $result->user;
+      $displayName = $member->id;
+      if (null !== $profile) {
+        $displayName = trim($profile->firstName . ' ' . $profile->lastName) ?: $profile->username;
+      }
       $profiles[$member->id] = new OrganizationWorkforceMemberProfile(
         $member->id,
-        null === $profile ? $member->id : (trim($profile->firstName . ' ' . $profile->lastName) ?: $profile->username),
+        $displayName,
         $profile?->avatarUrl,
         $roles[$member->id] ?? [],
       );

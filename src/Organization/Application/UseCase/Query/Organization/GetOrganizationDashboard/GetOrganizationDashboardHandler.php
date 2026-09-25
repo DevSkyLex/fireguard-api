@@ -606,7 +606,11 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    */
   private function relativeDeltaFloat(float $current, float $previous): float
   {
-    return 0.0 === $previous ? ($current > 0.0 ? 100.0 : 0.0) : round((($current - $previous) / $previous) * 100, 2);
+    if (0.0 === $previous) {
+      return $current > 0.0 ? 100.0 : 0.0;
+    }
+
+    return round((($current - $previous) / $previous) * 100, 2);
   }
 
   /**

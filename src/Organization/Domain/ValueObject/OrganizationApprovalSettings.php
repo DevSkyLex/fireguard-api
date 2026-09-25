@@ -253,14 +253,19 @@ final readonly class OrganizationApprovalSettings
    */
   private static function mergeActionRule(array $current, array $rule): array
   {
+    $minSeverity = $current['minSeverity'];
+    if (array_key_exists('min_severity', $rule)) {
+      $minSeverity = is_string($rule['min_severity']) && '' !== $rule['min_severity']
+        ? $rule['min_severity']
+        : null;
+    }
+
     return [
       'enabled' => isset($rule['enabled']) && is_bool($rule['enabled']) ? $rule['enabled'] : $current['enabled'],
       'minApproverRole' => isset($rule['min_approver_role']) && is_string($rule['min_approver_role']) && '' !== $rule['min_approver_role']
         ? $rule['min_approver_role']
         : $current['minApproverRole'],
-      'minSeverity' => array_key_exists('min_severity', $rule)
-        ? (is_string($rule['min_severity']) && '' !== $rule['min_severity'] ? $rule['min_severity'] : null)
-        : $current['minSeverity'],
+      'minSeverity' => $minSeverity,
     ];
   }
 

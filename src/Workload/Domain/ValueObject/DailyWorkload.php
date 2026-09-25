@@ -75,7 +75,14 @@ final readonly class DailyWorkload
    */
   public function completeness(): string
   {
-    return null === $this->capacityMinutes ? 'unavailable' : ($this->hasUnquantifiedWork ? 'partial' : 'complete');
+    if (null === $this->capacityMinutes) {
+      return 'unavailable';
+    }
+    if ($this->hasUnquantifiedWork) {
+      return 'partial';
+    }
+
+    return 'complete';
   }
 
   /**

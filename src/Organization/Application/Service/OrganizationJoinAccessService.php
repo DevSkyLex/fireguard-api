@@ -139,7 +139,10 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     if ('pending' === $state && !$emailMatches) {
       $state = 'cancelled';
     }
-    $actions = 'pending' === $state ? ($actor === $request->userId ? ['cancel'] : []) : [];
+    $actions = [];
+    if ('pending' === $state && $actor === $request->userId) {
+      $actions = ['cancel'];
+    }
     if ($manager && 'pending' === $state) {
       $actions = ['reject'];
       if (null !== $org && $org->status()->isActive() && isset($email) && $email->verified && OrganizationJoinMode::INVITATION_ONLY !== $this->joins->policy($request->organizationId)->mode) {

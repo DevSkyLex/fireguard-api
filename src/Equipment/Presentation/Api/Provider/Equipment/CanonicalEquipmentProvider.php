@@ -114,13 +114,17 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     $organization = $this->organization($organizationValue, $intervention);
     $this->assertRead($organization, 'Organization not found.');
     $recordStatus = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('recordStatus');
+    $resolvedRecordStatus = null !== $interventionId ? 'draft' : 'published';
+    if (is_string($recordStatus) && '' !== $recordStatus) {
+      $resolvedRecordStatus = $recordStatus;
+    }
     $query = $this->entityManager->createQueryBuilder()
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
       ->where('e.organization = :organization')
       ->andWhere('e.recordStatus = :recordStatus')
       ->setParameter('organization', $organization)
-      ->setParameter('recordStatus', is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (null !== $interventionId ? 'draft' : 'published'))
+      ->setParameter('recordStatus', $resolvedRecordStatus)
       ->orderBy('e.createdAt', 'ASC');
     if (null !== $interventionId) {
       $query->andWhere('e.interventionId = :interventionId')->setParameter('interventionId', $interventionId);
@@ -183,11 +187,12 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    */
   private function organization(mixed $organizationValue, mixed $interventionValue): string
   {
-    $organizationId = is_string($organizationValue) && '' !== $organizationValue
-      ? ResourceIriParser::id($organizationValue, 'organizations')
-      : (is_string($interventionValue) && '' !== $interventionValue
-        ? $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId
-        : null);
+    $organizationId = null;
+    if (is_string($organizationValue) && '' !== $organizationValue) {
+      $organizationId = ResourceIriParser::id($organizationValue, 'organizations');
+    } elseif (is_string($interventionValue) && '' !== $interventionValue) {
+      $organizationId = $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId;
+    }
     if (null === $organizationId) {
       throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
