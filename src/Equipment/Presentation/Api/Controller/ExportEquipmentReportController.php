@@ -301,24 +301,35 @@ final class ExportEquipmentReportController extends AbstractController
         continue;
       }
 
-      $context[$listKey] = array_map(
-        static function (mixed $row) use ($formatter, $dateKeys): mixed {
-          if (!is_array($row)) {
-            return $row;
-          }
-
-          foreach ($dateKeys as $dateKey) {
-            $value = $row[$dateKey] ?? null;
-            $row[$dateKey] = $formatter->formatDateTime(is_string($value) ? $value : null);
-          }
-
-          return $row;
-        },
-        $context[$listKey],
-      );
+      $context[$listKey] = self::formatDatedRows($context[$listKey], $dateKeys, $formatter);
     }
 
     return $context;
+  }
+
+  /**
+   * @param array<array-key, mixed> $rows
+   * @param list<string> $dateKeys
+   *
+   * @return array<array-key, mixed>
+   */
+  private static function formatDatedRows(array $rows, array $dateKeys, DocumentDateFormatter $formatter): array
+  {
+    return array_map(
+      static function (mixed $row) use ($formatter, $dateKeys): mixed {
+        if (!is_array($row)) {
+          return $row;
+        }
+
+        foreach ($dateKeys as $dateKey) {
+          $value = $row[$dateKey] ?? null;
+          $row[$dateKey] = $formatter->formatDateTime(is_string($value) ? $value : null);
+        }
+
+        return $row;
+      },
+      $rows,
+    );
   }
   // #endregion
 }

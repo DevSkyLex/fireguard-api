@@ -22,6 +22,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response as HttpResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Throwable;
 
 use function is_string;
 
@@ -107,25 +108,33 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findEquipmentNotFoundException($exception);
-      if ($notFound instanceof EquipmentNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $decommissioned = $this->findEquipmentAlreadyDecommissionedException($exception);
-      if ($decommissioned instanceof EquipmentAlreadyDecommissionedException) {
-        throw new ConflictHttpException($decommissioned->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerFailure($exception);
     }
 
     return $this->outputFactory->read($organizationId, $result->equipmentId);
+  }
+
+  /**
+   * Preserve the HTTP mapping for exceptions wrapped by the command bus.
+   */
+  private function mapMessengerFailure(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findEquipmentNotFoundException($exception);
+    if ($notFound instanceof EquipmentNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $decommissioned = $this->findEquipmentAlreadyDecommissionedException($exception);
+    if ($decommissioned instanceof EquipmentAlreadyDecommissionedException) {
+      return new ConflictHttpException($decommissioned->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**
