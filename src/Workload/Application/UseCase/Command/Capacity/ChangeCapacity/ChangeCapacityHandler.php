@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Workload\Application\UseCase\Command\Capacity\ChangeCapacity;
 
+use Organization\Application\Contract\Workforce\OrganizationWorkforceMember;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationWorkforceDirectoryPort};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{TransactionManagerPort, UuidGeneratorPort};
@@ -68,20 +69,8 @@ final readonly class ChangeCapacityHandler implements CommandHandler
       if (!$this->authorization->hasPermission($command->userId, $command->organizationId, 'organization.workload.manage')) {
         throw new WorkloadAccessDeniedException('Capacity management access is required.');
       }
-      $actor = null;
-      $targetExists = null === $command->memberId;
       $members = $this->workforce->members($command->organizationId);
-      foreach ($members as $member) {
-        if ($member->active && $member->userId === $command->userId) {
-          $actor = $member->id;
-        }
-        if ($member->active && $member->id === $command->memberId) {
-          $targetExists = true;
-        }
-      }
-      if (null === $actor || !$targetExists) {
-        throw new WorkloadNotFoundException('Active member not found.');
-      }
+      $actor = self::activeActor($command, $members);
       $this->coordination->acquire($command->organizationId, null === $command->memberId ? [] : [$command->memberId], null === $command->memberId);
       if ('cancel_exception' === $command->kind) {
         if (null === $command->memberId || null === $command->exceptionId || !$this->capacities->cancelException($command->organizationId, $command->memberId, $command->exceptionId, $actor)) {
@@ -105,25 +94,7 @@ final readonly class ChangeCapacityHandler implements CommandHandler
       } else {
         throw InvalidValueException::because('Invalid capacity change.');
       }
-      // Validate all affected effective weeks and exception days while holding
-      // the same member/organization locks used by scheduling and time writes.
-      $toChange = static fn (CapacityWeekView $w): CapacityChange => new CapacityChange(LocalDate::fromString($w->effectiveOn), new CapacityWeek($w->minutes));
-      $orgWeeks = array_map($toChange, array_values(array_filter($weeks, static fn ($w): bool => $w->scopeId === $command->organizationId)));
-      foreach ($members as $member) {
-        if (null !== $command->memberId && $command->memberId !== $member->id) {
-          continue;
-        }
-        $memberExceptions = array_map(
-          static fn ($e): CapacityException => new CapacityException(LocalDate::fromString($e->startsOn), LocalDate::fromString($e->endsOn), $e->minutes),
-          array_values(array_filter($exceptions, static fn ($e): bool => $e->memberId === $member->id)),
-        );
-        $schedule = new CapacitySchedule($orgWeeks, array_map($toChange, array_values(array_filter($weeks, static fn ($w): bool => $w->scopeId === $member->id))), $memberExceptions);
-        foreach ($memberExceptions as $exception) {
-          for ($day = $exception->startsOn; $day->value <= $exception->endsOn->value; $day = $day->next()) {
-            $schedule->on($day);
-          }
-        }
-      }
+      self::validateSchedules($command, $members, $weeks, $exceptions);
       if (isset($candidate)) {
         $this->capacities->addWeek($command->organizationId, $candidate, $actor);
       } elseif (isset($candidateException)) {
@@ -132,5 +103,59 @@ final readonly class ChangeCapacityHandler implements CommandHandler
 
       return new ChangeCapacityResult($id);
     });
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param list<OrganizationWorkforceMember> $members
+   */
+  private static function activeActor(ChangeCapacityCommand $command, array $members): string
+  {
+    $actor = null;
+    $targetExists = null === $command->memberId;
+    foreach ($members as $member) {
+      if ($member->active && $member->userId === $command->userId) {
+        $actor = $member->id;
+      }
+      if ($member->active && $member->id === $command->memberId) {
+        $targetExists = true;
+      }
+    }
+    if (null === $actor || !$targetExists) {
+      throw new WorkloadNotFoundException('Active member not found.');
+    }
+
+    return $actor;
+  }
+
+  /**
+   * Validate affected capacity while holding the same locks as scheduling and time writes.
+   *
+   * @since 1.0.0
+   *
+   * @param list<OrganizationWorkforceMember> $members
+   * @param list<CapacityWeekView> $weeks
+   * @param list<CapacityExceptionView> $exceptions
+   */
+  private static function validateSchedules(ChangeCapacityCommand $command, array $members, array $weeks, array $exceptions): void
+  {
+    $toChange = static fn (CapacityWeekView $w): CapacityChange => new CapacityChange(LocalDate::fromString($w->effectiveOn), new CapacityWeek($w->minutes));
+    $orgWeeks = array_map($toChange, array_values(array_filter($weeks, static fn ($w): bool => $w->scopeId === $command->organizationId)));
+    foreach ($members as $member) {
+      if (null !== $command->memberId && $command->memberId !== $member->id) {
+        continue;
+      }
+      $memberExceptions = array_map(
+        static fn ($e): CapacityException => new CapacityException(LocalDate::fromString($e->startsOn), LocalDate::fromString($e->endsOn), $e->minutes),
+        array_values(array_filter($exceptions, static fn ($e): bool => $e->memberId === $member->id)),
+      );
+      $schedule = new CapacitySchedule($orgWeeks, array_map($toChange, array_values(array_filter($weeks, static fn ($w): bool => $w->scopeId === $member->id))), $memberExceptions);
+      foreach ($memberExceptions as $exception) {
+        for ($day = $exception->startsOn; $day->value <= $exception->endsOn->value; $day = $day->next()) {
+          $schedule->on($day);
+        }
+      }
+    }
   }
 }

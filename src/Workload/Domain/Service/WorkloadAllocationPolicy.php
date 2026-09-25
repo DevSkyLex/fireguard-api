@@ -73,14 +73,27 @@ final readonly class WorkloadAllocationPolicy
     if (0 === $total) {
       return new TaskAllocation(unallocatedReason: 'no_available_day');
     }
+
+    return new TaskAllocation(self::distributeMinutes($demand->remainingMinutes, $capacities, $total));
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param array<string, int> $capacities positive capacity by local date
+   *
+   * @return array<string, int> allocated minutes by local date
+   */
+  private static function distributeMinutes(int $minutes, array $capacities, int $total): array
+  {
     $allocated = [];
     $remainders = [];
     foreach ($capacities as $date => $capacity) {
-      $weighted = $demand->remainingMinutes * $capacity;
+      $weighted = $minutes * $capacity;
       $allocated[$date] = intdiv($weighted, $total);
       $remainders[$date] = $weighted % $total;
     }
-    $leftover = $demand->remainingMinutes - array_sum($allocated);
+    $leftover = $minutes - array_sum($allocated);
     arsort($remainders, SORT_NUMERIC);
     foreach ($remainders as $date => $remainder) {
       if (0 === $leftover) {
@@ -90,7 +103,7 @@ final readonly class WorkloadAllocationPolicy
       --$leftover;
     }
 
-    return new TaskAllocation($allocated);
+    return $allocated;
   }
   // #endregion
 }
