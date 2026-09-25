@@ -172,32 +172,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     } catch (FacilityHierarchyException|InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
-        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-      }
-
-      $codeConflict = $this->findFacilityCodeAlreadyExistsException($exception);
-      if ($codeConflict instanceof FacilityCodeAlreadyExistsException) {
-        throw new ConflictHttpException($codeConflict->getMessage(), $exception);
-      }
-
-      $notFound = $this->findFacilityNotFoundException($exception);
-      if ($notFound instanceof FacilityNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $hierarchy = $this->findFacilityHierarchyException($exception);
-      if ($hierarchy instanceof FacilityHierarchyException) {
-        throw new BadRequestHttpException($hierarchy->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->throwMappedMessengerException($exception);
     }
 
     $output = new FacilityOutput();
@@ -221,6 +196,41 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->revision = $assignment->revision;
 
     return $output;
+  }
+
+  /**
+   * Preserves the HTTP mapping for domain exceptions wrapped by Messenger.
+   *
+   * @param MessengerRuntimeException $exception the wrapped dispatch failure
+   */
+  private function throwMappedMessengerException(MessengerRuntimeException $exception): never
+  {
+    $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+    if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+      throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+    }
+
+    $codeConflict = $this->findFacilityCodeAlreadyExistsException($exception);
+    if ($codeConflict instanceof FacilityCodeAlreadyExistsException) {
+      throw new ConflictHttpException($codeConflict->getMessage(), $exception);
+    }
+
+    $notFound = $this->findFacilityNotFoundException($exception);
+    if ($notFound instanceof FacilityNotFoundException) {
+      throw new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $hierarchy = $this->findFacilityHierarchyException($exception);
+    if ($hierarchy instanceof FacilityHierarchyException) {
+      throw new BadRequestHttpException($hierarchy->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
 
   /**
