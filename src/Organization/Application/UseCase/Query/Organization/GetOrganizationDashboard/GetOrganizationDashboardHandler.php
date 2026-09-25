@@ -351,12 +351,14 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       alerts: $alerts,
       comparison: $this->buildComparison(
         $query,
-        $currentPeriodInspectionMetrics['total'],
-        $currentFacilityCreatedCount,
-        $currentMemberJoinedCount,
-        $currentEquipmentCreatedCount,
-        $currentNonConformityOpenedCount,
-        $currentNonConformityResolvedCount,
+        [
+          'inspectionsPerformed' => $currentPeriodInspectionMetrics['total'],
+          'facilitiesCreated' => $currentFacilityCreatedCount,
+          'membersJoined' => $currentMemberJoinedCount,
+          'equipmentCreated' => $currentEquipmentCreatedCount,
+          'nonConformitiesOpened' => $currentNonConformityOpenedCount,
+          'nonConformitiesResolved' => $currentNonConformityResolvedCount,
+        ],
         $currentPeriodHealth,
         $comparisonPeriod,
       ),
@@ -539,12 +541,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param GetOrganizationDashboardQuery $query the original dashboard query containing filters and parameters for the comparison
-   * @param int $currentInspectionCount the number of inspections performed during the current period
-   * @param int $currentFacilityCreatedCount the number of facilities created during the current period
-   * @param int $currentMemberJoinedCount the number of members who joined during the current period
-   * @param int $currentEquipmentCreatedCount the number of equipment records created during the current period
-   * @param int $currentNonConformityOpenedCount the number of non-conformities opened during the current period
-   * @param int $currentNonConformityResolvedCount the number of non-conformities resolved during the current period
+   * @param array{inspectionsPerformed: int, facilitiesCreated: int, membersJoined: int, equipmentCreated: int, nonConformitiesOpened: int, nonConformitiesResolved: int} $current the current period's metric counts
    * @param array<string, float> $currentPeriodHealth the health metrics for the current period, indexed by metric name
    * @param ?array{from: DateTimeImmutable, to: DateTimeImmutable} $comparisonPeriod the period to compare against, if any
    *
@@ -552,7 +549,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    *                              current and previous metrics, deltas, and health indicators. If no comparison period
    *                              is provided, the mode will be 'none' and metric values will be empty.
    */
-  private function buildComparison(GetOrganizationDashboardQuery $query, int $currentInspectionCount, int $currentFacilityCreatedCount, int $currentMemberJoinedCount, int $currentEquipmentCreatedCount, int $currentNonConformityOpenedCount, int $currentNonConformityResolvedCount, array $currentPeriodHealth, ?array $comparisonPeriod): array
+  private function buildComparison(GetOrganizationDashboardQuery $query, array $current, array $currentPeriodHealth, ?array $comparisonPeriod): array
   {
     if (null === $comparisonPeriod) {
       return ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]];
@@ -569,14 +566,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $previousNonConformityResolvedCount = $previousNonConformityPeriodMetrics['resolved'];
     $previousPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $comparisonPeriod['from'], $comparisonPeriod['to'], $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
     $previousPeriodHealth = ['inspectionCompletionRate' => $this->percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => $this->percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($previousNonConformityOpenedCount, $previousNonConformityResolvedCount, $previousNonConformityPeriodMetrics['activeAtStart'])];
-    $current = [
-      'inspectionsPerformed' => $currentInspectionCount,
-      'facilitiesCreated' => $currentFacilityCreatedCount,
-      'membersJoined' => $currentMemberJoinedCount,
-      'equipmentCreated' => $currentEquipmentCreatedCount,
-      'nonConformitiesOpened' => $currentNonConformityOpenedCount,
-      'nonConformitiesResolved' => $currentNonConformityResolvedCount,
-    ];
     $previous = [
       'inspectionsPerformed' => $previousPeriodInspectionMetrics['total'],
       'facilitiesCreated' => $previousFacilityCreatedCount,

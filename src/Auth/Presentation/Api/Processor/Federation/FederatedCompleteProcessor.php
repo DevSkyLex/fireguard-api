@@ -6,6 +6,7 @@ namespace Auth\Presentation\Api\Processor\Federation;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Contract\Federation\FederatedLoginContext;
 use Auth\Application\Service\Federation\FederatedAuthenticationService;
 use Auth\Domain\Exception\Federation\{FederatedAuthException, FederatedConflictException, FederatedUnauthorizedException};
 use Auth\Domain\ValueObject\Federation\FederatedProvider;
@@ -95,9 +96,11 @@ final readonly class FederatedCompleteProcessor implements ProcessorInterface
         code: $data->code ?? '',
         browserBinding: $browserBinding ?? '',
         providerError: $data->error,
-        ipAddress: $ipAddress,
-        userAgent: \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent'),
-        trustedDeviceToken: null === $request ? null : $this->trustedDeviceCookieService->getTokenFromRequest($request),
+        loginContext: new FederatedLoginContext(
+          ipAddress: $ipAddress,
+          userAgent: \Shared\Presentation\Api\Http\OperationParameterReader::headers($operation, $request)->get('User-Agent'),
+          trustedDeviceToken: null === $request ? null : $this->trustedDeviceCookieService->getTokenFromRequest($request),
+        ),
       );
 
       $output = new LoginOutput();

@@ -9,6 +9,7 @@ use Auth\Application\Contract\Federation\{
   FederatedConnections,
   FederatedFlow,
   FederatedLogin,
+  FederatedLoginContext,
   FederatedProfile
 };
 use Auth\Application\Port\Outbound\Federation\{
@@ -118,9 +119,7 @@ final readonly class FederatedAuthenticationService
     string $code,
     string $browserBinding,
     ?string $providerError,
-    ?string $ipAddress,
-    ?string $userAgent,
-    ?string $trustedDeviceToken,
+    FederatedLoginContext $loginContext,
   ): FederatedLogin {
     $flow = $this->consume($provider, self::LOGIN, $state, $browserBinding);
     $profile = $this->providerProfile($provider, $flow, $code, $providerError);
@@ -129,9 +128,7 @@ final readonly class FederatedAuthenticationService
       $provider,
       $profile,
       $flow,
-      $ipAddress,
-      $userAgent,
-      $trustedDeviceToken,
+      $loginContext,
     ): FederatedLogin {
       $connection = $this->identities->findBySubject($provider, $profile->subject);
       $newAccount = false;
@@ -159,9 +156,9 @@ final readonly class FederatedAuthenticationService
         login: $this->sessionIssuer->issue(
           userId: $user->userId,
           email: $user->email,
-          ipAddress: $ipAddress,
-          userAgent: $userAgent,
-          trustedDeviceToken: $trustedDeviceToken,
+          ipAddress: $loginContext->ipAddress,
+          userAgent: $loginContext->userAgent,
+          trustedDeviceToken: $loginContext->trustedDeviceToken,
           rememberMe: false,
           grantType: match ($provider) {
             FederatedProvider::GOOGLE => SignInGrantType::GOOGLE,

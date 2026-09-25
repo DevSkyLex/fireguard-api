@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
@@ -83,19 +84,23 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       throw InvalidValueException::because('Invalid maintenanceDueStatus filter.');
     }
 
+    $criteria = new EquipmentListCriteria(
+      facilityId: $query->facilityId,
+      type: $type,
+      status: $status,
+      brand: $query->brand,
+      model: $query->model,
+      subType: $query->subType,
+      search: $query->search,
+    );
+
     if (null !== $query->maintenanceDueStatus) {
-      return $this->listFilteredByDueStatus($organizationId, $type, $status, $query);
+      return $this->listFilteredByDueStatus($organizationId, $criteria, $query);
     }
 
     $equipments = $this->equipmentRepository->findByOrganizationId(
       $organizationId,
-      $query->facilityId,
-      $type,
-      $status,
-      $query->brand,
-      $query->model,
-      $query->subType,
-      $query->search,
+      $criteria,
       $query->sorting,
       $query->pagination->limit,
       $query->pagination->offset,
@@ -103,13 +108,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
 
     $total = $this->equipmentRepository->countByOrganizationId(
       $organizationId,
-      $query->facilityId,
-      $type,
-      $status,
-      $query->brand,
-      $query->model,
-      $query->subType,
-      $query->search,
+      $criteria,
     );
 
     $equipmentIds = array_map(
@@ -164,19 +163,12 @@ final readonly class ListEquipmentsHandler implements QueryHandler
    */
   private function listFilteredByDueStatus(
     EquipmentOrganizationId $organizationId,
-    ?string $type,
-    ?string $status,
+    EquipmentListCriteria $criteria,
     ListEquipmentsQuery $query,
   ): PaginatedResult {
     $candidates = $this->equipmentRepository->findByOrganizationId(
       $organizationId,
-      $query->facilityId,
-      $type,
-      $status,
-      $query->brand,
-      $query->model,
-      $query->subType,
-      $query->search,
+      $criteria,
       $query->sorting,
       self::DUE_STATUS_FILTER_SCAN_LIMIT,
       0,

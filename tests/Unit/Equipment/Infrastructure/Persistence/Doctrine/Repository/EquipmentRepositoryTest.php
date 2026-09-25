@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Domain\ValueObject\EquipmentOrganizationId;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository;
@@ -65,7 +66,7 @@ final class EquipmentRepositoryTest extends TestCase
 
     $repository->countByOrganizationId(
       organizationId: $organizationId,
-      search: '50%_off',
+      criteria: new EquipmentListCriteria(search: '50%_off'),
     );
 
     $searchClause = null;

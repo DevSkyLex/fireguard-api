@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
 use DateTimeImmutable;
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
@@ -192,13 +193,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findByOrganizationId')
       ->with(
         self::anything(),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
+        self::equalTo(new EquipmentListCriteria()),
         self::equalTo(new Sorting('createdAt', SortDirection::ASC)),
         5,
         10,
@@ -206,7 +201,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->willReturn([]);
     $equipmentRepository->expects(self::once())
       ->method('countByOrganizationId')
-      ->with(self::anything(), null, null, null, null, null, null, null)
+      ->with(self::anything(), self::equalTo(new EquipmentListCriteria()))
       ->willReturn(0);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
@@ -246,13 +241,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findByOrganizationId')
       ->with(
         self::anything(),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        'sicli',
+        self::equalTo(new EquipmentListCriteria(search: 'sicli')),
         self::equalTo(new Sorting('brand', SortDirection::DESC)),
         10,
         0,
@@ -262,13 +251,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         self::anything(),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        'sicli',
+        self::equalTo(new EquipmentListCriteria(search: 'sicli')),
       )
       ->willReturn(0);
 
@@ -308,13 +291,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findByOrganizationId')
       ->with(
         self::anything(),
-        null,
-        null,
-        null,
-        'Sicli',
-        'ABC-9',
-        'CO2',
-        null,
+        self::equalTo(new EquipmentListCriteria(brand: 'Sicli', model: 'ABC-9', subType: 'CO2')),
         self::equalTo(new Sorting('createdAt', SortDirection::ASC)),
         10,
         0,
@@ -324,13 +301,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         self::anything(),
-        null,
-        null,
-        null,
-        'Sicli',
-        'ABC-9',
-        'CO2',
-        null,
+        self::equalTo(new EquipmentListCriteria(brand: 'Sicli', model: 'ABC-9', subType: 'CO2')),
       )
       ->willReturn(0);
 
