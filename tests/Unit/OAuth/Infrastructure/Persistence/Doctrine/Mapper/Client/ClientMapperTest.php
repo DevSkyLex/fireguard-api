@@ -80,9 +80,16 @@ final class ClientMapperTest extends TestCase
       actual: $client->redirectUris(),
     );
 
+    self::assertSame(expected: $record->grantTypes, actual: $client->grantTypes()->toArray());
+    self::assertSame(expected: $record->scopes, actual: $client->scopes()->toArray());
     self::assertTrue(condition: $client->isActive());
-
     self::assertFalse(condition: $client->isDeleted());
+    self::assertSame(expected: $record->createdAt, actual: $client->createdAt());
+    self::assertNull(actual: $client->deletedAt());
+    self::assertFalse(condition: $client->hasRecordedEvents());
+    self::assertFalse(condition: $client->validateRedirectUri(new RedirectUri(value: 'https://other.example/callback')));
+    self::assertFalse(condition: $client->supportsGrantType(GrantType::REFRESH_TOKEN));
+    self::assertFalse(condition: $client->hasScope(Scope::WRITE));
   }
 
   /**
@@ -110,7 +117,17 @@ final class ClientMapperTest extends TestCase
     $client = ClientMapper::toDomain(record: $record);
 
     self::assertTrue(condition: $client->isDeleted());
-    self::assertInstanceOf(expected: DateTimeImmutable::class, actual: $client->deletedAt());
+    self::assertFalse(condition: $client->isActive());
+    self::assertSame(expected: $record->deletedAt, actual: $client->deletedAt());
+    self::assertFalse(condition: $client->hasRecordedEvents());
+
+    $client->delete(new TestEventIdProvider());
+    self::assertFalse(condition: $client->hasRecordedEvents());
+
+    $restoredRecord = ClientMapper::toRecord(client: $client);
+    self::assertSame(expected: $record->isActive, actual: $restoredRecord->isActive);
+    self::assertSame(expected: $record->createdAt, actual: $restoredRecord->createdAt);
+    self::assertSame(expected: $record->deletedAt, actual: $restoredRecord->deletedAt);
   }
 
   /**
@@ -178,7 +195,12 @@ final class ClientMapperTest extends TestCase
     self::assertSame(expected: $originalClient->name()->value, actual: $mappedClient->name()->value);
     self::assertSame(expected: $originalClient->secret()->value, actual: $mappedClient->secret()->value);
     self::assertSame(expected: $originalClient->redirectUris(), actual: $mappedClient->redirectUris());
+    self::assertSame(expected: $originalClient->grantTypes()->toArray(), actual: $mappedClient->grantTypes()->toArray());
+    self::assertSame(expected: $originalClient->scopes()->toArray(), actual: $mappedClient->scopes()->toArray());
     self::assertSame(expected: $originalClient->isActive(), actual: $mappedClient->isActive());
+    self::assertSame(expected: $originalClient->createdAt(), actual: $mappedClient->createdAt());
+    self::assertSame(expected: $originalClient->deletedAt(), actual: $mappedClient->deletedAt());
+    self::assertFalse(condition: $mappedClient->hasRecordedEvents());
   }
 
   #[Test]

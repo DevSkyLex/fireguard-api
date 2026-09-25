@@ -81,6 +81,38 @@ final class Consent
   }
 
   /**
+   * Restores a persisted consent without granting it again.
+   *
+   * @since 1.0.0
+   *
+   * @param ConsentId $id the stored consent ID
+   * @param string $userId the stored user ID
+   * @param string $clientId the stored client ID
+   * @param Scopes $scopes the stored scopes
+   * @param DateTimeImmutable $grantedAt the original grant time
+   * @param DateTimeImmutable|null $revokedAt the revocation time
+   *
+   * @return self the restored consent
+   */
+  public static function restore(
+    ConsentId $id,
+    string $userId,
+    string $clientId,
+    Scopes $scopes,
+    DateTimeImmutable $grantedAt,
+    ?DateTimeImmutable $revokedAt,
+  ): self {
+    return new self(
+      id: $id,
+      userId: $userId,
+      clientId: $clientId,
+      scopes: $scopes,
+      grantedAt: $grantedAt,
+      revokedAt: $revokedAt,
+    );
+  }
+
+  /**
    * Method id.
    *
    * Returns the consent ID.

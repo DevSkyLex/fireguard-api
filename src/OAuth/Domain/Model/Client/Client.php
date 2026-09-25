@@ -123,6 +123,39 @@ final class Client
   }
 
   /**
+   * Restores a persisted client without registering it again.
+   *
+   * @since 1.0.0
+   *
+   * @param ClientId $id the stored client ID
+   * @param ClientName $name the stored client name
+   * @param ClientSecret $secret the stored hashed secret
+   * @param RestoredClientSettings $settings the stored settings
+   * @param RestoredClientLifecycle $lifecycle the stored lifecycle
+   *
+   * @return self the restored client
+   */
+  public static function restore(
+    ClientId $id,
+    ClientName $name,
+    ClientSecret $secret,
+    RestoredClientSettings $settings,
+    RestoredClientLifecycle $lifecycle,
+  ): self {
+    return new self(
+      id: $id,
+      name: $name,
+      secret: $secret,
+      redirectUris: $settings->redirectUris,
+      grantTypes: $settings->grantTypes,
+      scopes: $settings->scopes,
+      isActive: $lifecycle->isActive,
+      createdAt: $lifecycle->createdAt,
+      deletedAt: $lifecycle->deletedAt,
+    );
+  }
+
+  /**
    * Method id.
    *
    * Returns the client ID.
