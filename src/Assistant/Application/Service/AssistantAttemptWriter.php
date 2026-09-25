@@ -43,7 +43,7 @@ final readonly class AssistantAttemptWriter
 
         return null;
       }
-      $message->markStreaming($now);
+      $message->markStreaming();
       $this->messages->save($message);
 
       return $message;
