@@ -57,30 +57,30 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
         'action' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by action',
+          description: self::FILTER_BY_ACTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'action', in: 'query', required: false, description: 'Filter by action', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'action', in: 'query', required: false, description: self::FILTER_BY_ACTION, schema: ['type' => 'string']),
         ),
         'actorType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by actor type',
+          description: self::FILTER_BY_ACTOR_TYPE,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'actorType', in: 'query', required: false, description: 'Filter by actor type', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'actorType', in: 'query', required: false, description: self::FILTER_BY_ACTOR_TYPE, schema: ['type' => 'string']),
         ),
         'actorId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by actor id',
+          description: self::FILTER_BY_ACTOR_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'actorId', in: 'query', required: false, description: 'Filter by actor id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'actorId', in: 'query', required: false, description: self::FILTER_BY_ACTOR_ID, schema: ['type' => 'string']),
         ),
         'actorEmailHash' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -93,66 +93,66 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
         'subjectType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by subject type',
+          description: self::FILTER_BY_SUBJECT_TYPE,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'subjectType', in: 'query', required: false, description: 'Filter by subject type', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'subjectType', in: 'query', required: false, description: self::FILTER_BY_SUBJECT_TYPE, schema: ['type' => 'string']),
         ),
         'subjectId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by subject id',
+          description: self::FILTER_BY_SUBJECT_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'subjectId', in: 'query', required: false, description: 'Filter by subject id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'subjectId', in: 'query', required: false, description: self::FILTER_BY_SUBJECT_ID, schema: ['type' => 'string']),
         ),
         'clientId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by client id',
+          description: self::FILTER_BY_CLIENT_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'clientId', in: 'query', required: false, description: 'Filter by client id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'clientId', in: 'query', required: false, description: self::FILTER_BY_CLIENT_ID, schema: ['type' => 'string']),
         ),
         'tenantId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by tenant id',
+          description: self::FILTER_BY_TENANT_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'tenantId', in: 'query', required: false, description: 'Filter by tenant id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'tenantId', in: 'query', required: false, description: self::FILTER_BY_TENANT_ID, schema: ['type' => 'string']),
         ),
         'ipHash' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by IP hash',
+          description: self::FILTER_BY_IP_HASH,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'ipHash', in: 'query', required: false, description: 'Filter by IP hash', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'ipHash', in: 'query', required: false, description: self::FILTER_BY_IP_HASH, schema: ['type' => 'string']),
         ),
         'from' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'Start datetime (ISO 8601)',
+          description: self::START_DATETIME,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'from', in: 'query', required: false, description: 'Start datetime (ISO 8601)', schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'from', in: 'query', required: false, description: self::START_DATETIME, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
         'to' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'End datetime (ISO 8601)',
+          description: self::END_DATETIME,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'to', in: 'query', required: false, description: 'End datetime (ISO 8601)', schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'to', in: 'query', required: false, description: self::END_DATETIME, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
       ],
       openapi: new Operation(
@@ -203,93 +203,93 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       parameters: [
         'action' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by action',
+          description: self::FILTER_BY_ACTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'action', in: 'query', required: false, description: 'Filter by action', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'action', in: 'query', required: false, description: self::FILTER_BY_ACTION, schema: ['type' => 'string']),
         ),
         'actorType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by actor type',
+          description: self::FILTER_BY_ACTOR_TYPE,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'actorType', in: 'query', required: false, description: 'Filter by actor type', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'actorType', in: 'query', required: false, description: self::FILTER_BY_ACTOR_TYPE, schema: ['type' => 'string']),
         ),
         'actorId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by actor id',
+          description: self::FILTER_BY_ACTOR_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'actorId', in: 'query', required: false, description: 'Filter by actor id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'actorId', in: 'query', required: false, description: self::FILTER_BY_ACTOR_ID, schema: ['type' => 'string']),
         ),
         'subjectType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by subject type',
+          description: self::FILTER_BY_SUBJECT_TYPE,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'subjectType', in: 'query', required: false, description: 'Filter by subject type', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'subjectType', in: 'query', required: false, description: self::FILTER_BY_SUBJECT_TYPE, schema: ['type' => 'string']),
         ),
         'subjectId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by subject id',
+          description: self::FILTER_BY_SUBJECT_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'subjectId', in: 'query', required: false, description: 'Filter by subject id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'subjectId', in: 'query', required: false, description: self::FILTER_BY_SUBJECT_ID, schema: ['type' => 'string']),
         ),
         'clientId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by client id',
+          description: self::FILTER_BY_CLIENT_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'clientId', in: 'query', required: false, description: 'Filter by client id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'clientId', in: 'query', required: false, description: self::FILTER_BY_CLIENT_ID, schema: ['type' => 'string']),
         ),
         'tenantId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by tenant id',
+          description: self::FILTER_BY_TENANT_ID,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'tenantId', in: 'query', required: false, description: 'Filter by tenant id', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'tenantId', in: 'query', required: false, description: self::FILTER_BY_TENANT_ID, schema: ['type' => 'string']),
         ),
         'ipHash' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by IP hash',
+          description: self::FILTER_BY_IP_HASH,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'ipHash', in: 'query', required: false, description: 'Filter by IP hash', schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'ipHash', in: 'query', required: false, description: self::FILTER_BY_IP_HASH, schema: ['type' => 'string']),
         ),
         'from' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'Start datetime (ISO 8601)',
+          description: self::START_DATETIME,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'from', in: 'query', required: false, description: 'Start datetime (ISO 8601)', schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'from', in: 'query', required: false, description: self::START_DATETIME, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
         'to' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'End datetime (ISO 8601)',
+          description: self::END_DATETIME,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'to', in: 'query', required: false, description: 'End datetime (ISO 8601)', schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'to', in: 'query', required: false, description: self::END_DATETIME, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
       ],
       openapi: new Operation(
@@ -315,4 +315,23 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class AuditEventResource
 {
+  private const FILTER_BY_ACTION = 'Filter by action';
+
+  private const FILTER_BY_ACTOR_TYPE = 'Filter by actor type';
+
+  private const FILTER_BY_ACTOR_ID = 'Filter by actor id';
+
+  private const FILTER_BY_SUBJECT_TYPE = 'Filter by subject type';
+
+  private const FILTER_BY_SUBJECT_ID = 'Filter by subject id';
+
+  private const FILTER_BY_CLIENT_ID = 'Filter by client id';
+
+  private const FILTER_BY_TENANT_ID = 'Filter by tenant id';
+
+  private const FILTER_BY_IP_HASH = 'Filter by IP hash';
+
+  private const START_DATETIME = 'Start datetime (ISO 8601)';
+
+  private const END_DATETIME = 'End datetime (ISO 8601)';
 }
