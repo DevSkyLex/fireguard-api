@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
@@ -37,16 +38,17 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->with(
         $organizationId,
         false,
-        'site',
-        'active',
-        '550e8400-e29b-41d4-a716-446655441803',
-        'SITE-001',
-        'hq',
+        new FacilityListCriteria(
+          type: 'site',
+          status: 'active',
+          parentFacilityId: '550e8400-e29b-41d4-a716-446655441803',
+          code: 'SITE-001',
+          search: 'hq',
+          hasCoordinates: true,
+        ),
         new Sorting('createdAt', SortDirection::DESC),
         15,
         30,
-        false,
-        true,
       )
       ->willReturn([$activeFacility]);
     $repository->expects(self::once())
@@ -54,13 +56,14 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->with(
         $organizationId,
         false,
-        'site',
-        'active',
-        '550e8400-e29b-41d4-a716-446655441803',
-        'SITE-001',
-        'hq',
-        false,
-        true,
+        new FacilityListCriteria(
+          type: 'site',
+          status: 'active',
+          parentFacilityId: '550e8400-e29b-41d4-a716-446655441803',
+          code: 'SITE-001',
+          search: 'hq',
+          hasCoordinates: true,
+        ),
       )
       ->willReturn(4);
     $repository->expects(self::once())
@@ -109,16 +112,10 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->with(
         $organizationId,
         false,
-        null,
-        null,
-        null,
-        null,
-        null,
+        new FacilityListCriteria(hasCoordinates: false),
         new Sorting('name', SortDirection::ASC),
         20,
         0,
-        false,
-        false,
       )
       ->willReturn([]);
     $repository->expects(self::once())
@@ -126,13 +123,7 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->with(
         $organizationId,
         false,
-        null,
-        null,
-        null,
-        null,
-        null,
-        false,
-        false,
+        new FacilityListCriteria(hasCoordinates: false),
       )
       ->willReturn(0);
     $repository->expects(self::once())

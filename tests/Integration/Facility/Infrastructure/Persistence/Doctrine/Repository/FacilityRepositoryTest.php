@@ -6,6 +6,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -56,21 +57,21 @@ final class FacilityRepositoryTest extends KernelTestCase
 
     $roots = $repository->findByOrganizationId(
       organizationId: new FacilityOrganizationId($organization->id),
+      criteria: new FacilityListCriteria(rootsOnly: true),
       limit: 20,
       offset: 0,
-      rootsOnly: true,
     );
 
     self::assertCount(1, $roots);
     self::assertSame('550e8400-e29b-41d4-a716-446655443010', (string) $roots[0]->id());
     self::assertSame(1, $repository->countByOrganizationId(
       organizationId: new FacilityOrganizationId($organization->id),
-      rootsOnly: true,
+      criteria: new FacilityListCriteria(rootsOnly: true),
     ));
     self::assertSame(2, $repository->countByOrganizationId(
       organizationId: new FacilityOrganizationId($organization->id),
       includeArchived: true,
-      rootsOnly: true,
+      criteria: new FacilityListCriteria(rootsOnly: true),
     ));
   }
 
@@ -97,28 +98,28 @@ final class FacilityRepositoryTest extends KernelTestCase
 
     $withCoordinates = $repository->findByOrganizationId(
       organizationId: $organizationId,
+      criteria: new FacilityListCriteria(hasCoordinates: true),
       limit: 20,
       offset: 0,
-      hasCoordinates: true,
     );
     self::assertCount(1, $withCoordinates);
     self::assertSame($placed->id, (string) $withCoordinates[0]->id());
     self::assertSame(1, $repository->countByOrganizationId(
       organizationId: $organizationId,
-      hasCoordinates: true,
+      criteria: new FacilityListCriteria(hasCoordinates: true),
     ));
 
     $withoutCoordinates = $repository->findByOrganizationId(
       organizationId: $organizationId,
+      criteria: new FacilityListCriteria(hasCoordinates: false),
       limit: 20,
       offset: 0,
-      hasCoordinates: false,
     );
     self::assertCount(1, $withoutCoordinates);
     self::assertSame('550e8400-e29b-41d4-a716-446655443015', (string) $withoutCoordinates[0]->id());
     self::assertSame(1, $repository->countByOrganizationId(
       organizationId: $organizationId,
-      hasCoordinates: false,
+      criteria: new FacilityListCriteria(hasCoordinates: false),
     ));
 
     $all = $repository->findByOrganizationId(
@@ -365,14 +366,14 @@ final class FacilityRepositoryTest extends KernelTestCase
     $repository = new FacilityRepository($this->entityManager);
     $organizationId = new FacilityOrganizationId($organization->id);
 
-    $results = $repository->findByOrganizationId(organizationId: $organizationId, search: 'a_b');
+    $results = $repository->findByOrganizationId(organizationId: $organizationId, criteria: new FacilityListCriteria(search: 'a_b'));
 
     self::assertCount(1, $results);
     self::assertSame($literalMatch->id, (string) $results[0]->id());
-    self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, search: 'a_b'));
+    self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, criteria: new FacilityListCriteria(search: 'a_b')));
 
     // Case-insensitive, partial match against the name field.
-    self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, search: 'UNRELATED'));
+    self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, criteria: new FacilityListCriteria(search: 'UNRELATED')));
   }
 
   #[Test]

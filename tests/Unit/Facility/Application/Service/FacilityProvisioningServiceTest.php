@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\Service;
 
 use DateTimeImmutable;
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome};
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityProvisioningService;
@@ -67,7 +68,14 @@ final class FacilityProvisioningServiceTest extends TestCase
     $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
     $facilityRepository->expects(self::once())
       ->method('findByOrganizationId')
-      ->with(self::isInstanceOf(FacilityOrganizationId::class), false, null, null, null, 'HQ', null, self::isInstanceOf(Sorting::class), 1, 0)
+      ->with(
+        self::isInstanceOf(FacilityOrganizationId::class),
+        false,
+        new FacilityListCriteria(code: 'HQ'),
+        self::isInstanceOf(Sorting::class),
+        1,
+        0,
+      )
       ->willReturn([$parent]);
 
     $captured = null;

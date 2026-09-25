@@ -9,6 +9,7 @@ use DateTimeZone;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Exception\FacilityOrganizationNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
@@ -393,37 +394,19 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
    * @param bool $includeArchived whether archived facilities are included by default when no explicit status filter is provided
-   * @param ?string $type optional type filter
-   * @param ?string $status optional status filter
-   * @param ?string $parentFacilityId optional parent facility filter
-   * @param ?string $code optional exact code filter
-   * @param ?string $search optional text search applied before counting
-   * @param bool $rootsOnly whether only facilities without parent are counted
-   * @param ?bool $hasCoordinates when true, count only facilities with both latitude and longitude set; when false, count only facilities missing coordinates; null applies no coordinate filtering
+   * @param FacilityListCriteria $criteria filters applied before counting
    *
    * @return int the facilities count
    */
   public function countByOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $parentFacilityId = null,
-    ?string $code = null,
-    ?string $search = null,
-    bool $rootsOnly = false,
-    ?bool $hasCoordinates = null,
+    FacilityListCriteria $criteria = new FacilityListCriteria(),
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
       $includeArchived,
-      $type,
-      $status,
-      $parentFacilityId,
-      $code,
-      $search,
-      $rootsOnly,
-      $hasCoordinates,
+      $criteria,
     )
       ->select('COUNT(f.id)')
       ->getQuery()
@@ -512,11 +495,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     $rows = $this->createListQueryBuilder(
       $organizationId,
       $includeArchived,
-      null,
-      null,
-      null,
-      null,
-      null,
+      new FacilityListCriteria(),
     )
       ->select('f.type AS type, COUNT(f.id) AS facilityCount')
       ->groupBy('f.type')
@@ -683,36 +662,23 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
-   * @param bool $rootsOnly whether only facilities without parent are listed
-   * @param ?bool $hasCoordinates when true, list only facilities with both latitude and longitude set; when false, list only facilities missing coordinates; null applies no coordinate filtering
+   * @param FacilityListCriteria $criteria filters applied before pagination
    *
    * @return list<Facility> the facilities
    */
   public function findByOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $parentFacilityId = null,
-    ?string $code = null,
-    ?string $search = null,
+    FacilityListCriteria $criteria = new FacilityListCriteria(),
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
-    bool $rootsOnly = false,
-    ?bool $hasCoordinates = null,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createListQueryBuilder(
       $organizationId,
       $includeArchived,
-      $type,
-      $status,
-      $parentFacilityId,
-      $code,
-      $search,
-      $rootsOnly,
-      $hasCoordinates,
+      $criteria,
     )
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
@@ -1190,26 +1156,14 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    *
    * @param FacilityOrganizationId $organizationId the organization id value
    * @param bool $includeArchived the include archived value
-   * @param ?string $type the type value
-   * @param ?string $status the status value
-   * @param ?string $parentFacilityId the parent facility id value
-   * @param ?string $code the code value
-   * @param ?string $search the search value
-   * @param bool $rootsOnly the roots only value
-   * @param ?bool $hasCoordinates when true, keep only facilities with both latitude and longitude set; when false, keep only facilities missing coordinates; null applies no coordinate filtering
+   * @param FacilityListCriteria $criteria the filters shared by list and count
    *
    * @return QueryBuilder the create list query builder result
    */
   private function createListQueryBuilder(
     FacilityOrganizationId $organizationId,
     bool $includeArchived,
-    ?string $type,
-    ?string $status,
-    ?string $parentFacilityId,
-    ?string $code,
-    ?string $search,
-    bool $rootsOnly = false,
-    ?bool $hasCoordinates = null,
+    FacilityListCriteria $criteria,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -1222,43 +1176,43 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
-    if (null === $status && !$includeArchived) {
+    if (null === $criteria->status && !$includeArchived) {
       $queryBuilder
         ->andWhere('f.status = :activeStatus')
         ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
     }
 
-    if (null !== $type) {
+    if (null !== $criteria->type) {
       $queryBuilder
         ->andWhere('f.type = :type')
-        ->setParameter('type', $type);
+        ->setParameter('type', $criteria->type);
     }
 
-    if (null !== $status) {
+    if (null !== $criteria->status) {
       $queryBuilder
         ->andWhere('f.status = :status')
-        ->setParameter('status', $status);
+        ->setParameter('status', $criteria->status);
     }
 
-    if ($rootsOnly) {
+    if ($criteria->rootsOnly) {
       $queryBuilder->andWhere('f.parentFacility IS NULL');
-    } elseif (null !== $parentFacilityId) {
+    } elseif (null !== $criteria->parentFacilityId) {
       $queryBuilder
         ->andWhere('IDENTITY(f.parentFacility) = :parentFacilityId')
-        ->setParameter('parentFacilityId', $parentFacilityId);
+        ->setParameter('parentFacilityId', $criteria->parentFacilityId);
     }
 
-    if (null !== $code) {
+    if (null !== $criteria->code) {
       $queryBuilder
         ->andWhere('f.code = :code')
-        ->setParameter('code', $code);
+        ->setParameter('code', $criteria->code);
     }
 
-    if (true === $hasCoordinates) {
+    if (true === $criteria->hasCoordinates) {
       $queryBuilder
         ->andWhere('f.latitude IS NOT NULL')
         ->andWhere('f.longitude IS NOT NULL');
-    } elseif (false === $hasCoordinates) {
+    } elseif (false === $criteria->hasCoordinates) {
       $queryBuilder
         ->andWhere('(f.latitude IS NULL OR f.longitude IS NULL)');
     }
@@ -1266,7 +1220,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     TrigramSearchExpression::apply(
       $queryBuilder,
       'search',
-      $search,
+      $criteria->search,
       'f.name',
       'f.type',
       'f.code',
@@ -1300,11 +1254,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $this->createListQueryBuilder(
       $organizationId,
       $includeArchived,
-      null,
-      null,
-      (string) $facilityId,
-      null,
-      $search,
+      new FacilityListCriteria(parentFacilityId: (string) $facilityId, search: $search),
     );
   }
 
