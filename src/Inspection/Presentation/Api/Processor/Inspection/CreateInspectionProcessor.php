@@ -38,6 +38,7 @@ use Symfony\Component\HttpKernel\Exception\{
   ConflictHttpException,
   NotFoundHttpException
 };
+use Throwable;
 
 use function is_string;
 
@@ -160,17 +161,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
-        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     $output = $this->outputMapper->fromCreateResult($result);
@@ -180,6 +171,32 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     $output->revision = $assignment->revision;
 
     return $output;
+  }
+
+  /**
+   * Method mapMessengerException.
+   *
+   * Maps a wrapped command failure to its HTTP equivalent.
+   *
+   * @since 1.0.0
+   *
+   * @param MessengerRuntimeException $exception the wrapped command failure
+   *
+   * @return Throwable the mapped or original exception
+   */
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+    if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+      return new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**
