@@ -147,42 +147,9 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       return $promptError;
     }
 
-    $maxAgeValue = $this->readParam($request, 'max_age');
-    $maxAge = null;
-    if (null !== $maxAgeValue) {
-      if (!ctype_digit($maxAgeValue)) {
-        return $this->buildInvalidRequest('Invalid max_age parameter.');
-      }
-      $maxAge = (int) $maxAgeValue;
-    }
-
-    $requiresLogin = $this->requiresLogin($prompts);
-
-    $securityUser = $this->security->getUser();
-    if (!$securityUser instanceof SecurityUser) {
-      return $this->buildOidcError(
-        error: 'login_required',
-        description: 'Authentication required.',
-        status: Response::HTTP_UNAUTHORIZED,
-      );
-    }
-
-    if ($requiresLogin) {
-      return $this->buildOidcError(
-        error: 'login_required',
-        description: 'User authentication required.',
-        status: Response::HTTP_UNAUTHORIZED,
-      );
-    }
-
-    if (null !== $maxAge) {
-      if ($this->requiresRecentAuth($securityUser->getId(), $maxAge)) {
-        return $this->buildOidcError(
-          error: 'login_required',
-          description: 'User authentication too old.',
-          status: Response::HTTP_UNAUTHORIZED,
-        );
-      }
+    $securityUser = $this->validateAuthorizationUser($request, $prompts);
+    if ($securityUser instanceof JsonResponse) {
+      return $securityUser;
     }
 
     $requestedScopes = $this->extractScopeIdentifiers($authorizationRequest->getScopes());
@@ -232,6 +199,46 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     $this->storeNonceFromResponse($request, $psrResponse);
 
     return $this->convertPsrResponse($psrResponse);
+  }
+
+  /**
+   * @param list<string> $prompts
+   */
+  private function validateAuthorizationUser(Request $request, array $prompts): SecurityUser|JsonResponse
+  {
+    $maxAgeValue = $this->readParam($request, 'max_age');
+    $maxAge = null;
+    if (null !== $maxAgeValue) {
+      if (!ctype_digit($maxAgeValue)) {
+        return $this->buildInvalidRequest('Invalid max_age parameter.');
+      }
+      $maxAge = (int) $maxAgeValue;
+    }
+
+    $securityUser = $this->security->getUser();
+    if (!$securityUser instanceof SecurityUser) {
+      return $this->buildOidcError(
+        error: 'login_required',
+        description: 'Authentication required.',
+        status: Response::HTTP_UNAUTHORIZED,
+      );
+    }
+    if ($this->requiresLogin($prompts)) {
+      return $this->buildOidcError(
+        error: 'login_required',
+        description: 'User authentication required.',
+        status: Response::HTTP_UNAUTHORIZED,
+      );
+    }
+    if (null !== $maxAge && $this->requiresRecentAuth($securityUser->getId(), $maxAge)) {
+      return $this->buildOidcError(
+        error: 'login_required',
+        description: 'User authentication too old.',
+        status: Response::HTTP_UNAUTHORIZED,
+      );
+    }
+
+    return $securityUser;
   }
 
   private function buildAuthorizationRequest(Request $request): ServerRequest
