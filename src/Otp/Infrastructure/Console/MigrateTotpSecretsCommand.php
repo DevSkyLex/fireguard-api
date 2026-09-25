@@ -7,9 +7,9 @@ namespace Otp\Infrastructure\Console;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Otp\Application\Port\Outbound\Totp\TotpSecretCipherPort;
+use Otp\Infrastructure\Exception\TotpSecretMigrationException;
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
-use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{InputInterface, InputOption};
@@ -85,7 +85,7 @@ final class MigrateTotpSecretsCommand extends Command
         foreach ($ids as $id) {
           $record = $this->entityManager->find(TotpEnrollmentRecord::class, $id);
           if (null === $record) {
-            throw new RuntimeException('A locked TOTP enrollment could not be read.');
+            throw new TotpSecretMigrationException('A locked TOTP enrollment could not be read.');
           }
           $this->entityManager->refresh($record);
           $before = $this->mapper->toDomain($record);
@@ -99,7 +99,7 @@ final class MigrateTotpSecretsCommand extends Command
               $this->mapper->toRecord($before, $record);
               $after = $this->mapper->toDomain($record);
               if ($before->activeSecret()?->secret !== $after->activeSecret()?->secret || $before->pendingSecret()?->secret !== $after->pendingSecret()?->secret) {
-                throw new RuntimeException('Verification of migrated TOTP secrets failed.');
+                throw new TotpSecretMigrationException('Verification of migrated TOTP secrets failed.');
               }
             }
           }

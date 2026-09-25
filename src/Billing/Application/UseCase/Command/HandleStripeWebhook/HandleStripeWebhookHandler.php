@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Billing\Application\UseCase\Command\HandleStripeWebhook;
 
 use Billing\Application\Contract\Stripe\{StripeEvent, StripeSubscription};
+use Billing\Application\Exception\StripeSubscriptionReconciliationException;
 use Billing\Application\Port\Outbound\{BillingReconciliationPort, OrganizationPlanAssignmentPort, StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};
 use DateTimeImmutable;
-use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\{CommandHandler, VoidResult};
 use Shared\Application\Port\Outbound\LoggerPort;
@@ -81,7 +81,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
 
   private function reconcile(string $organizationId, StripeEvent $event, ?Subscription $subscription): void
   {
-    $customerId = $event->customerId ?? throw new RuntimeException('Missing Stripe customer.');
+    $customerId = $event->customerId ?? throw new StripeSubscriptionReconciliationException('Missing Stripe customer.');
     $current = $this->currentSubscription($organizationId, $customerId, $event->liveMode);
     if (null === $current) {
       // Only a complete remote read can establish absence. A failed read
@@ -99,7 +99,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     if (null === $mapping) {
       // Allow Stripe to retry after a catalog/configuration repair instead of
       // acknowledging an event whose current state has not been reconciled.
-      throw new RuntimeException('The current Stripe subscription price is not configured.');
+      throw new StripeSubscriptionReconciliationException('The current Stripe subscription price is not configured.');
     }
     $status = SubscriptionStatus::fromStripe($current->status);
     if (null === $subscription) {
@@ -125,7 +125,7 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
     foreach ($subscriptions as $subscription) {
       if ($subscription->customerId !== $customerId || $subscription->liveMode !== $liveMode
         || (null !== $subscription->organizationId && $subscription->organizationId !== $organizationId)) {
-        throw new RuntimeException('The current Stripe subscription does not match the verified scope.');
+        throw new StripeSubscriptionReconciliationException('The current Stripe subscription does not match the verified scope.');
       }
     }
 

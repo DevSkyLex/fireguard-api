@@ -8,10 +8,10 @@ use Auth\Application\Contract\Federation\{FederatedAuthorization, FederatedProfi
 use Auth\Application\Port\Outbound\Federation\FederatedProviderClientPort;
 use Auth\Domain\Exception\Federation\FederatedAuthException;
 use Auth\Domain\ValueObject\Federation\FederatedProvider;
+use Auth\Infrastructure\Exception\FederatedProviderFailureException;
 use GuzzleHttp\Client;
 use League\OAuth2\Client\Provider\AbstractProvider;
 use League\OAuth2\Client\Token\AccessToken;
-use RuntimeException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function filter_var;
@@ -76,7 +76,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     $codeVerifier = $client->getPkceCode();
 
     if (!is_string($codeVerifier) || '' === $codeVerifier) {
-      throw new RuntimeException('The identity provider did not create a PKCE verifier.');
+      throw new FederatedProviderFailureException('The identity provider did not create a PKCE verifier.');
     }
 
     return new FederatedAuthorization($authorizationUrl, $codeVerifier);
@@ -92,7 +92,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
     $client->setPkceCode($codeVerifier);
     $token = $client->getAccessToken('authorization_code', ['code' => $code]);
     if (!$token instanceof AccessToken) {
-      throw new RuntimeException('The identity provider returned an unsupported access token.');
+      throw new FederatedProviderFailureException('The identity provider returned an unsupported access token.');
     }
     /** @var array<string, mixed> $claims */
     $claims = $client->getResourceOwner($token)->toArray();
@@ -124,7 +124,7 @@ final readonly class LeagueFederatedProviderAdapter implements FederatedProvider
   private function client(FederatedProvider $provider, string $redirectUri): AbstractProvider
   {
     if (!$this->isEnabled($provider)) {
-      throw new RuntimeException('The requested identity provider is unavailable.');
+      throw new FederatedProviderFailureException('The requested identity provider is unavailable.');
     }
 
     return match ($provider) {
