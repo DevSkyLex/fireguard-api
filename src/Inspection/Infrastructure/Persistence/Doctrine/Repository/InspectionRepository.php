@@ -37,6 +37,16 @@ use function strtoupper;
  */
 final readonly class InspectionRepository implements InspectionRepositoryPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 'i.organization = :organization';
+
+  private const string STATUS_PREDICATE = 'i.status = :status';
+
+  private const string RESULT_PREDICATE = 'i.result = :result';
+
+  private const string INSPECTOR_TYPE_PREDICATE = 'i.inspectorType = :inspectorType';
+  // #endregion
+
   /**
    * @var EntityRepository<InspectionRecord>
    */
@@ -491,7 +501,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
         'COALESCE(SUM(CASE WHEN i.result = :partialResult THEN 1 ELSE 0 END), 0) AS partial',
       )
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('draftStatus', 'draft')
       ->setParameter('submittedStatus', 'submitted')
@@ -501,13 +511,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->setParameter('partialResult', 'partial');
 
     if (null !== $status) {
-      $queryBuilder->andWhere('i.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
     if (null !== $result) {
-      $queryBuilder->andWhere('i.result = :result')->setParameter('result', $result);
+      $queryBuilder->andWhere(self::RESULT_PREDICATE)->setParameter('result', $result);
     }
     if (null !== $inspectorType) {
-      $queryBuilder->andWhere('i.inspectorType = :inspectorType')->setParameter('inspectorType', $inspectorType);
+      $queryBuilder->andWhere(self::INSPECTOR_TYPE_PREDICATE)->setParameter('inspectorType', $inspectorType);
     }
 
     /** @var array{total?: int|string|null, draft?: int|string|null, submitted?: int|string|null, closed?: int|string|null, pass?: int|string|null, fail?: int|string|null, partial?: int|string|null} $row */
@@ -753,7 +763,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
         'COALESCE(SUM(CASE WHEN i.result = :partialResult THEN 1 ELSE 0 END), 0) AS partial',
       )
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('i.performedAt >= :performedAtFrom')
       ->andWhere('i.performedAt <= :performedAtTo')
       ->setParameter('organization', $organization)
@@ -765,13 +775,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->setParameter('partialResult', 'partial');
 
     if (null !== $status) {
-      $queryBuilder->andWhere('i.status = :status')->setParameter('status', $status);
+      $queryBuilder->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
     if (null !== $result) {
-      $queryBuilder->andWhere('i.result = :result')->setParameter('result', $result);
+      $queryBuilder->andWhere(self::RESULT_PREDICATE)->setParameter('result', $result);
     }
     if (null !== $inspectorType) {
-      $queryBuilder->andWhere('i.inspectorType = :inspectorType')->setParameter('inspectorType', $inspectorType);
+      $queryBuilder->andWhere(self::INSPECTOR_TYPE_PREDICATE)->setParameter('inspectorType', $inspectorType);
     }
 
     /** @var array{total?: int|string|null, closed?: int|string|null, pass?: int|string|null, fail?: int|string|null, partial?: int|string|null} $row */
@@ -826,7 +836,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('i')
       ->from(InspectionRecord::class, 'i')
-      ->where('i.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('i.recordStatus = :publishedRecordStatus')
       ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
@@ -845,13 +855,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
 
     if (null !== $result) {
       $queryBuilder
-        ->andWhere('i.result = :result')
+        ->andWhere(self::RESULT_PREDICATE)
         ->setParameter('result', $result);
     }
 
     if (null !== $status) {
       $queryBuilder
-        ->andWhere('i.status = :status')
+        ->andWhere(self::STATUS_PREDICATE)
         ->setParameter('status', $status);
     }
 
@@ -875,7 +885,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
 
     if (null !== $inspectorType) {
       $queryBuilder
-        ->andWhere('i.inspectorType = :inspectorType')
+        ->andWhere(self::INSPECTOR_TYPE_PREDICATE)
         ->setParameter('inspectorType', $inspectorType);
     }
 

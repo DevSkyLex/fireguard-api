@@ -32,6 +32,8 @@ use function sprintf;
  */
 final readonly class InspectionInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
+  private const string INTERVENTION_PREDICATE = 'record.interventionId = :interventionId';
+
   private const PATCHABLE_FIELDS = ['result', 'status', 'notes', 'signature'];
 
   private const RESULTS = ['pass', 'fail', 'partial'];
@@ -309,7 +311,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ->update(InspectionRecord::class, 'record')
       ->set('record.recordStatus', ':published')
       ->set('record.revision', 'record.revision + 1')
-      ->where('record.interventionId = :interventionId')
+      ->where(self::INTERVENTION_PREDICATE)
       ->setParameter('published', 'published')
       ->setParameter('interventionId', $interventionId)
       ->getQuery()
@@ -318,7 +320,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ->update(InspectionResponseRecord::class, 'record')
       ->set('record.recordStatus', ':published')
       ->set('record.revision', 'record.revision + 1')
-      ->where('record.interventionId = :interventionId')
+      ->where(self::INTERVENTION_PREDICATE)
       ->setParameter('published', 'published')
       ->setParameter('interventionId', $interventionId)
       ->getQuery()
@@ -340,7 +342,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   {
     $this->entityManager->createQueryBuilder()
       ->delete(InspectionResponseRecord::class, 'record')
-      ->where('record.interventionId = :interventionId')
+      ->where(self::INTERVENTION_PREDICATE)
       ->andWhere('record.recordStatus = :draft')
       ->setParameter('interventionId', $interventionId)
       ->setParameter('draft', 'draft')
@@ -348,7 +350,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ->execute();
     $this->entityManager->createQueryBuilder()
       ->delete(InspectionRecord::class, 'record')
-      ->where('record.interventionId = :interventionId')
+      ->where(self::INTERVENTION_PREDICATE)
       ->andWhere('record.recordStatus = :draft')
       ->setParameter('interventionId', $interventionId)
       ->setParameter('draft', 'draft')

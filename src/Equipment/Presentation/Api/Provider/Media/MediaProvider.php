@@ -29,6 +29,10 @@ use function is_string;
  */
 final readonly class MediaProvider implements ProviderInterface
 {
+  // #region Constants
+  private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -64,11 +68,11 @@ final readonly class MediaProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $id);
     if (!$record instanceof EquipmentAttachmentRecord || null === $record->equipment?->organization) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -77,7 +81,7 @@ final readonly class MediaProvider implements ProviderInterface
 
     $decision = $this->authorization->resolveAccess($user->getId(), $record->equipment->organization->id, 'organization.equipment.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');

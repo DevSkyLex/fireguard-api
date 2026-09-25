@@ -136,7 +136,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       'userId' => '21434c1d-0e91-4c89-a3bf-8f67b2d61f9d',
       'roleReference' => self::MEMBER_ROLE_REFERENCE,
       'isActive' => false,
-      'joinedAt' => '2026-03-10T09:00:00+00:00',
+      'joinedAt' => self::STAFF_JOINED_AT,
     ],
     [
       'reference' => 'organization-seed-locked-member',
@@ -275,7 +275,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       'legalType' => 'sole_proprietorship',
       'planId' => PlanFixtures::FREE_PLAN_ID,
       'ownerReference' => UserFixtures::VIGILANCE_OWNER_REFERENCE,
-      'createdAt' => '2026-03-01T09:00:00+00:00',
+      'createdAt' => self::MARCH_FIRST_AT,
       'extraMemberIndexes' => '5',
     ],
     [
@@ -305,6 +305,10 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       'extraMemberIndexes' => '',
     ],
   ];
+
+  private const string STAFF_JOINED_AT = '2026-03-10T09:00:00+00:00';
+
+  private const string MARCH_FIRST_AT = '2026-03-01T09:00:00+00:00';
 
   private const string OWNER_USER_ID = 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890';
 
@@ -487,8 +491,8 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $invitation->invitedByUserId = self::OWNER_USER_ID;
     $invitation->status = OrganizationInvitationStatus::PENDING->value;
     $invitation->expiresAt = SeedTimeline::at('2026-04-01T09:00:00+00:00');
-    $invitation->createdAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
-    $invitation->updatedAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
+    $invitation->createdAt = SeedTimeline::at(self::MARCH_FIRST_AT);
+    $invitation->updatedAt = SeedTimeline::at(self::MARCH_FIRST_AT);
     $manager->persist($invitation);
     $this->addReference(self::INVITATION_REFERENCE, $invitation);
 
@@ -510,9 +514,9 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $acceptedInvitation->acceptedByUserId = '21434c1d-0e91-4c89-a3bf-8f67b2d61f9d';
     $acceptedInvitation->status = OrganizationInvitationStatus::ACCEPTED->value;
     $acceptedInvitation->expiresAt = SeedTimeline::at('2026-04-05T09:00:00+00:00');
-    $acceptedInvitation->acceptedAt = SeedTimeline::at('2026-03-10T09:00:00+00:00');
+    $acceptedInvitation->acceptedAt = SeedTimeline::at(self::STAFF_JOINED_AT);
     $acceptedInvitation->createdAt = SeedTimeline::at('2026-03-06T09:00:00+00:00');
-    $acceptedInvitation->updatedAt = SeedTimeline::at('2026-03-10T09:00:00+00:00');
+    $acceptedInvitation->updatedAt = SeedTimeline::at(self::STAFF_JOINED_AT);
     $manager->persist($acceptedInvitation);
 
     $acceptedInvitationAssignment = new OrganizationInvitationRoleRecord();

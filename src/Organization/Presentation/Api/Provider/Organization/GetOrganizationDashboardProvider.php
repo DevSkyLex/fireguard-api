@@ -76,6 +76,8 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   // #endregion
 
   // region Constants
+  private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
+
   /**
    * @var list<array{source: string, metric: string, key: string, label: string}>
    */
@@ -372,7 +374,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
     if (!is_string($value)) {
       throw new BadRequestHttpException(sprintf(
-        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        self::INVALID_BOOLEAN_FILTER_MESSAGE,
         $name,
       ));
     }
@@ -380,7 +382,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $value = trim($value);
     if ('' === $value) {
       throw new BadRequestHttpException(sprintf(
-        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        self::INVALID_BOOLEAN_FILTER_MESSAGE,
         $name,
       ));
     }
@@ -391,7 +393,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     throw new BadRequestHttpException(sprintf(
-      'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+      self::INVALID_BOOLEAN_FILTER_MESSAGE,
       $name,
     ));
   }

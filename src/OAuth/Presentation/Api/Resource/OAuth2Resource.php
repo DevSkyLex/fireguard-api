@@ -240,7 +240,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       inputFormats: [
         'jsonld' => [self::CONTENT_TYPE_JSON_LD],
         'json' => [self::CONTENT_TYPE_JSON],
-        'form' => ['application/x-www-form-urlencoded'],
+        'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
       processor: IssueTokenProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
@@ -304,7 +304,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       inputFormats: [
         'jsonld' => [self::CONTENT_TYPE_JSON_LD],
         'json' => [self::CONTENT_TYPE_JSON],
-        'form' => ['application/x-www-form-urlencoded'],
+        'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
       processor: RevokeTokenProcessor::class,
       security: "is_granted('ROLE_USER')",
@@ -344,7 +344,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       inputFormats: [
         'jsonld' => [self::CONTENT_TYPE_JSON_LD],
         'json' => [self::CONTENT_TYPE_JSON],
-        'form' => ['application/x-www-form-urlencoded'],
+        'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
       processor: IntrospectTokenProcessor::class,
       security: "is_granted('ROLE_USER')",
@@ -484,7 +484,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       inputFormats: [
         'jsonld' => [self::CONTENT_TYPE_JSON_LD],
         'json' => [self::CONTENT_TYPE_JSON],
-        'form' => ['application/x-www-form-urlencoded'],
+        'form' => [self::FORM_URLENCODED_MEDIA_TYPE],
       ],
       processor: GrantConsentProcessor::class,
       denormalizationContext: ['groups' => [OAuthSerializationGroup::CONSENT_WRITE]],
@@ -608,5 +608,7 @@ final class OAuth2Resource
   private const string CONTENT_TYPE_JSON_LD = 'application/ld+json';
 
   private const string CONTENT_TYPE_JSON = 'application/json';
+
+  private const string FORM_URLENCODED_MEDIA_TYPE = 'application/x-www-form-urlencoded';
   // #endregion
 }

@@ -46,6 +46,10 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
 {
   use InvitationInvalidationTrait;
 
+  // #region Constants
+  private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
+  // #endregion
+
   private const string DEFAULT_MEMBER_ROLE = 'member';
 
   private const int DEFAULT_EXPIRATION_DAYS = 7;
@@ -103,7 +107,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
   public function __invoke(InviteOrganizationMemberCommand $command): InviteOrganizationMemberResult
   {
     if (null !== $command->setupContext && null === $this->setup) {
-      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+      throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
     $organizationId = OrganizationId::fromString($command->organizationId);
     $organization = $this->organizationRepository->findById($organizationId);
@@ -189,7 +193,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       &$replayed,
     ): InviteOrganizationMemberResult {
       if (null !== $command->setupContext) {
-        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'invite_members', $command->organizationId, ['email' => $command->email, 'roleIds' => $command->roleIds]);
+        $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'invite_members', $command->organizationId, ['email' => $command->email, 'roleIds' => $command->roleIds]);
         if (null !== $operation->resourceId) {
           $existing = $this->invitationRepository->findById(OrganizationInvitationId::fromString($operation->resourceId));
           if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
@@ -244,7 +248,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
         ));
       }
       if (null !== $command->setupContext) {
-        ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'invite_members', (string) $invitation->id());
+        ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'invite_members', (string) $invitation->id());
       }
 
       return $this->buildResult($invitation, $acceptUrl);

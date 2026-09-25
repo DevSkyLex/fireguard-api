@@ -38,6 +38,10 @@ use function min;
  */
 final readonly class CanonicalEquipmentProvider implements ProviderInterface
 {
+  // #region Constants
+  private const string EQUIPMENT_NOT_FOUND_MESSAGE = 'Equipment not found.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -78,12 +82,12 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     if (is_string($id) && '' !== $id) {
       $record = $this->entityManager->find(EquipmentRecord::class, $id);
       if (!$record instanceof EquipmentRecord) {
-        throw new NotFoundHttpException('Equipment not found.');
+        throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
       }
       if (null === $record->organization) {
-        throw new NotFoundHttpException('Equipment not found.');
+        throw new NotFoundHttpException(self::EQUIPMENT_NOT_FOUND_MESSAGE);
       }
-      $this->assertRead($record->organization->id, 'Equipment not found.');
+      $this->assertRead($record->organization->id, self::EQUIPMENT_NOT_FOUND_MESSAGE);
 
       return $this->detail->read($record->organization->id, $record->id);
     }

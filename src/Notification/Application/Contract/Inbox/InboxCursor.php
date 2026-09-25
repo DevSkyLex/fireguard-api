@@ -25,6 +25,10 @@ use const JSON_THROW_ON_ERROR;
 /** Position in the total ordering: instant descending, source and identifier ascending. */
 final readonly class InboxCursor
 {
+  // #region Constants
+  private const string INVALID_CURSOR_MESSAGE = 'Invalid inbox cursor.';
+  // #endregion
+
   public function __construct(
     public DateTimeImmutable $occurredAt,
     public string $sourceKey,
@@ -48,7 +52,7 @@ final readonly class InboxCursor
   public static function decode(string $value): self
   {
     if (strlen($value) > 2048 || 1 !== preg_match('/^[A-Za-z0-9_-]+$/D', $value)) {
-      throw InvalidValueException::because('Invalid inbox cursor.');
+      throw InvalidValueException::because(self::INVALID_CURSOR_MESSAGE);
     }
     $json = base64_decode(strtr($value, '-_', '+/'), true);
 
@@ -62,11 +66,11 @@ final readonly class InboxCursor
       || 1 !== preg_match('/^[a-z][a-z0-9_.-]{0,127}$/D', $data['source'])
       || '' === $data['id'] || strlen($data['id']) > 128
       || 1 !== preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}[+-]\d{2}:\d{2}$/D', $data['at'])) {
-      throw InvalidValueException::because('Invalid inbox cursor.');
+      throw InvalidValueException::because(self::INVALID_CURSOR_MESSAGE);
     }
     $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s.uP', $data['at']);
     if (false === $date || $date->format('Y-m-d\TH:i:s.uP') !== $data['at']) {
-      throw InvalidValueException::because('Invalid inbox cursor.');
+      throw InvalidValueException::because(self::INVALID_CURSOR_MESSAGE);
     }
 
     return new self($date, $data['source'], $data['id']);

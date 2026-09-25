@@ -44,6 +44,8 @@ use function array_values;
  */
 final readonly class ConfirmEmailChangeHandler implements CommandHandler
 {
+  private const string INVALID_TOKEN_MESSAGE = 'Invalid or expired email change token.';
+
   // #region Constructor
   /**
    * Constructor.
@@ -105,7 +107,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
 
     if (null === $request) {
       return ConfirmEmailChangeResult::failed(
-        message: 'Invalid or expired email change token.',
+        message: self::INVALID_TOKEN_MESSAGE,
         errorCode: ConfirmEmailChangeResult::ERROR_INVALID_TOKEN,
       );
     }
@@ -114,7 +116,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
 
     if (null === $user) {
       return ConfirmEmailChangeResult::failed(
-        message: 'Invalid or expired email change token.',
+        message: self::INVALID_TOKEN_MESSAGE,
         errorCode: ConfirmEmailChangeResult::ERROR_INVALID_TOKEN,
       );
     }
@@ -134,7 +136,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
     // AFTER the user save succeeds, so a failed save cannot burn it.
     if ($request->isConfirmed() || $request->isExpired($now)) {
       return ConfirmEmailChangeResult::failed(
-        message: 'Invalid or expired email change token.',
+        message: self::INVALID_TOKEN_MESSAGE,
         errorCode: ConfirmEmailChangeResult::ERROR_INVALID_TOKEN,
       );
     }
@@ -166,7 +168,7 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
     // performs no revocation, no event, no notice.
     if (!$this->emailChangeRequests->confirmIfPending($request->id(), $now)) {
       return ConfirmEmailChangeResult::failed(
-        message: 'Invalid or expired email change token.',
+        message: self::INVALID_TOKEN_MESSAGE,
         errorCode: ConfirmEmailChangeResult::ERROR_INVALID_TOKEN,
       );
     }

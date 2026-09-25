@@ -30,6 +30,12 @@ use function sprintf;
  */
 final readonly class NotificationRepository implements NotificationRepositoryPort
 {
+  // #region Constants
+  private const string RECIPIENT_PREDICATE = 'n.recipientUserId = :userId';
+
+  private const string ORGANIZATION_PREDICATE = 'n.organizationId = :organizationId';
+  // #endregion
+
   // #region Properties
   /**
    * @var EntityRepository<NotificationRecord>
@@ -169,13 +175,13 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     $qb = $this->entityManager->createQueryBuilder()
       ->select('COUNT(n.id)')
       ->from(NotificationRecord::class, 'n')
-      ->andWhere('n.recipientUserId = :userId')
+      ->andWhere(self::RECIPIENT_PREDICATE)
       ->andWhere('n.isRead = :isRead')
       ->setParameter('userId', $userId)
       ->setParameter('isRead', false);
 
     if (null !== $organizationId) {
-      $qb->andWhere('n.organizationId = :organizationId')->setParameter('organizationId', $organizationId);
+      $qb->andWhere(self::ORGANIZATION_PREDICATE)->setParameter('organizationId', $organizationId);
     }
 
     return (int) $qb->getQuery()->getSingleScalarResult();
@@ -190,7 +196,7 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
       ->set('n.isRead', ':true')
       ->set('n.readAt', ':readAt')
       ->set('n.updatedAt', ':updatedAt')
-      ->where('n.recipientUserId = :userId')
+      ->where(self::RECIPIENT_PREDICATE)
       ->andWhere('n.isRead = :false')
       ->setParameter('userId', $userId)
       ->setParameter('true', true)
@@ -199,7 +205,7 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
       ->setParameter('updatedAt', $now);
 
     if (null !== $organizationId) {
-      $qb->andWhere('n.organizationId = :organizationId')->setParameter('organizationId', $organizationId);
+      $qb->andWhere(self::ORGANIZATION_PREDICATE)->setParameter('organizationId', $organizationId);
     }
 
     $result = $qb->getQuery()->execute();
@@ -240,7 +246,7 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     $qb = $this->entityManager->createQueryBuilder()
       ->select('n')
       ->from(NotificationRecord::class, 'n')
-      ->andWhere('n.recipientUserId = :userId')
+      ->andWhere(self::RECIPIENT_PREDICATE)
       ->setParameter('userId', $userId);
 
     if ($onlyUnread) {
@@ -252,7 +258,7 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     }
 
     if (null !== $organizationId) {
-      $qb->andWhere('n.organizationId = :organizationId')->setParameter('organizationId', $organizationId);
+      $qb->andWhere(self::ORGANIZATION_PREDICATE)->setParameter('organizationId', $organizationId);
     }
 
     if (null !== $type) {

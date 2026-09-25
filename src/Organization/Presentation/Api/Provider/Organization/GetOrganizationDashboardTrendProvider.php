@@ -60,6 +60,10 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
 {
   use UnwrapsOrganizationBusFailures;
 
+  // #region Constants
+  private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
+  // #endregion
+
   /**
    * @var array<string, string>
    */
@@ -438,7 +442,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     }
     if (!is_string($value)) {
       throw new BadRequestHttpException(sprintf(
-        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        self::INVALID_BOOLEAN_FILTER_MESSAGE,
         $name,
       ));
     }
@@ -446,7 +450,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $value = trim($value);
     if ('' === $value) {
       throw new BadRequestHttpException(sprintf(
-        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        self::INVALID_BOOLEAN_FILTER_MESSAGE,
         $name,
       ));
     }
@@ -457,7 +461,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     }
 
     throw new BadRequestHttpException(sprintf(
-      'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+      self::INVALID_BOOLEAN_FILTER_MESSAGE,
       $name,
     ));
   }

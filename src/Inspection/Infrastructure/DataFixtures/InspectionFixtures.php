@@ -33,6 +33,18 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
 
   public const string TREND_CHECKLIST_ID = 'e6f5fe61-910b-4cd0-8d09-72af38405c64';
 
+  private const string ADMIN_USER_NAME = 'Admin User';
+
+  private const string TEST_USER_NAME = 'Test User';
+
+  private const string EXTERNAL_SAFETY_SERVICES_NAME = 'External Safety Services';
+
+  private const string SAFE_CHECK_CONSULTANTS_NAME = 'SafeCheck Consultants';
+
+  private const string APRIL_ELEVENTH_DUE_AT = '2026-04-11T12:00:00+00:00';
+
+  private const string AQUAFIRE_MAINTENANCE_NAME = 'AquaFire Maintenance';
+
   public static function getGroups(): array
   {
     return ['inspection', 'main-seed'];
@@ -120,7 +132,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-05T09:00:00+00:00'),
@@ -137,7 +149,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-10T09:30:00+00:00'),
@@ -153,7 +165,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-14T11:00:00+00:00'),
@@ -169,13 +181,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'External Safety Services',
+      inspectorName: self::EXTERNAL_SAFETY_SERVICES_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-03-20T14:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Smoke detector signal did not trigger panel alert.',
-      inspectorOrganizationName: 'External Safety Services',
+      inspectorOrganizationName: self::EXTERNAL_SAFETY_SERVICES_NAME,
     );
     $manager->persist($failingInspection);
     $this->addReference(self::FAILING_INSPECTION_REFERENCE, $failingInspection);
@@ -186,13 +198,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'External Safety Services',
+      inspectorName: self::EXTERNAL_SAFETY_SERVICES_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-24T15:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Detector still failed the panel acknowledgment sequence.',
-      inspectorOrganizationName: 'External Safety Services',
+      inspectorOrganizationName: self::EXTERNAL_SAFETY_SERVICES_NAME,
     );
     $manager->persist($lateFailInspection);
 
@@ -202,7 +214,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-03-29T09:30:00+00:00'),
@@ -218,7 +230,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-01T08:30:00+00:00'),
@@ -234,7 +246,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $siteEmergencyLighting->id,
       facilityId: $site->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-04T08:00:00+00:00'),
@@ -250,13 +262,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $buildingFireDoor->id,
       facilityId: $building->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'SafeCheck Consultants',
+      inspectorName: self::SAFE_CHECK_CONSULTANTS_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-04-04T09:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Fire door closes correctly but the closer needs tension adjustment.',
-      inspectorOrganizationName: 'SafeCheck Consultants',
+      inspectorOrganizationName: self::SAFE_CHECK_CONSULTANTS_NAME,
     );
     $manager->persist($buildingFireDoorInspection);
 
@@ -266,7 +278,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $floorOneCamera->id,
       facilityId: $floorOne->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-04T10:15:00+00:00'),
@@ -282,13 +294,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $floorTwoGasDetector->id,
       facilityId: $floorTwo->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'External Safety Services',
+      inspectorName: self::EXTERNAL_SAFETY_SERVICES_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-04-04T11:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Gas detector calibration drift exceeded tolerance.',
-      inspectorOrganizationName: 'External Safety Services',
+      inspectorOrganizationName: self::EXTERNAL_SAFETY_SERVICES_NAME,
     );
     $manager->persist($floorTwoGasDetectorInspection);
 
@@ -312,7 +324,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       status: NonConformityStatus::IN_PROGRESS->value,
       createdAt: SeedTimeline::at('2026-04-04T11:20:00+00:00'),
       updatedAt: SeedTimeline::at('2026-04-04T11:20:00+00:00'),
-      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      dueAt: SeedTimeline::at(self::APRIL_ELEVENTH_DUE_AT),
       notes: 'Replacement sensor requested from vendor.',
     ));
 
@@ -346,14 +358,14 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
           equipmentId: $equipment->id,
           facilityId: $equipment->facilityId,
           inspectorType: $inspectorType,
-          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : (0 === $inspectionIndex % 2 ? 'Admin User' : 'Test User'),
+          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : (0 === $inspectionIndex % 2 ? self::ADMIN_USER_NAME : self::TEST_USER_NAME),
           result: $result,
           status: $status,
           performedAt: $performedAt,
           checklistId: $checklist->id,
           notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $seed['locationLabel']),
           inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
-          inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : null,
+          inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : null,
         );
         $manager->persist($inspection);
 
@@ -499,7 +511,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $hydrant->id,
       facilityId: null,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-10T10:00:00+00:00'),
@@ -516,13 +528,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-20T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Sprinkler head coverage confirmed, flow test passed.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($sprinklerPassInspection);
 
@@ -533,13 +545,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'SafeCheck Consultants',
+      inspectorName: self::SAFE_CHECK_CONSULTANTS_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-25T13:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Panel functional but event log exceeded manufacturer threshold.',
-      inspectorOrganizationName: 'SafeCheck Consultants',
+      inspectorOrganizationName: self::SAFE_CHECK_CONSULTANTS_NAME,
     );
     $manager->persist($alarmPanelInspection);
 
@@ -574,7 +586,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::DRAFT->value,
       performedAt: SeedTimeline::at('2026-03-18T08:00:00+00:00'),
@@ -591,7 +603,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $area->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-02T09:00:00+00:00'),
@@ -608,7 +620,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-04-03T07:30:00+00:00'),
@@ -639,7 +651,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-06T09:00:00+00:00'),
@@ -656,7 +668,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $detector->id,
       facilityId: $area->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-12T10:30:00+00:00'),
@@ -673,13 +685,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $hydrant->id,
       facilityId: null,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-19T14:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Hydrant coupling thread worn, pressure drop observed.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($janHydrantInspection);
 
@@ -702,7 +714,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-23T11:00:00+00:00'),
@@ -719,13 +731,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-01-28T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Post-installation commissioning test passed.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($janSprinklerInspection);
 
@@ -738,7 +750,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-05T08:30:00+00:00'),
@@ -755,7 +767,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $extinguisher->id,
       facilityId: $zone->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-02-14T10:00:00+00:00'),
@@ -786,7 +798,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $sprinkler->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Test User',
+      inspectorName: self::TEST_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-04T09:00:00+00:00'),
@@ -803,13 +815,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $alarmPanel->id,
       facilityId: $zoneB->id,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'SafeCheck Consultants',
+      inspectorName: self::SAFE_CHECK_CONSULTANTS_NAME,
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
       performedAt: SeedTimeline::at('2026-03-11T13:30:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Zone 2 failed to report to central panel during test sequence.',
-      inspectorOrganizationName: 'SafeCheck Consultants',
+      inspectorOrganizationName: self::SAFE_CHECK_CONSULTANTS_NAME,
     );
     $manager->persist($marAlarmFailInspection);
 
@@ -821,7 +833,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       status: NonConformityStatus::IN_PROGRESS->value,
       createdAt: SeedTimeline::at('2026-03-11T14:00:00+00:00'),
       updatedAt: SeedTimeline::at('2026-03-28T09:00:00+00:00'),
-      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      dueAt: SeedTimeline::at(self::APRIL_ELEVENTH_DUE_AT),
       notes: 'Wire pinched behind panel cabinet. Repair kit ordered.',
     ));
 
@@ -833,7 +845,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       status: NonConformityStatus::OPEN->value,
       createdAt: SeedTimeline::at('2026-03-11T14:05:00+00:00'),
       updatedAt: SeedTimeline::at('2026-03-11T14:05:00+00:00'),
-      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      dueAt: SeedTimeline::at(self::APRIL_ELEVENTH_DUE_AT),
       notes: 'Likely caused by same wiring fault. Pending repair validation.',
     ));
 
@@ -844,7 +856,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-17T10:00:00+00:00'),
@@ -873,13 +885,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $hydrant->id,
       facilityId: null,
       inspectorType: InspectorType::EXTERNAL->value,
-      inspectorName: 'AquaFire Maintenance',
+      inspectorName: self::AQUAFIRE_MAINTENANCE_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-03-26T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Post-repair validation passed. Coupling threads confirmed sound.',
-      inspectorOrganizationName: 'AquaFire Maintenance',
+      inspectorOrganizationName: self::AQUAFIRE_MAINTENANCE_NAME,
     );
     $manager->persist($marHydrantInspection);
 
@@ -892,7 +904,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       equipmentId: $heatDetector->id,
       facilityId: $storageRoom->id,
       inspectorType: InspectorType::USER->value,
-      inspectorName: 'Admin User',
+      inspectorName: self::ADMIN_USER_NAME,
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
       performedAt: SeedTimeline::at('2026-04-03T08:00:00+00:00'),

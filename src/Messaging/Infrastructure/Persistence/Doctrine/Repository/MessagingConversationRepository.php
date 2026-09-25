@@ -32,6 +32,16 @@ use function min;
  */
 final readonly class MessagingConversationRepository implements MessagingConversationRepositoryPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 'c.organization = :organization';
+
+  private const string ARCHIVED_PREDICATE = 'c.isArchived = :isArchived';
+
+  private const string CONVERSATION_COUNT_EXPRESSION = 'COUNT(c.id)';
+
+  private const string LAST_MESSAGE_NULL_ORDER_EXPRESSION = 'CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -126,7 +136,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     $qb = $this->entityManager->createQueryBuilder()
       ->select('c')
       ->from(MessagingConversationRecord::class, 'c')
-      ->where('c.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       // Channels are listed through listChannelsForMember() instead, and
       // direct conversations (L2.4) are private 1-to-1 threads that must
       // never surface through the organization-wide list, so both are
@@ -143,7 +153,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       $qb->andWhere('c.subjectId = :subjectId')->setParameter('subjectId', $subjectId);
     }
     if (null !== $isArchived) {
-      $qb->andWhere('c.isArchived = :isArchived')->setParameter('isArchived', $isArchived);
+      $qb->andWhere(self::ARCHIVED_PREDICATE)->setParameter('isArchived', $isArchived);
     }
     if (null !== $unreadForMemberId) {
       $qb->leftJoin(MessagingReadMarkerRecord::class, 'rm', 'WITH', 'rm.conversation = c AND rm.memberId = :unreadMemberId')
@@ -153,13 +163,13 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     }
 
     $total = (int) (clone $qb)
-      ->select('COUNT(c.id)')
+      ->select(self::CONVERSATION_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
     /** @var list<MessagingConversationRecord> $records */
     $records = $qb
-      ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
+      ->orderBy(self::LAST_MESSAGE_NULL_ORDER_EXPRESSION, 'ASC')
       ->addOrderBy('c.lastMessageAt', 'DESC')
       // Unique tiebreaker: conversations sharing a lastMessageAt (or all
       // sharing NULL) order arbitrarily otherwise, and LIMIT/OFFSET then
@@ -252,24 +262,24 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       ->select('c')
       ->from(MessagingConversationRecord::class, 'c')
       ->innerJoin(MessagingParticipantRecord::class, 'p', 'WITH', 'p.conversation = c AND p.memberId = :memberId')
-      ->where('c.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('c.subjectType = :channelType')
       ->setParameter('organization', $organization)
       ->setParameter('memberId', $memberId)
       ->setParameter('channelType', MessagingSubjectType::CHANNEL->value);
 
     if (null !== $isArchived) {
-      $qb->andWhere('c.isArchived = :isArchived')->setParameter('isArchived', $isArchived);
+      $qb->andWhere(self::ARCHIVED_PREDICATE)->setParameter('isArchived', $isArchived);
     }
 
     $total = (int) (clone $qb)
-      ->select('COUNT(c.id)')
+      ->select(self::CONVERSATION_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
     /** @var list<MessagingConversationRecord> $records */
     $records = $qb
-      ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
+      ->orderBy(self::LAST_MESSAGE_NULL_ORDER_EXPRESSION, 'ASC')
       ->addOrderBy('c.lastMessageAt', 'DESC')
       // Unique tiebreaker: conversations sharing a lastMessageAt (or all
       // sharing NULL) order arbitrarily otherwise, and LIMIT/OFFSET then
@@ -301,24 +311,24 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       ->select('c')
       ->from(MessagingConversationRecord::class, 'c')
       ->innerJoin(MessagingParticipantRecord::class, 'p', 'WITH', 'p.conversation = c AND p.memberId = :memberId')
-      ->where('c.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('c.subjectType = :directType')
       ->setParameter('organization', $organization)
       ->setParameter('memberId', $memberId)
       ->setParameter('directType', MessagingSubjectType::DIRECT->value);
 
     if (null !== $isArchived) {
-      $qb->andWhere('c.isArchived = :isArchived')->setParameter('isArchived', $isArchived);
+      $qb->andWhere(self::ARCHIVED_PREDICATE)->setParameter('isArchived', $isArchived);
     }
 
     $total = (int) (clone $qb)
-      ->select('COUNT(c.id)')
+      ->select(self::CONVERSATION_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
     /** @var list<MessagingConversationRecord> $records */
     $records = $qb
-      ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
+      ->orderBy(self::LAST_MESSAGE_NULL_ORDER_EXPRESSION, 'ASC')
       ->addOrderBy('c.lastMessageAt', 'DESC')
       // Unique tiebreaker: conversations sharing a lastMessageAt (or all
       // sharing NULL) order arbitrarily otherwise, and LIMIT/OFFSET then

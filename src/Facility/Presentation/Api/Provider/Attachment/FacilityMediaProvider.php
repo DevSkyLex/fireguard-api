@@ -40,6 +40,10 @@ final readonly class FacilityMediaProvider implements ProviderInterface
 {
   use MessengerExceptionUnwrapperTrait;
 
+  // #region Constants
+  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
+  // #endregion
+
   // #region Constructor
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -189,18 +193,18 @@ final readonly class FacilityMediaProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $record = $this->entityManager->find(FacilityAttachmentRecord::class, $id);
     if (!$record instanceof FacilityAttachmentRecord || null === $record->facility?->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $user = $this->user();
     $decision = $this->authorization->resolveAccess($user->getId(), $record->facility->organization->id, 'organization.facilities.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');

@@ -30,6 +30,10 @@ use ValueError;
  */
 final readonly class CreateEquipmentHandler implements CommandHandler
 {
+  // #region Constants
+  private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -71,7 +75,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
   public function __invoke(CreateEquipmentCommand $command): CreateEquipmentResult
   {
     if (null !== $command->setupContext && null === $this->setup) {
-      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+      throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
 
     if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
@@ -119,7 +123,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
     $equipment = $this->transactionManager->transactional(function () use ($command, $equipment): Equipment {
       if (null !== $command->setupContext) {
-        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
+        $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
           'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
           'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
           'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
@@ -143,7 +147,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
       $this->equipmentRepository->save($equipment);
       if (null !== $command->setupContext) {
-        ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_first_equipment', (string) $equipment->id());
+        ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_first_equipment', (string) $equipment->id());
       }
 
       return $equipment;

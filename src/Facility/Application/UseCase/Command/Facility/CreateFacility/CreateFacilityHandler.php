@@ -52,6 +52,10 @@ use function strtolower;
  */
 final readonly class CreateFacilityHandler implements CommandHandler
 {
+  // #region Constants
+  private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -97,7 +101,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
   public function __invoke(CreateFacilityCommand $command): CreateFacilityResult
   {
     if (null !== $command->setupContext && null === $this->setup) {
-      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+      throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
 
     if (null !== $command->setupContext && ($command->dryRun || null !== $command->resourceId)) {
@@ -176,7 +180,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     $replayed = false;
     $facility = $this->transactionManager->transactional(function () use ($command, $facility, $parentId, &$replayed): Facility {
       if (null !== $command->setupContext) {
-        $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_first_facility', $command->organizationId, [
+        $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_facility', $command->organizationId, [
           'type' => $command->type, 'name' => $command->name, 'address' => $command->address,
           'latitude' => $command->latitude, 'longitude' => $command->longitude, 'parentFacilityId' => $command->parentFacilityId,
           'code' => $command->code, 'metadata' => $command->metadata, 'levelIndex' => $command->levelIndex,
@@ -196,7 +200,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
       try {
         $this->facilityRepository->save($facility);
         if (null !== $command->setupContext) {
-          ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_first_facility', (string) $facility->id());
+          ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_first_facility', (string) $facility->id());
         }
       } catch (Throwable $exception) {
         if ($this->isDuplicateCodeConstraintViolation($exception)) {
