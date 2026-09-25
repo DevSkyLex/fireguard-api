@@ -328,82 +328,8 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       notes: 'Replacement sensor requested from vendor.',
     ));
 
-    $bulkInspectionIndex = 0;
-    $bulkNonConformityIndex = 0;
-    foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
-      /** @var EquipmentRecord $equipment */
-      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+    $this->seedAdditionalEquipmentInspections($manager, $organization, $checklist);
 
-      for ($inspectionIndex = 0; $inspectionIndex < 3; ++$inspectionIndex) {
-        $result = match (($equipmentIndex + $inspectionIndex) % 4) {
-          1 => InspectionResult::PARTIAL->value,
-          2 => InspectionResult::FAIL->value,
-          default => InspectionResult::PASS->value,
-        };
-        $status = InspectionResult::PASS->value === $result || 0 === $inspectionIndex
-          ? InspectionStatus::CLOSED->value
-          : InspectionStatus::SUBMITTED->value;
-        $inspectorType = 0 === ($equipmentIndex + $inspectionIndex) % 3
-          ? InspectorType::EXTERNAL->value
-          : InspectorType::USER->value;
-        $performedAt = SeedTimeline::at(sprintf(
-          '2026-04-%02dT%02d:00:00+00:00',
-          6 + intdiv($equipmentIndex, 4),
-          8 + $inspectionIndex,
-        ));
-
-        $inspection = $this->createInspection(
-          id: SeedUuid::from(sprintf('inspection-bulk:%d', $bulkInspectionIndex++)),
-          organization: $organization,
-          equipmentId: $equipment->id,
-          facilityId: $equipment->facilityId,
-          inspectorType: $inspectorType,
-          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : (0 === $inspectionIndex % 2 ? self::ADMIN_USER_NAME : self::TEST_USER_NAME),
-          result: $result,
-          status: $status,
-          performedAt: $performedAt,
-          checklistId: $checklist->id,
-          notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $seed['locationLabel']),
-          inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
-          inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : null,
-        );
-        $manager->persist($inspection);
-
-        if (InspectionResult::PASS->value !== $result) {
-          $nonConformityIndex = $bulkNonConformityIndex++;
-
-          // Severity and status are spread deterministically across all four
-          // values so the register's severity breakdown is never a single
-          // flat bar — a FAIL still skews high/critical, a PARTIAL low/medium.
-          $severity = InspectionResult::FAIL->value === $result
-            ? (0 === $nonConformityIndex % 3 ? NonConformitySeverity::CRITICAL->value : NonConformitySeverity::HIGH->value)
-            : (0 === $nonConformityIndex % 2 ? NonConformitySeverity::LOW->value : NonConformitySeverity::MEDIUM->value);
-          $nonConformityStatus = match ($nonConformityIndex % 5) {
-            0 => NonConformityStatus::IN_PROGRESS->value,
-            3 => NonConformityStatus::DONE->value,
-            4 => NonConformityStatus::WAIVED->value,
-            default => NonConformityStatus::OPEN->value,
-          };
-          $isResolved = NonConformityStatus::DONE->value === $nonConformityStatus
-            || NonConformityStatus::WAIVED->value === $nonConformityStatus;
-
-          $manager->persist($this->createNonConformity(
-            id: SeedUuid::from(sprintf('non-conformity-bulk:%d', $nonConformityIndex)),
-            inspection: $inspection,
-            description: InspectionResult::FAIL->value === $result
-              ? sprintf('%s failed validation during seeded inspection.', $seed['locationLabel'])
-              : sprintf('%s requires follow-up adjustment after seeded inspection.', $seed['locationLabel']),
-            severity: $severity,
-            status: $nonConformityStatus,
-            createdAt: $performedAt->modify('+15 minutes'),
-            updatedAt: $performedAt->modify($isResolved ? '+6 days' : '+15 minutes'),
-            dueAt: $isResolved ? null : $performedAt->modify('+14 days'),
-            resolvedAt: $isResolved ? $performedAt->modify('+6 days') : null,
-            notes: 'Generated from dense seed fixture data.',
-          ));
-        }
-      }
-    }
 
     $manager->persist($this->createNonConformity(
       id: 'f261d7e4-48af-4bf7-8b2d-2c171e50b822',
@@ -915,6 +841,108 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $manager->persist($aprHeatDetectorInspection);
 
     $manager->flush();
+  }
+
+  private function seedAdditionalEquipmentInspections(ObjectManager $manager, OrganizationRecord $organization, ChecklistRecord $checklist): void
+  {
+    $indexes = ['inspection' => 0, 'nonConformity' => 0];
+    foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
+      /** @var EquipmentRecord $equipment */
+      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+      $context = [
+        'organization' => $organization,
+        'checklist' => $checklist,
+        'equipment' => $equipment,
+        'locationLabel' => $seed['locationLabel'],
+      ];
+
+      for ($inspectionIndex = 0; $inspectionIndex < 3; ++$inspectionIndex) {
+        $this->seedAdditionalInspection($manager, $context, $equipmentIndex, $inspectionIndex, $indexes);
+      }
+    }
+  }
+
+  /**
+   * @param array{organization: OrganizationRecord, checklist: ChecklistRecord, equipment: EquipmentRecord, locationLabel: string} $context
+   * @param array{inspection: int, nonConformity: int} $indexes
+   */
+  private function seedAdditionalInspection(ObjectManager $manager, array $context, int $equipmentIndex, int $inspectionIndex, array &$indexes): void
+  {
+    $result = match (($equipmentIndex + $inspectionIndex) % 4) {
+      1 => InspectionResult::PARTIAL->value,
+      2 => InspectionResult::FAIL->value,
+      default => InspectionResult::PASS->value,
+    };
+    $status = InspectionResult::PASS->value === $result || 0 === $inspectionIndex
+      ? InspectionStatus::CLOSED->value
+      : InspectionStatus::SUBMITTED->value;
+    $inspectorType = 0 === ($equipmentIndex + $inspectionIndex) % 3
+      ? InspectorType::EXTERNAL->value
+      : InspectorType::USER->value;
+    $performedAt = SeedTimeline::at(sprintf(
+      '2026-04-%02dT%02d:00:00+00:00',
+      6 + intdiv($equipmentIndex, 4),
+      8 + $inspectionIndex,
+    ));
+
+    $inspection = $this->createInspection(
+      id: SeedUuid::from(sprintf('inspection-bulk:%d', $indexes['inspection']++)),
+      organization: $context['organization'],
+      equipmentId: $context['equipment']->id,
+      facilityId: $context['equipment']->facilityId,
+      inspectorType: $inspectorType,
+      inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : (0 === $inspectionIndex % 2 ? self::ADMIN_USER_NAME : self::TEST_USER_NAME),
+      result: $result,
+      status: $status,
+      performedAt: $performedAt,
+      checklistId: $context['checklist']->id,
+      notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $context['locationLabel']),
+      inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
+      inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? self::SAFE_CHECK_CONSULTANTS_NAME : null,
+    );
+    $manager->persist($inspection);
+
+    if (InspectionResult::PASS->value !== $result) {
+      $this->seedAdditionalNonConformity($manager, $inspection, $result, $performedAt, $context['locationLabel'], $indexes['nonConformity']++);
+    }
+  }
+
+  private function seedAdditionalNonConformity(
+    ObjectManager $manager,
+    InspectionRecord $inspection,
+    string $result,
+    DateTimeImmutable $performedAt,
+    string $locationLabel,
+    int $nonConformityIndex,
+  ): void {
+    // Severity and status are spread deterministically across all four
+    // values so the register's severity breakdown is never a single flat bar.
+    $severity = InspectionResult::FAIL->value === $result
+      ? (0 === $nonConformityIndex % 3 ? NonConformitySeverity::CRITICAL->value : NonConformitySeverity::HIGH->value)
+      : (0 === $nonConformityIndex % 2 ? NonConformitySeverity::LOW->value : NonConformitySeverity::MEDIUM->value);
+    $nonConformityStatus = match ($nonConformityIndex % 5) {
+      0 => NonConformityStatus::IN_PROGRESS->value,
+      3 => NonConformityStatus::DONE->value,
+      4 => NonConformityStatus::WAIVED->value,
+      default => NonConformityStatus::OPEN->value,
+    };
+    $isResolved = NonConformityStatus::DONE->value === $nonConformityStatus
+      || NonConformityStatus::WAIVED->value === $nonConformityStatus;
+
+    $manager->persist($this->createNonConformity(
+      id: SeedUuid::from(sprintf('non-conformity-bulk:%d', $nonConformityIndex)),
+      inspection: $inspection,
+      description: InspectionResult::FAIL->value === $result
+        ? sprintf('%s failed validation during seeded inspection.', $locationLabel)
+        : sprintf('%s requires follow-up adjustment after seeded inspection.', $locationLabel),
+      severity: $severity,
+      status: $nonConformityStatus,
+      createdAt: $performedAt->modify('+15 minutes'),
+      updatedAt: $performedAt->modify($isResolved ? '+6 days' : '+15 minutes'),
+      dueAt: $isResolved ? null : $performedAt->modify('+14 days'),
+      resolvedAt: $isResolved ? $performedAt->modify('+6 days') : null,
+      notes: 'Generated from dense seed fixture data.',
+    ));
   }
 
   private function createInspection(

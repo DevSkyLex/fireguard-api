@@ -123,39 +123,10 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
       throw InterventionNotFoundException::withId($id);
     }
 
-    if ($hasName && null !== $name) {
-      $record->name = $name;
-    }
-    if ($hasSiteId) {
-      $record->siteId = $siteId;
-    }
-    if ($hasResponsibleId) {
-      $record->responsibleId = $responsibleId;
-    }
-    if ($hasFrequency && null !== $frequency) {
-      $record->frequency = $frequency;
-    }
-    if ($hasInterval && null !== $interval) {
-      $record->interval = $interval;
-    }
-    if ($hasAnchorDate && null !== $anchorDate) {
-      $record->anchorDate = $anchorDate;
-    }
-    if ($hasTimezone && null !== $timezone) {
-      $record->timezone = $timezone;
-    }
-    if ($hasLeadTimeDays && null !== $leadTimeDays) {
-      $record->leadTimeDays = $leadTimeDays;
-    }
-    if ($hasNextOccurrenceAt && null !== $nextOccurrenceAt) {
-      $record->nextOccurrenceAt = $nextOccurrenceAt;
-    }
-    if ($hasEndAt) {
-      $record->endAt = $endAt;
-    }
-    if ($hasIsActive && null !== $isActive) {
-      $record->isActive = $isActive;
-    }
+    $this->updateIdentity($record, $name, $siteId, $responsibleId, $hasName, $hasSiteId, $hasResponsibleId);
+    $this->updateCadence($record, $frequency, $interval, $anchorDate, $hasFrequency, $hasInterval, $hasAnchorDate);
+    $this->updateSchedule($record, $timezone, $leadTimeDays, $nextOccurrenceAt, $hasTimezone, $hasLeadTimeDays, $hasNextOccurrenceAt);
+    $this->updateLifecycle($record, $endAt, $isActive, $hasEndAt, $hasIsActive);
     $record->updatedAt = new DateTimeImmutable();
 
     $this->entityManager->flush();
@@ -320,6 +291,81 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $record->updatedAt = new DateTimeImmutable();
 
     $this->entityManager->flush();
+  }
+
+  private function updateIdentity(
+    InterventionRecurrenceRecord $record,
+    ?string $name,
+    ?string $siteId,
+    ?string $responsibleId,
+    bool $hasName,
+    bool $hasSiteId,
+    bool $hasResponsibleId,
+  ): void {
+    if ($hasName && null !== $name) {
+      $record->name = $name;
+    }
+    if ($hasSiteId) {
+      $record->siteId = $siteId;
+    }
+    if ($hasResponsibleId) {
+      $record->responsibleId = $responsibleId;
+    }
+  }
+
+  private function updateCadence(
+    InterventionRecurrenceRecord $record,
+    ?string $frequency,
+    ?int $interval,
+    ?DateTimeImmutable $anchorDate,
+    bool $hasFrequency,
+    bool $hasInterval,
+    bool $hasAnchorDate,
+  ): void {
+    if ($hasFrequency && null !== $frequency) {
+      $record->frequency = $frequency;
+    }
+    if ($hasInterval && null !== $interval) {
+      $record->interval = $interval;
+    }
+    if ($hasAnchorDate && null !== $anchorDate) {
+      $record->anchorDate = $anchorDate;
+    }
+  }
+
+  private function updateSchedule(
+    InterventionRecurrenceRecord $record,
+    ?string $timezone,
+    ?int $leadTimeDays,
+    ?DateTimeImmutable $nextOccurrenceAt,
+    bool $hasTimezone,
+    bool $hasLeadTimeDays,
+    bool $hasNextOccurrenceAt,
+  ): void {
+    if ($hasTimezone && null !== $timezone) {
+      $record->timezone = $timezone;
+    }
+    if ($hasLeadTimeDays && null !== $leadTimeDays) {
+      $record->leadTimeDays = $leadTimeDays;
+    }
+    if ($hasNextOccurrenceAt && null !== $nextOccurrenceAt) {
+      $record->nextOccurrenceAt = $nextOccurrenceAt;
+    }
+  }
+
+  private function updateLifecycle(
+    InterventionRecurrenceRecord $record,
+    ?DateTimeImmutable $endAt,
+    ?bool $isActive,
+    bool $hasEndAt,
+    bool $hasIsActive,
+  ): void {
+    if ($hasEndAt) {
+      $record->endAt = $endAt;
+    }
+    if ($hasIsActive && null !== $isActive) {
+      $record->isActive = $isActive;
+    }
   }
   // #endregion
 
