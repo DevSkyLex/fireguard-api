@@ -165,67 +165,10 @@ final readonly class CreateOrganizationHandler implements CommandHandler
         $ownerRole,
         $memberRole,
         $ownerMember,
-        $ownerMemberId,
-        $ownerRoleId,
-        $organizationId,
-        $normalizedSlug,
         $command,
         &$replayed,
       ): CreateOrganizationResult {
-        if (null !== $command->setupContext) {
-          $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug]);
-          if (null !== $operation->resourceId) {
-            $existing = $this->organizationRepository->findById(OrganizationId::fromString($operation->resourceId));
-            if (null === $existing || $existing->ownerUserId() !== $command->ownerUserId) {
-              throw OrganizationSetupConflict::because('The created organization is no longer available.');
-            }
-            $replayed = true;
-
-            return new CreateOrganizationResult(
-              organizationId: $operation->resourceId,
-              ownerMemberId: $operation->resultIds['ownerMemberId'],
-              ownerRoleId: $operation->resultIds['ownerRoleId'],
-              name: (string) $existing->name(),
-              slug: (string) $existing->slug(),
-              ownerUserId: $existing->ownerUserId(),
-              createdByUserId: $existing->createdByUserId(),
-              status: $existing->status()->value,
-              createdAt: $existing->createdAt(),
-              updatedAt: $existing->updatedAt(),
-            );
-          }
-        }
-        if (null === $normalizedSlug) {
-          $this->organizationRepository->lockSlugNamespace();
-          $base = $organization->slug();
-          $candidate = $base;
-          $ordinal = 2;
-          while ($this->organizationRepository->slugExists($candidate)) {
-            $candidate = $base->withSuffix($ordinal++);
-          }
-          $organization->changeSlug($candidate);
-        }
-        $this->organizationRepository->save($organization);
-        $this->roleRepository->save($ownerRole);
-        $this->roleRepository->save($memberRole);
-        $this->memberRepository->save($ownerMember);
-        $this->memberRepository->assignRole($ownerMemberId, $ownerRoleId);
-        if (null !== $command->setupContext) {
-          ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_organization', (string) $organizationId, ['ownerMemberId' => (string) $ownerMemberId, 'ownerRoleId' => (string) $ownerRoleId]);
-        }
-
-        return new CreateOrganizationResult(
-          organizationId: (string) $organizationId,
-          ownerMemberId: (string) $ownerMemberId,
-          ownerRoleId: (string) $ownerRoleId,
-          name: (string) $organization->name(),
-          slug: (string) $organization->slug(),
-          ownerUserId: $organization->ownerUserId(),
-          createdByUserId: $organization->createdByUserId(),
-          status: $organization->status()->value,
-          createdAt: $organization->createdAt(),
-          updatedAt: $organization->updatedAt(),
-        );
+        return $this->createWithinTransaction($command, $organization, $ownerRole, $memberRole, $ownerMember, $replayed);
       });
     } catch (Throwable $exception) {
       if ($this->isDuplicateSlugConstraintViolation($exception)) {
@@ -246,6 +189,67 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     ));
 
     return $result;
+  }
+
+  private function createWithinTransaction(CreateOrganizationCommand $command, Organization $organization, OrganizationRole $ownerRole, OrganizationRole $memberRole, OrganizationMember $ownerMember, bool &$replayed): CreateOrganizationResult
+  {
+    if (null !== $command->setupContext) {
+      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug]);
+      if (null !== $operation->resourceId) {
+        $existing = $this->organizationRepository->findById(OrganizationId::fromString($operation->resourceId));
+        if (null === $existing || $existing->ownerUserId() !== $command->ownerUserId) {
+          throw OrganizationSetupConflict::because('The created organization is no longer available.');
+        }
+        $replayed = true;
+
+        return new CreateOrganizationResult(
+          organizationId: $operation->resourceId,
+          ownerMemberId: $operation->resultIds['ownerMemberId'],
+          ownerRoleId: $operation->resultIds['ownerRoleId'],
+          name: (string) $existing->name(),
+          slug: (string) $existing->slug(),
+          ownerUserId: $existing->ownerUserId(),
+          createdByUserId: $existing->createdByUserId(),
+          status: $existing->status()->value,
+          createdAt: $existing->createdAt(),
+          updatedAt: $existing->updatedAt(),
+        );
+      }
+    }
+    if (null === $this->normalizeNullableString($command->slug)) {
+      $this->organizationRepository->lockSlugNamespace();
+      $base = $organization->slug();
+      $candidate = $base;
+      $ordinal = 2;
+      while ($this->organizationRepository->slugExists($candidate)) {
+        $candidate = $base->withSuffix($ordinal++);
+      }
+      $organization->changeSlug($candidate);
+    }
+    $organizationId = $organization->id();
+    $ownerMemberId = $ownerMember->id();
+    $ownerRoleId = $ownerRole->id();
+    $this->organizationRepository->save($organization);
+    $this->roleRepository->save($ownerRole);
+    $this->roleRepository->save($memberRole);
+    $this->memberRepository->save($ownerMember);
+    $this->memberRepository->assignRole($ownerMemberId, $ownerRoleId);
+    if (null !== $command->setupContext) {
+      ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_organization', (string) $organizationId, ['ownerMemberId' => (string) $ownerMemberId, 'ownerRoleId' => (string) $ownerRoleId]);
+    }
+
+    return new CreateOrganizationResult(
+      organizationId: (string) $organizationId,
+      ownerMemberId: (string) $ownerMemberId,
+      ownerRoleId: (string) $ownerRoleId,
+      name: (string) $organization->name(),
+      slug: (string) $organization->slug(),
+      ownerUserId: $organization->ownerUserId(),
+      createdByUserId: $organization->createdByUserId(),
+      status: $organization->status()->value,
+      createdAt: $organization->createdAt(),
+      updatedAt: $organization->updatedAt(),
+    );
   }
 
   /**
