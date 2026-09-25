@@ -74,10 +74,8 @@ final readonly class UpdateChecklistHandler implements CommandHandler
       throw ChecklistNotFoundException::withId($command->checklistId);
     }
 
-    if ($command->hasItems) {
-      if ([] !== $this->checklistRepository->referencedIds($organizationId, [$command->checklistId])) {
-        throw ChecklistInUseException::withId($command->checklistId);
-      }
+    if ($command->hasItems && [] !== $this->checklistRepository->referencedIds($organizationId, [$command->checklistId])) {
+      throw ChecklistInUseException::withId($command->checklistId);
     }
 
     $items = [];

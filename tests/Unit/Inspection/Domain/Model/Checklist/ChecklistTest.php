@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Domain\Model\Checklist;
 
 use DateTimeImmutable;
 use Inspection\Domain\Exception\ChecklistArchivedException;
-use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
+use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem, RestoredChecklistRevision};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -268,12 +268,14 @@ final class ChecklistTest extends TestCase
       id: ChecklistId::fromString(self::CL_ID),
       organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
       name: 'Persisted Checklist',
-      version: 'v3.0',
-      status: ChecklistStatus::ARCHIVED,
-      items: [$item],
+      revision: new RestoredChecklistRevision(
+        version: 'v3.0',
+        status: ChecklistStatus::ARCHIVED,
+        items: [$item],
+        referenceCode: 'CHK-REF',
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      referenceCode: 'CHK-REF',
     );
 
     self::assertSame(self::CL_ID, (string) $checklist->id());

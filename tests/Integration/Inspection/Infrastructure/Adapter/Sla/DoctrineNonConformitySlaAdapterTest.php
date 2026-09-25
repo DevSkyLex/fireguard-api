@@ -9,7 +9,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Application\Contract\Sla\NonConformitySlaCandidate;
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
 use Inspection\Infrastructure\Adapter\Sla\DoctrineNonConformitySlaAdapter;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
@@ -160,7 +160,9 @@ final class DoctrineNonConformitySlaAdapterTest extends KernelTestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSPECTION_ID),
       description: 'Defect ' . self::NC_RESOLVED,
       severity: NonConformitySeverity::CRITICAL,
-      status: NonConformityStatus::OPEN,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::OPEN,
+      ),
       createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-11T00:00:00+00:00'),
     );

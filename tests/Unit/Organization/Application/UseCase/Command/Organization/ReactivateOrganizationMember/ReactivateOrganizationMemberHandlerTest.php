@@ -12,6 +12,7 @@ use Organization\Application\UseCase\Command\Organization\ReactivateOrganization
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationMemberNotFoundException, OrganizationMemberNotInactiveException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -36,11 +37,13 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
   public function testInvokeReactivatesAnInactiveMemberAndDispatchesMemberAddedEvent(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -108,11 +111,13 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsQuotaExceededAndLeavesTheMemberInactiveWhenTheMemberCapIsReached(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -202,12 +207,16 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsWhenOrganizationIsArchived(): void
   {
     $archivedOrganization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: false,
-      createdAt: new DateTimeImmutable('-30 days'),
-      status: OrganizationStatus::ARCHIVED,
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: false,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
+      state: new RestoredOrganizationState(
+        status: OrganizationStatus::ARCHIVED,
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -247,11 +256,13 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsWhenMemberNotFound(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -291,11 +302,13 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsWhenMemberDoesNotBelongToOrganization(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
 
     $memberFromAnotherOrg = OrganizationMember::reconstitute(
@@ -343,11 +356,13 @@ final class ReactivateOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsWhenMemberIsAlreadyActive(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
 
     $activeMember = OrganizationMember::reconstitute(

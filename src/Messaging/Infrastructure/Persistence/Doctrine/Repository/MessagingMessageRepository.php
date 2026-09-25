@@ -10,7 +10,7 @@ use Messaging\Application\Contract\Link\MessageLinkBackfillCandidate;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
 use Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort;
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\{MessageId, MessageReference};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord, MessagingSavedMessageRecord};
 
@@ -481,18 +481,24 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       $this->conversationId($record),
       $record->organizationId,
       $record->authorMemberId,
-      $record->body,
-      $record->mentions,
-      $record->editedAt,
-      $record->deletedAt,
-      $record->deletedByMemberId,
-      $record->createdAt,
-      $record->updatedAt,
-      $record->pinnedAt,
-      $record->pinnedByMemberId,
-      $this->parentMessageId($record),
-      $record->replyCount,
-      self::referencesFromStorage($record->references),
+      new RestoredMessageContent(
+        $record->body,
+        $record->mentions,
+        self::referencesFromStorage($record->references),
+      ),
+      new RestoredMessageLifecycle(
+        $record->editedAt,
+        $record->deletedAt,
+        $record->deletedByMemberId,
+        $record->createdAt,
+        $record->updatedAt,
+      ),
+      new RestoredMessageRelations(
+        $record->pinnedAt,
+        $record->pinnedByMemberId,
+        $this->parentMessageId($record),
+        $record->replyCount,
+      ),
     );
   }
 

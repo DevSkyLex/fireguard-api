@@ -10,7 +10,7 @@ use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment\{DeleteInterventionAttachmentCommand, DeleteInterventionAttachmentHandler, DeleteInterventionAttachmentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -255,13 +255,10 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
   private function attachment(string $interventionId): InterventionAttachment
   {
     return InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: $interventionId,
-      fileName: 'evidence.jpg',
-      storagePath: 'intervention/' . $interventionId . '/attachments/' . self::ATTACHMENT_ID . '_evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 10,
-      uploadedAt: new DateTimeImmutable(),
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      $interventionId,
+      new InterventionAttachmentFile('evidence.jpg', 'intervention/' . $interventionId . '/attachments/' . self::ATTACHMENT_ID . '_evidence.jpg', 'image/jpeg', 10),
+      new DateTimeImmutable(),
     );
   }
 }

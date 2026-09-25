@@ -11,8 +11,9 @@ use Organization\Application\Service\{OrganizationInvitationNotifier, Organizati
 use Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\{ResendOrganizationInvitationCommand, ResendOrganizationInvitationHandler};
 use Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\{RevokeOrganizationInvitationCommand, RevokeOrganizationInvitationHandler};
 use Organization\Domain\Exception\OrganizationInvitationNotPendingException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus, OrganizationName};
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
@@ -49,15 +50,21 @@ final class InvitationConcurrencyTest extends TestCase
     $invitationId = '550e8400-e29b-41d4-a716-446655449702';
     $actor = '550e8400-e29b-41d4-a716-446655449703';
     $invitation = OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId($invitationId),
-      organizationId: new OrganizationId($orgId),
-      email: new Email('member@example.com'),
-      tokenHash: 'old-hash',
-      invitedByUserId: $actor,
-      status: OrganizationInvitationStatus::PENDING,
-      expiresAt: new DateTimeImmutable('+1 day'),
-      createdAt: new DateTimeImmutable('-1 day'),
-      updatedAt: new DateTimeImmutable('-1 day'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId($invitationId),
+        organizationId: new OrganizationId($orgId),
+        email: new Email('member@example.com'),
+        tokenHash: 'old-hash',
+        invitedByUserId: $actor,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::PENDING,
+        expiresAt: new DateTimeImmutable('+1 day'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-1 day'),
+        updatedAt: new DateTimeImmutable('-1 day'),
+      ),
     );
     $accepted = clone $invitation;
     $accepted->accept($actor);
@@ -89,7 +96,15 @@ final class InvitationConcurrencyTest extends TestCase
       $handler(new RevokeOrganizationInvitationCommand($orgId, $invitationId, $actor));
     } else {
       $organizations = $this->createStub(OrganizationRepositoryPort::class);
-      $organizations->method('findById')->willReturn(Organization::reconstitute(new OrganizationId($orgId), new OrganizationName('Organization'), $actor, true, new DateTimeImmutable('-1 day')));
+      $organizations->method('findById')->willReturn(Organization::reconstitute(
+        core: new RestoredOrganizationCore(
+          id: new OrganizationId($orgId),
+          name: new OrganizationName('Organization'),
+          createdByUserId: $actor,
+          isActive: true,
+          createdAt: new DateTimeImmutable('-1 day'),
+        ),
+      ));
       $notifier = new OrganizationInvitationNotifier($notifications, 'http://localhost:4200', new OrganizationInvitationTokenHasher(), EmailTranslatorTestFactory::create());
       $handler = new ResendOrganizationInvitationHandler($invitations, $organizations, $users, $notifier, $logger, $tx, $events, $joins);
       $handler(new ResendOrganizationInvitationCommand($orgId, $invitationId, $actor));

@@ -12,7 +12,7 @@ use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotFloorPlanException,
   FloorPlanAttachmentNotFoundException
 };
-use Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\{SetEquipmentPlanPositionCommand, SetEquipmentPlanPositionResult};
+use Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\SetEquipmentPlanPositionCommand;
 use Equipment\Domain\Exception\{
   EquipmentAlreadyDecommissionedException,
   EquipmentNotAssignedToFacilityException,
@@ -97,8 +97,7 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
     }
 
     try {
-      /** @var SetEquipmentPlanPositionResult $result */
-      $result = $this->commandBus->dispatch(new SetEquipmentPlanPositionCommand(
+      $this->commandBus->dispatch(new SetEquipmentPlanPositionCommand(
         organizationId: $organizationId,
         equipmentId: $equipmentId,
         attachmentId: $data->attachmentId,
@@ -128,42 +127,16 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
    */
   private function mapMessengerFailure(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findException($exception, EquipmentNotFoundException::class);
-    if ($notFound instanceof EquipmentNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
-    $attachmentNotFound = $this->findException($exception, FloorPlanAttachmentNotFoundException::class);
-    if ($attachmentNotFound instanceof FloorPlanAttachmentNotFoundException) {
-      return new NotFoundHttpException($attachmentNotFound->getMessage(), $exception);
-    }
-
-    $decommissioned = $this->findException($exception, EquipmentAlreadyDecommissionedException::class);
-    if ($decommissioned instanceof EquipmentAlreadyDecommissionedException) {
-      return new ConflictHttpException($decommissioned->getMessage(), $exception);
-    }
-
-    $notAssigned = $this->findException($exception, EquipmentNotAssignedToFacilityException::class);
-    if ($notAssigned instanceof EquipmentNotAssignedToFacilityException) {
-      return new ConflictHttpException($notAssigned->getMessage(), $exception);
-    }
-
-    $notFloorPlan = $this->findException($exception, FloorPlanAttachmentNotFloorPlanException::class);
-    if ($notFloorPlan instanceof FloorPlanAttachmentNotFloorPlanException) {
-      return new ConflictHttpException($notFloorPlan->getMessage(), $exception);
-    }
-
-    $notAncestor = $this->findException($exception, FloorPlanAttachmentNotAncestorException::class);
-    if ($notAncestor instanceof FloorPlanAttachmentNotAncestorException) {
-      return new ConflictHttpException($notAncestor->getMessage(), $exception);
-    }
-
-    $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findException($exception, EquipmentNotFoundException::class)) instanceof EquipmentNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($attachmentNotFound = $this->findException($exception, FloorPlanAttachmentNotFoundException::class)) instanceof FloorPlanAttachmentNotFoundException => new NotFoundHttpException($attachmentNotFound->getMessage(), $exception),
+      ($decommissioned = $this->findException($exception, EquipmentAlreadyDecommissionedException::class)) instanceof EquipmentAlreadyDecommissionedException => new ConflictHttpException($decommissioned->getMessage(), $exception),
+      ($notAssigned = $this->findException($exception, EquipmentNotAssignedToFacilityException::class)) instanceof EquipmentNotAssignedToFacilityException => new ConflictHttpException($notAssigned->getMessage(), $exception),
+      ($notFloorPlan = $this->findException($exception, FloorPlanAttachmentNotFloorPlanException::class)) instanceof FloorPlanAttachmentNotFloorPlanException => new ConflictHttpException($notFloorPlan->getMessage(), $exception),
+      ($notAncestor = $this->findException($exception, FloorPlanAttachmentNotAncestorException::class)) instanceof FloorPlanAttachmentNotAncestorException => new ConflictHttpException($notAncestor->getMessage(), $exception),
+      ($invalidArgument = $this->findException($exception, InvalidArgumentException::class)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
   // #endregion
 }

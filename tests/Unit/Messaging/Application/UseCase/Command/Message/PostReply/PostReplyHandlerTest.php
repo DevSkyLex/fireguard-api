@@ -11,8 +11,8 @@ use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, Me
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\PostReply\{PostReplyCommand, PostReplyHandler};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\Model\Conversation\Conversation;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity};
+use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessageId, MessagingSubjectType};
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -132,7 +132,7 @@ final class PostReplyHandlerTest extends TestCase
       'author-1',
       'A reply to a root message',
       new MentionExtractor(),
-      '550e8400-e29b-41d4-a716-446655440099',
+      new MessageCreationLinks(parentMessageId: '550e8400-e29b-41d4-a716-446655440099'),
     );
 
     $messages = $this->createStub(MessagingMessageRepositoryPort::class);
@@ -338,12 +338,14 @@ final class PostReplyHandlerTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       'facility-1',
-      $visibility,
-      null,
-      0,
-      $archived,
-      $now,
-      $now,
+      new RestoredConversationActivity(
+        $visibility,
+        null,
+        0,
+        $archived,
+        $now,
+        $now,
+      ),
     );
   }
 

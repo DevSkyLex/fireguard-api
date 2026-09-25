@@ -24,6 +24,7 @@ use Organization\Domain\Exception\{
 };
 use Organization\Domain\Exception\PlanNotAvailableException;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -578,12 +579,16 @@ final class ChangeOrganizationPlanHandlerTest extends TestCase
   private function organization(?PlanId $planId = null): Organization
   {
     return Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Test'),
-      createdByUserId: self::OWNER_USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      planId: $planId,
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Test'),
+        createdByUserId: self::OWNER_USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
+      profile: new RestoredOrganizationProfile(
+        planId: $planId,
+      ),
     );
   }
 

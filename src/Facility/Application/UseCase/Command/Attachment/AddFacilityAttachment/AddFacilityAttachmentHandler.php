@@ -6,7 +6,7 @@ namespace Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment;
 
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityNotFoundException;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId, ImageDimensions};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
@@ -91,10 +91,7 @@ final readonly class AddFacilityAttachmentHandler implements CommandHandler
       storagePath: $storagePath,
       mimeType: $command->mimeType,
       size: $command->size,
-      label: $command->label,
-      kind: $kind,
-      imageWidth: $dimensions?->width(),
-      imageHeight: $dimensions?->height(),
+      options: new FacilityAttachmentCreationOptions($command->label, $kind, $dimensions?->width(), $dimensions?->height()),
     );
 
     $this->fileStorage->write($storagePath, $command->contents);

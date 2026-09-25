@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails, FacilityLifecycle};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -118,14 +118,18 @@ final class FacilityMapperTest extends TestCase
       organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441607'),
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 1'),
-      status: FacilityStatus::ACTIVE,
-      createdAt: $createdAt,
-      updatedAt: $createdAt,
-      parentFacilityId: $parentId,
-      code: 'FLR-1',
-      address: '5th Avenue',
-      metadata: ['color' => 'blue'],
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      lifecycle: new FacilityLifecycle(
+        status: FacilityStatus::ACTIVE,
+        createdAt: $createdAt,
+        updatedAt: $createdAt,
+      ),
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+        code: 'FLR-1',
+        address: '5th Avenue',
+        metadata: ['color' => 'blue'],
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
 
     $record = FacilityMapper::toRecord($facility);
@@ -156,9 +160,11 @@ final class FacilityMapperTest extends TestCase
       organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441609'),
       type: FacilityType::AREA,
       name: new FacilityName('Area Z'),
-      status: FacilityStatus::ARCHIVED,
-      createdAt: $now,
-      updatedAt: $now,
+      lifecycle: new FacilityLifecycle(
+        status: FacilityStatus::ARCHIVED,
+        createdAt: $now,
+        updatedAt: $now,
+      ),
     );
 
     $record = FacilityMapper::toRecord($facility);

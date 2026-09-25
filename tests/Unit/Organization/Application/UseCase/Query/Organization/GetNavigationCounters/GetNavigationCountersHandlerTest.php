@@ -9,7 +9,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetNavigationCounters\{GetNavigationCountersHandler, GetNavigationCountersQuery, GetNavigationCountersResult};
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -174,11 +174,13 @@ final class GetNavigationCountersHandlerTest extends TestCase
   private function makeOrganization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Bordeaux'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-10 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Bordeaux'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-10 days'),
+      ),
     );
   }
 

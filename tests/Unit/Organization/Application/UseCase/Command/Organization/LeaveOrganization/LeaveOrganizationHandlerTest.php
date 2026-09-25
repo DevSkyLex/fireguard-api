@@ -11,6 +11,7 @@ use Organization\Application\UseCase\Command\Organization\LeaveOrganization\{Lea
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationOwnerCannotLeaveException};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -353,12 +354,16 @@ final class LeaveOrganizationHandlerTest extends TestCase
   private function activeOrganization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Marseille'),
-      createdByUserId: self::OWNER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
-      ownerUserId: self::OWNER_ID,
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Marseille'),
+        createdByUserId: self::OWNER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
+      state: new RestoredOrganizationState(
+        ownerUserId: self::OWNER_ID,
+      ),
     );
   }
 

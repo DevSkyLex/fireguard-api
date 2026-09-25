@@ -12,6 +12,7 @@ use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
+use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
@@ -66,20 +67,28 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440399',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440399',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);

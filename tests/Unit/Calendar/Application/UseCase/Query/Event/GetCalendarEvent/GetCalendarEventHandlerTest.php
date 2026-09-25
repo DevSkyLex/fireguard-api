@@ -7,7 +7,7 @@ namespace Tests\Unit\Calendar\Application\UseCase\Query\Event\GetCalendarEvent;
 use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\UseCase\Query\Event\GetCalendarEvent\{GetCalendarEventHandler, GetCalendarEventQuery};
 use Calendar\Domain\Exception\CalendarEventNotFoundException;
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -88,15 +88,19 @@ final class GetCalendarEventHandlerTest extends TestCase
   private function event(string $organizationId = self::ORGANIZATION_ID): CalendarEvent
   {
     return CalendarEvent::create(
-      id: CalendarEventId::fromString(self::EVENT_ID),
-      organizationId: $organizationId,
-      title: 'Fire drill',
-      description: null,
-      startsAt: new DateTimeImmutable('2026-08-01T09:00:00+02:00'),
-      endsAt: null,
-      allDay: false,
-      facilityId: null,
-      createdByMemberId: 'member-1',
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString(self::EVENT_ID),
+        organizationId: $organizationId,
+        createdByMemberId: 'member-1',
+      ),
+      content: new CalendarEventContent(
+        title: 'Fire drill',
+        description: null,
+        startsAt: new DateTimeImmutable('2026-08-01T09:00:00+02:00'),
+        endsAt: null,
+        allDay: false,
+        facilityId: null,
+      ),
     );
   }
 }

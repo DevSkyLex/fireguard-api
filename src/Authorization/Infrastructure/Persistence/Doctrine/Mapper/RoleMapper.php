@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\Model\Role\{RestoredRoleState, Role};
 use Authorization\Domain\ValueObject\{RoleId, RoleName};
 use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
 use Shared\Domain\ValueObject\TenantId;
@@ -59,12 +59,14 @@ final readonly class RoleMapper
     return Role::reconstitute(
       id: new RoleId(value: $record->id),
       name: new RoleName(value: $record->name),
-      description: $record->description,
-      isSystem: $record->isSystem,
-      tenantId: null !== $record->tenantId ? TenantId::fromString(value: $record->tenantId) : null,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      permissions: $permissions,
+      state: new RestoredRoleState(
+        description: $record->description,
+        isSystem: $record->isSystem,
+        tenantId: null !== $record->tenantId ? TenantId::fromString(value: $record->tenantId) : null,
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        permissions: $permissions,
+      ),
     );
   }
 

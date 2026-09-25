@@ -9,7 +9,7 @@ use Organization\Application\Port\Inbound\OrganizationCallerMembershipPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationCallerRoleResult, GetOrganizationHandler, GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -25,11 +25,13 @@ final class GetOrganizationHandlerTest extends TestCase
     $createdAt = new DateTimeImmutable('2025-01-01T00:00:00+00:00');
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId('550e8400-e29b-41d4-a716-446655440700'),
-      name: new OrganizationName('Fireguard Rennes'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: $createdAt,
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId('550e8400-e29b-41d4-a716-446655440700'),
+        name: new OrganizationName('Fireguard Rennes'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: $createdAt,
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -80,11 +82,13 @@ final class GetOrganizationHandlerTest extends TestCase
     $callerUserId = '550e8400-e29b-41d4-a716-446655440001';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Rennes'),
-      createdByUserId: $callerUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('2025-01-01T00:00:00+00:00'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Rennes'),
+        createdByUserId: $callerUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('2025-01-01T00:00:00+00:00'),
+      ),
     );
 
     $membership = OrganizationMember::reconstitute(

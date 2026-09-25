@@ -68,9 +68,7 @@ final class SafetyRegisterSnapshot
    * @param ?string $facilityId the facility identifier, or null for an organization-wide register
    * @param string $generatedAt ISO 8601 datetime the register read-model was generated at
    * @param string $generatedByUserId the user who requested the snapshot
-   * @param string $contentHash the SHA-256 hash of the stored PDF bytes
-   * @param int $sizeBytes the stored PDF size in bytes
-   * @param string $storagePath the file storage key holding the PDF bytes
+   * @param SafetyRegisterStoredFile $file the stored PDF identity and integrity metadata
    *
    * @return self the created snapshot
    */
@@ -80,9 +78,7 @@ final class SafetyRegisterSnapshot
     ?string $facilityId,
     string $generatedAt,
     string $generatedByUserId,
-    string $contentHash,
-    int $sizeBytes,
-    string $storagePath,
+    SafetyRegisterStoredFile $file,
   ): self {
     return new self(
       id: $id,
@@ -90,9 +86,9 @@ final class SafetyRegisterSnapshot
       facilityId: $facilityId,
       generatedAt: $generatedAt,
       generatedByUserId: $generatedByUserId,
-      contentHash: $contentHash,
-      sizeBytes: $sizeBytes,
-      storagePath: $storagePath,
+      contentHash: $file->contentHash,
+      sizeBytes: $file->sizeBytes,
+      storagePath: $file->storagePath,
       createdAt: new DateTimeImmutable(),
     );
   }
@@ -109,9 +105,7 @@ final class SafetyRegisterSnapshot
    * @param ?string $facilityId the facility identifier, or null for an organization-wide register
    * @param string $generatedAt ISO 8601 datetime the register read-model was generated at
    * @param string $generatedByUserId the user who requested the snapshot
-   * @param string $contentHash the SHA-256 hash of the stored PDF bytes
-   * @param int $sizeBytes the stored PDF size in bytes
-   * @param string $storagePath the file storage key holding the PDF bytes
+   * @param SafetyRegisterStoredFile $file the stored PDF identity and integrity metadata
    * @param DateTimeImmutable $createdAt the persistence timestamp
    *
    * @return self the reconstituted snapshot
@@ -122,9 +116,7 @@ final class SafetyRegisterSnapshot
     ?string $facilityId,
     string $generatedAt,
     string $generatedByUserId,
-    string $contentHash,
-    int $sizeBytes,
-    string $storagePath,
+    SafetyRegisterStoredFile $file,
     DateTimeImmutable $createdAt,
   ): self {
     return new self(
@@ -133,9 +125,9 @@ final class SafetyRegisterSnapshot
       facilityId: $facilityId,
       generatedAt: $generatedAt,
       generatedByUserId: $generatedByUserId,
-      contentHash: $contentHash,
-      sizeBytes: $sizeBytes,
-      storagePath: $storagePath,
+      contentHash: $file->contentHash,
+      sizeBytes: $file->sizeBytes,
+      storagePath: $file->storagePath,
       createdAt: $createdAt,
     );
   }

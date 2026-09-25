@@ -110,35 +110,25 @@ final class Role
    *
    * @param RoleId $id the role ID
    * @param RoleName $name the role name
-   * @param string $description the role description
-   * @param bool $isSystem whether this is a system role
-   * @param TenantId|null $tenantId the tenant ID
-   * @param DateTimeImmutable $createdAt when the role was created
-   * @param DateTimeImmutable|null $updatedAt when the role was last updated
-   * @param array<Permission> $permissions the role's permissions
+   * @param RestoredRoleState $state the persisted metadata and permissions
    *
    * @return self the reconstituted role
    */
   public static function reconstitute(
     RoleId $id,
     RoleName $name,
-    string $description,
-    bool $isSystem,
-    ?TenantId $tenantId,
-    DateTimeImmutable $createdAt,
-    ?DateTimeImmutable $updatedAt,
-    array $permissions = [],
+    RestoredRoleState $state,
   ): self {
     $role = new self(
       id: $id,
       name: $name,
-      description: $description,
-      isSystem: $isSystem,
-      tenantId: $tenantId,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      description: $state->description,
+      isSystem: $state->isSystem,
+      tenantId: $state->tenantId,
+      createdAt: $state->createdAt,
+      updatedAt: $state->updatedAt,
     );
-    $role->permissions = $permissions;
+    $role->permissions = $state->permissions;
 
     return $role;
   }

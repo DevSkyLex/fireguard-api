@@ -115,19 +115,11 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
 
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findChecklistNotFoundException($exception);
-    if ($notFound instanceof ChecklistNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-    $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
-    if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
-      return new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
-    }
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findChecklistNotFoundException($exception)) instanceof ChecklistNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception)) instanceof ChecklistReferenceCodeAlreadyExistsException => new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception),
+      ($invalidArgument = $this->findInvalidArgumentException($exception)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 }

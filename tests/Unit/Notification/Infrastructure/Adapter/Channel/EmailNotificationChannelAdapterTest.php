@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Notification\Infrastructure\Adapter\Channel;
 
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -182,8 +182,11 @@ final class EmailNotificationChannelAdapterTest extends TestCase
       body: '<p>Open invitation details.</p>',
       channels: ['email'],
       payload: ['organizationName' => 'Fireguard HQ'],
-      recipientUserId: null,
-      recipientEmail: null !== $recipientEmail ? new Email($recipientEmail) : null,
+      target: new NotificationTarget(
+        recipientUserId: null,
+        recipientEmail: null !== $recipientEmail ? new Email($recipientEmail) : null,
+        organizationId: null,
+      ),
     );
   }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Domain\Model\Facility;
 
 use DateTimeImmutable;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails, FacilityLifecycle};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
@@ -52,10 +52,12 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building A'),
-      parentFacilityId: $parentId,
-      code: '  BLDG-1  ',
-      address: '  10 rue de la Paix  ',
-      metadata: ['floor_count' => 5, '' => 'ignored'],
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+        code: '  BLDG-1  ',
+        address: '  10 rue de la Paix  ',
+        metadata: ['floor_count' => 5, '' => 'ignored'],
+      ),
     );
 
     self::assertSame('550e8400-e29b-41d4-a716-446655441500', (string) $facility->id());
@@ -76,7 +78,9 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::SITE,
       name: new FacilityName('Paris HQ'),
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      details: new FacilityDetails(
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
 
     self::assertNotNull($facility->coordinates());
@@ -102,9 +106,11 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::ZONE,
       name: new FacilityName('Zone B'),
-      status: FacilityStatus::ARCHIVED,
-      createdAt: $now,
-      updatedAt: $now,
+      lifecycle: new FacilityLifecycle(
+        status: FacilityStatus::ARCHIVED,
+        createdAt: $now,
+        updatedAt: $now,
+      ),
     );
 
     self::assertSame(FacilityStatus::ARCHIVED, $facility->status());
@@ -213,7 +219,9 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::SITE,
       name: new FacilityName('Main Facility'),
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      details: new FacilityDetails(
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
 
     $facility->changeCoordinates(null);
@@ -264,9 +272,11 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Archived Building'),
-      status: FacilityStatus::ARCHIVED,
-      createdAt: $now,
-      updatedAt: $now,
+      lifecycle: new FacilityLifecycle(
+        status: FacilityStatus::ARCHIVED,
+        createdAt: $now,
+        updatedAt: $now,
+      ),
     );
 
     $facility->restore();
@@ -296,8 +306,10 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::AREA,
       name: new FacilityName('Area One'),
-      code: null,
-      address: null,
+      details: new FacilityDetails(
+        code: null,
+        address: null,
+      ),
     );
 
     self::assertNull($facility->code());
@@ -314,7 +326,9 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::SITE,
       name: new FacilityName('HQ'),
-      code: '   ',
+      details: new FacilityDetails(
+        code: '   ',
+      ),
     );
 
     self::assertNull($facility->code());
@@ -328,7 +342,9 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::SITE,
       name: new FacilityName('HQ'),
-      address: '   ',
+      details: new FacilityDetails(
+        address: '   ',
+      ),
     );
 
     self::assertNull($facility->address());
@@ -363,7 +379,9 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor'),
-      levelIndex: $levelIndex,
+      details: new FacilityDetails(
+        levelIndex: $levelIndex,
+      ),
     );
 
     self::assertSame($levelIndex, $facility->levelIndex());
@@ -392,7 +410,9 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor'),
-      levelIndex: $levelIndex,
+      details: new FacilityDetails(
+        levelIndex: $levelIndex,
+      ),
     );
   }
 
@@ -418,10 +438,14 @@ final class FacilityTest extends TestCase
       organizationId: $this->organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor'),
-      status: FacilityStatus::ACTIVE,
-      createdAt: $now,
-      updatedAt: $now,
-      levelIndex: -101,
+      lifecycle: new FacilityLifecycle(
+        status: FacilityStatus::ACTIVE,
+        createdAt: $now,
+        updatedAt: $now,
+      ),
+      details: new FacilityDetails(
+        levelIndex: -101,
+      ),
     );
   }
 

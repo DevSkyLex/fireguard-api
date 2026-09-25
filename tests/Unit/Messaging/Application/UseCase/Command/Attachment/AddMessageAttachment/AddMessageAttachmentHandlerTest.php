@@ -11,7 +11,7 @@ use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, Mess
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment\{AddMessageAttachmentCommand, AddMessageAttachmentHandler, AddMessageAttachmentResult};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\{MessageId, MessagingAttachmentId, MessagingSubjectType};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -463,13 +463,24 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       self::CONVERSATION_ID,
       self::ORG_ID,
       self::AUTHOR_MEMBER_ID,
-      'Hello team',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Hello team',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
   }
 
@@ -482,13 +493,24 @@ final class AddMessageAttachmentHandlerTest extends TestCase
       self::CONVERSATION_ID,
       self::ORG_ID,
       self::AUTHOR_MEMBER_ID,
-      'Hello team',
-      [],
-      null,
-      $now,
-      self::AUTHOR_MEMBER_ID,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Hello team',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        $now,
+        self::AUTHOR_MEMBER_ID,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
   }
 

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\{ListFacilityAttachmentsHandler, ListFacilityAttachmentsQuery, ListFacilityAttachmentsResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentRestoredState};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -42,8 +42,7 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
       mimeType: 'application/pdf',
       size: 10,
-      uploadedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      label: 'Ground floor',
+      state: new FacilityAttachmentRestoredState(new DateTimeImmutable('2026-01-01T00:00:00+00:00'), new FacilityAttachmentCreationOptions(label: 'Ground floor')),
     );
 
     $facilityRepository = $this->createStub(FacilityRepositoryPort::class);

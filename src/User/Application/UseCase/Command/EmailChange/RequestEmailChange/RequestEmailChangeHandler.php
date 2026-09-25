@@ -15,6 +15,7 @@ use User\Application\Service\{EmailChangeNotifier, EmailChangeTokenHasher};
 use User\Domain\Event\UserEmailChangeRequestedEvent;
 use User\Domain\Exception\{EmailChangeNotAllowedException, InvalidPasswordException, InvalidUserException};
 use User\Domain\Model\EmailChange\EmailChangeRequest;
+use User\Domain\Model\User\User;
 use User\Domain\ValueObject\UserId;
 
 use function strtolower;
@@ -102,11 +103,47 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
       );
     }
 
+    return $this->requestForUser($user, $command);
+  }
+
+  /**
+   * Authenticates the owner and validates the proposed email before persisting a request.
+   *
+   * @param User $user the account requesting the change
+   * @param RequestEmailChangeCommand $command the command
+   *
+   * @return RequestEmailChangeResult the request result
+   */
+  private function requestForUser(User $user, RequestEmailChangeCommand $command): RequestEmailChangeResult
+  {
+    $authenticationFailure = $this->authenticateUser($user, $command->currentPassword);
+    if (null !== $authenticationFailure) {
+      return $authenticationFailure;
+    }
+
+    $newEmail = $this->availableEmail($command->newEmail);
+    if ($newEmail instanceof RequestEmailChangeResult) {
+      return $newEmail;
+    }
+
+    return $this->createRequest($user, $newEmail);
+  }
+
+  /**
+   * Applies the aggregate's password attempt and lockout rules.
+   *
+   * @param User $user the account requesting the change
+   * @param string $currentPassword the supplied password
+   *
+   * @return RequestEmailChangeResult|null a denial, or null when authenticated
+   */
+  private function authenticateUser(User $user, string $currentPassword): ?RequestEmailChangeResult
+  {
     // Verify the current password before anything else. authenticate()
     // tracks failed attempts and locks the account past the threshold,
     // giving brute-force protection for free (same as password change).
     try {
-      $user->authenticate($command->currentPassword);
+      $user->authenticate($currentPassword);
       $this->userRepository->save($user);
     } catch (InvalidPasswordException) {
       $this->userRepository->save($user);
@@ -122,8 +159,20 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
       );
     }
 
+    return null;
+  }
+
+  /**
+   * Resolves a usable target address with the endpoint's neutral denial.
+   *
+   * @param string $candidate the proposed address
+   *
+   * @return Email|RequestEmailChangeResult the address or a neutral denial
+   */
+  private function availableEmail(string $candidate): Email|RequestEmailChangeResult
+  {
     try {
-      $newEmail = new Email(strtolower($command->newEmail));
+      $newEmail = new Email(strtolower($candidate));
     } catch (InvalidValueException) {
       return RequestEmailChangeResult::failed(
         message: 'This email address cannot be used.',
@@ -140,6 +189,19 @@ final readonly class RequestEmailChangeHandler implements CommandHandler
       );
     }
 
+    return $newEmail;
+  }
+
+  /**
+   * Persists the pending request before dispatching its event and emails.
+   *
+   * @param User $user the authenticated account
+   * @param Email $newEmail the validated target address
+   *
+   * @return RequestEmailChangeResult the request result
+   */
+  private function createRequest(User $user, Email $newEmail): RequestEmailChangeResult
+  {
     $now = $this->clock->now();
     $rawToken = $this->tokenHasher->generate();
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Calendar\Infrastructure\Persistence\Doctrine\Repository;
 
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarEventRepository;
 use DateTimeImmutable;
@@ -76,15 +76,19 @@ final class CalendarEventRepositoryTest extends KernelTestCase
   public function testSaveThenFindByIdRoundTrips(): void
   {
     $event = CalendarEvent::create(
-      id: CalendarEventId::fromString(self::EVENT_FULLY_INSIDE_ID),
-      organizationId: self::ORGANIZATION_ID,
-      title: 'Fire drill',
-      description: 'Quarterly fire drill',
-      startsAt: new DateTimeImmutable('2026-08-10T09:00:00+00:00'),
-      endsAt: new DateTimeImmutable('2026-08-10T11:00:00+00:00'),
-      allDay: false,
-      facilityId: null,
-      createdByMemberId: self::MEMBER_ID,
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString(self::EVENT_FULLY_INSIDE_ID),
+        organizationId: self::ORGANIZATION_ID,
+        createdByMemberId: self::MEMBER_ID,
+      ),
+      content: new CalendarEventContent(
+        title: 'Fire drill',
+        description: 'Quarterly fire drill',
+        startsAt: new DateTimeImmutable('2026-08-10T09:00:00+00:00'),
+        endsAt: new DateTimeImmutable('2026-08-10T11:00:00+00:00'),
+        allDay: false,
+        facilityId: null,
+      ),
     );
 
     $this->repository->save($event);
@@ -102,15 +106,19 @@ final class CalendarEventRepositoryTest extends KernelTestCase
   public function testRemoveDeletesTheEvent(): void
   {
     $event = CalendarEvent::create(
-      id: CalendarEventId::fromString(self::EVENT_FULLY_INSIDE_ID),
-      organizationId: self::ORGANIZATION_ID,
-      title: 'To be deleted',
-      description: null,
-      startsAt: new DateTimeImmutable('2026-08-10T09:00:00+00:00'),
-      endsAt: null,
-      allDay: false,
-      facilityId: null,
-      createdByMemberId: self::MEMBER_ID,
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString(self::EVENT_FULLY_INSIDE_ID),
+        organizationId: self::ORGANIZATION_ID,
+        createdByMemberId: self::MEMBER_ID,
+      ),
+      content: new CalendarEventContent(
+        title: 'To be deleted',
+        description: null,
+        startsAt: new DateTimeImmutable('2026-08-10T09:00:00+00:00'),
+        endsAt: null,
+        allDay: false,
+        facilityId: null,
+      ),
     );
     $this->repository->save($event);
 
@@ -183,15 +191,19 @@ final class CalendarEventRepositoryTest extends KernelTestCase
   private function persistEvent(string $id, string $organizationId, string $startsAt, ?string $endsAt): void
   {
     $event = CalendarEvent::create(
-      id: CalendarEventId::fromString($id),
-      organizationId: $organizationId,
-      title: 'Event ' . $id,
-      description: null,
-      startsAt: new DateTimeImmutable($startsAt),
-      endsAt: null !== $endsAt ? new DateTimeImmutable($endsAt) : null,
-      allDay: false,
-      facilityId: null,
-      createdByMemberId: self::MEMBER_ID,
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString($id),
+        organizationId: $organizationId,
+        createdByMemberId: self::MEMBER_ID,
+      ),
+      content: new CalendarEventContent(
+        title: 'Event ' . $id,
+        description: null,
+        startsAt: new DateTimeImmutable($startsAt),
+        endsAt: null !== $endsAt ? new DateTimeImmutable($endsAt) : null,
+        allDay: false,
+        facilityId: null,
+      ),
     );
     $this->repository->save($event);
   }

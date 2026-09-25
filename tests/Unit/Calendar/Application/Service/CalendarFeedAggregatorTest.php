@@ -8,7 +8,7 @@ use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Feed\{InspectionCalendarFeedPort, InterventionCalendarFeedPort, MaintenanceCalendarFeedPort};
 use Calendar\Application\Service\CalendarFeedAggregator;
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -218,15 +218,19 @@ final class CalendarFeedAggregatorTest extends TestCase
   private function calendarEvent(string $id, string $startsAt, string $title): CalendarEvent
   {
     return CalendarEvent::create(
-      id: CalendarEventId::fromString($id),
-      organizationId: self::ORGANIZATION_ID,
-      title: $title,
-      description: null,
-      startsAt: new DateTimeImmutable($startsAt),
-      endsAt: null,
-      allDay: false,
-      facilityId: null,
-      createdByMemberId: '018f0b68-6758-7a12-8a1d-3f0d97f64a99',
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString($id),
+        organizationId: self::ORGANIZATION_ID,
+        createdByMemberId: '018f0b68-6758-7a12-8a1d-3f0d97f64a99',
+      ),
+      content: new CalendarEventContent(
+        title: $title,
+        description: null,
+        startsAt: new DateTimeImmutable($startsAt),
+        endsAt: null,
+        allDay: false,
+        facilityId: null,
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ namespace Tests\Integration\Approval\Infrastructure\Persistence\Doctrine;
 use Approval\Application\Port\Outbound\ApprovalMemberDirectoryPort;
 use Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest\{WithdrawApprovalRequestCommand, WithdrawApprovalRequestHandler};
 use Approval\Domain\Exception\ApprovalRequestNotPendingException;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use Approval\Infrastructure\Persistence\Doctrine\Lock\PostgresApprovalDecisionLockAdapter;
 use Approval\Infrastructure\Persistence\Doctrine\Repository\ApprovalRequestRepository;
@@ -55,17 +56,14 @@ final class ApprovalDecisionConcurrencyTest extends KernelTestCase
     $this->emA = new EntityManager($this->a, $configured->getConfiguration());
     $this->emB = new EntityManager($this->b, $configured->getConfiguration());
     $this->a->delete('approval_requests', ['id' => self::ID]);
-    new ApprovalRequestRepository($this->emA)->reservePending(
-      self::ID,
+    new ApprovalRequestRepository($this->emA)->reservePending(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::ID),
       'a9000000-0000-4000-8000-000000000072',
       'equipment_decommission',
       'a9000000-0000-4000-8000-000000000073',
-      'a9000000-0000-4000-8000-000000000074',
-      'a9000000-0000-4000-8000-000000000075',
-      [],
-      new DateTimeImmutable('+1 day'),
-      new DateTimeImmutable(),
-    );
+      new ApprovalRequestSubmission('a9000000-0000-4000-8000-000000000074', 'a9000000-0000-4000-8000-000000000075', []),
+      new ApprovalRequestSchedule(new DateTimeImmutable('+1 day'), new DateTimeImmutable()),
+    ));
   }
 
   protected function tearDown(): void

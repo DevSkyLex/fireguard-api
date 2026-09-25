@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Equipment\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
@@ -84,13 +85,17 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       id: EquipmentId::fromString($id),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::FIRE_EXTINGUISHER,
-      status: EquipmentStatus::IN_STOCK,
+      details: new EquipmentCatalogDetails(
+        subType: 'foam',
+        brand: 'Acme',
+        model: 'M1',
+        serialNumber: 'SN-UPSERT',
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::IN_STOCK,
+      ),
       createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      subType: 'foam',
-      brand: 'Acme',
-      model: 'M1',
-      serialNumber: 'SN-UPSERT',
     ));
     $this->entityManager->clear();
 
@@ -100,14 +105,18 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       id: EquipmentId::fromString($id),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::SMOKE_DETECTOR,
-      status: EquipmentStatus::OPERATIONAL,
+      details: new EquipmentCatalogDetails(
+        subType: 'ion',
+        brand: 'Beta',
+        model: 'M2',
+        serialNumber: 'SN-UPSERT-2',
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::OPERATIONAL,
+        facilityId: EquipmentFacilityId::fromString(self::FACILITY_A),
+      ),
       createdAt: new DateTimeImmutable('2026-06-06T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-02-05T00:00:00+00:00'),
-      facilityId: EquipmentFacilityId::fromString(self::FACILITY_A),
-      subType: 'ion',
-      brand: 'Beta',
-      model: 'M2',
-      serialNumber: 'SN-UPSERT-2',
     ));
     $this->entityManager->clear();
 
@@ -134,10 +143,14 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       id: EquipmentId::fromString('770e8400-e29b-41d4-a716-4466554e0020'),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::FIRE_EXTINGUISHER,
-      status: EquipmentStatus::IN_STOCK,
+      details: new EquipmentCatalogDetails(
+        serialNumber: 'SN-DUPLICATE',
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::IN_STOCK,
+      ),
       createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      serialNumber: 'SN-DUPLICATE',
     ));
     $this->entityManager->clear();
 
@@ -147,10 +160,14 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       id: EquipmentId::fromString('770e8400-e29b-41d4-a716-4466554e0021'),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::SMOKE_DETECTOR,
-      status: EquipmentStatus::IN_STOCK,
+      details: new EquipmentCatalogDetails(
+        serialNumber: 'SN-DUPLICATE',
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::IN_STOCK,
+      ),
       createdAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
-      serialNumber: 'SN-DUPLICATE',
     ));
   }
 
@@ -298,10 +315,14 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
       id: EquipmentId::fromString('770e8400-e29b-41d4-a716-4466554e0080'),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::FIRE_EXTINGUISHER,
-      status: EquipmentStatus::IN_STOCK,
+      details: new EquipmentCatalogDetails(
+        serialNumber: 'SN-RETHROW',
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::IN_STOCK,
+      ),
       createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      serialNumber: 'SN-RETHROW',
     ));
   }
 

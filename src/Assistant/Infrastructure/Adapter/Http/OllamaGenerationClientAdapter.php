@@ -101,30 +101,7 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
         while (false !== ($newlinePosition = strpos($buffer, "\n"))) {
           $line = trim(substr($buffer, 0, $newlinePosition));
           $buffer = substr($buffer, $newlinePosition + 1);
-
-          if ('' === $line) {
-            continue;
-          }
-
-          $decoded = json_decode($line, true);
-          if (!is_array($decoded)) {
-            continue;
-          }
-
-          // Ollama's `/api/chat` carries the fragment at `message.content`.
-          // (`/api/generate` uses a flat `response` field instead — reading the
-          // wrong one yields a silently empty answer, so the shape is asserted
-          // rather than assumed.)
-          $message = $decoded['message'] ?? null;
-          $delta = is_array($message) ? ($message['content'] ?? null) : null;
-          if (is_string($delta) && '' !== $delta) {
-            $body .= $delta;
-            $onFragment($body);
-          }
-
-          if (true === ($decoded['done'] ?? false)) {
-            $tokenCount = is_int($decoded['eval_count'] ?? null) ? $decoded['eval_count'] : $tokenCount;
-          }
+          self::consumeLine($line, $body, $tokenCount, $onFragment);
         }
       }
     } catch (TransportExceptionInterface $exception) {
@@ -138,6 +115,41 @@ final readonly class OllamaGenerationClientAdapter implements AssistantGeneratio
     }
 
     return new AssistantGenerationOutcome($body, $tokenCount);
+  }
+
+  /**
+   * Decodes one newline-delimited Ollama fragment while retaining stream state.
+   *
+   * @since 1.0.0
+   *
+   * @param string $line one trimmed response line
+   * @param string $body accumulated assistant text
+   * @param ?int $tokenCount final token count, when reported
+   * @param callable $onFragment callback for cumulative text updates
+   */
+  private static function consumeLine(string $line, string &$body, ?int &$tokenCount, callable $onFragment): void
+  {
+    if ('' === $line) {
+      return;
+    }
+    $decoded = json_decode($line, true);
+    if (!is_array($decoded)) {
+      return;
+    }
+
+    // Ollama's `/api/chat` carries the fragment at `message.content`.
+    // (`/api/generate` uses a flat `response` field instead — reading the
+    // wrong one yields a silently empty answer, so the shape is asserted
+    // rather than assumed.)
+    $message = $decoded['message'] ?? null;
+    $delta = is_array($message) ? ($message['content'] ?? null) : null;
+    if (is_string($delta) && '' !== $delta) {
+      $body .= $delta;
+      $onFragment($body);
+    }
+    if (true === ($decoded['done'] ?? false)) {
+      $tokenCount = is_int($decoded['eval_count'] ?? null) ? $decoded['eval_count'] : $tokenCount;
+    }
   }
   // #endregion
 }

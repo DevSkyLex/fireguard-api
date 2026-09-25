@@ -6,7 +6,7 @@ namespace Tests\Functional\Api;
 
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Notification\Application\Contract\Notification\NotificationType;
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
 use PHPUnit\Framework\Attributes\Test;
@@ -281,8 +281,11 @@ final class NotificationApiTest extends WebTestCase
       subject: 'Inbox unread-count test (org-scoped)',
       body: '<p>Body</p>',
       channels: ['mercure'],
-      recipientUserId: $userId,
-      organizationId: $organizationId,
+      target: new NotificationTarget(
+        recipientUserId: $userId,
+        recipientEmail: null,
+        organizationId: $organizationId,
+      ),
     );
     $notificationRepository->save($unreadScoped);
 
@@ -292,8 +295,11 @@ final class NotificationApiTest extends WebTestCase
       subject: 'Inbox unread-count test (account-level)',
       body: '<p>Body</p>',
       channels: ['mercure'],
-      recipientUserId: $userId,
-      organizationId: null,
+      target: new NotificationTarget(
+        recipientUserId: $userId,
+        recipientEmail: null,
+        organizationId: null,
+      ),
     );
     $notificationRepository->save($unreadAccountLevel);
 
@@ -303,8 +309,11 @@ final class NotificationApiTest extends WebTestCase
       subject: 'Inbox unread-count test (already read)',
       body: '<p>Body</p>',
       channels: ['mercure'],
-      recipientUserId: $userId,
-      organizationId: null,
+      target: new NotificationTarget(
+        recipientUserId: $userId,
+        recipientEmail: null,
+        organizationId: null,
+      ),
     );
     $alreadyRead->markAsRead();
     $notificationRepository->save($alreadyRead);

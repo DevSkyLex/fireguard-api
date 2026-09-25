@@ -7,7 +7,7 @@ namespace Tests\Unit\Approval\Application\Service;
 use Approval\Application\Contract\Policy\ApprovalPolicy;
 use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort};
 use Approval\Application\Service\ApprovalRequestViewFactory;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -35,17 +35,14 @@ final class ApprovalRequestViewFactoryTest extends TestCase
   public function testCapabilitiesReflectCurrentRightsPolicyAndDeadline(bool $permission, bool $role, ?string $member, bool $allowSelf, bool $expired, ?string $reason): void
   {
     $now = new DateTimeImmutable('2026-09-20T10:00:00Z');
-    $request = ApprovalRequest::create(
+    $request = ApprovalRequest::create(new ApprovalRequestCreation(
       ApprovalRequestId::fromString('bc000000-0000-4000-8000-000000000097'),
       'org',
       'nc_waiver',
       'subject',
-      'requester',
-      'user',
-      [],
-      $expired ? $now : $now->modify('+1 day'),
-      $now->modify('-1 day'),
-    );
+      new ApprovalRequestSubmission('requester', 'user', []),
+      new ApprovalRequestSchedule($expired ? $now : $now->modify('+1 day'), $now->modify('-1 day')),
+    ));
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn($permission);
     $policies = $this->createStub(ApprovalPolicyPort::class);

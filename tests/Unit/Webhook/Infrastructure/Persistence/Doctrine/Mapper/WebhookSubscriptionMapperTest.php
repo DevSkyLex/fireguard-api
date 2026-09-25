@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Infrastructure\Persistence\Doctrine\Mapper;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 use Webhook\Infrastructure\Persistence\Doctrine\Mapper\WebhookSubscriptionMapper;
 use Webhook\Infrastructure\Persistence\Doctrine\Record\WebhookSubscriptionRecord;
@@ -57,9 +57,7 @@ final class WebhookSubscriptionMapperTest extends TestCase
       secretCiphertext: 'other-cipher',
       eventTypes: ['intervention.closed'],
       isActive: false,
-      description: 'Disabled',
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      metadata: new RestoredWebhookSubscriptionMetadata('Disabled', $createdAt, $updatedAt),
     );
 
     $record = new WebhookSubscriptionRecord();

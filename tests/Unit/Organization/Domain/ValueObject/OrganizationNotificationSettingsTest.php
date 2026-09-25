@@ -37,7 +37,7 @@ final class OrganizationNotificationSettingsTest extends TestCase
   #[Test]
   public function testToArrayExposesSnakeCaseKeys(): void
   {
-    $settings = new OrganizationNotificationSettings(emailEnabled: false);
+    $settings = OrganizationNotificationSettings::fromArray(['email_enabled' => false]);
 
     self::assertSame([
       'email_enabled' => false,
@@ -64,17 +64,17 @@ final class OrganizationNotificationSettingsTest extends TestCase
   #[Test]
   public function testToArrayFromArrayRoundTrip(): void
   {
-    $original = new OrganizationNotificationSettings(
-      emailEnabled: false,
-      inAppEnabled: false,
-      interventionPublished: false,
-      interventionAssigned: true,
-      inspectionDue: false,
-      nonConformityOpened: true,
-      nonConformitySlaBreached: false,
-      memberInvited: false,
-      weeklyDigest: false,
-    );
+    $original = OrganizationNotificationSettings::fromArray([
+      'email_enabled' => false,
+      'in_app_enabled' => false,
+      'intervention_published' => false,
+      'intervention_assigned' => true,
+      'inspection_due' => false,
+      'non_conformity_opened' => true,
+      'non_conformity_sla_breached' => false,
+      'member_invited' => false,
+      'weekly_digest' => false,
+    ]);
 
     $restored = OrganizationNotificationSettings::fromArray($original->toArray());
 

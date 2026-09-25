@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Webhook\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 use Webhook\Infrastructure\Persistence\Doctrine\Record\WebhookSubscriptionRecord;
 
@@ -40,9 +40,7 @@ final class WebhookSubscriptionMapper
       secretCiphertext: $record->secretCiphertext,
       eventTypes: $record->eventTypes,
       isActive: $record->isActive,
-      description: $record->description,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
+      metadata: new RestoredWebhookSubscriptionMetadata($record->description, $record->createdAt, $record->updatedAt),
     );
   }
 

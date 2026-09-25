@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
@@ -96,12 +96,14 @@ final class NonConformityMapperTest extends TestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSPECTION_ID),
       description: 'Blocked emergency exit',
       severity: NonConformitySeverity::CRITICAL,
-      status: NonConformityStatus::DONE,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::DONE,
+        dueAt: new DateTimeImmutable('2026-02-01T08:00:00+00:00'),
+        resolvedAt: new DateTimeImmutable('2026-01-20T08:00:00+00:00'),
+        notes: 'Reported by the site manager',
+      ),
       createdAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-02T08:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-02-01T08:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-01-20T08:00:00+00:00'),
-      notes: 'Reported by the site manager',
     );
   }
 }

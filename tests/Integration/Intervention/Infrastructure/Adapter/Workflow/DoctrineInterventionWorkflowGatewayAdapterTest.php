@@ -11,7 +11,17 @@ use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionLabelRecord, InterventionRecord};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Workflow\DoctrineInterventionWorkflowReader;
+use Intervention\Infrastructure\Service\Workflow\{
+  InterventionWorkflowChangeWriter,
+  InterventionWorkflowInterventionWriter,
+  InterventionWorkflowMutationSupport,
+  InterventionWorkflowPayload,
+  InterventionWorkflowWorkItemWriter,
+  InterventionWorkflowWorkloadCoordinator,
+  InterventionWorkflowWriterRuntime
+};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -37,6 +47,14 @@ use function array_values;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(DoctrineInterventionWorkflowGatewayAdapter::class)]
+#[CoversClass(DoctrineInterventionWorkflowReader::class)]
+#[CoversClass(InterventionWorkflowChangeWriter::class)]
+#[CoversClass(InterventionWorkflowInterventionWriter::class)]
+#[CoversClass(InterventionWorkflowMutationSupport::class)]
+#[CoversClass(InterventionWorkflowPayload::class)]
+#[CoversClass(InterventionWorkflowWorkItemWriter::class)]
+#[CoversClass(InterventionWorkflowWorkloadCoordinator::class)]
+#[CoversClass(InterventionWorkflowWriterRuntime::class)]
 final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCase
 {
   private const string ORGANIZATION_ID = '660e8400-e29b-41d4-a716-446655449000';
@@ -58,6 +76,10 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
   private const string OTHER_MEMBER_ID = '660e8400-e29b-41d4-a716-446655449022';
 
   private const string LABEL_ID = '660e8400-e29b-41d4-a716-446655449030';
+
+  private const string WORK_ITEM_ID = '660e8400-e29b-41d4-a716-446655449040';
+
+  private const string CHANGE_ID = '660e8400-e29b-41d4-a716-446655449041';
 
   private EntityManagerInterface $entityManager;
 
@@ -278,6 +300,56 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     self::assertSame(0, $noMatches->total);
   }
 
+  #[Test]
+  public function testWorkItemCreationAndReadUseTheSameGatewayTransaction(): void
+  {
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Task workflow', 11, 'draft');
+    $this->entityManager->flush();
+
+    $created = $this->adapter->mutate(new InterventionWorkflowMutation(
+      resource: 'work_item',
+      action: 'create',
+      userId: self::ACTOR_USER_ID,
+      id: self::WORK_ITEM_ID,
+      payload: [
+        'interventionId' => self::TRANSITION_ID,
+        'source' => 'planned',
+        'action' => 'inspect',
+        'target' => 'Panel',
+      ],
+    ));
+
+    self::assertSame(self::WORK_ITEM_ID, $created?->data['id']);
+    self::assertSame('planned', $created->data['status']);
+    self::assertSame('Panel', $this->adapter->get('work_item', self::WORK_ITEM_ID)?->data['target']);
+    self::assertSame(1, $this->adapter->list('work_item', self::TRANSITION_ID, [], 1, 20)->total);
+  }
+
+  #[Test]
+  public function testProposedChangeCreationPreservesOwnershipAndPatch(): void
+  {
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Change workflow', 12, 'in_progress');
+    $this->createActiveMember();
+    $this->entityManager->flush();
+
+    $created = $this->adapter->mutate(new InterventionWorkflowMutation(
+      resource: 'change',
+      action: 'create',
+      userId: self::ACTOR_USER_ID,
+      id: self::CHANGE_ID,
+      payload: [
+        'interventionId' => self::TRANSITION_ID,
+        'resource' => 'equipment',
+        'patch' => ['name' => 'Replacement panel'],
+      ],
+    ));
+
+    self::assertSame(self::CHANGE_ID, $created?->data['id']);
+    self::assertSame('proposed', $created->data['status']);
+    self::assertSame(['name' => 'Replacement panel'], $this->adapter->get('change', self::CHANGE_ID)?->data['patch']);
+    self::assertSame(1, $this->adapter->list('change', self::TRANSITION_ID, [], 1, 20)->total);
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();
@@ -358,6 +430,18 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $label->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
     $label->updatedAt = $label->createdAt;
     $this->entityManager->persist($label);
+  }
+
+  private function createActiveMember(): void
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $member = new OrganizationMemberRecord();
+    $member->id = self::ACTOR_USER_ID;
+    $member->organization = $organization;
+    $member->userId = self::ACTOR_USER_ID;
+    $member->joinedAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $this->entityManager->persist($member);
   }
 
   private function cleanup(): void

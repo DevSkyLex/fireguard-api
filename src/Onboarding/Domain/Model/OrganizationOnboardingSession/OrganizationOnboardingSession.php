@@ -128,69 +128,46 @@ final class OrganizationOnboardingSession
    *
    * @since 1.0.0
    *
-   * @param string $id the session identifier
-   * @param string $userId the user identifier
-   * @param string $flow the flow key
-   * @param string $state the persisted state key
-   * @param ?string $nextStep the persisted next step
-   * @param ?string $blockedReason the persisted blocked reason
-   * @param ?string $targetOrganizationId the persisted target organization identifier
-   * @param ?string $targetOrganizationName the persisted target organization name
-   * @param list<string> $completedSteps the persisted completed steps
-   * @param list<string> $skippedSteps the persisted skipped steps
-   * @param list<RollbackActionInterface> $rollbackStack the reconstituted typed rollback actions
-   * @param list<StepHistoryEntry> $stepHistory the persisted step history entries
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?DateTimeImmutable $dismissedAt the persisted dismissal timestamp, or null
+   * @param RestoredOnboardingIdentity $identity persisted identifiers and flow
+   * @param RestoredOnboardingStatus $status persisted flow status and target
+   * @param RestoredOnboardingHistory $history persisted step history and rollback stack
+   * @param RestoredOnboardingTimestamps $timestamps persisted creation/update/dismissal times
    *
    * @return self the reconstituted session
    */
   public static function reconstitute(
-    string $id,
-    string $userId,
-    string $flow,
-    string $state,
-    ?string $nextStep,
-    ?string $blockedReason,
-    ?string $targetOrganizationId,
-    ?string $targetOrganizationName,
-    array $completedSteps,
-    array $skippedSteps,
-    array $rollbackStack,
-    array $stepHistory,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?DateTimeImmutable $dismissedAt = null,
-    bool $creationIntent = false,
+    RestoredOnboardingIdentity $identity,
+    RestoredOnboardingStatus $status,
+    RestoredOnboardingHistory $history,
+    RestoredOnboardingTimestamps $timestamps,
   ): self {
     $normalizedCompletedSteps = array_values(array_filter(
-      $completedSteps,
+      $history->completedSteps,
       static fn (string $step): bool => OrganizationOnboardingStep::isValid($step),
     ));
 
     $normalizedSkippedSteps = array_values(array_filter(
-      $skippedSteps,
+      $history->skippedSteps,
       static fn (string $step): bool => OrganizationOnboardingStep::isValid($step),
     ));
 
     return new self(
-      id: $id,
-      userId: $userId,
-      flow: $flow,
-      state: $state,
-      nextStep: $nextStep,
-      blockedReason: $blockedReason,
-      targetOrganizationId: $targetOrganizationId,
-      targetOrganizationName: $targetOrganizationName,
+      id: $identity->id,
+      userId: $identity->userId,
+      flow: $identity->flow,
+      state: $status->state,
+      nextStep: $status->nextStep,
+      blockedReason: $status->blockedReason,
+      targetOrganizationId: $status->targetOrganizationId,
+      targetOrganizationName: $status->targetOrganizationName,
       completedSteps: $normalizedCompletedSteps,
       skippedSteps: $normalizedSkippedSteps,
-      rollbackStack: $rollbackStack,
-      stepHistory: $stepHistory,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      dismissedAt: $dismissedAt,
-      creationIntent: $creationIntent,
+      rollbackStack: $history->rollbackStack,
+      stepHistory: $history->stepHistory,
+      createdAt: $timestamps->createdAt,
+      updatedAt: $timestamps->updatedAt,
+      dismissedAt: $timestamps->dismissedAt,
+      creationIntent: $status->creationIntent,
     );
   }
 

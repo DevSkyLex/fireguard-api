@@ -64,12 +64,8 @@ final readonly class UpdateUserProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?UserOutput
   {
-    if (!$data instanceof UserInput) {
-      return null;
-    }
-
     $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
+    if (!$data instanceof UserInput || !is_string($id)) {
       return null;
     }
 

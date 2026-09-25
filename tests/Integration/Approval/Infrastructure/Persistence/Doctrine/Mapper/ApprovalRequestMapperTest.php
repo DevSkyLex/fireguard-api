@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Approval\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestResolution, ApprovalRequestRestoredState, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Mapper\ApprovalRequestMapper;
 use Approval\Infrastructure\Persistence\Doctrine\Record\ApprovalRequestRecord;
@@ -148,25 +148,19 @@ final class ApprovalRequestMapperTest extends KernelTestCase
     /** @var array<string, mixed> $payload */
     $payload = ['action' => 'billing.refund', 'amountCents' => 4200];
 
-    $request = ApprovalRequest::reconstitute(
-      id: ApprovalRequestId::fromString(self::REQUEST_ID_ROUNDTRIP),
-      organizationId: self::ORGANIZATION_ID,
-      actionType: 'billing.refund',
-      subjectId: 'b2c3d4e5-0000-4000-8000-000000000022',
-      status: ApprovalStatus::REJECTED,
-      requestedByMemberId: 'b2c3d4e5-0000-4000-8000-000000000033',
-      requestedByUserId: 'b2c3d4e5-0000-4000-8000-000000000043',
-      decisionByMemberId: 'b2c3d4e5-0000-4000-8000-000000000034',
-      decisionByUserId: 'b2c3d4e5-0000-4000-8000-000000000044',
-      decisionNote: 'Rejected: policy violation.',
-      payload: $payload,
-      expiresAt: new DateTimeImmutable('2026-05-10 12:00:00'),
-      createdAt: new DateTimeImmutable('2026-05-01 08:00:00'),
-      updatedAt: new DateTimeImmutable('2026-05-02 09:00:00'),
-      decidedAt: new DateTimeImmutable('2026-05-02 09:00:00'),
-      executedAt: null,
-      executionError: null,
-    );
+    $request = ApprovalRequest::reconstitute(new ApprovalRequestRestoredState(
+      new ApprovalRequestCreation(
+        ApprovalRequestId::fromString(self::REQUEST_ID_ROUNDTRIP),
+        self::ORGANIZATION_ID,
+        'billing.refund',
+        'b2c3d4e5-0000-4000-8000-000000000022',
+        new ApprovalRequestSubmission('b2c3d4e5-0000-4000-8000-000000000033', 'b2c3d4e5-0000-4000-8000-000000000043', $payload),
+        new ApprovalRequestSchedule(new DateTimeImmutable('2026-05-10 12:00:00'), new DateTimeImmutable('2026-05-01 08:00:00')),
+      ),
+      ApprovalStatus::REJECTED,
+      new DateTimeImmutable('2026-05-02 09:00:00'),
+      new ApprovalRequestResolution('b2c3d4e5-0000-4000-8000-000000000034', 'b2c3d4e5-0000-4000-8000-000000000044', 'Rejected: policy violation.', new DateTimeImmutable('2026-05-02 09:00:00'), null, null),
+    ));
 
     $record = new ApprovalRequestRecord();
     ApprovalRequestMapper::toRecord($request, $record);

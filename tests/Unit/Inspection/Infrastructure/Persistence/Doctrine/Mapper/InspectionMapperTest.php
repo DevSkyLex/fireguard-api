@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -147,17 +147,21 @@ final class InspectionMapperTest extends TestCase
     return Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      inspector: Inspector::forUser(self::USER_ID, 'Inspector'),
-      result: InspectionResult::PASS,
-      status: InspectionStatus::DRAFT,
-      performedAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
+        inspector: Inspector::forUser(self::USER_ID, 'Inspector'),
+        facilityId: $withOptionalIds ? InspectionFacilityId::fromString(self::FACILITY_ID) : null,
+        checklistId: $withOptionalIds ? InspectionChecklistId::fromString(self::CHECKLIST_ID) : null,
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::PASS,
+        status: InspectionStatus::DRAFT,
+        performedAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),
+        notes: 'Nothing to report',
+        signature: 'signature-blob',
+      ),
       createdAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-01T10:00:00+00:00'),
-      facilityId: $withOptionalIds ? InspectionFacilityId::fromString(self::FACILITY_ID) : null,
-      checklistId: $withOptionalIds ? InspectionChecklistId::fromString(self::CHECKLIST_ID) : null,
-      notes: 'Nothing to report',
-      signature: 'signature-blob',
     );
   }
 }

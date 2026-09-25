@@ -12,7 +12,7 @@ use Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\{
 };
 use DateTimeImmutable;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -212,36 +212,44 @@ final class ConfirmPasswordResetHandlerTest extends TestCase
   private function makeExpiredOtp(): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId(self::OTP_ID),
-      challengeToken: ChallengeToken::fromString(self::TOKEN),
-      userId: self::USER_ID,
-      purpose: OtpPurpose::PASSWORD_RESET,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: self::RECIPIENT,
-      expiresAt: new DateTimeImmutable('-1 hour'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 hours'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId(self::OTP_ID),
+        challengeToken: ChallengeToken::fromString(self::TOKEN),
+        userId: self::USER_ID,
+        purpose: OtpPurpose::PASSWORD_RESET,
+        channel: OtpChannel::EMAIL,
+        recipient: self::RECIPIENT,
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-1 hour'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 hours'),
+      ),
     );
   }
 
   private function makeMaxedOutOtp(): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId(self::OTP_ID),
-      challengeToken: ChallengeToken::fromString(self::TOKEN),
-      userId: self::USER_ID,
-      purpose: OtpPurpose::PASSWORD_RESET,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: self::RECIPIENT,
-      expiresAt: new DateTimeImmutable('+15 minutes'),
-      maxAttempts: 5,
-      attempts: 5,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-1 minute'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId(self::OTP_ID),
+        challengeToken: ChallengeToken::fromString(self::TOKEN),
+        userId: self::USER_ID,
+        purpose: OtpPurpose::PASSWORD_RESET,
+        channel: OtpChannel::EMAIL,
+        recipient: self::RECIPIENT,
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+15 minutes'),
+        maxAttempts: 5,
+        attempts: 5,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-1 minute'),
+      ),
     );
   }
 

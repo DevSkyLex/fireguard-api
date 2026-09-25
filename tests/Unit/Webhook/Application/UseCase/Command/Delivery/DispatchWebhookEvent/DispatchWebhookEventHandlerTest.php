@@ -11,7 +11,7 @@ use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Webhook\Application\Port\Outbound\{WebhookDeliveryQueuePort, WebhookDeliveryRepositoryPort, WebhookSubscriptionRepositoryPort};
 use Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\{DispatchWebhookEventCommand, DispatchWebhookEventHandler};
-use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 
 /**
@@ -121,9 +121,7 @@ final class DispatchWebhookEventHandlerTest extends TestCase
       secretCiphertext: 'ciphertext',
       eventTypes: ['intervention.published'],
       isActive: true,
-      description: '',
-      createdAt: new DateTimeImmutable(),
-      updatedAt: new DateTimeImmutable(),
+      metadata: new RestoredWebhookSubscriptionMetadata('', new DateTimeImmutable(), new DateTimeImmutable()),
     );
   }
 

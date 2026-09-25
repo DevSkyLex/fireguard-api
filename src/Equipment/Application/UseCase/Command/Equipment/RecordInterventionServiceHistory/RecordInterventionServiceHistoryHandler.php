@@ -6,7 +6,7 @@ namespace Equipment\Application\UseCase\Command\Equipment\RecordInterventionServ
 
 use Equipment\Application\Contract\Intervention\ServicedEquipmentEntry;
 use Equipment\Application\Port\Outbound\{InterventionServiceReportPort, MaintenanceLogRepositoryPort};
-use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\Model\MaintenanceLog\{EquipmentMaintenanceLog, InterventionMaintenanceDetails};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\{CommandHandler, VoidResult};
@@ -110,10 +110,12 @@ final readonly class RecordInterventionServiceHistoryHandler implements CommandH
       equipmentId: EquipmentId::fromString($entry->equipmentId),
       organizationId: $organizationId,
       occurredAt: $command->occurredAt,
-      interventionId: $command->interventionId,
-      interventionNumber: $interventionNumber,
-      workItemAction: $entry->action,
-      actorId: $actorId,
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: $command->interventionId,
+        interventionNumber: $interventionNumber,
+        workItemAction: $entry->action,
+        actorId: $actorId,
+      ),
     );
 
     $this->maintenanceLogRepository->appendInterventionServiceEntry($log, $this->dedupKey($entry->changeToken));

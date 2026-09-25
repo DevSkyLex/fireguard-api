@@ -169,7 +169,7 @@ final class SendWeeklyDigestsHandlerTest extends TestCase
       organizationIds: [self::ORG_ID],
       notifications: $notifications,
       interventions: $interventions,
-      policy: new OrganizationNotificationSettings(weeklyDigest: false),
+      policy: OrganizationNotificationSettings::fromArray(['weekly_digest' => false]),
     );
 
     $result = $handler(new SendWeeklyDigestsCommand());
@@ -190,7 +190,7 @@ final class SendWeeklyDigestsHandlerTest extends TestCase
       organizationIds: [self::ORG_ID],
       notifications: $notifications,
       interventions: $interventions,
-      policy: new OrganizationNotificationSettings(emailEnabled: false),
+      policy: OrganizationNotificationSettings::fromArray(['email_enabled' => false]),
     );
 
     $result = $handler(new SendWeeklyDigestsCommand());

@@ -66,8 +66,8 @@ docblock for the precedent this avoids replicating).
 `Application\Contract\Event\WebhookEventCatalog` holds the exact internal
 dispatcher event names (`<module>.<snake_case_class>`, per
 `Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter`),
-cross-checked against `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber`
-which already subscribes to every one of them:
+cross-checked against the subscribers in `Audit\Infrastructure\EventSubscriber\`,
+which already subscribe to every one of them:
 
 | Public type (`WebhookEventType`) | Internal dispatched event name |
 | --- | --- |
@@ -108,8 +108,8 @@ sequenceDiagram
   Sub->>Bus: dispatch(DispatchWebhookEventCommand)
 ```
 
-`WebhookEventSubscriber` mirrors `AuditEventSubscriber` exactly (subscribes
-to the curated event names, one typed handler method per event, swallows
+`WebhookEventSubscriber` follows the Audit subscriber pattern (subscribes
+to curated event names, one typed handler method per event, swallows
 and logs errors) but dispatches directly onto the raw Symfony message bus —
 **not** `CommandBusPort`, which expects a `HandledStamp` an async-routed
 dispatch never produces.
@@ -182,7 +182,7 @@ trusting it.
 ```
 
 `data` is built by a dedicated block inline in `WebhookEventSubscriber`
-(one per curated event, mirroring `AuditEventSubscriber`'s inline metadata
+(one per curated event, following the Audit subscribers' inline metadata
 blocks) that reads the TYPED domain event and emits only stable, PII-free
 public fields — no emails, no IP addresses, no internal identifiers beyond
 the resource IDs already visible through the REST API.

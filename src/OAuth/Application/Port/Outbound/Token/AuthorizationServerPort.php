@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\Port\Outbound\Token;
 
+use OAuth\Application\Contract\Token\AccessTokenRequest;
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
 use OAuth\Domain\Exception\Token\AuthorizationException;
 
@@ -31,28 +32,12 @@ interface AuthorizationServerPort
    *
    * @since 1.0.0
    *
-   * @param string $grantType the grant type
-   * @param string $clientId the client ID
-   * @param string $clientSecret the client secret
-   * @param string|null $scope the requested scope
-   * @param string|null $refreshToken the refresh token (for refresh_token grant)
-   * @param string|null $code the authorization code (for authorization_code grant)
-   * @param string|null $redirectUri the redirect URI (for authorization_code grant)
-   * @param string|null $codeVerifier the PKCE code verifier
+   * @param AccessTokenRequest $tokenRequest the client credentials and grant parameters
    *
    * @throws AuthorizationException if token issuance fails
    *
    * @return IssueTokenResult the token result
    */
-  public function issueAccessToken(
-    string $grantType,
-    string $clientId,
-    string $clientSecret,
-    ?string $scope = null,
-    ?string $refreshToken = null,
-    ?string $code = null,
-    ?string $redirectUri = null,
-    ?string $codeVerifier = null,
-  ): IssueTokenResult;
+  public function issueAccessToken(AccessTokenRequest $tokenRequest): IssueTokenResult;
   // #endregion
 }

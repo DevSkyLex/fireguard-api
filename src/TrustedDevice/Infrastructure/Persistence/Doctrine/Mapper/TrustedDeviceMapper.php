@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper;
 
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
-use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, TrustedDeviceId};
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, TrustedDeviceId, TrustedDeviceTimeline};
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord;
 
 /**
@@ -45,9 +45,7 @@ final readonly class TrustedDeviceMapper
       tokenHash: $record->getTokenHash(),
       fingerprint: $fingerprint,
       name: $record->getName(),
-      lastUsedAt: $record->getLastUsedAt(),
-      expiresAt: $record->getExpiresAt(),
-      createdAt: $record->getCreatedAt(),
+      timeline: new TrustedDeviceTimeline($record->getLastUsedAt(), $record->getExpiresAt(), $record->getCreatedAt()),
       revoked: $record->isRevoked(),
     );
   }

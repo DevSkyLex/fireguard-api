@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Otp\Application\Exception\OtpNotFoundException;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Application\UseCase\Query\Challenge\GetChallengeStatus\{GetChallengeStatusHandler, GetChallengeStatusQuery, GetChallengeStatusResult};
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -66,18 +66,22 @@ final class GetChallengeStatusHandlerTest extends TestCase
   public function testInvokeReturnsZeroResendForVerifiedOtp(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174301'),
-      challengeToken: ChallengeToken::fromString('token-301'),
-      userId: 'user-123',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('+10 minutes'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: new DateTimeImmutable('-1 minute'),
-      createdAt: new DateTimeImmutable('-2 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174301'),
+        challengeToken: ChallengeToken::fromString('token-301'),
+        userId: 'user-123',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+10 minutes'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: new DateTimeImmutable('-1 minute'),
+        createdAt: new DateTimeImmutable('-2 minutes'),
+      ),
     );
 
     $repository = $this->createMock(OtpRepositoryPort::class);

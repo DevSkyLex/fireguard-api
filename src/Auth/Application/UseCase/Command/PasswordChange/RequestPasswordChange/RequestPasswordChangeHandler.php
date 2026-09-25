@@ -71,21 +71,27 @@ final readonly class RequestPasswordChangeHandler implements CommandHandler
     // Verify the current password before issuing an OTP challenge.
     // authenticate() tracks failed attempts and locks the account
     // past the threshold, giving brute-force protection for free.
+    $authenticationFailure = null;
+
     try {
       $user->authenticate($command->currentPassword);
       $this->userRepository->save($user);
     } catch (InvalidPasswordException) {
       $this->userRepository->save($user);
 
-      return RequestPasswordChangeResult::failed(
+      $authenticationFailure = RequestPasswordChangeResult::failed(
         message: 'The current password is incorrect.',
         errorCode: RequestPasswordChangeResult::ERROR_INVALID_PASSWORD,
       );
     } catch (InvalidUserException) {
-      return RequestPasswordChangeResult::failed(
+      $authenticationFailure = RequestPasswordChangeResult::failed(
         message: 'This account cannot change its password in its current state.',
         errorCode: RequestPasswordChangeResult::ERROR_USER_NOT_FOUND,
       );
+    }
+
+    if (null !== $authenticationFailure) {
+      return $authenticationFailure;
     }
 
     $challenge = $this->otpChallenge->generate(

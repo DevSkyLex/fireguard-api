@@ -196,11 +196,8 @@ final readonly class NominatimGeocodingAdapter implements GeocodingPort
     $cacheKey = self::RESULT_CACHE_KEY_PREFIX . hash('sha256', mb_strtolower(trim($address)));
 
     $cached = $this->cacheGet($cacheKey);
-    if (self::NOT_FOUND_SENTINEL === $cached) {
-      return null;
-    }
     $cachedResult = is_array($cached) ? $this->resultFromCachedArray($cached) : null;
-    if ($cachedResult instanceof GeocodingResult) {
+    if (self::NOT_FOUND_SENTINEL === $cached || $cachedResult instanceof GeocodingResult) {
       return $cachedResult;
     }
 
@@ -213,16 +210,14 @@ final readonly class NominatimGeocodingAdapter implements GeocodingPort
     $result = $this->parseFirstResult($payload);
     if (null === $result) {
       $this->cacheSet($cacheKey, self::NOT_FOUND_SENTINEL);
-
-      return null;
+    } else {
+      $this->cacheSet($cacheKey, [
+        'latitude' => $result->latitude,
+        'longitude' => $result->longitude,
+        'displayName' => $result->displayName,
+        'confidence' => $result->confidence,
+      ]);
     }
-
-    $this->cacheSet($cacheKey, [
-      'latitude' => $result->latitude,
-      'longitude' => $result->longitude,
-      'displayName' => $result->displayName,
-      'confidence' => $result->confidence,
-    ]);
 
     return $result;
   }

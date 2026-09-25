@@ -10,7 +10,7 @@ use Organization\Application\UseCase\Command\Team\AddTeamMember\{AddTeamMemberCo
 use Organization\Domain\Event\Team\TeamMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, TeamNotFoundException};
 use Organization\Domain\Exception\TeamMembershipException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, TeamId, TeamName};
@@ -228,11 +228,13 @@ final class AddTeamMemberHandlerTest extends TestCase
   private function organizationRepository(): OrganizationRepositoryPort
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
 
     $repository = $this->createStub(OrganizationRepositoryPort::class);

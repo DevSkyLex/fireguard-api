@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Domain\Model\Thread;
 
-use Assistant\Domain\Model\Thread\AssistantThread;
+use Assistant\Domain\Model\Thread\{AssistantThread, RestoredAssistantThreadTimeline};
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -98,9 +98,11 @@ final class AssistantThreadTest extends TestCase
       memberId: self::MEMBER_ID,
       title: null,
       model: 'llama3',
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      lastMessageAt: $lastMessageAt,
+      timeline: new RestoredAssistantThreadTimeline(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        lastMessageAt: $lastMessageAt,
+      ),
     );
 
     self::assertSame(self::THREAD_ID, (string) $thread->id());

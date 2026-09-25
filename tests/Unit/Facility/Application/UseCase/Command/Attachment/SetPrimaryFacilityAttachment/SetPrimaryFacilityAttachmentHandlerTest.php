@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Attachment\SetPrimaryF
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\SetPrimaryFacilityAttachment\{SetPrimaryFacilityAttachmentCommand, SetPrimaryFacilityAttachmentHandler, SetPrimaryFacilityAttachmentResult};
 use Facility\Domain\Exception\{FacilityAttachmentNotFloorPlanException, FacilityAttachmentNotFoundException, FacilityNotFoundException};
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -149,7 +149,7 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
       storagePath: 'facilities/plan.png',
       mimeType: 'image/png',
       size: 2048,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
 
     /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -209,7 +209,7 @@ final class SetPrimaryFacilityAttachmentHandlerTest extends TestCase
       storagePath: 'facilities/plan.png',
       mimeType: 'image/png',
       size: 2048,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
   }
 

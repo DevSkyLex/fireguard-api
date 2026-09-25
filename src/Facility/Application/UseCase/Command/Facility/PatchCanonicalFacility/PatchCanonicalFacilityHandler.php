@@ -174,15 +174,7 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
   private function resolveParent(CanonicalFacility $facility, CanonicalFacilityPatch $patch): ?CanonicalFacilityParent
   {
     if (!$patch->hasParent) {
-      $currentParentId = $facility->parentFacilityId();
-
-      if (!$facility->wouldRestore($patch) || null === $currentParentId) {
-        return null;
-      }
-
-      $current = $this->facilities->findById(FacilityId::fromString($currentParentId));
-
-      return null === $current ? null : new CanonicalFacilityParent((string) $current->id(), $current->status());
+      return $this->parentForRestore($facility, $patch);
     }
 
     if (null === $patch->parentFacilityId) {
@@ -210,6 +202,28 @@ final readonly class PatchCanonicalFacilityHandler implements CommandHandler
     $this->assertDepthWithinCap($facility, $parent);
 
     return new CanonicalFacilityParent($parentId, $parent->status());
+  }
+
+  /**
+   * Resolves the existing parent only when an unchanged parent is needed for a restore.
+   *
+   * @since 1.0.0
+   *
+   * @param CanonicalFacility $facility the facility being patched
+   * @param CanonicalFacilityPatch $patch the requested changes
+   *
+   * @return ?CanonicalFacilityParent the current parent, when relevant and present
+   */
+  private function parentForRestore(CanonicalFacility $facility, CanonicalFacilityPatch $patch): ?CanonicalFacilityParent
+  {
+    $currentParentId = $facility->parentFacilityId();
+    if (!$facility->wouldRestore($patch) || null === $currentParentId) {
+      return null;
+    }
+
+    $current = $this->facilities->findById(FacilityId::fromString($currentParentId));
+
+    return null === $current ? null : new CanonicalFacilityParent((string) $current->id(), $current->status());
   }
 
   /**

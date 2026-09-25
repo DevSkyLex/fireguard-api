@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Assistant\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Assistant\Domain\Model\Thread\AssistantThread;
+use Assistant\Domain\Model\Thread\{AssistantThread, RestoredAssistantThreadTimeline};
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\AssistantThreadRecord;
 
@@ -39,9 +39,11 @@ final class AssistantThreadMapper
       memberId: $record->memberId,
       title: $record->title,
       model: $record->model,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      lastMessageAt: $record->lastMessageAt,
+      timeline: new RestoredAssistantThreadTimeline(
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        lastMessageAt: $record->lastMessageAt,
+      ),
     );
   }
 

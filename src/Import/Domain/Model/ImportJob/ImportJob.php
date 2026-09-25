@@ -134,67 +134,37 @@ final class ImportJob
    *
    * @since 1.0.0
    *
-   * @param ImportJobId $id the import job identifier
-   * @param string $organizationId the owning organization identifier
-   * @param ImportKind $kind the provisioned resource kind
-   * @param ImportStatus $status the current lifecycle status
-   * @param string $storagePath the uploaded CSV storage key
-   * @param string $originalFilename the original uploaded file name
-   * @param string $createdBy the creating user identifier
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param bool $dryRun whether this job validates and reports without provisioning anything
-   * @param ?int $totalRows the total data row count
-   * @param int $processedRows the number of data rows processed so far
-   * @param int $successfulRows the number of rows successfully provisioned (or, for a dry run, that would be)
-   * @param int $failedRows the number of rows reported as failed
-   * @param list<ImportRowError> $errorReport the per-row report
-   * @param ?string $jobError the catastrophic failure reason, when failed
-   * @param ?DateTimeImmutable $startedAt when processing started
-   * @param ?DateTimeImmutable $completedAt when the job reached a terminal state
+   * @param ImportJobSource $source the persisted job identity and upload
+   * @param ImportJobProgress $progress the persisted status and row counters
+   * @param ImportJobTimeline $timeline the persisted lifecycle timestamps
    *
    * @return self the reconstituted import job
    */
   public static function reconstitute(
-    ImportJobId $id,
-    string $organizationId,
-    ImportKind $kind,
-    ImportStatus $status,
-    string $storagePath,
-    string $originalFilename,
-    string $createdBy,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    bool $dryRun,
-    ?int $totalRows,
-    int $processedRows,
-    int $successfulRows,
-    int $failedRows,
-    array $errorReport,
-    ?string $jobError,
-    ?DateTimeImmutable $startedAt,
-    ?DateTimeImmutable $completedAt,
+    ImportJobSource $source,
+    ImportJobProgress $progress,
+    ImportJobTimeline $timeline,
     ?string $confirmedJobId = null,
   ): self {
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      kind: $kind,
-      status: $status,
-      storagePath: $storagePath,
-      originalFilename: $originalFilename,
-      createdBy: $createdBy,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      dryRun: $dryRun,
-      totalRows: $totalRows,
-      processedRows: $processedRows,
-      successfulRows: $successfulRows,
-      failedRows: $failedRows,
-      errorReport: $errorReport,
-      jobError: $jobError,
-      startedAt: $startedAt,
-      completedAt: $completedAt,
+      id: $source->id,
+      organizationId: $source->organizationId,
+      kind: $source->kind,
+      status: $progress->status,
+      storagePath: $source->storagePath,
+      originalFilename: $source->originalFilename,
+      createdBy: $source->createdBy,
+      createdAt: $timeline->createdAt,
+      updatedAt: $timeline->updatedAt,
+      dryRun: $source->dryRun,
+      totalRows: $progress->totalRows,
+      processedRows: $progress->processedRows,
+      successfulRows: $progress->successfulRows,
+      failedRows: $progress->failedRows,
+      errorReport: $progress->errorReport,
+      jobError: $progress->jobError,
+      startedAt: $timeline->startedAt,
+      completedAt: $timeline->completedAt,
       confirmedJobId: $confirmedJobId,
     );
   }

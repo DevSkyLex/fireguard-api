@@ -9,7 +9,7 @@ use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, TeamRepo
 use Organization\Application\UseCase\Command\Team\UpdateTeam\{UpdateTeamCommand, UpdateTeamHandler, UpdateTeamResult};
 use Organization\Domain\Event\Team\TeamUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException, TeamNotFoundException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\Team\Team;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, TeamId, TeamName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -314,11 +314,13 @@ final class UpdateTeamHandlerTest extends TestCase
   private function organization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
   }
 

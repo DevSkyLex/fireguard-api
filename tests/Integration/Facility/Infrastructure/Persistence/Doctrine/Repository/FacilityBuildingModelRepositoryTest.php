@@ -7,7 +7,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateInterval;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityOrganizationId};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\{FacilityAttachmentRepository, FacilityRepository};
@@ -186,9 +186,11 @@ final class FacilityBuildingModelRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . $floor->id . '/attachments/ground-floor.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
-      imageWidth: 1200,
-      imageHeight: 900,
+      options: new FacilityAttachmentCreationOptions(
+        kind: AttachmentKind::FLOOR_PLAN,
+        imageWidth: 1200,
+        imageHeight: 900,
+      ),
     );
     $attachment->markAsPrimary();
     $this->attachmentRepository->save($attachment);

@@ -233,10 +233,10 @@ final class MessagingNotificationServiceTest extends TestCase
   private function policy(bool $inAppEnabled = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
-    $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
-      emailEnabled: $emailEnabled,
-      inAppEnabled: $inAppEnabled,
-    ));
+    $policy->method('notificationPolicy')->willReturn(OrganizationNotificationSettings::fromArray([
+      'email_enabled' => $emailEnabled,
+      'in_app_enabled' => $inAppEnabled,
+    ]));
 
     return $policy;
   }

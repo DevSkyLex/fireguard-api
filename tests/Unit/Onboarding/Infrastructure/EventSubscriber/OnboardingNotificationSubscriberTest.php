@@ -239,10 +239,10 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   private function policyPort(bool $emailEnabled = true, bool $inAppEnabled = true): OrganizationNotificationPolicyPort
   {
     $policyPort = $this->createStub(OrganizationNotificationPolicyPort::class);
-    $policyPort->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
-      emailEnabled: $emailEnabled,
-      inAppEnabled: $inAppEnabled,
-    ));
+    $policyPort->method('notificationPolicy')->willReturn(OrganizationNotificationSettings::fromArray([
+      'email_enabled' => $emailEnabled,
+      'in_app_enabled' => $inAppEnabled,
+    ]));
 
     return $policyPort;
   }

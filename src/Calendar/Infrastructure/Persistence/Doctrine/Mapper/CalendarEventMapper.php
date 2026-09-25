@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Calendar\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarEventRecord;
 
@@ -34,15 +34,19 @@ final class CalendarEventMapper
   public static function toDomain(CalendarEventRecord $record): CalendarEvent
   {
     return CalendarEvent::reconstitute(
-      id: CalendarEventId::fromString($record->id),
-      organizationId: $record->organizationId,
-      title: $record->title,
-      description: $record->description,
-      startsAt: $record->startsAt,
-      endsAt: $record->endsAt,
-      allDay: $record->allDay,
-      facilityId: $record->facilityId,
-      createdByMemberId: $record->createdByMemberId,
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString($record->id),
+        organizationId: $record->organizationId,
+        createdByMemberId: $record->createdByMemberId,
+      ),
+      content: new CalendarEventContent(
+        title: $record->title,
+        description: $record->description,
+        startsAt: $record->startsAt,
+        endsAt: $record->endsAt,
+        allDay: $record->allDay,
+        facilityId: $record->facilityId,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
     );

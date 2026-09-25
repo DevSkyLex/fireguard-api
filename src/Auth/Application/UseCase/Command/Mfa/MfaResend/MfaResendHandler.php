@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Mfa\MfaResend;
 
+use Auth\Application\Contract\Mfa\ResentMfaChallenge;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
@@ -127,40 +128,44 @@ final readonly class MfaResendHandler implements CommandHandler
     );
 
     if ($canResendIn > 0) {
-      return MfaResendResult::failed(
+      $result = MfaResendResult::failed(
         message: "Please wait {$canResendIn} seconds before resending.",
         errorCode: MfaResendResult::ERROR_RESEND_NOT_ALLOWED,
         retryAfter: $canResendIn,
       );
+    } else {
+      $channel = OtpChannel::from($otp->channel()->value);
+      $challenge = $this->otpChallenge->generate(
+        userId: $userId,
+        purpose: OtpPurpose::LOGIN,
+        channel: $channel,
+        recipient: $otp->recipient(),
+      );
+
+      $newPreAuthToken = $this->jwtService->generatePreAuthToken(
+        userId: $userId,
+        challengeToken: $challenge->challengeToken,
+        email: is_string($email) ? $email : '',
+        scopes: $scopes,
+        rememberMe: $rememberMe,
+        grantType: $grantType,
+      );
+
+      $result = MfaResendResult::success(
+        challenge: new ResentMfaChallenge(
+          preAuthToken: $newPreAuthToken,
+          challengeToken: $challenge->challengeToken,
+          mfaMethod: $channel->value,
+          mfaDestination: $challenge->maskedRecipient,
+          expiresAt: $challenge->expiresAt,
+          maxAttempts: $challenge->maxAttempts,
+          canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
+        ),
+        message: 'A new MFA code has been sent.',
+      );
     }
 
-    $channel = OtpChannel::from($otp->channel()->value);
-    $challenge = $this->otpChallenge->generate(
-      userId: $userId,
-      purpose: OtpPurpose::LOGIN,
-      channel: $channel,
-      recipient: $otp->recipient(),
-    );
-
-    $newPreAuthToken = $this->jwtService->generatePreAuthToken(
-      userId: $userId,
-      challengeToken: $challenge->challengeToken,
-      email: is_string($email) ? $email : '',
-      scopes: $scopes,
-      rememberMe: $rememberMe,
-      grantType: $grantType,
-    );
-
-    return MfaResendResult::success(
-      preAuthToken: $newPreAuthToken,
-      challengeToken: $challenge->challengeToken,
-      mfaMethod: $channel->value,
-      mfaDestination: $challenge->maskedRecipient,
-      expiresAt: $challenge->expiresAt,
-      maxAttempts: $challenge->maxAttempts,
-      canResendIn: ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS,
-      message: 'A new MFA code has been sent.',
-    );
+    return $result;
   }
   // #endregion
 }

@@ -10,7 +10,7 @@ use Otp\Application\Exception\OtpNotFoundException;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\{VerifyOtpCommand, VerifyOtpHandler};
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\Model\Totp\TotpEnrollment;
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose, TotpSecret};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -160,18 +160,22 @@ final class VerifyOtpHandlerTest extends TestCase
   public function testInvokeReturnsExpiredError(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174011'),
-      challengeToken: ChallengeToken::fromString('token-expired'),
-      userId: 'user-123',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'test@example.com',
-      expiresAt: new DateTimeImmutable('-10 minutes'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-20 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174011'),
+        challengeToken: ChallengeToken::fromString('token-expired'),
+        userId: 'user-123',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'test@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-10 minutes'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-20 minutes'),
+      ),
     );
 
     $repository = $this->createMock(OtpRepositoryPort::class);
@@ -196,18 +200,22 @@ final class VerifyOtpHandlerTest extends TestCase
   public function testInvokeReturnsMaxAttemptsError(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174012'),
-      challengeToken: ChallengeToken::fromString('token-max'),
-      userId: 'user-123',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'test@example.com',
-      expiresAt: new DateTimeImmutable('+10 minutes'),
-      maxAttempts: 1,
-      attempts: 1,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-20 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174012'),
+        challengeToken: ChallengeToken::fromString('token-max'),
+        userId: 'user-123',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'test@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+10 minutes'),
+        maxAttempts: 1,
+        attempts: 1,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-20 minutes'),
+      ),
     );
 
     $repository = $this->createMock(OtpRepositoryPort::class);

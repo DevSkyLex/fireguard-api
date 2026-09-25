@@ -18,7 +18,7 @@ use Approval\Domain\Exception\{
   SelfApprovalNotAllowedException
 };
 use Approval\Domain\Exception\ApprovalAccessDeniedException;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -240,7 +240,7 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
 
     self::assertSame('approved', $result->status);
     self::assertSame(self::APPROVER_MEMBER_ID, $result->decisionByMemberId);
-    self::assertTrue(false === $request->isPending());
+    self::assertFalse($request->isPending());
     self::assertNotNull($request->executedAt());
   }
 
@@ -288,17 +288,14 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
 
   private function pendingRequest(): ApprovalRequest
   {
-    return ApprovalRequest::create(
-      id: ApprovalRequestId::fromString(self::REQUEST_ID),
-      organizationId: self::ORG_ID,
-      actionType: 'equipment_decommission',
-      subjectId: 'equip-1',
-      requestedByMemberId: self::REQUESTER_MEMBER_ID,
-      requestedByUserId: 'requester-user',
-      payload: ['organizationId' => self::ORG_ID, 'equipmentId' => 'equip-1'],
-      expiresAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      now: new DateTimeImmutable('2026-01-18T00:00:00+00:00'),
-    );
+    return ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::REQUEST_ID),
+      self::ORG_ID,
+      'equipment_decommission',
+      'equip-1',
+      new ApprovalRequestSubmission(self::REQUESTER_MEMBER_ID, 'requester-user', ['organizationId' => self::ORG_ID, 'equipmentId' => 'equip-1']),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-02-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-18T00:00:00+00:00')),
+    ));
   }
 
   private static function command(string $organizationId = self::ORG_ID): ApproveApprovalRequestCommand

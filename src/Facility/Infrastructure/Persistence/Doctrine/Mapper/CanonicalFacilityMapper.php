@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Facility\Domain\Model\Facility\CanonicalFacility;
+use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent, CanonicalFacilityReference, CanonicalFacilityVersion};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityRecordStatus, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use LogicException;
@@ -43,22 +43,23 @@ final class CanonicalFacilityMapper
     }
 
     return CanonicalFacility::reconstitute(
-      id: FacilityId::fromString($record->id),
-      organizationId: FacilityOrganizationId::fromString($record->organization->id),
-      recordStatus: FacilityRecordStatus::from($record->recordStatus),
-      interventionId: $record->interventionId,
-      parentFacilityId: $record->parentFacility?->id,
-      type: FacilityType::from($record->type),
-      name: $record->name,
-      code: $record->code,
-      address: $record->address,
-      latitude: $record->latitude,
-      longitude: $record->longitude,
-      metadata: $record->metadata,
-      status: FacilityStatus::from($record->status),
-      revision: $record->revision,
-      updatedAt: $record->updatedAt,
-      levelIndex: $record->levelIndex,
+      reference: new CanonicalFacilityReference(
+        FacilityId::fromString($record->id),
+        FacilityOrganizationId::fromString($record->organization->id),
+        FacilityRecordStatus::from($record->recordStatus),
+        $record->interventionId,
+        $record->parentFacility?->id,
+      ),
+      content: new CanonicalFacilityContent(
+        FacilityType::from($record->type),
+        $record->name,
+        $record->code,
+        $record->address,
+        $record->latitude,
+        $record->longitude,
+        $record->metadata,
+      ),
+      version: new CanonicalFacilityVersion(FacilityStatus::from($record->status), $record->revision, $record->updatedAt, $record->levelIndex),
     );
   }
 

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Domain\Exception\InterventionConflictException;
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord, InterventionWorkItemRecord};
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
@@ -81,14 +81,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testSaveThenFindByIdRoundTripsAllFields(): void
   {
     $attachment = InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.pdf',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.pdf',
-      mimeType: 'application/pdf',
-      size: 20_480,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      label: 'Execution evidence',
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.pdf', 'interventions/' . self::INTERVENTION_ID . '/evidence.pdf', 'application/pdf', 20_480),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(label: 'Execution evidence'),
     );
     $this->repository->save($attachment);
     $this->entityManager->clear();
@@ -110,32 +107,23 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testFindByInterventionIdReturnsOnlyOwnAttachmentsOrderedByUploadedAtDesc(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'older.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/older.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('older.jpg', 'interventions/' . self::INTERVENTION_ID . '/older.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
     ));
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::NEWER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'newer.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/newer.jpg',
-      mimeType: 'image/jpeg',
-      size: 2_048,
-      uploadedAt: new DateTimeImmutable('2026-03-02T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::NEWER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('newer.jpg', 'interventions/' . self::INTERVENTION_ID . '/newer.jpg', 'image/jpeg', 2_048),
+      new DateTimeImmutable('2026-03-02T08:00:00+00:00'),
     ));
     // Belongs to a different intervention: must be excluded.
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
-      interventionId: self::OTHER_INTERVENTION_ID,
-      fileName: 'other.jpg',
-      storagePath: 'interventions/' . self::OTHER_INTERVENTION_ID . '/other.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      self::OTHER_INTERVENTION_ID,
+      new InterventionAttachmentFile('other.jpg', 'interventions/' . self::OTHER_INTERVENTION_ID . '/other.jpg', 'image/jpeg', 512),
+      new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
     ));
     $this->entityManager->clear();
 
@@ -149,26 +137,20 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testSaveUpdatesExistingAttachmentInPlace(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'original.pdf',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/original.pdf',
-      mimeType: 'application/pdf',
-      size: 100,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      label: 'Draft',
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('original.pdf', 'interventions/' . self::INTERVENTION_ID . '/original.pdf', 'application/pdf', 100),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(label: 'Draft'),
     ));
     $this->entityManager->clear();
 
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'renamed.pdf',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/renamed.pdf',
-      mimeType: 'application/pdf',
-      size: 200,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      label: 'Final',
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('renamed.pdf', 'interventions/' . self::INTERVENTION_ID . '/renamed.pdf', 'application/pdf', 200),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(label: 'Final'),
     ));
     $this->entityManager->clear();
 
@@ -183,13 +165,10 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testDeleteRemovesAttachment(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.pdf',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.pdf',
-      mimeType: 'application/pdf',
-      size: 100,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.pdf', 'interventions/' . self::INTERVENTION_ID . '/evidence.pdf', 'application/pdf', 100),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
     ));
     $this->entityManager->clear();
 
@@ -211,33 +190,24 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     self::assertSame(0, $this->repository->countByInterventionId(self::INTERVENTION_ID));
 
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'older.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/older.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('older.jpg', 'interventions/' . self::INTERVENTION_ID . '/older.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
     ));
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::NEWER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'newer.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/newer.jpg',
-      mimeType: 'image/jpeg',
-      size: 2_048,
-      uploadedAt: new DateTimeImmutable('2026-03-02T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::NEWER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('newer.jpg', 'interventions/' . self::INTERVENTION_ID . '/newer.jpg', 'image/jpeg', 2_048),
+      new DateTimeImmutable('2026-03-02T08:00:00+00:00'),
     ));
     // Another intervention's attachment must not inflate the count, or one
     // busy intervention would cap every other one in the organization.
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
-      interventionId: self::OTHER_INTERVENTION_ID,
-      fileName: 'other.jpg',
-      storagePath: 'interventions/' . self::OTHER_INTERVENTION_ID . '/other.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      self::OTHER_INTERVENTION_ID,
+      new InterventionAttachmentFile('other.jpg', 'interventions/' . self::OTHER_INTERVENTION_ID . '/other.jpg', 'image/jpeg', 512),
+      new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
     ));
     $this->entityManager->clear();
 
@@ -252,14 +222,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     $this->entityManager->flush();
 
     $attachment = InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      workItemId: self::WORK_ITEM_ID,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.jpg', 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(workItemId: self::WORK_ITEM_ID),
     );
     $this->repository->save($attachment);
     $this->entityManager->clear();
@@ -278,33 +245,24 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     $this->entityManager->flush();
 
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'scoped.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/scoped.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
-      workItemId: self::WORK_ITEM_ID,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('scoped.jpg', 'interventions/' . self::INTERVENTION_ID . '/scoped.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+      new InterventionAttachmentOptions(workItemId: self::WORK_ITEM_ID),
     ));
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'other-work-item.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/other-work-item.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T08:30:00+00:00'),
-      workItemId: self::OTHER_WORK_ITEM_ID,
+      InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('other-work-item.jpg', 'interventions/' . self::INTERVENTION_ID . '/other-work-item.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T08:30:00+00:00'),
+      new InterventionAttachmentOptions(workItemId: self::OTHER_WORK_ITEM_ID),
     ));
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'unscoped.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/unscoped.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('unscoped.jpg', 'interventions/' . self::INTERVENTION_ID . '/unscoped.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
     ));
     $this->entityManager->clear();
 
@@ -321,14 +279,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     $this->entityManager->flush();
 
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      workItemId: self::WORK_ITEM_ID,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.jpg', 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(workItemId: self::WORK_ITEM_ID),
     ));
     $this->entityManager->clear();
 
@@ -352,14 +307,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testSaveThenFindByIdRoundTripsTheSignatureKind(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/signature.png',
-      mimeType: 'image/png',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('signature.png', 'interventions/' . self::INTERVENTION_ID . '/signature.png', 'image/png', 1_024),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     ));
     $this->entityManager->clear();
 
@@ -373,13 +325,10 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testFindByIdDefaultsAPersistedAttachmentToTheFileKind(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.jpg', 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
     ));
     $this->entityManager->clear();
 
@@ -400,34 +349,25 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testFindSignatureByInterventionIdReturnsTheOnlySignatureAmongOtherFiles(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.jpg',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 1_024,
-      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.jpg', 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg', 'image/jpeg', 1_024),
+      new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
     ));
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/signature.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('signature.png', 'interventions/' . self::INTERVENTION_ID . '/signature.png', 'image/png', 512),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     ));
     // Another intervention's signature must not leak across scopes.
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
-      interventionId: self::OTHER_INTERVENTION_ID,
-      fileName: 'other-signature.png',
-      storagePath: 'interventions/' . self::OTHER_INTERVENTION_ID . '/other-signature.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      self::OTHER_INTERVENTION_ID,
+      new InterventionAttachmentFile('other-signature.png', 'interventions/' . self::OTHER_INTERVENTION_ID . '/other-signature.png', 'image/png', 512),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     ));
     $this->entityManager->clear();
 
@@ -443,14 +383,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testDirectSecondSignatureInsertViolatesThePartialUniqueIndex(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/signature.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('signature.png', 'interventions/' . self::INTERVENTION_ID . '/signature.png', 'image/png', 512),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     ));
     $this->entityManager->clear();
 
@@ -478,26 +415,20 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testSaveReplacingSignatureAtomicallyReplacesThePreviousSignatureRow(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'first-signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/first-signature.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('first-signature.png', 'interventions/' . self::INTERVENTION_ID . '/first-signature.png', 'image/png', 512),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     ));
     $this->entityManager->clear();
 
     $replacement = InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'second-signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/second-signature.png',
-      mimeType: 'image/png',
-      size: 600,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:10:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('second-signature.png', 'interventions/' . self::INTERVENTION_ID . '/second-signature.png', 'image/png', 600),
+      new DateTimeImmutable('2026-03-01T09:10:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     );
 
     // The order under test: the PREVIOUS row must be gone before the new one
@@ -518,14 +449,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   public function testSaveReplacingSignatureTranslatesAGenuineConcurrentDuplicateIntoAConflict(): void
   {
     $this->repository->save(InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'first-signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/first-signature.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('first-signature.png', 'interventions/' . self::INTERVENTION_ID . '/first-signature.png', 'image/png', 512),
+      new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     ));
     $this->entityManager->clear();
 
@@ -534,14 +462,11 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     // signature to remove (it did not see one), yet one now exists. The
     // partial unique index — not application logic — is what rejects it.
     $racingSignature = InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'racing-signature.png',
-      storagePath: 'interventions/' . self::INTERVENTION_ID . '/racing-signature.png',
-      mimeType: 'image/png',
-      size: 512,
-      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:05+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('racing-signature.png', 'interventions/' . self::INTERVENTION_ID . '/racing-signature.png', 'image/png', 512),
+      new DateTimeImmutable('2026-03-01T09:00:05+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     );
 
     $this->expectException(InterventionConflictException::class);

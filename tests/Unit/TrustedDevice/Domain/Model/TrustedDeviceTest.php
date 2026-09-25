@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use TrustedDevice\Domain\Event\{DeviceRevokedEvent, DeviceTrustedEvent};
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
-use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId};
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};
 
 use function usleep;
 
@@ -162,9 +162,7 @@ final class TrustedDeviceTest extends TestCase
       tokenHash: $token->hash,
       fingerprint: $fingerprint,
       name: 'Test Device',
-      lastUsedAt: new DateTimeImmutable('-2 days'),
-      expiresAt: new DateTimeImmutable('-1 day'),
-      createdAt: new DateTimeImmutable('-10 days'),
+      timeline: new TrustedDeviceTimeline(new DateTimeImmutable('-2 days'), new DateTimeImmutable('-1 day'), new DateTimeImmutable('-10 days')),
       revoked: true,
     );
 

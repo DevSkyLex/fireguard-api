@@ -17,7 +17,7 @@ use Inspection\Application\UseCase\Query\Inspection\GetInspection\{
   GetInspectionQuery
 };
 use Inspection\Domain\Exception\InspectionNotFoundException;
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -66,17 +66,21 @@ final class GetInspectionHandlerTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      inspector: Inspector::reconstitute(InspectorType::USER, 'Jane Doe', 'user-123', null),
-      result: InspectionResult::PASS,
-      status: InspectionStatus::SUBMITTED,
-      performedAt: $performedAt,
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
+        inspector: Inspector::reconstitute(InspectorType::USER, 'Jane Doe', 'user-123', null),
+        facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+        checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::PASS,
+        status: InspectionStatus::SUBMITTED,
+        performedAt: $performedAt,
+        notes: 'All good',
+        signature: 'signature-blob',
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
-      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
-      notes: 'All good',
-      signature: 'signature-blob',
     );
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
@@ -132,17 +136,21 @@ final class GetInspectionHandlerTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      inspector: Inspector::reconstitute(InspectorType::EXTERNAL, 'Acme Auditor', null, 'Acme Ltd'),
-      result: InspectionResult::FAIL,
-      status: InspectionStatus::DRAFT,
-      performedAt: new DateTimeImmutable('2026-02-01T12:00:00+00:00'),
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
+        inspector: Inspector::reconstitute(InspectorType::EXTERNAL, 'Acme Auditor', null, 'Acme Ltd'),
+        facilityId: null,
+        checklistId: null,
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::FAIL,
+        status: InspectionStatus::DRAFT,
+        performedAt: new DateTimeImmutable('2026-02-01T12:00:00+00:00'),
+        notes: null,
+        signature: null,
+      ),
       createdAt: new DateTimeImmutable('2026-02-01T12:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-02-01T12:00:00+00:00'),
-      facilityId: null,
-      checklistId: null,
-      notes: null,
-      signature: null,
     );
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
@@ -210,11 +218,15 @@ final class GetInspectionHandlerTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      inspector: Inspector::reconstitute(InspectorType::USER, 'Jane Doe', 'user-123', null),
-      result: InspectionResult::PASS,
-      status: InspectionStatus::SUBMITTED,
-      performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
+        inspector: Inspector::reconstitute(InspectorType::USER, 'Jane Doe', 'user-123', null),
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::PASS,
+        status: InspectionStatus::SUBMITTED,
+        performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
+      ),
       createdAt: new DateTimeImmutable('2026-01-10T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-12T09:30:00+00:00'),
     );

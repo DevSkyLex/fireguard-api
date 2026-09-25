@@ -9,7 +9,7 @@ use Inspection\Application\Port\Outbound\{CanonicalInspectionRepositoryPort, Int
 use Inspection\Application\UseCase\Command\Inspection\DeleteCanonicalInspection\{DeleteCanonicalInspectionCommand, DeleteCanonicalInspectionHandler};
 use Inspection\Domain\Event\Inspection\InspectionCancelledEvent;
 use Inspection\Domain\Exception\{CanonicalInspectionConflictException, InspectionNotFoundException, InspectionRevisionMismatchException};
-use Inspection\Domain\Model\Inspection\CanonicalInspection;
+use Inspection\Domain\Model\Inspection\{CanonicalInspection, RestoredCanonicalInspectionState};
 use Inspection\Domain\ValueObject\{
   InspectionEquipmentId,
   InspectionId,
@@ -233,13 +233,15 @@ final class DeleteCanonicalInspectionHandlerTest extends TestCase
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
       equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      status: $status,
-      result: InspectionResult::PASS,
-      notes: null,
-      signature: null,
-      revision: 3,
+      state: new RestoredCanonicalInspectionState(
+        recordStatus: $recordStatus,
+        interventionId: $interventionId,
+        status: $status,
+        result: InspectionResult::PASS,
+        notes: null,
+        signature: null,
+        revision: 3,
+      ),
       updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
     );
   }

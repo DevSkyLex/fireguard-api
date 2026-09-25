@@ -91,6 +91,16 @@ final class AppendSeedFixturesCommand extends Command
       return Command::INVALID;
     }
 
+    return $this->appendSelectedFixtures($io, $selected);
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param list<FixtureInterface&FixtureGroupInterface> $selected
+   */
+  private function appendSelectedFixtures(SymfonyStyle $io, array $selected): int
+  {
     $connection = $this->mainEntityManager->getConnection();
     $connection->beginTransaction();
 

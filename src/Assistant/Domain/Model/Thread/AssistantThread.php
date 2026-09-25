@@ -111,9 +111,7 @@ final class AssistantThread
    * @param string $memberId the owning member identifier
    * @param ?string $title the thread's display title, if any
    * @param ?string $model the model identifier used for this thread, if any
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?DateTimeImmutable $lastMessageAt the last message timestamp, if any
+   * @param RestoredAssistantThreadTimeline $timeline the persisted thread timestamps
    *
    * @return self the reconstituted assistant thread
    */
@@ -123,9 +121,7 @@ final class AssistantThread
     string $memberId,
     ?string $title,
     ?string $model,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?DateTimeImmutable $lastMessageAt,
+    RestoredAssistantThreadTimeline $timeline,
   ): self {
     return new self(
       id: $id,
@@ -133,9 +129,9 @@ final class AssistantThread
       memberId: $memberId,
       title: $title,
       model: $model,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      lastMessageAt: $lastMessageAt,
+      createdAt: $timeline->createdAt,
+      updatedAt: $timeline->updatedAt,
+      lastMessageAt: $timeline->lastMessageAt,
     );
   }
 

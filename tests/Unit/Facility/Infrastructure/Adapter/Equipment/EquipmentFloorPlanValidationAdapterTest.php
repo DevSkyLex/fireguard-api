@@ -11,7 +11,7 @@ use Equipment\Application\Contract\FloorPlan\{
 };
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter;
@@ -157,7 +157,7 @@ final class EquipmentFloorPlanValidationAdapterTest extends TestCase
       storagePath: 'facility/' . $facilityId . '/attachments/' . self::ATTACHMENT_ID . '_plan.png',
       mimeType: AttachmentKind::FLOOR_PLAN === $kind ? 'image/png' : 'application/pdf',
       size: 1024,
-      kind: $kind,
+      options: new FacilityAttachmentCreationOptions(kind: $kind),
     );
   }
 }

@@ -188,24 +188,7 @@ final readonly class OrganizationApprovalSettings
   public static function fromArray(array $data): self
   {
     $actionRulesRaw = $data['action_rules'] ?? [];
-    $actionRules = [];
-
-    if (is_array($actionRulesRaw)) {
-      foreach ($actionRulesRaw as $actionType => $rule) {
-        if (!is_string($actionType) || !is_array($rule)) {
-          continue;
-        }
-
-        $minApproverRole = $rule['min_approver_role'] ?? null;
-        $minSeverity = $rule['min_severity'] ?? null;
-
-        $actionRules[$actionType] = [
-          'enabled' => (bool) ($rule['enabled'] ?? false),
-          'minApproverRole' => is_string($minApproverRole) && '' !== $minApproverRole ? $minApproverRole : OrganizationApprovalDefaults::MIN_APPROVER_ROLE,
-          'minSeverity' => is_string($minSeverity) && '' !== $minSeverity ? $minSeverity : null,
-        ];
-      }
-    }
+    $actionRules = self::parseActionRules(is_array($actionRulesRaw) ? $actionRulesRaw : []);
 
     $approvalTtlDays = $data['approval_ttl_days'] ?? OrganizationApprovalDefaults::APPROVAL_TTL_DAYS;
 
@@ -214,6 +197,32 @@ final readonly class OrganizationApprovalSettings
       allowSelfApproval: (bool) ($data['allow_self_approval'] ?? OrganizationApprovalDefaults::ALLOW_SELF_APPROVAL),
       approvalTtlDays: is_int($approvalTtlDays) ? $approvalTtlDays : OrganizationApprovalDefaults::APPROVAL_TTL_DAYS,
     );
+  }
+
+  /**
+   * @param array<array-key, mixed> $rawRules
+   *
+   * @return array<string, array{enabled: bool, minApproverRole: string, minSeverity: ?string}>
+   */
+  private static function parseActionRules(array $rawRules): array
+  {
+    $actionRules = [];
+    foreach ($rawRules as $actionType => $rule) {
+      if (!is_string($actionType) || !is_array($rule)) {
+        continue;
+      }
+
+      $minApproverRole = $rule['min_approver_role'] ?? null;
+      $minSeverity = $rule['min_severity'] ?? null;
+
+      $actionRules[$actionType] = [
+        'enabled' => (bool) ($rule['enabled'] ?? false),
+        'minApproverRole' => is_string($minApproverRole) && '' !== $minApproverRole ? $minApproverRole : OrganizationApprovalDefaults::MIN_APPROVER_ROLE,
+        'minSeverity' => is_string($minSeverity) && '' !== $minSeverity ? $minSeverity : null,
+      ];
+    }
+
+    return $actionRules;
   }
 
   /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Billing\Domain\Model\Subscription;
 
-use Billing\Domain\Model\Subscription\Subscription;
+use Billing\Domain\Model\Subscription\{RestoredSubscriptionState, Subscription};
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId, SubscriptionStatus};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -53,14 +53,16 @@ final class SubscriptionTest extends TestCase
       id: $id,
       organizationId: 'org-42',
       stripeCustomerId: 'cus_persisted',
-      status: SubscriptionStatus::ACTIVE,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::ACTIVE,
+        stripeSubscriptionId: 'sub_persisted',
+        planKey: 'enterprise',
+        interval: BillingInterval::YEAR,
+        currentPeriodEnd: $periodEnd,
+        cancelAtPeriodEnd: true,
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      stripeSubscriptionId: 'sub_persisted',
-      planKey: 'enterprise',
-      interval: BillingInterval::YEAR,
-      currentPeriodEnd: $periodEnd,
-      cancelAtPeriodEnd: true,
     );
 
     self::assertSame($id, $subscription->id());
@@ -86,7 +88,9 @@ final class SubscriptionTest extends TestCase
       id: SubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: 'org-42',
       stripeCustomerId: 'cus_persisted',
-      status: SubscriptionStatus::PAUSED,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::PAUSED,
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
     );
@@ -106,7 +110,9 @@ final class SubscriptionTest extends TestCase
       id: SubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: 'org-42',
       stripeCustomerId: 'cus_persisted',
-      status: SubscriptionStatus::INCOMPLETE,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::INCOMPLETE,
+      ),
       createdAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
     );
@@ -179,14 +185,16 @@ final class SubscriptionTest extends TestCase
       id: SubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: 'org-42',
       stripeCustomerId: 'cus_persisted',
-      status: SubscriptionStatus::ACTIVE,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::ACTIVE,
+        stripeSubscriptionId: 'sub_persisted',
+        planKey: 'pro',
+        interval: BillingInterval::MONTH,
+        currentPeriodEnd: new DateTimeImmutable('2026-07-20T00:00:00+00:00'),
+        cancelAtPeriodEnd: $cancelAtPeriodEnd,
+      ),
       createdAt: $timestamp,
       updatedAt: $timestamp,
-      stripeSubscriptionId: 'sub_persisted',
-      planKey: 'pro',
-      interval: BillingInterval::MONTH,
-      currentPeriodEnd: new DateTimeImmutable('2026-07-20T00:00:00+00:00'),
-      cancelAtPeriodEnd: $cancelAtPeriodEnd,
     );
   }
 }

@@ -211,26 +211,17 @@ final class ExportEquipmentLabelsController extends AbstractController
   private function mapLabelException(Throwable $exception): Throwable
   {
     $notFound = $this->findEquipmentNotFoundException($exception);
-    if ($notFound instanceof EquipmentNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
     $accessDenied = $this->findEquipmentAccessDeniedException($exception);
-    if ($accessDenied instanceof EquipmentAccessDeniedException) {
-      return new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
-    }
-
     $tooLarge = $this->findEquipmentLabelExportTooLargeException($exception);
-    if ($tooLarge instanceof EquipmentLabelExportTooLargeException) {
-      return new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception);
-    }
-
     $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
 
-    return $exception;
+    return match (true) {
+      $notFound instanceof EquipmentNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      $accessDenied instanceof EquipmentAccessDeniedException => new AccessDeniedHttpException($accessDenied->getMessage(), $exception),
+      $tooLarge instanceof EquipmentLabelExportTooLargeException => new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception),
+      $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
   // #endregion
 }

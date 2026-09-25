@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Domain\Model;
 
 use Authorization\Domain\Model\Permission\Permission;
-use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\Model\Role\{RestoredRoleState, Role};
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName, RoleId, RoleName};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -203,12 +203,14 @@ final class RoleTest extends TestCase
     $role = Role::reconstitute(
       id: new RoleId('550e8400-e29b-41d4-a716-446655440010'),
       name: new RoleName('reader'),
-      description: 'Reader role',
-      isSystem: false,
-      tenantId: null,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      permissions: [$permission],
+      state: new RestoredRoleState(
+        description: 'Reader role',
+        isSystem: false,
+        tenantId: null,
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        permissions: [$permission],
+      ),
     );
 
     $this->assertSame($createdAt, $role->createdAt());

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{OtpChannel, OtpId, OtpPurpose};
 use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
 
@@ -61,18 +61,22 @@ final readonly class OtpMapper
   public function toDomain(OtpRecord $record): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId($record->getId()),
-      challengeToken: \Otp\Domain\ValueObject\ChallengeToken::fromString($record->getChallengeToken()),
-      userId: $record->getUserId(),
-      purpose: OtpPurpose::from($record->getPurpose()),
-      channel: OtpChannel::from($record->getChannel()),
-      codeHash: $record->getCodeHash(),
-      recipient: $record->getRecipient(),
-      expiresAt: $record->getExpiresAt(),
-      maxAttempts: $record->getMaxAttempts(),
-      attempts: $record->getAttempts(),
-      verifiedAt: $record->getVerifiedAt(),
-      createdAt: $record->getCreatedAt(),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId($record->getId()),
+        challengeToken: \Otp\Domain\ValueObject\ChallengeToken::fromString($record->getChallengeToken()),
+        userId: $record->getUserId(),
+        purpose: OtpPurpose::from($record->getPurpose()),
+        channel: OtpChannel::from($record->getChannel()),
+        recipient: $record->getRecipient(),
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: $record->getCodeHash(),
+        expiresAt: $record->getExpiresAt(),
+        maxAttempts: $record->getMaxAttempts(),
+        attempts: $record->getAttempts(),
+        verifiedAt: $record->getVerifiedAt(),
+        createdAt: $record->getCreatedAt(),
+      ),
     );
   }
   // #endregion

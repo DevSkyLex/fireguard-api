@@ -47,28 +47,22 @@ final class SortingExtractor
     SortDirection $defaultDirection = SortDirection::ASC,
   ): Sorting {
     $filters = $context['filters'] ?? [];
-    if (!is_array($filters)) {
-      return new Sorting($defaultField, $defaultDirection);
-    }
+    $order = is_array($filters) ? ($filters['order'] ?? []) : [];
+    if (is_array($order)) {
+      foreach (array_keys($order) as $field) {
+        if (!is_string($field) || !in_array($field, $allowedFields, true)) {
+          continue;
+        }
 
-    $order = $filters['order'] ?? [];
-    if (!is_array($order)) {
-      return new Sorting($defaultField, $defaultDirection);
-    }
+        $directionValue = $order[$field];
+        if (!is_string($directionValue)) {
+          continue;
+        }
 
-    foreach (array_keys($order) as $field) {
-      if (!is_string($field) || !in_array($field, $allowedFields, true)) {
-        continue;
+        $direction = SortDirection::tryFrom(strtolower($directionValue)) ?? $defaultDirection;
+
+        return new Sorting($field, $direction);
       }
-
-      $directionValue = $order[$field];
-      if (!is_string($directionValue)) {
-        continue;
-      }
-
-      $direction = SortDirection::tryFrom(strtolower($directionValue)) ?? $defaultDirection;
-
-      return new Sorting($field, $direction);
     }
 
     return new Sorting($defaultField, $defaultDirection);

@@ -7,7 +7,7 @@ namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNamingPort};
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, EquipmentId, EquipmentOrganizationId, EquipmentType};
 use LogicException;
 use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
@@ -94,11 +94,13 @@ final readonly class CreateEquipmentHandler implements CommandHandler
         id: $equipmentId,
         organizationId: $organizationId,
         type: EquipmentType::from($command->type),
-        subType: $command->subType,
-        brand: $command->brand,
-        model: $command->model,
-        serialNumber: $command->serialNumber,
-        locationLabel: $command->locationLabel,
+        details: new EquipmentCatalogDetails(
+          subType: $command->subType,
+          brand: $command->brand,
+          model: $command->model,
+          serialNumber: $command->serialNumber,
+          locationLabel: $command->locationLabel,
+        ),
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);

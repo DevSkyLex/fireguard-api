@@ -146,13 +146,8 @@ final class InterventionWorkItemOutputFactory
    */
   private function resolveAssignee(?string $assignee): ?InterventionAssigneeOutput
   {
-    if (null === $assignee || '' === $assignee) {
-      return null;
-    }
-
-    try {
-      $memberId = ResourceIriParser::memberId($assignee);
-    } catch (Throwable) {
+    $memberId = self::assigneeMemberId($assignee);
+    if (null === $assignee || null === $memberId) {
       return null;
     }
 
@@ -176,6 +171,28 @@ final class InterventionWorkItemOutputFactory
     }
 
     return $output;
+  }
+
+  /**
+   * Method assigneeMemberId.
+   *
+   * @since 1.1.0
+   *
+   * @param ?string $assignee the member IRI, if assigned
+   *
+   * @return ?string the member ID for a valid IRI
+   */
+  private static function assigneeMemberId(?string $assignee): ?string
+  {
+    if (null === $assignee || '' === $assignee) {
+      return null;
+    }
+
+    try {
+      return ResourceIriParser::memberId($assignee);
+    } catch (Throwable) {
+      return null;
+    }
   }
 
   /**
@@ -222,18 +239,14 @@ final class InterventionWorkItemOutputFactory
   private function buildTargetSummary(string $target, string $organizationId): ?InterventionTargetOutput
   {
     try {
-      if (str_starts_with($target, '/api/facilities/')) {
-        return $this->facilitySummary($target, $organizationId);
-      }
-
-      if (str_starts_with($target, '/api/equipment/')) {
-        return $this->equipmentSummary($target, $organizationId);
-      }
+      return match (true) {
+        str_starts_with($target, '/api/facilities/') => $this->facilitySummary($target, $organizationId),
+        str_starts_with($target, '/api/equipment/') => $this->equipmentSummary($target, $organizationId),
+        default => null,
+      };
     } catch (Throwable) {
       return null;
     }
-
-    return null;
   }
 
   /**

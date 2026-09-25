@@ -94,24 +94,23 @@ final readonly class IntrospectTokenHandler implements QueryHandler
    */
   private function introspectAccessToken(string $token): IntrospectTokenResult
   {
-    if ('' === $token) {
-      return IntrospectTokenResult::inactive();
-    }
-
-    if (!$this->jwtParser->validate($token)) {
+    if ('' === $token || !$this->jwtParser->validate($token)) {
       return IntrospectTokenResult::inactive();
     }
 
     $tokenData = $this->jwtParser->parse($token);
-    if (null === $tokenData) {
+    if (null === $tokenData || !is_string($tokenData['jti'] ?? null)) {
       return IntrospectTokenResult::inactive();
     }
 
-    $tokenId = $tokenData['jti'] ?? null;
-    if (null === $tokenId || !is_string($tokenId)) {
-      return IntrospectTokenResult::inactive();
-    }
+    return $this->introspectValidatedAccessToken($tokenData['jti'], $tokenData);
+  }
 
+  /**
+   * @param array<string, mixed> $tokenData validated JWT claims
+   */
+  private function introspectValidatedAccessToken(string $tokenId, array $tokenData): IntrospectTokenResult
+  {
     $audience = $this->audience($tokenData['aud'] ?? null);
 
     // Check cache first

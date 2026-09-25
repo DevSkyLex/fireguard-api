@@ -10,7 +10,7 @@ use Facility\Application\Port\Outbound\{CanonicalFacilityRepositoryPort, Interve
 use Facility\Application\UseCase\Command\Facility\DeleteCanonicalFacility\{DeleteCanonicalFacilityCommand, DeleteCanonicalFacilityHandler};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\{CanonicalFacilityConflictException, FacilityHasActiveDependentsException, FacilityNotFoundException, FacilityRevisionMismatchException};
-use Facility\Domain\Model\Facility\CanonicalFacility;
+use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent, CanonicalFacilityReference, CanonicalFacilityVersion};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityRecordStatus, FacilityStatus, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -261,21 +261,27 @@ final class DeleteCanonicalFacilityHandlerTest extends TestCase
     ?string $interventionId = null,
   ): CanonicalFacility {
     return CanonicalFacility::reconstitute(
-      id: FacilityId::fromString(self::FACILITY_ID),
-      organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      parentFacilityId: null,
-      type: FacilityType::SITE,
-      name: 'Main site',
-      code: null,
-      address: null,
-      latitude: null,
-      longitude: null,
-      metadata: [],
-      status: $status,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      reference: new CanonicalFacilityReference(
+        id: FacilityId::fromString(self::FACILITY_ID),
+        organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
+        recordStatus: $recordStatus,
+        interventionId: $interventionId,
+        parentFacilityId: null,
+      ),
+      content: new CanonicalFacilityContent(
+        type: FacilityType::SITE,
+        name: 'Main site',
+        code: null,
+        address: null,
+        latitude: null,
+        longitude: null,
+        metadata: [],
+      ),
+      version: new CanonicalFacilityVersion(
+        status: $status,
+        revision: 3,
+        updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      ),
     );
   }
   // #endregion

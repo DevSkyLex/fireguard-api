@@ -91,18 +91,15 @@ final class Message
    * @param string $authorMemberId the author's organization member identifier
    * @param string $rawBody the sanitized raw body
    * @param MentionExtractor $mentionExtractor the mention extractor
-   * @param ?string $parentMessageId the parent message's identifier, when
-   *                                 this is a threaded reply (L2.5) — null
-   *                                 for a root message. Single-level
-   *                                 threading (a reply to a reply) and
-   *                                 replying to an already-tombstoned parent
-   *                                 are both refused upstream, in
-   *                                 {@see \Messaging\Application\UseCase\Command\Message\PostReply\PostReplyHandler},
-   *                                 since both checks depend on the PARENT's
-   *                                 state, not this message's own state.
-   * @param list<MessageReference> $references the message's already-validated
-   *                                           structured references (B3),
-   *                                           empty by default
+   * @param ?MessageCreationLinks $links optional parent and structured references. The parent message's identifier, when
+   *                                     this is a threaded reply (L2.5) — null
+   *                                     for a root message. Single-level
+   *                                     threading (a reply to a reply) and
+   *                                     replying to an already-tombstoned parent
+   *                                     are both refused upstream, in
+   *                                     {@see \Messaging\Application\UseCase\Command\Message\PostReply\PostReplyHandler},
+   *                                     since both checks depend on the PARENT's
+   *                                     state, not this message's own state.
    *
    * @return self the created message
    */
@@ -113,8 +110,7 @@ final class Message
     string $authorMemberId,
     string $rawBody,
     MentionExtractor $mentionExtractor,
-    ?string $parentMessageId = null,
-    array $references = [],
+    ?MessageCreationLinks $links = null,
   ): self {
     $body = MessageBody::fromString($rawBody)->value;
     $now = new DateTimeImmutable();
@@ -131,8 +127,8 @@ final class Message
       deletedByMemberId: null,
       createdAt: $now,
       updatedAt: $now,
-      parentMessageId: $parentMessageId,
-      references: $references,
+      parentMessageId: $links?->parentMessageId,
+      references: $links->references ?? [],
     );
   }
 
@@ -149,18 +145,9 @@ final class Message
    * @param string $conversationId the owning conversation identifier
    * @param string $organizationId the owning organization identifier
    * @param string $authorMemberId the author's organization member identifier
-   * @param string $body the persisted body (retained even when deleted)
-   * @param list<string> $mentions the persisted mentioned member identifiers
-   * @param ?DateTimeImmutable $editedAt the last edit date, if any
-   * @param ?DateTimeImmutable $deletedAt the tombstone date, if any
-   * @param ?string $deletedByMemberId the moderator/author who tombstoned the message, if any
-   * @param DateTimeImmutable $createdAt the creation date
-   * @param DateTimeImmutable $updatedAt the last update date
-   * @param ?DateTimeImmutable $pinnedAt the pin date, if any
-   * @param ?string $pinnedByMemberId the pinning member's identifier, if any
-   * @param ?string $parentMessageId the parent message's identifier, when this is a threaded reply (L2.5) — null for a root message
-   * @param int $replyCount the persisted reply count (this message's OWN thread, when it is a root/parent) — maintained by an atomic UPDATE on the hot path (see `MessagingMessageRepositoryPort::incrementReplyCount()`), never by re-saving this aggregate
-   * @param list<MessageReference> $references the persisted structured references (B3), empty when none
+   * @param RestoredMessageContent $content the persisted body, mentions and references
+   * @param RestoredMessageLifecycle $lifecycle the persisted edit, tombstone and timestamps
+   * @param ?RestoredMessageRelations $relations the optional pin and thread fields
    *
    * @return self the reconstituted message
    */
@@ -169,20 +156,28 @@ final class Message
     string $conversationId,
     string $organizationId,
     string $authorMemberId,
-    string $body,
-    array $mentions,
-    ?DateTimeImmutable $editedAt,
-    ?DateTimeImmutable $deletedAt,
-    ?string $deletedByMemberId,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?DateTimeImmutable $pinnedAt = null,
-    ?string $pinnedByMemberId = null,
-    ?string $parentMessageId = null,
-    int $replyCount = 0,
-    array $references = [],
+    RestoredMessageContent $content,
+    RestoredMessageLifecycle $lifecycle,
+    ?RestoredMessageRelations $relations = null,
   ): self {
-    return new self($id, $conversationId, $organizationId, $authorMemberId, $body, $mentions, $editedAt, $deletedAt, $deletedByMemberId, $createdAt, $updatedAt, $pinnedAt, $pinnedByMemberId, $parentMessageId, $replyCount, $references);
+    return new self(
+      id: $id,
+      conversationId: $conversationId,
+      organizationId: $organizationId,
+      authorMemberId: $authorMemberId,
+      body: $content->body,
+      mentions: $content->mentions,
+      editedAt: $lifecycle->editedAt,
+      deletedAt: $lifecycle->deletedAt,
+      deletedByMemberId: $lifecycle->deletedByMemberId,
+      createdAt: $lifecycle->createdAt,
+      updatedAt: $lifecycle->updatedAt,
+      pinnedAt: $relations?->pinnedAt,
+      pinnedByMemberId: $relations?->pinnedByMemberId,
+      parentMessageId: $relations?->parentMessageId,
+      replyCount: null === $relations ? 0 : $relations->replyCount,
+      references: $content->references,
+    );
   }
   // #endregion
 

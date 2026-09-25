@@ -119,22 +119,12 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
    */
   private function mapMessengerFailure(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findEquipmentNotFoundException($exception);
-    if ($notFound instanceof EquipmentNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
-    $decommissioned = $this->findEquipmentAlreadyDecommissionedException($exception);
-    if ($decommissioned instanceof EquipmentAlreadyDecommissionedException) {
-      return new ConflictHttpException($decommissioned->getMessage(), $exception);
-    }
-
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findEquipmentNotFoundException($exception)) instanceof EquipmentNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($decommissioned = $this->findEquipmentAlreadyDecommissionedException($exception)) instanceof EquipmentAlreadyDecommissionedException => new ConflictHttpException($decommissioned->getMessage(), $exception),
+      ($invalidArgument = $this->findInvalidArgumentException($exception)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 
   /**

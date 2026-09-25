@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{
   NonConformityId,
   NonConformityInspectionId,
@@ -27,12 +27,14 @@ final class NonConformityMapper
       inspectionId: NonConformityInspectionId::fromString($record->inspection->id),
       description: $record->description,
       severity: NonConformitySeverity::from($record->severity),
-      status: NonConformityStatus::from($record->status),
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::from($record->status),
+        dueAt: $record->dueAt,
+        resolvedAt: $record->resolvedAt,
+        notes: $record->notes,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      dueAt: $record->dueAt,
-      resolvedAt: $record->resolvedAt,
-      notes: $record->notes,
     );
   }
 

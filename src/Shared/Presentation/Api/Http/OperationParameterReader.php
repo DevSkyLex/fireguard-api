@@ -111,23 +111,37 @@ final class OperationParameterReader
       if ($value instanceof ParameterNotFound) {
         continue;
       }
-      if (null !== $value && !is_string($value) && !is_array($value)) {
-        throw new BadRequestHttpException('Invalid header value.');
-      }
-      if (is_array($value)) {
-        $entries = [];
-        foreach ($value as $entry) {
-          if (!is_string($entry)) {
-            throw new BadRequestHttpException('Invalid header value.');
-          }
-          $entries[] = $entry;
-        }
-        $value = $entries;
-      }
-      $headers->set($key, $value);
+      $headers->set($key, self::headerValue($value));
     }
 
     return $headers;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param mixed $value a parsed API Platform header value
+   *
+   * @return string|list<string>|null a validated value for HeaderBag
+   */
+  private static function headerValue(mixed $value): string|array|null
+  {
+    if (null === $value || is_string($value)) {
+      return $value;
+    }
+    if (!is_array($value)) {
+      throw new BadRequestHttpException('Invalid header value.');
+    }
+
+    $entries = [];
+    foreach ($value as $entry) {
+      if (!is_string($entry)) {
+        throw new BadRequestHttpException('Invalid header value.');
+      }
+      $entries[] = $entry;
+    }
+
+    return $entries;
   }
   // #endregion
 }

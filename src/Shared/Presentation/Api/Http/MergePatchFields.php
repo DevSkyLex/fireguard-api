@@ -49,16 +49,27 @@ final readonly class MergePatchFields
       return [];
     }
     $fields = json_decode($request->getContent(), true);
-    if (!is_array($fields)) {
+    if (!is_array($fields) || !self::hasOnlyStringKeys($fields)) {
       return [];
-    }
-    foreach (array_keys($fields) as $key) {
-      if (!is_string($key)) {
-        return [];
-      }
     }
 
     /** @var array<string, mixed> $fields */
     return $fields;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param array<array-key, mixed> $fields decoded JSON fields
+   */
+  private static function hasOnlyStringKeys(array $fields): bool
+  {
+    foreach (array_keys($fields) as $key) {
+      if (!is_string($key)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

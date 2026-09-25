@@ -111,12 +111,8 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?UserOutput
   {
     $id = $uriVariables['id'] ?? null;
-    if (!is_string($id)) {
-      return null;
-    }
-
     $request = $this->requestStack->getCurrentRequest();
-    if (null === $request) {
+    if (!is_string($id) || null === $request) {
       return null;
     }
 

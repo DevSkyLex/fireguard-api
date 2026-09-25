@@ -9,7 +9,7 @@ use Exception;
 use Inspection\Application\Port\Outbound\ChecklistLockPort;
 use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
-use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionEquipmentId, InspectionFacilityId, InspectionId, InspectionOrganizationId, InspectionResult};
+use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionEquipmentId, InspectionFacilityId, InspectionFindingPatch, InspectionId, InspectionOrganizationId, InspectionReferencePatch, InspectionResult, InspectionTextPatch};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -69,20 +69,26 @@ final readonly class EditInspectionHandler implements CommandHandler
     }
 
     $inspection->edit(
-      equipmentId: $equipmentId,
-      facilityId: $facilityId,
-      checklistId: $checklistId,
-      result: $result,
-      performedAt: $performedAt,
-      notes: $command->notes,
-      signature: $command->signature,
-      hasEquipmentId: $command->hasEquipmentId,
-      hasFacilityId: $command->hasFacilityId,
-      hasChecklistId: $command->hasChecklistId,
-      hasResult: $command->hasResult,
-      hasPerformedAt: $command->hasPerformedAt,
-      hasNotes: $command->hasNotes,
-      hasSignature: $command->hasSignature,
+      references: new InspectionReferencePatch(
+        equipmentId: $equipmentId,
+        hasEquipmentId: $command->hasEquipmentId,
+        facilityId: $facilityId,
+        hasFacilityId: $command->hasFacilityId,
+        checklistId: $checklistId,
+        hasChecklistId: $command->hasChecklistId,
+      ),
+      finding: new InspectionFindingPatch(
+        result: $result,
+        hasResult: $command->hasResult,
+        performedAt: $performedAt,
+        hasPerformedAt: $command->hasPerformedAt,
+        text: new InspectionTextPatch(
+          notes: $command->notes,
+          hasNotes: $command->hasNotes,
+          signature: $command->signature,
+          hasSignature: $command->hasSignature,
+        ),
+      ),
     );
 
     $this->inspectionRepository->save($inspection);

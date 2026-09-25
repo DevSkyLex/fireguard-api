@@ -108,7 +108,7 @@ final readonly class LoginHandler implements CommandHandler
       $userId = $authResult->userId;
       $email = $authResult->email ?? $command->email;
 
-      return $this->sessionIssuer->issue(
+      $result = $this->sessionIssuer->issue(
         userId: $userId,
         email: $email,
         ipAddress: $command->ipAddress,
@@ -127,8 +127,10 @@ final readonly class LoginHandler implements CommandHandler
         reason: 'internal_error',
       ));
 
-      return LoginResult::failed();
+      $result = LoginResult::failed();
     }
+
+    return $result;
   }
 
   /**

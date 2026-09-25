@@ -81,27 +81,13 @@ final readonly class CancelInspectionProcessor implements ProcessorInterface
    */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findInspectionNotFoundException($exception);
-    if ($notFound instanceof InspectionNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-    $closed = $this->findInspectionAlreadyClosedException($exception);
-    if ($closed instanceof InspectionAlreadyClosedException) {
-      return new ConflictHttpException($closed->getMessage(), $exception);
-    }
-    $cancelled = $this->findInspectionAlreadyCancelledException($exception);
-    if ($cancelled instanceof InspectionAlreadyCancelledException) {
-      return new ConflictHttpException($cancelled->getMessage(), $exception);
-    }
-    $submitted = $this->findInspectionAlreadySubmittedException($exception);
-    if ($submitted instanceof InspectionAlreadySubmittedException) {
-      return new ConflictHttpException($submitted->getMessage(), $exception);
-    }
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findInspectionNotFoundException($exception)) instanceof InspectionNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($closed = $this->findInspectionAlreadyClosedException($exception)) instanceof InspectionAlreadyClosedException => new ConflictHttpException($closed->getMessage(), $exception),
+      ($cancelled = $this->findInspectionAlreadyCancelledException($exception)) instanceof InspectionAlreadyCancelledException => new ConflictHttpException($cancelled->getMessage(), $exception),
+      ($submitted = $this->findInspectionAlreadySubmittedException($exception)) instanceof InspectionAlreadySubmittedException => new ConflictHttpException($submitted->getMessage(), $exception),
+      ($invalidArgument = $this->findInvalidArgumentException($exception)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 }

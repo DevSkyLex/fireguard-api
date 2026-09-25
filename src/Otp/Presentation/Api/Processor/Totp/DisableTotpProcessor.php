@@ -131,35 +131,58 @@ final readonly class DisableTotpProcessor implements ProcessorInterface
     if ($exception instanceof $type) {
       return $exception;
     }
-
     if ($exception instanceof HandlerFailedException) {
-      foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof $type) {
-          return $nestedException;
-        }
-      }
-
-      return null;
+      return self::findInHandler($exception, $type);
+    }
+    if ($exception instanceof MessengerRuntimeException) {
+      return self::findInRuntime($exception, $type);
     }
 
-    if ($exception instanceof MessengerRuntimeException) {
-      $previous = $exception->getPrevious();
+    return null;
+  }
 
-      if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof $type) {
-            return $nestedException;
-          }
-        }
+  /**
+   * @template T of Throwable
+   *
+   * @param HandlerFailedException $exception the wrapped handler failure
+   * @param class-string<T> $type the domain exception to find
+   *
+   * @return ?T the matching wrapped exception
+   */
+  private static function findInHandler(HandlerFailedException $exception, string $type): ?Throwable
+  {
+    foreach ($exception->getWrappedExceptions() as $nestedException) {
+      if ($nestedException instanceof $type) {
+        return $nestedException;
       }
+    }
 
-      while ($previous) {
-        if ($previous instanceof $type) {
-          return $previous;
-        }
+    return null;
+  }
 
-        $previous = $previous->getPrevious();
+  /**
+   * @template T of Throwable
+   *
+   * @param MessengerRuntimeException $exception the outer bus failure
+   * @param class-string<T> $type the domain exception to find
+   *
+   * @return ?T the matching nested or previous exception
+   */
+  private static function findInRuntime(MessengerRuntimeException $exception, string $type): ?Throwable
+  {
+    $previous = $exception->getPrevious();
+    if ($previous instanceof HandlerFailedException) {
+      $nested = self::findInHandler($previous, $type);
+      if (null !== $nested) {
+        return $nested;
       }
+    }
+
+    while ($previous) {
+      if ($previous instanceof $type) {
+        return $previous;
+      }
+      $previous = $previous->getPrevious();
     }
 
     return null;

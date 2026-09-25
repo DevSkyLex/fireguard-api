@@ -65,38 +65,30 @@ final class InterventionAttachment
    *
    * @param InterventionAttachmentId $id the attachment identifier
    * @param string $interventionId the intervention identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
-   * @param ?string $label the optional label
-   * @param ?string $workItemId the optional owning work item identifier
-   * @param InterventionAttachmentKind $kind the attachment kind
+   * @param InterventionAttachmentFile $file the file metadata
+   * @param ?InterventionAttachmentOptions $options optional attachment details
    *
    * @return self the created attachment
    */
   public static function create(
     InterventionAttachmentId $id,
     string $interventionId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
-    ?string $label = null,
-    ?string $workItemId = null,
-    InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE,
+    InterventionAttachmentFile $file,
+    ?InterventionAttachmentOptions $options = null,
   ): self {
+    $options ??= new InterventionAttachmentOptions();
+
     return new self(
       id: $id,
       interventionId: $interventionId,
-      fileName: $fileName,
-      storagePath: $storagePath,
-      mimeType: $mimeType,
-      size: $size,
+      fileName: $file->fileName,
+      storagePath: $file->storagePath,
+      mimeType: $file->mimeType,
+      size: $file->size,
       uploadedAt: new DateTimeImmutable(),
-      label: $label,
-      workItemId: $workItemId,
-      kind: $kind,
+      label: $options->label,
+      workItemId: $options->workItemId,
+      kind: $options->kind,
     );
   }
 
@@ -109,40 +101,32 @@ final class InterventionAttachment
    *
    * @param InterventionAttachmentId $id the attachment identifier
    * @param string $interventionId the intervention identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
+   * @param InterventionAttachmentFile $file the persisted file metadata
    * @param DateTimeImmutable $uploadedAt the upload timestamp
-   * @param ?string $label the optional label
-   * @param ?string $workItemId the optional owning work item identifier
-   * @param InterventionAttachmentKind $kind the attachment kind
+   * @param ?InterventionAttachmentOptions $options optional attachment details
    *
    * @return self the reconstituted attachment
    */
   public static function reconstitute(
     InterventionAttachmentId $id,
     string $interventionId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
+    InterventionAttachmentFile $file,
     DateTimeImmutable $uploadedAt,
-    ?string $label = null,
-    ?string $workItemId = null,
-    InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE,
+    ?InterventionAttachmentOptions $options = null,
   ): self {
+    $options ??= new InterventionAttachmentOptions();
+
     return new self(
       id: $id,
       interventionId: $interventionId,
-      fileName: $fileName,
-      storagePath: $storagePath,
-      mimeType: $mimeType,
-      size: $size,
+      fileName: $file->fileName,
+      storagePath: $file->storagePath,
+      mimeType: $file->mimeType,
+      size: $file->size,
       uploadedAt: $uploadedAt,
-      label: $label,
-      workItemId: $workItemId,
-      kind: $kind,
+      label: $options->label,
+      workItemId: $options->workItemId,
+      kind: $options->kind,
     );
   }
 

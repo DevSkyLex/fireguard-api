@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Command\Recurrence\UpdateInterventionRecurrence;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Recurrence\InterventionRecurrenceView;
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCadencePatch, InterventionRecurrenceIdentityPatch, InterventionRecurrenceLifecyclePatch, InterventionRecurrenceSchedulePatch, InterventionRecurrenceUpdateRequest, InterventionRecurrenceView};
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
 use Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence\CreateInterventionRecurrenceHandler;
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceUpdatedEvent;
@@ -87,31 +87,20 @@ final readonly class UpdateInterventionRecurrenceHandler implements CommandHandl
 
     [$nextOccurrenceAt, $hasNextOccurrenceAt] = $this->recomputedNextOccurrence($existing, $command, $timezone);
 
-    $view = $this->recurrences->update(
-      id: $command->recurrenceId,
-      name: $name,
-      siteId: $command->siteId,
-      responsibleId: $command->responsibleId,
-      frequency: $command->hasFrequency ? $command->frequency : null,
-      interval: $command->hasInterval ? $command->interval : null,
-      anchorDate: $command->hasAnchorDate ? $command->anchorDate : null,
-      timezone: $timezone,
-      leadTimeDays: $leadTimeDays,
-      nextOccurrenceAt: $nextOccurrenceAt,
-      endAt: $command->endAt,
-      isActive: $command->hasIsActive ? $command->isActive : null,
-      hasName: $command->hasName,
-      hasSiteId: $command->hasSiteId,
-      hasResponsibleId: $command->hasResponsibleId,
-      hasFrequency: $command->hasFrequency,
-      hasInterval: $command->hasInterval,
-      hasAnchorDate: $command->hasAnchorDate,
-      hasTimezone: $command->hasTimezone,
-      hasLeadTimeDays: $command->hasLeadTimeDays,
-      hasNextOccurrenceAt: $hasNextOccurrenceAt,
-      hasEndAt: $command->hasEndAt,
-      hasIsActive: $command->hasIsActive,
-    );
+    $view = $this->recurrences->update(new InterventionRecurrenceUpdateRequest(
+      $command->recurrenceId,
+      new InterventionRecurrenceIdentityPatch($name, $command->siteId, $command->responsibleId, $command->hasName, $command->hasSiteId, $command->hasResponsibleId),
+      new InterventionRecurrenceCadencePatch(
+        $command->hasFrequency ? $command->frequency : null,
+        $command->hasInterval ? $command->interval : null,
+        $command->hasAnchorDate ? $command->anchorDate : null,
+        $command->hasFrequency,
+        $command->hasInterval,
+        $command->hasAnchorDate,
+      ),
+      new InterventionRecurrenceSchedulePatch($timezone, $leadTimeDays, $nextOccurrenceAt, $command->hasTimezone, $command->hasLeadTimeDays, $hasNextOccurrenceAt),
+      new InterventionRecurrenceLifecyclePatch($command->endAt, $command->hasIsActive ? $command->isActive : null, $command->hasEndAt, $command->hasIsActive),
+    ));
 
     $this->eventDispatcher->dispatch(new InterventionRecurrenceUpdatedEvent(
       organizationId: $existing->organizationId,

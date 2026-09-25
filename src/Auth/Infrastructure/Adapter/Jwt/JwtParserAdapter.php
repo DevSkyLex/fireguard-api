@@ -65,11 +65,11 @@ final class JwtParserAdapter implements JwtParserPort
   // #region Methods
   public function parse(string $token): ?array
   {
-    try {
-      if ('' === $token) {
-        return null;
-      }
+    if ('' === $token) {
+      return null;
+    }
 
+    try {
       $parsedToken = $this->jwtConfig->parser()->parse($token);
 
       if (!$parsedToken instanceof UnencryptedToken) {
@@ -96,30 +96,28 @@ final class JwtParserAdapter implements JwtParserPort
       $result['exp'] = $exp instanceof DateTimeInterface ? $exp->getTimestamp() : $exp;
       $result['nbf'] = $nbf instanceof DateTimeInterface ? $nbf->getTimestamp() : $nbf;
 
-      return $result;
+      $parsedClaims = $result;
 
     } catch (Throwable) {
-      return null;
+      $parsedClaims = null;
     }
+
+    return $parsedClaims;
   }
 
   public function validate(string $token): bool
   {
-    try {
-      if ('' === $token) {
-        return false;
-      }
+    if ('' === $token) {
+      return false;
+    }
 
+    try {
       $parsedToken = $this->jwtConfig->parser()->parse($token);
 
-      if (!$parsedToken instanceof UnencryptedToken) {
-        return false;
-      }
-
-      $claims = $parsedToken->claims();
       if (
-        !$claims->has(RegisteredClaims::ISSUED_AT)
-        || !$claims->has(RegisteredClaims::EXPIRATION_TIME)
+        !$parsedToken instanceof UnencryptedToken
+        || !$parsedToken->claims()->has(RegisteredClaims::ISSUED_AT)
+        || !$parsedToken->claims()->has(RegisteredClaims::EXPIRATION_TIME)
       ) {
         return false;
       }
@@ -134,11 +132,13 @@ final class JwtParserAdapter implements JwtParserPort
         }),
       ];
 
-      return $this->jwtConfig->validator()->validate($parsedToken, ...$constraints);
+      $valid = $this->jwtConfig->validator()->validate($parsedToken, ...$constraints);
 
     } catch (Throwable) {
-      return false;
+      $valid = false;
     }
+
+    return $valid;
   }
 
   public function getTokenId(string $token): ?string

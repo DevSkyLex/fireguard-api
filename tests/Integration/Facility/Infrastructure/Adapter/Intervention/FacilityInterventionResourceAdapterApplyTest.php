@@ -10,7 +10,7 @@ use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -377,10 +377,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
       FacilityMetadataField::reconstitute(
         id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655440020'),
         organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-        key: new FacilityMetadataFieldKey('surface-m2'),
-        label: new FacilityMetadataFieldLabel('Surface (m²)'),
-        fieldType: FacilityMetadataFieldType::NUMBER,
-        required: false,
+        definition: new FacilityMetadataFieldDefinition(new FacilityMetadataFieldKey('surface-m2'), new FacilityMetadataFieldLabel('Surface (m²)'), FacilityMetadataFieldType::NUMBER),
         createdAt: new DateTimeImmutable(self::CREATED_AT),
         updatedAt: new DateTimeImmutable(self::CREATED_AT),
       ),

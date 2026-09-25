@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Assistant\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Assistant\Domain\Model\Message\AssistantMessage;
+use Assistant\Domain\Model\Message\{AssistantMessage, RestoredAssistantMessageAttempt, RestoredAssistantMessageContent, RestoredAssistantMessageTimeline};
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use Assistant\Infrastructure\Exception\AssistantMessageThreadMissingException;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\{AssistantMessageRecord, AssistantThreadRecord};
@@ -43,18 +43,24 @@ final class AssistantMessageMapper
       threadId: $record->thread->id,
       organizationId: $record->organizationId,
       role: AssistantMessageRole::from($record->role),
-      body: $record->body,
-      status: AssistantMessageStatus::from($record->status),
-      errorCode: $record->errorCode,
-      tokenCount: $record->tokenCount,
-      createdAt: $record->createdAt,
-      completedAt: $record->completedAt,
-      attemptId: $record->attemptId,
-      attemptNumber: $record->attemptNumber,
-      attemptSequence: $record->attemptSequence,
-      attemptExpiresAt: $record->attemptExpiresAt,
-      questionMessageId: $record->questionMessageId,
-      temperature: $record->temperature,
+      content: new RestoredAssistantMessageContent(
+        body: $record->body,
+        status: AssistantMessageStatus::from($record->status),
+        errorCode: $record->errorCode,
+        tokenCount: $record->tokenCount,
+      ),
+      attempt: new RestoredAssistantMessageAttempt(
+        attemptId: $record->attemptId,
+        attemptNumber: $record->attemptNumber,
+        attemptSequence: $record->attemptSequence,
+        attemptExpiresAt: $record->attemptExpiresAt,
+        questionMessageId: $record->questionMessageId,
+        temperature: $record->temperature,
+      ),
+      timeline: new RestoredAssistantMessageTimeline(
+        createdAt: $record->createdAt,
+        completedAt: $record->completedAt,
+      ),
     );
   }
 

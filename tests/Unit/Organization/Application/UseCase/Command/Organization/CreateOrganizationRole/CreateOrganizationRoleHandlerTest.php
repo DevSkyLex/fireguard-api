@@ -9,7 +9,7 @@ use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, Organiza
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleHandler, CreateOrganizationRoleResult};
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNameAlreadyExistsException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -29,11 +29,13 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440401';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -136,11 +138,13 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $organizationId = '550e8400-e29b-41d4-a716-446655440400';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
 
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
@@ -178,11 +182,13 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $organizationId = '550e8400-e29b-41d4-a716-446655440400';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
 
     $existingRole = OrganizationRole::reconstitute(

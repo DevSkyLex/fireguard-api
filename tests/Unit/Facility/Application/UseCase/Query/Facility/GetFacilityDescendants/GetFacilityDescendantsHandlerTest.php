@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityDesc
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacilityDescendants\{GetFacilityDescendantsHandler, GetFacilityDescendantsQuery, GetFacilityDescendantsResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -48,7 +48,9 @@ final class GetFacilityDescendantsHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building A'),
-      parentFacilityId: $rootId,
+      details: new FacilityDetails(
+        parentFacilityId: $rootId,
+      ),
     );
 
     $repository = $this->createStub(FacilityRepositoryPort::class);

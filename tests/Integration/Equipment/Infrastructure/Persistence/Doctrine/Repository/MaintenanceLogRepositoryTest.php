@@ -6,7 +6,7 @@ namespace Tests\Integration\Equipment\Infrastructure\Persistence\Doctrine\Reposi
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\Model\MaintenanceLog\{EquipmentMaintenanceLog, InterventionMaintenanceDetails};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\MaintenanceLogRepository;
@@ -72,10 +72,12 @@ final class MaintenanceLogRepositoryTest extends KernelTestCase
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       occurredAt: $occurredAt,
-      interventionId: '660e8400-e29b-41d4-a716-446655450020',
-      interventionNumber: 1,
-      workItemAction: 'status_change',
-      actorId: null,
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: '660e8400-e29b-41d4-a716-446655450020',
+        interventionNumber: 1,
+        workItemAction: 'status_change',
+        actorId: null,
+      ),
     );
 
     // First insert succeeds.
@@ -91,10 +93,12 @@ final class MaintenanceLogRepositoryTest extends KernelTestCase
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       occurredAt: $occurredAt,
-      interventionId: '660e8400-e29b-41d4-a716-446655450020',
-      interventionNumber: 1,
-      workItemAction: 'status_change',
-      actorId: null,
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: '660e8400-e29b-41d4-a716-446655450020',
+        interventionNumber: 1,
+        workItemAction: 'status_change',
+        actorId: null,
+      ),
     );
     $this->repository->appendInterventionServiceEntry($duplicateEntry, 'dedup-key-one');
 
@@ -107,10 +111,12 @@ final class MaintenanceLogRepositoryTest extends KernelTestCase
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       occurredAt: $occurredAt,
-      interventionId: '660e8400-e29b-41d4-a716-446655450020',
-      interventionNumber: 1,
-      workItemAction: 'update',
-      actorId: null,
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: '660e8400-e29b-41d4-a716-446655450020',
+        interventionNumber: 1,
+        workItemAction: 'update',
+        actorId: null,
+      ),
     );
     $this->repository->appendInterventionServiceEntry($secondEntry, 'dedup-key-two');
 

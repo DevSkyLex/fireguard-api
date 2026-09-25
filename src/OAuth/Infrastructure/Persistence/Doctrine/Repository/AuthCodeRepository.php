@@ -121,27 +121,19 @@ final class AuthCodeRepository implements AuthCodeRepositoryPort
 
   public function findByEncryptedCode(string $encryptedCode): ?AuthCode
   {
-    if ('' === $encryptedCode) {
-      return null;
-    }
-
     try {
-      $decrypted = $this->decrypt($encryptedCode);
-      $payload = json_decode($decrypted, true);
-
-      if (!is_array($payload)) {
-        return null;
+      if ('' !== $encryptedCode) {
+        $payload = json_decode($this->decrypt($encryptedCode), true);
+        $identifier = is_array($payload) ? ($payload['auth_code_id'] ?? null) : null;
+        if (is_string($identifier) && '' !== $identifier) {
+          return $this->find($identifier);
+        }
       }
-
-      $identifier = $payload['auth_code_id'] ?? null;
-      if (!is_string($identifier) || '' === $identifier) {
-        return null;
-      }
-
-      return $this->find($identifier);
     } catch (Throwable) {
-      return null;
+      // Invalid ciphertext or an unavailable record is not a usable auth code.
     }
+
+    return null;
   }
 
   /**
@@ -180,27 +172,19 @@ final class AuthCodeRepository implements AuthCodeRepositoryPort
 
   private function resolveEncryptedIdentifier(string $encryptedCode): ?string
   {
-    if ('' === $encryptedCode) {
-      return null;
-    }
-
     try {
-      $decrypted = $this->decrypt($encryptedCode);
-      $payload = json_decode($decrypted, true);
-
-      if (!is_array($payload)) {
-        return null;
+      if ('' !== $encryptedCode) {
+        $payload = json_decode($this->decrypt($encryptedCode), true);
+        $identifier = is_array($payload) ? ($payload['auth_code_id'] ?? null) : null;
+        if (is_string($identifier) && '' !== $identifier) {
+          return $identifier;
+        }
       }
-
-      $identifier = $payload['auth_code_id'] ?? null;
-      if (!is_string($identifier) || '' === $identifier) {
-        return null;
-      }
-
-      return $identifier;
     } catch (Throwable) {
-      return null;
+      // Invalid ciphertext cannot identify an auth code.
     }
+
+    return null;
   }
   // #endregion
 }

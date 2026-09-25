@@ -20,7 +20,8 @@ use Inspection\Domain\ValueObject\{
   Inspector,
   NonConformityId,
   NonConformityInspectionId,
-  NonConformitySeverity
+  NonConformitySeverity,
+  RestoredInspectionAttachmentFile
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -44,10 +45,12 @@ final class ListInspectionAttachmentsHandlerTest extends TestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_report.pdf',
-      mimeType: 'application/pdf',
-      size: 10,
+      file: new RestoredInspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_report.pdf',
+        mimeType: 'application/pdf',
+        size: 10,
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
     );
 
@@ -90,10 +93,12 @@ final class ListInspectionAttachmentsHandlerTest extends TestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'photo.jpg',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_photo.jpg',
-      mimeType: 'image/jpeg',
-      size: 10,
+      file: new RestoredInspectionAttachmentFile(
+        fileName: 'photo.jpg',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_photo.jpg',
+        mimeType: 'image/jpeg',
+        size: 10,
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
     );

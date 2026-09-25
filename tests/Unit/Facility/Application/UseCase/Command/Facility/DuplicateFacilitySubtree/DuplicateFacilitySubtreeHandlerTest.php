@@ -12,7 +12,7 @@ use Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\{
 };
 use Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent;
 use Facility\Domain\Exception\{FacilityNotFoundException, FacilitySubtreeSourceArchivedException, FacilitySubtreeTooLargeException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
@@ -42,7 +42,9 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::SITE,
       name: new FacilityName('HQ Site'),
-      code: 'HQ-01',
+      details: new FacilityDetails(
+        code: 'HQ-01',
+      ),
     );
 
     $child1Id = new FacilityId('550e8400-e29b-41d4-a716-446655442002');
@@ -51,8 +53,10 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building A'),
-      parentFacilityId: $sourceId,
-      code: 'BLDG-A',
+      details: new FacilityDetails(
+        parentFacilityId: $sourceId,
+        code: 'BLDG-A',
+      ),
     );
 
     $archivedChildId = new FacilityId('550e8400-e29b-41d4-a716-446655442003');
@@ -61,7 +65,9 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Archived Building'),
-      parentFacilityId: $sourceId,
+      details: new FacilityDetails(
+        parentFacilityId: $sourceId,
+      ),
     );
     $archivedChild->archive();
 
@@ -70,7 +76,9 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor Under Archived'),
-      parentFacilityId: $archivedChildId,
+      details: new FacilityDetails(
+        parentFacilityId: $archivedChildId,
+      ),
     );
 
     $rootCloneId = new FacilityId('550e8400-e29b-41d4-a716-446655442010');
@@ -247,7 +255,9 @@ final class DuplicateFacilitySubtreeHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::AREA,
       name: new FacilityName('Filler'),
-      parentFacilityId: $sourceId,
+      details: new FacilityDetails(
+        parentFacilityId: $sourceId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */

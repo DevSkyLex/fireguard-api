@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent;
 
 use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\UpdateCalendarEventResult;
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -31,15 +31,19 @@ final class UpdateCalendarEventResultTest extends TestCase
     $startsAt = new DateTimeImmutable('2026-08-01T09:00:00+02:00');
 
     $event = CalendarEvent::create(
-      id: CalendarEventId::fromString(self::EVENT_ID),
-      organizationId: self::ORGANIZATION_ID,
-      title: 'Fire drill',
-      description: null,
-      startsAt: $startsAt,
-      endsAt: null,
-      allDay: true,
-      facilityId: null,
-      createdByMemberId: 'member-1',
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString(self::EVENT_ID),
+        organizationId: self::ORGANIZATION_ID,
+        createdByMemberId: 'member-1',
+      ),
+      content: new CalendarEventContent(
+        title: 'Fire drill',
+        description: null,
+        startsAt: $startsAt,
+        endsAt: null,
+        allDay: true,
+        facilityId: null,
+      ),
     );
 
     $result = UpdateCalendarEventResult::fromDomain($event);

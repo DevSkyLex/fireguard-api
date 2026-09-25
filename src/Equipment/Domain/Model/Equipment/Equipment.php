@@ -7,12 +7,14 @@ namespace Equipment\Domain\Model\Equipment;
 use DateTimeImmutable;
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotAssignedToFacilityException};
 use Equipment\Domain\ValueObject\{
+  EquipmentCatalogDetails,
   EquipmentFacilityId,
   EquipmentId,
   EquipmentOrganizationId,
   EquipmentStatus,
   EquipmentType,
-  PlanPosition
+  PlanPosition,
+  RestoredEquipmentAssignment
 };
 use InvalidArgumentException;
 
@@ -86,11 +88,7 @@ final class Equipment
    * @param EquipmentId $id the equipment identifier
    * @param EquipmentOrganizationId $organizationId the organization identifier
    * @param EquipmentType $type the equipment type
-   * @param ?string $subType the optional sub-type
-   * @param ?string $brand the optional brand
-   * @param ?string $model the optional model
-   * @param ?string $serialNumber the optional serial number
-   * @param ?string $locationLabel the optional location label
+   * @param ?EquipmentCatalogDetails $details the optional catalog fields
    *
    * @return self the created equipment aggregate
    */
@@ -98,12 +96,9 @@ final class Equipment
     EquipmentId $id,
     EquipmentOrganizationId $organizationId,
     EquipmentType $type,
-    ?string $subType = null,
-    ?string $brand = null,
-    ?string $model = null,
-    ?string $serialNumber = null,
-    ?string $locationLabel = null,
+    ?EquipmentCatalogDetails $details = null,
   ): self {
+    $details ??= new EquipmentCatalogDetails();
     $now = new DateTimeImmutable();
 
     return new self(
@@ -114,11 +109,11 @@ final class Equipment
       createdAt: $now,
       updatedAt: $now,
       facilityId: null,
-      subType: self::normalizeShortString($subType, 'sub-type', 100),
-      brand: self::normalizeShortString($brand, 'brand', 100),
-      model: self::normalizeShortString($model, 'model', 100),
-      serialNumber: self::normalizeShortString($serialNumber, 'serial number', 100),
-      locationLabel: self::normalizeShortString($locationLabel, 'location label', 255),
+      subType: self::normalizeShortString($details->subType, 'sub-type', 100),
+      brand: self::normalizeShortString($details->brand, 'brand', 100),
+      model: self::normalizeShortString($details->model, 'model', 100),
+      serialNumber: self::normalizeShortString($details->serialNumber, 'serial number', 100),
+      locationLabel: self::normalizeShortString($details->locationLabel, 'location label', 255),
       installedAt: null,
       commissionedAt: null,
     );
@@ -134,18 +129,10 @@ final class Equipment
    * @param EquipmentId $id the equipment identifier
    * @param EquipmentOrganizationId $organizationId the organization identifier
    * @param EquipmentType $type the equipment type
-   * @param EquipmentStatus $status the equipment status
+   * @param EquipmentCatalogDetails $details the persisted catalog fields
+   * @param RestoredEquipmentAssignment $assignment the persisted lifecycle and placement
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param ?EquipmentFacilityId $facilityId the optional facility identifier
-   * @param ?string $subType the optional sub-type
-   * @param ?string $brand the optional brand
-   * @param ?string $model the optional model
-   * @param ?string $serialNumber the optional serial number
-   * @param ?string $locationLabel the optional location label
-   * @param ?DateTimeImmutable $installedAt the optional installation timestamp
-   * @param ?DateTimeImmutable $commissionedAt the optional commissioning timestamp
-   * @param ?PlanPosition $planPosition the optional position pinned on a floor plan attachment
    *
    * @return self the reconstituted equipment aggregate
    */
@@ -153,35 +140,27 @@ final class Equipment
     EquipmentId $id,
     EquipmentOrganizationId $organizationId,
     EquipmentType $type,
-    EquipmentStatus $status,
+    EquipmentCatalogDetails $details,
+    RestoredEquipmentAssignment $assignment,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    ?EquipmentFacilityId $facilityId = null,
-    ?string $subType = null,
-    ?string $brand = null,
-    ?string $model = null,
-    ?string $serialNumber = null,
-    ?string $locationLabel = null,
-    ?DateTimeImmutable $installedAt = null,
-    ?DateTimeImmutable $commissionedAt = null,
-    ?PlanPosition $planPosition = null,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
       type: $type,
-      status: $status,
+      status: $assignment->status,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      facilityId: $facilityId,
-      subType: $subType,
-      brand: $brand,
-      model: $model,
-      serialNumber: $serialNumber,
-      locationLabel: $locationLabel,
-      installedAt: $installedAt,
-      commissionedAt: $commissionedAt,
-      planPosition: $planPosition,
+      facilityId: $assignment->facilityId,
+      subType: $details->subType,
+      brand: $details->brand,
+      model: $details->model,
+      serialNumber: $details->serialNumber,
+      locationLabel: $details->locationLabel,
+      installedAt: $assignment->installedAt,
+      commissionedAt: $assignment->commissionedAt,
+      planPosition: $assignment->planPosition,
     );
   }
 

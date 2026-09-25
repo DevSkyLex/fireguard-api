@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -47,15 +47,17 @@ final class FacilityMetadataFieldMapper
     return FacilityMetadataField::reconstitute(
       id: FacilityMetadataFieldId::fromString($record->id),
       organizationId: FacilityOrganizationId::fromString($record->organization->id),
-      key: new FacilityMetadataFieldKey($record->key),
-      label: new FacilityMetadataFieldLabel($record->label),
-      fieldType: FacilityMetadataFieldType::from($record->fieldType),
-      required: $record->required,
+      definition: new FacilityMetadataFieldDefinition(
+        new FacilityMetadataFieldKey($record->key),
+        new FacilityMetadataFieldLabel($record->label),
+        FacilityMetadataFieldType::from($record->fieldType),
+        $record->required,
+        $record->options,
+        null === $record->facilityType ? null : FacilityType::from($record->facilityType),
+        $record->unit,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      options: $record->options,
-      facilityType: null === $record->facilityType ? null : FacilityType::from($record->facilityType),
-      unit: $record->unit,
     );
   }
 

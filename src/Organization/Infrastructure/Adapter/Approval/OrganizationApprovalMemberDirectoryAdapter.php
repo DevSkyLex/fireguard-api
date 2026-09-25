@@ -77,15 +77,11 @@ final readonly class OrganizationApprovalMemberDirectoryAdapter implements Appro
     $userIds = $this->memberRepository->findUserIdsByMemberIds($orgId, [$memberId]);
     $userId = $userIds[$memberId] ?? null;
 
-    if (null === $userId) {
-      return false;
-    }
-
     // The `admin` system role is the only one granted the `organization.*`
     // wildcard (see OrganizationSystemRoleCatalog::permissionsFor()); a
     // custom role explicitly granted the same wildcard is treated as
     // equivalent on purpose.
-    return $this->authorization->hasPermission($userId, $organizationId, 'organization.*');
+    return null !== $userId && $this->authorization->hasPermission($userId, $organizationId, 'organization.*');
   }
   // #endregion
 }

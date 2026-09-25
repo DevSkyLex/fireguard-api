@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Exception\NotificationNotFoundException;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\{GetUserNotificationHandler, GetUserNotificationQuery, GetUserNotificationResult};
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -35,13 +35,15 @@ final class GetUserNotificationHandlerTest extends TestCase
       body: '<p>Body</p>',
       channels: ['email', 'in_app'],
       payload: ['organizationName' => 'Fireguard HQ'],
-      createdAt: $createdAt,
-      updatedAt: $readAt,
-      recipientUserId: self::USER_ID,
-      recipientEmail: new Email('member@example.com'),
-      isRead: true,
-      readAt: $readAt,
-      organizationId: 'org-42',
+      restoredState: new RestoredNotificationState(
+        createdAt: $createdAt,
+        updatedAt: $readAt,
+        recipientUserId: self::USER_ID,
+        recipientEmail: new Email('member@example.com'),
+        isRead: true,
+        readAt: $readAt,
+        organizationId: 'org-42',
+      ),
     );
 
     /** @var NotificationRepositoryPort&MockObject $repository */
@@ -85,13 +87,15 @@ final class GetUserNotificationHandlerTest extends TestCase
       body: 'Your invoice is ready.',
       channels: ['in_app'],
       payload: [],
-      createdAt: $createdAt,
-      updatedAt: $createdAt,
-      recipientUserId: self::USER_ID,
-      recipientEmail: null,
-      isRead: false,
-      readAt: null,
-      organizationId: null,
+      restoredState: new RestoredNotificationState(
+        createdAt: $createdAt,
+        updatedAt: $createdAt,
+        recipientUserId: self::USER_ID,
+        recipientEmail: null,
+        isRead: false,
+        readAt: null,
+        organizationId: null,
+      ),
     );
 
     /** @var NotificationRepositoryPort&MockObject $repository */

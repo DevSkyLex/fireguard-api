@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -246,11 +246,13 @@ final class ListFacilitiesHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 3'),
-      parentFacilityId: $parentId,
-      code: 'FLR-3',
-      address: 'Wing B',
-      metadata: ['capacity' => 50],
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+        code: 'FLR-3',
+        address: 'Wing B',
+        metadata: ['capacity' => 50],
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */

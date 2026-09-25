@@ -11,7 +11,7 @@ use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\UpdateFacility\{UpdateFacilityCommand, UpdateFacilityHandler, UpdateFacilityResult};
 use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityNotFoundException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -33,9 +33,11 @@ final class UpdateFacilityHandlerTest extends TestCase
       organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655440911'),
       type: FacilityType::SITE,
       name: new FacilityName('Main Site'),
-      code: 'SITE-OLD',
-      address: 'Old Address',
-      metadata: ['foo' => 'bar'],
+      details: new FacilityDetails(
+        code: 'SITE-OLD',
+        address: 'Old Address',
+        metadata: ['foo' => 'bar'],
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -179,7 +181,9 @@ final class UpdateFacilityHandlerTest extends TestCase
       organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655440951'),
       type: FacilityType::SITE,
       name: new FacilityName('Paris HQ'),
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      details: new FacilityDetails(
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -541,8 +545,10 @@ final class UpdateFacilityHandlerTest extends TestCase
       organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655440991'),
       type: FacilityType::SITE,
       name: new FacilityName('Persisted Site'),
-      code: 'SITE-OLD',
-      address: 'Old Address',
+      details: new FacilityDetails(
+        code: 'SITE-OLD',
+        address: 'Old Address',
+      ),
     );
   }
 

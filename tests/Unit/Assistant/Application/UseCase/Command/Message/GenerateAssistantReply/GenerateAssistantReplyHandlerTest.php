@@ -11,7 +11,7 @@ use Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettin
 use Assistant\Application\Service\{AssistantContextAssembler, AssistantPromptBuilder};
 use Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\{GenerateAssistantReplyCommand, GenerateAssistantReplyHandler};
 use Assistant\Domain\Event\Message\AssistantReplyGeneratedEvent;
-use Assistant\Domain\Model\Message\AssistantMessage;
+use Assistant\Domain\Model\Message\{AssistantMessage, RestoredAssistantMessageAttempt, RestoredAssistantMessageContent, RestoredAssistantMessageTimeline};
 use Assistant\Domain\Model\Thread\AssistantThread;
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus, AssistantThreadId};
 use DateTimeImmutable;
@@ -470,12 +470,9 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
       threadId: self::THREAD_ID,
       organizationId: self::ORG_ID,
       role: $role,
-      body: $body,
-      status: $status,
-      errorCode: null,
-      tokenCount: null,
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      completedAt: null,
+      content: new RestoredAssistantMessageContent($body, $status, null, null),
+      attempt: new RestoredAssistantMessageAttempt(),
+      timeline: new RestoredAssistantMessageTimeline(new DateTimeImmutable('2026-01-01T00:00:00+00:00'), null),
     );
   }
 
@@ -501,12 +498,9 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
       threadId: self::THREAD_ID,
       organizationId: self::ORG_ID,
       role: AssistantMessageRole::ASSISTANT,
-      body: '',
-      status: AssistantMessageStatus::STREAMING,
-      errorCode: null,
-      tokenCount: null,
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      completedAt: null,
+      content: new RestoredAssistantMessageContent('', AssistantMessageStatus::STREAMING, null, null),
+      attempt: new RestoredAssistantMessageAttempt(),
+      timeline: new RestoredAssistantMessageTimeline(new DateTimeImmutable('2026-01-01T00:00:00+00:00'), null),
     );
   }
 
@@ -517,12 +511,12 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
       threadId: self::THREAD_ID,
       organizationId: self::ORG_ID,
       role: AssistantMessageRole::ASSISTANT,
-      body: 'Already answered.',
-      status: AssistantMessageStatus::COMPLETE,
-      errorCode: null,
-      tokenCount: 3,
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      completedAt: new DateTimeImmutable('2026-01-01T00:00:01+00:00'),
+      content: new RestoredAssistantMessageContent('Already answered.', AssistantMessageStatus::COMPLETE, null, 3),
+      attempt: new RestoredAssistantMessageAttempt(),
+      timeline: new RestoredAssistantMessageTimeline(
+        new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        new DateTimeImmutable('2026-01-01T00:00:01+00:00'),
+      ),
     );
   }
 

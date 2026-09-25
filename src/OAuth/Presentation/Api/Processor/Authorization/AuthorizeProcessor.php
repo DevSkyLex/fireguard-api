@@ -14,8 +14,8 @@ use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
 use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
+use OAuth\Presentation\Api\Service\AuthorizationResponseSupport;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request, RequestStack, Response};
@@ -33,18 +33,13 @@ use function ctype_digit;
 use function explode;
 use function hash;
 use function in_array;
-use function is_array;
 use function is_string;
 use function max;
-use function parse_str;
-use function parse_url;
-use function preg_match;
 use function sprintf;
 use function strtoupper;
 use function substr;
 use function time;
 use function trim;
-use function urldecode;
 
 /**
  * Processor AuthorizeProcessor.
@@ -133,7 +128,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     try {
       $authorizationRequest = $this->authorizationServer->validateAuthorizationRequest($psrRequest);
     } catch (OAuthServerException $exception) {
-      return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
+      return AuthorizationResponseSupport::convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
     } catch (Throwable $exception) {
       throw new BadRequestHttpException(
         message: 'Invalid authorization request.',
@@ -198,7 +193,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
 
     $this->storeNonceFromResponse($request, $psrResponse);
 
-    return $this->convertPsrResponse($psrResponse);
+    return AuthorizationResponseSupport::convertPsrResponse($psrResponse);
   }
 
   /**
@@ -217,21 +212,30 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
 
     $securityUser = $this->security->getUser();
     if (!$securityUser instanceof SecurityUser) {
-      return $this->buildOidcError(
+      return AuthorizationResponseSupport::buildOidcError(
         error: 'login_required',
         description: 'Authentication required.',
         status: Response::HTTP_UNAUTHORIZED,
       );
     }
+
+    return $this->validateAuthenticatedUser($securityUser, $prompts, $maxAge);
+  }
+
+  /**
+   * @param list<string> $prompts
+   */
+  private function validateAuthenticatedUser(SecurityUser $securityUser, array $prompts, ?int $maxAge): SecurityUser|JsonResponse
+  {
     if ($this->requiresLogin($prompts)) {
-      return $this->buildOidcError(
+      return AuthorizationResponseSupport::buildOidcError(
         error: 'login_required',
         description: 'User authentication required.',
         status: Response::HTTP_UNAUTHORIZED,
       );
     }
     if (null !== $maxAge && $this->requiresRecentAuth($securityUser->getId(), $maxAge)) {
-      return $this->buildOidcError(
+      return AuthorizationResponseSupport::buildOidcError(
         error: 'login_required',
         description: 'User authentication too old.',
         status: Response::HTTP_UNAUTHORIZED,
@@ -297,11 +301,9 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
 
     $codeChallengeMethod = $this->readParam($request, 'code_challenge_method') ?? 'plain';
 
-    if (!in_array($codeChallengeMethod, ['S256', 'plain'], true)) {
-      return $this->buildInvalidRequest('Invalid code_challenge_method value.');
-    }
-
-    return null;
+    return in_array($codeChallengeMethod, ['S256', 'plain'], true)
+      ? null
+      : $this->buildInvalidRequest('Invalid code_challenge_method value.');
   }
 
   private function readParam(Request $request, string $key): ?string
@@ -402,10 +404,6 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
    */
   private function validatePromptValues(array $prompts): ?JsonResponse
   {
-    if ([] === $prompts) {
-      return null;
-    }
-
     $allowed = ['none', 'login', 'consent', 'select_account'];
     foreach ($prompts as $prompt) {
       if (!in_array($prompt, $allowed, true)) {
@@ -444,26 +442,8 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
 
     $oidcUser = $this->oidcUserProvider->findByIdentifier($userId);
     $authTime = $oidcUser?->authTime();
-    if (null === $authTime) {
-      return true;
-    }
 
-    if ($maxAge <= 0) {
-      return true;
-    }
-
-    return ($authTime->getTimestamp() + $maxAge) < time();
-  }
-
-  private function buildOidcError(string $error, string $description, int $status): JsonResponse
-  {
-    return new JsonResponse(
-      data: [
-        'error' => $error,
-        'error_description' => $description,
-      ],
-      status: $status,
-    );
+    return null === $authTime || $maxAge <= 0 || ($authTime->getTimestamp() + $maxAge) < time();
   }
 
   private function storeNonceFromResponse(Request $request, \Psr\Http\Message\ResponseInterface $response): void
@@ -473,7 +453,7 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       return;
     }
 
-    $code = $this->extractCodeFromResponse($response);
+    $code = AuthorizationResponseSupport::extractCodeFromResponse($response);
     if (null === $code) {
       return;
     }
@@ -481,111 +461,5 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     $this->authCodeRepository->updateNonce($code, $nonce);
   }
 
-  private function extractCodeFromResponse(\Psr\Http\Message\ResponseInterface $response): ?string
-  {
-    $code = $this->extractCodeFromLocation($response->getHeaderLine('Location'));
-    if (null !== $code) {
-      return $code;
-    }
-
-    $body = $this->readResponseBody($response);
-    if ('' === $body) {
-      return null;
-    }
-
-    return $this->extractCodeFromFormPostBody($body);
-  }
-
-  private function extractCodeFromLocation(string $location): ?string
-  {
-    if ('' === $location) {
-      return null;
-    }
-
-    $parts = parse_url($location);
-    if (!is_array($parts)) {
-      return null;
-    }
-
-    foreach (['query', 'fragment'] as $part) {
-      if (!isset($parts[$part])) {
-        continue;
-      }
-
-      $params = [];
-      parse_str((string) $parts[$part], $params);
-
-      $code = $this->extractCodeFromParams($params);
-      if (null !== $code) {
-        return $code;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * @param array<int|string, mixed> $params
-   */
-  private function extractCodeFromParams(array $params): ?string
-  {
-    $code = $params['code'] ?? null;
-    if (!is_string($code) || '' === $code) {
-      return null;
-    }
-
-    return $code;
-  }
-
-  private function extractCodeFromFormPostBody(string $body): ?string
-  {
-    if ('' === $body) {
-      return null;
-    }
-
-    if (1 === preg_match('/name=["\']code["\'][^>]*value=["\']([^"\']+)["\']/i', $body, $matches)) {
-      return $matches[1];
-    }
-
-    if (1 === preg_match('/value=["\']([^"\']+)["\'][^>]*name=["\']code["\']/i', $body, $matches)) {
-      return $matches[1];
-    }
-
-    if (1 === preg_match('/(?:^|[?&])code=([^&\\s"\']+)/i', $body, $matches)) {
-      return urldecode($matches[1]);
-    }
-
-    return null;
-  }
-
-  private function readResponseBody(\Psr\Http\Message\ResponseInterface $response): string
-  {
-    try {
-      $body = $response->getBody();
-      if (!$body->isReadable()) {
-        return '';
-      }
-
-      if (!$body->isSeekable()) {
-        return $body->getContents();
-      }
-
-      $position = $body->tell();
-      $body->rewind();
-      $contents = $body->getContents();
-      $body->seek($position);
-
-      return $contents;
-    } catch (Throwable) {
-      return '';
-    }
-  }
-
-  private function convertPsrResponse(\Psr\Http\Message\ResponseInterface $psrResponse): Response
-  {
-    $httpFoundationFactory = new HttpFoundationFactory();
-
-    return $httpFoundationFactory->createResponse($psrResponse);
-  }
   // #endregion
 }

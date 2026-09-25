@@ -7,7 +7,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Reposi
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\MessageId;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord;
@@ -171,7 +171,7 @@ final class MessagingMessageRepositoryRepliesTest extends KernelTestCase
       'author-1',
       $body,
       new MentionExtractor(),
-      (string) $parent->id(),
+      new MessageCreationLinks(parentMessageId: (string) $parent->id()),
     );
 
     $repository->append($reply);

@@ -7,7 +7,7 @@ namespace Tests\Unit\Otp\Domain\Model\Totp;
 use DateInterval;
 use DateTimeImmutable;
 use Otp\Domain\Exception\{TotpDisableTemporarilyLockedException, TotpEnrollmentMaxAttemptsException, TotpEnrollmentNoPendingSecretException, TotpEnrollmentNotActiveException};
-use Otp\Domain\Model\Totp\TotpEnrollment;
+use Otp\Domain\Model\Totp\{TotpEnrollment, TotpEnrollmentAttempts, TotpEnrollmentSecrets};
 use Otp\Domain\ValueObject\TotpSecret;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -193,12 +193,8 @@ final class TotpEnrollmentTest extends TestCase
 
     $enrollment = TotpEnrollment::reconstitute(
       userId: 'user-1',
-      activeSecret: $activeSecret,
-      activeConfirmedAt: $now,
-      pendingSecret: $pendingSecret,
-      pendingCreatedAt: $now,
-      attempts: 2,
-      maxAttempts: 5,
+      secrets: new TotpEnrollmentSecrets($activeSecret, $now, $pendingSecret, $now),
+      attemptState: new TotpEnrollmentAttempts(2, 5),
       createdAt: $now,
       updatedAt: $now,
     );
@@ -326,12 +322,8 @@ final class TotpEnrollmentTest extends TestCase
 
     return TotpEnrollment::reconstitute(
       userId: 'user-1',
-      activeSecret: new TotpSecret('JBSWY3DPEHPK3PXP'),
-      activeConfirmedAt: $now,
-      pendingSecret: null,
-      pendingCreatedAt: null,
-      attempts: 0,
-      maxAttempts: 5,
+      secrets: new TotpEnrollmentSecrets(new TotpSecret('JBSWY3DPEHPK3PXP'), $now, null, null),
+      attemptState: new TotpEnrollmentAttempts(0, 5),
       createdAt: $now,
       updatedAt: $now,
     );

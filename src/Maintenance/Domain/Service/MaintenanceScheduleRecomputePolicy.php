@@ -105,22 +105,15 @@ final class MaintenanceScheduleRecomputePolicy
       return MaintenanceDueStatus::UNSCHEDULED;
     }
 
-    if (null === $nextDueAt) {
+    if (null === $nextDueAt || $now > $nextDueAt) {
       // A periodicity applies but the equipment has never been inspected:
-      // treated as immediately due.
-      return MaintenanceDueStatus::OVERDUE;
-    }
-
-    if ($now > $nextDueAt) {
+      // treated as immediately due; a past due date is overdue too.
       return MaintenanceDueStatus::OVERDUE;
     }
 
     $reminderThreshold = $nextDueAt->sub(new DateInterval('P' . $reminderWindowDays . 'D'));
-    if ($now >= $reminderThreshold) {
-      return MaintenanceDueStatus::DUE_SOON;
-    }
 
-    return MaintenanceDueStatus::UP_TO_DATE;
+    return $now >= $reminderThreshold ? MaintenanceDueStatus::DUE_SOON : MaintenanceDueStatus::UP_TO_DATE;
   }
 
   /**

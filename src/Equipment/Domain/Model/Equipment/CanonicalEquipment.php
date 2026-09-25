@@ -126,55 +126,33 @@ final class CanonicalEquipment
    *
    * @param EquipmentId $id the equipment identifier
    * @param EquipmentOrganizationId $organizationId the owning organization identifier
-   * @param EquipmentRecordStatus $recordStatus whether the row is published or a scratchpad
-   * @param ?string $interventionId the preparing intervention identifier
-   * @param ?string $facilityId the assigned facility identifier
-   * @param string $type the equipment type
-   * @param ?string $subType the equipment sub-type
-   * @param ?string $brand the brand
-   * @param ?string $model the model
-   * @param ?string $serialNumber the serial number
-   * @param ?string $locationLabel the free-form location label
-   * @param EquipmentStatus $status the asset lifecycle status
-   * @param ?DateTimeImmutable $commissionedAt the first commissioning date
-   * @param int $revision the optimistic-concurrency revision
-   * @param DateTimeImmutable $updatedAt the last mutation timestamp
+   * @param RestoredCanonicalEquipmentMetadata $metadata the persisted facility and catalog details
+   * @param RestoredCanonicalEquipmentLifecycle $lifecycle the persisted publication and revision state
    *
    * @return self the reconstituted canonical equipment
    */
   public static function reconstitute(
     EquipmentId $id,
     EquipmentOrganizationId $organizationId,
-    EquipmentRecordStatus $recordStatus,
-    ?string $interventionId,
-    ?string $facilityId,
-    string $type,
-    ?string $subType,
-    ?string $brand,
-    ?string $model,
-    ?string $serialNumber,
-    ?string $locationLabel,
-    EquipmentStatus $status,
-    ?DateTimeImmutable $commissionedAt,
-    int $revision,
-    DateTimeImmutable $updatedAt,
+    RestoredCanonicalEquipmentMetadata $metadata,
+    RestoredCanonicalEquipmentLifecycle $lifecycle,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      facilityId: $facilityId,
-      type: $type,
-      subType: $subType,
-      brand: $brand,
-      model: $model,
-      serialNumber: $serialNumber,
-      locationLabel: $locationLabel,
-      status: $status,
-      commissionedAt: $commissionedAt,
-      revision: $revision,
-      updatedAt: $updatedAt,
+      recordStatus: $lifecycle->recordStatus,
+      interventionId: $lifecycle->interventionId,
+      facilityId: $metadata->facilityId,
+      type: $metadata->type,
+      subType: $metadata->details->subType,
+      brand: $metadata->details->brand,
+      model: $metadata->details->model,
+      serialNumber: $metadata->details->serialNumber,
+      locationLabel: $metadata->details->locationLabel,
+      status: $lifecycle->status,
+      commissionedAt: $lifecycle->commissionedAt,
+      revision: $lifecycle->revision,
+      updatedAt: $lifecycle->updatedAt,
     );
   }
 

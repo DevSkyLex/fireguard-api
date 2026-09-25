@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Inspection\Application\Contract\Inspection\CanonicalInspectionReadView;
-use Inspection\Domain\Model\Inspection\CanonicalInspection;
+use Inspection\Domain\Model\Inspection\{CanonicalInspection, RestoredCanonicalInspectionState};
 use Inspection\Domain\ValueObject\{
   InspectionEquipmentId,
   InspectionId,
@@ -54,13 +54,15 @@ final class CanonicalInspectionMapper
       id: InspectionId::fromString($record->id),
       organizationId: InspectionOrganizationId::fromString($record->organization->id),
       equipmentId: InspectionEquipmentId::fromString($record->equipmentId),
-      recordStatus: InspectionRecordStatus::from($record->recordStatus),
-      interventionId: $record->interventionId,
-      status: InspectionStatus::from($record->status),
-      result: InspectionResult::from($record->result),
-      notes: $record->notes,
-      signature: $record->signature,
-      revision: $record->revision,
+      state: new RestoredCanonicalInspectionState(
+        recordStatus: InspectionRecordStatus::from($record->recordStatus),
+        interventionId: $record->interventionId,
+        status: InspectionStatus::from($record->status),
+        result: InspectionResult::from($record->result),
+        notes: $record->notes,
+        signature: $record->signature,
+        revision: $record->revision,
+      ),
       updatedAt: $record->updatedAt,
     );
   }

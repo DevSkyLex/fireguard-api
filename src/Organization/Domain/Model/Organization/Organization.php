@@ -154,65 +154,41 @@ final class Organization
    *
    * @since 1.0.0
    *
-   * @param OrganizationId $id the organization identifier
-   * @param OrganizationName $name the organization name
-   * @param string $createdByUserId the creator user identifier
-   * @param bool $isActive whether the organization is active
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param ?DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?string $ownerUserId the optional owner user identifier
-   * @param ?OrganizationSlug $slug the optional organization slug
-   * @param ?OrganizationStatus $status the optional explicit status
-   * @param ?string $description the optional organization description
-   * @param ?string $logoUrl the optional organization logo URL
-   * @param ?OrganizationSettings $settings the optional structured organization settings
-   * @param ?PlanId $planId the optional assigned subscription plan identifier
-   * @param ?OrganizationCountry $country the optional legal country (ISO 3166-1 alpha-2)
-   * @param ?OrganizationLegalType $legalType the optional legal entity type
-   * @param ?string $legalName the optional registered legal name
-   * @param ?OrganizationRegistrationNumber $registrationNumber the optional company/registration number
-   * @param ?OrganizationVatNumber $vatNumber the optional VAT number
+   * @param RestoredOrganizationCore $core persisted identity and active fallback
+   * @param ?RestoredOrganizationState $state persisted ownership, slug, status, and update time
+   * @param ?RestoredOrganizationProfile $profile persisted display, settings, and plan
+   * @param ?RestoredOrganizationLegal $legal persisted legal identity
    *
    * @return self the reconstituted organization aggregate
    */
   public static function reconstitute(
-    OrganizationId $id,
-    OrganizationName $name,
-    string $createdByUserId,
-    bool $isActive,
-    DateTimeImmutable $createdAt,
-    ?DateTimeImmutable $updatedAt = null,
-    ?string $ownerUserId = null,
-    ?OrganizationSlug $slug = null,
-    ?OrganizationStatus $status = null,
-    ?string $description = null,
-    ?string $logoUrl = null,
-    ?OrganizationSettings $settings = null,
-    ?PlanId $planId = null,
-    ?OrganizationCountry $country = null,
-    ?OrganizationLegalType $legalType = null,
-    ?string $legalName = null,
-    ?OrganizationRegistrationNumber $registrationNumber = null,
-    ?OrganizationVatNumber $vatNumber = null,
+    RestoredOrganizationCore $core,
+    ?RestoredOrganizationState $state = null,
+    ?RestoredOrganizationProfile $profile = null,
+    ?RestoredOrganizationLegal $legal = null,
   ): self {
+    $state ??= new RestoredOrganizationState();
+    $profile ??= new RestoredOrganizationProfile();
+    $legal ??= new RestoredOrganizationLegal();
+
     return new self(
-      id: $id,
-      name: $name,
-      slug: $slug ?? OrganizationSlug::fromName((string) $name),
-      ownerUserId: $ownerUserId ?? $createdByUserId,
-      createdByUserId: $createdByUserId,
-      status: $status ?? OrganizationStatus::fromIsActive($isActive),
-      createdAt: $createdAt,
-      updatedAt: $updatedAt ?? $createdAt,
-      description: $description,
-      logoUrl: $logoUrl,
-      settings: $settings,
-      planId: $planId,
-      country: $country,
-      legalType: $legalType,
-      legalName: $legalName,
-      registrationNumber: $registrationNumber,
-      vatNumber: $vatNumber,
+      id: $core->id,
+      name: $core->name,
+      slug: $state->slug ?? OrganizationSlug::fromName((string) $core->name),
+      ownerUserId: $state->ownerUserId ?? $core->createdByUserId,
+      createdByUserId: $core->createdByUserId,
+      status: $state->status ?? OrganizationStatus::fromIsActive($core->isActive),
+      createdAt: $core->createdAt,
+      updatedAt: $state->updatedAt ?? $core->createdAt,
+      description: $profile->description,
+      logoUrl: $profile->logoUrl,
+      settings: $profile->settings,
+      planId: $profile->planId,
+      country: $legal->country,
+      legalType: $legal->legalType,
+      legalName: $legal->legalName,
+      registrationNumber: $legal->registrationNumber,
+      vatNumber: $legal->vatNumber,
     );
   }
 
@@ -447,8 +423,7 @@ final class Organization
    */
   public function restore(): void
   {
-    $this->status = OrganizationStatus::ACTIVE;
-    $this->touch();
+    $this->activate();
   }
 
   /**

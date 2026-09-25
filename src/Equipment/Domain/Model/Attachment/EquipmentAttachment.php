@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Domain\Model\Attachment;
 
 use DateTimeImmutable;
-use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, RestoredEquipmentAttachmentFile};
 
 /**
  * Model EquipmentAttachment.
@@ -94,34 +94,26 @@ final class EquipmentAttachment
    *
    * @param AttachmentId $id the attachment identifier
    * @param EquipmentId $equipmentId the equipment identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
+   * @param RestoredEquipmentAttachmentFile $file the persisted file metadata
    * @param DateTimeImmutable $uploadedAt the upload timestamp
-   * @param ?string $label the optional label
    *
    * @return self the reconstituted attachment
    */
   public static function reconstitute(
     AttachmentId $id,
     EquipmentId $equipmentId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
+    RestoredEquipmentAttachmentFile $file,
     DateTimeImmutable $uploadedAt,
-    ?string $label = null,
   ): self {
     return new self(
       id: $id,
       equipmentId: $equipmentId,
-      fileName: $fileName,
-      storagePath: $storagePath,
-      mimeType: $mimeType,
-      size: $size,
+      fileName: $file->fileName,
+      storagePath: $file->storagePath,
+      mimeType: $file->mimeType,
+      size: $file->size,
       uploadedAt: $uploadedAt,
-      label: $label,
+      label: $file->label,
     );
   }
 

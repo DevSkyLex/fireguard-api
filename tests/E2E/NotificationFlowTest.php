@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\E2E;
 
 use Notification\Application\Contract\Notification\NotificationType;
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
 use Symfony\Component\HttpFoundation\Response;
@@ -281,8 +281,11 @@ final class NotificationFlowTest extends OAuth2WebTestCase
       subject: 'Test notification',
       body: '<p>Body</p>',
       channels: ['mercure'],
-      recipientUserId: $userId,
-      organizationId: $organizationId,
+      target: new NotificationTarget(
+        recipientUserId: $userId,
+        recipientEmail: null,
+        organizationId: $organizationId,
+      ),
     );
 
     if ($isRead) {

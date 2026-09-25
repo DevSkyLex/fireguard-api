@@ -9,7 +9,7 @@ use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\{DeleteOrganizationCommand, DeleteOrganizationHandler, DeleteOrganizationResult};
 use Organization\Domain\Event\Organization\OrganizationArchivedEvent;
 use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -224,11 +224,13 @@ final class DeleteOrganizationHandlerTest extends TestCase
   private function activeOrganization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
   }
 }

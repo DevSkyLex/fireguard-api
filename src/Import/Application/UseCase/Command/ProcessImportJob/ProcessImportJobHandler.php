@@ -110,10 +110,22 @@ final readonly class ProcessImportJobHandler implements CommandHandler
    */
   public function __invoke(ProcessImportJobCommand $command): VoidResult
   {
+    $this->processIfAvailable($command);
+
+    return new VoidResult();
+  }
+
+  /**
+   * Skip stale, unauthorized or already claimed jobs before opening a lease.
+   *
+   * @since 1.0.0
+   */
+  private function processIfAvailable(ProcessImportJobCommand $command): void
+  {
     $id = ImportJobId::fromString($command->importJobId);
     $existing = $this->repository->findById($id);
     if (null === $existing || $existing->status()->isTerminal()) {
-      return new VoidResult();
+      return;
     }
     $actor = $command->requestedBy ?? $existing->createdBy();
     if (!$this->authorization->resolveAccess($actor, $existing->organizationId(), ImportPermissions::write($existing->kind()))->isGranted()) {
@@ -121,22 +133,32 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       // access. Another authorized member can explicitly resume the same job.
       $this->logger->warning('Import processing skipped after access was removed.', ['import_job_id' => $command->importJobId]);
 
-      return new VoidResult();
+      return;
     }
 
     $owner = $this->ids->generateRaw();
     $job = $this->execution->claim($id, $owner);
     if (null === $job) {
-      return new VoidResult();
+      return;
     }
 
+    $this->processClaimedJob($command, $id, $job, $owner, $actor);
+  }
+
+  /**
+   * Keep the claimed job's lease until processing or failure has completed.
+   *
+   * @since 1.0.0
+   */
+  private function processClaimedJob(ProcessImportJobCommand $command, ImportJobId $id, ImportJob $job, string $owner, string $actor): void
+  {
     try {
       try {
         $contents = $this->fileStorage->read($job->storagePath());
       } catch (Throwable $exception) {
         $this->fail($id, $owner, 'Unable to read the uploaded CSV file.');
 
-        return new VoidResult();
+        return;
       }
 
       try {
@@ -144,7 +166,7 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       } catch (InvalidArgumentException $exception) {
         $this->fail($id, $owner, $exception->getMessage());
 
-        return new VoidResult();
+        return;
       }
       $job = $this->execution->run($id, $owner, static function (ImportJob $current) use ($total): ?string {
         $current->setTotalRows($total);
@@ -177,8 +199,6 @@ final readonly class ProcessImportJobHandler implements CommandHandler
       // retries use the same job, while a stopped process loses its lease by TTL.
       $this->execution->release($id, $owner);
     }
-
-    return new VoidResult();
   }
 
   /**

@@ -169,7 +169,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (FacilityNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (FacilityHierarchyException|InvalidArgumentException $exception) {
+    } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
       $this->throwMappedMessengerException($exception);

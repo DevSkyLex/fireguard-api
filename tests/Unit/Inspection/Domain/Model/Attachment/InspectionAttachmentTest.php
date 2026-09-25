@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Domain\Model\Attachment;
 
 use DateTimeImmutable;
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId};
+use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -76,10 +76,12 @@ final class InspectionAttachmentTest extends TestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspections/org-1/report.pdf',
-      mimeType: 'application/pdf',
-      size: 4096,
+      file: new RestoredInspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspections/org-1/report.pdf',
+        mimeType: 'application/pdf',
+        size: 4096,
+      ),
       uploadedAt: $uploadedAt,
     );
 

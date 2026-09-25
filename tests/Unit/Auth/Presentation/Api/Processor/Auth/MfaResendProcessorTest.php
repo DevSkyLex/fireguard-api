@@ -14,7 +14,7 @@ use InvalidArgumentException;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{
   ChallengeToken,
   OtpChannel as DomainOtpChannel,
@@ -245,36 +245,44 @@ final class MfaResendProcessorTest extends TestCase
   private function pendingEmailOtp(string $createdAt): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174100'),
-      challengeToken: ChallengeToken::fromString(self::CHALLENGE_TOKEN),
-      userId: self::USER_ID,
-      purpose: DomainOtpPurpose::LOGIN,
-      channel: DomainOtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('+10 minutes'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable($createdAt),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174100'),
+        challengeToken: ChallengeToken::fromString(self::CHALLENGE_TOKEN),
+        userId: self::USER_ID,
+        purpose: DomainOtpPurpose::LOGIN,
+        channel: DomainOtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+10 minutes'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable($createdAt),
+      ),
     );
   }
 
   private function pendingTotpOtp(): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174200'),
-      challengeToken: ChallengeToken::fromString(self::CHALLENGE_TOKEN),
-      userId: self::USER_ID,
-      purpose: DomainOtpPurpose::LOGIN,
-      channel: DomainOtpChannel::TOTP,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('+10 minutes'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-10 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174200'),
+        challengeToken: ChallengeToken::fromString(self::CHALLENGE_TOKEN),
+        userId: self::USER_ID,
+        purpose: DomainOtpPurpose::LOGIN,
+        channel: DomainOtpChannel::TOTP,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+10 minutes'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-10 minutes'),
+      ),
     );
   }
   // #endregion

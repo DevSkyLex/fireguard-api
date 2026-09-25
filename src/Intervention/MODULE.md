@@ -368,7 +368,7 @@ and processes every candidate page-wise, mirroring
 
 The stamps (`interventions.due_soon_notified_at`,
 `interventions.overdue_notified_at`) are reset to `null` whenever `dueAt` is
-rescheduled — `DoctrineInterventionWorkflowGatewayAdapter::updateIntervention`
+rescheduled — `InterventionWorkflowInterventionWriter::updateIntervention`
 clears both the moment it detects `dueAt` changed, so a reminder already sent
 against the old date never suppresses one for the new date. Every page is
 processed independently to keep memory bounded.
@@ -426,7 +426,7 @@ that nothing was assigned.
 
 > The `expectedRevision` wiring is recent. Until then the processor never
 > read `If-Match` and the handler passed `expectedRevision: null`, which
-> `DoctrineInterventionWorkflowGatewayAdapter::assertRevision()` refuses
+> `InterventionWorkflowMutationSupport::assertRevision()` refuses
 > outright — the endpoint answered `428` to every call and could not
 > succeed. The only test it had asserted the authentication guard, which
 > passes before the mutation is ever reached.
@@ -535,7 +535,7 @@ attach scope, activated in this lot:
   by `InterventionResourceManager::workItemBelongsToIntervention()`) —
   a cross-intervention work item id is rejected with **422 Unprocessable
   Entity** (`InterventionValidationException`), mirroring the identical guard
-  `DoctrineInterventionWorkflowGatewayAdapter::createChange` already applies
+  `InterventionWorkflowChangeWriter::createChange` already applies
   to `InterventionChange::workItemId`. Permission is unchanged: still the
   existing phase-derived `mutationPermission()` gate, no new permission.
 - `InterventionAttachmentOutput.workItemId: ?string` surfaces the scope on
@@ -1122,17 +1122,17 @@ See `src/Calendar/MODULE.md`.
 Label resolution during intervention create/update (asserting each
 `labelIds` entry belongs to the intervention's organization) is done directly
 against `InterventionLabelRecord` inside
-`DoctrineInterventionWorkflowGatewayAdapter`, not through `InterventionLabelPort`
-— the gateway already queries records directly elsewhere (e.g.
+`InterventionWorkflowMutationSupport`, not through `InterventionLabelPort`
+— the workflow support already queries records directly elsewhere (e.g.
 `assertSiteBelongsToOrganization`).
 
-`InterventionActivityPort::append` is also injected into
-`DoctrineInterventionWorkflowGatewayAdapter`, which calls it inside its own
+`InterventionActivityPort::append` is supplied to the focused workflow writers
+through `InterventionWorkflowWriterRuntime`. They call it inside the gateway's
 `wrapInTransaction` to record the `created` and `status_changed` system
 activities alongside the underlying mutation (same commit/rollback unit).
-`Shared\Application\Port\Outbound\EventDispatcherPort` is injected the same
-way, for the deferred `intervention.status_transitioned` audit dispatch — see
-Audit trail below.
+`Shared\Application\Port\Outbound\EventDispatcherPort` is injected into the
+intervention and work-item writers for the deferred
+`intervention.status_transitioned` audit dispatch — see Audit trail below.
 
 Tagged-iterator extension points (owning modules plug in):
 
@@ -1270,7 +1270,7 @@ Aggregate invariants (enforced in `Intervention`):
 - `evidenceCount` (Phase 5d.1, read-only, output-only — see Attachments above)
 
 Work item status transitions (`InterventionWorkItemTransitionPolicy::assertAllowed`,
-enforced by `DoctrineInterventionWorkflowGatewayAdapter::mutateWorkItem`; the explicit
+enforced by `InterventionWorkflowWorkItemWriter::mutateWorkItem`; the explicit
 returns are deliberate, to preserve the deployed frontend's flows):
 
 - `planned` → `in_progress`, `completed`, `skipped`
@@ -1292,7 +1292,7 @@ still auto-advances the parent intervention `planned` → `in_progress` (unchang
 - patch payload
 
 Change status transitions (`InterventionChangePolicy::assertTransitionAllowed`,
-enforced by `DoctrineInterventionWorkflowGatewayAdapter::mutateChange` and by
+enforced by `InterventionWorkflowChangeWriter::mutateChange` and by
 `DoctrinePublicationAdapter::publish`):
 
 - `proposed` → `rejected`, `applied`
@@ -1355,8 +1355,8 @@ through `InterventionLabelPort`, exactly like activities):
 
 Labels are **record-level metadata** on `InterventionRecord`, not part of the
 `Intervention` domain aggregate — the same treatment as the `number` field:
-managed directly on the record by the workflow gateway
-(`DoctrineInterventionWorkflowGatewayAdapter::createIntervention` /
+managed directly on the record by the workflow intervention writer
+(`InterventionWorkflowInterventionWriter::createIntervention` /
 `updateIntervention`), never through `Domain\Model\Intervention\Intervention`.
 
 Templates (`InterventionTemplateRecord` / `InterventionTemplateItemRecord`, no
@@ -1480,9 +1480,10 @@ context resolves are not ledgered (no organization scope) but remain on the
 publication record's `error` field.
 
 **Status transitions are audited too**, from the single write path
-(`DoctrineInterventionWorkflowGatewayAdapter::updateIntervention` /
-`mutateWorkItem`, called only through `MutateInterventionWorkflowHandler`),
-mirroring the `intervention.published` wiring exactly: the gateway is
+(`InterventionWorkflowInterventionWriter::updateIntervention` /
+`InterventionWorkflowWorkItemWriter::mutateWorkItem`, called only through
+`MutateInterventionWorkflowHandler` and the transaction-owning gateway),
+mirroring the `intervention.published` wiring exactly: the writers are
 constructor-injected with `Shared\Application\Port\Outbound\EventDispatcherPort`
 (the same port `ExecutePublicationHandler` uses — Infrastructure consuming a
 Shared Application port is an established pattern in this codebase, see e.g.

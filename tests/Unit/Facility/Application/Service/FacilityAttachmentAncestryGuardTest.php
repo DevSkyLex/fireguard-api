@@ -7,8 +7,8 @@ namespace Tests\Unit\Facility\Application\Service;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Domain\Exception\FacilityAttachmentNotAncestorException;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -128,7 +128,9 @@ final class FacilityAttachmentAncestryGuardTest extends TestCase
       organizationId: FacilityOrganizationId::fromString($organizationId),
       type: FacilityType::ZONE,
       name: new FacilityName('Test Zone'),
-      parentFacilityId: null !== $parentFacilityId ? FacilityId::fromString($parentFacilityId) : null,
+      details: new FacilityDetails(
+        parentFacilityId: null !== $parentFacilityId ? FacilityId::fromString($parentFacilityId) : null,
+      ),
     );
   }
 
@@ -146,7 +148,7 @@ final class FacilityAttachmentAncestryGuardTest extends TestCase
       storagePath: 'facility/' . $facilityId . '/attachments/' . $id . '_plan.png',
       mimeType: 'image/png',
       size: 1024,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
   }
 }

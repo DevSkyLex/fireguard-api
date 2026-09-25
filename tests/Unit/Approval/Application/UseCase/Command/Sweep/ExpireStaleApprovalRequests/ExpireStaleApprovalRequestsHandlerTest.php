@@ -10,7 +10,7 @@ use Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\{
   ExpireStaleApprovalRequestsHandler
 };
 use Approval\Domain\Event\Request\ApprovalExpiredEvent;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -35,17 +35,14 @@ final class ExpireStaleApprovalRequestsHandlerTest extends TestCase
   {
     $now = new DateTimeImmutable('2026-02-01T00:00:00+00:00');
 
-    $stale = ApprovalRequest::create(
-      id: ApprovalRequestId::fromString('018f0b68-6758-7a12-8a1d-3f0d97f64e01'),
-      organizationId: 'org-1',
-      actionType: 'nc_waiver',
-      subjectId: 'nc-1',
-      requestedByMemberId: 'member-1',
-      requestedByUserId: 'user-1',
-      payload: [],
-      expiresAt: new DateTimeImmutable('2026-01-15T00:00:00+00:00'),
-      now: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-    );
+    $stale = ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString('018f0b68-6758-7a12-8a1d-3f0d97f64e01'),
+      'org-1',
+      'nc_waiver',
+      'nc-1',
+      new ApprovalRequestSubmission('member-1', 'user-1', []),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-01-15T00:00:00+00:00'), new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
+    ));
 
     /** @var ApprovalRequestRepositoryPort&MockObject $requests */
     $requests = $this->createMock(ApprovalRequestRepositoryPort::class);
@@ -78,17 +75,14 @@ final class ExpireStaleApprovalRequestsHandlerTest extends TestCase
   {
     $now = new DateTimeImmutable('2026-02-01T00:00:00+00:00');
 
-    $alreadyApproved = ApprovalRequest::create(
-      id: ApprovalRequestId::fromString('018f0b68-6758-7a12-8a1d-3f0d97f64e02'),
-      organizationId: 'org-1',
-      actionType: 'nc_waiver',
-      subjectId: 'nc-2',
-      requestedByMemberId: 'member-1',
-      requestedByUserId: 'user-1',
-      payload: [],
-      expiresAt: new DateTimeImmutable('2026-01-15T00:00:00+00:00'),
-      now: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-    );
+    $alreadyApproved = ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString('018f0b68-6758-7a12-8a1d-3f0d97f64e02'),
+      'org-1',
+      'nc_waiver',
+      'nc-2',
+      new ApprovalRequestSubmission('member-1', 'user-1', []),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-01-15T00:00:00+00:00'), new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
+    ));
     $alreadyApproved->approve('approver', 'approver-user', null, $now);
 
     /** @var ApprovalRequestRepositoryPort&MockObject $requests */

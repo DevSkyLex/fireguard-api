@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentRestoredState};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityAttachmentMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
@@ -162,12 +162,11 @@ final class FacilityAttachmentMapperTest extends TestCase
       storagePath: 'facilities/plan.pdf',
       mimeType: $mimeType,
       size: 2048,
-      uploadedAt: new DateTimeImmutable('2026-01-05T10:00:00+00:00'),
-      label: $label,
-      kind: $kind,
-      isPrimaryPlan: $isPrimaryPlan,
-      imageWidth: $imageWidth,
-      imageHeight: $imageHeight,
+      state: new FacilityAttachmentRestoredState(
+        new DateTimeImmutable('2026-01-05T10:00:00+00:00'),
+        new FacilityAttachmentCreationOptions($label, $kind, $imageWidth, $imageHeight),
+        $isPrimaryPlan,
+      ),
     );
   }
   // #endregion

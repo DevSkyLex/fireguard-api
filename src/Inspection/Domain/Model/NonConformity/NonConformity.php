@@ -126,12 +126,9 @@ final class NonConformity
    * @param NonConformityInspectionId $inspectionId the inspection identifier
    * @param string $description the description
    * @param NonConformitySeverity $severity the severity level
-   * @param NonConformityStatus $status the current status
+   * @param RestoredNonConformityResolution $resolution the persisted resolution state
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param ?DateTimeImmutable $dueAt the optional due date
-   * @param ?DateTimeImmutable $resolvedAt the optional resolution timestamp
-   * @param ?string $notes optional notes
    *
    * @return self the reconstituted non-conformity
    */
@@ -140,24 +137,21 @@ final class NonConformity
     NonConformityInspectionId $inspectionId,
     string $description,
     NonConformitySeverity $severity,
-    NonConformityStatus $status,
+    RestoredNonConformityResolution $resolution,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    ?DateTimeImmutable $dueAt = null,
-    ?DateTimeImmutable $resolvedAt = null,
-    ?string $notes = null,
   ): self {
     return new self(
       id: $id,
       inspectionId: $inspectionId,
       description: $description,
       severity: $severity,
-      status: $status,
+      status: $resolution->status,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      dueAt: $dueAt,
-      resolvedAt: $resolvedAt,
-      notes: $notes,
+      dueAt: $resolution->dueAt,
+      resolvedAt: $resolution->resolvedAt,
+      notes: $resolution->notes,
     );
   }
 

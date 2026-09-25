@@ -257,12 +257,7 @@ final class ExportInterventionReportController extends AbstractController
       $participantIris,
     )));
 
-    $changesByStatus = ['proposed' => 0, 'applied' => 0, 'rejected' => 0];
-    foreach ($changes as $change) {
-      $status = $change->data['status'];
-      $status = is_string($status) ? $status : 'proposed';
-      $changesByStatus[$status] = ($changesByStatus[$status] ?? 0) + 1;
-    }
+    $changesByStatus = self::changesByStatus($changes);
 
     $numberValue = $data['number'] ?? null;
 
@@ -281,20 +276,7 @@ final class ExportInterventionReportController extends AbstractController
       'hasSignature' => $data['hasSignature'],
       'labels' => $data['labels'],
       'generatedAt' => new DateTimeImmutable()->format('c'),
-      'workItems' => array_map(function (InterventionWorkflowView $workItem) use ($memberNames): array {
-        $assigneeIri = $workItem->data['assignee'] ?? null;
-        $assigneeId = is_string($assigneeIri) ? ResourceIriParser::memberId($assigneeIri) : null;
-
-        return [
-          'action' => $workItem->data['action'],
-          'target' => $workItem->data['target'],
-          'assigneeName' => null !== $assigneeId ? ($memberNames[$assigneeId] ?? null) : null,
-          'status' => $workItem->data['status'],
-          'required' => $workItem->data['required'],
-          'skipReason' => $workItem->data['skipReason'],
-          'evidenceCount' => $workItem->data['evidenceCount'],
-        ];
-      }, $workItems),
+      'workItems' => self::mapWorkItems($workItems, $memberNames),
       'issues' => array_map(static fn (InterventionIssue $issue): array => [
         'severity' => $issue->severity,
         'message' => $issue->message,
@@ -306,19 +288,71 @@ final class ExportInterventionReportController extends AbstractController
         'fileName' => $attachment['fileName'],
         'kind' => $attachment['kind'],
       ], $attachments),
-      'activities' => array_map(function (InterventionWorkflowView $activity) use ($memberNames): array {
-        $actorIri = $activity->data['actor'] ?? null;
-        $actorId = is_string($actorIri) ? ResourceIriParser::memberId($actorIri) : null;
-
-        return [
-          'createdAt' => $activity->data['createdAt'],
-          'kind' => $activity->data['kind'],
-          'event' => $activity->data['event'],
-          'actorName' => null !== $actorId ? ($memberNames[$actorId] ?? null) : null,
-          'body' => $activity->data['body'],
-        ];
-      }, $activities),
+      'activities' => self::mapActivities($activities, $memberNames),
     ];
+  }
+
+  /**
+   * @param list<InterventionWorkflowView> $changes proposed/applied/rejected changes
+   *
+   * @return array<string, int> counts by status
+   */
+  private static function changesByStatus(array $changes): array
+  {
+    $counts = ['proposed' => 0, 'applied' => 0, 'rejected' => 0];
+    foreach ($changes as $change) {
+      $status = $change->data['status'];
+      $status = is_string($status) ? $status : 'proposed';
+      $counts[$status] = ($counts[$status] ?? 0) + 1;
+    }
+
+    return $counts;
+  }
+
+  /**
+   * @param list<InterventionWorkflowView> $workItems work items in report order
+   * @param array<string, string> $memberNames resolved member names
+   *
+   * @return list<array<string, mixed>> template work items
+   */
+  private static function mapWorkItems(array $workItems, array $memberNames): array
+  {
+    return array_map(static function (InterventionWorkflowView $workItem) use ($memberNames): array {
+      $assigneeIri = $workItem->data['assignee'] ?? null;
+      $assigneeId = is_string($assigneeIri) ? ResourceIriParser::memberId($assigneeIri) : null;
+
+      return [
+        'action' => $workItem->data['action'],
+        'target' => $workItem->data['target'],
+        'assigneeName' => null !== $assigneeId ? ($memberNames[$assigneeId] ?? null) : null,
+        'status' => $workItem->data['status'],
+        'required' => $workItem->data['required'],
+        'skipReason' => $workItem->data['skipReason'],
+        'evidenceCount' => $workItem->data['evidenceCount'],
+      ];
+    }, $workItems);
+  }
+
+  /**
+   * @param list<InterventionWorkflowView> $activities activities in report order
+   * @param array<string, string> $memberNames resolved member names
+   *
+   * @return list<array<string, mixed>> template activities
+   */
+  private static function mapActivities(array $activities, array $memberNames): array
+  {
+    return array_map(static function (InterventionWorkflowView $activity) use ($memberNames): array {
+      $actorIri = $activity->data['actor'] ?? null;
+      $actorId = is_string($actorIri) ? ResourceIriParser::memberId($actorIri) : null;
+
+      return [
+        'createdAt' => $activity->data['createdAt'],
+        'kind' => $activity->data['kind'],
+        'event' => $activity->data['event'],
+        'actorName' => null !== $actorId ? ($memberNames[$actorId] ?? null) : null,
+        'body' => $activity->data['body'],
+      ];
+    }, $activities);
   }
 
   /**

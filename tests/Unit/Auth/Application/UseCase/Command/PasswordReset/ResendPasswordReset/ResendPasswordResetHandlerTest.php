@@ -14,7 +14,7 @@ use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpPurpose as ContractOtp
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Application\Service\ChallengeResendPolicy;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -181,18 +181,22 @@ final class ResendPasswordResetHandlerTest extends TestCase
     ?DateTimeImmutable $expiresAt = null,
   ): Otp {
     return Otp::reconstitute(
-      id: new OtpId(self::OTP_ID),
-      challengeToken: ChallengeToken::fromString(self::CHALLENGE_TOKEN),
-      userId: 'user-1',
-      purpose: $purpose,
-      channel: OtpChannel::EMAIL,
-      codeHash: 'hashed-code',
-      recipient: 'user@example.com',
-      expiresAt: $expiresAt ?? new DateTimeImmutable('+15 minutes'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: $createdAt ?? new DateTimeImmutable('-1 hour'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId(self::OTP_ID),
+        challengeToken: ChallengeToken::fromString(self::CHALLENGE_TOKEN),
+        userId: 'user-1',
+        purpose: $purpose,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: 'hashed-code',
+        expiresAt: $expiresAt ?? new DateTimeImmutable('+15 minutes'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: $createdAt ?? new DateTimeImmutable('-1 hour'),
+      ),
     );
   }
   // #endregion

@@ -346,23 +346,25 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
 
     $grantedSegments = explode('.', $granted);
     $requiredSegments = explode('.', $required);
+    $matches = count($grantedSegments) === count($requiredSegments);
 
     foreach ($grantedSegments as $index => $grantedSegment) {
       $requiredSegment = $requiredSegments[$index] ?? null;
       $isLastGrantedSegment = $index === count($grantedSegments) - 1;
 
       if ('*' === $grantedSegment && $isLastGrantedSegment) {
-        return true;
+        $matches = true;
+
+        break;
       }
-      if (null === $requiredSegment) {
-        return false;
-      }
-      if ('*' !== $grantedSegment && $grantedSegment !== $requiredSegment) {
-        return false;
+      if (null === $requiredSegment || ('*' !== $grantedSegment && $grantedSegment !== $requiredSegment)) {
+        $matches = false;
+
+        break;
       }
     }
 
-    return count($grantedSegments) === count($requiredSegments);
+    return $matches;
   }
 
   /**

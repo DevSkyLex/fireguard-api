@@ -135,28 +135,14 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
 
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findChecklistNotFoundException($exception);
-    if ($notFound instanceof ChecklistNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-    $archived = $this->findChecklistArchivedException($exception);
-    if ($archived instanceof ChecklistArchivedException) {
-      return new ConflictHttpException($archived->getMessage(), $exception);
-    }
-    $inUse = $this->findChecklistInUseException($exception);
-    if ($inUse instanceof ChecklistInUseException) {
-      return new ConflictHttpException($inUse->getMessage(), $exception);
-    }
-    $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
-    if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
-      return new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
-    }
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findChecklistNotFoundException($exception)) instanceof ChecklistNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($archived = $this->findChecklistArchivedException($exception)) instanceof ChecklistArchivedException => new ConflictHttpException($archived->getMessage(), $exception),
+      ($inUse = $this->findChecklistInUseException($exception)) instanceof ChecklistInUseException => new ConflictHttpException($inUse->getMessage(), $exception),
+      ($duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception)) instanceof ChecklistReferenceCodeAlreadyExistsException => new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception),
+      ($invalidArgument = $this->findInvalidArgumentException($exception)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 
   private function mapResult(GetChecklistResult $result): ChecklistOutput

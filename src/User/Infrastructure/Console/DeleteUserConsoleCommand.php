@@ -125,29 +125,41 @@ HELP
     try {
       [$userId, $userEmail] = $this->resolveUserIdAndEmail(identifier: $identifier);
 
-      if (!$force && $input->isInteractive()) {
-        $confirmed = $io->confirm(
-          question: sprintf('Delete user "%s" (%s)?', $userEmail, $userId),
-          default: false,
-        );
-
-        if (!$confirmed) {
-          $io->warning('Deletion cancelled.');
-
-          return Command::SUCCESS;
-        }
-      }
-
-      $this->commandBus->dispatch(new DeleteUserCommand(id: $userId));
-
-      $io->success(sprintf('User "%s" (%s) deleted successfully.', $userEmail, $userId));
-
-      return Command::SUCCESS;
+      return $this->deleteResolvedUser($input, $io, $userId, $userEmail, (bool) $force);
     } catch (Throwable $e) {
       $io->error(sprintf('Failed to delete user: %s', $e->getMessage()));
 
       return Command::FAILURE;
     }
+  }
+
+  /**
+   * Confirms and deletes an already resolved user.
+   *
+   * @param InputInterface $input the command input
+   * @param SymfonyStyle $io the command output helper
+   * @param string $userId the resolved user ID
+   * @param string $userEmail the resolved email
+   * @param bool $force whether to skip confirmation
+   *
+   * @return int the exit code
+   */
+  private function deleteResolvedUser(InputInterface $input, SymfonyStyle $io, string $userId, string $userEmail, bool $force): int
+  {
+    if (!$force && $input->isInteractive() && !$io->confirm(
+      question: sprintf('Delete user "%s" (%s)?', $userEmail, $userId),
+      default: false,
+    )) {
+      $io->warning('Deletion cancelled.');
+
+      return Command::SUCCESS;
+    }
+
+    $this->commandBus->dispatch(new DeleteUserCommand(id: $userId));
+
+    $io->success(sprintf('User "%s" (%s) deleted successfully.', $userEmail, $userId));
+
+    return Command::SUCCESS;
   }
 
   /**

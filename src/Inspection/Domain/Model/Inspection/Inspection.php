@@ -10,8 +10,10 @@ use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
   InspectionFacilityId,
+  InspectionFindingPatch,
   InspectionId,
   InspectionOrganizationId,
+  InspectionReferencePatch,
   InspectionResult,
   InspectionStatus,
   Inspector
@@ -136,49 +138,35 @@ final class Inspection
    *
    * @param InspectionId $id the inspection identifier
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param InspectionEquipmentId $equipmentId the equipment identifier
-   * @param Inspector $inspector the person who performed the inspection
-   * @param InspectionResult $result the inspection result
-   * @param InspectionStatus $status the inspection status
-   * @param DateTimeImmutable $performedAt when the inspection was performed
+   * @param RestoredInspectionReferences $references the persisted equipment and inspector references
+   * @param RestoredInspectionFinding $finding the persisted finding and lifecycle
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param ?InspectionFacilityId $facilityId the optional facility identifier
-   * @param ?InspectionChecklistId $checklistId the optional checklist identifier
-   * @param ?string $notes optional free-form notes
-   * @param ?string $signature optional signature data
    *
    * @return self the reconstituted inspection aggregate
    */
   public static function reconstitute(
     InspectionId $id,
     InspectionOrganizationId $organizationId,
-    InspectionEquipmentId $equipmentId,
-    Inspector $inspector,
-    InspectionResult $result,
-    InspectionStatus $status,
-    DateTimeImmutable $performedAt,
+    RestoredInspectionReferences $references,
+    RestoredInspectionFinding $finding,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    ?InspectionFacilityId $facilityId = null,
-    ?InspectionChecklistId $checklistId = null,
-    ?string $notes = null,
-    ?string $signature = null,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
-      equipmentId: $equipmentId,
-      inspector: $inspector,
-      result: $result,
-      status: $status,
-      performedAt: $performedAt,
+      equipmentId: $references->equipmentId,
+      inspector: $references->inspector,
+      result: $finding->result,
+      status: $finding->status,
+      performedAt: $finding->performedAt,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      facilityId: $facilityId,
-      checklistId: $checklistId,
-      notes: $notes,
-      signature: $signature,
+      facilityId: $references->facilityId,
+      checklistId: $references->checklistId,
+      notes: $finding->notes,
+      signature: $finding->signature,
     );
   }
 
@@ -255,21 +243,12 @@ final class Inspection
    * @since 1.0.0
    */
   public function edit(
-    ?InspectionEquipmentId $equipmentId = null,
-    ?InspectionFacilityId $facilityId = null,
-    ?InspectionChecklistId $checklistId = null,
-    ?InspectionResult $result = null,
-    ?DateTimeImmutable $performedAt = null,
-    ?string $notes = null,
-    ?string $signature = null,
-    bool $hasEquipmentId = false,
-    bool $hasFacilityId = false,
-    bool $hasChecklistId = false,
-    bool $hasResult = false,
-    bool $hasPerformedAt = false,
-    bool $hasNotes = false,
-    bool $hasSignature = false,
+    ?InspectionReferencePatch $references = null,
+    ?InspectionFindingPatch $finding = null,
   ): void {
+    $references ??= new InspectionReferencePatch();
+    $finding ??= new InspectionFindingPatch();
+
     if ($this->status->isClosed()) {
       throw InspectionAlreadyClosedException::withId((string) $this->id);
     }
@@ -278,32 +257,32 @@ final class Inspection
       throw InspectionAlreadySubmittedException::withId((string) $this->id);
     }
 
-    if ($hasEquipmentId && null !== $equipmentId) {
-      $this->equipmentId = $equipmentId;
+    if ($references->hasEquipmentId && null !== $references->equipmentId) {
+      $this->equipmentId = $references->equipmentId;
     }
 
-    if ($hasFacilityId) {
-      $this->facilityId = $facilityId;
+    if ($references->hasFacilityId) {
+      $this->facilityId = $references->facilityId;
     }
 
-    if ($hasChecklistId) {
-      $this->checklistId = $checklistId;
+    if ($references->hasChecklistId) {
+      $this->checklistId = $references->checklistId;
     }
 
-    if ($hasResult && null !== $result) {
-      $this->result = $result;
+    if ($finding->hasResult && null !== $finding->result) {
+      $this->result = $finding->result;
     }
 
-    if ($hasPerformedAt && null !== $performedAt) {
-      $this->performedAt = $performedAt;
+    if ($finding->hasPerformedAt && null !== $finding->performedAt) {
+      $this->performedAt = $finding->performedAt;
     }
 
-    if ($hasNotes) {
-      $this->notes = self::normalizeText($notes, 'notes', 5000);
+    if ($finding->text?->hasNotes) {
+      $this->notes = self::normalizeText($finding->text->notes, 'notes', 5000);
     }
 
-    if ($hasSignature) {
-      $this->signature = $signature;
+    if ($finding->text?->hasSignature) {
+      $this->signature = $finding->text->signature;
     }
 
     $this->touch();

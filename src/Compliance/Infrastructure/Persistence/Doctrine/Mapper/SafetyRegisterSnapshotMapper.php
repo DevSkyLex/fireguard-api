@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Compliance\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
+use Compliance\Domain\Model\Snapshot\{SafetyRegisterSnapshot, SafetyRegisterStoredFile};
 use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Compliance\Infrastructure\Persistence\Doctrine\Record\SafetyRegisterSnapshotRecord;
 
@@ -41,9 +41,11 @@ final class SafetyRegisterSnapshotMapper
       facilityId: $record->facilityId,
       generatedAt: $record->generatedAt,
       generatedByUserId: $record->generatedByUserId,
-      contentHash: $record->contentHash,
-      sizeBytes: $record->sizeBytes,
-      storagePath: $record->storagePath,
+      file: new SafetyRegisterStoredFile(
+        contentHash: $record->contentHash,
+        sizeBytes: $record->sizeBytes,
+        storagePath: $record->storagePath,
+      ),
       createdAt: $record->createdAt,
     );
   }

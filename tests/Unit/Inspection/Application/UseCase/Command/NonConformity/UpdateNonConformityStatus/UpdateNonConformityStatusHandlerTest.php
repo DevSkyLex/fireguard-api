@@ -14,7 +14,7 @@ use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStat
 use Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent;
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Inspection\Inspection;
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{
   InspectionEquipmentId,
   InspectionId,
@@ -262,10 +262,12 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
       description: 'Already resolved issue',
       severity: NonConformitySeverity::HIGH,
-      status: NonConformityStatus::DONE,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::DONE,
+        resolvedAt: new DateTimeImmutable('2026-01-12T10:00:00+00:00'),
+      ),
       createdAt: new DateTimeImmutable('2026-01-10T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-12T10:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-01-12T10:00:00+00:00'),
     );
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);

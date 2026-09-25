@@ -11,7 +11,7 @@ use Otp\Application\Contract\Challenge\{OtpChannel as ContractOtpChannel, OtpPur
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Application\Service\ChallengeResendPolicy;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -89,18 +89,22 @@ final class ResendRegistrationHandlerTest extends TestCase
   public function testInvokeFailsWhenOtpIsNotPending(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174020'),
-      challengeToken: ChallengeToken::fromString('expired-token'),
-      userId: 'user-20',
-      purpose: OtpPurpose::EMAIL_VERIFICATION,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('-1 minute'),
-      maxAttempts: 10,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-1 hour'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174020'),
+        challengeToken: ChallengeToken::fromString('expired-token'),
+        userId: 'user-20',
+        purpose: OtpPurpose::EMAIL_VERIFICATION,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-1 minute'),
+        maxAttempts: 10,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-1 hour'),
+      ),
     );
 
     /** @var OtpRepositoryPort&MockObject $otpRepository */
@@ -162,18 +166,22 @@ final class ResendRegistrationHandlerTest extends TestCase
   public function testInvokeResendsVerificationCode(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174040'),
-      challengeToken: ChallengeToken::fromString('pending-token'),
-      userId: 'user-40',
-      purpose: OtpPurpose::EMAIL_VERIFICATION,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('+1 hour'),
-      maxAttempts: 10,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174040'),
+        challengeToken: ChallengeToken::fromString('pending-token'),
+        userId: 'user-40',
+        purpose: OtpPurpose::EMAIL_VERIFICATION,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+1 hour'),
+        maxAttempts: 10,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 minutes'),
+      ),
     );
 
     $expiresAt = new DateTimeImmutable('+1 hour');

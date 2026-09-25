@@ -160,30 +160,20 @@ final readonly class PhotonAddressSuggestionsAdapter implements AddressSuggestio
 
   private function parseFeature(mixed $feature): ?AddressSuggestion
   {
-    if (!is_array($feature)) {
-      return null;
-    }
-    $properties = $feature['properties'] ?? null;
-    $geometry = $feature['geometry'] ?? null;
+    $properties = is_array($feature) ? ($feature['properties'] ?? null) : null;
+    $geometry = is_array($feature) ? ($feature['geometry'] ?? null) : null;
     if (!is_array($properties) || !is_array($geometry) || 'Point' !== ($geometry['type'] ?? null)) {
       return null;
     }
-    $coordinates = $geometry['coordinates'] ?? null;
-    if (!is_array($coordinates)) {
-      return null;
-    }
-    $longitude = $coordinates[0] ?? null;
-    $latitude = $coordinates[1] ?? null;
+
+    $coordinates = $this->coordinates($geometry['coordinates'] ?? null);
     $street = $this->text($properties, 'street');
     $city = $this->text($properties, 'city');
-    if ('' === $street || '' === $city || !is_numeric($latitude) || !is_numeric($longitude)) {
+    if (null === $coordinates || '' === $street || '' === $city) {
       return null;
     }
-    $lat = (float) $latitude;
-    $lon = (float) $longitude;
-    if (!is_finite($lat) || !is_finite($lon) || abs($lat) > 90 || abs($lon) > 180) {
-      return null;
-    }
+
+    [$lat, $lon] = $coordinates;
     $streetLine = trim($this->text($properties, 'housenumber') . ' ' . $street);
     $region = $this->text($properties, 'state');
     $postalCode = $this->text($properties, 'postcode');
@@ -195,6 +185,28 @@ final readonly class PhotonAddressSuggestionsAdapter implements AddressSuggestio
     ], static fn (string $part): bool => '' !== $part));
 
     return new AddressSuggestion($label, $lat, $lon, $streetLine, $city, $region, $postalCode, $this->text($properties, 'country'), $this->text($properties, 'countrycode'));
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param mixed $value the GeoJSON point coordinates
+   *
+   * @return ?array{0: float, 1: float} latitude and longitude, or null when invalid
+   */
+  private function coordinates(mixed $value): ?array
+  {
+    if (!is_array($value) || !is_numeric($value[0] ?? null) || !is_numeric($value[1] ?? null)) {
+      return null;
+    }
+
+    $lat = (float) $value[1];
+    $lon = (float) $value[0];
+    if (!is_finite($lat) || !is_finite($lon) || abs($lat) > 90 || abs($lon) > 180) {
+      return null;
+    }
+
+    return [$lat, $lon];
   }
 
   /**

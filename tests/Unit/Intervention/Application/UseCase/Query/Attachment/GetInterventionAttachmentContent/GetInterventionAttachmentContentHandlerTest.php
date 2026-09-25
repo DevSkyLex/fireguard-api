@@ -9,7 +9,7 @@ use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\UseCase\Query\Attachment\GetInterventionAttachmentContent\{GetInterventionAttachmentContentHandler, GetInterventionAttachmentContentQuery, GetInterventionAttachmentContentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -248,13 +248,10 @@ final class GetInterventionAttachmentContentHandlerTest extends TestCase
   private function attachment(): InterventionAttachment
   {
     return InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.jpg',
-      storagePath: 'intervention/' . self::INTERVENTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 10,
-      uploadedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.jpg', 'intervention/' . self::INTERVENTION_ID . '/attachments/' . self::ATTACHMENT_ID . '_evidence.jpg', 'image/jpeg', 10),
+      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
     );
   }
 }

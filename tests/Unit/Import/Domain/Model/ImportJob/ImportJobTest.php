@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Import\Domain\Model\ImportJob;
 
 use DateTimeImmutable;
-use Import\Domain\Model\ImportJob\ImportJob;
+use Import\Domain\Model\ImportJob\{ImportJob, ImportJobProgress, ImportJobSource, ImportJobTimeline};
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError, ImportStatus};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -74,24 +74,9 @@ final class ImportJobTest extends TestCase
     $error = new ImportRowError(1, 'invalid', 'bad', 'type');
 
     $job = ImportJob::reconstitute(
-      id: ImportJobId::fromString(self::JOB_ID),
-      organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
-      status: ImportStatus::COMPLETED,
-      storagePath: 'imports/org-1/job.csv',
-      originalFilename: 'facilities.csv',
-      createdBy: self::CREATED_BY,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      dryRun: true,
-      totalRows: 5,
-      processedRows: 5,
-      successfulRows: 4,
-      failedRows: 1,
-      errorReport: [$error],
-      jobError: null,
-      startedAt: $createdAt,
-      completedAt: $updatedAt,
+      source: new ImportJobSource(ImportJobId::fromString(self::JOB_ID), self::ORGANIZATION_ID, ImportKind::FACILITY, 'imports/org-1/job.csv', 'facilities.csv', self::CREATED_BY, true),
+      progress: new ImportJobProgress(ImportStatus::COMPLETED, 5, 5, 4, 1, [$error], null),
+      timeline: new ImportJobTimeline($createdAt, $updatedAt, $createdAt, $updatedAt),
     );
 
     self::assertSame(ImportKind::FACILITY, $job->kind());

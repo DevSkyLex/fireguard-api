@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Intervention\Domain\Model\Intervention\Intervention;
+use Intervention\Domain\Model\Intervention\{
+  Intervention,
+  InterventionContent,
+  InterventionCreation,
+  InterventionOwnership,
+  InterventionRestoredState,
+  InterventionSchedule
+};
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use LogicException;
@@ -38,24 +45,21 @@ final class InterventionMapper
       throw new LogicException('Intervention record must reference an organization.');
     }
 
-    return Intervention::reconstitute(
-      id: $record->id,
-      organizationId: $record->organization->id,
-      type: InterventionType::from($record->type),
-      name: $record->name,
-      description: $record->description,
+    return Intervention::reconstitute(new InterventionRestoredState(
+      creation: new InterventionCreation(
+        id: $record->id,
+        organizationId: $record->organization->id,
+        type: InterventionType::from($record->type),
+        content: new InterventionContent($record->name, $record->description),
+        ownership: new InterventionOwnership($record->siteId, $record->responsibleId, $record->participants),
+        schedule: new InterventionSchedule(InterventionPriority::from($record->priority), $record->plannedStartAt, $record->dueAt),
+      ),
       status: InterventionStatus::from($record->status),
-      siteId: $record->siteId,
-      responsibleId: $record->responsibleId,
-      participants: $record->participants,
-      priority: InterventionPriority::from($record->priority),
-      plannedStartAt: $record->plannedStartAt,
-      dueAt: $record->dueAt,
       reviewNote: $record->reviewNote,
       revision: $record->revision,
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-    );
+    ));
   }
 
   /**

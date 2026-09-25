@@ -8,8 +8,9 @@ use DateTimeImmutable;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{ListOrganizationInvitationsHandler, ListOrganizationInvitationsQuery};
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -209,11 +210,13 @@ final class ListOrganizationInvitationsHandlerTest extends TestCase
   private function organization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: self::INVITER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: self::INVITER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
   }
 
@@ -225,17 +228,23 @@ final class ListOrganizationInvitationsHandlerTest extends TestCase
     ?string $acceptedByUserId = null,
   ): OrganizationInvitation {
     return OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId($id),
-      organizationId: new OrganizationId(self::ORGANIZATION_ID),
-      email: new Email(self::INVITED_EMAIL),
-      tokenHash: 'hashed-token',
-      invitedByUserId: self::INVITER_ID,
-      status: $status,
-      expiresAt: $expiresAt,
-      createdAt: new DateTimeImmutable('-5 days'),
-      updatedAt: new DateTimeImmutable('-5 days'),
-      acceptedAt: $acceptedAt,
-      acceptedByUserId: $acceptedByUserId,
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId($id),
+        organizationId: new OrganizationId(self::ORGANIZATION_ID),
+        email: new Email(self::INVITED_EMAIL),
+        tokenHash: 'hashed-token',
+        invitedByUserId: self::INVITER_ID,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: $status,
+        expiresAt: $expiresAt,
+        acceptedAt: $acceptedAt,
+        acceptedByUserId: $acceptedByUserId,
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-5 days'),
+        updatedAt: new DateTimeImmutable('-5 days'),
+      ),
     );
   }
 }

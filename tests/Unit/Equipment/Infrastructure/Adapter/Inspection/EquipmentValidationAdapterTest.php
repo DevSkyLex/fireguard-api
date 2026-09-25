@@ -14,6 +14,7 @@ use Equipment\Domain\ValueObject\{
   EquipmentStatus,
   EquipmentType
 };
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Infrastructure\Adapter\Inspection\EquipmentValidationAdapter;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -166,10 +167,14 @@ final class EquipmentValidationAdapterTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::FIRE_EXTINGUISHER,
-      status: $status,
+      details: new EquipmentCatalogDetails(
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: $status,
+        facilityId: null !== $facilityId ? EquipmentFacilityId::fromString($facilityId) : null,
+      ),
       createdAt: $now,
       updatedAt: $now,
-      facilityId: null !== $facilityId ? EquipmentFacilityId::fromString($facilityId) : null,
     );
   }
 

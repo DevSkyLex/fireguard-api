@@ -7,7 +7,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
@@ -150,11 +150,13 @@ final class FacilityRepositoryCoverageTest extends KernelTestCase
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
       type: FacilityType::BUILDING,
       name: new FacilityName('Delta Wing'),
-      parentFacilityId: FacilityId::fromString(self::ALPHA_ID),
-      code: 'DLT-004',
-      address: '5 Avenue Foch',
-      metadata: ['zone' => 'north'],
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      details: new FacilityDetails(
+        parentFacilityId: FacilityId::fromString(self::ALPHA_ID),
+        code: 'DLT-004',
+        address: '5 Avenue Foch',
+        metadata: ['zone' => 'north'],
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
     // Insert path (the aggregate does not yet exist) with a non-null parent.
     $this->repository->save($child);

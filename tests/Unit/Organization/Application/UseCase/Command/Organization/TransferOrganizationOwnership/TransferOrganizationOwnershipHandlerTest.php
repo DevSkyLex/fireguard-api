@@ -12,6 +12,7 @@ use Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent
 use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationArchivedException, OrganizationDeletionConfirmationMismatchException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationOwnershipUnchangedException};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -863,12 +864,16 @@ final class TransferOrganizationOwnershipHandlerTest extends TestCase
   private function activeOrganization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Lyon'),
-      createdByUserId: self::CURRENT_OWNER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
-      ownerUserId: self::CURRENT_OWNER_ID,
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Lyon'),
+        createdByUserId: self::CURRENT_OWNER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
+      state: new RestoredOrganizationState(
+        ownerUserId: self::CURRENT_OWNER_ID,
+      ),
     );
   }
 

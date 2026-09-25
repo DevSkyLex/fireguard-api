@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Domain\Model\MetadataField;
 
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -175,12 +175,7 @@ final class FacilityMetadataFieldTest extends TestCase
     return FacilityMetadataField::create(
       id: FacilityMetadataFieldId::fromString(self::ID),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('surface-m2'),
-      label: new FacilityMetadataFieldLabel('Surface (m²)'),
-      fieldType: $fieldType,
-      required: $required,
-      options: $options,
-      unit: $unit,
+      definition: new FacilityMetadataFieldDefinition(new FacilityMetadataFieldKey('surface-m2'), new FacilityMetadataFieldLabel('Surface (m²)'), $fieldType, $required, $options, unit: $unit),
     );
   }
 }

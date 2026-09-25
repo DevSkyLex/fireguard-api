@@ -29,7 +29,7 @@ final class TokenExpiry
    *
    * The expiry timestamp (immutable after construction).
    */
-  public private(set) DateTimeImmutable $expiresAt;
+  public readonly DateTimeImmutable $expiresAt;
 
   /**
    * Property isExpired.

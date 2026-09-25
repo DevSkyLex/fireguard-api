@@ -38,17 +38,8 @@ final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
    */
   public function getScopeEntityByIdentifier(mixed $identifier): ?LeagueScope
   {
-    if (!is_string($identifier)) {
-      return null;
-    }
-
-    $normalized = trim($identifier);
-    if ('' === $normalized) {
-      return null;
-    }
-
-    $domainScope = Scope::tryFrom(value: $normalized);
-    if (null === $domainScope) {
+    $normalized = is_string($identifier) ? trim($identifier) : '';
+    if ('' === $normalized || null === Scope::tryFrom(value: $normalized)) {
       return null;
     }
 

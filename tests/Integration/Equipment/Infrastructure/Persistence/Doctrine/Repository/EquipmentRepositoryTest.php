@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository;
@@ -186,10 +187,14 @@ final class EquipmentRepositoryTest extends KernelTestCase
       id: EquipmentId::fromString($id),
       organizationId: EquipmentOrganizationId::fromString($organizationId),
       type: $type,
-      status: $status,
+      details: new EquipmentCatalogDetails(
+        serialNumber: $serialNumber,
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: $status,
+      ),
       createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      serialNumber: $serialNumber,
     );
   }
 

@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 use Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookSubscriptionRepository;
 
@@ -292,9 +292,7 @@ final class WebhookSubscriptionRepositoryTest extends KernelTestCase
       secretCiphertext: 'cipher-' . $id,
       eventTypes: $eventTypes,
       isActive: $isActive,
-      description: '',
-      createdAt: $timestamp,
-      updatedAt: $timestamp,
+      metadata: new RestoredWebhookSubscriptionMetadata('', $timestamp, $timestamp),
     );
 
     $this->repository->save($subscription);

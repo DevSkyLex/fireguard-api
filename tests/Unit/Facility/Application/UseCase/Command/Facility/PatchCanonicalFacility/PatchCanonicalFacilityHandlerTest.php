@@ -11,7 +11,7 @@ use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\PatchCanonicalFacility\{PatchCanonicalFacilityCommand, PatchCanonicalFacilityHandler};
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Facility\Domain\Exception\{CanonicalFacilityValidationException, FacilityHasActiveDependentsException, FacilityNotFoundException, FacilityRevisionMismatchException};
-use Facility\Domain\Model\Facility\CanonicalFacility;
+use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent, CanonicalFacilityReference, CanonicalFacilityVersion};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityRecordStatus, FacilityStatus, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -622,22 +622,9 @@ final class PatchCanonicalFacilityHandlerTest extends TestCase
     ?int $levelIndex = null,
   ): CanonicalFacility {
     return CanonicalFacility::reconstitute(
-      id: FacilityId::fromString(self::FACILITY_ID),
-      organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      parentFacilityId: $parentFacilityId,
-      type: FacilityType::SITE,
-      name: 'Main site',
-      code: null,
-      address: null,
-      latitude: null,
-      longitude: null,
-      metadata: [],
-      status: $status,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
-      levelIndex: $levelIndex,
+      reference: new CanonicalFacilityReference(FacilityId::fromString(self::FACILITY_ID), FacilityOrganizationId::fromString(self::ORGANIZATION_ID), $recordStatus, $interventionId, $parentFacilityId),
+      content: new CanonicalFacilityContent(FacilityType::SITE, 'Main site', null, null, null, null, []),
+      version: new CanonicalFacilityVersion($status, 3, new DateTimeImmutable('2026-08-26T10:00:00+00:00'), $levelIndex),
     );
   }
 
@@ -654,21 +641,9 @@ final class PatchCanonicalFacilityHandlerTest extends TestCase
     string $organizationId = self::ORGANIZATION_ID,
   ): CanonicalFacility {
     return CanonicalFacility::reconstitute(
-      id: FacilityId::fromString(self::PARENT_ID),
-      organizationId: FacilityOrganizationId::fromString($organizationId),
-      recordStatus: FacilityRecordStatus::PUBLISHED,
-      interventionId: null,
-      parentFacilityId: null,
-      type: FacilityType::SITE,
-      name: 'Parent site',
-      code: null,
-      address: null,
-      latitude: null,
-      longitude: null,
-      metadata: [],
-      status: $status,
-      revision: 1,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      reference: new CanonicalFacilityReference(FacilityId::fromString(self::PARENT_ID), FacilityOrganizationId::fromString($organizationId), FacilityRecordStatus::PUBLISHED, null, null),
+      content: new CanonicalFacilityContent(FacilityType::SITE, 'Parent site', null, null, null, null, []),
+      version: new CanonicalFacilityVersion($status, 1, new DateTimeImmutable('2026-08-26T10:00:00+00:00')),
     );
   }
   // #endregion

@@ -7,7 +7,7 @@ namespace Intervention\Infrastructure\Adapter\Template;
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Application\Contract\Template\{InterventionTemplateItemView, InterventionTemplatePage, InterventionTemplateView};
+use Intervention\Application\Contract\Template\{InterventionTemplateCreateRequest, InterventionTemplateItemView, InterventionTemplatePage, InterventionTemplateUpdateRequest, InterventionTemplateView};
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionTemplateItemRecord, InterventionTemplateRecord};
@@ -55,52 +55,33 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    *
    * @since 1.0.0
    *
-   * @param string $organizationId the organization id value
-   * @param string $name the name value
-   * @param ?string $description the description value
-   * @param string $type the intervention type value
-   * @param string $priority the intervention priority value
-   * @param ?string $defaultSiteId the default site id value
-   * @param ?string $defaultResponsibleId the default responsible member id value
-   * @param ?string $duration the ISO-8601 duration string value
-   * @param list<string> $labelIds the organization label ids value
-   * @param list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the template items, in position order
+   * @param InterventionTemplateCreateRequest $request the validated request
    *
    * @return InterventionTemplateView the created template view
    */
-  public function create(
-    string $organizationId,
-    string $name,
-    ?string $description,
-    string $type,
-    string $priority,
-    ?string $defaultSiteId,
-    ?string $defaultResponsibleId,
-    ?string $duration,
-    array $labelIds,
-    array $items,
-  ): InterventionTemplateView {
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
+  public function create(InterventionTemplateCreateRequest $request): InterventionTemplateView
+  {
+    $organization = $this->entityManager->find(OrganizationRecord::class, $request->organizationId);
     if (!$organization instanceof OrganizationRecord) {
-      throw InterventionNotFoundException::withId($organizationId);
+      throw InterventionNotFoundException::withId($request->organizationId);
     }
 
     $now = new DateTimeImmutable();
     $record = new InterventionTemplateRecord();
     $record->id = $this->uuidFactory->generateRaw();
     $record->organization = $organization;
-    $record->name = $name;
-    $record->description = $description;
-    $record->type = $type;
-    $record->priority = $priority;
-    $record->defaultSiteId = $defaultSiteId;
-    $record->defaultResponsibleId = $defaultResponsibleId;
-    $record->duration = $duration;
-    $record->labelIds = $labelIds;
+    $record->name = $request->attributes->name;
+    $record->description = $request->attributes->description;
+    $record->type = $request->attributes->type;
+    $record->priority = $request->attributes->priority;
+    $record->defaultSiteId = $request->defaults->siteId;
+    $record->defaultResponsibleId = $request->defaults->responsibleId;
+    $record->duration = $request->attributes->duration;
+    $record->labelIds = $request->labelIds;
     $record->createdAt = $now;
     $record->updatedAt = $now;
     $this->entityManager->persist($record);
-    $this->replaceItems($record, $items);
+    $this->replaceItems($record, $request->items);
     $this->flush($record);
 
     return $this->view($record);
@@ -111,82 +92,45 @@ final readonly class DoctrineInterventionTemplateAdapter implements Intervention
    *
    * @since 1.0.0
    *
-   * @param string $id the template id value
-   * @param ?string $name the name value, only applied when `$hasName` is true
-   * @param ?string $description the description value, only applied when `$hasDescription` is true
-   * @param ?string $type the intervention type value, only applied when `$hasType` is true
-   * @param ?string $priority the intervention priority value, only applied when `$hasPriority` is true
-   * @param ?string $defaultSiteId the default site id value, only applied when `$hasDefaultSiteId` is true
-   * @param ?string $defaultResponsibleId the default responsible member id value, only applied when `$hasDefaultResponsibleId` is true
-   * @param ?string $duration the ISO-8601 duration string value, only applied when `$hasDuration` is true
-   * @param ?list<string> $labelIds the organization label ids value, only applied when `$hasLabelIds` is true
-   * @param ?list<array{action: string, target: ?string, resultResource: ?string, required: bool, defaultAssigneeId: ?string, estimatedMinutes?: ?int}> $items the template items, only applied when `$hasItems` is true
-   * @param bool $hasName whether the name field was present in the merge-patch request
-   * @param bool $hasDescription whether the description field was present in the merge-patch request
-   * @param bool $hasType whether the type field was present in the merge-patch request
-   * @param bool $hasPriority whether the priority field was present in the merge-patch request
-   * @param bool $hasDefaultSiteId whether the defaultSiteId field was present in the merge-patch request
-   * @param bool $hasDefaultResponsibleId whether the defaultResponsibleId field was present in the merge-patch request
-   * @param bool $hasDuration whether the duration field was present in the merge-patch request
-   * @param bool $hasLabelIds whether the labelIds field was present in the merge-patch request
-   * @param bool $hasItems whether the items field was present in the merge-patch request
+   * @param InterventionTemplateUpdateRequest $request the validated request
    *
    * @return InterventionTemplateView the updated template view
    */
-  public function update(
-    string $id,
-    ?string $name,
-    ?string $description,
-    ?string $type,
-    ?string $priority,
-    ?string $defaultSiteId,
-    ?string $defaultResponsibleId,
-    ?string $duration,
-    ?array $labelIds,
-    ?array $items,
-    bool $hasName,
-    bool $hasDescription,
-    bool $hasType,
-    bool $hasPriority,
-    bool $hasDefaultSiteId,
-    bool $hasDefaultResponsibleId,
-    bool $hasDuration,
-    bool $hasLabelIds,
-    bool $hasItems,
-  ): InterventionTemplateView {
-    $record = $this->entityManager->find(InterventionTemplateRecord::class, $id);
+  public function update(InterventionTemplateUpdateRequest $request): InterventionTemplateView
+  {
+    $record = $this->entityManager->find(InterventionTemplateRecord::class, $request->id);
     if (!$record instanceof InterventionTemplateRecord) {
-      throw InterventionNotFoundException::withId($id);
+      throw InterventionNotFoundException::withId($request->id);
     }
 
-    if ($hasName && null !== $name) {
-      $record->name = $name;
+    if ($request->identity->hasName && null !== $request->identity->name) {
+      $record->name = $request->identity->name;
     }
-    if ($hasDescription) {
-      $record->description = $description;
+    if ($request->identity->hasDescription) {
+      $record->description = $request->identity->description;
     }
-    if ($hasType && null !== $type) {
-      $record->type = $type;
+    if ($request->identity->hasType && null !== $request->identity->type) {
+      $record->type = $request->identity->type;
     }
-    if ($hasPriority && null !== $priority) {
-      $record->priority = $priority;
+    if ($request->planning->hasPriority && null !== $request->planning->priority) {
+      $record->priority = $request->planning->priority;
     }
-    if ($hasDefaultSiteId) {
-      $record->defaultSiteId = $defaultSiteId;
+    if ($request->defaults->hasSiteId) {
+      $record->defaultSiteId = $request->defaults->siteId;
     }
-    if ($hasDefaultResponsibleId) {
-      $record->defaultResponsibleId = $defaultResponsibleId;
+    if ($request->defaults->hasResponsibleId) {
+      $record->defaultResponsibleId = $request->defaults->responsibleId;
     }
-    if ($hasDuration) {
-      $record->duration = $duration;
+    if ($request->planning->hasDuration) {
+      $record->duration = $request->planning->duration;
     }
-    if ($hasLabelIds) {
-      $record->labelIds = $labelIds ?? [];
+    if ($request->collections->hasLabelIds) {
+      $record->labelIds = $request->collections->labelIds ?? [];
     }
     $record->updatedAt = new DateTimeImmutable();
 
-    if ($hasItems) {
-      $this->replaceItems($record, $items ?? []);
+    if ($request->collections->hasItems) {
+      $this->replaceItems($record, $request->collections->items ?? []);
     }
 
     $this->flush($record);

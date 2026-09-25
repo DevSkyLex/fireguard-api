@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Domain\Model\Attachment;
 
 use DateTimeImmutable;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -33,11 +33,13 @@ final class MessagingAttachmentTest extends TestCase
       conversationId: 'conv-1',
       organizationId: 'org-1',
       uploadedByMemberId: 'member-1',
-      fileName: 'report.pdf',
-      storagePath: 'org-1/conv-1/report.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
-      label: 'Inspection report',
+      file: new MessagingAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'org-1/conv-1/report.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+        label: 'Inspection report',
+      ),
     );
 
     self::assertSame($id, $attachment->id());
@@ -62,10 +64,12 @@ final class MessagingAttachmentTest extends TestCase
       conversationId: 'conv-1',
       organizationId: 'org-1',
       uploadedByMemberId: 'member-1',
-      fileName: 'photo.jpg',
-      storagePath: 'org-1/conv-1/photo.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
+      file: new MessagingAttachmentFile(
+        fileName: 'photo.jpg',
+        storagePath: 'org-1/conv-1/photo.jpg',
+        mimeType: 'image/jpeg',
+        size: 512,
+      ),
     );
 
     self::assertNull($attachment->label());
@@ -82,12 +86,8 @@ final class MessagingAttachmentTest extends TestCase
       'conv-1',
       'org-1',
       'member-1',
-      'notes.txt',
-      'org-1/conv-1/notes.txt',
-      'text/plain',
-      64,
+      new MessagingAttachmentFile('notes.txt', 'org-1/conv-1/notes.txt', 'text/plain', 64, 'Notes'),
       $uploadedAt,
-      'Notes',
     );
 
     self::assertSame($uploadedAt, $attachment->uploadedAt());

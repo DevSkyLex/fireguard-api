@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Webhook\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Webhook\Domain\Model\Delivery\WebhookDelivery;
+use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 use Webhook\Infrastructure\Persistence\Doctrine\Record\WebhookDeliveryRecord;
 
@@ -37,17 +37,21 @@ final class WebhookDeliveryMapper
       id: WebhookDeliveryId::fromString($record->id),
       subscriptionId: WebhookSubscriptionId::fromString($record->subscriptionId),
       organizationId: $record->organizationId,
-      eventType: $record->eventType,
-      eventId: $record->eventId,
-      payload: $record->payload,
-      status: WebhookDeliveryStatus::from($record->status),
-      attempts: $record->attempts,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      httpStatus: $record->httpStatus,
-      lastError: $record->lastError,
-      nextRetryAt: $record->nextRetryAt,
-      deliveredAt: $record->deliveredAt,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: $record->eventType,
+        eventId: $record->eventId,
+        payload: $record->payload,
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: WebhookDeliveryStatus::from($record->status),
+        attempts: $record->attempts,
+        httpStatus: $record->httpStatus,
+        lastError: $record->lastError,
+        nextRetryAt: $record->nextRetryAt,
+        deliveredAt: $record->deliveredAt,
+      ),
     );
   }
 

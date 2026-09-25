@@ -7,7 +7,7 @@ namespace Intervention\Infrastructure\Adapter\Recurrence;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Application\Contract\Recurrence\{InterventionRecurrencePage, InterventionRecurrenceView};
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRequest, InterventionRecurrencePage, InterventionRecurrenceUpdateRequest, InterventionRecurrenceView};
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecurrenceRecord, InterventionRecurrenceRunRecord, InterventionTemplateRecord};
@@ -46,27 +46,15 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
   // #endregion
 
   // #region CRUD
-  public function create(
-    string $organizationId,
-    string $templateId,
-    string $name,
-    ?string $siteId,
-    ?string $responsibleId,
-    string $frequency,
-    int $interval,
-    DateTimeImmutable $anchorDate,
-    string $timezone,
-    int $leadTimeDays,
-    DateTimeImmutable $nextOccurrenceAt,
-    ?DateTimeImmutable $endAt,
-  ): InterventionRecurrenceView {
-    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
+  public function create(InterventionRecurrenceCreateRequest $request): InterventionRecurrenceView
+  {
+    $organization = $this->entityManager->find(OrganizationRecord::class, $request->organizationId);
     if (!$organization instanceof OrganizationRecord) {
-      throw InterventionNotFoundException::withId($organizationId);
+      throw InterventionNotFoundException::withId($request->organizationId);
     }
-    $template = $this->entityManager->find(InterventionTemplateRecord::class, $templateId);
+    $template = $this->entityManager->find(InterventionTemplateRecord::class, $request->templateId);
     if (!$template instanceof InterventionTemplateRecord) {
-      throw InterventionNotFoundException::withId($templateId);
+      throw InterventionNotFoundException::withId($request->templateId);
     }
 
     $now = new DateTimeImmutable();
@@ -74,16 +62,16 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     $record->id = $this->uuidFactory->generateRaw();
     $record->organization = $organization;
     $record->template = $template;
-    $record->name = $name;
-    $record->siteId = $siteId;
-    $record->responsibleId = $responsibleId;
-    $record->frequency = $frequency;
-    $record->interval = $interval;
-    $record->anchorDate = $anchorDate;
-    $record->timezone = $timezone;
-    $record->leadTimeDays = $leadTimeDays;
-    $record->nextOccurrenceAt = $nextOccurrenceAt;
-    $record->endAt = $endAt;
+    $record->name = $request->name;
+    $record->siteId = $request->siteId;
+    $record->responsibleId = $request->responsibleId;
+    $record->frequency = $request->schedule->frequency;
+    $record->interval = $request->schedule->interval;
+    $record->anchorDate = $request->schedule->anchorDate;
+    $record->timezone = $request->schedule->timezone;
+    $record->leadTimeDays = $request->schedule->leadTimeDays;
+    $record->nextOccurrenceAt = $request->schedule->nextOccurrenceAt;
+    $record->endAt = $request->schedule->endAt;
     $record->createdAt = $now;
     $record->updatedAt = $now;
 
@@ -93,40 +81,47 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     return $this->view($record);
   }
 
-  public function update(
-    string $id,
-    ?string $name,
-    ?string $siteId,
-    ?string $responsibleId,
-    ?string $frequency,
-    ?int $interval,
-    ?DateTimeImmutable $anchorDate,
-    ?string $timezone,
-    ?int $leadTimeDays,
-    ?DateTimeImmutable $nextOccurrenceAt,
-    ?DateTimeImmutable $endAt,
-    ?bool $isActive,
-    bool $hasName,
-    bool $hasSiteId,
-    bool $hasResponsibleId,
-    bool $hasFrequency,
-    bool $hasInterval,
-    bool $hasAnchorDate,
-    bool $hasTimezone,
-    bool $hasLeadTimeDays,
-    bool $hasNextOccurrenceAt,
-    bool $hasEndAt,
-    bool $hasIsActive,
-  ): InterventionRecurrenceView {
-    $record = $this->entityManager->find(InterventionRecurrenceRecord::class, $id);
+  public function update(InterventionRecurrenceUpdateRequest $request): InterventionRecurrenceView
+  {
+    $record = $this->entityManager->find(InterventionRecurrenceRecord::class, $request->id);
     if (!$record instanceof InterventionRecurrenceRecord) {
-      throw InterventionNotFoundException::withId($id);
+      throw InterventionNotFoundException::withId($request->id);
     }
 
-    $this->updateIdentity($record, $name, $siteId, $responsibleId, $hasName, $hasSiteId, $hasResponsibleId);
-    $this->updateCadence($record, $frequency, $interval, $anchorDate, $hasFrequency, $hasInterval, $hasAnchorDate);
-    $this->updateSchedule($record, $timezone, $leadTimeDays, $nextOccurrenceAt, $hasTimezone, $hasLeadTimeDays, $hasNextOccurrenceAt);
-    $this->updateLifecycle($record, $endAt, $isActive, $hasEndAt, $hasIsActive);
+    $this->updateIdentity(
+      $record,
+      $request->identity->name,
+      $request->identity->siteId,
+      $request->identity->responsibleId,
+      $request->identity->hasName,
+      $request->identity->hasSiteId,
+      $request->identity->hasResponsibleId,
+    );
+    $this->updateCadence(
+      $record,
+      $request->cadence->frequency,
+      $request->cadence->interval,
+      $request->cadence->anchorDate,
+      $request->cadence->hasFrequency,
+      $request->cadence->hasInterval,
+      $request->cadence->hasAnchorDate,
+    );
+    $this->updateSchedule(
+      $record,
+      $request->schedule->timezone,
+      $request->schedule->leadTimeDays,
+      $request->schedule->nextOccurrenceAt,
+      $request->schedule->hasTimezone,
+      $request->schedule->hasLeadTimeDays,
+      $request->schedule->hasNextOccurrenceAt,
+    );
+    $this->updateLifecycle(
+      $record,
+      $request->lifecycle->endAt,
+      $request->lifecycle->isActive,
+      $request->lifecycle->hasEndAt,
+      $request->lifecycle->hasIsActive,
+    );
     $record->updatedAt = new DateTimeImmutable();
 
     $this->entityManager->flush();

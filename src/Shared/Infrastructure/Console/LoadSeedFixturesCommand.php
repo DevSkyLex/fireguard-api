@@ -89,6 +89,15 @@ HELP
       return Command::FAILURE;
     }
 
+    return $this->loadFixtures($io, $authFixtures, $mainFixtures);
+  }
+
+  /**
+   * @param list<FixtureInterface> $authFixtures
+   * @param list<FixtureInterface> $mainFixtures
+   */
+  private function loadFixtures(SymfonyStyle $io, array $authFixtures, array $mainFixtures): int
+  {
     $authConnection = $this->authEntityManager->getConnection();
     $mainConnection = $this->mainEntityManager->getConnection();
 

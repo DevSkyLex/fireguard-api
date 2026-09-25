@@ -29,13 +29,7 @@ final readonly class AutomationRunRepository implements AutomationRunPort, Autom
   {
     $db = $this->entityManager->getConnection();
     if (null !== $attemptId) {
-      $runId = $db->fetchOne("UPDATE automation_runs SET status = 'running' WHERE rule_key = ? AND organization_id = ? AND subject_id = ? AND current_attempt_id = ? AND status = 'pending' RETURNING id", [$ruleKey, $organizationId, $subjectId, $attemptId]);
-      if (!is_string($runId)) {
-        return null;
-      }
-      $db->executeStatement("UPDATE automation_attempts SET status = 'running' WHERE id = ?", [$attemptId]);
-
-      return $runId;
+      return $this->claimPendingAttempt($ruleKey, $organizationId, $subjectId, $attemptId);
     }
     $runId = $this->uuidFactory->generateRaw();
     $now = new DateTimeImmutable();
@@ -112,6 +106,18 @@ final readonly class AutomationRunRepository implements AutomationRunPort, Autom
     $count = $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM automation_attempts a JOIN automation_runs r ON r.id = a.run_id WHERE r.organization_id = ?', [$organizationId]);
 
     return (int) $count;
+  }
+
+  private function claimPendingAttempt(string $ruleKey, string $organizationId, string $subjectId, string $attemptId): ?string
+  {
+    $db = $this->entityManager->getConnection();
+    $runId = $db->fetchOne("UPDATE automation_runs SET status = 'running' WHERE rule_key = ? AND organization_id = ? AND subject_id = ? AND current_attempt_id = ? AND status = 'pending' RETURNING id", [$ruleKey, $organizationId, $subjectId, $attemptId]);
+    if (!is_string($runId)) {
+      return null;
+    }
+    $db->executeStatement("UPDATE automation_attempts SET status = 'running' WHERE id = ?", [$attemptId]);
+
+    return $runId;
   }
 
   private function settle(string $runId, string $status, ?string $error = null, ?string $interventionId = null): void

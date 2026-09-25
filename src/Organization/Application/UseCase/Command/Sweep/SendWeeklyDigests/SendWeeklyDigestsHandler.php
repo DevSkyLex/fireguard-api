@@ -154,11 +154,10 @@ final readonly class SendWeeklyDigestsHandler implements CommandHandler
     }
 
     $organization = $this->organizations->findById(OrganizationId::fromString($organizationId));
-    if (!$organization instanceof Organization) {
-      return 0;
-    }
 
-    return $this->notifier->notify($organizationId, (string) $organization->name(), $digest);
+    return $organization instanceof Organization
+      ? $this->notifier->notify($organizationId, (string) $organization->name(), $digest)
+      : 0;
   }
 
   /**

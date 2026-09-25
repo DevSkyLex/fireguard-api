@@ -8,7 +8,7 @@ use Approval\Application\Contract\Event\ApprovalWithdrawnEvent;
 use Approval\Application\Port\Outbound\{ApprovalDecisionLockPort, ApprovalMemberDirectoryPort, ApprovalRequestRepositoryPort};
 use Approval\Application\UseCase\Command\Decision\WithdrawApprovalRequest\{WithdrawApprovalRequestCommand, WithdrawApprovalRequestHandler};
 use Approval\Domain\Exception\{ApprovalRequestNotFoundException, ApprovalRequestNotPendingException, ApprovalWithdrawalNotAllowedException};
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -119,7 +119,14 @@ final class WithdrawApprovalRequestHandlerTest extends TestCase
 
   private function request(DateTimeImmutable $now): ApprovalRequest
   {
-    return ApprovalRequest::create(ApprovalRequestId::fromString(self::ID), 'org', 'equipment_decommission', 'subject', 'old-member', 'user', [], $now->modify('+1 day'), $now);
+    return ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::ID),
+      'org',
+      'equipment_decommission',
+      'subject',
+      new ApprovalRequestSubmission('old-member', 'user', []),
+      new ApprovalRequestSchedule($now->modify('+1 day'), $now),
+    ));
   }
 
   private function lock(): ApprovalDecisionLockPort

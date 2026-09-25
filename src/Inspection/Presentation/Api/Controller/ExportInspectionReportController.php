@@ -273,30 +273,22 @@ final class ExportInspectionReportController extends AbstractController
    */
   private static function stringifyResponseValue(mixed $value): string
   {
+    $result = '';
     if (is_bool($value)) {
-      return $value ? 'yes' : 'no';
-    }
-
-    if (null === $value) {
-      return '';
-    }
-
-    if (is_scalar($value)) {
-      return (string) $value;
-    }
-
-    if (is_array($value)) {
+      $result = $value ? 'yes' : 'no';
+    } elseif (is_scalar($value)) {
+      $result = (string) $value;
+    } elseif (is_array($value)) {
       $parts = [];
       foreach ($value as $item) {
         if (is_scalar($item)) {
           $parts[] = (string) $item;
         }
       }
-
-      return implode(', ', $parts);
+      $result = implode(', ', $parts);
     }
 
-    return '';
+    return $result;
   }
 
   /**

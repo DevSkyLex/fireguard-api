@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Calendar\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Calendar\Infrastructure\Persistence\Doctrine\Mapper\CalendarEventMapper;
 use Calendar\Infrastructure\Persistence\Doctrine\Record\CalendarEventRecord;
@@ -99,15 +99,19 @@ final class CalendarEventMapperTest extends TestCase
     $updatedAt = new DateTimeImmutable('2026-04-05T09:00:00+00:00');
 
     $event = CalendarEvent::reconstitute(
-      id: CalendarEventId::fromString(self::EVENT_ID),
-      organizationId: self::ORGANIZATION_ID,
-      title: 'Extinguisher servicing',
-      description: 'Third-party contractor visit.',
-      startsAt: $startsAt,
-      endsAt: $endsAt,
-      allDay: false,
-      facilityId: 'facility-2',
-      createdByMemberId: self::MEMBER_ID,
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString(self::EVENT_ID),
+        organizationId: self::ORGANIZATION_ID,
+        createdByMemberId: self::MEMBER_ID,
+      ),
+      content: new CalendarEventContent(
+        title: 'Extinguisher servicing',
+        description: 'Third-party contractor visit.',
+        startsAt: $startsAt,
+        endsAt: $endsAt,
+        allDay: false,
+        facilityId: 'facility-2',
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
     );

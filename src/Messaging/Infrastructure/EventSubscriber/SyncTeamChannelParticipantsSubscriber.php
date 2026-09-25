@@ -27,7 +27,7 @@ use Throwable;
  * Kept THIN — every method delegates to
  * {@see MessagingChannelParticipantSynchronizer} and swallows errors (never
  * lets a reconciliation failure break the Organization-side action that
- * triggered it), mirroring `AuditEventSubscriber::dispatchAuditEvent()`.
+ * triggered it), following `AbstractAuditEventSubscriber::dispatchAuditEvent()`.
  *
  * Subscribes to `organization.organization_member_removed_event` in
  * addition to the team events because the org-member-removal cascade

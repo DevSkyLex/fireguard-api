@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\Model\Role\{RestoredRoleState, Role};
 use Authorization\Domain\ValueObject\{RoleId, RoleName};
 use Authorization\Infrastructure\Persistence\Doctrine\Mapper\{PermissionMapper, RoleMapper};
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
@@ -62,12 +62,14 @@ final class RoleMapperTest extends TestCase
     $role = Role::reconstitute(
       id: new RoleId('223e4567-e89b-12d3-a456-426614174000'),
       name: new RoleName('admin'),
-      description: 'Admin role',
-      isSystem: true,
-      tenantId: $tenantId,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      permissions: [],
+      state: new RestoredRoleState(
+        description: 'Admin role',
+        isSystem: true,
+        tenantId: $tenantId,
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        permissions: [],
+      ),
     );
 
     $mapper = new RoleMapper(new PermissionMapper());

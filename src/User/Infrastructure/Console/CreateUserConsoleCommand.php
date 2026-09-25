@@ -156,40 +156,8 @@ HELP
 
     // Prompt for password if not provided
     if (null === $password) {
-      /** @var QuestionHelper $helper */
-      $helper = $this->getHelper('question');
-      $question = new Question('Password: ');
-      $question->setHidden(true);
-      $question->setHiddenFallback(false);
-      $question->setValidator(function (mixed $value): string {
-        if (!is_string($value) || '' === trim($value)) {
-          throw new UserConsolePasswordException('Password cannot be empty');
-        }
-        if (strlen($value) < 8) {
-          throw new UserConsolePasswordException('Password must be at least 8 characters');
-        }
-
-        return $value;
-      });
-
-      $passwordResult = $helper->ask($input, $output, $question);
-      if (!is_string($passwordResult)) {
-        $io->error('Password is required.');
-
-        return Command::FAILURE;
-      }
-      $password = $passwordResult;
-
-      // Confirm password
-      $confirmQuestion = new Question('Confirm password: ');
-      $confirmQuestion->setHidden(true);
-      $confirmQuestion->setHiddenFallback(false);
-
-      $confirmPassword = $helper->ask($input, $output, $confirmQuestion);
-
-      if ($password !== $confirmPassword) {
-        $io->error('Passwords do not match.');
-
+      $password = $this->promptForPassword($input, $output, $io);
+      if (null === $password) {
         return Command::FAILURE;
       }
     }
@@ -227,6 +195,53 @@ HELP
 
       return Command::FAILURE;
     }
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param InputInterface $input console input for hidden questions
+   * @param OutputInterface $output console output for hidden questions
+   * @param SymfonyStyle $io diagnostic output
+   *
+   * @return ?string the confirmed password, or null after a reported failure
+   */
+  private function promptForPassword(InputInterface $input, OutputInterface $output, SymfonyStyle $io): ?string
+  {
+    /** @var QuestionHelper $helper */
+    $helper = $this->getHelper('question');
+    $question = new Question('Password: ');
+    $question->setHidden(true);
+    $question->setHiddenFallback(false);
+    $question->setValidator(function (mixed $value): string {
+      if (!is_string($value) || '' === trim($value)) {
+        throw new UserConsolePasswordException('Password cannot be empty');
+      }
+      if (strlen($value) < 8) {
+        throw new UserConsolePasswordException('Password must be at least 8 characters');
+      }
+
+      return $value;
+    });
+
+    $password = $helper->ask($input, $output, $question);
+    if (!is_string($password)) {
+      $io->error('Password is required.');
+
+      return null;
+    }
+
+    // Confirm password
+    $confirmQuestion = new Question('Confirm password: ');
+    $confirmQuestion->setHidden(true);
+    $confirmQuestion->setHiddenFallback(false);
+    if ($password !== $helper->ask($input, $output, $confirmQuestion)) {
+      $io->error('Passwords do not match.');
+
+      return null;
+    }
+
+    return $password;
   }
   // #endregion
 }

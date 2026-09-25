@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\{Connection, Result};
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository;
@@ -109,12 +109,14 @@ final class NonConformityRepositoryTest extends TestCase
       inspectionId: NonConformityInspectionId::fromString('550e8400-e29b-41d4-a716-446655440052'),
       description: 'Missing extinguisher',
       severity: NonConformitySeverity::HIGH,
-      status: NonConformityStatus::OPEN,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::OPEN,
+        dueAt: new DateTimeImmutable('2026-03-31T08:00:00+02:00'),
+        resolvedAt: new DateTimeImmutable('2026-04-01T09:00:00+02:00'),
+        notes: null,
+      ),
       createdAt: new DateTimeImmutable('2026-03-30T11:00:00+02:00'),
       updatedAt: new DateTimeImmutable('2026-03-30T12:00:00+02:00'),
-      dueAt: new DateTimeImmutable('2026-03-31T08:00:00+02:00'),
-      resolvedAt: new DateTimeImmutable('2026-04-01T09:00:00+02:00'),
-      notes: null,
     );
 
     $doctrineRepository = $this->createMock(EntityRepository::class);

@@ -164,16 +164,12 @@ final readonly class ExportOrganizationAuditEventsController
       return new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
     }
 
-    if (
+    return (
       $exception instanceof OrganizationNotFoundException
       || $exception instanceof OrganizationMemberNotFoundException
       || null !== $this->findWrappedException($exception, OrganizationNotFoundException::class)
       || null !== $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
-    ) {
-      return new NotFoundHttpException(self::NOT_FOUND_MESSAGE, $exception);
-    }
-
-    return $exception;
+    ) ? new NotFoundHttpException(self::NOT_FOUND_MESSAGE, $exception) : $exception;
   }
 
   /**

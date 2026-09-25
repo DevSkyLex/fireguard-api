@@ -11,7 +11,7 @@ use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\UnpinMessage\{UnpinMessageCommand, UnpinMessageHandler};
 use Messaging\Domain\Event\Message\MessagingMessageUnpinModeratedEvent;
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -220,15 +220,24 @@ final class UnpinMessageHandlerTest extends TestCase
       self::CONVERSATION_ID,
       self::ORG_ID,
       'author-1',
-      'Hello team',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
-      $now,
-      self::PINNER_MEMBER_ID,
+      new RestoredMessageContent(
+        'Hello team',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        $now,
+        self::PINNER_MEMBER_ID,
+        null,
+        0,
+      ),
     );
   }
 
@@ -241,13 +250,24 @@ final class UnpinMessageHandlerTest extends TestCase
       self::CONVERSATION_ID,
       self::ORG_ID,
       'author-1',
-      'Hello team',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Hello team',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
   }
 

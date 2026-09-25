@@ -136,8 +136,13 @@ HELP
     $name = trim($nameRaw);
     $slug = is_string($slugRaw) && '' !== trim($slugRaw) ? trim($slugRaw) : null;
 
+    return $this->createOrganization($io, $name, trim($ownerRaw), $slug);
+  }
+
+  private function createOrganization(SymfonyStyle $io, string $name, string $ownerIdentifier, ?string $slug): int
+  {
     try {
-      $ownerUserId = $this->resolveUserId(identifier: trim($ownerRaw));
+      $ownerUserId = $this->resolveUserId(identifier: $ownerIdentifier);
     } catch (Throwable $e) {
       $io->error(sprintf('Failed to resolve owner: %s', $e->getMessage()));
 

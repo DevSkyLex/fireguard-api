@@ -15,6 +15,7 @@ use function fgetcsv;
 use function fopen;
 use function fwrite;
 use function implode;
+use function iterator_count;
 use function rewind;
 use function sprintf;
 use function str_contains;
@@ -96,12 +97,7 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
    */
   public function countDataRows(string $contents): int
   {
-    $count = 0;
-    foreach ($this->rows($contents) as $ignored) {
-      ++$count;
-    }
-
-    return $count;
+    return iterator_count($this->rows($contents));
   }
 
   /**

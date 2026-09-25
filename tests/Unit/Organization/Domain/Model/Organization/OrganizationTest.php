@@ -7,6 +7,7 @@ namespace Tests\Unit\Organization\Domain\Model\Organization;
 use DateTimeImmutable;
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationOwnershipUnchangedException};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationLegal, RestoredOrganizationProfile, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{
   OrganizationApprovalSettings,
   OrganizationAssistantSettings,
@@ -99,11 +100,13 @@ final class OrganizationTest extends TestCase
     $createdAt = new DateTimeImmutable('2020-01-01T00:00:00+00:00');
 
     $organization = Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme Safety'),
-      createdByUserId: self::CREATOR_ID,
-      isActive: true,
-      createdAt: $createdAt,
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme Safety'),
+        createdByUserId: self::CREATOR_ID,
+        isActive: true,
+        createdAt: $createdAt,
+      ),
     );
 
     self::assertSame('acme-safety', (string) $organization->slug());
@@ -118,11 +121,13 @@ final class OrganizationTest extends TestCase
   public function testReconstituteInactiveFallsBackToSuspendedStatus(): void
   {
     $organization = Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme Safety'),
-      createdByUserId: self::CREATOR_ID,
-      isActive: false,
-      createdAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme Safety'),
+        createdByUserId: self::CREATOR_ID,
+        isActive: false,
+        createdAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
+      ),
     );
 
     self::assertSame(OrganizationStatus::SUSPENDED, $organization->status());
@@ -136,24 +141,32 @@ final class OrganizationTest extends TestCase
     $updatedAt = new DateTimeImmutable('2021-06-15T12:00:00+00:00');
 
     $organization = Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme Safety'),
-      createdByUserId: self::CREATOR_ID,
-      isActive: true,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      ownerUserId: self::OWNER_ID,
-      slug: new OrganizationSlug('acme-legacy'),
-      status: OrganizationStatus::ARCHIVED,
-      description: 'Reconstituted',
-      logoUrl: 'https://cdn.example.test/legacy.png',
-      settings: OrganizationSettings::default(),
-      planId: PlanId::fromString(self::PLAN_ID),
-      country: new OrganizationCountry('FR'),
-      legalType: OrganizationLegalType::LIMITED_LIABILITY_COMPANY,
-      legalName: 'Acme Safety SAS',
-      registrationNumber: new OrganizationRegistrationNumber('RCS-123456'),
-      vatNumber: new OrganizationVatNumber('FR12345678901'),
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme Safety'),
+        createdByUserId: self::CREATOR_ID,
+        isActive: true,
+        createdAt: $createdAt,
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: $updatedAt,
+        ownerUserId: self::OWNER_ID,
+        slug: new OrganizationSlug('acme-legacy'),
+        status: OrganizationStatus::ARCHIVED,
+      ),
+      profile: new RestoredOrganizationProfile(
+        description: 'Reconstituted',
+        logoUrl: 'https://cdn.example.test/legacy.png',
+        settings: OrganizationSettings::default(),
+        planId: PlanId::fromString(self::PLAN_ID),
+      ),
+      legal: new RestoredOrganizationLegal(
+        country: new OrganizationCountry('FR'),
+        legalType: OrganizationLegalType::LIMITED_LIABILITY_COMPANY,
+        legalName: 'Acme Safety SAS',
+        registrationNumber: new OrganizationRegistrationNumber('RCS-123456'),
+        vatNumber: new OrganizationVatNumber('FR12345678901'),
+      ),
     );
 
     self::assertSame(self::OWNER_ID, $organization->ownerUserId());
@@ -298,7 +311,7 @@ final class OrganizationTest extends TestCase
   {
     $organization = $this->reconstitutedOrganization();
 
-    $organization->updateNotificationSettings(new OrganizationNotificationSettings(emailEnabled: false));
+    $organization->updateNotificationSettings(OrganizationNotificationSettings::fromArray(['email_enabled' => false]));
 
     self::assertFalse($organization->settings()->notifications->emailEnabled);
   }
@@ -432,13 +445,17 @@ final class OrganizationTest extends TestCase
   private function reconstitutedOrganization(): Organization
   {
     return Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme Safety'),
-      createdByUserId: self::CREATOR_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
-      ownerUserId: self::OWNER_ID,
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme Safety'),
+        createdByUserId: self::CREATOR_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: new DateTimeImmutable('2020-01-01T00:00:00+00:00'),
+        ownerUserId: self::OWNER_ID,
+      ),
     );
   }
 }

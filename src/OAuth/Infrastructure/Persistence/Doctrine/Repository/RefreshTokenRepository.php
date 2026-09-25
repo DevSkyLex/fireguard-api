@@ -114,27 +114,19 @@ final class RefreshTokenRepository implements RefreshTokenRepositoryPort
 
   public function findByEncryptedToken(string $encryptedToken): ?RefreshToken
   {
-    if ('' === $encryptedToken) {
-      return null;
-    }
-
     try {
-      $decrypted = $this->decrypt($encryptedToken);
-      $payload = json_decode($decrypted, true);
-
-      if (!is_array($payload)) {
-        return null;
+      if ('' !== $encryptedToken) {
+        $payload = json_decode($this->decrypt($encryptedToken), true);
+        $identifier = is_array($payload) ? ($payload['refresh_token_id'] ?? null) : null;
+        if (is_string($identifier) && '' !== $identifier) {
+          return $this->find($identifier);
+        }
       }
-
-      $identifier = $payload['refresh_token_id'] ?? null;
-      if (!is_string($identifier) || '' === $identifier) {
-        return null;
-      }
-
-      return $this->find($identifier);
     } catch (Throwable) {
-      return null;
+      // Invalid ciphertext or an unavailable record is not a usable token.
     }
+
+    return null;
   }
   // #endregion
 }

@@ -9,7 +9,7 @@ use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, Messaging
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\UnsaveMessage\{UnsaveMessageCommand, UnsaveMessageHandler};
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -154,13 +154,24 @@ final class UnsaveMessageHandlerTest extends TestCase
       self::CONVERSATION_ID,
       self::ORG_ID,
       self::AUTHOR_MEMBER_ID,
-      'Hello team',
-      [],
-      null,
-      $deleted ? $now : null,
-      $deleted ? self::AUTHOR_MEMBER_ID : null,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Hello team',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        $deleted ? $now : null,
+        $deleted ? self::AUTHOR_MEMBER_ID : null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
   }
 }

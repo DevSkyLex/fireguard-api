@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Domain\Model\Facility;
 
 use DateTimeImmutable;
 use Facility\Domain\Exception\{CanonicalFacilityValidationException, FacilityRevisionMismatchException};
-use Facility\Domain\Model\Facility\CanonicalFacility;
+use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent, CanonicalFacilityReference, CanonicalFacilityVersion};
 use Facility\Domain\ValueObject\{
   CanonicalFacilityParent,
   CanonicalFacilityPatch,
@@ -519,22 +519,9 @@ final class CanonicalFacilityTest extends TestCase
     ?int $levelIndex = null,
   ): CanonicalFacility {
     return CanonicalFacility::reconstitute(
-      id: FacilityId::fromString(self::FACILITY_ID),
-      organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      parentFacilityId: $parentFacilityId,
-      type: FacilityType::SITE,
-      name: $name,
-      code: $code,
-      address: $address,
-      latitude: $latitude,
-      longitude: $longitude,
-      metadata: [],
-      status: $status,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
-      levelIndex: $levelIndex,
+      reference: new CanonicalFacilityReference(FacilityId::fromString(self::FACILITY_ID), FacilityOrganizationId::fromString(self::ORGANIZATION_ID), $recordStatus, $interventionId, $parentFacilityId),
+      content: new CanonicalFacilityContent(FacilityType::SITE, $name, $code, $address, $latitude, $longitude, []),
+      version: new CanonicalFacilityVersion($status, 3, new DateTimeImmutable('2026-08-26T10:00:00+00:00'), $levelIndex),
     );
   }
   // #endregion

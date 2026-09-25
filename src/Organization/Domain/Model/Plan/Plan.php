@@ -137,10 +137,7 @@ final class Plan
    * @param array<string, int> $limits the per-resource quantity caps
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?string $description the optional description
-   * @param bool $isActive whether the plan can be selected
-   * @param bool $isDefault whether the plan is the catalog default
-   * @param int $sortOrder the display order
+   * @param ?RestoredPlanMetadata $metadata persisted catalog metadata
    *
    * @return self the reconstituted plan aggregate
    */
@@ -151,11 +148,10 @@ final class Plan
     array $limits,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    ?string $description = null,
-    bool $isActive = true,
-    bool $isDefault = false,
-    int $sortOrder = 0,
+    ?RestoredPlanMetadata $metadata = null,
   ): self {
+    $metadata ??= new RestoredPlanMetadata();
+
     return new self(
       id: $id,
       key: $key,
@@ -163,10 +159,10 @@ final class Plan
       limits: $limits,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      description: $description,
-      isActive: $isActive,
-      isDefault: $isDefault,
-      sortOrder: $sortOrder,
+      description: $metadata->description,
+      isActive: $metadata->isActive,
+      isDefault: $metadata->isDefault,
+      sortOrder: $metadata->sortOrder,
     );
   }
 

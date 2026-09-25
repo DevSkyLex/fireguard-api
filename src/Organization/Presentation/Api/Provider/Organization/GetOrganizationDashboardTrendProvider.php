@@ -167,29 +167,45 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
       'nonConformitySeverity' => $nonConformitySeverity,
     ]);
 
+    $result = $this->askTrend(new GetOrganizationDashboardTrendQuery(
+      organizationId: $organizationId,
+      userId: $user->getId(),
+      metric: $metric,
+      periodFrom: null !== $periodFrom ? $this->formatIso8601($periodFrom) : null,
+      periodTo: null !== $periodTo ? $this->formatIso8601($periodTo) : null,
+      compareWithPreviousPeriod: $this->extractBooleanFilter($filters, 'compare', true),
+      granularity: $this->extractGranularityFilter($filters),
+      timeZone: $requestedTimeZone?->getName(),
+      facilityType: $facilityType,
+      equipmentType: $equipmentType,
+      equipmentStatus: $equipmentStatus,
+      inspectionStatus: $inspectionStatus,
+      inspectionResult: $inspectionResult,
+      inspectorType: $inspectorType,
+      nonConformityStatus: $nonConformityStatus,
+      nonConformitySeverity: $nonConformitySeverity,
+      additionalMetrics: $additionalMetrics,
+    ));
+
+    $output = new OrganizationDashboardTrendOutput();
+    $output->generatedAt = $result->generatedAt;
+    $output->metric = $result->metric;
+    $output->period = $result->period;
+    $output->summary = $this->normalizeSummary($result->summary);
+    $output->series = $result->series;
+    $output->comparison = $this->normalizeComparison($result->comparison);
+    $output->seriesByMetric = $this->normalizeSeriesByMetric($result->seriesByMetric);
+
+    return $output;
+  }
+
+  private function askTrend(GetOrganizationDashboardTrendQuery $query): GetOrganizationDashboardTrendResult
+  {
     try {
-      /**
-       * @var GetOrganizationDashboardTrendResult $result
-       */
-      $result = $this->queryBus->ask(new GetOrganizationDashboardTrendQuery(
-        organizationId: $organizationId,
-        userId: $user->getId(),
-        metric: $metric,
-        periodFrom: null !== $periodFrom ? $this->formatIso8601($periodFrom) : null,
-        periodTo: null !== $periodTo ? $this->formatIso8601($periodTo) : null,
-        compareWithPreviousPeriod: $this->extractBooleanFilter($filters, 'compare', true),
-        granularity: $this->extractGranularityFilter($filters),
-        timeZone: $requestedTimeZone?->getName(),
-        facilityType: $facilityType,
-        equipmentType: $equipmentType,
-        equipmentStatus: $equipmentStatus,
-        inspectionStatus: $inspectionStatus,
-        inspectionResult: $inspectionResult,
-        inspectorType: $inspectorType,
-        nonConformityStatus: $nonConformityStatus,
-        nonConformitySeverity: $nonConformitySeverity,
-        additionalMetrics: $additionalMetrics,
-      ));
+      /** @var GetOrganizationDashboardTrendResult $result */
+      $result = $this->queryBus->ask($query);
+
+      return $result;
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (OrganizationAccessDeniedException $exception) {
@@ -214,17 +230,6 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
 
       throw $exception;
     }
-
-    $output = new OrganizationDashboardTrendOutput();
-    $output->generatedAt = $result->generatedAt;
-    $output->metric = $result->metric;
-    $output->period = $result->period;
-    $output->summary = $this->normalizeSummary($result->summary);
-    $output->series = $result->series;
-    $output->comparison = $this->normalizeComparison($result->comparison);
-    $output->seriesByMetric = $this->normalizeSeriesByMetric($result->seriesByMetric);
-
-    return $output;
   }
 
   /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Compliance\Infrastructure\Persistence\Doctrine\Repository;
 
-use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
+use Compliance\Domain\Model\Snapshot\{SafetyRegisterSnapshot, SafetyRegisterStoredFile};
 use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Compliance\Infrastructure\Persistence\Doctrine\Repository\SafetyRegisterSnapshotRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -132,9 +132,11 @@ final class SafetyRegisterSnapshotRepositoryTest extends KernelTestCase
       facilityId: null,
       generatedAt: $generatedAt,
       generatedByUserId: self::ACTOR_ID,
-      contentHash: 'c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646',
-      sizeBytes: 1234,
-      storagePath: 'compliance/registers/' . $organizationId . '/' . $id . '.pdf',
+      file: new SafetyRegisterStoredFile(
+        contentHash: 'c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646',
+        sizeBytes: 1234,
+        storagePath: 'compliance/registers/' . $organizationId . '/' . $id . '.pdf',
+      ),
     );
   }
 

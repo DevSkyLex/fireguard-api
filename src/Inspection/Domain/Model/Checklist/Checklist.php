@@ -126,12 +126,9 @@ final class Checklist
    * @param ChecklistId $id the checklist identifier
    * @param ChecklistOrganizationId $organizationId the organization identifier
    * @param string $name the checklist name
-   * @param string $version the version label
-   * @param ChecklistStatus $status the current status
-   * @param list<ChecklistItem> $items the checklist items
+   * @param RestoredChecklistRevision $revision the persisted revision state
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param ?string $referenceCode optional human-facing reference code, unique per organization
    *
    * @return self the reconstituted checklist
    */
@@ -139,25 +136,21 @@ final class Checklist
     ChecklistId $id,
     ChecklistOrganizationId $organizationId,
     string $name,
-    string $version,
-    ChecklistStatus $status,
-    array $items,
+    RestoredChecklistRevision $revision,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    ?string $referenceCode = null,
-    ?ChecklistId $previousChecklistId = null,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
       name: $name,
-      version: $version,
-      status: $status,
-      items: $items,
+      version: $revision->version,
+      status: $revision->status,
+      items: $revision->items,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      referenceCode: $referenceCode,
-      previousChecklistId: $previousChecklistId,
+      referenceCode: $revision->referenceCode,
+      previousChecklistId: $revision->previousChecklistId,
     );
   }
 

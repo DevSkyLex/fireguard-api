@@ -11,6 +11,7 @@ use Shared\Application\Message\{CommandHandler, VoidResult};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookHttpClientPort, WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
 use Webhook\Domain\Exception\WebhookDeliveryAttemptFailedException;
+use Webhook\Domain\Model\Delivery\WebhookDelivery;
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus};
 
 use function hash_hmac;
@@ -131,16 +132,16 @@ final readonly class DeliverWebhookHandler implements CommandHandler
 
     if (null === $delivery) {
       $this->logger->error('Webhook delivery not found for delivery attempt.', ['delivery_id' => $command->deliveryId]);
-
-      return new VoidResult();
+    } elseif (WebhookDeliveryStatus::PENDING === $delivery->status()) {
+      // A delivered or terminally failed delivery is a safe no-op on redelivery.
+      $this->attemptDelivery($delivery);
     }
 
-    if (WebhookDeliveryStatus::PENDING !== $delivery->status()) {
-      // Already delivered or terminally failed: a routine, safe no-op on
-      // Messenger redelivery.
-      return new VoidResult();
-    }
+    return new VoidResult();
+  }
 
+  private function attemptDelivery(WebhookDelivery $delivery): void
+  {
     $subscription = $this->subscriptionRepository->findById($delivery->subscriptionId());
     $now = new DateTimeImmutable();
 
@@ -148,7 +149,7 @@ final readonly class DeliverWebhookHandler implements CommandHandler
       $delivery->markFailed(null, 'The target subscription no longer exists.', $now);
       $this->deliveryRepository->save($delivery);
 
-      return new VoidResult();
+      return;
     }
 
     $body = json_encode($delivery->payload(), JSON_THROW_ON_ERROR);
@@ -171,7 +172,7 @@ final readonly class DeliverWebhookHandler implements CommandHandler
       $delivery->markDelivered((int) $response->statusCode, $now);
       $this->deliveryRepository->save($delivery);
 
-      return new VoidResult();
+      return;
     }
 
     $error = $response->transportError ?? sprintf('Unexpected HTTP status %d.', $response->statusCode ?? 0);
@@ -181,7 +182,7 @@ final readonly class DeliverWebhookHandler implements CommandHandler
       $delivery->markFailed($response->statusCode, $error, $now);
       $this->deliveryRepository->save($delivery);
 
-      return new VoidResult();
+      return;
     }
 
     $delivery->recordRetryableFailure($response->statusCode, $error, self::estimateNextRetryAt($nextAttemptNumber, $now), $now);

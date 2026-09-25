@@ -6,8 +6,8 @@ namespace Tests\Unit\Otp\Domain\Model;
 
 use DateTimeImmutable;
 use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
-use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
+use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpGenerationOptions, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -90,7 +90,7 @@ final class OtpTest extends TestCase
       purpose: OtpPurpose::SENSITIVE_OPERATION,
       channel: OtpChannel::EMAIL,
       recipient: 'test@example.com',
-      maxAttempts: 2,
+      options: new OtpGenerationOptions(maxAttempts: 2),
     );
 
     // Use up all attempts
@@ -155,7 +155,7 @@ final class OtpTest extends TestCase
       purpose: OtpPurpose::LOGIN,
       channel: OtpChannel::EMAIL,
       recipient: 'test@example.com',
-      ttlSeconds: 60,
+      options: new OtpGenerationOptions(ttlSeconds: 60),
     );
 
     $expiresAt = $otp->expiresAt();
@@ -191,18 +191,22 @@ final class OtpTest extends TestCase
     $expiresAt = new DateTimeImmutable('+10 minutes');
 
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174111'),
-      challengeToken: ChallengeToken::fromString('token-111'),
-      userId: 'user-111',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: $expiresAt,
-      maxAttempts: 3,
-      attempts: 1,
-      verifiedAt: null,
-      createdAt: $createdAt,
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174111'),
+        challengeToken: ChallengeToken::fromString('token-111'),
+        userId: 'user-111',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: $expiresAt,
+        maxAttempts: 3,
+        attempts: 1,
+        verifiedAt: null,
+        createdAt: $createdAt,
+      ),
     );
 
     self::assertSame('token-111', $otp->challengeToken()->value);
@@ -216,18 +220,22 @@ final class OtpTest extends TestCase
   public function testStatusExpiredAndCannotVerify(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174112'),
-      challengeToken: ChallengeToken::fromString('token-112'),
-      userId: 'user-112',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('-1 minute'),
-      maxAttempts: 3,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174112'),
+        challengeToken: ChallengeToken::fromString('token-112'),
+        userId: 'user-112',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-1 minute'),
+        maxAttempts: 3,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 minutes'),
+      ),
     );
 
     self::assertTrue($otp->isExpired());
@@ -281,18 +289,22 @@ final class OtpTest extends TestCase
   public function testVerifyThrowsWhenExpired(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174115'),
-      challengeToken: ChallengeToken::fromString('token-115'),
-      userId: 'user-115',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('-1 minute'),
-      maxAttempts: 3,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174115'),
+        challengeToken: ChallengeToken::fromString('token-115'),
+        userId: 'user-115',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-1 minute'),
+        maxAttempts: 3,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 minutes'),
+      ),
     );
 
     $this->expectException(OtpExpiredException::class);
@@ -340,18 +352,22 @@ final class OtpTest extends TestCase
   public function testVerifyExternalThrowsWhenExpired(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174118'),
-      challengeToken: ChallengeToken::fromString('token-118'),
-      userId: 'user-118',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::TOTP,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user-118',
-      expiresAt: new DateTimeImmutable('-1 minute'),
-      maxAttempts: 3,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174118'),
+        challengeToken: ChallengeToken::fromString('token-118'),
+        userId: 'user-118',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::TOTP,
+        recipient: 'user-118',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-1 minute'),
+        maxAttempts: 3,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 minutes'),
+      ),
     );
 
     $this->expectException(OtpExpiredException::class);
@@ -363,18 +379,22 @@ final class OtpTest extends TestCase
   public function testVerifyExternalThrowsWhenMaxAttemptsExceeded(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174119'),
-      challengeToken: ChallengeToken::fromString('token-119'),
-      userId: 'user-119',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::TOTP,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user-119',
-      expiresAt: new DateTimeImmutable('+10 minutes'),
-      maxAttempts: 1,
-      attempts: 1,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174119'),
+        challengeToken: ChallengeToken::fromString('token-119'),
+        userId: 'user-119',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::TOTP,
+        recipient: 'user-119',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+10 minutes'),
+        maxAttempts: 1,
+        attempts: 1,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 minutes'),
+      ),
     );
 
     $this->expectException(OtpMaxAttemptsException::class);

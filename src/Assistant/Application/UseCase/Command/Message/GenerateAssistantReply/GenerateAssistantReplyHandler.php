@@ -105,9 +105,21 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
   public function __invoke(GenerateAssistantReplyCommand $command): VoidResult
   {
     $message = $this->attempts->claim($command);
-    if (null === $message) {
-      return new VoidResult();
+    if (null !== $message) {
+      $this->generateClaimedReply($command, $message);
     }
+
+    return new VoidResult();
+  }
+
+  /**
+   * Generates only after the pending attempt has been claimed.
+   *
+   * @param GenerateAssistantReplyCommand $command the command payload
+   * @param AssistantMessage $message the claimed assistant reply
+   */
+  private function generateClaimedReply(GenerateAssistantReplyCommand $command, AssistantMessage $message): void
+  {
     $attemptId = $message->attemptId() ?? (string) $message->id();
 
     $thread = $this->threads->findById(AssistantThreadId::fromString($command->threadId));
@@ -115,7 +127,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     if (null === $thread) {
       $this->attempts->finish((string) $message->id(), $attemptId, new AssistantGenerationOutcome('', null, 'assistant_thread_not_found'));
 
-      return new VoidResult();
+      return;
     }
 
     $model = $command->model ?? $thread->model() ?? $this->defaultModel;
@@ -123,7 +135,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     if ('' === $model) {
       $this->attempts->finish((string) $message->id(), $attemptId, new AssistantGenerationOutcome('', null, 'ollama_model_not_configured'));
 
-      return new VoidResult();
+      return;
     }
 
     try {
@@ -150,14 +162,12 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
         },
       );
     } catch (AssistantGenerationStoppedException) {
-      return new VoidResult();
+      return;
     } catch (Throwable $exception) {
       $this->logger->error('Assistant generation failed unexpectedly.', ['messageId' => (string) $message->id(), 'error' => $exception->getMessage()]);
       $outcome = new AssistantGenerationOutcome('', null, 'assistant_generation_failed');
     }
     $this->attempts->finish((string) $message->id(), $attemptId, $outcome);
-
-    return new VoidResult();
   }
 
   /**

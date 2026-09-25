@@ -7,7 +7,7 @@ namespace Tests\Integration\Equipment\Infrastructure\Persistence\Doctrine\Mapper
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
-use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, RestoredEquipmentAttachmentFile};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\AttachmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
 use LogicException;
@@ -134,12 +134,14 @@ final class AttachmentMapperTest extends KernelTestCase
     $attachment = EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554b0020'),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'report.pdf',
-      storagePath: 'org/equipment/report-b0020.pdf',
-      mimeType: 'application/pdf',
-      size: 8192,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'org/equipment/report-b0020.pdf',
+        mimeType: 'application/pdf',
+        size: 8192,
+        label: 'Inspection report',
+      ),
       uploadedAt: new DateTimeImmutable('2026-06-01T09:00:00+00:00'),
-      label: 'Inspection report',
     );
 
     $record = AttachmentMapper::toRecord($attachment);
@@ -175,12 +177,14 @@ final class AttachmentMapperTest extends KernelTestCase
     $attachment = EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554b0021'),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'plan.dwg',
-      storagePath: 'org/equipment/plan-b0021.dwg',
-      mimeType: 'application/acad',
-      size: 65536,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'plan.dwg',
+        storagePath: 'org/equipment/plan-b0021.dwg',
+        mimeType: 'application/acad',
+        size: 65536,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-06-02T09:00:00+00:00'),
-      label: null,
     );
 
     $record = AttachmentMapper::toRecord($attachment);

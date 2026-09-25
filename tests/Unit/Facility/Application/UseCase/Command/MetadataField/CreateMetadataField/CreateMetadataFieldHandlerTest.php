@@ -91,9 +91,11 @@ final class CreateMetadataFieldHandlerTest extends TestCase
       \Facility\Domain\Model\MetadataField\FacilityMetadataField::create(
         id: \Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString(self::GENERATED_ID),
         organizationId: new \Facility\Domain\ValueObject\FacilityOrganizationId(self::ORGANIZATION_ID),
-        key: new \Facility\Domain\ValueObject\FacilityMetadataFieldKey('surface-m2'),
-        label: new \Facility\Domain\ValueObject\FacilityMetadataFieldLabel('Surface'),
-        fieldType: \Facility\Domain\ValueObject\FacilityMetadataFieldType::NUMBER,
+        definition: new \Facility\Domain\Model\MetadataField\FacilityMetadataFieldDefinition(
+          new \Facility\Domain\ValueObject\FacilityMetadataFieldKey('surface-m2'),
+          new \Facility\Domain\ValueObject\FacilityMetadataFieldLabel('Surface'),
+          \Facility\Domain\ValueObject\FacilityMetadataFieldType::NUMBER,
+        ),
       ),
     );
     $repository->expects(self::never())->method('save');

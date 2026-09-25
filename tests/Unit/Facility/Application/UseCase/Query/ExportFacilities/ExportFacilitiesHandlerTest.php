@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\ExportFacilities;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\ExportFacilities\{ExportFacilitiesHandler, ExportFacilitiesQuery, ExportFacilitiesResult};
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityExportTooLargeException, FacilityNotFoundException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -107,18 +107,22 @@ final class ExportFacilitiesHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 1'),
-      parentFacilityId: FacilityId::fromString(self::PARENT_ID),
-      code: 'FL-1',
-      address: '1 Rue de Paris',
-      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      details: new FacilityDetails(
+        parentFacilityId: FacilityId::fromString(self::PARENT_ID),
+        code: 'FL-1',
+        address: '1 Rue de Paris',
+        coordinates: new FacilityCoordinates(48.8566, 2.3522),
+      ),
     );
     $orphan = Facility::create(
       id: FacilityId::fromString('550e8400-e29b-41d4-a716-446655449305'),
       organizationId: $organizationId,
       type: FacilityType::SITE,
       name: new FacilityName('Main Site'),
-      parentFacilityId: FacilityId::fromString('550e8400-e29b-41d4-a716-446655449306'),
-      code: 'SITE-1',
+      details: new FacilityDetails(
+        parentFacilityId: FacilityId::fromString('550e8400-e29b-41d4-a716-446655449306'),
+        code: 'SITE-1',
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */

@@ -51,15 +51,15 @@ final class OrganizationSettingsTest extends TestCase
   public function testToArrayAndFromArrayRoundTrip(): void
   {
     $settings = new OrganizationSettings(
-      notifications: new OrganizationNotificationSettings(
-        emailEnabled: false,
-        inAppEnabled: true,
-        interventionPublished: false,
-        interventionAssigned: true,
-        inspectionDue: false,
-        nonConformityOpened: true,
-        memberInvited: false,
-      ),
+      notifications: OrganizationNotificationSettings::fromArray([
+        'email_enabled' => false,
+        'in_app_enabled' => true,
+        'intervention_published' => false,
+        'intervention_assigned' => true,
+        'inspection_due' => false,
+        'non_conformity_opened' => true,
+        'member_invited' => false,
+      ]),
       regional: new OrganizationRegionalSettings(
         timezone: 'Europe/Paris',
         locale: 'fr-FR',
@@ -81,7 +81,7 @@ final class OrganizationSettingsTest extends TestCase
   public function testWithNotificationsReturnsNewImmutableInstance(): void
   {
     $settings = OrganizationSettings::default();
-    $updated = $settings->withNotifications(new OrganizationNotificationSettings(emailEnabled: false));
+    $updated = $settings->withNotifications(OrganizationNotificationSettings::fromArray(['email_enabled' => false]));
 
     self::assertNotSame($settings, $updated);
     self::assertTrue($settings->notifications->emailEnabled, 'original is unchanged');

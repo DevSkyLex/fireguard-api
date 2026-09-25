@@ -21,6 +21,7 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function preg_match;
+use function substr;
 
 /**
  * Service FacilityMetadataSchemaGuard.
@@ -195,7 +196,10 @@ final readonly class FacilityMetadataSchemaGuard
    */
   private function isIsoDate(string $value): bool
   {
-    if (1 !== preg_match('/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/', $value)) {
+    $date = substr($value, 0, 10);
+    $time = substr($value, 10);
+    if (1 !== preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+      || ('' !== $time && 1 !== preg_match('/^[T ]\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:?\d\d)?$/', $time))) {
       return false;
     }
 

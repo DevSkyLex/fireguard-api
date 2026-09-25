@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Application\UseCase\Command\Token\IssueToken;
 
 use DateTimeImmutable;
+use OAuth\Application\Contract\Token\AccessTokenRequest;
 use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
@@ -167,16 +168,14 @@ final class IssueTokenHandlerTest extends TestCase
     $this->authorizationServer
       ->expects($this->once())
       ->method('issueAccessToken')
-      ->with(
-        $command->grantType,
-        $command->clientId,
-        $command->clientSecret,
-        $command->scope,
-        null,
-        null,
-        null,
-        null,
-      )
+      ->with(self::callback(static fn (AccessTokenRequest $request): bool => $request->grantType === $command->grantType
+        && $request->clientId === $command->clientId
+        && $request->clientSecret === $command->clientSecret
+        && $request->grant->scope === $command->scope
+        && null === $request->grant->refreshToken
+        && null === $request->grant->code
+        && null === $request->grant->redirectUri
+        && null === $request->grant->codeVerifier))
       ->willReturn($expectedResult);
 
     $this->eventDispatcher

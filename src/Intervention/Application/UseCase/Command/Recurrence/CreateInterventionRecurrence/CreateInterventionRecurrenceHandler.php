@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence;
 
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRequest, InterventionRecurrenceSchedule};
 use Intervention\Application\Port\Outbound\{InterventionRecurrencePort, InterventionTemplatePort};
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceCreatedEvent;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
@@ -95,20 +96,22 @@ final readonly class CreateInterventionRecurrenceHandler implements CommandHandl
     $now = $this->clock->now();
     $nextOccurrenceAt = $rule->nextAfter($now, $timezone);
 
-    $view = $this->recurrences->create(
-      organizationId: $command->organizationId,
-      templateId: $command->templateId,
-      name: $name,
-      siteId: $command->siteId,
-      responsibleId: $command->responsibleId,
-      frequency: $rule->frequency->value,
-      interval: $rule->interval,
-      anchorDate: $rule->anchorDate,
-      timezone: $timezone,
-      leadTimeDays: $leadTimeDays,
-      nextOccurrenceAt: $nextOccurrenceAt,
-      endAt: $command->endAt,
-    );
+    $view = $this->recurrences->create(new InterventionRecurrenceCreateRequest(
+      $command->organizationId,
+      $command->templateId,
+      $name,
+      $command->siteId,
+      $command->responsibleId,
+      new InterventionRecurrenceSchedule(
+        $rule->frequency->value,
+        $rule->interval,
+        $rule->anchorDate,
+        $timezone,
+        $leadTimeDays,
+        $nextOccurrenceAt,
+        $command->endAt,
+      ),
+    ));
 
     $this->eventDispatcher->dispatch(new InterventionRecurrenceCreatedEvent(
       organizationId: $command->organizationId,

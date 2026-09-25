@@ -144,21 +144,15 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $codeConflict = $this->findFacilityCodeAlreadyExistsException($exception);
-    if ($codeConflict instanceof FacilityCodeAlreadyExistsException) {
-      return new ConflictHttpException($codeConflict->getMessage(), $exception);
-    }
-
     $notFound = $this->findFacilityNotFoundException($exception);
-    if ($notFound instanceof FacilityNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
     $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
 
-    return $exception;
+    return match (true) {
+      $codeConflict instanceof FacilityCodeAlreadyExistsException => new ConflictHttpException($codeConflict->getMessage(), $exception),
+      $notFound instanceof FacilityNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 
   /**

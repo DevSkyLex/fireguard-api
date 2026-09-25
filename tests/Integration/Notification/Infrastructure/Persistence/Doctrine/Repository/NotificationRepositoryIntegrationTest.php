@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Notification\Application\Contract\Inbox\InboxCursor;
 use Notification\Application\Contract\Notification\{NotificationListCriteria, NotificationType};
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -424,13 +424,15 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
       body: $body,
       channels: ['mercure'],
       payload: [],
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      recipientUserId: $userId,
-      recipientEmail: new Email('user@example.com'),
-      isRead: $isRead,
-      readAt: $readAt,
-      organizationId: $organizationId,
+      restoredState: new RestoredNotificationState(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        recipientUserId: $userId,
+        recipientEmail: new Email('user@example.com'),
+        isRead: $isRead,
+        readAt: $readAt,
+        organizationId: $organizationId,
+      ),
     );
   }
 }

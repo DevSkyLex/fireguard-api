@@ -94,17 +94,11 @@ final readonly class DailyWorkload
    */
   public function availability(): string
   {
-    if (0 === $this->capacityMinutes) {
-      return 'unavailable';
-    }
-    if (null === $this->capacityMinutes || $this->hasUnquantifiedWork) {
-      return 'unknown';
-    }
-
-    if (($this->overloadMinutes() ?? 0) > 0) {
-      return 'overloaded';
-    }
-
-    return $this->actualMinutes + $this->remainingMinutes === $this->capacityMinutes ? 'fully_allocated' : 'available';
+    return match (true) {
+      0 === $this->capacityMinutes => 'unavailable',
+      null === $this->capacityMinutes || $this->hasUnquantifiedWork => 'unknown',
+      ($this->overloadMinutes() ?? 0) > 0 => 'overloaded',
+      default => $this->actualMinutes + $this->remainingMinutes === $this->capacityMinutes ? 'fully_allocated' : 'available',
+    };
   }
 }

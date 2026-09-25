@@ -121,24 +121,13 @@ final readonly class CloseInspectionProcessor implements ProcessorInterface
    */
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findInspectionNotFoundException($exception);
-    if ($notFound instanceof InspectionNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-    $closed = $this->findInspectionAlreadyClosedException($exception);
-    if ($closed instanceof InspectionAlreadyClosedException) {
-      return new ConflictHttpException($closed->getMessage(), $exception);
-    }
-    $notSubmitted = $this->findInspectionNotSubmittedException($exception);
-    if ($notSubmitted instanceof InspectionNotSubmittedException) {
-      return new ConflictHttpException($notSubmitted->getMessage(), $exception);
-    }
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findInspectionNotFoundException($exception)) instanceof InspectionNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($closed = $this->findInspectionAlreadyClosedException($exception)) instanceof InspectionAlreadyClosedException => new ConflictHttpException($closed->getMessage(), $exception),
+      ($notSubmitted = $this->findInspectionNotSubmittedException($exception)) instanceof InspectionNotSubmittedException => new ConflictHttpException($notSubmitted->getMessage(), $exception),
+      ($invalidArgument = $this->findInvalidArgumentException($exception)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 
   /**

@@ -6,7 +6,7 @@ namespace Tests\Integration\Import\Infrastructure\Persistence\Doctrine\Repositor
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Import\Domain\Model\ImportJob\ImportJob;
+use Import\Domain\Model\ImportJob\{ImportJob, ImportJobProgress, ImportJobSource, ImportJobTimeline};
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError, ImportStatus};
 use Import\Infrastructure\Persistence\Doctrine\Repository\ImportJobRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -257,24 +257,9 @@ final class ImportJobRepositoryTest extends KernelTestCase
     ?DateTimeImmutable $completedAt = null,
   ): void {
     $job = ImportJob::reconstitute(
-      id: ImportJobId::fromString($id),
-      organizationId: $organizationId,
-      kind: $kind,
-      status: $status,
-      storagePath: 'imports/' . $id . '.csv',
-      originalFilename: $kind->value . '.csv',
-      createdBy: self::ACTOR_ID,
-      createdAt: $createdAt,
-      updatedAt: $createdAt,
-      dryRun: false,
-      totalRows: null,
-      processedRows: 0,
-      successfulRows: 0,
-      failedRows: 0,
-      errorReport: [],
-      jobError: $jobError,
-      startedAt: null,
-      completedAt: $completedAt,
+      source: new ImportJobSource(ImportJobId::fromString($id), $organizationId, $kind, 'imports/' . $id . '.csv', $kind->value . '.csv', self::ACTOR_ID, false),
+      progress: new ImportJobProgress($status, null, 0, 0, 0, [], $jobError),
+      timeline: new ImportJobTimeline($createdAt, $createdAt, null, $completedAt),
     );
 
     $this->repository->save($job);

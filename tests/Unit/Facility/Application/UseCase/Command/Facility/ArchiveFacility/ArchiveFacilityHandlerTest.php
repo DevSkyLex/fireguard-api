@@ -10,7 +10,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityHandler, ArchiveFacilityResult};
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException, FacilityOrganizationNotFoundException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
@@ -18,6 +18,7 @@ use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -190,7 +191,9 @@ final class ArchiveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building C'),
-      code: 'BLDG-C',
+      details: new FacilityDetails(
+        code: 'BLDG-C',
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -203,13 +206,17 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->with(self::callback(static fn (Facility $f): bool => FacilityStatus::ARCHIVED === $f->status()));
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId((string) $organizationId),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655442022',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
-      updatedAt: new DateTimeImmutable('-1 day'),
-      ownerUserId: '550e8400-e29b-41d4-a716-446655442022',
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId((string) $organizationId),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655442022',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: new DateTimeImmutable('-1 day'),
+        ownerUserId: '550e8400-e29b-41d4-a716-446655442022',
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -304,13 +311,17 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->with(self::isInstanceOf(Facility::class));
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId('550e8400-e29b-41d4-a716-446655442024'),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655442025',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
-      updatedAt: new DateTimeImmutable('-1 day'),
-      ownerUserId: '550e8400-e29b-41d4-a716-446655442025',
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId('550e8400-e29b-41d4-a716-446655442024'),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655442025',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: new DateTimeImmutable('-1 day'),
+        ownerUserId: '550e8400-e29b-41d4-a716-446655442025',
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

@@ -6,6 +6,7 @@ namespace Tests\Unit\Onboarding\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{OrganizationOnboardingSession, StepHistoryEntry};
+use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Onboarding\Infrastructure\Persistence\Doctrine\Mapper\OrganizationOnboardingSessionMapper;
@@ -26,26 +27,34 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
     $rollback = new DeleteOrganizationRollbackAction('org-mapper-001');
 
     $session = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-660000000001',
-      userId: '550e8400-e29b-41d4-a716-660000000002',
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: 'org-mapper-001',
-      targetOrganizationName: 'Mapper Org',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [$rollback],
-      stepHistory: [
-        new StepHistoryEntry(
-          stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
-          occurredAt: '2026-02-19T08:00:00+00:00',
-          skipped: false,
-        ),
-      ],
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-660000000001',
+        userId: '550e8400-e29b-41d4-a716-660000000002',
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: 'org-mapper-001',
+        targetOrganizationName: 'Mapper Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [$rollback],
+        stepHistory: [
+          new StepHistoryEntry(
+            stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+            occurredAt: '2026-02-19T08:00:00+00:00',
+            skipped: false,
+          ),
+        ],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+      ),
     );
 
     $record = OrganizationOnboardingSessionMapper::toRecord($session);
@@ -129,23 +138,31 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
   public function testRoundTripDomainToRecordToDomain(): void
   {
     $session = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-660000000020',
-      userId: '550e8400-e29b-41d4-a716-660000000021',
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-      blockedReason: null,
-      targetOrganizationId: 'org-roundtrip-002',
-      targetOrganizationName: 'Round Trip Org',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-      ],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction('org-roundtrip-002')],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T10:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-660000000020',
+        userId: '550e8400-e29b-41d4-a716-660000000021',
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        blockedReason: null,
+        targetOrganizationId: 'org-roundtrip-002',
+        targetOrganizationName: 'Round Trip Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+        ],
+        skippedSteps: [],
+        rollbackStack: [new DeleteOrganizationRollbackAction('org-roundtrip-002')],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T10:00:00+00:00'),
+      ),
     );
 
     $record = OrganizationOnboardingSessionMapper::toRecord($session);

@@ -291,10 +291,12 @@ final class CreateFacilityHandlerTest extends TestCase
       \Facility\Domain\Model\MetadataField\FacilityMetadataField::reconstitute(
         id: \Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString('550e8400-e29b-41d4-a716-4466554419a6'),
         organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-4466554419a4'),
-        key: new \Facility\Domain\ValueObject\FacilityMetadataFieldKey('surface-m2'),
-        label: new \Facility\Domain\ValueObject\FacilityMetadataFieldLabel('Surface (m²)'),
-        fieldType: \Facility\Domain\ValueObject\FacilityMetadataFieldType::NUMBER,
-        required: true,
+        definition: new \Facility\Domain\Model\MetadataField\FacilityMetadataFieldDefinition(
+          new \Facility\Domain\ValueObject\FacilityMetadataFieldKey('surface-m2'),
+          new \Facility\Domain\ValueObject\FacilityMetadataFieldLabel('Surface (m²)'),
+          \Facility\Domain\ValueObject\FacilityMetadataFieldType::NUMBER,
+          true,
+        ),
         createdAt: new DateTimeImmutable(),
         updatedAt: new DateTimeImmutable(),
       ),

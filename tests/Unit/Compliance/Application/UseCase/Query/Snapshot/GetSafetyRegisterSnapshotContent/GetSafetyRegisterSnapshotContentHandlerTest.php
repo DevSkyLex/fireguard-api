@@ -7,7 +7,7 @@ namespace Tests\Unit\Compliance\Application\UseCase\Query\Snapshot\GetSafetyRegi
 use Compliance\Application\Port\Outbound\{ComplianceExportEntitlementPort, SafetyRegisterSnapshotRepositoryPort};
 use Compliance\Application\UseCase\Query\Snapshot\GetSafetyRegisterSnapshotContent\{GetSafetyRegisterSnapshotContentHandler, GetSafetyRegisterSnapshotContentQuery};
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
-use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
+use Compliance\Domain\Model\Snapshot\{SafetyRegisterSnapshot, SafetyRegisterStoredFile};
 use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -144,9 +144,11 @@ final class GetSafetyRegisterSnapshotContentHandlerTest extends TestCase
       facilityId: null,
       generatedAt: '2026-08-28T10:00:00+00:00',
       generatedByUserId: self::USER_ID,
-      contentHash: 'c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646',
-      sizeBytes: 1234,
-      storagePath: 'compliance/registers/' . self::ORGANIZATION_ID . '/' . self::SNAPSHOT_ID . '.pdf',
+      file: new SafetyRegisterStoredFile(
+        contentHash: 'c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646',
+        sizeBytes: 1234,
+        storagePath: 'compliance/registers/' . self::ORGANIZATION_ID . '/' . self::SNAPSHOT_ID . '.pdf',
+      ),
     );
   }
 

@@ -7,7 +7,7 @@ namespace Tests\Unit\Approval\Application\UseCase\Query\Request\ListApprovalRequ
 use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
 use Approval\Application\UseCase\Query\Request\ListApprovalRequests\{ListApprovalRequestsHandler, ListApprovalRequestsQuery};
 use Approval\Domain\Exception\{ApprovalAccessDeniedException, ApprovalRequestNotFoundException};
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -95,17 +95,14 @@ final class ListApprovalRequestsHandlerTest extends TestCase
 
   private function request(): ApprovalRequest
   {
-    return ApprovalRequest::create(
-      id: ApprovalRequestId::fromString(self::REQUEST_ID),
-      organizationId: self::ORG_ID,
-      actionType: 'nc_waiver',
-      subjectId: 'nc-1',
-      requestedByMemberId: 'member-1',
-      requestedByUserId: 'user-1',
-      payload: [],
-      expiresAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      now: new DateTimeImmutable('2026-01-18T00:00:00+00:00'),
-    );
+    return ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::REQUEST_ID),
+      self::ORG_ID,
+      'nc_waiver',
+      'nc-1',
+      new ApprovalRequestSubmission('member-1', 'user-1', []),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-02-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-18T00:00:00+00:00')),
+    ));
   }
 
   private function views(): \Approval\Application\Service\ApprovalRequestViewFactory

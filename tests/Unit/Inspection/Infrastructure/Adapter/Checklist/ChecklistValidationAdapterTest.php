@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Infrastructure\Adapter\Checklist;
 
 use DateTimeImmutable;
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
-use Inspection\Domain\Model\Checklist\Checklist;
+use Inspection\Domain\Model\Checklist\{Checklist, RestoredChecklistRevision};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
 use Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter;
 use InvalidArgumentException;
@@ -88,9 +88,11 @@ final class ChecklistValidationAdapterTest extends TestCase
       id: ChecklistId::fromString(self::CHECKLIST_ID),
       organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
       name: 'Annual Safety Checklist',
-      version: '1.0',
-      status: $status,
-      items: [],
+      revision: new RestoredChecklistRevision(
+        version: '1.0',
+        status: $status,
+        items: [],
+      ),
       createdAt: $now,
       updatedAt: $now,
     );

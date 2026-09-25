@@ -136,12 +136,32 @@ HELP
     $organizationIdStr = trim($organizationRaw);
     $userIdentifier = trim($userRaw);
 
+    return $this->addAdmin($io, $organizationIdStr, $userIdentifier);
+  }
+
+  private function addAdmin(SymfonyStyle $io, string $organizationIdStr, string $userIdentifier): int
+  {
+    $organizationId = $this->resolveOrganizationId($io, $organizationIdStr);
+    if (null === $organizationId) {
+      return Command::FAILURE;
+    }
+
+    $userId = $this->resolveAdminUserId($io, $userIdentifier);
+    if (null === $userId) {
+      return Command::FAILURE;
+    }
+
+    return $this->assignOwnerRole($io, $organizationId, $organizationIdStr, $userId, $userIdentifier);
+  }
+
+  private function resolveOrganizationId(SymfonyStyle $io, string $organizationIdStr): ?OrganizationId
+  {
     try {
       $organizationId = OrganizationId::fromString($organizationIdStr);
     } catch (Throwable $e) {
       $io->error(sprintf('Invalid organization ID: %s', $e->getMessage()));
 
-      return Command::FAILURE;
+      return null;
     }
 
     // Verify the organization exists
@@ -149,18 +169,25 @@ HELP
     if (null === $organization) {
       $io->error(sprintf('Organization "%s" not found.', $organizationIdStr));
 
-      return Command::FAILURE;
+      return null;
     }
 
-    // Resolve user
+    return $organizationId;
+  }
+
+  private function resolveAdminUserId(SymfonyStyle $io, string $userIdentifier): ?string
+  {
     try {
-      $userId = $this->resolveUserId(identifier: $userIdentifier);
+      return $this->resolveUserId(identifier: $userIdentifier);
     } catch (Throwable $e) {
       $io->error(sprintf('Failed to resolve user: %s', $e->getMessage()));
 
-      return Command::FAILURE;
+      return null;
     }
+  }
 
+  private function assignOwnerRole(SymfonyStyle $io, OrganizationId $organizationId, string $organizationIdStr, string $userId, string $userIdentifier): int
+  {
     // Find the owner role for this organization
     $ownerRole = $this->organizationRoleRepository->findByOrganizationAndName(
       organizationId: $organizationId,

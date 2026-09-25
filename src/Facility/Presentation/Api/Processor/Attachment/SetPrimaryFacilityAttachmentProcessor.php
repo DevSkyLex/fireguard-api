@@ -114,26 +114,17 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFloorPlan = $this->findException($exception, FacilityAttachmentNotFloorPlanException::class);
-    if ($notFloorPlan instanceof FacilityAttachmentNotFloorPlanException) {
-      return new ConflictHttpException($notFloorPlan->getMessage(), $exception);
-    }
-
     $notFound = $this->findException($exception, FacilityAttachmentNotFoundException::class);
-    if ($notFound instanceof FacilityAttachmentNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
     $facilityNotFound = $this->findException($exception, FacilityNotFoundException::class);
-    if ($facilityNotFound instanceof FacilityNotFoundException) {
-      return new NotFoundHttpException($facilityNotFound->getMessage(), $exception);
-    }
-
     $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
 
-    return $exception;
+    return match (true) {
+      $notFloorPlan instanceof FacilityAttachmentNotFloorPlanException => new ConflictHttpException($notFloorPlan->getMessage(), $exception),
+      $notFound instanceof FacilityAttachmentNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      $facilityNotFound instanceof FacilityNotFoundException => new NotFoundHttpException($facilityNotFound->getMessage(), $exception),
+      $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 
   /**

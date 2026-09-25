@@ -52,25 +52,18 @@ final readonly class RequestTenantResolver implements TenantResolverPort
   public function resolveTenantId(): ?string
   {
     $request = $this->requestStack->getCurrentRequest();
-    if (null === $request) {
-      return null;
-    }
+    $candidate = $request?->headers->get('X-Tenant-Id')
+      ?? $request?->headers->get('X-Tenant')
+      ?? $request?->attributes->get('tenantId')
+      ?? $request?->attributes->get('tenant_id')
+      ?? $request?->query->get('tenantId')
+      ?? $request?->query->get('tenant_id');
 
-    $candidate = $request->headers->get('X-Tenant-Id')
-      ?? $request->headers->get('X-Tenant')
-      ?? $request->attributes->get('tenantId')
-      ?? $request->attributes->get('tenant_id')
-      ?? $request->query->get('tenantId')
-      ?? $request->query->get('tenant_id');
-
-    if (!is_string($candidate)) {
+    if (!is_string($candidate) || '' === trim($candidate)) {
       return null;
     }
 
     $candidate = trim($candidate);
-    if ('' === $candidate) {
-      return null;
-    }
 
     try {
       TenantId::fromString($candidate);

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField\{UpdateMetadataFieldCommand, UpdateMetadataFieldHandler, UpdateMetadataFieldResult};
 use Facility\Domain\Exception\FacilityMetadataFieldNotFoundException;
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -130,10 +130,7 @@ final class UpdateMetadataFieldHandlerTest extends TestCase
     return FacilityMetadataField::reconstitute(
       id: FacilityMetadataFieldId::fromString(self::FIELD_ID),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('surface-m2'),
-      label: new FacilityMetadataFieldLabel('Surface (m²)'),
-      fieldType: FacilityMetadataFieldType::NUMBER,
-      required: false,
+      definition: new FacilityMetadataFieldDefinition(new FacilityMetadataFieldKey('surface-m2'), new FacilityMetadataFieldLabel('Surface (m²)'), FacilityMetadataFieldType::NUMBER),
       createdAt: new DateTimeImmutable(),
       updatedAt: new DateTimeImmutable(),
     );

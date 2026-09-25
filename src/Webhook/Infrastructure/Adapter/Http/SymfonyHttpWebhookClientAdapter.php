@@ -59,14 +59,16 @@ final readonly class SymfonyHttpWebhookClientAdapter implements WebhookHttpClien
         'max_redirects' => 0,
       ]);
 
-      return new WebhookHttpResponse($response->getStatusCode());
+      $result = new WebhookHttpResponse($response->getStatusCode());
     } catch (WebhookValidationException) {
-      return new WebhookHttpResponse(null, 'The target URL is invalid or disallowed.');
+      $result = new WebhookHttpResponse(null, 'The target URL is invalid or disallowed.');
     } catch (TimeoutExceptionInterface) {
-      return new WebhookHttpResponse(null, 'The delivery timed out.');
+      $result = new WebhookHttpResponse(null, 'The delivery timed out.');
     } catch (TransportExceptionInterface) {
-      return new WebhookHttpResponse(null, 'The destination is unreachable or disallowed.');
+      $result = new WebhookHttpResponse(null, 'The destination is unreachable or disallowed.');
     }
+
+    return $result;
   }
   // #endregion
 }

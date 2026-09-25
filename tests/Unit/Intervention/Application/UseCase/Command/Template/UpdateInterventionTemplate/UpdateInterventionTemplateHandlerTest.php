@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Command\Template\UpdateInterventionTemplate;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Template\InterventionTemplateView;
+use Intervention\Application\Contract\Template\{InterventionTemplateUpdateRequest, InterventionTemplateView};
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Application\UseCase\Command\Template\UpdateInterventionTemplate\{UpdateInterventionTemplateCommand, UpdateInterventionTemplateHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
@@ -80,27 +80,17 @@ final class UpdateInterventionTemplateHandlerTest extends TestCase
     $templates->method('find')->willReturn(self::view());
     $templates->expects(self::once())
       ->method('update')
-      ->with(
-        self::TEMPLATE_ID,
-        'Renamed template',
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-      )
+      ->with(self::callback(static fn (InterventionTemplateUpdateRequest $request): bool => self::TEMPLATE_ID === $request->id
+        && 'Renamed template' === $request->identity->name
+        && $request->identity->hasName
+        && !$request->identity->hasDescription
+        && !$request->identity->hasType
+        && !$request->planning->hasPriority
+        && !$request->planning->hasDuration
+        && !$request->defaults->hasSiteId
+        && !$request->defaults->hasResponsibleId
+        && !$request->collections->hasLabelIds
+        && !$request->collections->hasItems))
       ->willReturn($updated);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
@@ -134,23 +124,12 @@ final class UpdateInterventionTemplateHandlerTest extends TestCase
     $templates->method('find')->willReturn(self::view());
     $templates->expects(self::once())
       ->method('update')
-      ->willReturnCallback(static function (
-        string $id,
-        ?string $name = null,
-        ?string $description = null,
-        ?string $type = null,
-        ?string $priority = null,
-        ?string $defaultSiteId = null,
-        ?string $defaultResponsibleId = null,
-        ?string $duration = null,
-        ?array $labelIds = null,
-        ?array $items = null,
-      ) use ($updated): InterventionTemplateView {
-        self::assertSame(self::TEMPLATE_ID, $id);
-        self::assertNull($name);
-        self::assertSame('inspection_campaign', $type);
-        self::assertSame('high', $priority);
-        self::assertSame('PT2H', $duration);
+      ->willReturnCallback(static function (InterventionTemplateUpdateRequest $request) use ($updated): InterventionTemplateView {
+        self::assertSame(self::TEMPLATE_ID, $request->id);
+        self::assertNull($request->identity->name);
+        self::assertSame('inspection_campaign', $request->identity->type);
+        self::assertSame('high', $request->planning->priority);
+        self::assertSame('PT2H', $request->planning->duration);
         self::assertSame([[
           'action' => 'Check extinguisher',
           'target' => null,
@@ -158,7 +137,7 @@ final class UpdateInterventionTemplateHandlerTest extends TestCase
           'required' => true,
           'defaultAssigneeId' => null,
           'estimatedMinutes' => null,
-        ]], $items);
+        ]], $request->collections->items);
 
         return $updated;
       });

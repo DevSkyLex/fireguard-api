@@ -7,7 +7,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Reposi
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, MessageCreationLinks, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{MessageId, MessageReference};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord;
@@ -211,17 +211,28 @@ final class MessagingMessageRepositoryReferencesTest extends KernelTestCase
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
     $message = Message::reconstitute(
-      id: MessageId::fromString(self::UNKNOWN_MESSAGE_ID),
-      conversationId: self::CONVERSATION_ID,
-      organizationId: self::ORG_ID,
-      authorMemberId: self::AUTHOR_ID,
-      body: 'Never persisted.',
-      mentions: [],
-      editedAt: null,
-      deletedAt: null,
-      deletedByMemberId: null,
-      createdAt: $now,
-      updatedAt: $now,
+      MessageId::fromString(self::UNKNOWN_MESSAGE_ID),
+      self::CONVERSATION_ID,
+      self::ORG_ID,
+      self::AUTHOR_ID,
+      new RestoredMessageContent(
+        'Never persisted.',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
 
     $this->expectException(MessagingNotFoundException::class);
@@ -240,8 +251,7 @@ final class MessagingMessageRepositoryReferencesTest extends KernelTestCase
       self::AUTHOR_ID,
       $body,
       new MentionExtractor(),
-      null,
-      $references,
+      new MessageCreationLinks(references: $references),
     );
   }
 

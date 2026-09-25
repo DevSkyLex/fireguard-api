@@ -11,7 +11,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityProvisioningService;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
 use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
@@ -62,7 +62,9 @@ final class FacilityProvisioningServiceTest extends TestCase
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
       type: FacilityType::SITE,
       name: new FacilityName('Headquarters'),
-      code: 'HQ',
+      details: new FacilityDetails(
+        code: 'HQ',
+      ),
     );
 
     $facilityRepository = $this->createMock(FacilityRepositoryPort::class);

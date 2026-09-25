@@ -7,7 +7,7 @@ namespace Tests\Integration\Inspection\Infrastructure\Persistence\Doctrine\Mappe
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId};
+use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionAttachmentMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
 use LogicException;
@@ -191,13 +191,15 @@ final class InspectionAttachmentMapperTest extends KernelTestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/report.pdf',
-      mimeType: 'application/pdf',
-      size: 4096,
+      file: new RestoredInspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/report.pdf',
+        mimeType: 'application/pdf',
+        size: 4096,
+        label: 'Signed report',
+      ),
       uploadedAt: new DateTimeImmutable(self::UPLOADED_AT),
       nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
-      label: 'Signed report',
     );
 
     $record = InspectionAttachmentMapper::toRecord($attachment);

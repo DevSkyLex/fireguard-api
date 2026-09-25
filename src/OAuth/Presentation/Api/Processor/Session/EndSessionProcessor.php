@@ -225,10 +225,7 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
 
   private function resolveClientIdFromHint(string $idTokenHint): ?string
   {
-    $claims = $this->jwtParser->parse($idTokenHint);
-    if (null === $claims) {
-      return null;
-    }
+    $claims = $this->jwtParser->parse($idTokenHint) ?? [];
 
     $audience = $claims['aud'] ?? null;
     if (is_string($audience) && '' !== $audience) {

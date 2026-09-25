@@ -10,7 +10,8 @@ use Equipment\Application\Port\Outbound\{CanonicalEquipmentRepositoryPort, Facil
 use Equipment\Application\UseCase\Command\Equipment\PatchCanonicalEquipment\{PatchCanonicalEquipmentCommand, PatchCanonicalEquipmentHandler};
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Equipment\Domain\Exception\{CanonicalEquipmentValidationException, EquipmentNotFoundException, EquipmentRevisionMismatchException};
-use Equipment\Domain\Model\Equipment\CanonicalEquipment;
+use Equipment\Domain\Model\Equipment\{CanonicalEquipment, RestoredCanonicalEquipmentLifecycle, RestoredCanonicalEquipmentMetadata};
+use Equipment\Domain\ValueObject\EquipmentCatalogDetails;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentRecordStatus, EquipmentStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -399,19 +400,25 @@ final class PatchCanonicalEquipmentHandlerTest extends TestCase
     return CanonicalEquipment::reconstitute(
       id: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      facilityId: $facilityId,
-      type: 'fire_extinguisher',
-      subType: null,
-      brand: null,
-      model: null,
-      serialNumber: null,
-      locationLabel: null,
-      status: $status,
-      commissionedAt: null,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      metadata: new RestoredCanonicalEquipmentMetadata(
+        facilityId: $facilityId,
+        type: 'fire_extinguisher',
+        details: new EquipmentCatalogDetails(
+          subType: null,
+          brand: null,
+          model: null,
+          serialNumber: null,
+          locationLabel: null,
+        ),
+      ),
+      lifecycle: new RestoredCanonicalEquipmentLifecycle(
+        recordStatus: $recordStatus,
+        interventionId: $interventionId,
+        status: $status,
+        commissionedAt: null,
+        revision: 3,
+        updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      ),
     );
   }
   // #endregion

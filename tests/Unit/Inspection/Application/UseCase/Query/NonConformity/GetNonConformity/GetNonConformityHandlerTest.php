@@ -13,7 +13,7 @@ use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\{
 };
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Inspection\Inspection;
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{
   InspectionEquipmentId,
   InspectionId,
@@ -66,12 +66,14 @@ final class GetNonConformityHandlerTest extends TestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
       description: 'Extinguisher pressure below threshold',
       severity: NonConformitySeverity::HIGH,
-      status: NonConformityStatus::IN_PROGRESS,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::IN_PROGRESS,
+        dueAt: $dueAt,
+        resolvedAt: $resolvedAt,
+        notes: 'Awaiting replacement part.',
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      dueAt: $dueAt,
-      resolvedAt: $resolvedAt,
-      notes: 'Awaiting replacement part.',
     );
 
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);

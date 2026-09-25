@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Recurrence\InterventionRecurrenceView;
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRequest, InterventionRecurrenceView};
 use Intervention\Application\Contract\Template\InterventionTemplateView;
 use Intervention\Application\Port\Outbound\{InterventionRecurrencePort, InterventionTemplatePort};
 use Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence\{CreateInterventionRecurrenceCommand, CreateInterventionRecurrenceHandler};
@@ -17,7 +17,6 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
 
-use function compact;
 use function sprintf;
 
 /**
@@ -136,34 +135,14 @@ final class CreateInterventionRecurrenceHandlerTest extends TestCase
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
     $recurrences->expects(self::once())
       ->method('create')
-      ->willReturnCallback(function (
-        string $organizationId,
-        string $templateId,
-        string $name,
-        ?string $siteId,
-        ?string $responsibleId,
-        string $frequency,
-        int $interval,
-        DateTimeImmutable $anchorDate,
-        string $timezone,
-        int $leadTimeDays,
-        DateTimeImmutable $nextOccurrenceAt,
-        ?DateTimeImmutable $endAt,
-      ) use (&$captured): InterventionRecurrenceView {
-        $captured = compact(
-          'organizationId',
-          'templateId',
-          'name',
-          'siteId',
-          'responsibleId',
-          'frequency',
-          'interval',
-          'anchorDate',
-          'timezone',
-          'leadTimeDays',
-          'nextOccurrenceAt',
-          'endAt',
-        );
+      ->willReturnCallback(function (InterventionRecurrenceCreateRequest $request) use (&$captured): InterventionRecurrenceView {
+        $captured = [
+          'organizationId' => $request->organizationId,
+          'templateId' => $request->templateId,
+          'frequency' => $request->schedule->frequency,
+          'interval' => $request->schedule->interval,
+          'nextOccurrenceAt' => $request->schedule->nextOccurrenceAt,
+        ];
 
         return $this->recurrenceView();
       });

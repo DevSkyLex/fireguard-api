@@ -140,18 +140,22 @@ HELP
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
+    $request = $this->readRequest($input, $io);
 
+    if (null === $request) {
+      return Command::FAILURE;
+    }
+
+    return $this->sendRequest($request, $io);
+  }
+
+  private function readRequest(InputInterface $input, SymfonyStyle $io): ?SendNotificationRequest
+  {
     $type = $this->requiredArgument($input, $io, 'type');
-    if (null === $type) {
-      return Command::FAILURE;
-    }
-    $subject = $this->requiredArgument($input, $io, 'subject');
-    if (null === $subject) {
-      return Command::FAILURE;
-    }
-    $body = $this->requiredArgument($input, $io, 'body');
-    if (null === $body) {
-      return Command::FAILURE;
+    $subject = null === $type ? null : $this->requiredArgument($input, $io, 'subject');
+    $body = null === $subject ? null : $this->requiredArgument($input, $io, 'body');
+    if (null === $type || null === $subject || null === $body) {
+      return null;
     }
     $userId = $this->nullableOption($input, 'user-id');
     $email = $this->nullableOption($input, 'email');
@@ -168,44 +172,43 @@ HELP
     $channelsRaw = $input->getOption('channels');
     $channels = $this->resolveChannels(is_string($channelsRaw) ? $channelsRaw : '');
 
-    if ([] === $channels) {
-      $io->error(sprintf(
+    $error = match (true) {
+      [] === $channels => sprintf(
         'No valid channel provided. Available: %s',
         implode(', ', array_map(
           static fn (NotificationChannel $c): string => $c->value,
           NotificationChannel::cases(),
         )),
-      ));
+      ),
+      in_array(NotificationChannel::EMAIL, $channels, true) && null === $email => 'The email channel requires --email.',
+      in_array(NotificationChannel::MERCURE, $channels, true) && null === $userId => 'The mercure channel requires --user-id.',
+      default => null,
+    };
+    if (null !== $error) {
+      $io->error($error);
 
-      return Command::FAILURE;
+      return null;
     }
 
-    if (in_array(NotificationChannel::EMAIL, $channels, true) && null === $email) {
-      $io->error('The email channel requires --email.');
+    return new SendNotificationRequest(
+      type: $type,
+      subject: $subject,
+      body: $body,
+      channels: $channels,
+      recipientUserId: $userId,
+      recipientEmail: $email,
+      organizationId: $organizationId,
+    );
+  }
 
-      return Command::FAILURE;
-    }
-
-    if (in_array(NotificationChannel::MERCURE, $channels, true) && null === $userId) {
-      $io->error('The mercure channel requires --user-id.');
-
-      return Command::FAILURE;
-    }
-
+  private function sendRequest(SendNotificationRequest $request, SymfonyStyle $io): int
+  {
     try {
-      $sent = $this->notificationPort->send(new SendNotificationRequest(
-        type: $type,
-        subject: $subject,
-        body: $body,
-        channels: $channels,
-        recipientUserId: $userId,
-        recipientEmail: $email,
-        organizationId: $organizationId,
-      ));
+      $sent = $this->notificationPort->send($request);
 
       $io->success(sprintf(
         'Notification "%s" sent (ID: %s).',
-        $type,
+        $request->type,
         $sent->id,
       ));
 

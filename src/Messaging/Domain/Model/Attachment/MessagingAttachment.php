@@ -71,11 +71,7 @@ final class MessagingAttachment
    * @param string $conversationId the owning conversation identifier
    * @param string $organizationId the owning organization identifier
    * @param string $uploadedByMemberId the uploading member's identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
-   * @param ?string $label the optional label
+   * @param MessagingAttachmentFile $file the file metadata
    *
    * @return self the created attachment
    */
@@ -85,11 +81,7 @@ final class MessagingAttachment
     string $conversationId,
     string $organizationId,
     string $uploadedByMemberId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
-    ?string $label = null,
+    MessagingAttachmentFile $file,
   ): self {
     return new self(
       id: $id,
@@ -97,12 +89,12 @@ final class MessagingAttachment
       conversationId: $conversationId,
       organizationId: $organizationId,
       uploadedByMemberId: $uploadedByMemberId,
-      fileName: $fileName,
-      storagePath: $storagePath,
-      mimeType: $mimeType,
-      size: $size,
+      fileName: $file->fileName,
+      storagePath: $file->storagePath,
+      mimeType: $file->mimeType,
+      size: $file->size,
       uploadedAt: new DateTimeImmutable(),
-      label: $label,
+      label: $file->label,
     );
   }
 
@@ -118,12 +110,8 @@ final class MessagingAttachment
    * @param string $conversationId the owning conversation identifier
    * @param string $organizationId the owning organization identifier
    * @param string $uploadedByMemberId the uploading member's identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
+   * @param MessagingAttachmentFile $file the file metadata
    * @param DateTimeImmutable $uploadedAt the upload timestamp
-   * @param ?string $label the optional label
    *
    * @return self the reconstituted attachment
    */
@@ -133,14 +121,10 @@ final class MessagingAttachment
     string $conversationId,
     string $organizationId,
     string $uploadedByMemberId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
+    MessagingAttachmentFile $file,
     DateTimeImmutable $uploadedAt,
-    ?string $label = null,
   ): self {
-    return new self($id, $messageId, $conversationId, $organizationId, $uploadedByMemberId, $fileName, $storagePath, $mimeType, $size, $uploadedAt, $label);
+    return new self($id, $messageId, $conversationId, $organizationId, $uploadedByMemberId, $file->fileName, $file->storagePath, $file->mimeType, $file->size, $uploadedAt, $file->label);
   }
 
   /**

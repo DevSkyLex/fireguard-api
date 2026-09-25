@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
-use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId};
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper\TrustedDeviceMapper;
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRepository;
 
@@ -103,9 +103,7 @@ final class TrustedDeviceRepositoryIntegrationTest extends KernelTestCase
       tokenHash: $expiredToken,
       fingerprint: $fingerprint,
       name: $fingerprint->getDeviceName(),
-      lastUsedAt: new DateTimeImmutable('-2 days'),
-      expiresAt: new DateTimeImmutable('-1 day'),
-      createdAt: new DateTimeImmutable('-3 days'),
+      timeline: new TrustedDeviceTimeline(new DateTimeImmutable('-2 days'), new DateTimeImmutable('-1 day'), new DateTimeImmutable('-3 days')),
       revoked: false,
     );
 

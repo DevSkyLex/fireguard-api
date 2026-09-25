@@ -94,7 +94,7 @@ is currently looking at.
   same governed data. `actorEmailHash`/`ipHash` (irreversible hashes) are
   always present regardless of the PII flag, same as today.
 - **Self-auditing.** Every export dispatches `AuditEventsExportedEvent`,
-  recorded by `AuditEventSubscriber::onAuditEventsExported()` as ledger action
+  recorded by `ExportAuditEventSubscriber::onAuditEventsExported()` as ledger action
   `audit.export_performed` (subject type `audit_export`) — the ledger
   auditing its own export, the same convention every other module's
   significant action follows. Its metadata carries `format`, `row_count`, and
@@ -112,9 +112,11 @@ is currently looking at.
 
 ## Recorded actions
 
-`AuditEventSubscriber` listens to domain events from other modules
+The Audit subscribers listen to domain events from other modules
 (dispatched through `EventDispatcherPort`, event name = `<module>.<snake_case_class>`)
-and appends one ledger entry per action:
+and append one ledger entry per action. Security, organization lifecycle/access,
+resources, intervention, operations, governance and exports have separate subscribers;
+they share actor resolution, request context, PII policy and durable ledger dispatch:
 
 - `auth.*` — `login_success`, `login_failed`, `logout`, `token_issued`
 - `oauth.*` — `token_issued`, `token_issue_failed`, `token_refreshed`,

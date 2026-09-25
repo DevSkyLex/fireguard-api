@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Otp\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Otp\Application\Port\Outbound\Totp\TotpSecretCipherPort;
-use Otp\Domain\Model\Totp\TotpEnrollment;
+use Otp\Domain\Model\Totp\{TotpEnrollment, TotpEnrollmentAttempts, TotpEnrollmentSecrets};
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Persistence\Doctrine\Record\TotpEnrollmentRecord;
 
@@ -94,16 +94,15 @@ final readonly class TotpEnrollmentMapper
 
     return TotpEnrollment::reconstitute(
       userId: $record->getUserId(),
-      activeSecret: null !== $activeSecret ? new TotpSecret($activeSecret) : null,
-      activeConfirmedAt: $record->getActiveConfirmedAt(),
-      pendingSecret: null !== $pendingSecret ? new TotpSecret($pendingSecret) : null,
-      pendingCreatedAt: $record->getPendingCreatedAt(),
-      attempts: $record->getAttempts(),
-      maxAttempts: $record->getMaxAttempts(),
+      secrets: new TotpEnrollmentSecrets(
+        null !== $activeSecret ? new TotpSecret($activeSecret) : null,
+        $record->getActiveConfirmedAt(),
+        null !== $pendingSecret ? new TotpSecret($pendingSecret) : null,
+        $record->getPendingCreatedAt(),
+      ),
+      attemptState: new TotpEnrollmentAttempts($record->getAttempts(), $record->getMaxAttempts(), $record->getDisableAttempts(), $record->getDisableLockedUntil()),
       createdAt: $record->getCreatedAt(),
       updatedAt: $record->getUpdatedAt(),
-      disableAttempts: $record->getDisableAttempts(),
-      disableLockedUntil: $record->getDisableLockedUntil(),
     );
   }
   // #endregion

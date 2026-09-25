@@ -7,6 +7,8 @@ namespace Tests\Integration\Intervention\Infrastructure\Adapter\Template;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Template\{InterventionTemplateAttributes, InterventionTemplateCreateRequest, InterventionTemplateDefaults};
+use Intervention\Application\Contract\Template\{InterventionTemplateCollectionsPatch, InterventionTemplateDefaultsPatch, InterventionTemplateIdentityPatch, InterventionTemplatePlanningPatch, InterventionTemplateUpdateRequest};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -66,21 +68,16 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   #[Test]
   public function testCreateThenFindRoundTripsTheTemplateWithItemsInPositionOrder(): void
   {
-    $created = $this->adapter->create(
+    $created = $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Annual audit',
-      'Yearly fire safety audit',
-      'inspection_campaign',
-      'high',
-      null,
-      null,
-      'P14D',
+      new InterventionTemplateAttributes('Annual audit', 'Yearly fire safety audit', 'inspection_campaign', 'high', 'P14D'),
+      new InterventionTemplateDefaults(null, null),
       ['aa0e8400-e29b-41d4-a716-446655440aaa'],
       [
         ['action' => 'Inspect extinguishers', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
         ['action' => 'Check alarms', 'target' => null, 'resultResource' => null, 'required' => false, 'defaultAssigneeId' => null],
       ],
-    );
+    ));
     $this->entityManager->clear();
 
     self::assertSame(self::ORGANIZATION_ID, $created->organizationId);
@@ -134,41 +131,22 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   #[Test]
   public function testUpdateAppliesOnlyProvidedFields(): void
   {
-    $created = $this->adapter->create(
+    $created = $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Draft template',
-      'Original description',
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes('Draft template', 'Original description', 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
     $this->entityManager->clear();
 
-    $updated = $this->adapter->update(
+    $updated = $this->adapter->update(new InterventionTemplateUpdateRequest(
       $created->id,
-      'Renamed template',
-      null,
-      null,
-      'high',
-      null,
-      null,
-      null,
-      null,
-      null,
-      hasName: true,
-      hasDescription: false,
-      hasType: false,
-      hasPriority: true,
-      hasDefaultSiteId: false,
-      hasDefaultResponsibleId: false,
-      hasDuration: false,
-      hasLabelIds: false,
-      hasItems: false,
-    );
+      new InterventionTemplateIdentityPatch('Renamed template', null, null, true, false, false),
+      new InterventionTemplatePlanningPatch('high', null, true, false),
+      new InterventionTemplateDefaultsPatch(null, null, false, false),
+      new InterventionTemplateCollectionsPatch(null, null, false, false),
+    ));
     $this->entityManager->clear();
 
     self::assertSame('Renamed template', $updated->name);
@@ -186,18 +164,13 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   #[Test]
   public function testDeleteRemovesTheTemplate(): void
   {
-    $created = $this->adapter->create(
+    $created = $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Temporary template',
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes('Temporary template', null, 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
     $this->entityManager->clear();
 
     $this->adapter->delete($created->id);
@@ -209,33 +182,23 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   #[Test]
   public function testCreateRejectsDuplicateNameWithinTheOrganization(): void
   {
-    $this->adapter->create(
+    $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Unique name',
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes('Unique name', null, 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
     $this->entityManager->clear();
 
     $this->expectException(InterventionConflictException::class);
-    $this->adapter->create(
+    $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Unique name',
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes('Unique name', null, 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
   }
 
   #[Test]
@@ -249,18 +212,13 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   {
     $this->expectException(InterventionNotFoundException::class);
 
-    $this->adapter->create(
+    $this->adapter->create(new InterventionTemplateCreateRequest(
       'aa0e8400-e29b-41d4-a716-4466554400ee',
-      'Orphan template',
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes('Orphan template', null, 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
   }
 
   #[Test]
@@ -268,27 +226,13 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   {
     $this->expectException(InterventionNotFoundException::class);
 
-    $this->adapter->update(
+    $this->adapter->update(new InterventionTemplateUpdateRequest(
       'aa0e8400-e29b-41d4-a716-4466554400ff',
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      hasName: false,
-      hasDescription: false,
-      hasType: false,
-      hasPriority: false,
-      hasDefaultSiteId: false,
-      hasDefaultResponsibleId: false,
-      hasDuration: false,
-      hasLabelIds: false,
-      hasItems: false,
-    );
+      new InterventionTemplateIdentityPatch(null, null, null, false, false, false),
+      new InterventionTemplatePlanningPatch(null, null, false, false),
+      new InterventionTemplateDefaultsPatch(null, null, false, false),
+      new InterventionTemplateCollectionsPatch(null, null, false, false),
+    ));
   }
 
   #[Test]
@@ -302,46 +246,27 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   #[Test]
   public function testUpdateAppliesEveryOptionalFieldAndReplacesItems(): void
   {
-    $created = $this->adapter->create(
+    $created = $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Full template',
-      'Original description',
-      'site_setup',
-      'normal',
-      'aa0e8400-e29b-41d4-a716-4466554401aa',
-      'aa0e8400-e29b-41d4-a716-4466554401bb',
-      'P1D',
+      new InterventionTemplateAttributes('Full template', 'Original description', 'site_setup', 'normal', 'P1D'),
+      new InterventionTemplateDefaults('aa0e8400-e29b-41d4-a716-4466554401aa', 'aa0e8400-e29b-41d4-a716-4466554401bb'),
       ['aa0e8400-e29b-41d4-a716-4466554401cc'],
       [
         ['action' => 'Old step', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
       ],
-    );
+    ));
     $this->entityManager->clear();
 
-    $updated = $this->adapter->update(
+    $updated = $this->adapter->update(new InterventionTemplateUpdateRequest(
       $created->id,
-      null,
-      null,
-      'inspection_campaign',
-      null,
-      null,
-      null,
-      'P30D',
-      ['aa0e8400-e29b-41d4-a716-4466554401dd', 'aa0e8400-e29b-41d4-a716-4466554401ee'],
-      [
+      new InterventionTemplateIdentityPatch(null, null, 'inspection_campaign', false, true, true),
+      new InterventionTemplatePlanningPatch(null, 'P30D', false, true),
+      new InterventionTemplateDefaultsPatch(null, null, true, true),
+      new InterventionTemplateCollectionsPatch(['aa0e8400-e29b-41d4-a716-4466554401dd', 'aa0e8400-e29b-41d4-a716-4466554401ee'], [
         ['action' => 'New step B', 'target' => 'equipment', 'resultResource' => 'inspection', 'required' => false, 'defaultAssigneeId' => 'aa0e8400-e29b-41d4-a716-4466554401ff'],
         ['action' => 'New step A', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
-      ],
-      hasName: false,
-      hasDescription: true,
-      hasType: true,
-      hasPriority: false,
-      hasDefaultSiteId: true,
-      hasDefaultResponsibleId: true,
-      hasDuration: true,
-      hasLabelIds: true,
-      hasItems: true,
-    );
+      ], true, true),
+    ));
     $this->entityManager->clear();
 
     // Name and priority were not part of the patch, so they survive untouched.
@@ -373,43 +298,24 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   #[Test]
   public function testUpdateWithNullLabelIdsClearsThemAndDropsAllItems(): void
   {
-    $created = $this->adapter->create(
+    $created = $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Clearable template',
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes('Clearable template', null, 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       ['aa0e8400-e29b-41d4-a716-4466554402aa'],
       [
         ['action' => 'Doomed step', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
       ],
-    );
+    ));
     $this->entityManager->clear();
 
-    $updated = $this->adapter->update(
+    $updated = $this->adapter->update(new InterventionTemplateUpdateRequest(
       $created->id,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      hasName: false,
-      hasDescription: false,
-      hasType: false,
-      hasPriority: false,
-      hasDefaultSiteId: false,
-      hasDefaultResponsibleId: false,
-      hasDuration: false,
-      hasLabelIds: true,
-      hasItems: true,
-    );
+      new InterventionTemplateIdentityPatch(null, null, null, false, false, false),
+      new InterventionTemplatePlanningPatch(null, null, false, false),
+      new InterventionTemplateDefaultsPatch(null, null, false, false),
+      new InterventionTemplateCollectionsPatch(null, null, true, true),
+    ));
 
     self::assertSame([], $updated->labelIds);
     self::assertSame([], $updated->items);
@@ -424,34 +330,24 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
     $this->expectException(Throwable::class);
     $this->expectExceptionMessageMatches('/^(?!A template named).*/');
 
-    $this->adapter->create(
+    $this->adapter->create(new InterventionTemplateCreateRequest(
       self::ORGANIZATION_ID,
-      'Overflowing duration',
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      str_repeat('P1D', 40),
+      new InterventionTemplateAttributes('Overflowing duration', null, 'site_setup', 'normal', str_repeat('P1D', 40)),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
   }
 
   private function createTemplate(string $name, string $organizationId = self::ORGANIZATION_ID): void
   {
-    $this->adapter->create(
+    $this->adapter->create(new InterventionTemplateCreateRequest(
       $organizationId,
-      $name,
-      null,
-      'site_setup',
-      'normal',
-      null,
-      null,
-      null,
+      new InterventionTemplateAttributes($name, null, 'site_setup', 'normal', null),
+      new InterventionTemplateDefaults(null, null),
       [],
       [],
-    );
+    ));
   }
 
   private function createOrganization(string $id, string $slug): void

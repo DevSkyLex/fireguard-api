@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Channel\ChannelView;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Conversation\Conversation;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity, RestoredConversationChannel};
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId, ConversationVisibility, MessagingSubjectType};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord;
 use Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationRepository;
@@ -369,13 +369,15 @@ final class MessagingConversationRepositoryListingTest extends KernelTestCase
       self::ORG_ID,
       MessagingSubjectType::CHANNEL,
       null,
-      ConversationVisibility::PARTICIPANTS,
-      null,
-      0,
-      false,
-      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      new ChannelName('Ghost'),
+      new RestoredConversationActivity(
+        ConversationVisibility::PARTICIPANTS,
+        null,
+        0,
+        false,
+        new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
+      new RestoredConversationChannel(new ChannelName('Ghost')),
     );
 
     $this->expectException(MessagingNotFoundException::class);

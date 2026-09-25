@@ -10,7 +10,7 @@ use Approval\Application\Contract\Reservation\ApprovalReservation;
 use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
 use Approval\Application\Service\ApprovalGate;
 use Approval\Domain\Event\Request\ApprovalRequestedEvent;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -144,17 +144,14 @@ final class ApprovalGateTest extends TestCase
     $memberDirectory->method('resolveMemberId')->willReturn(self::MEMBER_ID);
 
     $existingExpiresAt = new DateTimeImmutable('2026-02-01T00:00:00+00:00');
-    $existing = ApprovalRequest::create(
-      id: ApprovalRequestId::fromString('018f0b68-6758-7a12-8a1d-3f0d97f64b05'),
-      organizationId: self::ORG_ID,
-      actionType: 'nc_waiver',
-      subjectId: 'nc-1',
-      requestedByMemberId: self::MEMBER_ID,
-      requestedByUserId: self::USER_ID,
-      payload: [],
-      expiresAt: $existingExpiresAt,
-      now: new DateTimeImmutable('2026-01-18T00:00:00+00:00'),
-    );
+    $existing = ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString('018f0b68-6758-7a12-8a1d-3f0d97f64b05'),
+      self::ORG_ID,
+      'nc_waiver',
+      'nc-1',
+      new ApprovalRequestSubmission(self::MEMBER_ID, self::USER_ID, []),
+      new ApprovalRequestSchedule($existingExpiresAt, new DateTimeImmutable('2026-01-18T00:00:00+00:00')),
+    ));
 
     $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
     $requests->method('reservePending')->willReturn(new ApprovalReservation((string) $existing->id(), false));

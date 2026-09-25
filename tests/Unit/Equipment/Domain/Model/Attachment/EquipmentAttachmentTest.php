@@ -6,7 +6,7 @@ namespace Tests\Unit\Equipment\Domain\Model\Attachment;
 
 use DateTimeImmutable;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
-use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, RestoredEquipmentAttachmentFile};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -70,12 +70,14 @@ final class EquipmentAttachmentTest extends TestCase
     $attachment = EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString(self::ATTACHMENT_ID),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'report.pdf',
-      storagePath: 'equipment/report.pdf',
-      mimeType: 'application/pdf',
-      size: 4096,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'equipment/report.pdf',
+        mimeType: 'application/pdf',
+        size: 4096,
+        label: null,
+      ),
       uploadedAt: $uploadedAt,
-      label: null,
     );
 
     self::assertSame($uploadedAt, $attachment->uploadedAt());

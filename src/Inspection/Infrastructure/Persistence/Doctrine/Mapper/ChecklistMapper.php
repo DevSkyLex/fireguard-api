@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
+use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem, RestoredChecklistRevision};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord};
 use LogicException;
@@ -37,13 +37,15 @@ final class ChecklistMapper
       id: ChecklistId::fromString($record->id),
       organizationId: ChecklistOrganizationId::fromString($record->organization->id),
       name: $record->name,
-      version: $record->version,
-      status: ChecklistStatus::from($record->status),
-      items: $items,
+      revision: new RestoredChecklistRevision(
+        version: $record->version,
+        status: ChecklistStatus::from($record->status),
+        items: $items,
+        referenceCode: $record->referenceCode,
+        previousChecklistId: null === $record->previousChecklist ? null : ChecklistId::fromString($record->previousChecklist->id),
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      referenceCode: $record->referenceCode,
-      previousChecklistId: null === $record->previousChecklist ? null : ChecklistId::fromString($record->previousChecklist->id),
     );
   }
 

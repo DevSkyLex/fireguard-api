@@ -170,11 +170,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     // member id to match `mentions` against, so this source legitimately
     // contributes nothing rather than fanning out across every organization
     // the user happens to belong to.
-    if (null === $organizationId) {
-      return [];
-    }
-
-    if (!$this->accessPolicy->hasReadPermission($userId, $organizationId)) {
+    if (null === $organizationId || !$this->accessPolicy->hasReadPermission($userId, $organizationId)) {
       return [];
     }
 
@@ -190,11 +186,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
   {
     // Same organization-scoping rationale as fetch(): mention identity is
     // per-organization, so there is nothing to count without one.
-    if (null === $organizationId) {
-      return 0;
-    }
-
-    if (!$this->accessPolicy->hasReadPermission($userId, $organizationId)) {
+    if (null === $organizationId || !$this->accessPolicy->hasReadPermission($userId, $organizationId)) {
       return 0;
     }
 

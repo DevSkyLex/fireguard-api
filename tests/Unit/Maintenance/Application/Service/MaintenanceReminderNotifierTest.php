@@ -175,11 +175,11 @@ final class MaintenanceReminderNotifierTest extends TestCase
   private function policy(bool $inspectionDue = true, bool $inAppEnabled = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
-    $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
-      emailEnabled: $emailEnabled,
-      inAppEnabled: $inAppEnabled,
-      inspectionDue: $inspectionDue,
-    ));
+    $policy->method('notificationPolicy')->willReturn(OrganizationNotificationSettings::fromArray([
+      'email_enabled' => $emailEnabled,
+      'in_app_enabled' => $inAppEnabled,
+      'inspection_due' => $inspectionDue,
+    ]));
 
     return $policy;
   }

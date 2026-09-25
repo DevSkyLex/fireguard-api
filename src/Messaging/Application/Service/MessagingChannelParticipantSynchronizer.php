@@ -24,7 +24,7 @@ use function array_values;
  * - `onTeamMemberAdded()`/`onTeamMemberRemoved()`/`onTeamDeleted()`/
  *   `onOrganizationMemberRemoved()`: incremental, event-driven reconciliation
  *   consumed by {@see \Messaging\Infrastructure\EventSubscriber\SyncTeamChannelParticipantsSubscriber}
- *   (kept thin, delegating here, mirroring `AuditEventSubscriber`).
+ *   (kept thin, delegating here, following the Audit subscriber pattern).
  *
  * A newly added participant's read marker is seeded at the join instant so
  * they are never flooded with pre-join unread messages; an already-present

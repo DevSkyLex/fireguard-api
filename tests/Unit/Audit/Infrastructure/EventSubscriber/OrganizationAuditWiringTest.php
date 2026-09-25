@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, OrganizationAccessAuditEventSubscriber, OrganizationLifecycleAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Organization\Application\Contract\Event\OrganizationSettingsUpdatedEvent;
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
@@ -33,14 +33,16 @@ use function sprintf;
  *
  * End-to-end wiring proof: every Organization domain event,
  * dispatched through the real event-name derivation of
- * SymfonyEventDispatcherAdapter, reaches AuditEventSubscriber
+ * SymfonyEventDispatcherAdapter, reaches the audit subscribers
  * and produces the expected audit action, subject and metadata.
  * A drift between a subscription key and the derived event name
  * would otherwise be a silent no-op.
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: OrganizationLifecycleAuditEventSubscriber::class)]
+#[CoversClass(className: OrganizationAccessAuditEventSubscriber::class)]
 final class OrganizationAuditWiringTest extends TestCase
 {
   // #region Tests
@@ -102,7 +104,7 @@ final class OrganizationAuditWiringTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $subscriber = new AuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -113,7 +115,9 @@ final class OrganizationAuditWiringTest extends TestCase
     );
 
     $symfonyDispatcher = new EventDispatcher();
-    $symfonyDispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $symfonyDispatcher->addSubscriber($subscriber);
+    }
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),

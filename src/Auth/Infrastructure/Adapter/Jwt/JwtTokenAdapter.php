@@ -261,21 +261,22 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       $validator = new \Lcobucci\JWT\Validation\Validator();
 
       // Validate signature
-      if (!$validator->validate($parsedToken, new \Lcobucci\JWT\Validation\Constraint\SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()))) {
-        return null;
-      }
-
       // Validate expiry via constraints or manually
-      if ($parsedToken->isExpired(new DateTimeImmutable())) {
+      if (
+        !$validator->validate($parsedToken, new \Lcobucci\JWT\Validation\Constraint\SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()))
+        || $parsedToken->isExpired(new DateTimeImmutable())
+      ) {
         return null;
       }
 
       // Validate constraints (Issuer, etc) if needed, but signature + expiry is decent for now.
 
-      return $parsedToken->claims()->all();
+      $claims = $parsedToken->claims()->all();
     } catch (Throwable) {
-      return null;
+      $claims = null;
     }
+
+    return $claims;
   }
 
   public function decodeRefreshToken(string $refreshToken): ?array
@@ -284,16 +285,10 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       $decrypted = $this->decrypt($refreshToken);
       $payload = json_decode($decrypted, true);
 
-      if (!is_array($payload)) {
-        return null;
-      }
-
-      if (isset($payload['expires_at']) && $payload['expires_at'] < time()) {
-        return null;
-      }
-
       if (
-        !isset(
+        !is_array($payload)
+        || (isset($payload['expires_at']) && $payload['expires_at'] < time())
+        || !isset(
           $payload['refresh_token_id'],
           $payload['access_token_id'],
           $payload['user_id'],

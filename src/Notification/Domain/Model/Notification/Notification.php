@@ -71,9 +71,7 @@ final class Notification
    * @param string $body the body
    * @param list<string> $channels the channels
    * @param array<string, mixed> $payload the payload
-   * @param string|null $recipientUserId the recipient user identifier
-   * @param Email|null $recipientEmail the recipient email
-   * @param string|null $organizationId the organization this notification belongs to, when any
+   * @param NotificationTarget|null $target the recipient and organization, when any
    *
    * @return self the created notification
    */
@@ -84,9 +82,7 @@ final class Notification
     string $body,
     array $channels,
     array $payload = [],
-    ?string $recipientUserId = null,
-    ?Email $recipientEmail = null,
-    ?string $organizationId = null,
+    ?NotificationTarget $target = null,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -99,11 +95,11 @@ final class Notification
       payload: $payload,
       createdAt: $now,
       updatedAt: $now,
-      recipientUserId: $recipientUserId,
-      recipientEmail: $recipientEmail,
+      recipientUserId: $target?->recipientUserId,
+      recipientEmail: $target?->recipientEmail,
       isRead: false,
       readAt: null,
-      organizationId: $organizationId,
+      organizationId: $target?->organizationId,
     );
   }
 
@@ -120,13 +116,7 @@ final class Notification
    * @param string $body the body
    * @param list<string> $channels the channels
    * @param array<string, mixed> $payload the payload
-   * @param DateTimeImmutable $createdAt the creation datetime
-   * @param DateTimeImmutable $updatedAt the update datetime
-   * @param string|null $recipientUserId the recipient user identifier
-   * @param Email|null $recipientEmail the recipient email
-   * @param bool $isRead whether notification is read
-   * @param DateTimeImmutable|null $readAt the read datetime
-   * @param string|null $organizationId the organization this notification belongs to, when any
+   * @param RestoredNotificationState $restoredState the persisted recipient and lifecycle state
    *
    * @return self the reconstituted notification
    */
@@ -137,13 +127,7 @@ final class Notification
     string $body,
     array $channels,
     array $payload,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?string $recipientUserId = null,
-    ?Email $recipientEmail = null,
-    bool $isRead = false,
-    ?DateTimeImmutable $readAt = null,
-    ?string $organizationId = null,
+    RestoredNotificationState $restoredState,
   ): self {
     return new self(
       id: $id,
@@ -152,13 +136,13 @@ final class Notification
       body: $body,
       channels: $channels,
       payload: $payload,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      recipientUserId: $recipientUserId,
-      recipientEmail: $recipientEmail,
-      isRead: $isRead,
-      readAt: $readAt,
-      organizationId: $organizationId,
+      createdAt: $restoredState->createdAt,
+      updatedAt: $restoredState->updatedAt,
+      recipientUserId: $restoredState->recipientUserId,
+      recipientEmail: $restoredState->recipientEmail,
+      isRead: $restoredState->isRead,
+      readAt: $restoredState->readAt,
+      organizationId: $restoredState->organizationId,
     );
   }
 

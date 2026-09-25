@@ -105,10 +105,7 @@ trait InspectionExceptionUnwrapperTrait
     }
 
     $previous = $exception->getPrevious();
-    if (null !== $previous) {
-      return $this->findException($previous, $class);
-    }
 
-    return null;
+    return null !== $previous ? $this->findException($previous, $class) : null;
   }
 }

@@ -85,6 +85,8 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
     }
 
     // Verify the OTP code
+    $verificationFailure = null;
+
     try {
       $verified = $otp->verify($command->code);
 
@@ -92,25 +94,33 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
       $this->otpRepository->save($otp);
 
       if (!$verified) {
-        return ConfirmPasswordChangeResult::failed(
+        $verificationFailure = ConfirmPasswordChangeResult::failed(
           message: 'Invalid verification code. Please check and try again.',
           errorCode: ConfirmPasswordChangeResult::ERROR_INVALID_CODE,
           attemptsRemaining: $otp->attemptsRemaining(),
         );
       }
     } catch (OtpExpiredException) {
-      return ConfirmPasswordChangeResult::failed(
+      $verificationFailure = ConfirmPasswordChangeResult::failed(
         message: 'The verification code has expired. Please request a new one.',
         errorCode: ConfirmPasswordChangeResult::ERROR_EXPIRED,
       );
     } catch (OtpMaxAttemptsException) {
-      return ConfirmPasswordChangeResult::failed(
+      $verificationFailure = ConfirmPasswordChangeResult::failed(
         message: 'Maximum verification attempts exceeded. Please request a new code.',
         errorCode: ConfirmPasswordChangeResult::ERROR_MAX_ATTEMPTS,
       );
     }
 
-    $userId = new UserId($command->userId);
+    if (null !== $verificationFailure) {
+      return $verificationFailure;
+    }
+
+    return $this->changePassword(new UserId($command->userId), $command->newPassword);
+  }
+
+  private function changePassword(UserId $userId, string $newPassword): ConfirmPasswordChangeResult
+  {
     $user = $this->userRepository->findById($userId);
 
     if (null === $user) {
@@ -121,7 +131,7 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
     }
 
     // Change the password
-    $user->changePassword(HashedPassword::fromPlain($command->newPassword));
+    $user->changePassword(HashedPassword::fromPlain($newPassword));
     $this->userRepository->save($user);
 
     // Revoke all active sessions and OAuth tokens for security:

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Reaction\MessageReactionView;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -329,10 +329,12 @@ final class MessageOutputFactoryTest extends TestCase
       conversationId: 'conversation-1',
       organizationId: 'org-1',
       uploadedByMemberId: 'author-1',
-      fileName: 'report.pdf',
-      storagePath: 'messaging/conversation-1/report.pdf',
-      mimeType: 'application/pdf',
-      size: 1024,
+      file: new MessagingAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'messaging/conversation-1/report.pdf',
+        mimeType: 'application/pdf',
+        size: 1024,
+      ),
     );
   }
 

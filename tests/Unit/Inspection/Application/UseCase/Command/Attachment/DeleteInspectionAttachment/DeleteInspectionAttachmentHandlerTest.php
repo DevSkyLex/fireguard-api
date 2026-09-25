@@ -16,7 +16,8 @@ use Inspection\Domain\ValueObject\{
   InspectionId,
   InspectionOrganizationId,
   InspectionResult,
-  Inspector
+  Inspector,
+  RestoredInspectionAttachmentFile
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -162,10 +163,12 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     return InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString($inspectionId),
-      fileName: 'report.pdf',
-      storagePath: 'inspection/' . $inspectionId . '/attachments/' . self::ATTACHMENT_ID . '_report.pdf',
-      mimeType: 'application/pdf',
-      size: 10,
+      file: new RestoredInspectionAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'inspection/' . $inspectionId . '/attachments/' . self::ATTACHMENT_ID . '_report.pdf',
+        mimeType: 'application/pdf',
+        size: 10,
+      ),
       uploadedAt: new DateTimeImmutable(),
     );
   }

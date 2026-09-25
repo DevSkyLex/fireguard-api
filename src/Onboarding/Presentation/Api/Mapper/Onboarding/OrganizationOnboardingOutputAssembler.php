@@ -187,15 +187,9 @@ final class OrganizationOnboardingOutputAssembler
     OrganizationOnboardingSessionState $state,
     bool $isCreateCompleted,
   ): bool {
-    if (in_array($step->key, $state->completedSteps, true)) {
-      $step->status = 'completed';
-      $step->required = false;
-      $step->available = true;
-
-      return true;
-    }
-    if (in_array($step->key, $state->skippedSteps, true)) {
-      $step->status = 'skipped';
+    $isCompleted = in_array($step->key, $state->completedSteps, true);
+    if ($isCompleted || in_array($step->key, $state->skippedSteps, true)) {
+      $step->status = $isCompleted ? 'completed' : 'skipped';
       $step->required = false;
       $step->available = true;
 
@@ -217,14 +211,12 @@ final class OrganizationOnboardingOutputAssembler
       $step->status = 'pending';
       $step->required = $required;
       $step->available = true;
-
-      return false;
+    } else {
+      $step->status = 'blocked';
+      $step->required = $required;
+      $step->available = false;
+      $step->reason = 'previous_step_required';
     }
-
-    $step->status = 'blocked';
-    $step->required = $required;
-    $step->available = false;
-    $step->reason = 'previous_step_required';
 
     return false;
   }

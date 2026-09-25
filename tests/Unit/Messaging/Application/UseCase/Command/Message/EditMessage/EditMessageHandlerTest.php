@@ -11,8 +11,8 @@ use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, Me
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\EditMessage\{EditMessageCommand, EditMessageHandler};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\Model\Conversation\Conversation;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity};
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessageId, MessagingSubjectType};
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -416,12 +416,14 @@ final class EditMessageHandlerTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       $subjectId,
-      $visibility,
-      null,
-      1,
-      false,
-      $now,
-      $now,
+      new RestoredConversationActivity(
+        $visibility,
+        null,
+        1,
+        false,
+        $now,
+        $now,
+      ),
     );
   }
 
@@ -434,13 +436,24 @@ final class EditMessageHandlerTest extends TestCase
       self::CONVERSATION_ID,
       self::ORG_ID,
       self::AUTHOR_MEMBER_ID,
-      'Original body',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Original body',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
   }
 

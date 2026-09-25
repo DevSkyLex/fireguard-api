@@ -102,11 +102,7 @@ final class EquipmentMaintenanceLog
    * @param EquipmentId $equipmentId the equipment identifier
    * @param EquipmentOrganizationId $organizationId the organization identifier
    * @param DateTimeImmutable $occurredAt when the intervention published (the service instant)
-   * @param string $interventionId the source intervention identifier
-   * @param int $interventionNumber the source intervention's human-readable number
-   * @param string $workItemAction the derived or linked work item action label
-   * @param ?string $actorId the acting user identifier, when known
-   * @param ?string $summary a free-form summary of the service performed
+   * @param InterventionMaintenanceDetails $intervention the source intervention details
    *
    * @return self the completed intervention service entry
    */
@@ -115,11 +111,7 @@ final class EquipmentMaintenanceLog
     EquipmentId $equipmentId,
     EquipmentOrganizationId $organizationId,
     DateTimeImmutable $occurredAt,
-    string $interventionId,
-    int $interventionNumber,
-    string $workItemAction,
-    ?string $actorId,
-    ?string $summary = null,
+    InterventionMaintenanceDetails $intervention,
   ): self {
     return new self(
       id: $id,
@@ -128,11 +120,11 @@ final class EquipmentMaintenanceLog
       startedAt: $occurredAt,
       completedAt: $occurredAt,
       source: MaintenanceLogSource::INTERVENTION,
-      interventionId: $interventionId,
-      interventionNumber: $interventionNumber,
-      workItemAction: $workItemAction,
-      actorId: $actorId,
-      summary: $summary,
+      interventionId: $intervention->interventionId,
+      interventionNumber: $intervention->interventionNumber,
+      workItemAction: $intervention->workItemAction,
+      actorId: $intervention->actorId,
+      summary: $intervention->summary,
     );
   }
 
@@ -148,12 +140,7 @@ final class EquipmentMaintenanceLog
    * @param EquipmentOrganizationId $organizationId the organization identifier
    * @param DateTimeImmutable $startedAt when maintenance began
    * @param ?DateTimeImmutable $completedAt when maintenance ended
-   * @param MaintenanceLogSource $source what produced this entry
-   * @param ?string $interventionId the source intervention identifier, when set
-   * @param ?int $interventionNumber the source intervention's human-readable number, when set
-   * @param ?string $workItemAction the linked work item action, when set
-   * @param ?string $actorId the acting user identifier, when set
-   * @param ?string $summary a free-form summary of the service performed, when set
+   * @param ?RestoredMaintenanceLogDetails $details the persisted source details
    *
    * @return self the reconstituted log entry
    */
@@ -163,25 +150,22 @@ final class EquipmentMaintenanceLog
     EquipmentOrganizationId $organizationId,
     DateTimeImmutable $startedAt,
     ?DateTimeImmutable $completedAt,
-    MaintenanceLogSource $source = MaintenanceLogSource::STATUS_TRANSITION,
-    ?string $interventionId = null,
-    ?int $interventionNumber = null,
-    ?string $workItemAction = null,
-    ?string $actorId = null,
-    ?string $summary = null,
+    ?RestoredMaintenanceLogDetails $details = null,
   ): self {
+    $details ??= new RestoredMaintenanceLogDetails();
+
     return new self(
       id: $id,
       equipmentId: $equipmentId,
       organizationId: $organizationId,
       startedAt: $startedAt,
       completedAt: $completedAt,
-      source: $source,
-      interventionId: $interventionId,
-      interventionNumber: $interventionNumber,
-      workItemAction: $workItemAction,
-      actorId: $actorId,
-      summary: $summary,
+      source: $details->source,
+      interventionId: $details->interventionId,
+      interventionNumber: $details->interventionNumber,
+      workItemAction: $details->workItemAction,
+      actorId: $details->actorId,
+      summary: $details->summary,
     );
   }
 

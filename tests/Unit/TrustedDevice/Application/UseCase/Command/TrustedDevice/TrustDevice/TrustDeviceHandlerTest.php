@@ -12,7 +12,7 @@ use Shared\Application\Factory\UuidFactory;
 use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice\{TrustDeviceCommand, TrustDeviceHandler, TrustDeviceResult};
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
-use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId};
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};
 
 /**
  * Test TrustDeviceHandlerTest.
@@ -171,9 +171,7 @@ final class TrustDeviceHandlerTest extends TestCase
       tokenHash: DeviceToken::generate()->hash,
       fingerprint: $fingerprint,
       name: 'Expired Device',
-      lastUsedAt: new DateTimeImmutable('-2 days'),
-      expiresAt: new DateTimeImmutable('-1 day'),
-      createdAt: new DateTimeImmutable('-10 days'),
+      timeline: new TrustedDeviceTimeline(new DateTimeImmutable('-2 days'), new DateTimeImmutable('-1 day'), new DateTimeImmutable('-10 days')),
       revoked: false,
     );
 

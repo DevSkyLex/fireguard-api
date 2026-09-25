@@ -73,10 +73,7 @@ final class FacilityAttachment
    * @param string $storagePath the storage path
    * @param string $mimeType the MIME type
    * @param int $size the file size in bytes
-   * @param ?string $label the optional label
-   * @param AttachmentKind $kind the attachment kind
-   * @param ?int $imageWidth the probed image width in pixels, floor plans only
-   * @param ?int $imageHeight the probed image height in pixels, floor plans only
+   * @param ?FacilityAttachmentCreationOptions $options the optional attachment details
    *
    * @return self the created attachment
    */
@@ -87,11 +84,10 @@ final class FacilityAttachment
     string $storagePath,
     string $mimeType,
     int $size,
-    ?string $label = null,
-    AttachmentKind $kind = AttachmentKind::DOCUMENT,
-    ?int $imageWidth = null,
-    ?int $imageHeight = null,
+    ?FacilityAttachmentCreationOptions $options = null,
   ): self {
+    $options ??= new FacilityAttachmentCreationOptions();
+
     return new self(
       id: $id,
       facilityId: $facilityId,
@@ -100,11 +96,11 @@ final class FacilityAttachment
       mimeType: $mimeType,
       size: $size,
       uploadedAt: new DateTimeImmutable(),
-      label: $label,
-      kind: $kind,
+      label: $options->label,
+      kind: $options->kind,
       isPrimaryPlan: false,
-      imageWidth: $imageWidth,
-      imageHeight: $imageHeight,
+      imageWidth: $options->imageWidth,
+      imageHeight: $options->imageHeight,
     );
   }
 
@@ -121,12 +117,7 @@ final class FacilityAttachment
    * @param string $storagePath the storage path
    * @param string $mimeType the MIME type
    * @param int $size the file size in bytes
-   * @param DateTimeImmutable $uploadedAt the upload timestamp
-   * @param ?string $label the optional label
-   * @param AttachmentKind $kind the attachment kind
-   * @param bool $isPrimaryPlan whether this is the facility's primary floor plan
-   * @param ?int $imageWidth the probed image width in pixels, floor plans only
-   * @param ?int $imageHeight the probed image height in pixels, floor plans only
+   * @param FacilityAttachmentRestoredState $state the persisted attachment details
    *
    * @return self the reconstituted attachment
    */
@@ -137,13 +128,10 @@ final class FacilityAttachment
     string $storagePath,
     string $mimeType,
     int $size,
-    DateTimeImmutable $uploadedAt,
-    ?string $label = null,
-    AttachmentKind $kind = AttachmentKind::DOCUMENT,
-    bool $isPrimaryPlan = false,
-    ?int $imageWidth = null,
-    ?int $imageHeight = null,
+    FacilityAttachmentRestoredState $state,
   ): self {
+    $options = $state->options ?? new FacilityAttachmentCreationOptions();
+
     return new self(
       id: $id,
       facilityId: $facilityId,
@@ -151,12 +139,12 @@ final class FacilityAttachment
       storagePath: $storagePath,
       mimeType: $mimeType,
       size: $size,
-      uploadedAt: $uploadedAt,
-      label: $label,
-      kind: $kind,
-      isPrimaryPlan: $isPrimaryPlan,
-      imageWidth: $imageWidth,
-      imageHeight: $imageHeight,
+      uploadedAt: $state->uploadedAt,
+      label: $options->label,
+      kind: $options->kind,
+      isPrimaryPlan: $state->isPrimaryPlan,
+      imageWidth: $options->imageWidth,
+      imageHeight: $options->imageHeight,
     );
   }
 

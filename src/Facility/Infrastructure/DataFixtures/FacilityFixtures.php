@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\DataFixtures;
 
-use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
@@ -275,17 +274,21 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
 
     foreach (self::REGIONAL_SITE_SEEDS as $seed) {
       $regionalSite = $this->createFacility(
-        id: $seed['id'],
         organization: $organization,
-        parentFacility: null,
-        type: FacilityType::SITE->value,
-        name: $seed['name'],
-        code: $seed['code'],
-        createdAt: SeedTimeline::at($seed['createdAt']),
-        address: $seed['address'],
-        metadata: ['city' => $seed['city'], 'country' => 'FR'],
-        latitude: $seed['latitude'],
-        longitude: $seed['longitude'],
+        seed: new FacilitySeed(
+          id: $seed['id'],
+          parentFacility: null,
+          type: FacilityType::SITE->value,
+          name: $seed['name'],
+          code: $seed['code'],
+          createdAt: SeedTimeline::at($seed['createdAt']),
+        ),
+        options: new FacilitySeedOptions(
+          address: $seed['address'],
+          metadata: ['city' => $seed['city'], 'country' => 'FR'],
+          latitude: $seed['latitude'],
+          longitude: $seed['longitude'],
+        ),
       );
       $this->addReference($seed['reference'], $regionalSite);
       $manager->persist($regionalSite);
@@ -297,17 +300,21 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       $parent = $facilitiesByReference[$seed['parentReference']];
 
       $child = $this->createFacility(
-        id: $seed['id'],
         organization: $organization,
-        parentFacility: $parent,
-        type: $seed['type'],
-        name: $seed['name'],
-        code: $seed['code'],
-        createdAt: SeedTimeline::at($seed['createdAt']),
-        address: $parent->address,
-        metadata: ['city' => $parent->metadata['city'] ?? null, 'country' => 'FR'],
-        latitude: null === $parent->latitude ? null : $parent->latitude + 0.0006,
-        longitude: null === $parent->longitude ? null : $parent->longitude + 0.0006,
+        seed: new FacilitySeed(
+          id: $seed['id'],
+          parentFacility: $parent,
+          type: $seed['type'],
+          name: $seed['name'],
+          code: $seed['code'],
+          createdAt: SeedTimeline::at($seed['createdAt']),
+        ),
+        options: new FacilitySeedOptions(
+          address: $parent->address,
+          metadata: ['city' => $parent->metadata['city'] ?? null, 'country' => 'FR'],
+          latitude: null === $parent->latitude ? null : $parent->latitude + 0.0006,
+          longitude: null === $parent->longitude ? null : $parent->longitude + 0.0006,
+        ),
       );
       $this->addReference($seed['reference'], $child);
       $manager->persist($child);
@@ -318,18 +325,22 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     // status filter and the "hidden by default" listing behaviour have
     // something to act on.
     $archivedAnnex = $this->createFacility(
-      id: '68402941-5767-4d8b-a373-fe15467a5649',
       organization: $organization,
-      parentFacility: $facilitiesByReference[self::SITE_REFERENCE],
-      type: FacilityType::BUILDING->value,
-      name: 'Old Annex',
-      code: 'BLD-ANNEX',
-      createdAt: SeedTimeline::at('2026-03-08T08:00:00+00:00'),
-      address: '14 Rue des Pompiers, 75011 Paris',
-      metadata: ['city' => 'Paris', 'usage' => 'storage', 'decommissionedReason' => 'demolished'],
-      latitude: 48.8568,
-      longitude: 2.3519,
-      status: FacilityStatus::ARCHIVED->value,
+      seed: new FacilitySeed(
+        id: '68402941-5767-4d8b-a373-fe15467a5649',
+        parentFacility: $facilitiesByReference[self::SITE_REFERENCE],
+        type: FacilityType::BUILDING->value,
+        name: 'Old Annex',
+        code: 'BLD-ANNEX',
+        createdAt: SeedTimeline::at('2026-03-08T08:00:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: '14 Rue des Pompiers, 75011 Paris',
+        metadata: ['city' => 'Paris', 'usage' => 'storage', 'decommissionedReason' => 'demolished'],
+        latitude: 48.8568,
+        longitude: 2.3519,
+        status: FacilityStatus::ARCHIVED->value,
+      ),
     );
     $this->addReference(self::ARCHIVED_ANNEX_REFERENCE, $archivedAnnex);
     $manager->persist($archivedAnnex);
@@ -383,69 +394,85 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   private function seedParisRoots(ObjectManager $manager, OrganizationRecord $organization): array
   {
     $site = $this->createFacility(
-      id: self::SITE_ID,
       organization: $organization,
-      parentFacility: null,
-      type: FacilityType::SITE->value,
-      name: 'Paris Headquarters',
-      code: 'SITE-PAR',
-      createdAt: SeedTimeline::at(self::SITE_CREATED_AT),
-      address: '12 Rue des Pompiers, Paris',
-      metadata: ['city' => 'Paris', 'country' => 'FR'],
-      latitude: 48.8566,
-      longitude: 2.3522,
+      seed: new FacilitySeed(
+        id: self::SITE_ID,
+        parentFacility: null,
+        type: FacilityType::SITE->value,
+        name: 'Paris Headquarters',
+        code: 'SITE-PAR',
+        createdAt: SeedTimeline::at(self::SITE_CREATED_AT),
+      ),
+      options: new FacilitySeedOptions(
+        address: '12 Rue des Pompiers, Paris',
+        metadata: ['city' => 'Paris', 'country' => 'FR'],
+        latitude: 48.8566,
+        longitude: 2.3522,
+      ),
     );
     $this->addReference(self::SITE_REFERENCE, $site);
     $manager->persist($site);
 
     $building = $this->createFacility(
-      id: '22222222-2222-4222-8222-222222222222',
       organization: $organization,
-      parentFacility: $site,
-      type: FacilityType::BUILDING->value,
-      name: 'Main Building',
-      code: 'BLD-MAIN',
-      createdAt: SeedTimeline::at('2026-03-08T08:05:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['usage' => 'office', 'city' => 'Paris'],
-      latitude: 48.8570,
-      longitude: 2.3527,
+      seed: new FacilitySeed(
+        id: '22222222-2222-4222-8222-222222222222',
+        parentFacility: $site,
+        type: FacilityType::BUILDING->value,
+        name: 'Main Building',
+        code: 'BLD-MAIN',
+        createdAt: SeedTimeline::at('2026-03-08T08:05:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['usage' => 'office', 'city' => 'Paris'],
+        latitude: 48.8570,
+        longitude: 2.3527,
+      ),
     );
     $this->addReference(self::BUILDING_REFERENCE, $building);
     $manager->persist($building);
 
     $floorOne = $this->createFacility(
-      id: '22222222-2222-4222-8222-222222222223',
       organization: $organization,
-      parentFacility: $building,
-      type: FacilityType::FLOOR->value,
-      name: 'Floor 1',
-      code: 'FL-01',
-      createdAt: SeedTimeline::at('2026-03-12T08:10:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['level' => '1', 'city' => 'Paris'],
-      latitude: 48.8572,
-      longitude: 2.3531,
-      levelIndex: 0,
-      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.05, 0.08], [0.95, 0.08], [0.95, 0.92], [0.05, 0.92]]],
+      seed: new FacilitySeed(
+        id: '22222222-2222-4222-8222-222222222223',
+        parentFacility: $building,
+        type: FacilityType::FLOOR->value,
+        name: 'Floor 1',
+        code: 'FL-01',
+        createdAt: SeedTimeline::at('2026-03-12T08:10:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['level' => '1', 'city' => 'Paris'],
+        latitude: 48.8572,
+        longitude: 2.3531,
+        levelIndex: 0,
+        planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.05, 0.08], [0.95, 0.08], [0.95, 0.92], [0.05, 0.92]]],
+      ),
     );
     $this->addReference(self::FLOOR_ONE_REFERENCE, $floorOne);
     $manager->persist($floorOne);
 
     $floorTwo = $this->createFacility(
-      id: '99ea3fc6-1ee9-4e77-a59a-a2b20f1e295c',
       organization: $organization,
-      parentFacility: $building,
-      type: FacilityType::FLOOR->value,
-      name: 'Floor 2',
-      code: 'FL-02',
-      createdAt: SeedTimeline::at('2026-03-16T08:11:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['level' => '2', 'city' => 'Paris'],
-      latitude: 48.8574,
-      longitude: 2.3535,
-      levelIndex: 1,
-      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.08, 0.10], [0.92, 0.10], [0.92, 0.90], [0.08, 0.90]]],
+      seed: new FacilitySeed(
+        id: '99ea3fc6-1ee9-4e77-a59a-a2b20f1e295c',
+        parentFacility: $building,
+        type: FacilityType::FLOOR->value,
+        name: 'Floor 2',
+        code: 'FL-02',
+        createdAt: SeedTimeline::at('2026-03-16T08:11:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['level' => '2', 'city' => 'Paris'],
+        latitude: 48.8574,
+        longitude: 2.3535,
+        levelIndex: 1,
+        planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.08, 0.10], [0.92, 0.10], [0.92, 0.90], [0.08, 0.90]]],
+      ),
     );
     $this->addReference(self::FLOOR_TWO_REFERENCE, $floorTwo);
     $manager->persist($floorTwo);
@@ -464,69 +491,85 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
   private function seedParisRooms(ObjectManager $manager, OrganizationRecord $organization, FacilityRecord $floorOne, FacilityRecord $floorTwo): array
   {
     $zone = $this->createFacility(
-      id: '824f43e2-ffd0-4b23-a8e0-9a55152aef65',
       organization: $organization,
-      parentFacility: $floorOne,
-      type: FacilityType::ZONE->value,
-      name: 'Zone A',
-      code: 'ZN-A',
-      createdAt: SeedTimeline::at('2026-03-22T08:15:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['sector' => 'north', 'city' => 'Paris'],
-      latitude: 48.8576,
-      longitude: 2.3539,
-      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.10, 0.14], [0.46, 0.14], [0.46, 0.55], [0.10, 0.55]]],
+      seed: new FacilitySeed(
+        id: '824f43e2-ffd0-4b23-a8e0-9a55152aef65',
+        parentFacility: $floorOne,
+        type: FacilityType::ZONE->value,
+        name: 'Zone A',
+        code: 'ZN-A',
+        createdAt: SeedTimeline::at('2026-03-22T08:15:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['sector' => 'north', 'city' => 'Paris'],
+        latitude: 48.8576,
+        longitude: 2.3539,
+        planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.10, 0.14], [0.46, 0.14], [0.46, 0.55], [0.10, 0.55]]],
+      ),
     );
     $this->addReference(self::ZONE_REFERENCE, $zone);
     $manager->persist($zone);
 
     $area = $this->createFacility(
-      id: 'ea8f2946-d377-4ffb-90a5-c15f859cb388',
       organization: $organization,
-      parentFacility: $zone,
-      type: FacilityType::AREA->value,
-      name: 'Server Room',
-      code: 'AR-SRV',
-      createdAt: SeedTimeline::at('2026-03-29T08:20:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['restricted' => true, 'city' => 'Paris'],
-      latitude: 48.8578,
-      longitude: 2.3543,
-      planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.14, 0.20], [0.40, 0.20], [0.40, 0.48], [0.14, 0.48]]],
+      seed: new FacilitySeed(
+        id: 'ea8f2946-d377-4ffb-90a5-c15f859cb388',
+        parentFacility: $zone,
+        type: FacilityType::AREA->value,
+        name: 'Server Room',
+        code: 'AR-SRV',
+        createdAt: SeedTimeline::at('2026-03-29T08:20:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['restricted' => true, 'city' => 'Paris'],
+        latitude: 48.8578,
+        longitude: 2.3543,
+        planGeometry: ['attachmentId' => self::FLOOR_ONE_PLAN_ID, 'points' => [[0.14, 0.20], [0.40, 0.20], [0.40, 0.48], [0.14, 0.48]]],
+      ),
     );
     $this->addReference(self::AREA_REFERENCE, $area);
     $manager->persist($area);
 
     $zoneB = $this->createFacility(
-      id: '3648ba52-4ef4-45c5-8613-caa7db756bb4',
       organization: $organization,
-      parentFacility: $floorTwo,
-      type: FacilityType::ZONE->value,
-      name: 'Zone B',
-      code: 'ZN-B',
-      createdAt: SeedTimeline::at('2026-03-30T08:00:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['sector' => 'south', 'city' => 'Paris'],
-      latitude: 48.8580,
-      longitude: 2.3547,
-      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.52, 0.16], [0.88, 0.16], [0.88, 0.60], [0.52, 0.60]]],
+      seed: new FacilitySeed(
+        id: '3648ba52-4ef4-45c5-8613-caa7db756bb4',
+        parentFacility: $floorTwo,
+        type: FacilityType::ZONE->value,
+        name: 'Zone B',
+        code: 'ZN-B',
+        createdAt: SeedTimeline::at('2026-03-30T08:00:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['sector' => 'south', 'city' => 'Paris'],
+        latitude: 48.8580,
+        longitude: 2.3547,
+        planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.52, 0.16], [0.88, 0.16], [0.88, 0.60], [0.52, 0.60]]],
+      ),
     );
     $this->addReference(self::ZONE_B_REFERENCE, $zoneB);
     $manager->persist($zoneB);
 
     $storageRoom = $this->createFacility(
-      id: '0c99caad-984e-4589-9131-f11c27ca39d3',
       organization: $organization,
-      parentFacility: $zoneB,
-      type: FacilityType::AREA->value,
-      name: 'Storage Room',
-      code: 'AR-STR',
-      createdAt: SeedTimeline::at('2026-03-30T08:05:00+00:00'),
-      address: self::PARIS_BUILDING_ADDRESS,
-      metadata: ['restricted' => false, 'city' => 'Paris'],
-      latitude: 48.8582,
-      longitude: 2.3551,
-      planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.56, 0.22], [0.82, 0.22], [0.82, 0.54], [0.56, 0.54]]],
+      seed: new FacilitySeed(
+        id: '0c99caad-984e-4589-9131-f11c27ca39d3',
+        parentFacility: $zoneB,
+        type: FacilityType::AREA->value,
+        name: 'Storage Room',
+        code: 'AR-STR',
+        createdAt: SeedTimeline::at('2026-03-30T08:05:00+00:00'),
+      ),
+      options: new FacilitySeedOptions(
+        address: self::PARIS_BUILDING_ADDRESS,
+        metadata: ['restricted' => false, 'city' => 'Paris'],
+        latitude: 48.8582,
+        longitude: 2.3551,
+        planGeometry: ['attachmentId' => self::FLOOR_TWO_PLAN_ID, 'points' => [[0.56, 0.22], [0.82, 0.22], [0.82, 0.54], [0.56, 0.54]]],
+      ),
     );
     $this->addReference(self::STORAGE_ROOM_REFERENCE, $storageRoom);
     $manager->persist($storageRoom);
@@ -574,42 +617,25 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     file_put_contents($target, $contents);
   }
 
-  /**
-   * @param array<string, mixed> $metadata
-   * @param array{attachmentId: string, points: list<array{float, float}>}|null $planGeometry
-   */
-  private function createFacility(
-    string $id,
-    OrganizationRecord $organization,
-    ?FacilityRecord $parentFacility,
-    string $type,
-    string $name,
-    ?string $code,
-    DateTimeImmutable $createdAt,
-    ?string $address = null,
-    array $metadata = [],
-    ?float $latitude = null,
-    ?float $longitude = null,
-    string $status = FacilityStatus::ACTIVE->value,
-    ?int $levelIndex = null,
-    ?array $planGeometry = null,
-  ): FacilityRecord {
+  private function createFacility(OrganizationRecord $organization, FacilitySeed $seed, ?FacilitySeedOptions $options = null): FacilityRecord
+  {
+    $options ??= new FacilitySeedOptions();
     $facility = new FacilityRecord();
-    $facility->id = $id;
+    $facility->id = $seed->id;
     $facility->organization = $organization;
-    $facility->parentFacility = $parentFacility;
-    $facility->type = $type;
-    $facility->name = $name;
-    $facility->code = $code;
-    $facility->status = $status;
-    $facility->address = $address;
-    $facility->latitude = $latitude;
-    $facility->longitude = $longitude;
-    $facility->metadata = $metadata;
-    $facility->levelIndex = $levelIndex;
-    $facility->planGeometry = $planGeometry;
-    $facility->createdAt = $createdAt;
-    $facility->updatedAt = $createdAt;
+    $facility->parentFacility = $seed->parentFacility;
+    $facility->type = $seed->type;
+    $facility->name = $seed->name;
+    $facility->code = $seed->code;
+    $facility->status = $options->status;
+    $facility->address = $options->address;
+    $facility->latitude = $options->latitude;
+    $facility->longitude = $options->longitude;
+    $facility->metadata = $options->metadata;
+    $facility->levelIndex = $options->levelIndex;
+    $facility->planGeometry = $options->planGeometry;
+    $facility->createdAt = $seed->createdAt;
+    $facility->updatedAt = $seed->createdAt;
 
     return $facility;
   }

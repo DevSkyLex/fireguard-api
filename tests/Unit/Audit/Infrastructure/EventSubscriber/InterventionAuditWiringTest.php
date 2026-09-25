@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, InterventionAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -27,12 +27,13 @@ use function sprintf;
  * End-to-end wiring proof for the Intervention publication slice:
  * both domain events, dispatched through the real event-name
  * derivation of SymfonyEventDispatcherAdapter, reach
- * AuditEventSubscriber and produce the expected audit action,
+ * the audit subscribers and produce the expected audit action,
  * subject and metadata.
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: InterventionAuditEventSubscriber::class)]
 final class InterventionAuditWiringTest extends TestCase
 {
   // #region Tests
@@ -62,7 +63,7 @@ final class InterventionAuditWiringTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $subscriber = new AuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -73,7 +74,9 @@ final class InterventionAuditWiringTest extends TestCase
     );
 
     $symfonyDispatcher = new EventDispatcher();
-    $symfonyDispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $symfonyDispatcher->addSubscriber($subscriber);
+    }
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),

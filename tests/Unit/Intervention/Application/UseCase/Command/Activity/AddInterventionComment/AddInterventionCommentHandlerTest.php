@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Command\Activity\AddInterventionComment;
 
 use DateTimeImmutable;
+use Intervention\Application\Contract\Activity\InterventionActivityAppendRequest;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionNotificationService, InterventionRecurrenceRecipientResolver, InterventionReviewerRecipientResolver};
@@ -53,7 +54,13 @@ final class AddInterventionCommentHandlerTest extends TestCase
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::once())
       ->method('append')
-      ->with(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::MEMBER_ID, 'comment', 'comment', 'Trimmed body', null)
+      ->with(self::callback(static fn (InterventionActivityAppendRequest $request): bool => self::INTERVENTION_ID === $request->interventionId
+        && self::ORGANIZATION_ID === $request->organizationId
+        && self::MEMBER_ID === $request->actorId
+        && 'comment' === $request->content->kind
+        && 'comment' === $request->content->event
+        && 'Trimmed body' === $request->content->body
+        && null === $request->content->payload))
       ->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Billing\Domain\Model\Subscription\Subscription;
+use Billing\Domain\Model\Subscription\{RestoredSubscriptionState, Subscription};
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId, SubscriptionStatus};
 use Billing\Infrastructure\Persistence\Doctrine\Record\SubscriptionRecord;
 
@@ -37,14 +37,16 @@ final class SubscriptionMapper
       id: SubscriptionId::fromString($record->id),
       organizationId: $record->organizationId,
       stripeCustomerId: $record->stripeCustomerId,
-      status: SubscriptionStatus::tryFrom($record->status) ?? SubscriptionStatus::INCOMPLETE,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::tryFrom($record->status) ?? SubscriptionStatus::INCOMPLETE,
+        stripeSubscriptionId: $record->stripeSubscriptionId,
+        planKey: $record->planKey,
+        interval: null !== $record->interval ? BillingInterval::fromString($record->interval) : null,
+        currentPeriodEnd: $record->currentPeriodEnd,
+        cancelAtPeriodEnd: $record->cancelAtPeriodEnd,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      stripeSubscriptionId: $record->stripeSubscriptionId,
-      planKey: $record->planKey,
-      interval: null !== $record->interval ? BillingInterval::fromString($record->interval) : null,
-      currentPeriodEnd: $record->currentPeriodEnd,
-      cancelAtPeriodEnd: $record->cancelAtPeriodEnd,
     );
   }
 

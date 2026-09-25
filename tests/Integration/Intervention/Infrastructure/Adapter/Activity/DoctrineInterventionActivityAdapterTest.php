@@ -6,6 +6,7 @@ namespace Tests\Integration\Intervention\Infrastructure\Adapter\Activity;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Activity\{InterventionActivityAppendRequest, InterventionActivityContent};
 use Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -67,15 +68,12 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
   #[Test]
   public function testAppendPersistsAnActivityReadableViaListByIntervention(): void
   {
-    $view = $this->adapter->append(
+    $view = $this->adapter->append(new InterventionActivityAppendRequest(
       self::INTERVENTION_ID,
       self::ORGANIZATION_ID,
       self::ACTOR_ID,
-      'comment',
-      'comment',
-      'Panel inspected, all good.',
-      ['channel' => 'web'],
-    );
+      new InterventionActivityContent('comment', 'comment', 'Panel inspected, all good.', ['channel' => 'web']),
+    ));
     $this->entityManager->clear();
 
     self::assertSame('activity', $view->resource);
@@ -93,11 +91,31 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
   #[Test]
   public function testListByInterventionIsScopedAndOrderedByCreatedAtAscending(): void
   {
-    $first = $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, null, 'system', 'created', null, null);
-    $second = $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'Second note', null);
-    $third = $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'Third note', null);
+    $first = $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      null,
+      new InterventionActivityContent('system', 'created', null, null),
+    ));
+    $second = $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      new InterventionActivityContent('comment', 'comment', 'Second note', null),
+    ));
+    $third = $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      new InterventionActivityContent('comment', 'comment', 'Third note', null),
+    ));
     // Belongs to another intervention: must be excluded from the scoped feed.
-    $this->adapter->append(self::OTHER_INTERVENTION_ID, self::ORGANIZATION_ID, null, 'system', 'created', null, null);
+    $this->adapter->append(new InterventionActivityAppendRequest(
+      self::OTHER_INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      null,
+      new InterventionActivityContent('system', 'created', null, null),
+    ));
     $this->entityManager->clear();
 
     $page = $this->adapter->listByIntervention(self::INTERVENTION_ID, 1, 20);
@@ -110,9 +128,24 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
   #[Test]
   public function testListByInterventionPaginates(): void
   {
-    $first = $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, null, 'system', 'created', null, null);
-    $second = $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'Note', null);
-    $third = $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'Note', null);
+    $first = $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      null,
+      new InterventionActivityContent('system', 'created', null, null),
+    ));
+    $second = $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      new InterventionActivityContent('comment', 'comment', 'Note', null),
+    ));
+    $third = $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      new InterventionActivityContent('comment', 'comment', 'Note', null),
+    ));
     $this->entityManager->clear();
 
     $firstPage = $this->adapter->listByIntervention(self::INTERVENTION_ID, 1, 2);
@@ -130,30 +163,24 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
   #[Test]
   public function testAppendIsIdempotentForARepeatedClientId(): void
   {
-    $first = $this->adapter->append(
+    $first = $this->adapter->append(new InterventionActivityAppendRequest(
       self::INTERVENTION_ID,
       self::ORGANIZATION_ID,
       self::ACTOR_ID,
-      'comment',
-      'comment',
-      'Extinguisher checked on site.',
-      null,
+      new InterventionActivityContent('comment', 'comment', 'Extinguisher checked on site.', null),
       'outbox-client-key-1',
-    );
+    ));
 
     // The offline outbox replays a write whose response was lost in the field —
     // indistinguishable, from the device, from one that never arrived. Replaying
     // must return what was stored, not append a second comment.
-    $second = $this->adapter->append(
+    $second = $this->adapter->append(new InterventionActivityAppendRequest(
       self::INTERVENTION_ID,
       self::ORGANIZATION_ID,
       self::ACTOR_ID,
-      'comment',
-      'comment',
-      'Extinguisher checked on site.',
-      null,
+      new InterventionActivityContent('comment', 'comment', 'Extinguisher checked on site.', null),
       'outbox-client-key-1',
-    );
+    ));
 
     self::assertSame($first->data['id'], $second->data['id']);
     self::assertSame(1, $this->adapter->listByIntervention(self::INTERVENTION_ID, 1, 20)->total);
@@ -162,8 +189,18 @@ final class DoctrineInterventionActivityAdapterTest extends KernelTestCase
   #[Test]
   public function testAppendWithoutAClientIdStillAppendsEachTime(): void
   {
-    $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'One', null);
-    $this->adapter->append(self::INTERVENTION_ID, self::ORGANIZATION_ID, self::ACTOR_ID, 'comment', 'comment', 'Two', null);
+    $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      new InterventionActivityContent('comment', 'comment', 'One', null),
+    ));
+    $this->adapter->append(new InterventionActivityAppendRequest(
+      self::INTERVENTION_ID,
+      self::ORGANIZATION_ID,
+      self::ACTOR_ID,
+      new InterventionActivityContent('comment', 'comment', 'Two', null),
+    ));
 
     // Online comments carry no key and are genuinely distinct writes; the unique
     // index must not collapse them (NULLs do not collide in Postgres).

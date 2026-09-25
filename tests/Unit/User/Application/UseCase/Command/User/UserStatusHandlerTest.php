@@ -126,7 +126,7 @@ final class UserStatusHandlerTest extends TestCase
     );
     $handler->__invoke(new DeactivateUserCommand(id: $user->id()->value));
 
-    self::assertTrue(false === $user->status()->isActive());
+    self::assertFalse($user->status()->isActive());
   }
 
   #[Test]

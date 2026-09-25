@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Approval\Infrastructure\Persistence\Doctrine\Repository;
 
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Record\ApprovalRequestRecord;
 use Approval\Infrastructure\Persistence\Doctrine\Repository\ApprovalRequestRepository;
@@ -122,17 +122,14 @@ final class ApprovalRequestRepositoryTest extends KernelTestCase
   #[Test]
   public function testReservePendingCreatesANewReservation(): void
   {
-    $reservation = $this->repository->reservePending(
-      self::RESERVE_NEW_ID,
+    $reservation = $this->repository->reservePending(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::RESERVE_NEW_ID),
       self::ORGANIZATION_ID,
       'equipment.transfer',
       self::SUBJECT_RESERVE,
-      self::MEMBER_ID,
-      self::USER_ID,
-      ['scope' => 'reserve'],
-      new DateTimeImmutable('2026-04-01T00:00:00+00:00'),
-      new DateTimeImmutable('2026-01-22T00:00:00+00:00'),
-    );
+      new ApprovalRequestSubmission(self::MEMBER_ID, self::USER_ID, ['scope' => 'reserve']),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-04-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-22T00:00:00+00:00')),
+    ));
 
     self::assertTrue($reservation->isNew);
     self::assertSame(self::RESERVE_NEW_ID, $reservation->id);
@@ -151,17 +148,14 @@ final class ApprovalRequestRepositoryTest extends KernelTestCase
   {
     // A1 already holds the pending slot for (org, inspection.delete, subject 1):
     // the partial unique index makes this INSERT a no-op (ON CONFLICT DO NOTHING).
-    $reservation = $this->repository->reservePending(
-      self::RESERVE_CONFLICT_ID,
+    $reservation = $this->repository->reservePending(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::RESERVE_CONFLICT_ID),
       self::ORGANIZATION_ID,
       self::ACTION_INSPECTION_DELETE,
       self::SUBJECT_1,
-      self::MEMBER_ID,
-      self::USER_ID,
-      ['scope' => 'conflict'],
-      new DateTimeImmutable('2026-04-01T00:00:00+00:00'),
-      new DateTimeImmutable('2026-01-22T00:00:00+00:00'),
-    );
+      new ApprovalRequestSubmission(self::MEMBER_ID, self::USER_ID, ['scope' => 'conflict']),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-04-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-22T00:00:00+00:00')),
+    ));
 
     self::assertFalse($reservation->isNew);
     self::assertSame(self::A1, $reservation->id);
@@ -174,17 +168,14 @@ final class ApprovalRequestRepositoryTest extends KernelTestCase
   #[Test]
   public function testSaveInsertsANewRequest(): void
   {
-    $request = ApprovalRequest::create(
+    $request = ApprovalRequest::create(new ApprovalRequestCreation(
       ApprovalRequestId::fromString(self::SAVE_NEW_ID),
       self::ORGANIZATION_ID,
       'facility.transfer',
       self::SUBJECT_SAVE,
-      self::MEMBER_ID,
-      self::USER_ID,
-      ['foo' => 'bar'],
-      new DateTimeImmutable('2026-03-01T00:00:00+00:00'),
-      new DateTimeImmutable('2026-01-20T00:00:00+00:00'),
-    );
+      new ApprovalRequestSubmission(self::MEMBER_ID, self::USER_ID, ['foo' => 'bar']),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-03-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-20T00:00:00+00:00')),
+    ));
 
     $this->repository->save($request);
     $this->entityManager->clear();

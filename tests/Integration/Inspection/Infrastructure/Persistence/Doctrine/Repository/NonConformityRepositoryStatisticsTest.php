@@ -7,7 +7,7 @@ namespace Tests\Integration\Inspection\Infrastructure\Persistence\Doctrine\Repos
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{
   InspectionOrganizationId,
   NonConformityId,
@@ -426,17 +426,21 @@ final class NonConformityRepositoryStatisticsTest extends KernelTestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSPECTION_ID),
       description: 'Blocked exit — 100% survey_A',
       severity: NonConformitySeverity::CRITICAL,
-      status: NonConformityStatus::OPEN,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::OPEN,
+        dueAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      ),
       createdAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
     ));
     $this->repository->save(NonConformity::reconstitute(
       id: NonConformityId::fromString(self::HIGH_IN_PROGRESS_ID),
       inspectionId: NonConformityInspectionId::fromString(self::INSPECTION_ID),
       description: 'Missing signage',
       severity: NonConformitySeverity::HIGH,
-      status: NonConformityStatus::IN_PROGRESS,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::IN_PROGRESS,
+      ),
       createdAt: new DateTimeImmutable('2026-03-02T23:30:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-03-02T23:30:00+00:00'),
     ));
@@ -445,11 +449,13 @@ final class NonConformityRepositoryStatisticsTest extends KernelTestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSPECTION_ID),
       description: 'Faded floor marking',
       severity: NonConformitySeverity::LOW,
-      status: NonConformityStatus::DONE,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::DONE,
+        resolvedAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
+        notes: 'Repainted',
+      ),
       createdAt: new DateTimeImmutable('2026-03-01T10:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
-      notes: 'Repainted',
     ));
     // Belongs to another organization: never counted in the scoped aggregates.
     $this->repository->save(NonConformity::reconstitute(
@@ -457,10 +463,12 @@ final class NonConformityRepositoryStatisticsTest extends KernelTestCase
       inspectionId: NonConformityInspectionId::fromString(self::FOREIGN_INSPECTION_ID),
       description: 'Unrelated defect',
       severity: NonConformitySeverity::MEDIUM,
-      status: NonConformityStatus::OPEN,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::OPEN,
+        dueAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      ),
       createdAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
     ));
     $this->entityManager->clear();
   }

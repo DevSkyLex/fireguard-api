@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Webhook\Domain\Model\Delivery\WebhookDelivery;
+use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 use Webhook\Infrastructure\Persistence\Doctrine\Mapper\WebhookDeliveryMapper;
 use Webhook\Infrastructure\Persistence\Doctrine\Record\{WebhookDeliveryRecord, WebhookSubscriptionRecord};
@@ -80,17 +80,21 @@ final class WebhookDeliveryMapperTest extends KernelTestCase
       id: WebhookDeliveryId::fromString(self::DELIVERED_DELIVERY_ID),
       subscriptionId: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: self::ORGANIZATION_ID,
-      eventType: 'intervention.published',
-      eventId: 'event-delivered-1',
-      payload: $payload,
-      status: WebhookDeliveryStatus::DELIVERED,
-      attempts: 2,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      httpStatus: 200,
-      lastError: null,
-      nextRetryAt: null,
-      deliveredAt: $deliveredAt,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: 'intervention.published',
+        eventId: 'event-delivered-1',
+        payload: $payload,
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: WebhookDeliveryStatus::DELIVERED,
+        attempts: 2,
+        httpStatus: 200,
+        lastError: null,
+        nextRetryAt: null,
+        deliveredAt: $deliveredAt,
+      ),
     );
 
     // toRecord: assert the record was populated directly from the aggregate.
@@ -152,17 +156,21 @@ final class WebhookDeliveryMapperTest extends KernelTestCase
       id: WebhookDeliveryId::fromString(self::PENDING_DELIVERY_ID),
       subscriptionId: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: self::ORGANIZATION_ID,
-      eventType: 'inspection.submitted',
-      eventId: 'event-pending-1',
-      payload: $payload,
-      status: WebhookDeliveryStatus::PENDING,
-      attempts: 1,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      httpStatus: 503,
-      lastError: 'Service Unavailable',
-      nextRetryAt: $nextRetryAt,
-      deliveredAt: null,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: 'inspection.submitted',
+        eventId: 'event-pending-1',
+        payload: $payload,
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: WebhookDeliveryStatus::PENDING,
+        attempts: 1,
+        httpStatus: 503,
+        lastError: 'Service Unavailable',
+        nextRetryAt: $nextRetryAt,
+        deliveredAt: null,
+      ),
     );
 
     // toRecord: the retry-pending shape sets httpStatus/lastError/nextRetryAt

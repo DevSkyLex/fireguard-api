@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace Approval\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{
+  ApprovalRequest,
+  ApprovalRequestCreation,
+  ApprovalRequestResolution,
+  ApprovalRequestRestoredState,
+  ApprovalRequestSchedule,
+  ApprovalRequestSubmission
+};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Record\ApprovalRequestRecord;
 
@@ -33,25 +40,26 @@ final class ApprovalRequestMapper
    */
   public static function toDomain(ApprovalRequestRecord $record): ApprovalRequest
   {
-    return ApprovalRequest::reconstitute(
-      id: ApprovalRequestId::fromString($record->id),
-      organizationId: $record->organizationId,
-      actionType: $record->actionType,
-      subjectId: $record->subjectId,
+    return ApprovalRequest::reconstitute(new ApprovalRequestRestoredState(
+      creation: new ApprovalRequestCreation(
+        id: ApprovalRequestId::fromString($record->id),
+        organizationId: $record->organizationId,
+        actionType: $record->actionType,
+        subjectId: $record->subjectId,
+        submission: new ApprovalRequestSubmission($record->requestedByMemberId, $record->requestedByUserId, $record->payload),
+        schedule: new ApprovalRequestSchedule($record->expiresAt, $record->createdAt),
+      ),
       status: ApprovalStatus::from($record->status),
-      requestedByMemberId: $record->requestedByMemberId,
-      requestedByUserId: $record->requestedByUserId,
-      decisionByMemberId: $record->decisionByMemberId,
-      decisionByUserId: $record->decisionByUserId,
-      decisionNote: $record->decisionNote,
-      payload: $record->payload,
-      expiresAt: $record->expiresAt,
-      createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      decidedAt: $record->decidedAt,
-      executedAt: $record->executedAt,
-      executionError: $record->executionError,
-    );
+      resolution: new ApprovalRequestResolution(
+        $record->decisionByMemberId,
+        $record->decisionByUserId,
+        $record->decisionNote,
+        $record->decidedAt,
+        $record->executedAt,
+        $record->executionError,
+      ),
+    ));
   }
 
   /**

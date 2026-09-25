@@ -12,7 +12,7 @@ use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice\{RevokeDeviceCommand, RevokeDeviceHandler, RevokeDeviceResult};
 use TrustedDevice\Domain\Exception\TrustedDeviceNotFoundException;
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
-use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId};
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};
 
 /**
  * Test RevokeDeviceHandlerTest.
@@ -105,9 +105,7 @@ final class RevokeDeviceHandlerTest extends TestCase
       tokenHash: DeviceToken::generate()->hash,
       fingerprint: DeviceFingerprint::create('Mozilla/5.0', null, null),
       name: 'Device',
-      lastUsedAt: new DateTimeImmutable('-1 day'),
-      expiresAt: new DateTimeImmutable('+30 days'),
-      createdAt: new DateTimeImmutable('-10 days'),
+      timeline: new TrustedDeviceTimeline(new DateTimeImmutable('-1 day'), new DateTimeImmutable('+30 days'), new DateTimeImmutable('-10 days')),
       revoked: false,
     );
 

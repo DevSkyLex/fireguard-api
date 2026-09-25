@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard;
 
-use BackedEnum;
-use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
@@ -20,11 +18,9 @@ use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
 
 use function array_keys;
-use function count;
 use function hash;
 use function json_encode;
 use function max;
-use function round;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -194,8 +190,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $currentNonConformityOpenedCount = $currentNonConformityPeriodMetrics['opened'];
     $currentNonConformityResolvedCount = $currentNonConformityPeriodMetrics['resolved'];
     $currentPeriodHealth = [
-      'inspectionCompletionRate' => $this->percentage($currentPeriodInspectionMetrics['closed'], $currentPeriodInspectionMetrics['total']),
-      'inspectionPassRate' => $this->percentage($currentPeriodInspectionMetrics['pass'], $currentPeriodInspectionMetrics['pass'] + $currentPeriodInspectionMetrics['fail'] + $currentPeriodInspectionMetrics['partial']),
+      'inspectionCompletionRate' => DashboardSeriesBuilder::percentage($currentPeriodInspectionMetrics['closed'], $currentPeriodInspectionMetrics['total']),
+      'inspectionPassRate' => DashboardSeriesBuilder::percentage($currentPeriodInspectionMetrics['pass'], $currentPeriodInspectionMetrics['pass'] + $currentPeriodInspectionMetrics['fail'] + $currentPeriodInspectionMetrics['partial']),
       'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($currentNonConformityOpenedCount, $currentNonConformityResolvedCount, $currentNonConformityPeriodMetrics['activeAtStart']),
     ];
 
@@ -213,7 +209,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $currentEquipmentCreatedCount = DashboardSeriesBuilder::sumSeries($equipmentCreatedByDay);
     $inspectionsPerformedByDay = $this->countInspectionsPerformedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
 
-    $health = ['memberActivationRate' => $this->percentage($overview['members']['active'], $overview['members']['total']), 'inspectionCompletionRate' => $this->percentage($overview['inspections']['closed'], $overview['inspections']['total']), 'inspectionPassRate' => $this->percentage($overview['inspections']['pass'], $overview['inspections']['pass'] + $overview['inspections']['fail'] + $overview['inspections']['partial']), 'equipmentAvailabilityRate' => $this->percentage($overview['equipment']['operational'], max(0, $overview['equipment']['total'] - $overview['equipment']['decommissioned'])), 'nonConformityResolutionRate' => $this->percentage($overview['nonConformities']['done'] + $overview['nonConformities']['waived'], $overview['nonConformities']['total']), 'periodInspectionCompletionRate' => $currentPeriodHealth['inspectionCompletionRate'], 'periodInspectionPassRate' => $currentPeriodHealth['inspectionPassRate'], 'periodNonConformityResolutionRate' => $currentPeriodHealth['nonConformityResolutionRate']];
+    $health = ['memberActivationRate' => DashboardSeriesBuilder::percentage($overview['members']['active'], $overview['members']['total']), 'inspectionCompletionRate' => DashboardSeriesBuilder::percentage($overview['inspections']['closed'], $overview['inspections']['total']), 'inspectionPassRate' => DashboardSeriesBuilder::percentage($overview['inspections']['pass'], $overview['inspections']['pass'] + $overview['inspections']['fail'] + $overview['inspections']['partial']), 'equipmentAvailabilityRate' => DashboardSeriesBuilder::percentage($overview['equipment']['operational'], max(0, $overview['equipment']['total'] - $overview['equipment']['decommissioned'])), 'nonConformityResolutionRate' => DashboardSeriesBuilder::percentage($overview['nonConformities']['done'] + $overview['nonConformities']['waived'], $overview['nonConformities']['total']), 'periodInspectionCompletionRate' => $currentPeriodHealth['inspectionCompletionRate'], 'periodInspectionPassRate' => $currentPeriodHealth['inspectionPassRate'], 'periodNonConformityResolutionRate' => $currentPeriodHealth['nonConformityResolutionRate']];
     $alerts = [];
     if ($overview['nonConformities']['criticalOpen'] > 0) {
       $alerts[] = ['code' => 'critical_non_conformities_open', 'severity' => 'high', 'count' => $overview['nonConformities']['criticalOpen']];
@@ -229,10 +225,10 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     }
 
     $trends = [
-      'facilities' => $this->buildRunningTotalSeries($facilitiesCreatedByDay, $overview['facilities']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
-      'members' => $this->buildRunningTotalSeries($membersJoinedByDay, $overview['members']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
-      'equipment' => $this->buildRunningTotalSeries($equipmentCreatedByDay, $overview['equipment']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
-      'inspections' => $this->buildRunningTotalSeries($inspectionsPerformedByDay, $overview['inspections']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'facilities' => DashboardSeriesBuilder::buildRunningTotalSeries($facilitiesCreatedByDay, $overview['facilities']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'members' => DashboardSeriesBuilder::buildRunningTotalSeries($membersJoinedByDay, $overview['members']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'equipment' => DashboardSeriesBuilder::buildRunningTotalSeries($equipmentCreatedByDay, $overview['equipment']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'inspections' => DashboardSeriesBuilder::buildRunningTotalSeries($inspectionsPerformedByDay, $overview['inspections']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
     ];
 
     $recentInterventions = $includeInterventions
@@ -283,7 +279,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $roleCount = $this->roleRepository->countByOrganizationId($organizationId);
     $systemRoleCount = $this->roleRepository->countSystemByOrganizationId($organizationId);
     $invitationCount = $this->invitationRepository->countByOrganizationId($organizationId);
-    $invitationCountsByStatus = $this->normalizeBreakdown(
+    $invitationCountsByStatus = DashboardSeriesBuilder::normalizeBreakdown(
       $this->invitationRepository->countByStatusForOrganizationId($organizationId),
       OrganizationInvitationStatus::cases(),
     );
@@ -432,25 +428,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * Method percentage.
-   *
-   * Calculate a percentage value with safe
-   * division and rounding.
-   *
-   * @since 1.0.0
-   *
-   * @param int $numerator the numerator for the percentage calculation
-   * @param int $denominator the denominator for the percentage calculation
-   *
-   * @return float the calculated percentage, rounded to 2 decimal places. Returns 0.0
-   *               if denominator is zero or negative to avoid division errors.
-   */
-  private function percentage(int $numerator, int $denominator): float
-  {
-    return $denominator <= 0 ? 0.0 : round(($numerator / $denominator) * 100, 2);
-  }
-
-  /**
    * Method buildInspectionPeriodMetrics.
    *
    * Calculate inspection metrics for a given period and optional filters,
@@ -513,7 +490,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     int $resolvedCount,
     int $activeAtStartCount,
   ): float {
-    return $this->percentage($resolvedCount, $activeAtStartCount + $openedCount);
+    return DashboardSeriesBuilder::percentage($resolvedCount, $activeAtStartCount + $openedCount);
   }
 
   /**
@@ -549,7 +526,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $previousNonConformityOpenedCount = $previousNonConformityPeriodMetrics['opened'];
     $previousNonConformityResolvedCount = $previousNonConformityPeriodMetrics['resolved'];
     $previousPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $comparisonPeriod['from'], $comparisonPeriod['to'], $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $previousPeriodHealth = ['inspectionCompletionRate' => $this->percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => $this->percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($previousNonConformityOpenedCount, $previousNonConformityResolvedCount, $previousNonConformityPeriodMetrics['activeAtStart'])];
+    $previousPeriodHealth = ['inspectionCompletionRate' => DashboardSeriesBuilder::percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => DashboardSeriesBuilder::percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($previousNonConformityOpenedCount, $previousNonConformityResolvedCount, $previousNonConformityPeriodMetrics['activeAtStart'])];
     $previous = [
       'inspectionsPerformed' => $previousPeriodInspectionMetrics['total'],
       'facilitiesCreated' => $previousFacilityCreatedCount,
@@ -559,84 +536,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       'nonConformitiesResolved' => $previousNonConformityResolvedCount,
     ];
 
-    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => DashboardSeriesBuilder::relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'facilitiesCreated' => DashboardSeriesBuilder::relativeDelta($current['facilitiesCreated'], $previous['facilitiesCreated']), 'membersJoined' => DashboardSeriesBuilder::relativeDelta($current['membersJoined'], $previous['membersJoined']), 'equipmentCreated' => DashboardSeriesBuilder::relativeDelta($current['equipmentCreated'], $previous['equipmentCreated']), 'nonConformitiesOpened' => DashboardSeriesBuilder::relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => DashboardSeriesBuilder::relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => $this->relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
-  }
-
-  /**
-   * Method relativeDeltaFloat.
-   *
-   * Calculate the relative percentage change between two float values,
-   * handling division by zero and rounding.
-   *
-   * @since 1.0.0
-   *
-   * @param float $current the current value for which to calculate the delta
-   * @param float $previous the previous value to compare against for the delta calculation
-   *
-   * @return float the calculated relative delta as a percentage, rounded to 2 decimal
-   *               places. If the previous value is zero, returns 100.0 if the current value is greater
-   *               than zero, or 0.0 otherwise.
-   */
-  private function relativeDeltaFloat(float $current, float $previous): float
-  {
-    if (0.0 === $previous) {
-      return $current > 0.0 ? 100.0 : 0.0;
-    }
-
-    return round((($current - $previous) / $previous) * 100, 2);
-  }
-
-  /**
-   * Method buildRunningTotalSeries.
-   *
-   * Builds a per-day running-total sparkline series from a by-day
-   * creation/occurrence map, anchored on the CURRENT KPI total. Walks
-   * the period backward from the last day to the first, subtracting
-   * each day's count so that `value(bucket b) = anchorTotal -
-   * sum(byDayMap[b+1..periodEnd])`, clamped at zero.
-   *
-   * This is exact when the period ends at (or near) "now" (the default
-   * dashboard window), because the anchor IS the current total. For an
-   * explicitly historical window (a `to` in the past), the anchor still
-   * reflects the CURRENT total, so the series is an approximation of
-   * what the historical totals actually were at each bucket.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, int> $byDayMap map of YYYY-MM-DD => count created/occurred that day
-   * @param int $anchorTotal the current KPI total the series is anchored on
-   * @param DateTimeImmutable $periodStart the inclusive period start
-   * @param DateTimeImmutable $periodEnd the inclusive period end
-   * @param DateTimeZone $timeZone the timezone used to enumerate day buckets
-   *
-   * @return list<array{bucket: string, value: int}> one point per day, in chronological order
-   */
-  private function buildRunningTotalSeries(array $byDayMap, int $anchorTotal, DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, DateTimeZone $timeZone): array
-  {
-    $days = [];
-    for (
-      $cursor = $periodStart->setTimezone($timeZone)->setTime(0, 0),
-      $lastDay = $periodEnd->setTimezone($timeZone)->setTime(0, 0);
-      $cursor <= $lastDay;
-      $cursor = $cursor->add(new DateInterval('P1D'))
-    ) {
-      $days[] = $cursor->format('Y-m-d');
-    }
-
-    $cumulativeAfter = 0;
-    $valueByDay = [];
-    for ($index = count($days) - 1; $index >= 0; --$index) {
-      $day = $days[$index];
-      $valueByDay[$day] = max(0, $anchorTotal - $cumulativeAfter);
-      $cumulativeAfter += $byDayMap[$day] ?? 0;
-    }
-
-    $series = [];
-    foreach ($days as $day) {
-      $series[] = ['bucket' => $day, 'value' => $valueByDay[$day]];
-    }
-
-    return $series;
+    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => DashboardSeriesBuilder::relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'facilitiesCreated' => DashboardSeriesBuilder::relativeDelta($current['facilitiesCreated'], $previous['facilitiesCreated']), 'membersJoined' => DashboardSeriesBuilder::relativeDelta($current['membersJoined'], $previous['membersJoined']), 'equipmentCreated' => DashboardSeriesBuilder::relativeDelta($current['equipmentCreated'], $previous['equipmentCreated']), 'nonConformitiesOpened' => DashboardSeriesBuilder::relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => DashboardSeriesBuilder::relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => DashboardSeriesBuilder::relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => DashboardSeriesBuilder::relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => DashboardSeriesBuilder::relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
   }
 
   /**
@@ -707,38 +607,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     }
 
     return $rows;
-  }
-
-  /**
-   * Method normalizeBreakdown.
-   *
-   * Normalize a breakdown of counts by enum cases, ensuring that all cases are
-   * represented with a count, even if zero. This is useful for ensuring consistent
-   * output in dashboard metrics where certain categories
-   * may have no occurrences.
-   *
-   * @since 1.0.0
-   *
-   * @param array<int|string, int> $counts an associative array of counts indexed by enum
-   *                                       case values, which may be incomplete and missing some cases
-   * @param list<BackedEnum> $cases a list of all possible enum cases that should be
-   *                                included in the normalized breakdown, ensuring that any missing cases in the
-   *                                counts are filled with a count of zero
-   *
-   * @return array<int|string, int> an associative array where keys are enum case values
-   *                                and values are the corresponding counts, with all cases from the provided list
-   *                                included and missing cases filled with a count of zero
-   */
-  private function normalizeBreakdown(array $counts, array $cases): array
-  {
-    /** @var array<int|string, int> $normalized */
-    $normalized = [];
-    foreach ($cases as $case) {
-      /** @var BackedEnum $case */
-      $normalized[$case->value] = (int) ($counts[$case->value] ?? 0);
-    }
-
-    return $normalized;
   }
 
   /**

@@ -7,7 +7,7 @@ namespace Tests\Integration\Equipment\Infrastructure\Persistence\Doctrine\Reposi
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
-use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, RestoredEquipmentAttachmentFile};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\AttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -62,12 +62,14 @@ final class AttachmentRepositoryTest extends KernelTestCase
     $attachment = EquipmentAttachment::reconstitute(
       id: $id,
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'manual.pdf',
-      storagePath: 'org/equipment/manual-a0010.pdf',
-      mimeType: 'application/pdf',
-      size: 20480,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'manual.pdf',
+        storagePath: 'org/equipment/manual-a0010.pdf',
+        mimeType: 'application/pdf',
+        size: 20480,
+        label: 'User manual',
+      ),
       uploadedAt: new DateTimeImmutable('2026-05-01T09:00:00+00:00'),
-      label: 'User manual',
     );
 
     $this->repository->save($attachment);
@@ -91,24 +93,28 @@ final class AttachmentRepositoryTest extends KernelTestCase
     $this->repository->save(EquipmentAttachment::reconstitute(
       id: $id,
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'draft.pdf',
-      storagePath: 'org/equipment/draft-a0011.pdf',
-      mimeType: 'application/pdf',
-      size: 100,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'draft.pdf',
+        storagePath: 'org/equipment/draft-a0011.pdf',
+        mimeType: 'application/pdf',
+        size: 100,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-05-01T09:00:00+00:00'),
-      label: null,
     ));
     $this->entityManager->clear();
 
     $this->repository->save(EquipmentAttachment::reconstitute(
       id: $id,
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'final.png',
-      storagePath: 'org/equipment/final-a0011.png',
-      mimeType: 'image/png',
-      size: 4096,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'final.png',
+        storagePath: 'org/equipment/final-a0011.png',
+        mimeType: 'image/png',
+        size: 4096,
+        label: 'Final revision',
+      ),
       uploadedAt: new DateTimeImmutable('2026-05-03T10:30:00+00:00'),
-      label: 'Final revision',
     ));
     $this->entityManager->clear();
 
@@ -137,22 +143,26 @@ final class AttachmentRepositoryTest extends KernelTestCase
     $older = EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0021'),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'older.pdf',
-      storagePath: 'org/equipment/older-a0021.pdf',
-      mimeType: 'application/pdf',
-      size: 1024,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'older.pdf',
+        storagePath: 'org/equipment/older-a0021.pdf',
+        mimeType: 'application/pdf',
+        size: 1024,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
-      label: null,
     );
     $newer = EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0022'),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'newer.pdf',
-      storagePath: 'org/equipment/newer-a0022.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'newer.pdf',
+        storagePath: 'org/equipment/newer-a0022.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-06-01T09:00:00+00:00'),
-      label: null,
     );
 
     $this->repository->save($older);
@@ -174,22 +184,26 @@ final class AttachmentRepositoryTest extends KernelTestCase
     $this->repository->save(EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0041'),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'first.pdf',
-      storagePath: 'org/equipment/first-a0041.pdf',
-      mimeType: 'application/pdf',
-      size: 1024,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'first.pdf',
+        storagePath: 'org/equipment/first-a0041.pdf',
+        mimeType: 'application/pdf',
+        size: 1024,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
-      label: null,
     ));
     $this->repository->save(EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0042'),
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'second.pdf',
-      storagePath: 'org/equipment/second-a0042.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'second.pdf',
+        storagePath: 'org/equipment/second-a0042.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-06-01T09:00:00+00:00'),
-      label: null,
     ));
     $this->entityManager->clear();
 
@@ -203,12 +217,14 @@ final class AttachmentRepositoryTest extends KernelTestCase
     $attachment = EquipmentAttachment::reconstitute(
       id: $id,
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
-      fileName: 'to-delete.pdf',
-      storagePath: 'org/equipment/to-delete-a0030.pdf',
-      mimeType: 'application/pdf',
-      size: 512,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: 'to-delete.pdf',
+        storagePath: 'org/equipment/to-delete-a0030.pdf',
+        mimeType: 'application/pdf',
+        size: 512,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-05-02T09:00:00+00:00'),
-      label: null,
     );
 
     $this->repository->save($attachment);
