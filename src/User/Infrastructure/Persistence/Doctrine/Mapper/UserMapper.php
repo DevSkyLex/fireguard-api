@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Persistence\Doctrine\Mapper;
 
-use ReflectionClass;
 use Shared\Domain\ValueObject\{Email, TenantId};
-use User\Domain\Model\User\User;
+use User\Domain\Model\User\{RestoredUserActivity, RestoredUserIdentity, RestoredUserSecurity, User};
 use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
-
-use function is_int;
 
 /**
  * Mapper UserMapper.
@@ -54,18 +51,8 @@ final class UserMapper
     $record->lastSignInMethod = $user->lastSignInMethod();
     $record->locale = $user->locale()->value;
 
-    // Access private password property via reflection
-    $reflection = new ReflectionClass($user);
-    $passwordProperty = $reflection->getProperty('password');
-    $passwordProperty->setAccessible(true);
-    $password = $passwordProperty->getValue($user);
-    $record->password = ($password instanceof HashedPassword) ? $password->value : null;
-
-    // Access private failedLoginAttempts property via reflection
-    $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
-    $attemptsProperty->setAccessible(true);
-    $attempts = $attemptsProperty->getValue($user);
-    $record->failedLoginAttempts = is_int($attempts) ? $attempts : 0;
+    $record->password = $user->hashedPassword()?->value;
+    $record->failedLoginAttempts = $user->failedLoginAttempts();
 
     return $record;
   }
@@ -96,18 +83,8 @@ final class UserMapper
     $record->lastSignInMethod = $user->lastSignInMethod();
     $record->locale = $user->locale()->value;
 
-    // Access private password property via reflection
-    $reflection = new ReflectionClass($user);
-    $passwordProperty = $reflection->getProperty('password');
-    $passwordProperty->setAccessible(true);
-    $password = $passwordProperty->getValue($user);
-    $record->password = ($password instanceof HashedPassword) ? $password->value : null;
-
-    // Access private failedLoginAttempts property via reflection
-    $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
-    $attemptsProperty->setAccessible(true);
-    $attempts = $attemptsProperty->getValue($user);
-    $record->failedLoginAttempts = is_int($attempts) ? $attempts : 0;
+    $record->password = $user->hashedPassword()?->value;
+    $record->failedLoginAttempts = $user->failedLoginAttempts();
   }
 
   /**
@@ -124,55 +101,32 @@ final class UserMapper
    */
   public function toDomain(UserRecord $record): User
   {
-    // Create User using reflection to bypass private constructor
-    $reflection = new ReflectionClass(User::class);
-    $user = $reflection->newInstanceWithoutConstructor();
-
-    // Set properties via reflection
-    $this->setProperty($user, 'id', new UserId($record->id));
-    $this->setProperty($user, 'username', new Username($record->username));
-    $this->setProperty($user, 'email', new Email($record->email));
-    $this->setProperty(
-      $user,
-      'password',
-      null === $record->password ? null : new HashedPassword($record->password),
+    return User::restore(
+      identity: new RestoredUserIdentity(
+        id: new UserId($record->id),
+        username: new Username($record->username),
+        email: new Email($record->email),
+        tenantId: $record->tenantId ? TenantId::fromString($record->tenantId) : null,
+      ),
+      profile: new UserProfile(
+        firstName: $record->firstName,
+        lastName: $record->lastName,
+        avatarUrl: $record->avatarUrl,
+      ),
+      security: new RestoredUserSecurity(
+        password: null === $record->password ? null : new HashedPassword($record->password),
+        status: UserStatus::from($record->status),
+        emailVerified: $record->emailVerified,
+        failedLoginAttempts: $record->failedLoginAttempts,
+        emailOwnershipVerifiedAt: $record->emailOwnershipVerifiedAt,
+      ),
+      activity: new RestoredUserActivity(
+        createdAt: $record->createdAt,
+        lastLoginAt: $record->lastLoginAt,
+        lastSignInMethod: $record->lastSignInMethod,
+        locale: Locale::from($record->locale),
+      ),
     );
-    $this->setProperty($user, 'profile', new UserProfile(
-      firstName: $record->firstName,
-      lastName: $record->lastName,
-      avatarUrl: $record->avatarUrl,
-    ));
-    $this->setProperty($user, 'status', UserStatus::from($record->status));
-    $this->setProperty($user, 'emailVerified', $record->emailVerified);
-    $this->setProperty($user, 'emailOwnershipVerifiedAt', $record->emailOwnershipVerifiedAt);
-    $this->setProperty($user, 'tenantId', $record->tenantId ? TenantId::fromString($record->tenantId) : null);
-    $this->setProperty($user, 'createdAt', $record->createdAt);
-    $this->setProperty($user, 'lastLoginAt', $record->lastLoginAt);
-    $this->setProperty($user, 'lastSignInMethod', $record->lastSignInMethod);
-    $this->setProperty($user, 'failedLoginAttempts', $record->failedLoginAttempts);
-    $this->setProperty($user, 'locale', Locale::from($record->locale));
-
-    return $user;
-  }
-
-  /**
-   * Method setProperty.
-   *
-   * Sets a private property value using
-   * reflection.
-   *
-   * @since 1.0.0
-   *
-   * @param object $object the object
-   * @param string $propertyName the property name
-   * @param mixed $value the value to set
-   */
-  private function setProperty(object $object, string $propertyName, mixed $value): void
-  {
-    $reflection = new ReflectionClass($object);
-    $property = $reflection->getProperty($propertyName);
-    $property->setAccessible(true);
-    $property->setValue($object, $value);
   }
   // #endregion
 }

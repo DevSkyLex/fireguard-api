@@ -91,6 +91,43 @@ final class User
 
   // #region Methods
   /**
+   * Reconstitutes existing account state without creating a registration event.
+   * Value objects are validated before they reach the aggregate.
+   *
+   * @since 1.1.0
+   *
+   * @param RestoredUserIdentity $identity persisted identity
+   * @param UserProfile $profile persisted profile
+   * @param RestoredUserSecurity $security persisted authentication state
+   * @param RestoredUserActivity $activity persisted activity and preferences
+   *
+   * @return self the restored user
+   */
+  public static function restore(
+    RestoredUserIdentity $identity,
+    UserProfile $profile,
+    RestoredUserSecurity $security,
+    RestoredUserActivity $activity,
+  ): self {
+    return new self(
+      id: $identity->id,
+      username: $identity->username,
+      email: $identity->email,
+      password: $security->password,
+      profile: $profile,
+      status: $security->status,
+      emailVerified: $security->emailVerified,
+      tenantId: $identity->tenantId,
+      createdAt: $activity->createdAt,
+      lastLoginAt: $activity->lastLoginAt,
+      failedLoginAttempts: $security->failedLoginAttempts,
+      locale: $activity->locale,
+      lastSignInMethod: $activity->lastSignInMethod,
+      emailOwnershipVerifiedAt: $security->emailOwnershipVerifiedAt,
+    );
+  }
+
+  /**
    * Method register.
    *
    * @static
@@ -487,6 +524,18 @@ final class User
   public function hasPassword(): bool
   {
     return null !== $this->password;
+  }
+
+  /**
+   * Returns the existing hash for persistence without exposing plaintext.
+   *
+   * @since 1.1.0
+   *
+   * @return HashedPassword|null the current password hash
+   */
+  public function hashedPassword(): ?HashedPassword
+  {
+    return $this->password;
   }
 
   /**
