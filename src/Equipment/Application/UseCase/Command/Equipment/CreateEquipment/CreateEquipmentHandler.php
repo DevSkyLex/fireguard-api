@@ -121,39 +121,48 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     // Enforce the plan quota and persist atomically: assertCanAdd takes a
     // transaction-scoped advisory lock so concurrent creates at the cap cannot
     // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
-    $equipment = $this->transactionManager->transactional(function () use ($command, $equipment): Equipment {
-      if (null !== $command->setupContext) {
-        $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
-          'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
-          'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
-          'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
-        ]);
-        if (null !== $operation->resourceId) {
-          $existing = $this->equipmentRepository->findById(EquipmentId::fromString($operation->resourceId));
-          if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
-            throw OrganizationSetupConflict::because('The created equipment is no longer available.');
-          }
-
-          return $existing;
-        }
-      }
-      if (null !== $command->facilityId) {
-        if (null === $this->facilityValidation) {
-          throw new LogicException('Facility validation is unavailable.');
-        }
-        $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
-        $equipment->assignToFacility(\Equipment\Domain\ValueObject\EquipmentFacilityId::fromString($command->facilityId), new DateTimeImmutable());
-      }
-      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
-      $this->equipmentRepository->save($equipment);
-      if (null !== $command->setupContext) {
-        ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_first_equipment', (string) $equipment->id());
-      }
-
-      return $equipment;
-    });
+    $equipment = $this->transactionManager->transactional(
+      fn (): Equipment => $this->persist($command, $equipment),
+    );
 
     return $this->toResult($equipment);
+  }
+
+  /**
+   * Keep receipt lookup, facility validation, quota enforcement and save in
+   * the same transaction and in their original order.
+   */
+  private function persist(CreateEquipmentCommand $command, Equipment $equipment): Equipment
+  {
+    if (null !== $command->setupContext) {
+      $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_first_equipment', $command->organizationId, [
+        'type' => $command->type, 'subType' => $command->subType, 'brand' => $command->brand,
+        'model' => $command->model, 'serialNumber' => $command->serialNumber, 'locationLabel' => $command->locationLabel,
+        'facility' => null !== $command->facilityId ? '/api/facilities/' . $command->facilityId : null,
+      ]);
+      if (null !== $operation->resourceId) {
+        $existing = $this->equipmentRepository->findById(EquipmentId::fromString($operation->resourceId));
+        if (null === $existing || (string) $existing->organizationId() !== $command->organizationId) {
+          throw OrganizationSetupConflict::because('The created equipment is no longer available.');
+        }
+
+        return $existing;
+      }
+    }
+    if (null !== $command->facilityId) {
+      if (null === $this->facilityValidation) {
+        throw new LogicException('Facility validation is unavailable.');
+      }
+      $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
+      $equipment->assignToFacility(\Equipment\Domain\ValueObject\EquipmentFacilityId::fromString($command->facilityId), new DateTimeImmutable());
+    }
+    $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
+    $this->equipmentRepository->save($equipment);
+    if (null !== $command->setupContext) {
+      ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_first_equipment', (string) $equipment->id());
+    }
+
+    return $equipment;
   }
 
   /**

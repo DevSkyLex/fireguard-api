@@ -572,64 +572,8 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       self::FLOOR_TWO_GAS_DETECTOR_REFERENCE => $floorTwoGasDetector,
     ];
 
-    foreach (self::ADDITIONAL_EQUIPMENT_SEEDS as $index => $seed) {
-      $facility = $facilitiesByReference[$seed['facilityReference']];
-      $createdAt = SeedTimeline::at(sprintf('2026-04-%02dT08:%02d:00+00:00', 5 + intdiv($index, 4), ($index % 4) * 10));
-      $equipment = $this->createEquipment(
-        id: $seed['id'],
-        organization: $organization,
-        facilityId: $facility->id,
-        type: $seed['type'],
-        status: $seed['status'],
-        createdAt: $createdAt,
-        brand: $seed['brand'],
-        model: $seed['model'],
-        serialNumber: $seed['serialNumber'],
-        locationLabel: $seed['locationLabel'],
-        planPosition: isset(self::PLAN_PINNED_EQUIPMENT[$seed['reference']])
-          ? [
-            'attachmentId' => FacilityFixtures::FLOOR_ONE_PLAN_ID,
-            'x' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['x'],
-            'y' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['y'],
-          ]
-          : null,
-      );
-      $manager->persist($equipment);
-      $this->addReference($seed['reference'], $equipment);
-      $equipmentByReference[$seed['reference']] = $equipment;
-
-      if (0 === $index % self::TAGGED_EQUIPMENT_MODULUS) {
-        $link = new EquipmentTagRecord();
-        $link->equipment = $equipment;
-        $link->tag = $tagCatalogue[intdiv($index, self::TAGGED_EQUIPMENT_MODULUS) % count($tagCatalogue)];
-        $manager->persist($link);
-      }
-    }
-
-    $extraRegionalIndex = 0;
-    foreach (self::EXTRA_REGIONAL_SLUGS as $slug) {
-      foreach (['site', 'zone'] as $depth) {
-        $facility = $facilitiesByReference[sprintf('facility-seed-%s-%s', $slug, $depth)];
-        $kit = self::EXTRA_REGIONAL_EQUIPMENT_KIT[$extraRegionalIndex % count(self::EXTRA_REGIONAL_EQUIPMENT_KIT)];
-        $createdAt = SeedTimeline::at(sprintf('2026-03-%02dT10:%02d:00+00:00', 13 + intdiv($extraRegionalIndex, 2), ($extraRegionalIndex % 2) * 30));
-
-        $extraEquipment = $this->createEquipment(
-          id: SeedUuid::from(sprintf('equipment-extra-regional:%d', $extraRegionalIndex)),
-          organization: $organization,
-          facilityId: $facility->id,
-          type: $kit['type'],
-          status: $kit['status'],
-          createdAt: $createdAt,
-          brand: $kit['brand'],
-          model: $kit['model'],
-          serialNumber: sprintf('SEED-EXR-%02d', $extraRegionalIndex + 1),
-          locationLabel: sprintf('%s %s - %s', ucfirst(str_replace('-', ' ', $slug)), 'site' === $depth ? 'Site' : 'Zone', 'site' === $depth ? 'Main entrance' : 'Operations area'),
-        );
-        $manager->persist($extraEquipment);
-        $this->addReference(self::extraRegionalEquipmentReference($extraRegionalIndex), $extraEquipment);
-        ++$extraRegionalIndex;
-      }
-    }
+    $equipmentByReference = $this->seedAdditionalEquipment($manager, $organization, $facilitiesByReference, $equipmentByReference, $tagCatalogue);
+    $this->seedExtraRegionalEquipment($manager, $organization, $facilitiesByReference);
 
     foreach (self::ATTACHMENT_SEEDS as $seed) {
       $equipmentAttachment = new EquipmentAttachmentRecord();
@@ -671,6 +615,88 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   public static function extraRegionalEquipmentReference(int $index): string
   {
     return sprintf('equipment-seed-extra-regional-%02d', $index);
+  }
+
+  /**
+   * @param array<string, FacilityRecord> $facilitiesByReference
+   * @param array<string, EquipmentRecord> $equipmentByReference
+   * @param list<TagRecord> $tagCatalogue
+   *
+   * @return array<string, EquipmentRecord>
+   */
+  private function seedAdditionalEquipment(
+    ObjectManager $manager,
+    OrganizationRecord $organization,
+    array $facilitiesByReference,
+    array $equipmentByReference,
+    array $tagCatalogue,
+  ): array {
+    foreach (self::ADDITIONAL_EQUIPMENT_SEEDS as $index => $seed) {
+      $facility = $facilitiesByReference[$seed['facilityReference']];
+      $createdAt = SeedTimeline::at(sprintf('2026-04-%02dT08:%02d:00+00:00', 5 + intdiv($index, 4), ($index % 4) * 10));
+      $equipment = $this->createEquipment(
+        id: $seed['id'],
+        organization: $organization,
+        facilityId: $facility->id,
+        type: $seed['type'],
+        status: $seed['status'],
+        createdAt: $createdAt,
+        brand: $seed['brand'],
+        model: $seed['model'],
+        serialNumber: $seed['serialNumber'],
+        locationLabel: $seed['locationLabel'],
+        planPosition: isset(self::PLAN_PINNED_EQUIPMENT[$seed['reference']])
+          ? [
+            'attachmentId' => FacilityFixtures::FLOOR_ONE_PLAN_ID,
+            'x' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['x'],
+            'y' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['y'],
+          ]
+          : null,
+      );
+      $manager->persist($equipment);
+      $this->addReference($seed['reference'], $equipment);
+      $equipmentByReference[$seed['reference']] = $equipment;
+
+      if (0 === $index % self::TAGGED_EQUIPMENT_MODULUS) {
+        $link = new EquipmentTagRecord();
+        $link->equipment = $equipment;
+        $link->tag = $tagCatalogue[intdiv($index, self::TAGGED_EQUIPMENT_MODULUS) % count($tagCatalogue)];
+        $manager->persist($link);
+      }
+    }
+
+    return $equipmentByReference;
+  }
+
+  /**
+   * @param array<string, FacilityRecord> $facilitiesByReference
+   */
+  private function seedExtraRegionalEquipment(ObjectManager $manager, OrganizationRecord $organization, array $facilitiesByReference): void
+  {
+    $extraRegionalIndex = 0;
+    foreach (self::EXTRA_REGIONAL_SLUGS as $slug) {
+      foreach (['site', 'zone'] as $depth) {
+        $facility = $facilitiesByReference[sprintf('facility-seed-%s-%s', $slug, $depth)];
+        $kit = self::EXTRA_REGIONAL_EQUIPMENT_KIT[$extraRegionalIndex % count(self::EXTRA_REGIONAL_EQUIPMENT_KIT)];
+        $createdAt = SeedTimeline::at(sprintf('2026-03-%02dT10:%02d:00+00:00', 13 + intdiv($extraRegionalIndex, 2), ($extraRegionalIndex % 2) * 30));
+
+        $extraEquipment = $this->createEquipment(
+          id: SeedUuid::from(sprintf('equipment-extra-regional:%d', $extraRegionalIndex)),
+          organization: $organization,
+          facilityId: $facility->id,
+          type: $kit['type'],
+          status: $kit['status'],
+          createdAt: $createdAt,
+          brand: $kit['brand'],
+          model: $kit['model'],
+          serialNumber: sprintf('SEED-EXR-%02d', $extraRegionalIndex + 1),
+          locationLabel: sprintf('%s %s - %s', ucfirst(str_replace('-', ' ', $slug)), 'site' === $depth ? 'Site' : 'Zone', 'site' === $depth ? 'Main entrance' : 'Operations area'),
+        );
+        $manager->persist($extraEquipment);
+        $this->addReference(self::extraRegionalEquipmentReference($extraRegionalIndex), $extraEquipment);
+        ++$extraRegionalIndex;
+      }
+    }
   }
 
   /**

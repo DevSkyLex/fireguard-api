@@ -277,49 +277,8 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     $previousStatus = $record->status;
     $previousFacilityId = $record->facilityId;
 
-    if (array_key_exists('type', $patch)) {
-      $type = $patch['type'];
-      if (!is_string($type) || '' === $type) {
-        throw new InterventionConflictException('Equipment type cannot be empty.');
-      }
-      $record->type = $type;
-    }
-
-    foreach (['subType', 'brand', 'model', 'serialNumber', 'locationLabel'] as $property) {
-      if (array_key_exists($property, $patch)) {
-        $value = $patch[$property];
-        if (null !== $value && !is_string($value)) {
-          throw new InterventionConflictException(sprintf('Equipment field "%s" must be a string or null.', $property));
-        }
-        $record->{$property} = $value;
-      }
-    }
-
-    if (array_key_exists('status', $patch)) {
-      $status = $patch['status'];
-      if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
-        throw new InterventionConflictException('Proposed equipment status is invalid.');
-      }
-      $record->status = $status;
-    }
-
-    if (array_key_exists('facility', $patch)) {
-      $facilityIri = $patch['facility'];
-      if (null === $facilityIri) {
-        $record->facilityId = null;
-      } elseif (is_string($facilityIri)) {
-        $facilityId = $this->resourceId($facilityIri, 'facilities');
-
-        try {
-          $this->facilityValidation->assertFacilityIsAssignable($facilityId, $organizationId);
-        } catch (Throwable) {
-          throw new InterventionConflictException('Proposed equipment facility is invalid.');
-        }
-        $record->facilityId = $facilityId;
-      } else {
-        throw new InterventionConflictException('Proposed equipment facility must be an IRI or null.');
-      }
-    }
+    $this->applyScalarFields($record, $patch);
+    $this->applyFacility($record, $organizationId, $patch);
 
     // In-service equipment (operational or under maintenance) requires a facility,
     // mirroring the aggregate: clearing it while in service would strand the asset in
@@ -332,29 +291,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       $record->planPosition = null;
     }
 
-    if (array_key_exists('planPosition', $patch)) {
-      $planPosition = $patch['planPosition'];
-      if (null === $planPosition) {
-        $record->planPosition = null;
-      } elseif (is_array($planPosition)) {
-        if (null === $record->facilityId) {
-          throw new InterventionConflictException('Equipment must be assigned to a facility before it can be placed on a plan.');
-        }
-
-        try {
-          $position = PlanPosition::fromArray($planPosition);
-          $this->assertPlanUsable($position->toArray()['attachmentId'], $record->facilityId);
-          if ('decommissioned' === $record->status) {
-            throw new InterventionConflictException('Decommissioned equipment cannot be placed on a plan.');
-          }
-          $record->planPosition = $position->toArray();
-        } catch (InvalidValueException $exception) {
-          throw new InterventionConflictException(sprintf('Proposed equipment plan position is invalid: %s', $exception->getMessage()));
-        }
-      } else {
-        throw new InterventionConflictException('Equipment field "planPosition" must be an object or null.');
-      }
-    }
+    $this->applyPlanPosition($record, $patch);
 
     // A plan position is bound to the equipment's facility assignment — mirroring
     // Equipment::unassignFromFacility() — and cannot outlive it, whether the facility
@@ -363,31 +300,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       $record->planPosition = null;
     }
 
-    // A published equipment change follows the domain status machine even on the
-    // intervention publication path: a decommissioned asset is terminal and no
-    // illegal transition may be applied directly to the record.
-    $statusChanged = $record->status !== $previousStatus;
-    if ($statusChanged) {
-      $this->assertLegalStatusTransition($previousStatus, $record->status);
-      // Stamp the first commissioning date on entering service (preserved on
-      // re-commission), mirroring Equipment::commission().
-      if ('operational' === $record->status && 'operational' !== $previousStatus) {
-        $record->commissionedAt ??= new DateTimeImmutable();
-      }
-    }
-
-    $record->updatedAt = new DateTimeImmutable();
-
-    if ($statusChanged) {
-      // Keep the maintenance-log history in step with the transition (mirrors the
-      // PutUnderMaintenance / Commission / Decommission handlers).
-      $this->maintenanceLogSynchronizer->syncForStatusTransition(
-        $record->id,
-        $organizationId,
-        $previousStatus,
-        $record->status,
-      );
-    }
+    $this->completeStatusChange($record, $organizationId, $previousStatus);
   }
 
   /**
@@ -461,6 +374,130 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyScalarFields(EquipmentRecord $record, array $patch): void
+  {
+    if (array_key_exists('type', $patch)) {
+      $type = $patch['type'];
+      if (!is_string($type) || '' === $type) {
+        throw new InterventionConflictException('Equipment type cannot be empty.');
+      }
+      $record->type = $type;
+    }
+
+    foreach (['subType', 'brand', 'model', 'serialNumber', 'locationLabel'] as $property) {
+      if (array_key_exists($property, $patch)) {
+        $value = $patch[$property];
+        if (null !== $value && !is_string($value)) {
+          throw new InterventionConflictException(sprintf('Equipment field "%s" must be a string or null.', $property));
+        }
+        $record->{$property} = $value;
+      }
+    }
+
+    if (array_key_exists('status', $patch)) {
+      $status = $patch['status'];
+      if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
+        throw new InterventionConflictException('Proposed equipment status is invalid.');
+      }
+      $record->status = $status;
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyFacility(EquipmentRecord $record, string $organizationId, array $patch): void
+  {
+    if (!array_key_exists('facility', $patch)) {
+      return;
+    }
+
+    $facilityIri = $patch['facility'];
+    if (null === $facilityIri) {
+      $record->facilityId = null;
+
+      return;
+    }
+    if (!is_string($facilityIri)) {
+      throw new InterventionConflictException('Proposed equipment facility must be an IRI or null.');
+    }
+
+    $facilityId = $this->resourceId($facilityIri, 'facilities');
+
+    try {
+      $this->facilityValidation->assertFacilityIsAssignable($facilityId, $organizationId);
+    } catch (Throwable) {
+      throw new InterventionConflictException('Proposed equipment facility is invalid.');
+    }
+    $record->facilityId = $facilityId;
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyPlanPosition(EquipmentRecord $record, array $patch): void
+  {
+    if (!array_key_exists('planPosition', $patch)) {
+      return;
+    }
+
+    $planPosition = $patch['planPosition'];
+    if (null === $planPosition) {
+      $record->planPosition = null;
+
+      return;
+    }
+    if (!is_array($planPosition)) {
+      throw new InterventionConflictException('Equipment field "planPosition" must be an object or null.');
+    }
+    if (null === $record->facilityId) {
+      throw new InterventionConflictException('Equipment must be assigned to a facility before it can be placed on a plan.');
+    }
+
+    try {
+      $position = PlanPosition::fromArray($planPosition);
+      $this->assertPlanUsable($position->toArray()['attachmentId'], $record->facilityId);
+      if ('decommissioned' === $record->status) {
+        throw new InterventionConflictException('Decommissioned equipment cannot be placed on a plan.');
+      }
+      $record->planPosition = $position->toArray();
+    } catch (InvalidValueException $exception) {
+      throw new InterventionConflictException(sprintf('Proposed equipment plan position is invalid: %s', $exception->getMessage()));
+    }
+  }
+
+  private function completeStatusChange(EquipmentRecord $record, string $organizationId, string $previousStatus): void
+  {
+    // A published equipment change follows the domain status machine even on the
+    // intervention publication path: a decommissioned asset is terminal and no
+    // illegal transition may be applied directly to the record.
+    $statusChanged = $record->status !== $previousStatus;
+    if ($statusChanged) {
+      $this->assertLegalStatusTransition($previousStatus, $record->status);
+      // Stamp the first commissioning date on entering service (preserved on
+      // re-commission), mirroring Equipment::commission().
+      if ('operational' === $record->status && 'operational' !== $previousStatus) {
+        $record->commissionedAt ??= new DateTimeImmutable();
+      }
+    }
+
+    $record->updatedAt = new DateTimeImmutable();
+
+    if ($statusChanged) {
+      // Keep the maintenance-log history in step with the transition (mirrors the
+      // PutUnderMaintenance / Commission / Decommission handlers).
+      $this->maintenanceLogSynchronizer->syncForStatusTransition(
+        $record->id,
+        $organizationId,
+        $previousStatus,
+        $record->status,
+      );
+    }
   }
 
   private function assertPlanUsable(string $attachmentId, string $facilityId): void
