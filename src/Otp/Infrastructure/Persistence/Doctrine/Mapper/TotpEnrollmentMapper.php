@@ -80,12 +80,17 @@ final readonly class TotpEnrollmentMapper
    */
   public function toDomain(TotpEnrollmentRecord $record): TotpEnrollment
   {
-    $activeSecret = $record->secretsEncrypted
-      ? (null === $record->activeSecretCiphertext ? null : $this->cipher->decrypt($record->activeSecretCiphertext, $record->getUserId() . ':active'))
-      : $record->getActiveSecret();
-    $pendingSecret = $record->secretsEncrypted
-      ? (null === $record->pendingSecretCiphertext ? null : $this->cipher->decrypt($record->pendingSecretCiphertext, $record->getUserId() . ':pending'))
-      : $record->getPendingSecret();
+    if ($record->secretsEncrypted) {
+      $activeSecret = null === $record->activeSecretCiphertext
+        ? null
+        : $this->cipher->decrypt($record->activeSecretCiphertext, $record->getUserId() . ':active');
+      $pendingSecret = null === $record->pendingSecretCiphertext
+        ? null
+        : $this->cipher->decrypt($record->pendingSecretCiphertext, $record->getUserId() . ':pending');
+    } else {
+      $activeSecret = $record->getActiveSecret();
+      $pendingSecret = $record->getPendingSecret();
+    }
 
     return TotpEnrollment::reconstitute(
       userId: $record->getUserId(),

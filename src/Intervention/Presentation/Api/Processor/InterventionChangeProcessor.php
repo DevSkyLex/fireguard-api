@@ -87,7 +87,11 @@ final readonly class InterventionChangeProcessor implements ProcessorInterface
     $method = $this->requestStack->getCurrentRequest()?->getMethod() ?? 'PATCH';
     $user = $this->user();
     $id = is_string($uriVariables['id'] ?? null) ? $uriVariables['id'] : null;
-    $action = in_array($method, ['POST', 'PUT'], true) ? 'create' : ('DELETE' === $method ? 'delete' : 'update');
+    $action = match ($method) {
+      'POST', 'PUT' => 'create',
+      'DELETE' => 'delete',
+      default => 'update',
+    };
     $createOnly = 'PUT' === $method;
     if ($createOnly) {
       $this->creationPreconditionGuard->assertCreateOnly();
@@ -95,14 +99,17 @@ final readonly class InterventionChangeProcessor implements ProcessorInterface
     $expectedRevision = in_array($method, ['PATCH', 'DELETE'], true)
       ? $this->revisionGuard->expectedRevision()
       : null;
-    $payload = $data instanceof CreateInterventionChangeInput
-      ? [
+    $payload = [];
+    if ($data instanceof CreateInterventionChangeInput) {
+      $payload = [
         'interventionId' => ResourceIriParser::id($data->intervention, 'interventions'),
         'workItemId' => null === $data->workItem ? null : ResourceIriParser::id($data->workItem, 'intervention-work-items'),
         'resource' => $data->resource,
         'patch' => $data->patch,
-      ]
-      : ($data instanceof UpdateInterventionChangeInput ? $this->updatePayload($data) : []);
+      ];
+    } elseif ($data instanceof UpdateInterventionChangeInput) {
+      $payload = $this->updatePayload($data);
+    }
 
     try {
       /** @var MutateInterventionWorkflowResult $result */

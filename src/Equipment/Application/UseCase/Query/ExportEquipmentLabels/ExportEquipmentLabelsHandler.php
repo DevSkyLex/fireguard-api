@@ -148,7 +148,12 @@ final readonly class ExportEquipmentLabelsHandler implements QueryHandler
       $candidates,
     );
 
-    $selection = null !== $equipmentIds ? 'ids' : (null !== $query->facilityId ? 'facility' : 'organization');
+    $selection = 'organization';
+    if (null !== $equipmentIds) {
+      $selection = 'ids';
+    } elseif (null !== $query->facilityId) {
+      $selection = 'facility';
+    }
 
     return new ExportEquipmentLabelsResult($rows, $total, $selection);
   }

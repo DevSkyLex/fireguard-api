@@ -133,9 +133,12 @@ final readonly class MediaProcessor implements ProcessorInterface
       throw new NotFoundHttpException('Equipment not found.');
     }
     $organizationId = $equipment->organization->id;
-    $interventionId = null === $interventionValue
-      ? ('draft' === $equipment->recordStatus ? $equipment->interventionId : null)
-      : ResourceIriParser::id($interventionValue, 'interventions');
+    $interventionId = null;
+    if (null !== $interventionValue) {
+      $interventionId = ResourceIriParser::id($interventionValue, 'interventions');
+    } elseif ('draft' === $equipment->recordStatus) {
+      $interventionId = $equipment->interventionId;
+    }
     $this->assertWrite($equipment, $interventionId);
     if (is_string($clientId) && '' !== $clientId) {
       $existing = $this->entityManager->find(EquipmentAttachmentRecord::class, $clientId);

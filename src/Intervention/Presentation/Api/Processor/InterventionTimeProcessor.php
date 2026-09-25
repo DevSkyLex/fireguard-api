@@ -63,7 +63,13 @@ final readonly class InterventionTimeProcessor implements ProcessorInterface
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
-    $action = $operation instanceof Post ? 'create' : ($operation instanceof Delete ? 'cancel' : 'correct');
+    if ($operation instanceof Post) {
+      $action = 'create';
+    } elseif ($operation instanceof Delete) {
+      $action = 'cancel';
+    } else {
+      $action = 'correct';
+    }
     if ('cancel' !== $action && !$data instanceof WriteTimeEntryInput) {
       throw new BadRequestHttpException('A time entry is required.');
     }

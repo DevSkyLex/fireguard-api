@@ -33,7 +33,12 @@ final readonly class OrganizationJoinOutputAssembler
   public function assemble(Operation $operation, array $values): object
   {
     $metadata = $operation->getOutput();
-    $class = is_string($metadata) ? $metadata : (is_array($metadata) ? ($metadata['class'] ?? null) : null);
+    $class = null;
+    if (is_string($metadata)) {
+      $class = $metadata;
+    } elseif (is_array($metadata)) {
+      $class = $metadata['class'] ?? null;
+    }
     if (!is_string($class)) {
       throw new LogicException('Missing join output contract.');
     }

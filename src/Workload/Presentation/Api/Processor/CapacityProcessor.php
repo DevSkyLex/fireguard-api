@@ -61,7 +61,13 @@ final readonly class CapacityProcessor implements ProcessorInterface
     if (!is_string($organizationId)) {
       throw new BadRequestHttpException('Organization is required.');
     }
-    $kind = $operation instanceof \ApiPlatform\Metadata\Delete ? 'cancel_exception' : ($data instanceof CapacityWeekInput ? 'week' : 'exception');
+    if ($operation instanceof \ApiPlatform\Metadata\Delete) {
+      $kind = 'cancel_exception';
+    } elseif ($data instanceof CapacityWeekInput) {
+      $kind = 'week';
+    } else {
+      $kind = 'exception';
+    }
     if ('cancel_exception' !== $kind && !$data instanceof CapacityWeekInput && !$data instanceof CapacityExceptionInput) {
       throw new BadRequestHttpException('Capacity input is required.');
     }

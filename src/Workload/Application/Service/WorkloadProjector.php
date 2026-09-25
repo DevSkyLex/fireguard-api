@@ -212,6 +212,12 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
     $scopedTasks = array_values(array_filter($tasks, static fn ($task): bool => null === $memberIds || in_array($task->memberId, $memberIds, true)));
     $scopedActuals = array_values(array_filter($actuals, static fn ($entry): bool => null === $memberIds || in_array($entry->memberId, $memberIds, true)));
     $fingerprint = hash('sha256', json_encode([$scopedTasks, $scopedActuals, $weeks, $exceptions, $today->value], JSON_THROW_ON_ERROR));
+    $completeness = $overall;
+    if (!$hasKnownCapacity) {
+      $completeness = 'unavailable';
+    } elseif ([] !== $unassigned) {
+      $completeness = 'partial';
+    }
 
     return new WorkloadProjectionSnapshot(new WorkloadProjectionView(
       $from,
@@ -222,7 +228,7 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
       $now->format('c'),
       $output,
       $unassigned,
-      !$hasKnownCapacity ? 'unavailable' : ([] !== $unassigned ? 'partial' : $overall),
+      $completeness,
     ), $fingerprint);
   }
 

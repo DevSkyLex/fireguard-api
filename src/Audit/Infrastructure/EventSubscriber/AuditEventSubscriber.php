@@ -2870,13 +2870,19 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
 
   public function onFacilityPlanGeometryChanged(FacilityPlanGeometryChangedEvent $event): void
   {
+    $operation = 'moved';
+    if (null === $event->attachmentId) {
+      $operation = 'cleared';
+    } elseif (null === $event->previousAttachmentId) {
+      $operation = 'placed';
+    }
     $this->recordOrganizationAudit(
       action: 'facility.plan_geometry_changed',
       organizationId: $event->organizationId,
       subjectType: 'facility',
       subjectId: $event->resourceId,
       metadata: [
-        'operation' => null === $event->attachmentId ? 'cleared' : (null === $event->previousAttachmentId ? 'placed' : 'moved'),
+        'operation' => $operation,
         'previous_attachment_id' => $event->previousAttachmentId,
         'attachment_id' => $event->attachmentId,
         'revision' => $event->revision,
@@ -2888,13 +2894,19 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
 
   public function onEquipmentPlanPositionChanged(EquipmentPlanPositionChangedEvent $event): void
   {
+    $operation = 'moved';
+    if (null === $event->attachmentId) {
+      $operation = 'cleared';
+    } elseif (null === $event->previousAttachmentId) {
+      $operation = 'placed';
+    }
     $this->recordOrganizationAudit(
       action: 'equipment.plan_position_changed',
       organizationId: $event->organizationId,
       subjectType: 'equipment',
       subjectId: $event->resourceId,
       metadata: [
-        'operation' => null === $event->attachmentId ? 'cleared' : (null === $event->previousAttachmentId ? 'placed' : 'moved'),
+        'operation' => $operation,
         'previous_attachment_id' => $event->previousAttachmentId,
         'attachment_id' => $event->attachmentId,
         'revision' => $event->revision,

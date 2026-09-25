@@ -339,6 +339,16 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
           6 + intdiv($equipmentIndex, 4),
           8 + $inspectionIndex,
         ));
+        $inspectorName = 0 === $inspectionIndex % 2 ? 'Admin User' : 'Test User';
+        if (InspectorType::EXTERNAL->value === $inspectorType) {
+          $inspectorName = 'SafeCheck Consultants';
+        }
+        $inspectorUserId = null;
+        if (InspectorType::USER->value === $inspectorType) {
+          $inspectorUserId = 0 === $inspectionIndex % 2
+            ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890'
+            : 'b2c3d4e5-f6a7-4901-8cde-f23456789012';
+        }
 
         $inspection = $this->createInspection(
           id: SeedUuid::from(sprintf('inspection-bulk:%d', $bulkInspectionIndex++)),
@@ -346,13 +356,13 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
           equipmentId: $equipment->id,
           facilityId: $equipment->facilityId,
           inspectorType: $inspectorType,
-          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : (0 === $inspectionIndex % 2 ? 'Admin User' : 'Test User'),
+          inspectorName: $inspectorName,
           result: $result,
           status: $status,
           performedAt: $performedAt,
           checklistId: $checklist->id,
           notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $seed['locationLabel']),
-          inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
+          inspectorUserId: $inspectorUserId,
           inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : null,
         );
         $manager->persist($inspection);
@@ -363,9 +373,15 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
           // Severity and status are spread deterministically across all four
           // values so the register's severity breakdown is never a single
           // flat bar — a FAIL still skews high/critical, a PARTIAL low/medium.
-          $severity = InspectionResult::FAIL->value === $result
-            ? (0 === $nonConformityIndex % 3 ? NonConformitySeverity::CRITICAL->value : NonConformitySeverity::HIGH->value)
-            : (0 === $nonConformityIndex % 2 ? NonConformitySeverity::LOW->value : NonConformitySeverity::MEDIUM->value);
+          if (InspectionResult::FAIL->value === $result) {
+            $severity = 0 === $nonConformityIndex % 3
+              ? NonConformitySeverity::CRITICAL->value
+              : NonConformitySeverity::HIGH->value;
+          } else {
+            $severity = 0 === $nonConformityIndex % 2
+              ? NonConformitySeverity::LOW->value
+              : NonConformitySeverity::MEDIUM->value;
+          }
           $nonConformityStatus = match ($nonConformityIndex % 5) {
             0 => NonConformityStatus::IN_PROGRESS->value,
             3 => NonConformityStatus::DONE->value,
