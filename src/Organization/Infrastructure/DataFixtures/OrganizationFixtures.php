@@ -417,6 +417,34 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
       self::INSPECTOR_MEMBER_REFERENCE => $inspectorMember,
     ];
 
+    $this->seedStaffAndTeams($manager, $organization, $memberRole, $rolesByReference, $membersByReference);
+    $this->seedInvitations($manager, $organization, $memberRole, $inspectorRole);
+
+    $this->loadSecondaryOrganizations($manager);
+
+    $manager->flush();
+  }
+
+  /**
+   * Method bulkMemberReference.
+   *
+   * @since 1.2.0
+   *
+   * @param int $index the bulk member index, `0` to `BULK_MEMBER_COUNT - 1`
+   *
+   * @return string the fixture reference name
+   */
+  public static function bulkMemberReference(int $index): string
+  {
+    return sprintf('organization-seed-bulk-member-%02d', $index);
+  }
+
+  /**
+   * @param array<string, OrganizationRoleRecord> $rolesByReference
+   * @param array<string, OrganizationMemberRecord> $membersByReference
+   */
+  private function seedStaffAndTeams(ObjectManager $manager, OrganizationRecord $organization, OrganizationRoleRecord $memberRole, array $rolesByReference, array $membersByReference): void
+  {
     foreach (self::STAFF_MEMBER_SEEDS as $seed) {
       $joinedAt = SeedTimeline::at($seed['joinedAt']);
 
@@ -482,7 +510,10 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
         $manager->persist($teamMember);
       }
     }
+  }
 
+  private function seedInvitations(ObjectManager $manager, OrganizationRecord $organization, OrganizationRoleRecord $memberRole, OrganizationRoleRecord $inspectorRole): void
+  {
     $invitation = new OrganizationInvitationRecord();
     $invitation->id = '591ba6c4-0d03-4bf3-a15f-22653463478c';
     $invitation->organization = $organization;
@@ -542,24 +573,6 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $expiredInvitationAssignment->role = $inspectorRole;
     $expiredInvitationAssignment->assignedAt = SeedTimeline::at('2026-02-06T09:05:00+00:00');
     $manager->persist($expiredInvitationAssignment);
-
-    $this->loadSecondaryOrganizations($manager);
-
-    $manager->flush();
-  }
-
-  /**
-   * Method bulkMemberReference.
-   *
-   * @since 1.2.0
-   *
-   * @param int $index the bulk member index, `0` to `BULK_MEMBER_COUNT - 1`
-   *
-   * @return string the fixture reference name
-   */
-  public static function bulkMemberReference(int $index): string
-  {
-    return sprintf('organization-seed-bulk-member-%02d', $index);
   }
 
   /**

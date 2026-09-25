@@ -182,17 +182,22 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       resend: false,
     ));
 
+    return $this->deliverInvitation($command, $invitation, (string) $organization->name(), $acceptUrl, $recipientUserId, $emailLocale, $tokenHash) ?? $result;
+  }
+
+  private function deliverInvitation(InviteOrganizationMemberCommand $command, OrganizationInvitation $invitation, string $organizationName, string $acceptUrl, ?string $recipientUserId, string $emailLocale, string $tokenHash): ?InviteOrganizationMemberResult
+  {
     $notification = null;
 
     try {
       $notification = $this->invitationNotifier->send(
-        organizationName: (string) $organization->name(),
+        organizationName: $organizationName,
         email: (string) $invitation->email(),
         acceptUrl: $acceptUrl,
         expiresAt: $invitation->expiresAt(),
         recipientUserId: $recipientUserId,
         locale: $emailLocale,
-        organizationId: (string) $organizationId,
+        organizationId: (string) $invitation->organizationId(),
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Invitation notification dispatch failed.', [
@@ -237,7 +242,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       ]);
     }
 
-    return $result;
+    return null;
   }
 
   private function assertCanInvite(OrganizationId $organizationId, Email $email, ?string $existingUserId): void

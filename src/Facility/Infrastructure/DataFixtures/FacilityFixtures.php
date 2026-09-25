@@ -269,6 +269,119 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     /** @var OrganizationRecord $organization */
     $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
 
+    $roots = $this->seedParisRoots($manager, $organization);
+    $rooms = $this->seedParisRooms($manager, $organization, $roots[self::FLOOR_ONE_REFERENCE], $roots[self::FLOOR_TWO_REFERENCE]);
+    $facilitiesByReference = [...$roots, ...$rooms];
+
+    foreach (self::REGIONAL_SITE_SEEDS as $seed) {
+      $regionalSite = $this->createFacility(
+        id: $seed['id'],
+        organization: $organization,
+        parentFacility: null,
+        type: FacilityType::SITE->value,
+        name: $seed['name'],
+        code: $seed['code'],
+        createdAt: SeedTimeline::at($seed['createdAt']),
+        address: $seed['address'],
+        metadata: ['city' => $seed['city'], 'country' => 'FR'],
+        latitude: $seed['latitude'],
+        longitude: $seed['longitude'],
+      );
+      $this->addReference($seed['reference'], $regionalSite);
+      $manager->persist($regionalSite);
+      $facilitiesByReference[$seed['reference']] = $regionalSite;
+    }
+
+    // Ordered parents-first, so every parent reference is already resolved.
+    foreach (self::REGIONAL_CHILD_SEEDS as $seed) {
+      $parent = $facilitiesByReference[$seed['parentReference']];
+
+      $child = $this->createFacility(
+        id: $seed['id'],
+        organization: $organization,
+        parentFacility: $parent,
+        type: $seed['type'],
+        name: $seed['name'],
+        code: $seed['code'],
+        createdAt: SeedTimeline::at($seed['createdAt']),
+        address: $parent->address,
+        metadata: ['city' => $parent->metadata['city'] ?? null, 'country' => 'FR'],
+        latitude: null === $parent->latitude ? null : $parent->latitude + 0.0006,
+        longitude: null === $parent->longitude ? null : $parent->longitude + 0.0006,
+      );
+      $this->addReference($seed['reference'], $child);
+      $manager->persist($child);
+      $facilitiesByReference[$seed['reference']] = $child;
+    }
+
+    // A decommissioned annex: the only archived row in the tree, so the
+    // status filter and the "hidden by default" listing behaviour have
+    // something to act on.
+    $archivedAnnex = $this->createFacility(
+      id: '68402941-5767-4d8b-a373-fe15467a5649',
+      organization: $organization,
+      parentFacility: $facilitiesByReference[self::SITE_REFERENCE],
+      type: FacilityType::BUILDING->value,
+      name: 'Old Annex',
+      code: 'BLD-ANNEX',
+      createdAt: SeedTimeline::at('2026-03-08T08:00:00+00:00'),
+      address: '14 Rue des Pompiers, 75011 Paris',
+      metadata: ['city' => 'Paris', 'usage' => 'storage', 'decommissionedReason' => 'demolished'],
+      latitude: 48.8568,
+      longitude: 2.3519,
+      status: FacilityStatus::ARCHIVED->value,
+    );
+    $this->addReference(self::ARCHIVED_ANNEX_REFERENCE, $archivedAnnex);
+    $manager->persist($archivedAnnex);
+    $facilitiesByReference[self::ARCHIVED_ANNEX_REFERENCE] = $archivedAnnex;
+
+    foreach (self::ATTACHMENT_SEEDS as $seed) {
+      $facility = $facilitiesByReference[$seed['facilityReference']];
+
+      $attachment = new FacilityAttachmentRecord();
+      $attachment->id = $seed['id'];
+      $attachment->facility = $facility;
+      $attachment->fileName = $seed['fileName'];
+      $attachment->mimeType = $seed['mimeType'];
+      $attachment->label = $seed['label'];
+      $attachment->uploadedAt = SeedTimeline::at($seed['uploadedAt']);
+
+      $assetFile = $seed['assetFile'];
+
+      if (null === $assetFile) {
+        // A document seed: nothing reads its bytes, so it keeps a placeholder
+        // path and no file is written. Only floor plans are actually fetched
+        // by the UI, and only those are worth the disk.
+        $attachment->storagePath = sprintf('/fixtures/facility/%s/%s', $seed['facilityReference'], $seed['fileName']);
+        $attachment->size = $seed['size'];
+        $manager->persist($attachment);
+
+        continue;
+      }
+
+      // A floor plan: the viewer downloads it, so it needs real bytes at the
+      // real path the download responder resolves — not the placeholder above.
+      $contents = (string) file_get_contents(dirname(__DIR__) . '/DataFixtures/assets/' . $assetFile);
+      $storagePath = StoragePathScheme::build('facility', $facility->id, $attachment->id, $seed['fileName']);
+      $this->writeSeedFile($storagePath, $contents);
+
+      $attachment->storagePath = $storagePath;
+      $attachment->size = strlen($contents);
+      $attachment->kind = AttachmentKind::FLOOR_PLAN->value;
+      $attachment->isPrimaryPlan = true;
+      $attachment->imageWidth = $seed['imageWidth'];
+      $attachment->imageHeight = $seed['imageHeight'];
+      $manager->persist($attachment);
+    }
+
+    $manager->flush();
+  }
+
+  /**
+   * @return array<string, FacilityRecord>
+   */
+  private function seedParisRoots(ObjectManager $manager, OrganizationRecord $organization): array
+  {
     $site = $this->createFacility(
       id: self::SITE_ID,
       organization: $organization,
@@ -337,6 +450,19 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $this->addReference(self::FLOOR_TWO_REFERENCE, $floorTwo);
     $manager->persist($floorTwo);
 
+    return [
+      self::SITE_REFERENCE => $site,
+      self::BUILDING_REFERENCE => $building,
+      self::FLOOR_ONE_REFERENCE => $floorOne,
+      self::FLOOR_TWO_REFERENCE => $floorTwo,
+    ];
+  }
+
+  /**
+   * @return array<string, FacilityRecord>
+   */
+  private function seedParisRooms(ObjectManager $manager, OrganizationRecord $organization, FacilityRecord $floorOne, FacilityRecord $floorTwo): array
+  {
     $zone = $this->createFacility(
       id: '824f43e2-ffd0-4b23-a8e0-9a55152aef65',
       organization: $organization,
@@ -405,119 +531,12 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $this->addReference(self::STORAGE_ROOM_REFERENCE, $storageRoom);
     $manager->persist($storageRoom);
 
-    $facilitiesByReference = [
-      self::SITE_REFERENCE => $site,
-      self::BUILDING_REFERENCE => $building,
-      self::FLOOR_ONE_REFERENCE => $floorOne,
-      self::FLOOR_TWO_REFERENCE => $floorTwo,
+    return [
       self::ZONE_REFERENCE => $zone,
       self::AREA_REFERENCE => $area,
       self::ZONE_B_REFERENCE => $zoneB,
       self::STORAGE_ROOM_REFERENCE => $storageRoom,
     ];
-
-    foreach (self::REGIONAL_SITE_SEEDS as $seed) {
-      $regionalSite = $this->createFacility(
-        id: $seed['id'],
-        organization: $organization,
-        parentFacility: null,
-        type: FacilityType::SITE->value,
-        name: $seed['name'],
-        code: $seed['code'],
-        createdAt: SeedTimeline::at($seed['createdAt']),
-        address: $seed['address'],
-        metadata: ['city' => $seed['city'], 'country' => 'FR'],
-        latitude: $seed['latitude'],
-        longitude: $seed['longitude'],
-      );
-      $this->addReference($seed['reference'], $regionalSite);
-      $manager->persist($regionalSite);
-      $facilitiesByReference[$seed['reference']] = $regionalSite;
-    }
-
-    // Ordered parents-first, so every parent reference is already resolved.
-    foreach (self::REGIONAL_CHILD_SEEDS as $seed) {
-      $parent = $facilitiesByReference[$seed['parentReference']];
-
-      $child = $this->createFacility(
-        id: $seed['id'],
-        organization: $organization,
-        parentFacility: $parent,
-        type: $seed['type'],
-        name: $seed['name'],
-        code: $seed['code'],
-        createdAt: SeedTimeline::at($seed['createdAt']),
-        address: $parent->address,
-        metadata: ['city' => $parent->metadata['city'] ?? null, 'country' => 'FR'],
-        latitude: null === $parent->latitude ? null : $parent->latitude + 0.0006,
-        longitude: null === $parent->longitude ? null : $parent->longitude + 0.0006,
-      );
-      $this->addReference($seed['reference'], $child);
-      $manager->persist($child);
-      $facilitiesByReference[$seed['reference']] = $child;
-    }
-
-    // A decommissioned annex: the only archived row in the tree, so the
-    // status filter and the "hidden by default" listing behaviour have
-    // something to act on.
-    $archivedAnnex = $this->createFacility(
-      id: '68402941-5767-4d8b-a373-fe15467a5649',
-      organization: $organization,
-      parentFacility: $site,
-      type: FacilityType::BUILDING->value,
-      name: 'Old Annex',
-      code: 'BLD-ANNEX',
-      createdAt: SeedTimeline::at('2026-03-08T08:00:00+00:00'),
-      address: '14 Rue des Pompiers, 75011 Paris',
-      metadata: ['city' => 'Paris', 'usage' => 'storage', 'decommissionedReason' => 'demolished'],
-      latitude: 48.8568,
-      longitude: 2.3519,
-      status: FacilityStatus::ARCHIVED->value,
-    );
-    $this->addReference(self::ARCHIVED_ANNEX_REFERENCE, $archivedAnnex);
-    $manager->persist($archivedAnnex);
-    $facilitiesByReference[self::ARCHIVED_ANNEX_REFERENCE] = $archivedAnnex;
-
-    foreach (self::ATTACHMENT_SEEDS as $seed) {
-      $facility = $facilitiesByReference[$seed['facilityReference']];
-
-      $attachment = new FacilityAttachmentRecord();
-      $attachment->id = $seed['id'];
-      $attachment->facility = $facility;
-      $attachment->fileName = $seed['fileName'];
-      $attachment->mimeType = $seed['mimeType'];
-      $attachment->label = $seed['label'];
-      $attachment->uploadedAt = SeedTimeline::at($seed['uploadedAt']);
-
-      $assetFile = $seed['assetFile'];
-
-      if (null === $assetFile) {
-        // A document seed: nothing reads its bytes, so it keeps a placeholder
-        // path and no file is written. Only floor plans are actually fetched
-        // by the UI, and only those are worth the disk.
-        $attachment->storagePath = sprintf('/fixtures/facility/%s/%s', $seed['facilityReference'], $seed['fileName']);
-        $attachment->size = $seed['size'];
-        $manager->persist($attachment);
-
-        continue;
-      }
-
-      // A floor plan: the viewer downloads it, so it needs real bytes at the
-      // real path the download responder resolves — not the placeholder above.
-      $contents = (string) file_get_contents(dirname(__DIR__) . '/DataFixtures/assets/' . $assetFile);
-      $storagePath = StoragePathScheme::build('facility', $facility->id, $attachment->id, $seed['fileName']);
-      $this->writeSeedFile($storagePath, $contents);
-
-      $attachment->storagePath = $storagePath;
-      $attachment->size = strlen($contents);
-      $attachment->kind = AttachmentKind::FLOOR_PLAN->value;
-      $attachment->isPrimaryPlan = true;
-      $attachment->imageWidth = $seed['imageWidth'];
-      $attachment->imageHeight = $seed['imageHeight'];
-      $manager->persist($attachment);
-    }
-
-    $manager->flush();
   }
 
   /**

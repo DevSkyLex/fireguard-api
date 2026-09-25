@@ -184,49 +184,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $comparisonPeriod = $query->compareWithPreviousPeriod ? DashboardSeriesBuilder::resolvePreviousPeriod($periodStart, $periodEnd) : null;
 
     $organizationId = OrganizationId::fromString($query->organizationId);
-    $memberCount = $this->memberRepository->countByOrganizationId($organizationId);
-    $activeMemberCount = $this->memberRepository->countActiveByOrganizationId($organizationId);
-    $roleCount = $this->roleRepository->countByOrganizationId($organizationId);
-    $systemRoleCount = $this->roleRepository->countSystemByOrganizationId($organizationId);
-    $invitationCount = $this->invitationRepository->countByOrganizationId($organizationId);
-    $invitationCountsByStatus = $this->normalizeBreakdown(
-      $this->invitationRepository->countByStatusForOrganizationId($organizationId),
-      OrganizationInvitationStatus::cases(),
-    );
-
     $generatedAtFormatted = DashboardSeriesBuilder::formatIso8601($generatedAt);
-    $facilityOverview = $this->facilityStatistics->countFacilityOverview($query->organizationId, $query->facilityType);
-    $equipmentOverview = $this->equipmentStatistics->countEquipmentOverview($query->organizationId, $query->equipmentType, $query->equipmentStatus);
-    $inspectionOverview = $this->inspectionStatistics->countInspectionOverview($query->organizationId, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $nonConformityOverview = $this->nonConformityStatistics->countNonConformityOverview($query->organizationId, $generatedAtFormatted, $query->nonConformitySeverity, $query->nonConformityStatus);
-    // L3.10: unconditional (no severity/status filter) org-wide breakdown, sourced
-    // from the same port used for `nonConformities.total`/status counts — single
-    // extra call, no new port method. Unlike the filtered `nonConformityOverview`
-    // above, this always reflects EVERY non-conformity regardless of the
-    // `nonConformityStatus`/`nonConformitySeverity` query filters.
-    $nonConformitySeverityOverview = $this->nonConformityStatistics->countNonConformitiesBySeverity($query->organizationId);
-
-    $facilityCount = $facilityOverview['total'];
-    $activeFacilityCount = $facilityOverview['active'];
-    $equipmentTotalCount = $equipmentOverview['total'];
-    $inStockEquipmentCount = $equipmentOverview['in_stock'];
-    $operationalEquipmentCount = $equipmentOverview['operational'];
-    $underMaintenanceEquipmentCount = $equipmentOverview['under_maintenance'];
-    $decommissionedEquipmentCount = $equipmentOverview['decommissioned'];
-    $inspectionTotalCount = $inspectionOverview['total'];
-    $draftInspectionCount = $inspectionOverview['draft'];
-    $submittedInspectionCount = $inspectionOverview['submitted'];
-    $closedInspectionCount = $inspectionOverview['closed'];
-    $passInspectionCount = $inspectionOverview['pass'];
-    $failInspectionCount = $inspectionOverview['fail'];
-    $partialInspectionCount = $inspectionOverview['partial'];
-    $nonConformityTotalCount = $nonConformityOverview['total'];
-    $openNonConformityCount = $nonConformityOverview['open'];
-    $inProgressNonConformityCount = $nonConformityOverview['in_progress'];
-    $doneNonConformityCount = $nonConformityOverview['done'];
-    $waivedNonConformityCount = $nonConformityOverview['waived'];
-    $overdueNonConformityCount = $nonConformityOverview['overdue'];
-    $openCriticalNonConformityCount = $nonConformityOverview['critical_open'];
+    $overview = $this->buildOverview($query, $organizationId, $generatedAtFormatted, $includeInterventions, $interventionOverview);
 
     $periodStartFormatted = DashboardSeriesBuilder::formatIso8601($periodStart);
     $periodEndFormatted = DashboardSeriesBuilder::formatIso8601($periodEnd);
@@ -254,84 +213,26 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $currentEquipmentCreatedCount = DashboardSeriesBuilder::sumSeries($equipmentCreatedByDay);
     $inspectionsPerformedByDay = $this->countInspectionsPerformedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
 
-    $overview = [
-      'members' => [
-        'total' => $memberCount,
-        'active' => $activeMemberCount,
-        'inactive' => max(0, $memberCount - $activeMemberCount),
-      ],
-      'roles' => [
-        'total' => $roleCount,
-        'system' => $systemRoleCount,
-        'custom' => max(0, $roleCount - $systemRoleCount),
-      ],
-      'invitations' => [
-        'total' => $invitationCount,
-        'pending' => $invitationCountsByStatus['pending'] ?? 0,
-        'accepted' => $invitationCountsByStatus['accepted'] ?? 0,
-        'revoked' => $invitationCountsByStatus['revoked'] ?? 0,
-        'expired' => $invitationCountsByStatus['expired'] ?? 0,
-      ],
-      'facilities' => [
-        'total' => $facilityCount,
-        'active' => $activeFacilityCount,
-        'archived' => max(0, $facilityCount - $activeFacilityCount),
-      ],
-      'equipment' => [
-        'total' => $equipmentTotalCount,
-        'inStock' => $inStockEquipmentCount,
-        'operational' => $operationalEquipmentCount,
-        'underMaintenance' => $underMaintenanceEquipmentCount,
-        'decommissioned' => $decommissionedEquipmentCount,
-      ],
-      'inspections' => [
-        'total' => $inspectionTotalCount,
-        'draft' => $draftInspectionCount,
-        'submitted' => $submittedInspectionCount,
-        'closed' => $closedInspectionCount,
-        'pass' => $passInspectionCount,
-        'fail' => $failInspectionCount,
-        'partial' => $partialInspectionCount,
-      ],
-      // Gated on `organization.interventions.read` like the recent-interventions
-      // list: the dashboard does not require that permission, so a member
-      // without it gets no intervention section rather than zeroes, which would
-      // read as "no work" instead of "not your business".
-      ...($includeInterventions ? ['interventions' => $interventionOverview] : []),
-      'nonConformities' => [
-        'total' => $nonConformityTotalCount,
-        'open' => $openNonConformityCount,
-        'inProgress' => $inProgressNonConformityCount,
-        'done' => $doneNonConformityCount,
-        'waived' => $waivedNonConformityCount,
-        'overdue' => $overdueNonConformityCount,
-        'criticalOpen' => $openCriticalNonConformityCount,
-        'severityLow' => $nonConformitySeverityOverview['low'] ?? 0,
-        'severityMedium' => $nonConformitySeverityOverview['medium'] ?? 0,
-        'severityHigh' => $nonConformitySeverityOverview['high'] ?? 0,
-        'severityCritical' => $nonConformitySeverityOverview['critical'] ?? 0,
-      ],
-    ];
-    $health = ['memberActivationRate' => $this->percentage($activeMemberCount, $memberCount), 'inspectionCompletionRate' => $this->percentage($closedInspectionCount, $inspectionTotalCount), 'inspectionPassRate' => $this->percentage($passInspectionCount, $passInspectionCount + $failInspectionCount + $partialInspectionCount), 'equipmentAvailabilityRate' => $this->percentage($operationalEquipmentCount, max(0, $equipmentTotalCount - $decommissionedEquipmentCount)), 'nonConformityResolutionRate' => $this->percentage($doneNonConformityCount + $waivedNonConformityCount, $nonConformityTotalCount), 'periodInspectionCompletionRate' => $currentPeriodHealth['inspectionCompletionRate'], 'periodInspectionPassRate' => $currentPeriodHealth['inspectionPassRate'], 'periodNonConformityResolutionRate' => $currentPeriodHealth['nonConformityResolutionRate']];
+    $health = ['memberActivationRate' => $this->percentage($overview['members']['active'], $overview['members']['total']), 'inspectionCompletionRate' => $this->percentage($overview['inspections']['closed'], $overview['inspections']['total']), 'inspectionPassRate' => $this->percentage($overview['inspections']['pass'], $overview['inspections']['pass'] + $overview['inspections']['fail'] + $overview['inspections']['partial']), 'equipmentAvailabilityRate' => $this->percentage($overview['equipment']['operational'], max(0, $overview['equipment']['total'] - $overview['equipment']['decommissioned'])), 'nonConformityResolutionRate' => $this->percentage($overview['nonConformities']['done'] + $overview['nonConformities']['waived'], $overview['nonConformities']['total']), 'periodInspectionCompletionRate' => $currentPeriodHealth['inspectionCompletionRate'], 'periodInspectionPassRate' => $currentPeriodHealth['inspectionPassRate'], 'periodNonConformityResolutionRate' => $currentPeriodHealth['nonConformityResolutionRate']];
     $alerts = [];
-    if ($openCriticalNonConformityCount > 0) {
-      $alerts[] = ['code' => 'critical_non_conformities_open', 'severity' => 'high', 'count' => $openCriticalNonConformityCount];
+    if ($overview['nonConformities']['criticalOpen'] > 0) {
+      $alerts[] = ['code' => 'critical_non_conformities_open', 'severity' => 'high', 'count' => $overview['nonConformities']['criticalOpen']];
     }
-    if ($overdueNonConformityCount > 0) {
-      $alerts[] = ['code' => 'non_conformities_overdue', 'severity' => 'high', 'count' => $overdueNonConformityCount];
+    if ($overview['nonConformities']['overdue'] > 0) {
+      $alerts[] = ['code' => 'non_conformities_overdue', 'severity' => 'high', 'count' => $overview['nonConformities']['overdue']];
     }
-    if (($invitationCountsByStatus['expired'] ?? 0) > 0) {
-      $alerts[] = ['code' => 'expired_invitations', 'severity' => 'medium', 'count' => $invitationCountsByStatus['expired']];
+    if ($overview['invitations']['expired'] > 0) {
+      $alerts[] = ['code' => 'expired_invitations', 'severity' => 'medium', 'count' => $overview['invitations']['expired']];
     }
-    if ($underMaintenanceEquipmentCount > 0) {
-      $alerts[] = ['code' => 'equipment_under_maintenance', 'severity' => 'medium', 'count' => $underMaintenanceEquipmentCount];
+    if ($overview['equipment']['underMaintenance'] > 0) {
+      $alerts[] = ['code' => 'equipment_under_maintenance', 'severity' => 'medium', 'count' => $overview['equipment']['underMaintenance']];
     }
 
     $trends = [
-      'facilities' => $this->buildRunningTotalSeries($facilitiesCreatedByDay, $facilityCount, $periodStart, $periodEnd, $dashboardTimeZone),
-      'members' => $this->buildRunningTotalSeries($membersJoinedByDay, $memberCount, $periodStart, $periodEnd, $dashboardTimeZone),
-      'equipment' => $this->buildRunningTotalSeries($equipmentCreatedByDay, $equipmentTotalCount, $periodStart, $periodEnd, $dashboardTimeZone),
-      'inspections' => $this->buildRunningTotalSeries($inspectionsPerformedByDay, $inspectionTotalCount, $periodStart, $periodEnd, $dashboardTimeZone),
+      'facilities' => $this->buildRunningTotalSeries($facilitiesCreatedByDay, $overview['facilities']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'members' => $this->buildRunningTotalSeries($membersJoinedByDay, $overview['members']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'equipment' => $this->buildRunningTotalSeries($equipmentCreatedByDay, $overview['equipment']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
+      'inspections' => $this->buildRunningTotalSeries($inspectionsPerformedByDay, $overview['inspections']['total'], $periodStart, $periodEnd, $dashboardTimeZone),
     ];
 
     $recentInterventions = $includeInterventions
@@ -368,6 +269,89 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $this->writeCache($cacheKey, $result);
 
     return $result;
+  }
+
+  /**
+   * @param array{total: int, open: int, overdue: int} $interventionOverview
+   *
+   * @return array<string, array<string, int>>
+   */
+  private function buildOverview(GetOrganizationDashboardQuery $query, OrganizationId $organizationId, string $generatedAtFormatted, bool $includeInterventions, array $interventionOverview): array
+  {
+    $memberCount = $this->memberRepository->countByOrganizationId($organizationId);
+    $activeMemberCount = $this->memberRepository->countActiveByOrganizationId($organizationId);
+    $roleCount = $this->roleRepository->countByOrganizationId($organizationId);
+    $systemRoleCount = $this->roleRepository->countSystemByOrganizationId($organizationId);
+    $invitationCount = $this->invitationRepository->countByOrganizationId($organizationId);
+    $invitationCountsByStatus = $this->normalizeBreakdown(
+      $this->invitationRepository->countByStatusForOrganizationId($organizationId),
+      OrganizationInvitationStatus::cases(),
+    );
+
+    $facilityOverview = $this->facilityStatistics->countFacilityOverview($query->organizationId, $query->facilityType);
+    $equipmentOverview = $this->equipmentStatistics->countEquipmentOverview($query->organizationId, $query->equipmentType, $query->equipmentStatus);
+    $inspectionOverview = $this->inspectionStatistics->countInspectionOverview($query->organizationId, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
+    $nonConformityOverview = $this->nonConformityStatistics->countNonConformityOverview($query->organizationId, $generatedAtFormatted, $query->nonConformitySeverity, $query->nonConformityStatus);
+    // This unfiltered breakdown includes every severity, regardless of the
+    // optional non-conformity filters applied to the overview above.
+    $nonConformitySeverityOverview = $this->nonConformityStatistics->countNonConformitiesBySeverity($query->organizationId);
+
+    return [
+      'members' => [
+        'total' => $memberCount,
+        'active' => $activeMemberCount,
+        'inactive' => max(0, $memberCount - $activeMemberCount),
+      ],
+      'roles' => [
+        'total' => $roleCount,
+        'system' => $systemRoleCount,
+        'custom' => max(0, $roleCount - $systemRoleCount),
+      ],
+      'invitations' => [
+        'total' => $invitationCount,
+        'pending' => $invitationCountsByStatus['pending'] ?? 0,
+        'accepted' => $invitationCountsByStatus['accepted'] ?? 0,
+        'revoked' => $invitationCountsByStatus['revoked'] ?? 0,
+        'expired' => $invitationCountsByStatus['expired'] ?? 0,
+      ],
+      'facilities' => [
+        'total' => $facilityOverview['total'],
+        'active' => $facilityOverview['active'],
+        'archived' => max(0, $facilityOverview['total'] - $facilityOverview['active']),
+      ],
+      'equipment' => [
+        'total' => $equipmentOverview['total'],
+        'inStock' => $equipmentOverview['in_stock'],
+        'operational' => $equipmentOverview['operational'],
+        'underMaintenance' => $equipmentOverview['under_maintenance'],
+        'decommissioned' => $equipmentOverview['decommissioned'],
+      ],
+      'inspections' => [
+        'total' => $inspectionOverview['total'],
+        'draft' => $inspectionOverview['draft'],
+        'submitted' => $inspectionOverview['submitted'],
+        'closed' => $inspectionOverview['closed'],
+        'pass' => $inspectionOverview['pass'],
+        'fail' => $inspectionOverview['fail'],
+        'partial' => $inspectionOverview['partial'],
+      ],
+      // The optional intervention section is omitted for callers without
+      // organization.interventions.read, rather than displaying zero work.
+      ...($includeInterventions ? ['interventions' => $interventionOverview] : []),
+      'nonConformities' => [
+        'total' => $nonConformityOverview['total'],
+        'open' => $nonConformityOverview['open'],
+        'inProgress' => $nonConformityOverview['in_progress'],
+        'done' => $nonConformityOverview['done'],
+        'waived' => $nonConformityOverview['waived'],
+        'overdue' => $nonConformityOverview['overdue'],
+        'criticalOpen' => $nonConformityOverview['critical_open'],
+        'severityLow' => $nonConformitySeverityOverview['low'] ?? 0,
+        'severityMedium' => $nonConformitySeverityOverview['medium'] ?? 0,
+        'severityHigh' => $nonConformitySeverityOverview['high'] ?? 0,
+        'severityCritical' => $nonConformitySeverityOverview['critical'] ?? 0,
+      ],
+    ];
   }
 
   /**

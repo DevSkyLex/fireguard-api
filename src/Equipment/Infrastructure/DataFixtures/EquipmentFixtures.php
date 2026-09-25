@@ -352,6 +352,84 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       $tagCatalogue[] = $tag;
     }
 
+    $primaryEquipment = $this->seedPrimaryEquipment($manager, $organization, $zone, $area, $criticalTag, $inspectedTag);
+    $buildingEquipment = $this->seedBuildingEquipment($manager, $organization);
+
+    $facilitiesByReference = [
+      FacilityFixtures::SITE_REFERENCE => $site,
+      FacilityFixtures::BUILDING_REFERENCE => $building,
+      FacilityFixtures::FLOOR_ONE_REFERENCE => $floorOne,
+      FacilityFixtures::FLOOR_TWO_REFERENCE => $floorTwo,
+      FacilityFixtures::ZONE_REFERENCE => $zone,
+      FacilityFixtures::AREA_REFERENCE => $area,
+      FacilityFixtures::ZONE_B_REFERENCE => $zoneB,
+      FacilityFixtures::STORAGE_ROOM_REFERENCE => $storageRoom,
+    ];
+
+    foreach (FacilityFixtures::REGIONAL_SITE_SEEDS as $regionalSeed) {
+      /** @var FacilityRecord $regionalSite */
+      $regionalSite = $this->getReference($regionalSeed['reference'], FacilityRecord::class);
+      $facilitiesByReference[$regionalSeed['reference']] = $regionalSite;
+    }
+
+    foreach (FacilityFixtures::REGIONAL_CHILD_SEEDS as $childSeed) {
+      /** @var FacilityRecord $regionalChild */
+      $regionalChild = $this->getReference($childSeed['reference'], FacilityRecord::class);
+      $facilitiesByReference[$childSeed['reference']] = $regionalChild;
+    }
+
+    $equipmentByReference = [...$primaryEquipment, ...$buildingEquipment];
+
+    $equipmentByReference = $this->seedAdditionalEquipment($manager, $organization, $facilitiesByReference, $equipmentByReference, $tagCatalogue);
+    $this->seedExtraRegionalEquipment($manager, $organization, $facilitiesByReference);
+
+    foreach (self::ATTACHMENT_SEEDS as $seed) {
+      $equipmentAttachment = new EquipmentAttachmentRecord();
+      $equipmentAttachment->id = $seed['id'];
+      $equipmentAttachment->equipment = $equipmentByReference[$seed['equipmentReference']];
+      $equipmentAttachment->fileName = $seed['fileName'];
+      $equipmentAttachment->storagePath = sprintf('/fixtures/equipment/%s/%s', $seed['equipmentReference'], $seed['fileName']);
+      $equipmentAttachment->mimeType = $seed['mimeType'];
+      $equipmentAttachment->size = $seed['size'];
+      $equipmentAttachment->label = $seed['label'];
+      $equipmentAttachment->uploadedAt = SeedTimeline::at($seed['uploadedAt']);
+      $manager->persist($equipmentAttachment);
+    }
+
+    foreach (self::MAINTENANCE_LOG_SEEDS as $seed) {
+      $log = new EquipmentMaintenanceLogRecord();
+      $log->id = $seed['id'];
+      $log->equipment = $equipmentByReference[$seed['equipmentReference']];
+      $log->organizationId = OrganizationFixtures::ORGANIZATION_ID;
+      $log->startedAt = SeedTimeline::at($seed['startedAt']);
+      $log->completedAt = null === $seed['completedAt'] ? null : SeedTimeline::at($seed['completedAt']);
+      $log->source = $seed['source'];
+      $log->summary = $seed['summary'];
+      $manager->persist($log);
+    }
+
+    $manager->flush();
+  }
+
+  /**
+   * Method extraRegionalEquipmentReference.
+   *
+   * @since 1.2.0
+   *
+   * @param int $index the extra regional equipment index, `0` to `EXTRA_REGIONAL_EQUIPMENT_COUNT - 1`
+   *
+   * @return string the fixture reference name
+   */
+  public static function extraRegionalEquipmentReference(int $index): string
+  {
+    return sprintf('equipment-seed-extra-regional-%02d', $index);
+  }
+
+  /**
+   * @return array<string, EquipmentRecord>
+   */
+  private function seedPrimaryEquipment(ObjectManager $manager, OrganizationRecord $organization, FacilityRecord $zone, FacilityRecord $area, TagRecord $criticalTag, TagRecord $inspectedTag): array
+  {
     $extinguisher = $this->createEquipment(
       id: '33333333-3333-4333-8333-333333333333',
       organization: $organization,
@@ -430,6 +508,31 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     $maintenanceLog->startedAt = SeedTimeline::at('2026-03-15T08:00:00+00:00');
     $maintenanceLog->completedAt = SeedTimeline::at('2026-03-15T12:00:00+00:00');
     $manager->persist($maintenanceLog);
+
+    return [
+      self::EXTINGUISHER_REFERENCE => $extinguisher,
+      self::DETECTOR_REFERENCE => $detector,
+      self::HYDRANT_REFERENCE => $hydrant,
+    ];
+  }
+
+  /**
+   * @return array<string, EquipmentRecord>
+   */
+  private function seedBuildingEquipment(ObjectManager $manager, OrganizationRecord $organization): array
+  {
+    /** @var FacilityRecord $zoneB */
+    $zoneB = $this->getReference(FacilityFixtures::ZONE_B_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $storageRoom */
+    $storageRoom = $this->getReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $site */
+    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $building */
+    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $floorOne */
+    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $floorTwo */
+    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
 
     $sprinkler = $this->createEquipment(
       id: '4cd977b8-c8e8-4af2-a808-fc6a0ac5197a',
@@ -536,33 +639,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     $manager->persist($floorTwoGasDetector);
     $this->addReference(self::FLOOR_TWO_GAS_DETECTOR_REFERENCE, $floorTwoGasDetector);
 
-    $facilitiesByReference = [
-      FacilityFixtures::SITE_REFERENCE => $site,
-      FacilityFixtures::BUILDING_REFERENCE => $building,
-      FacilityFixtures::FLOOR_ONE_REFERENCE => $floorOne,
-      FacilityFixtures::FLOOR_TWO_REFERENCE => $floorTwo,
-      FacilityFixtures::ZONE_REFERENCE => $zone,
-      FacilityFixtures::AREA_REFERENCE => $area,
-      FacilityFixtures::ZONE_B_REFERENCE => $zoneB,
-      FacilityFixtures::STORAGE_ROOM_REFERENCE => $storageRoom,
-    ];
-
-    foreach (FacilityFixtures::REGIONAL_SITE_SEEDS as $regionalSeed) {
-      /** @var FacilityRecord $regionalSite */
-      $regionalSite = $this->getReference($regionalSeed['reference'], FacilityRecord::class);
-      $facilitiesByReference[$regionalSeed['reference']] = $regionalSite;
-    }
-
-    foreach (FacilityFixtures::REGIONAL_CHILD_SEEDS as $childSeed) {
-      /** @var FacilityRecord $regionalChild */
-      $regionalChild = $this->getReference($childSeed['reference'], FacilityRecord::class);
-      $facilitiesByReference[$childSeed['reference']] = $regionalChild;
-    }
-
-    $equipmentByReference = [
-      self::EXTINGUISHER_REFERENCE => $extinguisher,
-      self::DETECTOR_REFERENCE => $detector,
-      self::HYDRANT_REFERENCE => $hydrant,
+    return [
       self::SPRINKLER_REFERENCE => $sprinkler,
       self::ALARM_PANEL_REFERENCE => $alarmPanel,
       self::HEAT_DETECTOR_REFERENCE => $heatDetector,
@@ -571,50 +648,6 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       self::FLOOR_ONE_CAMERA_REFERENCE => $floorOneCamera,
       self::FLOOR_TWO_GAS_DETECTOR_REFERENCE => $floorTwoGasDetector,
     ];
-
-    $equipmentByReference = $this->seedAdditionalEquipment($manager, $organization, $facilitiesByReference, $equipmentByReference, $tagCatalogue);
-    $this->seedExtraRegionalEquipment($manager, $organization, $facilitiesByReference);
-
-    foreach (self::ATTACHMENT_SEEDS as $seed) {
-      $equipmentAttachment = new EquipmentAttachmentRecord();
-      $equipmentAttachment->id = $seed['id'];
-      $equipmentAttachment->equipment = $equipmentByReference[$seed['equipmentReference']];
-      $equipmentAttachment->fileName = $seed['fileName'];
-      $equipmentAttachment->storagePath = sprintf('/fixtures/equipment/%s/%s', $seed['equipmentReference'], $seed['fileName']);
-      $equipmentAttachment->mimeType = $seed['mimeType'];
-      $equipmentAttachment->size = $seed['size'];
-      $equipmentAttachment->label = $seed['label'];
-      $equipmentAttachment->uploadedAt = SeedTimeline::at($seed['uploadedAt']);
-      $manager->persist($equipmentAttachment);
-    }
-
-    foreach (self::MAINTENANCE_LOG_SEEDS as $seed) {
-      $log = new EquipmentMaintenanceLogRecord();
-      $log->id = $seed['id'];
-      $log->equipment = $equipmentByReference[$seed['equipmentReference']];
-      $log->organizationId = OrganizationFixtures::ORGANIZATION_ID;
-      $log->startedAt = SeedTimeline::at($seed['startedAt']);
-      $log->completedAt = null === $seed['completedAt'] ? null : SeedTimeline::at($seed['completedAt']);
-      $log->source = $seed['source'];
-      $log->summary = $seed['summary'];
-      $manager->persist($log);
-    }
-
-    $manager->flush();
-  }
-
-  /**
-   * Method extraRegionalEquipmentReference.
-   *
-   * @since 1.2.0
-   *
-   * @param int $index the extra regional equipment index, `0` to `EXTRA_REGIONAL_EQUIPMENT_COUNT - 1`
-   *
-   * @return string the fixture reference name
-   */
-  public static function extraRegionalEquipmentReference(int $index): string
-  {
-    return sprintf('equipment-seed-extra-regional-%02d', $index);
   }
 
   /**
