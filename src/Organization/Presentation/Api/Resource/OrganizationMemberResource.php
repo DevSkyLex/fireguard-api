@@ -42,9 +42,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AddOrganizationMemberProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'Add Organization member',
         description: 'Adds an existing user to a Organization and assigns one or more roles.',
       ),
@@ -60,9 +60,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'List Organization members',
         description: 'Lists Organization members and assigned roles. Supports `search` (matched against the member\'s user identifier), `status` (`active`, `inactive`, or `all`), `roleId`, and `order[joinedAt|displayName]=asc|desc` (default `order[joinedAt]=asc`).',
       ),
@@ -70,18 +70,18 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Get(
       name: OrganizationOperations::GET_ORGANIZATION_MEMBER,
       uriTemplate: '/{organizationId}/members/{memberId}',
-      requirements: ['memberId' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
+      requirements: ['memberId' => self::UUID_PATTERN],
       input: false,
       output: OrganizationMemberOutput::class,
       provider: GetOrganizationMemberProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'Get Organization member',
         description: 'Resolves a single organization member by identifier.',
         responses: [
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found, or member not found in this organization'),
         ],
       ),
@@ -95,9 +95,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: RemoveOrganizationMembersProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'Batch remove Organization members',
         description: 'Removes several members in one request, reporting removed and failed IDs.',
       ),
@@ -106,19 +106,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       name: OrganizationOperations::REACTIVATE_ORGANIZATION_MEMBER,
       uriTemplate: '/{organizationId}/members/{memberId}/reactivate',
       status: HttpResponse::HTTP_OK,
-      requirements: ['memberId' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
+      requirements: ['memberId' => self::UUID_PATTERN],
       input: false,
       output: OrganizationMemberOutput::class,
       processor: ReactivateOrganizationMemberProcessor::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'Reactivate Organization member',
         description: 'Reactivates a previously deactivated (removed) organization member. Subject to the same plan member cap as adding a new member.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Member reactivated'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found, or member not found in this organization'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Organization is archived, member is already active, or the plan\'s member cap has been reached'),
         ],
@@ -131,9 +131,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: LeaveOrganizationProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'Leave Organization',
         description: 'Deactivates the authenticated user\'s own membership (self-removal). The organization\'s current owner cannot leave — transfer ownership first via POST /organizations/{id}/transfer-ownership. Refused when leaving would strip the organization of its last active administrator.',
         responses: [
@@ -146,20 +146,20 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Delete(
       name: OrganizationOperations::REMOVE_ORGANIZATION_MEMBER,
       uriTemplate: '/{organizationId}/members/{memberId}',
-      requirements: ['memberId' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
+      requirements: ['memberId' => self::UUID_PATTERN],
       read: false,
       input: false,
       output: false,
       processor: RemoveOrganizationMemberProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Members'],
+        tags: [self::OPENAPI_TAG_MEMBERS],
         summary: 'Remove Organization member',
         description: 'Deactivates an organization member. The membership record is retained for audit purposes.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Member removed'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or member not found'),
         ],
       ),
@@ -168,4 +168,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationMemberResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string OPENAPI_TAG_MEMBERS = 'Organization Members';
+
+  private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

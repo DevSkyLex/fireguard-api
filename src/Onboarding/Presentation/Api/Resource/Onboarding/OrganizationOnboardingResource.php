@@ -50,8 +50,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: PrepareOrganizationSetupProcessor::class,
       denormalizationContext: ['groups' => [OnboardingSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
-      openapi: new Operation(tags: ['Onboarding'], summary: 'Prepare a durable setup batch', description: 'Persists up to five item inputs for the current creator step. Repeating a key requires identical input. Owner resource POSTs consume the returned session and item keys atomically.', responses: [200 => new Response(description: 'Batch prepared or already prepared'), 401 => new Response(description: 'Authentication required'), 409 => new Response(description: 'Session, step, item or payload conflict')]),
+      security: self::SECURITY_ROLE_USER,
+      openapi: new Operation(tags: ['Onboarding'], summary: 'Prepare a durable setup batch', description: 'Persists up to five item inputs for the current creator step. Repeating a key requires identical input. Owner resource POSTs consume the returned session and item keys atomically.', responses: [200 => new Response(description: 'Batch prepared or already prepared'), 401 => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION), 409 => new Response(description: 'Session, step, item or payload conflict')]),
     ),
     new Get(
       name: OnboardingOperations::GET_ORGANIZATION_ONBOARDING,
@@ -60,14 +60,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOnboardingOutput::class,
       provider: OrganizationOnboardingProvider::class,
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Get organization onboarding flow',
         description: 'Returns persisted onboarding progression for organization setup and exposes actionable endpoints for each step.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding flow retrieved'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -80,14 +80,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: StartOrganizationOnboardingProcessor::class,
       denormalizationContext: ['groups' => [OnboardingSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Start organization onboarding flow',
         description: 'Starts or resets the persisted organization onboarding session for the authenticated user.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding flow started'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -100,7 +100,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: ExecuteOrganizationOnboardingStepProcessor::class,
       denormalizationContext: ['groups' => [OnboardingSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Execute organization onboarding step',
@@ -109,7 +109,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding step executed'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid step payload'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Step not available in current flow state'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -121,7 +121,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOnboardingOutput::class,
       processor: RollbackOrganizationOnboardingProcessor::class,
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Rollback last organization onboarding step',
@@ -129,7 +129,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding step rolled back'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'No rollback action available'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -141,7 +141,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOnboardingOutput::class,
       processor: SkipOrganizationOnboardingStepProcessor::class,
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Skip organization onboarding step',
@@ -150,7 +150,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding step skipped'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid or required step'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Step not available to skip in current flow state'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -162,14 +162,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOnboardingOutput::class,
       processor: DismissOrganizationOnboardingProcessor::class,
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Dismiss organization onboarding activation',
         description: 'Voluntarily hides the non-blocking activation flow without completing it. Progression is preserved and can be resumed later.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding activation dismissed'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -181,14 +181,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOnboardingOutput::class,
       processor: ResumeOrganizationOnboardingProcessor::class,
       normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Onboarding'],
         summary: 'Resume organization onboarding activation',
         description: 'Clears a previous dismissal so the activation flow and setup checklist become visible again.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding activation resumed'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
         ],
       ),
     ),
@@ -196,4 +196,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationOnboardingResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+  // #endregion
 }

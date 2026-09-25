@@ -36,9 +36,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateOrganizationRoleProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Create Organization role',
         description: 'Creates a custom role inside a Organization with explicit permissions.',
       ),
@@ -54,36 +54,36 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'List Organization roles',
         description: 'Lists all roles defined for a Organization. Real pagination (`page`/`itemsPerPage`, default 30); `totalItems` reflects the count AFTER search filtering. Supports `search` (matched against the role name) and `order[name|isSystem|createdAt]=asc|desc` (default `order[name]=asc`).',
       ),
     ),
     new Get(
       name: OrganizationOperations::GET_ORGANIZATION_ROLE,
-      uriTemplate: '/{organizationId}/roles/{roleId}',
+      uriTemplate: self::ROLE_URI_TEMPLATE,
       requirements: ['roleId' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
       input: false,
       output: OrganizationRoleOutput::class,
       provider: GetOrganizationRoleProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Get Organization role',
         description: 'Returns a single organization role, including memberCount (the number of ACTIVE members currently assigned). Requires the organization.roles.read permission.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Role retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or role not found, or the role belongs to another organization'),
         ],
       ),
     ),
     new Patch(
       name: OrganizationOperations::UPDATE_ORGANIZATION_ROLE,
-      uriTemplate: '/{organizationId}/roles/{roleId}',
+      uriTemplate: self::ROLE_URI_TEMPLATE,
       // `read: false`: this operation had no provider and no explicit
       // `read: false`, so API Platform's default pre-read step (`read: true`)
       // tried to resolve the current resource state through a generic
@@ -99,9 +99,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateOrganizationRoleProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Update Organization role permissions',
         description: 'Updates the permissions assigned to a custom organization role, and optionally renames it.',
         responses: [
@@ -115,20 +115,20 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Delete(
       name: OrganizationOperations::DELETE_ORGANIZATION_ROLE,
-      uriTemplate: '/{organizationId}/roles/{roleId}',
+      uriTemplate: self::ROLE_URI_TEMPLATE,
       read: false,
       input: false,
       output: false,
       processor: DeleteOrganizationRoleProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Delete Organization role',
         description: 'Permanently deletes a custom role. All member role assignments for this role are removed. System roles cannot be deleted.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Role deleted'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or system role'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or role not found'),
         ],
       ),
@@ -141,9 +141,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AssignOrganizationRoleToMemberProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Assign role to member',
         description: 'Assigns an existing Organization role to an existing Organization member.',
       ),
@@ -158,9 +158,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: SetOrganizationMemberRolesProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Replace member roles',
         description: 'Replaces the member\'s entire role set in one call. Roles being granted go through the privilege-escalation guard; roles being revoked go through the last-administrator lockout guard.',
         responses: [
@@ -178,15 +178,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: RemoveOrganizationRoleFromMemberProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Roles'],
+        tags: [self::OPENAPI_TAG_ROLES],
         summary: 'Remove role from member',
         description: 'Removes a role assignment from an organization member.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Role removed from member'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization, member, or role not found'),
         ],
       ),
@@ -195,4 +195,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationRoleResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string OPENAPI_TAG_ROLES = 'Organization Roles';
+
+  private const string ROLE_URI_TEMPLATE = '/{organizationId}/roles/{roleId}';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

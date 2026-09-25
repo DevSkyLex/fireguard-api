@@ -36,9 +36,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: InviteOrganizationMemberProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Invitations'],
+        tags: [self::OPENAPI_TAG_INVITATIONS],
         summary: 'Invite Organization member',
         description: 'Invites a user by email to join an Organization with one or more roles.',
       ),
@@ -54,9 +54,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Invitations'],
+        tags: [self::OPENAPI_TAG_INVITATIONS],
         summary: 'List Organization invitations',
         description: 'Lists invitations created for an Organization.',
       ),
@@ -69,9 +69,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AcceptOrganizationInvitationProcessor::class,
       denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Invitations'],
+        tags: [self::OPENAPI_TAG_INVITATIONS],
         summary: 'Accept Organization invitation',
         description: 'Accepts an invitation token and creates/updates organization membership for the authenticated user.',
       ),
@@ -84,9 +84,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationInvitationOutput::class,
       processor: RevokeOrganizationInvitationProcessor::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Invitations'],
+        tags: [self::OPENAPI_TAG_INVITATIONS],
         summary: 'Revoke Organization invitation',
         description: 'Revokes a pending invitation.',
       ),
@@ -99,9 +99,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationInvitationOutput::class,
       processor: ResendOrganizationInvitationProcessor::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
-        tags: ['Organization Invitations'],
+        tags: [self::OPENAPI_TAG_INVITATIONS],
         summary: 'Resend Organization invitation',
         description: 'Regenerates the token, resets the expiry and re-sends the invitation email, returning a fresh accept link.',
       ),
@@ -115,7 +115,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
       security: 'true',
       openapi: new Operation(
-        tags: ['Organization Invitations'],
+        tags: [self::OPENAPI_TAG_INVITATIONS],
         summary: 'Preview Organization invitation',
         description: 'Returns a minimal, public-safe preview of an invitation resolved by token (organization, inviter, invited email, status, expiry, granted role names).',
       ),
@@ -124,4 +124,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationInvitationResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string OPENAPI_TAG_INVITATIONS = 'Organization Invitations';
+  // #endregion
 }

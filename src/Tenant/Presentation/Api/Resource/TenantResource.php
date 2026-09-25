@@ -53,13 +53,13 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
             description: 'Tenant created successfully',
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed',
+            description: self::VALIDATION_FAILED_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -67,7 +67,7 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
     new Get(
       name: TenantOperations::GET,
       description: 'Get details of a specific tenant.',
-      uriTemplate: '/tenants/{id}',
+      uriTemplate: self::TENANT_URI_TEMPLATE,
       input: false,
       output: TenantOutput::class,
       provider: GetTenantProvider::class,
@@ -83,13 +83,13 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
             description: 'Tenant retrieved successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Tenant not found',
+            description: self::TENANT_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -117,10 +117,10 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
             description: 'List of tenants retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -128,13 +128,13 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
     new Patch(
       name: TenantOperations::UPDATE,
       description: 'Update tenant settings or name.',
-      uriTemplate: '/tenants/{id}',
+      uriTemplate: self::TENANT_URI_TEMPLATE,
       input: TenantInput::class,
       output: TenantOutput::class,
       processor: UpdateTenantProcessor::class,
       denormalizationContext: ['groups' => [TenantSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [TenantSerializationGroup::READ]],
-      security: "is_granted('tenants.update')",
+      security: self::SECURITY_TENANTS_UPDATE,
       openapi: new Operation(
         tags: ['Tenants'],
         summary: 'Update tenant',
@@ -142,23 +142,23 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Tenant updated successfully'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - validation failed'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Tenant not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::VALIDATION_FAILED_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::TENANT_NOT_FOUND_DESCRIPTION),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
         ],
       ),
     ),
     new Put(
       name: TenantOperations::REPLACE,
       description: 'Replace a tenant configuration.',
-      uriTemplate: '/tenants/{id}',
+      uriTemplate: self::TENANT_URI_TEMPLATE,
       input: TenantInput::class,
       output: TenantOutput::class,
       processor: UpdateTenantProcessor::class,
       denormalizationContext: ['groups' => [TenantSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [TenantSerializationGroup::READ]],
-      security: "is_granted('tenants.update')",
+      security: self::SECURITY_TENANTS_UPDATE,
       openapi: new Operation(
         tags: ['Tenants'],
         summary: 'Replace tenant',
@@ -166,17 +166,17 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Tenant replaced successfully'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - validation failed'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Tenant not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::VALIDATION_FAILED_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::TENANT_NOT_FOUND_DESCRIPTION),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
         ],
       ),
     ),
     new Delete(
       name: TenantOperations::DELETE,
       description: 'Delete a tenant.',
-      uriTemplate: '/tenants/{id}',
+      uriTemplate: self::TENANT_URI_TEMPLATE,
       input: false,
       output: false,
       processor: DeleteTenantProcessor::class,
@@ -188,9 +188,9 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Tenant deleted successfully'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Tenant not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::TENANT_NOT_FOUND_DESCRIPTION),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
         ],
       ),
     ),
@@ -203,7 +203,7 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
       output: TenantOutput::class,
       processor: ActivateTenantProcessor::class,
       normalizationContext: ['groups' => [TenantSerializationGroup::READ]],
-      security: "is_granted('tenants.update')",
+      security: self::SECURITY_TENANTS_UPDATE,
       openapi: new Operation(
         tags: ['Tenants'],
         summary: 'Activate tenant',
@@ -211,9 +211,9 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Tenant activated successfully'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Tenant not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::TENANT_NOT_FOUND_DESCRIPTION),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
         ],
       ),
     ),
@@ -226,7 +226,7 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
       output: TenantOutput::class,
       processor: DeactivateTenantProcessor::class,
       normalizationContext: ['groups' => [TenantSerializationGroup::READ]],
-      security: "is_granted('tenants.update')",
+      security: self::SECURITY_TENANTS_UPDATE,
       openapi: new Operation(
         tags: ['Tenants'],
         summary: 'Deactivate tenant',
@@ -234,9 +234,9 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Tenant deactivated successfully'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Tenant not found'),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::TENANT_NOT_FOUND_DESCRIPTION),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: self::AUTHENTICATION_REQUIRED_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION),
         ],
       ),
     ),
@@ -244,4 +244,17 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
 )]
 final class TenantResource
 {
+  // #region Constants
+  private const string VALIDATION_FAILED_DESCRIPTION = 'Invalid request - validation failed';
+
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+
+  private const string TENANT_URI_TEMPLATE = '/tenants/{id}';
+
+  private const string TENANT_NOT_FOUND_DESCRIPTION = 'Tenant not found';
+
+  private const string SECURITY_TENANTS_UPDATE = "is_granted('tenants.update')";
+  // #endregion
 }

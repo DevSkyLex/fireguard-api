@@ -42,7 +42,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       parameters: [
         'action' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'example' => 'organization.member_added'],
-          description: 'Optional exact audit action filter (e.g. organization.member_added).',
+          description: self::ACTION_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -51,13 +51,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'action',
             in: 'query',
             required: false,
-            description: 'Optional exact audit action filter (e.g. organization.member_added).',
+            description: self::ACTION_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'example' => 'organization.member_added'],
           ),
         ),
         'from' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-01T00:00:00Z'],
-          description: 'Optional inclusive ISO 8601 lower bound on the occurrence datetime.',
+          schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_FROM_DATE],
+          description: self::FROM_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -66,13 +66,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'from',
             in: 'query',
             required: false,
-            description: 'Optional inclusive ISO 8601 lower bound on the occurrence datetime.',
-            schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-01T00:00:00Z'],
+            description: self::FROM_FILTER_DESCRIPTION,
+            schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_FROM_DATE],
           ),
         ),
         'to' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-29T23:59:59Z'],
-          description: 'Optional inclusive ISO 8601 upper bound on the occurrence datetime.',
+          schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_TO_DATE],
+          description: self::TO_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -81,8 +81,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'to',
             in: 'query',
             required: false,
-            description: 'Optional inclusive ISO 8601 upper bound on the occurrence datetime.',
-            schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-29T23:59:59Z'],
+            description: self::TO_FILTER_DESCRIPTION,
+            schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_TO_DATE],
           ),
         ),
       ],
@@ -106,7 +106,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       parameters: [
         'action' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'example' => 'organization.member_added'],
-          description: 'Optional exact audit action filter (e.g. organization.member_added).',
+          description: self::ACTION_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -115,13 +115,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'action',
             in: 'query',
             required: false,
-            description: 'Optional exact audit action filter (e.g. organization.member_added).',
+            description: self::ACTION_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'example' => 'organization.member_added'],
           ),
         ),
         'from' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-01T00:00:00Z'],
-          description: 'Optional inclusive ISO 8601 lower bound on the occurrence datetime.',
+          schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_FROM_DATE],
+          description: self::FROM_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -130,13 +130,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'from',
             in: 'query',
             required: false,
-            description: 'Optional inclusive ISO 8601 lower bound on the occurrence datetime.',
-            schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-01T00:00:00Z'],
+            description: self::FROM_FILTER_DESCRIPTION,
+            schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_FROM_DATE],
           ),
         ),
         'to' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-29T23:59:59Z'],
-          description: 'Optional inclusive ISO 8601 upper bound on the occurrence datetime.',
+          schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_TO_DATE],
+          description: self::TO_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -145,8 +145,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'to',
             in: 'query',
             required: false,
-            description: 'Optional inclusive ISO 8601 upper bound on the occurrence datetime.',
-            schema: ['type' => 'string', 'format' => 'date-time', 'example' => '2026-03-29T23:59:59Z'],
+            description: self::TO_FILTER_DESCRIPTION,
+            schema: ['type' => 'string', 'format' => 'date-time', 'example' => self::EXAMPLE_TO_DATE],
           ),
         ),
       ],
@@ -168,4 +168,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationAuditEventResource
 {
+  // #region Constants
+  private const string ACTION_FILTER_DESCRIPTION = 'Optional exact audit action filter (e.g. organization.member_added).';
+
+  private const string EXAMPLE_FROM_DATE = '2026-03-01T00:00:00Z';
+
+  private const string FROM_FILTER_DESCRIPTION = 'Optional inclusive ISO 8601 lower bound on the occurrence datetime.';
+
+  private const string EXAMPLE_TO_DATE = '2026-03-29T23:59:59Z';
+
+  private const string TO_FILTER_DESCRIPTION = 'Optional inclusive ISO 8601 upper bound on the occurrence datetime.';
+  // #endregion
 }

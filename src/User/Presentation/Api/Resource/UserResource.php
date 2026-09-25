@@ -54,23 +54,23 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User created successfully',
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed',
+            description: self::VALIDATION_FAILED_DESCRIPTION,
           ),
           HttpResponse::HTTP_CONFLICT => new Response(
             description: 'User already exists',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
     ),
     new Get(
       name: UserOperations::GET,
-      uriTemplate: '/users/{id}',
+      uriTemplate: self::USER_URI_TEMPLATE,
       input: false,
       output: UserOutput::class,
       provider: UserProvider::class,
@@ -86,13 +86,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User retrieved successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -119,23 +119,23 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'List of users retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
     ),
     new Patch(
       name: UserOperations::UPDATE,
-      uriTemplate: '/users/{id}',
+      uriTemplate: self::USER_URI_TEMPLATE,
       input: UserInput::class,
       output: UserOutput::class,
       processor: UpdateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
       denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
-      security: "is_granted('users.update')",
+      security: self::SECURITY_USERS_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Update user (partial)',
@@ -146,29 +146,29 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User updated successfully',
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed',
+            description: self::VALIDATION_FAILED_DESCRIPTION,
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
     ),
     new Put(
       name: UserOperations::REPLACE,
-      uriTemplate: '/users/{id}',
+      uriTemplate: self::USER_URI_TEMPLATE,
       input: UserInput::class,
       output: UserOutput::class,
       processor: UpdateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
       denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
-      security: "is_granted('users.update')",
+      security: self::SECURITY_USERS_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Replace user',
@@ -179,23 +179,23 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User replaced successfully',
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed',
+            description: self::VALIDATION_FAILED_DESCRIPTION,
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
     ),
     new Delete(
       name: UserOperations::DELETE,
-      uriTemplate: '/users/{id}',
+      uriTemplate: self::USER_URI_TEMPLATE,
       input: false,
       output: false,
       processor: DeleteUserProcessor::class,
@@ -210,13 +210,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -229,7 +229,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: ActivateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      security: "is_granted('users.update')",
+      security: self::SECURITY_USERS_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Activate user',
@@ -240,13 +240,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User activated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -259,7 +259,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: DeactivateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      security: "is_granted('users.update')",
+      security: self::SECURITY_USERS_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Deactivate user',
@@ -270,13 +270,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User deactivated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -289,7 +289,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: VerifyUserEmailProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      security: "is_granted('users.update')",
+      security: self::SECURITY_USERS_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Verify user email',
@@ -300,13 +300,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'User email verified successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -319,7 +319,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: UploadUserAvatarProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      security: "is_granted('users.update')",
+      security: self::SECURITY_USERS_UPDATE,
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Upload user avatar',
@@ -352,13 +352,13 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
             description: 'Invalid file — missing, too large, or unsupported MIME type',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'User not found',
+            description: self::USER_NOT_FOUND_DESCRIPTION,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -408,4 +408,17 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
 )]
 final class UserResource
 {
+  // #region Constants
+  private const string VALIDATION_FAILED_DESCRIPTION = 'Invalid request - validation failed';
+
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+
+  private const string USER_URI_TEMPLATE = '/users/{id}';
+
+  private const string USER_NOT_FOUND_DESCRIPTION = 'User not found';
+
+  private const string SECURITY_USERS_UPDATE = "is_granted('users.update')";
+  // #endregion
 }

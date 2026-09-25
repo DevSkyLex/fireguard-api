@@ -49,10 +49,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'List of sessions retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -79,10 +79,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Session not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -94,7 +94,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: RevokeSessionProcessor::class,
-      security: "is_granted('sessions.revoke')",
+      security: self::SECURITY_SESSIONS_REVOKE,
       openapi: new Operation(
         tags: ['Sessions'],
         summary: 'Revoke session',
@@ -108,10 +108,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Session not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -123,7 +123,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: RevokeAllSessionsProcessor::class,
-      security: "is_granted('sessions.revoke')",
+      security: self::SECURITY_SESSIONS_REVOKE,
       openapi: new Operation(
         tags: ['Sessions'],
         summary: 'Revoke all sessions',
@@ -134,10 +134,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'All sessions revoked successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -151,7 +151,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: RevokeOtherSessionsProcessor::class,
       status: HttpResponse::HTTP_OK,
       normalizationContext: ['groups' => [SessionSerializationGroup::REVOKE_OTHERS]],
-      security: "is_granted('sessions.revoke')",
+      security: self::SECURITY_SESSIONS_REVOKE,
       openapi: new Operation(
         tags: ['Sessions'],
         summary: 'Revoke other sessions',
@@ -162,10 +162,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Other sessions revoked successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required',
+            description: self::AUTHENTICATION_REQUIRED_DESCRIPTION,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions',
+            description: self::INSUFFICIENT_PERMISSIONS_DESCRIPTION,
           ),
         ],
       ),
@@ -174,4 +174,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class SessionResource
 {
+  // #region Constants
+  private const string AUTHENTICATION_REQUIRED_DESCRIPTION = 'Authentication required';
+
+  private const string INSUFFICIENT_PERMISSIONS_DESCRIPTION = 'Insufficient permissions';
+
+  private const string SECURITY_SESSIONS_REVOKE = "is_granted('sessions.revoke')";
+  // #endregion
 }

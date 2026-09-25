@@ -101,7 +101,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
         ),
         'scope' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'example' => 'openid profile email'],
+          schema: ['type' => 'string', 'example' => self::DEFAULT_OIDC_SCOPE],
           description: 'Space-separated list of requested scopes',
           required: false,
           castToArray: false,
@@ -112,7 +112,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             in: 'query',
             required: false,
             description: 'Space-separated list of requested scopes',
-            schema: ['type' => 'string', 'example' => 'openid profile email'],
+            schema: ['type' => 'string', 'example' => self::DEFAULT_OIDC_SCOPE],
           ),
         ),
         'state' => new \ApiPlatform\Metadata\QueryParameter(
@@ -238,8 +238,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: TokenInput::class,
       output: TokenOutput::class,
       inputFormats: [
-        'jsonld' => ['application/ld+json'],
-        'json' => ['application/json'],
+        'jsonld' => [self::CONTENT_TYPE_JSON_LD],
+        'json' => [self::CONTENT_TYPE_JSON],
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: IssueTokenProcessor::class,
@@ -302,8 +302,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: TokenRevocationInput::class,
       output: false,
       inputFormats: [
-        'jsonld' => ['application/ld+json'],
-        'json' => ['application/json'],
+        'jsonld' => [self::CONTENT_TYPE_JSON_LD],
+        'json' => [self::CONTENT_TYPE_JSON],
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: RevokeTokenProcessor::class,
@@ -342,8 +342,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: TokenIntrospectionInput::class,
       output: TokenIntrospectionOutput::class,
       inputFormats: [
-        'jsonld' => ['application/ld+json'],
-        'json' => ['application/json'],
+        'jsonld' => [self::CONTENT_TYPE_JSON_LD],
+        'json' => [self::CONTENT_TYPE_JSON],
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: IntrospectTokenProcessor::class,
@@ -433,7 +433,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
         ),
         'scope' => new \ApiPlatform\Metadata\QueryParameter(
-          schema: ['type' => 'string', 'example' => 'openid profile email'],
+          schema: ['type' => 'string', 'example' => self::DEFAULT_OIDC_SCOPE],
           description: 'Space-separated list of requested OAuth2 scopes',
           required: false,
           castToArray: false,
@@ -444,7 +444,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             in: 'query',
             required: false,
             description: 'Space-separated list of requested OAuth2 scopes',
-            schema: ['type' => 'string', 'example' => 'openid profile email'],
+            schema: ['type' => 'string', 'example' => self::DEFAULT_OIDC_SCOPE],
           ),
         ),
       ],
@@ -482,8 +482,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: GrantConsentInput::class,
       output: false,
       inputFormats: [
-        'jsonld' => ['application/ld+json'],
-        'json' => ['application/json'],
+        'jsonld' => [self::CONTENT_TYPE_JSON_LD],
+        'json' => [self::CONTENT_TYPE_JSON],
         'form' => ['application/x-www-form-urlencoded'],
       ],
       processor: GrantConsentProcessor::class,
@@ -515,7 +515,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       outputFormats: [
-        'json' => ['application/json'],
+        'json' => [self::CONTENT_TYPE_JSON],
       ],
       provider: EndSessionProcessor::class,
       parameters: [
@@ -602,4 +602,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OAuth2Resource
 {
+  // #region Constants
+  private const string DEFAULT_OIDC_SCOPE = 'openid profile email';
+
+  private const string CONTENT_TYPE_JSON_LD = 'application/ld+json';
+
+  private const string CONTENT_TYPE_JSON = 'application/json';
+  // #endregion
 }
