@@ -47,10 +47,28 @@ final class SyncPermissionsCommand extends Command
     $io = new SymfonyStyle($input, $output);
     $dryRun = (bool) $input->getOption('dry-run');
     $updateRoles = (bool) $input->getOption('update-roles');
+    [$created, $updated, $permissionsByName] = $this->synchronizePermissions($dryRun);
+    $io->text(sprintf('Permissions created: %d, updated: %d', $created, $updated));
+    if ($updateRoles) {
+      [$roleCreations, $roleUpdates] = $this->synchronizeRoles($dryRun, $permissionsByName, $io);
+      $io->text(sprintf('System roles created: %d', $roleCreations));
+      $io->text(sprintf('Role permissions added: %d', $roleUpdates));
+    }
+    if ($dryRun) {
+      $io->success('Dry run completed (no changes written).');
+    } else {
+      $io->success('Authorization permissions synchronized.');
+    }
 
+    return Command::SUCCESS;
+  }
+
+  /**
+   * @return array{int, int, array<string, PermissionRecord>} created, updated, and persisted permission records
+   */
+  private function synchronizePermissions(bool $dryRun): array
+  {
     $permissionRepo = $this->entityManager->getRepository(PermissionRecord::class);
-    $roleRepo = $this->entityManager->getRepository(RoleRecord::class);
-
     $created = 0;
     $updated = 0;
     $permissionsByName = [];
@@ -90,72 +108,79 @@ final class SyncPermissionsCommand extends Command
       $this->entityManager->flush();
     }
 
-    $io->text(sprintf('Permissions created: %d, updated: %d', $created, $updated));
+    return [$created, $updated, $permissionsByName];
+  }
 
-    if ($updateRoles) {
-      $roleCreations = 0;
-      $roleUpdates = 0;
-      $roleMap = [
-        'super_admin' => [
-          'description' => 'Full system access with all permissions',
-          'permissions' => RoleCatalog::superAdminPermissionNames(),
-        ],
-        'admin' => [
-          'description' => 'Administrative access for user and client management',
-          'permissions' => RoleCatalog::adminPermissionNames(),
-        ],
-        'user' => [
-          'description' => 'Standard user access with profile and session management',
-          'permissions' => RoleCatalog::userPermissionNames(),
-        ],
-      ];
-
-      foreach ($roleMap as $roleName => $roleDefinition) {
-        $role = $roleRepo->findOneBy(['name' => $roleName]);
-        if (!$role instanceof RoleRecord) {
-          if (!$dryRun) {
-            $role = new RoleRecord();
-            $role->id = Uuid::v7()->toRfc4122();
-            $role->name = $roleName;
-            $role->description = $roleDefinition['description'];
-            $role->isSystem = true;
-            $role->createdAt = new DateTimeImmutable();
-            $this->entityManager->persist($role);
-          }
-          ++$roleCreations;
+  /**
+   * @param array<string, PermissionRecord> $permissionsByName
+   *
+   * @return array{int, int} roles created and permissions attached
+   */
+  private function synchronizeRoles(bool $dryRun, array $permissionsByName, SymfonyStyle $io): array
+  {
+    $roleRepo = $this->entityManager->getRepository(RoleRecord::class);
+    $roleCreations = 0;
+    $roleUpdates = 0;
+    $roleMap = [
+      'super_admin' => [
+        'description' => 'Full system access with all permissions',
+        'permissions' => RoleCatalog::superAdminPermissionNames(),
+      ],
+      'admin' => [
+        'description' => 'Administrative access for user and client management',
+        'permissions' => RoleCatalog::adminPermissionNames(),
+      ],
+      'user' => [
+        'description' => 'Standard user access with profile and session management',
+        'permissions' => RoleCatalog::userPermissionNames(),
+      ],
+    ];
+    foreach ($roleMap as $roleName => $roleDefinition) {
+      $role = $roleRepo->findOneBy(['name' => $roleName]);
+      if (!$role instanceof RoleRecord) {
+        if (!$dryRun) {
+          $role = new RoleRecord();
+          $role->id = Uuid::v7()->toRfc4122();
+          $role->name = $roleName;
+          $role->description = $roleDefinition['description'];
+          $role->isSystem = true;
+          $role->createdAt = new DateTimeImmutable();
+          $this->entityManager->persist($role);
         }
-
-        foreach ($roleDefinition['permissions'] as $permissionName) {
-          $permission = $permissionsByName[$permissionName] ?? $permissionRepo->findOneBy(['name' => $permissionName]);
-          if (!$permission instanceof PermissionRecord) {
-            $io->warning(sprintf('Permission "%s" missing, skipping.', $permissionName));
-
-            continue;
-          }
-
-          if ($role instanceof RoleRecord && !$role->permissions->contains($permission)) {
-            if (!$dryRun) {
-              $role->permissions->add($permission);
-            }
-            ++$roleUpdates;
-          }
-        }
+        ++$roleCreations;
       }
-
-      if (!$dryRun) {
-        $this->entityManager->flush();
-      }
-
-      $io->text(sprintf('System roles created: %d', $roleCreations));
-      $io->text(sprintf('Role permissions added: %d', $roleUpdates));
+      $roleUpdates += $this->synchronizeRolePermissions($role instanceof RoleRecord ? $role : null, $roleDefinition['permissions'], $permissionsByName, $dryRun, $io);
+    }
+    if (!$dryRun) {
+      $this->entityManager->flush();
     }
 
-    if ($dryRun) {
-      $io->success('Dry run completed (no changes written).');
-    } else {
-      $io->success('Authorization permissions synchronized.');
+    return [$roleCreations, $roleUpdates];
+  }
+
+  /**
+   * @param list<string> $permissionNames
+   * @param array<string, PermissionRecord> $permissionsByName
+   */
+  private function synchronizeRolePermissions(?RoleRecord $role, array $permissionNames, array $permissionsByName, bool $dryRun, SymfonyStyle $io): int
+  {
+    $permissionRepo = $this->entityManager->getRepository(PermissionRecord::class);
+    $updates = 0;
+    foreach ($permissionNames as $permissionName) {
+      $permission = $permissionsByName[$permissionName] ?? $permissionRepo->findOneBy(['name' => $permissionName]);
+      if (!$permission instanceof PermissionRecord) {
+        $io->warning(sprintf('Permission "%s" missing, skipping.', $permissionName));
+
+        continue;
+      }
+      if ($role instanceof RoleRecord && !$role->permissions->contains($permission)) {
+        if (!$dryRun) {
+          $role->permissions->add($permission);
+        }
+        ++$updates;
+      }
     }
 
-    return Command::SUCCESS;
+    return $updates;
   }
 }
