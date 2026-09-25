@@ -112,13 +112,7 @@ final readonly class IntrospectTokenHandler implements QueryHandler
       return IntrospectTokenResult::inactive();
     }
 
-    $aud = $tokenData['aud'] ?? null;
-    $audience = null;
-    if (is_array($aud)) {
-      $audience = implode(' ', array_map(static fn ($value): string => is_scalar($value) ? (string) $value : '', $aud));
-    } elseif (is_string($aud)) {
-      $audience = $aud;
-    }
+    $audience = $this->audience($tokenData['aud'] ?? null);
 
     // Check cache first
     $cached = $this->tokenCache->get($tokenId);
@@ -155,6 +149,15 @@ final readonly class IntrospectTokenHandler implements QueryHandler
     }
 
     return $result;
+  }
+
+  private function audience(mixed $value): ?string
+  {
+    if (is_array($value)) {
+      return implode(' ', array_map(static fn ($audience): string => is_scalar($audience) ? (string) $audience : '', $value));
+    }
+
+    return is_string($value) ? $value : null;
   }
 
   /**

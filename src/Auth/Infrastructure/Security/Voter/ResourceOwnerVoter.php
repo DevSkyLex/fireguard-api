@@ -69,26 +69,31 @@ final class ResourceOwnerVoter extends Voter
     $methods = ['getOwnerId', 'getUserId', 'ownerId', 'userId', 'getOwner', 'getUser'];
 
     foreach ($methods as $method) {
-      if (method_exists($subject, $method)) {
-        $result = $subject->$method();
+      if (!method_exists($subject, $method)) {
+        continue;
+      }
+      $result = $subject->$method();
+      if (is_object($result) && property_exists($result, 'value')) {
+        $value = $result->value;
 
-        if (is_object($result) && property_exists($result, 'value')) {
-          $value = $result->value;
-
-          return is_string($value) || is_int($value) ? (string) $value : null;
-        }
-
-        if (is_object($result) && method_exists($result, '__toString')) {
-          return (string) $result;
-        }
-
-        if (is_string($result)) {
-          return $result;
-        }
+        return is_string($value) || is_int($value) ? (string) $value : null;
+      }
+      $ownerId = $this->printableOwnerId($result);
+      if (null !== $ownerId) {
+        return $ownerId;
       }
     }
 
     return null;
+  }
+
+  private function printableOwnerId(mixed $value): ?string
+  {
+    if (is_object($value) && method_exists($value, '__toString')) {
+      return (string) $value;
+    }
+
+    return is_string($value) ? $value : null;
   }
   // #endregion
 }

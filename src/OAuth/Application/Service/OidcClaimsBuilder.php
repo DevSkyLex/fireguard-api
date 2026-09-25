@@ -90,30 +90,7 @@ final class OidcClaimsBuilder implements OidcClaimsBuilderInterface
     ];
 
     if ($this->hasScope($normalizedScopes, 'profile')) {
-      $name = $this->buildFullName($user->givenName(), $user->familyName());
-      if (null !== $name) {
-        $claims['name'] = $name;
-      }
-
-      $givenName = $this->normalizeText($user->givenName());
-      if (null !== $givenName) {
-        $claims['given_name'] = $givenName;
-      }
-
-      $familyName = $this->normalizeText($user->familyName());
-      if (null !== $familyName) {
-        $claims['family_name'] = $familyName;
-      }
-
-      $preferredUsername = $this->normalizeText($user->preferredUsername());
-      if (null !== $preferredUsername) {
-        $claims['preferred_username'] = $preferredUsername;
-      }
-
-      $picture = $this->normalizeText($user->pictureUrl());
-      if (null !== $picture) {
-        $claims['picture'] = $picture;
-      }
+      $claims = [...$claims, ...$this->profileClaims($user)];
     }
 
     if ($this->hasScope($normalizedScopes, 'email')) {
@@ -129,6 +106,36 @@ final class OidcClaimsBuilder implements OidcClaimsBuilderInterface
       if (null !== $authTime) {
         $claims['auth_time'] = $authTime->getTimestamp();
       }
+    }
+
+    return $claims;
+  }
+
+  /**
+   * @return array<string, string> nonempty profile claims
+   */
+  private function profileClaims(OidcUser $user): array
+  {
+    $claims = [];
+    $name = $this->buildFullName($user->givenName(), $user->familyName());
+    if (null !== $name) {
+      $claims['name'] = $name;
+    }
+    $givenName = $this->normalizeText($user->givenName());
+    if (null !== $givenName) {
+      $claims['given_name'] = $givenName;
+    }
+    $familyName = $this->normalizeText($user->familyName());
+    if (null !== $familyName) {
+      $claims['family_name'] = $familyName;
+    }
+    $preferredUsername = $this->normalizeText($user->preferredUsername());
+    if (null !== $preferredUsername) {
+      $claims['preferred_username'] = $preferredUsername;
+    }
+    $picture = $this->normalizeText($user->pictureUrl());
+    if (null !== $picture) {
+      $claims['picture'] = $picture;
     }
 
     return $claims;
