@@ -8,6 +8,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Auth\Infrastructure\Security\Voter\ResourceOwnerVoter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use stdClass;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -189,6 +190,27 @@ final class ResourceOwnerVoterTest extends TestCase
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::OWNER]);
 
     $this->assertSame(Voter::ACCESS_DENIED, $result);
+  }
+
+  #[Test]
+  public function testInvalidPrimaryOwnerValueDoesNotFallBackToAnotherIdentity(): void
+  {
+    $subject = new class () {
+      public function getOwnerId(): object
+      {
+        return (object) ['value' => new stdClass()];
+      }
+
+      public function getUserId(): string
+      {
+        return 'user-123';
+      }
+    };
+    $user = new SecurityUser(id: 'user-123', email: 'user@example.com', password: 'hash');
+    $token = $this->createStub(TokenInterface::class);
+    $token->method('getUser')->willReturn($user);
+
+    self::assertSame(Voter::ACCESS_DENIED, new ResourceOwnerVoter()->vote($token, $subject, [ResourceOwnerVoter::OWNER]));
   }
 
   #[Test]
