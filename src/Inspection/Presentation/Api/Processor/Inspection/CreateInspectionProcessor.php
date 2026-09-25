@@ -91,11 +91,11 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     /** @var CreateInspectionInput $data */
     if (null !== $data->intervention && null !== $this->entityManager) {
       return $this->entityManager->wrapInTransaction(
-        fn (): InspectionOutput => $this->processCreation($data, $operation, $uriVariables, $context),
+        fn (): InspectionOutput => $this->processCreation($data, $uriVariables),
       );
     }
 
-    return $this->processCreation($data, $operation, $uriVariables, $context);
+    return $this->processCreation($data, $uriVariables);
   }
 
   /**
@@ -106,11 +106,9 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CreateInspectionInput $data the input data
-   * @param Operation $operation the operation value
    * @param array<string, mixed> $uriVariables the uri variables value
-   * @param array<string, mixed> $context the context value
    */
-  private function processCreation(CreateInspectionInput $data, Operation $operation, array $uriVariables, array $context): InspectionOutput
+  private function processCreation(CreateInspectionInput $data, array $uriVariables): InspectionOutput
   {
     $resourceId = $uriVariables['id'] ?? null;
     if (is_string($resourceId)) {
