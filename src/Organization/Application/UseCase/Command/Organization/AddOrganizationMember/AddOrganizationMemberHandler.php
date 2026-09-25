@@ -15,6 +15,7 @@ use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Exception\OrganizationUserNotFoundException;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
+use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
@@ -121,123 +122,86 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       throw OrganizationRoleNotFoundException::withId('one-or-more-role-ids');
     }
 
-    $shouldNotifyMember = false;
-    $previousRoleIds = [];
+    /** @var array{result: AddOrganizationMemberResult, shouldNotifyMember: bool, previousRoleIds: list<string>} $change */
+    $change = $this->transactionManager->transactional(
+      fn (): array => $this->persistMembership($organizationId, $command, $roles),
+    );
+    $result = $change['result'];
+    $shouldNotifyMember = $change['shouldNotifyMember'];
+    $previousRoleIds = $change['previousRoleIds'];
 
-    /**
-     * @var AddOrganizationMemberResult $result
-     */
-    $result = $this->transactionManager->transactional(function () use (
-      $organizationId,
-      $command,
-      $roles,
-      &$shouldNotifyMember,
-      &$previousRoleIds,
-    ): AddOrganizationMemberResult {
-      // Enforce the member cap inside the transaction so the advisory lock
-      // serializes concurrent additions/invitations (TOCTOU). Skipped on the
-      // accept path, which has already taken the lock via assertCanAcceptMember
-      // and must count active members only (see AddOrganizationMemberCommand).
-      if ($command->enforceQuota) {
-        $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::MEMBERS);
-      }
-
-      $member = $this->memberRepository->findByOrganizationAndUser($organizationId, $command->userId);
-
-      if (null === $member) {
-        /**
-         * @var OrganizationMemberId $memberId
-         */
-        $memberId = $this->uuidFactory->create(OrganizationMemberId::class);
-        $member = OrganizationMember::join(
-          id: $memberId,
-          organizationId: $organizationId,
-          userId: $command->userId,
-        );
-        $this->memberRepository->save($member);
-        $shouldNotifyMember = true;
-      } elseif (!$member->isActive()) {
-        if ($command->replaceInactiveRoles) {
-          foreach ($this->memberRepository->findRoleIdsForMember($member->id()) as $previousRoleId) {
-            $this->memberRepository->unassignRole($member->id(), OrganizationRoleId::fromString($previousRoleId));
-          }
-        }
-        $member->activate();
-        $this->memberRepository->save($member);
-        $shouldNotifyMember = true;
-      }
-
-      // Snapshot the pre-existing roles of an already-active member so the
-      // newly granted ones can be audited individually after the commit.
-      if (!$shouldNotifyMember) {
-        $previousRoleIds = $this->memberRepository->findRoleIdsForMember($member->id());
-      }
-
-      foreach ($roles as $role) {
-        $this->memberRepository->assignRole($member->id(), $role->id());
-      }
-
-      $assignedRoleIds = $this->memberRepository->findRoleIdsForMember($member->id());
-
-      return new AddOrganizationMemberResult(
-        memberId: (string) $member->id(),
-        organizationId: (string) $organizationId,
-        userId: $command->userId,
-        roleIds: $assignedRoleIds,
-        isActive: $member->isActive(),
-        joinedAt: $member->joinedAt(),
-        wasCreatedOrReactivated: $shouldNotifyMember,
-      );
-    });
-
-    // Audit only after this handler's own transaction has committed. When the
-    // caller runs this handler inside an outer transaction (accept path), it
-    // sets emitMemberAddedEvent=false and dispatches post-commit itself, so a
-    // rollback of the outer transaction can never leave a phantom ledger row.
-    if ($command->emitMemberAddedEvent) {
-      if ($shouldNotifyMember) {
-        $this->eventDispatcher->dispatch(new OrganizationMemberAddedEvent(
-          organizationId: $command->organizationId,
-          memberId: $result->memberId,
-          userId: $command->userId,
-          roleIds: $result->roleIds,
-        ));
-      } else {
-        // The user was already an active member: the operation is a role
-        // grant, so audit each newly assigned role instead.
-        $newRoleIds = array_values(array_diff($result->roleIds, $previousRoleIds));
-        foreach ($roles as $role) {
-          if (in_array((string) $role->id(), $newRoleIds, true)) {
-            $this->eventDispatcher->dispatch(new OrganizationRoleAssignedEvent(
-              organizationId: $command->organizationId,
-              memberId: $result->memberId,
-              roleId: (string) $role->id(),
-              roleName: (string) $role->name(),
-            ));
-          }
-        }
-      }
-    }
+    $this->dispatchMemberEvents($command, $result, $shouldNotifyMember, $previousRoleIds, $roles);
 
     if (!$command->sendMemberNotification || !$shouldNotifyMember) {
       return $result;
     }
 
+    $this->sendMemberNotification($command, $result, $organizationId, (string) $organization->name(), (string) $user->email());
+
+    return $result;
+  }
+
+  /**
+   * @param list<string> $previousRoleIds
+   * @param list<OrganizationRole> $roles
+   */
+  private function dispatchMemberEvents(
+    AddOrganizationMemberCommand $command,
+    AddOrganizationMemberResult $result,
+    bool $shouldNotifyMember,
+    array $previousRoleIds,
+    array $roles,
+  ): void {
+    // The accept path owns an outer transaction and dispatches after its commit.
+    if (!$command->emitMemberAddedEvent) {
+      return;
+    }
+    if ($shouldNotifyMember) {
+      $this->eventDispatcher->dispatch(new OrganizationMemberAddedEvent(
+        organizationId: $command->organizationId,
+        memberId: $result->memberId,
+        userId: $command->userId,
+        roleIds: $result->roleIds,
+      ));
+
+      return;
+    }
+
+    $newRoleIds = array_values(array_diff($result->roleIds, $previousRoleIds));
+    foreach ($roles as $role) {
+      if (in_array((string) $role->id(), $newRoleIds, true)) {
+        $this->eventDispatcher->dispatch(new OrganizationRoleAssignedEvent(
+          organizationId: $command->organizationId,
+          memberId: $result->memberId,
+          roleId: (string) $role->id(),
+          roleName: (string) $role->name(),
+        ));
+      }
+    }
+  }
+
+  private function sendMemberNotification(
+    AddOrganizationMemberCommand $command,
+    AddOrganizationMemberResult $result,
+    OrganizationId $organizationId,
+    string $organizationName,
+    string $recipientEmail,
+  ): void {
     try {
       $this->notificationPort->send(new SendNotificationRequest(
         type: NotificationType::ORGANIZATION_MEMBER_ADDED,
-        subject: sprintf('You have been added to %s', (string) $organization->name()),
-        body: sprintf('You now have access to %s.', (string) $organization->name()),
+        subject: sprintf('You have been added to %s', $organizationName),
+        body: sprintf('You now have access to %s.', $organizationName),
         channels: [NotificationChannel::EMAIL, NotificationChannel::MERCURE],
         payload: [
           'organizationId' => (string) $organizationId,
           'memberId' => $result->memberId,
-          'organizationName' => (string) $organization->name(),
+          'organizationName' => $organizationName,
           'roleIds' => $result->roleIds,
           'joinedAt' => $result->joinedAt->format('c'),
         ],
         recipientUserId: $command->userId,
-        recipientEmail: (string) $user->email(),
+        recipientEmail: $recipientEmail,
         organizationId: (string) $organizationId,
       ));
     } catch (Throwable $exception) {
@@ -248,8 +212,59 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         'error' => $exception->getMessage(),
       ]);
     }
+  }
 
-    return $result;
+  /**
+   * @param list<OrganizationRole> $roles
+   *
+   * @return array{result: AddOrganizationMemberResult, shouldNotifyMember: bool, previousRoleIds: list<string>}
+   */
+  private function persistMembership(OrganizationId $organizationId, AddOrganizationMemberCommand $command, array $roles): array
+  {
+    // Keep the quota check and member writes under the same advisory lock.
+    if ($command->enforceQuota) {
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::MEMBERS);
+    }
+
+    $member = $this->memberRepository->findByOrganizationAndUser($organizationId, $command->userId);
+    $shouldNotifyMember = false;
+    if (null === $member) {
+      /** @var OrganizationMemberId $memberId */
+      $memberId = $this->uuidFactory->create(OrganizationMemberId::class);
+      $member = OrganizationMember::join(id: $memberId, organizationId: $organizationId, userId: $command->userId);
+      $this->memberRepository->save($member);
+      $shouldNotifyMember = true;
+    } elseif (!$member->isActive()) {
+      if ($command->replaceInactiveRoles) {
+        foreach ($this->memberRepository->findRoleIdsForMember($member->id()) as $previousRoleId) {
+          $this->memberRepository->unassignRole($member->id(), OrganizationRoleId::fromString($previousRoleId));
+        }
+      }
+      $member->activate();
+      $this->memberRepository->save($member);
+      $shouldNotifyMember = true;
+    }
+
+    // Audit only new grants for an already active member after commit.
+    $previousRoleIds = $shouldNotifyMember ? [] : $this->memberRepository->findRoleIdsForMember($member->id());
+    foreach ($roles as $role) {
+      $this->memberRepository->assignRole($member->id(), $role->id());
+    }
+    $assignedRoleIds = $this->memberRepository->findRoleIdsForMember($member->id());
+
+    return [
+      'result' => new AddOrganizationMemberResult(
+        memberId: (string) $member->id(),
+        organizationId: (string) $organizationId,
+        userId: $command->userId,
+        roleIds: $assignedRoleIds,
+        isActive: $member->isActive(),
+        joinedAt: $member->joinedAt(),
+        wasCreatedOrReactivated: $shouldNotifyMember,
+      ),
+      'shouldNotifyMember' => $shouldNotifyMember,
+      'previousRoleIds' => $previousRoleIds,
+    ];
   }
 
   /**
