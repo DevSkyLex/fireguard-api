@@ -19,6 +19,8 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class LogoutOutput
 {
+  private const string SUCCESS_MESSAGE = 'Logged out successfully';
+
   // #region Properties
   /**
    * Property message.
@@ -37,17 +39,17 @@ final class LogoutOutput
     writable: false,
     required: true,
     identifier: false,
-    example: 'Logged out successfully',
+    example: self::SUCCESS_MESSAGE,
     openapiContext: [
       'type' => 'string',
-      'default' => 'Logged out successfully',
+      'default' => self::SUCCESS_MESSAGE,
       'readOnly' => true,
     ],
     jsonSchemaContext: [
       'type' => 'string',
-      'default' => 'Logged out successfully',
+      'default' => self::SUCCESS_MESSAGE,
     ],
   )]
-  public string $message = 'Logged out successfully';
+  public string $message = self::SUCCESS_MESSAGE;
   // #endregion
 }

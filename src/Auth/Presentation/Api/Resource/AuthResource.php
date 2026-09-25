@@ -65,17 +65,17 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
               ],
               'Logout' => [
                 'operationId' => 'logout',
-                'description' => 'Logout and revoke all tokens - requires Bearer access_token header',
+                'description' => self::LOGOUT_LINK_DESCRIPTION,
               ],
               'GetUserInfo' => [
                 'operationId' => 'userinfo',
-                'description' => 'Get authenticated user information - requires Bearer access_token header',
+                'description' => self::USER_INFO_LINK_DESCRIPTION,
               ],
               'IntrospectToken' => [
                 'operationId' => 'introspect_token',
                 'description' => 'Introspect the access token to get its metadata',
                 'parameters' => [
-                  'token' => '$response.body#/access_token',
+                  'token' => self::RESPONSE_ACCESS_TOKEN,
                   'token_type_hint' => 'access_token',
                 ],
               ],
@@ -111,17 +111,17 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             links: new ArrayObject([
               'Logout' => [
                 'operationId' => 'logout',
-                'description' => 'Logout and revoke all tokens - requires Bearer access_token header',
+                'description' => self::LOGOUT_LINK_DESCRIPTION,
               ],
               'GetUserInfo' => [
                 'operationId' => 'userinfo',
-                'description' => 'Get authenticated user information - requires Bearer access_token header',
+                'description' => self::USER_INFO_LINK_DESCRIPTION,
               ],
               'IntrospectToken' => [
                 'operationId' => 'introspect_token',
                 'description' => 'Introspect the new access token to get its metadata',
                 'parameters' => [
-                  'token' => '$response.body#/access_token',
+                  'token' => self::RESPONSE_ACCESS_TOKEN,
                   'token_type_hint' => 'access_token',
                 ],
               ],
@@ -184,17 +184,17 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
               ],
               'Logout' => [
                 'operationId' => 'logout',
-                'description' => 'Logout and revoke all tokens - requires Bearer access_token header',
+                'description' => self::LOGOUT_LINK_DESCRIPTION,
               ],
               'GetUserInfo' => [
                 'operationId' => 'userinfo',
-                'description' => 'Get authenticated user information - requires Bearer access_token header',
+                'description' => self::USER_INFO_LINK_DESCRIPTION,
               ],
               'IntrospectToken' => [
                 'operationId' => 'introspect_token',
                 'description' => 'Introspect the access token to get its metadata',
                 'parameters' => [
-                  'token' => '$response.body#/access_token',
+                  'token' => self::RESPONSE_ACCESS_TOKEN,
                   'token_type_hint' => 'access_token',
                 ],
               ],
@@ -244,4 +244,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class AuthResource
 {
+  private const LOGOUT_LINK_DESCRIPTION = 'Logout and revoke all tokens - requires Bearer access_token header';
+
+  private const USER_INFO_LINK_DESCRIPTION = 'Get authenticated user information - requires Bearer access_token header';
+
+  private const RESPONSE_ACCESS_TOKEN = '$response.body#/access_token';
 }
