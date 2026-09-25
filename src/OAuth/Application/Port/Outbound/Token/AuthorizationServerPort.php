@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\Port\Outbound\Token;
 
+use OAuth\Application\Contract\Token\AccessTokenRequest;
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
 use OAuth\Domain\Exception\Token\AuthorizationException;
 

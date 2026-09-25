@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Intervention\Infrastructure\Adapter\Workflow;
+namespace Intervention\Infrastructure\Service\Workflow;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Port\Outbound\InterventionActivityPort;

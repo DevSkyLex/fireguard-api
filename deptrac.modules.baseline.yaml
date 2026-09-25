@@ -922,14 +922,14 @@ deptrac:
     Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter:
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
       - Shared\Application\Factory\UuidFactory
-    Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowReader:
+    Intervention\Infrastructure\Persistence\Doctrine\Workflow\DoctrineInterventionWorkflowReader:
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
       - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
-    Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowInterventionWriter:
+    Intervention\Infrastructure\Service\Workflow\InterventionWorkflowInterventionWriter:
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
-    Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowMutationSupport:
+    Intervention\Infrastructure\Service\Workflow\InterventionWorkflowMutationSupport:
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
-    Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowWriterRuntime:
+    Intervention\Infrastructure\Service\Workflow\InterventionWorkflowWriterRuntime:
       - Shared\Application\Factory\UuidFactory
     Intervention\Infrastructure\DataFixtures\InterventionFixtures:
       - Equipment\Infrastructure\DataFixtures\EquipmentFixtures

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Intervention\Infrastructure\Adapter\Workflow;
+namespace Intervention\Infrastructure\Service\Workflow;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Workflow\{
@@ -14,6 +14,7 @@ use Intervention\Domain\Exception\{
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionWorkItemRecord
 };
+use Intervention\Infrastructure\Persistence\Doctrine\Workflow\DoctrineInterventionWorkflowReader;
 use Workload\Application\Contract\Planning\WorkloadPlanningSnapshot;
 use Workload\Application\Port\Inbound\{WorkloadCoordinationPort, WorkloadPlanningPort};
 

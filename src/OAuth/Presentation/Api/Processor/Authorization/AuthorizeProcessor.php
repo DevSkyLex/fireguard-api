@@ -14,6 +14,7 @@ use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
 use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
+use OAuth\Presentation\Api\Service\AuthorizationResponseSupport;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

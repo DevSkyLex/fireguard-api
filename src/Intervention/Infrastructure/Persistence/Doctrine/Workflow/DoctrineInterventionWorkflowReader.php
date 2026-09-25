@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Intervention\Infrastructure\Adapter\Workflow;
+namespace Intervention\Infrastructure\Persistence\Doctrine\Workflow;
 
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -21,6 +21,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionRecord,
   InterventionWorkItemRecord
 };
+use Intervention\Infrastructure\Service\Workflow\InterventionWorkflowMutationSupport;
 use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};

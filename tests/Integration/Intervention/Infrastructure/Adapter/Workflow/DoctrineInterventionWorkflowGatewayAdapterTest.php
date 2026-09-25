@@ -9,9 +9,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowMutation;
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Intervention\Domain\Exception\InterventionConflictException;
-use Intervention\Infrastructure\Adapter\Workflow\{
-  DoctrineInterventionWorkflowGatewayAdapter,
-  DoctrineInterventionWorkflowReader,
+use Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionLabelRecord, InterventionRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Workflow\DoctrineInterventionWorkflowReader;
+use Intervention\Infrastructure\Service\Workflow\{
   InterventionWorkflowChangeWriter,
   InterventionWorkflowInterventionWriter,
   InterventionWorkflowMutationSupport,
@@ -20,7 +21,6 @@ use Intervention\Infrastructure\Adapter\Workflow\{
   InterventionWorkflowWorkloadCoordinator,
   InterventionWorkflowWriterRuntime
 };
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionLabelRecord, InterventionRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Port\Outbound\EventDispatcherPort;

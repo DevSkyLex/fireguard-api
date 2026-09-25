@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OAuth\Presentation\Api\Processor\Authorization;
+namespace OAuth\Presentation\Api\Service;
 
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response};

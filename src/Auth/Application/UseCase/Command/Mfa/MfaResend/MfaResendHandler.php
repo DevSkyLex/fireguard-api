@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Mfa\MfaResend;
 
+use Auth\Application\Contract\Mfa\ResentMfaChallenge;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Domain\ValueObject\Scope\DefaultScopes;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OAuth\Application\Port\Outbound\Token;
+namespace OAuth\Application\Contract\Token;
 
 /** Credentials and grant parameters sent to the authorization server. */
 final readonly class AccessTokenRequest

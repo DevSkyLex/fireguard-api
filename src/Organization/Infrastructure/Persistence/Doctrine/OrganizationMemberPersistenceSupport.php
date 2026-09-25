@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
+namespace Organization\Infrastructure\Persistence\Doctrine;
 
 use DateTimeImmutable;
 use DateTimeZone;
@@ -17,7 +17,7 @@ use function addcslashes;
 use function mb_strtolower;
 
 /** Shared storage conversion, query construction and invalidation for members. */
-final readonly class OrganizationMemberRepositorySupport
+final readonly class OrganizationMemberPersistenceSupport
 {
   private const string ORGANIZATION_PREDICATE = 'organizationMember.organization = :organization';
 
@@ -90,8 +90,8 @@ final readonly class OrganizationMemberRepositorySupport
   /**
    * Method createFilteredMemberQueryBuilder.
    *
-   * Builds the shared query base for {@see OrganizationMemberRepository::findByOrganizationId()} and
-   * {@see OrganizationMemberRepository::countByOrganizationId()}. The `$search` filter matches only
+   * Builds the shared query base for {@see Repository\OrganizationMemberRepository::findByOrganizationId()} and
+   * {@see Repository\OrganizationMemberRepository::countByOrganizationId()}. The `$search` filter matches only
    * `user_id`: display name, first/last name and email are owned by the
    * User module's database (auth) and cannot be joined from here.
    *

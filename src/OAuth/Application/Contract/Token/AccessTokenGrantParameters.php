@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OAuth\Application\Port\Outbound\Token;
+namespace OAuth\Application\Contract\Token;
 
 /** Optional parameters required by individual OAuth token grants. */
 final readonly class AccessTokenGrantParameters

@@ -41,7 +41,7 @@ use const FILE_IGNORE_NEW_LINES;
  * Intervention) already centralize their own in a mapper trait built on
  * `match (true) { $x instanceof … }`. Both shapes are read here.
  *
- * Measured across all 92 exceptions, the mapping is **consistent**: each
+ * Measured across the mapped domain exceptions, the mapping is **consistent**: each
  * resolves to one status everywhere. That consistency is a property of the
  * authors' discipline, not of the code — and it has already failed once.
  * `PATCH /organizations/{id}/roles/{roleId}` answered 400 where its four
@@ -107,9 +107,9 @@ final class PresentationExceptionStatusTest extends TestCase
   /**
    * Exception short name => the single HTTP exception it maps to.
    *
-   * Extracted from the Presentation layer on develop @ 57a8d0f9 — 92
-   * exceptions, from both the `catch` sites and the `match (true)` mapper
-   * traits.
+   * Extracted from the Presentation layer on develop @ 57a8d0f9 and extended
+   * as new mappings become visible, from both the `catch` sites and the
+   * `match (true)` mapper traits.
    *
    * A mapping site references the caught exception. A `throw` carrying a
    * literal message is a **presentation guard** — validating a URI variable,
@@ -139,14 +139,11 @@ final class PresentationExceptionStatusTest extends TestCase
     'ComplianceExportNotEntitledException' => 'AccessDeniedHttpException',
     'ComplianceNotFoundException' => 'NotFoundHttpException',
     'DeferredActionNoLongerApplicableException' => 'ConflictHttpException',
-    // Known scanner blind spot: EquipmentAccessDeniedException and
-    // EquipmentExportTooLargeException are mapped by ExportEquipmentsController
-    // through EquipmentExceptionUnwrapperTrait, whose find<X>Exception()
-    // finders live in the trait file, not the controller file — so
-    // collectMappings() cannot see them and the anti-stale assertion forbids
-    // listing them here. Their 403/422 mapping is covered by
-    // EquipmentExportApiTest instead.
+    'EquipmentAccessDeniedException' => 'AccessDeniedHttpException',
     'EquipmentAlreadyDecommissionedException' => 'ConflictHttpException',
+    'EquipmentExportTooLargeException' => 'UnprocessableEntityHttpException',
+    'EquipmentLabelExportTooLargeException' => 'UnprocessableEntityHttpException',
+    'EquipmentNotAssignedToFacilityException' => 'ConflictHttpException',
     'EquipmentNotFoundException' => 'NotFoundHttpException',
     'EquipmentSerialNumberAlreadyExistsException' => 'ConflictHttpException',
     'FacilityAccessDeniedException' => 'AccessDeniedHttpException',
@@ -167,6 +164,8 @@ final class PresentationExceptionStatusTest extends TestCase
     'FacilitySubtreeSourceArchivedException' => 'ConflictHttpException',
     'FacilitySubtreeTooLargeException' => 'UnprocessableEntityHttpException',
     'FloorPlanAttachmentNotFoundException' => 'NotFoundHttpException',
+    'FloorPlanAttachmentNotAncestorException' => 'ConflictHttpException',
+    'FloorPlanAttachmentNotFloorPlanException' => 'ConflictHttpException',
     'ImportAccessDeniedException' => 'AccessDeniedHttpException',
     'ImportJobNotFoundException' => 'NotFoundHttpException',
     'ImportLeaseUnavailable' => 'ConflictHttpException',
@@ -209,6 +208,7 @@ final class PresentationExceptionStatusTest extends TestCase
     'OrganizationMemberNotFoundException' => 'NotFoundHttpException',
     'OrganizationNotFoundException' => 'NotFoundHttpException',
     'OrganizationPlanUsageExceededException' => 'ConflictHttpException',
+    'OrganizationQuotaExceededException' => 'ConflictHttpException',
     'OrganizationRoleNotFoundException' => 'NotFoundHttpException',
     'OrganizationSlugAlreadyExistsException' => 'ConflictHttpException',
     'PlanKeyAlreadyExistsException' => 'ConflictHttpException',

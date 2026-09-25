@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Mfa\MfaResend;
 
+use Auth\Application\Contract\Mfa\ResentMfaChallenge;
 use DateTimeImmutable;
 use Shared\Application\Message\ResultMessage;
 

@@ -9,6 +9,13 @@ use Intervention\Application\Contract\Export\InterventionExportCandidate;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, InterventionWorkflowMutation, InterventionWorkflowPage, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\{InterventionIssueQueryPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
+use Intervention\Infrastructure\Persistence\Doctrine\Workflow\DoctrineInterventionWorkflowReader;
+use Intervention\Infrastructure\Service\Workflow\{
+  InterventionWorkflowChangeWriter,
+  InterventionWorkflowInterventionWriter,
+  InterventionWorkflowWorkItemWriter,
+  InterventionWorkflowWorkloadCoordinator
+};
 use InvalidArgumentException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 

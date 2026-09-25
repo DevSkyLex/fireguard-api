@@ -13,6 +13,7 @@ use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
+use Organization\Infrastructure\Persistence\Doctrine\OrganizationMemberPersistenceSupport;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -56,7 +57,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   private EntityRepository $roleRepository;
 
-  private OrganizationMemberRepositorySupport $support;
+  private OrganizationMemberPersistenceSupport $support;
   // #endregion
 
   // #region Constructor
@@ -80,7 +81,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     $this->memberRepository = $entityManager->getRepository(OrganizationMemberRecord::class);
     $this->memberRoleRepository = $entityManager->getRepository(OrganizationMemberRoleRecord::class);
     $this->roleRepository = $entityManager->getRepository(OrganizationRoleRecord::class);
-    $this->support = new OrganizationMemberRepositorySupport($entityManager, $this->memberRepository, $cacheInvalidator, $storageTimeZone);
+    $this->support = new OrganizationMemberPersistenceSupport($entityManager, $this->memberRepository, $cacheInvalidator, $storageTimeZone);
   }
   // #endregion
 

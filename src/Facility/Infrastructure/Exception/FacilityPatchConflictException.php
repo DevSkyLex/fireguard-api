@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Facility\Infrastructure\Adapter\Intervention;
+namespace Facility\Infrastructure\Exception;
 
 use RuntimeException;
 

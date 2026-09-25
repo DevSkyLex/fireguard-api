@@ -7,7 +7,7 @@ namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Server;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Nyholm\Psr7\Response;
-use OAuth\Application\Port\Outbound\Token\{AccessTokenGrantParameters, AccessTokenRequest};
+use OAuth\Application\Contract\Token\{AccessTokenGrantParameters, AccessTokenRequest};
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use OAuth\Infrastructure\OAuth2\League\Server\AuthorizationServerAdapter;

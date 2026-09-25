@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Token\IssueToken;
 
-use OAuth\Application\Port\Outbound\Token\{AccessTokenGrantParameters, AccessTokenRepositoryPort, AccessTokenRequest, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Contract\Token\{AccessTokenGrantParameters, AccessTokenRequest};
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent};

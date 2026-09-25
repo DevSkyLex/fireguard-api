@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Auth\Application\UseCase\Command\Mfa\MfaResend;
+namespace Auth\Application\Contract\Mfa;
 
 use DateTimeImmutable;
 

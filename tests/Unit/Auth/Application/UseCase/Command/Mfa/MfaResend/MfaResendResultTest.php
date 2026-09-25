@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\UseCase\Command\Mfa\MfaResend;
 
-use Auth\Application\UseCase\Command\Mfa\MfaResend\{MfaResendResult, ResentMfaChallenge};
+use Auth\Application\Contract\Mfa\ResentMfaChallenge;
+use Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendResult;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;

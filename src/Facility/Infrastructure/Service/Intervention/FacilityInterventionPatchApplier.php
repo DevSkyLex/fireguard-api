@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Facility\Infrastructure\Adapter\Intervention;
+namespace Facility\Infrastructure\Service\Intervention;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -11,6 +11,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException, FacilityMetadataValidationException};
 use Facility\Domain\ValueObject\{FacilityId, PlanGeometry};
+use Facility\Infrastructure\Exception\FacilityPatchConflictException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Shared\Domain\Exception\InvalidValueException;
 

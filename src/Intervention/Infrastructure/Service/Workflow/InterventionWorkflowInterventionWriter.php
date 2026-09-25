@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Intervention\Infrastructure\Adapter\Workflow;
+namespace Intervention\Infrastructure\Service\Workflow;
 
 use DateTimeInterface;
 use Intervention\Application\Contract\Activity\{InterventionActivityAppendRequest, InterventionActivityContent};
