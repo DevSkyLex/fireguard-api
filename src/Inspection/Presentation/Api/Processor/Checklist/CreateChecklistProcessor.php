@@ -19,6 +19,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 use function count;
 use function is_string;
@@ -79,20 +80,7 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findChecklistNotFoundException($exception);
-      if ($notFound instanceof ChecklistNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-      $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
-      if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
-        throw new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
-      }
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     $output = new ChecklistOutput();
@@ -123,5 +111,23 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
     $output->itemCount = count($itemOutputs);
 
     return $output;
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findChecklistNotFoundException($exception);
+    if ($notFound instanceof ChecklistNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+    $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
+    if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
+      return new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
+    }
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 }

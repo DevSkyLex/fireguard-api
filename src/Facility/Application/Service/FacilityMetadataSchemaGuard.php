@@ -12,6 +12,7 @@ use Facility\Domain\Model\MetadataField\FacilityMetadataField;
 use Facility\Domain\ValueObject\{FacilityMetadataFieldType, FacilityOrganizationId};
 
 use function array_key_exists;
+use function array_merge;
 use function array_unique;
 use function array_values;
 use function in_array;
@@ -79,7 +80,28 @@ final readonly class FacilityMetadataSchemaGuard
       return;
     }
 
-    /** @var array<string, FacilityMetadataField> $applicable */
+    $applicable = self::applicableDefinitions($definitions, $facilityType);
+    if ([] === $applicable) {
+      return;
+    }
+
+    $offendingKeys = $this->invalidValues($applicable, $metadata);
+    if ($isCreate) {
+      $offendingKeys = array_merge($offendingKeys, self::missingRequired($applicable, $metadata));
+    }
+
+    if ([] !== $offendingKeys) {
+      throw FacilityMetadataValidationException::withOffendingKeys(array_values(array_unique($offendingKeys)));
+    }
+  }
+
+  /**
+   * @param list<FacilityMetadataField> $definitions
+   *
+   * @return array<string, FacilityMetadataField>
+   */
+  private static function applicableDefinitions(array $definitions, ?string $facilityType): array
+  {
     $applicable = [];
     foreach ($definitions as $definition) {
       if (null === $definition->facilityType() || $definition->facilityType()->value === $facilityType) {
@@ -87,12 +109,18 @@ final readonly class FacilityMetadataSchemaGuard
       }
     }
 
-    if ([] === $applicable) {
-      return;
-    }
+    return $applicable;
+  }
 
+  /**
+   * @param array<string, FacilityMetadataField> $applicable
+   * @param array<string, mixed> $metadata
+   *
+   * @return list<string>
+   */
+  private function invalidValues(array $applicable, array $metadata): array
+  {
     $offendingKeys = [];
-
     foreach ($applicable as $key => $definition) {
       if (!array_key_exists($key, $metadata)) {
         continue;
@@ -108,21 +136,29 @@ final readonly class FacilityMetadataSchemaGuard
       }
     }
 
-    if ($isCreate) {
-      foreach ($applicable as $key => $definition) {
-        if (!$definition->required()) {
-          continue;
-        }
+    return $offendingKeys;
+  }
 
-        if (!array_key_exists($key, $metadata) || null === $metadata[$key]) {
-          $offendingKeys[] = $key;
-        }
+  /**
+   * @param array<string, FacilityMetadataField> $applicable
+   * @param array<string, mixed> $metadata
+   *
+   * @return list<string>
+   */
+  private static function missingRequired(array $applicable, array $metadata): array
+  {
+    $offendingKeys = [];
+    foreach ($applicable as $key => $definition) {
+      if (!$definition->required()) {
+        continue;
+      }
+
+      if (!array_key_exists($key, $metadata) || null === $metadata[$key]) {
+        $offendingKeys[] = $key;
       }
     }
 
-    if ([] !== $offendingKeys) {
-      throw FacilityMetadataValidationException::withOffendingKeys(array_values(array_unique($offendingKeys)));
-    }
+    return $offendingKeys;
   }
 
   /**
