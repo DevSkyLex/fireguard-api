@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\Port\Outbound;
 
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Application\Contract\Export\EquipmentExportCandidate;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
@@ -69,13 +70,7 @@ interface EquipmentRepositoryPort
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization identifier
-   * @param ?string $facilityId optional facility filter
-   * @param ?string $type optional type filter
-   * @param ?string $status optional status filter
-   * @param ?string $brand optional brand filter
-   * @param ?string $model optional model filter
-   * @param ?string $subType optional subtype filter
-   * @param ?string $search optional text search applied before pagination
+   * @param EquipmentListCriteria $criteria filters applied before pagination
    * @param Sorting $sorting requested sorting applied before pagination
    * @param int $limit maximum number of results
    * @param int $offset result offset
@@ -84,13 +79,7 @@ interface EquipmentRepositoryPort
    */
   public function findByOrganizationId(
     EquipmentOrganizationId $organizationId,
-    ?string $facilityId = null,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $brand = null,
-    ?string $model = null,
-    ?string $subType = null,
-    ?string $search = null,
+    EquipmentListCriteria $criteria = new EquipmentListCriteria(),
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
@@ -104,25 +93,13 @@ interface EquipmentRepositoryPort
    * @since 1.0.0
    *
    * @param EquipmentOrganizationId $organizationId the organization identifier
-   * @param ?string $facilityId optional facility filter
-   * @param ?string $type optional type filter
-   * @param ?string $status optional status filter
-   * @param ?string $brand optional brand filter
-   * @param ?string $model optional model filter
-   * @param ?string $subType optional subtype filter
-   * @param ?string $search optional text search applied before counting
+   * @param EquipmentListCriteria $criteria filters applied before counting
    *
    * @return int the total count
    */
   public function countByOrganizationId(
     EquipmentOrganizationId $organizationId,
-    ?string $facilityId = null,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $brand = null,
-    ?string $model = null,
-    ?string $subType = null,
-    ?string $search = null,
+    EquipmentListCriteria $criteria = new EquipmentListCriteria(),
   ): int;
 
   /**

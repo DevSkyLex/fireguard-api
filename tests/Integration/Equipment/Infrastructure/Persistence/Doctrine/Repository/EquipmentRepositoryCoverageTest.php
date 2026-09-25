@@ -7,6 +7,7 @@ namespace Tests\Integration\Equipment\Infrastructure\Persistence\Doctrine\Reposi
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Application\Contract\Equipment\EquipmentListCriteria;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
@@ -168,19 +169,19 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
     self::assertSame([
       '770e8400-e29b-41d4-a716-4466554e0030',
       '770e8400-e29b-41d4-a716-4466554e0032',
-    ], $this->listIds($this->repository->findByOrganizationId($orgId, type: 'fire_extinguisher')));
-    self::assertSame(2, $this->repository->countByOrganizationId($orgId, type: 'fire_extinguisher'));
+    ], $this->listIds($this->repository->findByOrganizationId($orgId, new EquipmentListCriteria(type: 'fire_extinguisher'))));
+    self::assertSame(2, $this->repository->countByOrganizationId($orgId, new EquipmentListCriteria(type: 'fire_extinguisher')));
 
-    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0030'], $this->listIds($this->repository->findByOrganizationId($orgId, status: 'operational')));
-    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0031'], $this->listIds($this->repository->findByOrganizationId($orgId, facilityId: self::FACILITY_B)));
-    self::assertSame(2, $this->repository->countByOrganizationId($orgId, brand: 'Acme'));
-    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0031'], $this->listIds($this->repository->findByOrganizationId($orgId, model: 'M2')));
-    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0032'], $this->listIds($this->repository->findByOrganizationId($orgId, subType: 'powder')));
+    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0030'], $this->listIds($this->repository->findByOrganizationId($orgId, new EquipmentListCriteria(status: 'operational'))));
+    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0031'], $this->listIds($this->repository->findByOrganizationId($orgId, new EquipmentListCriteria(facilityId: self::FACILITY_B))));
+    self::assertSame(2, $this->repository->countByOrganizationId($orgId, new EquipmentListCriteria(brand: 'Acme')));
+    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0031'], $this->listIds($this->repository->findByOrganizationId($orgId, new EquipmentListCriteria(model: 'M2'))));
+    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0032'], $this->listIds($this->repository->findByOrganizationId($orgId, new EquipmentListCriteria(subType: 'powder'))));
 
     // Free-text search matches case-insensitively across the searchable columns
     // (here the brand). The draft with brand "Acme" stays excluded.
-    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0031'], $this->listIds($this->repository->findByOrganizationId($orgId, search: 'beta')));
-    self::assertSame(1, $this->repository->countByOrganizationId($orgId, search: 'beta'));
+    self::assertSame(['770e8400-e29b-41d4-a716-4466554e0031'], $this->listIds($this->repository->findByOrganizationId($orgId, new EquipmentListCriteria(search: 'beta'))));
+    self::assertSame(1, $this->repository->countByOrganizationId($orgId, new EquipmentListCriteria(search: 'beta')));
   }
 
   #[Test]
