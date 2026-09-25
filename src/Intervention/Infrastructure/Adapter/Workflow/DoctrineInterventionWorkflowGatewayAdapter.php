@@ -506,82 +506,12 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $aggregate = InterventionMapper::toDomain($intervention);
     $previousPlannedStartAt = $aggregate->plannedStartAt();
     $previousDueAt = $aggregate->dueAt();
-    $responsibleId = $aggregate->responsibleId();
-    if (array_key_exists('responsibleId', $mutation->payload)) {
-      $responsibleId = $this->nullableString($mutation->payload, 'responsibleId');
-      if (null !== $responsibleId) {
-        $this->memberPolicy->assertActiveMember($organizationId, $responsibleId);
-      }
-    }
-    $participants = $aggregate->participants();
-    if (array_key_exists('participants', $mutation->payload)) {
-      $participants = $this->stringList($mutation->payload['participants']);
-      $this->assertActiveMembers($organizationId, null, $participants);
-    }
-    $siteId = $aggregate->siteId();
-    if (array_key_exists('siteId', $mutation->payload)) {
-      $siteId = $this->nullableString($mutation->payload, 'siteId');
-      $this->assertSiteBelongsToOrganization($siteId, $organizationId);
-    }
-    $nextStatus = null;
-    if (array_key_exists('status', $mutation->payload)) {
-      $nextStatus = InterventionStatus::from($this->requiredString($mutation->payload, 'status'));
-      if (InterventionStatus::SUBMITTED === $nextStatus) {
-        try {
-          $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $responsibleId);
-        } catch (InterventionConflictException $exception) {
-          throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
-        }
-      }
-      // Withdrawing a submission (submitted -> in_progress) is reserved to the
-      // responsible member, like submitting. Gate on the source status so the
-      // participant-open planned/changes_requested -> in_progress paths stay
-      // untouched, and on the aggregate's responsible (the guard runs before
-      // edit() applies any payload change).
-      if (InterventionStatus::IN_PROGRESS === $nextStatus && InterventionStatus::SUBMITTED->value === $previousStatus) {
-        try {
-          $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $aggregate->responsibleId(), 'withdraw');
-        } catch (InterventionConflictException $exception) {
-          throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
-        }
-      }
-    }
-    $aggregate->edit(
-      policy: $this->transitionPolicy,
-      name: array_key_exists('name', $mutation->payload) ? $this->requiredString($mutation->payload, 'name') : null,
-      description: array_key_exists('description', $mutation->payload) ? $this->nullableString($mutation->payload, 'description') : null,
-      siteId: $siteId,
-      responsibleId: $responsibleId,
-      participants: $participants,
-      priority: array_key_exists('priority', $mutation->payload) ? InterventionPriority::from($this->requiredString($mutation->payload, 'priority')) : null,
-      plannedStartAt: array_key_exists('plannedStartAt', $mutation->payload) ? $this->date($mutation->payload['plannedStartAt']) : null,
-      dueAt: array_key_exists('dueAt', $mutation->payload) ? $this->date($mutation->payload['dueAt']) : null,
-      reviewNote: array_key_exists('reviewNote', $mutation->payload) ? $this->nullableString($mutation->payload, 'reviewNote') : null,
-      nextStatus: $nextStatus,
-      hasName: array_key_exists('name', $mutation->payload),
-      hasDescription: array_key_exists('description', $mutation->payload),
-      hasSiteId: array_key_exists('siteId', $mutation->payload),
-      hasResponsibleId: array_key_exists('responsibleId', $mutation->payload),
-      hasParticipants: array_key_exists('participants', $mutation->payload),
-      hasPriority: array_key_exists('priority', $mutation->payload),
-      hasPlannedStartAt: array_key_exists('plannedStartAt', $mutation->payload),
-      hasDueAt: array_key_exists('dueAt', $mutation->payload),
-      hasReviewNote: array_key_exists('reviewNote', $mutation->payload),
-    );
-    // Check explicit task periods against the proposed organization-local window.
-    $timezone = $this->organizationTimezone($organizationId);
-    $invalidPeriods = [];
-    foreach ($intervention->workItems as $item) {
-      if (!new WorkItemPeriod($item->workStartsOn, $item->workEndsOn)->fitsWithin(
-        $aggregate->plannedStartAt()?->setTimezone($timezone)->format('Y-m-d'),
-        $aggregate->dueAt()?->setTimezone($timezone)->format('Y-m-d'),
-      )) {
-        $invalidPeriods[] = $item->id;
-      }
-    }
-    if ([] !== $invalidPeriods) {
-      throw new InterventionValidationException('Replan these task periods before changing the intervention dates: ' . implode(', ', $invalidPeriods));
-    }
+    $responsibleId = $this->resolveResponsibleId($aggregate, $mutation->payload, $organizationId);
+    $participants = $this->resolveParticipants($aggregate, $mutation->payload, $organizationId);
+    $siteId = $this->resolveSiteId($aggregate, $mutation->payload, $organizationId);
+    $nextStatus = $this->resolveNextStatus($aggregate, $mutation, $organizationId, $previousStatus, $responsibleId);
+    $this->applyInterventionPatch($aggregate, $mutation->payload, $siteId, $responsibleId, $participants, $nextStatus);
+    $this->assertTaskPeriodsFit($intervention, $aggregate, $organizationId);
     InterventionMapper::sync($aggregate, $intervention);
     // A rescheduled due date invalidates any reminder already sent against the
     // old one: the anti-spam stamps must not silently suppress a reminder for
@@ -597,37 +527,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       }
     }
     $this->entityManager->flush();
-    if (null !== $nextStatus && $nextStatus->value !== $previousStatus) {
-      $this->activities->append(
-        $intervention->id,
-        $organizationId,
-        $this->memberPolicy->findMemberId($organizationId, $mutation->userId),
-        'system',
-        'status_changed',
-        null,
-        ['from' => $previousStatus, 'to' => $nextStatus->value],
-      );
-      // Audit ledger: deferred like the notifications below, so the event
-      // fires only once the surrounding wrapInTransaction has actually
-      // committed — a rollback (e.g. a later validation failure in this same
-      // request) must never leave a ledger entry for a transition that never
-      // happened.
-      $interventionId = $intervention->id;
-      $interventionNumber = $intervention->number;
-      $actorUserId = $mutation->userId;
-      $fromStatus = $previousStatus;
-      $toStatus = $nextStatus->value;
-      $reviewNote = InterventionStatus::CHANGES_REQUESTED === $nextStatus ? $aggregate->reviewNote() : null;
-      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
-        organizationId: $organizationId,
-        interventionId: $interventionId,
-        interventionNumber: $interventionNumber,
-        actorUserId: $actorUserId,
-        fromStatus: $fromStatus,
-        toStatus: $toStatus,
-        reviewNote: $reviewNote,
-      ));
-    }
+    $this->recordStatusTransition($intervention, $aggregate, $mutation, $previousStatus, $nextStatus, $notifications);
     // A replan of a non-draft intervention leaves a trace: the operators who
     // planned around the old window learn it moved, and by how much.
     $nextPlannedStartAt = $aggregate->plannedStartAt();
@@ -654,27 +554,190 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         ],
       );
     }
+    $this->queueStatusSideEffects($intervention, $mutation, $previousStatus, $nextStatus, $notifications);
+
+    return $this->views->interventionView($intervention);
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   */
+  private function resolveResponsibleId(InterventionAggregate $aggregate, array $payload, string $organizationId): ?string
+  {
+    if (!array_key_exists('responsibleId', $payload)) {
+      return $aggregate->responsibleId();
+    }
+    $responsibleId = $this->nullableString($payload, 'responsibleId');
+    if (null !== $responsibleId) {
+      $this->memberPolicy->assertActiveMember($organizationId, $responsibleId);
+    }
+
+    return $responsibleId;
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   *
+   * @return list<string>
+   */
+  private function resolveParticipants(InterventionAggregate $aggregate, array $payload, string $organizationId): array
+  {
+    if (!array_key_exists('participants', $payload)) {
+      return $aggregate->participants();
+    }
+    $participants = $this->stringList($payload['participants']);
+    $this->assertActiveMembers($organizationId, null, $participants);
+
+    return $participants;
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   */
+  private function resolveSiteId(InterventionAggregate $aggregate, array $payload, string $organizationId): ?string
+  {
+    if (!array_key_exists('siteId', $payload)) {
+      return $aggregate->siteId();
+    }
+    $siteId = $this->nullableString($payload, 'siteId');
+    $this->assertSiteBelongsToOrganization($siteId, $organizationId);
+
+    return $siteId;
+  }
+
+  private function resolveNextStatus(InterventionAggregate $aggregate, InterventionWorkflowMutation $mutation, string $organizationId, string $previousStatus, ?string $responsibleId): ?InterventionStatus
+  {
+    if (!array_key_exists('status', $mutation->payload)) {
+      return null;
+    }
+    $nextStatus = InterventionStatus::from($this->requiredString($mutation->payload, 'status'));
+    if (InterventionStatus::SUBMITTED === $nextStatus) {
+      try {
+        $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $responsibleId);
+      } catch (InterventionConflictException $exception) {
+        throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
+      }
+    }
+    // Withdrawing a submission is reserved to the original responsible member;
+    // planned and changes-requested transitions remain open to participants.
+    if (InterventionStatus::IN_PROGRESS === $nextStatus && InterventionStatus::SUBMITTED->value === $previousStatus) {
+      try {
+        $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $aggregate->responsibleId(), 'withdraw');
+      } catch (InterventionConflictException $exception) {
+        throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
+      }
+    }
+
+    return $nextStatus;
+  }
+
+  private function assertTaskPeriodsFit(InterventionRecord $intervention, InterventionAggregate $aggregate, string $organizationId): void
+  {
+    $timezone = $this->organizationTimezone($organizationId);
+    $invalidPeriods = [];
+    foreach ($intervention->workItems as $item) {
+      if (!new WorkItemPeriod($item->workStartsOn, $item->workEndsOn)->fitsWithin(
+        $aggregate->plannedStartAt()?->setTimezone($timezone)->format('Y-m-d'),
+        $aggregate->dueAt()?->setTimezone($timezone)->format('Y-m-d'),
+      )) {
+        $invalidPeriods[] = $item->id;
+      }
+    }
+    if ([] !== $invalidPeriods) {
+      throw new InterventionValidationException('Replan these task periods before changing the intervention dates: ' . implode(', ', $invalidPeriods));
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   * @param list<string> $participants
+   */
+  private function applyInterventionPatch(InterventionAggregate $aggregate, array $payload, ?string $siteId, ?string $responsibleId, array $participants, ?InterventionStatus $nextStatus): void
+  {
+    $aggregate->edit(
+      policy: $this->transitionPolicy,
+      name: array_key_exists('name', $payload) ? $this->requiredString($payload, 'name') : null,
+      description: array_key_exists('description', $payload) ? $this->nullableString($payload, 'description') : null,
+      siteId: $siteId,
+      responsibleId: $responsibleId,
+      participants: $participants,
+      priority: array_key_exists('priority', $payload) ? InterventionPriority::from($this->requiredString($payload, 'priority')) : null,
+      plannedStartAt: array_key_exists('plannedStartAt', $payload) ? $this->date($payload['plannedStartAt']) : null,
+      dueAt: array_key_exists('dueAt', $payload) ? $this->date($payload['dueAt']) : null,
+      reviewNote: array_key_exists('reviewNote', $payload) ? $this->nullableString($payload, 'reviewNote') : null,
+      nextStatus: $nextStatus,
+      hasName: array_key_exists('name', $payload),
+      hasDescription: array_key_exists('description', $payload),
+      hasSiteId: array_key_exists('siteId', $payload),
+      hasResponsibleId: array_key_exists('responsibleId', $payload),
+      hasParticipants: array_key_exists('participants', $payload),
+      hasPriority: array_key_exists('priority', $payload),
+      hasPlannedStartAt: array_key_exists('plannedStartAt', $payload),
+      hasDueAt: array_key_exists('dueAt', $payload),
+      hasReviewNote: array_key_exists('reviewNote', $payload),
+    );
+  }
+
+  /**
+   * @param list<callable(): void> $notifications
+   */
+  private function recordStatusTransition(InterventionRecord $intervention, InterventionAggregate $aggregate, InterventionWorkflowMutation $mutation, string $previousStatus, ?InterventionStatus $nextStatus, array &$notifications): void
+  {
+    if (null === $nextStatus || $nextStatus->value === $previousStatus) {
+      return;
+    }
+    $organizationId = $this->organizationId($intervention);
+    $this->activities->append(
+      $intervention->id,
+      $organizationId,
+      $this->memberPolicy->findMemberId($organizationId, $mutation->userId),
+      'system',
+      'status_changed',
+      null,
+      ['from' => $previousStatus, 'to' => $nextStatus->value],
+    );
+    // Dispatch only after the surrounding transaction commits; a rollback
+    // must not leave a ledger event for a transition that never happened.
+    $interventionId = $intervention->id;
+    $interventionNumber = $intervention->number;
+    $actorUserId = $mutation->userId;
+    $fromStatus = $previousStatus;
+    $toStatus = $nextStatus->value;
+    $reviewNote = InterventionStatus::CHANGES_REQUESTED === $nextStatus ? $aggregate->reviewNote() : null;
+    $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
+      organizationId: $organizationId,
+      interventionId: $interventionId,
+      interventionNumber: $interventionNumber,
+      actorUserId: $actorUserId,
+      fromStatus: $fromStatus,
+      toStatus: $toStatus,
+      reviewNote: $reviewNote,
+    ));
+  }
+
+  /**
+   * @param list<callable(): void> $notifications
+   */
+  private function queueStatusSideEffects(InterventionRecord $intervention, InterventionWorkflowMutation $mutation, string $previousStatus, ?InterventionStatus $nextStatus, array &$notifications): void
+  {
     if (InterventionStatus::CHANGES_REQUESTED === $nextStatus) {
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
       $responsibleId = $intervention->responsibleId;
       $notifications[] = fn () => $this->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
     }
-    // Every entry into submitted — first submission and each resubmission —
-    // tells the organization's reviewers a review round awaits them.
+    // Every submission and resubmission tells reviewers a new round awaits.
     if (InterventionStatus::SUBMITTED === $nextStatus && InterventionStatus::SUBMITTED->value !== $previousStatus) {
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
+      $organizationId = $this->organizationId($intervention);
       $actorUserId = $mutation->userId;
       $notifications[] = fn () => $this->notifications->submitted($interventionId, $interventionName, $organizationId, $actorUserId);
     }
-    // Abandoning an intervention is terminal: its draft resources can never be
-    // published, so purge them here to avoid permanent orphaned draft rows.
+    // Abandoned interventions cannot publish their draft resources.
     if (InterventionStatus::ABANDONED === $nextStatus) {
       $this->draftPublisher->discard($intervention->id);
     }
-
-    return $this->views->interventionView($intervention);
   }
 
   /**
@@ -698,6 +761,38 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $intervention = $this->workItemIntervention($record);
     $this->assertRevision($record->revision, $mutation->expectedRevision);
     $this->assertInterventionWorkMutable($intervention);
+    $this->assertWorkItemMutationAllowed($record, $intervention, $mutation);
+    if ('delete' === $mutation->action) {
+      $this->deleteWorkItem($record, $intervention);
+
+      return null;
+    }
+    $previousAssigneeId = $record->assigneeId;
+    $previousWorkItemStatus = $record->status;
+    $interventionAutoStarted = $this->applyWorkItemPatch($record, $intervention, $mutation->payload, $previousWorkItemStatus);
+    $now = new DateTimeImmutable();
+    ++$record->revision;
+    $record->updatedAt = $now;
+    $this->touch($intervention, $now);
+    if ($record->assigneeId !== $previousAssigneeId) {
+      $this->recordAssignment($record, $previousAssigneeId, $mutation->userId, $now);
+    }
+    $this->entityManager->flush();
+    if ($interventionAutoStarted) {
+      $this->recordWorkItemAutoStart($intervention, $mutation->userId, $notifications);
+    }
+    if (null !== $record->assigneeId && $record->assigneeId !== $previousAssigneeId) {
+      $interventionId = $intervention->id;
+      $interventionName = $intervention->name;
+      $assigneeId = $record->assigneeId;
+      $notifications[] = fn () => $this->notifications->assigned($interventionId, $interventionName, $assigneeId);
+    }
+
+    return $this->views->workItemView($record);
+  }
+
+  private function assertWorkItemMutationAllowed(InterventionWorkItemRecord $record, InterventionRecord $intervention, InterventionWorkflowMutation $mutation): void
+  {
     if ('draft' !== $intervention->status && !$this->isWorkItemPlanningOnly($mutation)) {
       $this->memberPolicy->assertCanExecuteWorkItem(
         $this->organizationId($intervention),
@@ -715,23 +810,28 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       && [] !== array_intersect(array_keys($mutation->payload), ['estimatedMinutes', 'remainingMinutes', 'workStartsOn', 'workEndsOn'])) {
       throw new InterventionConflictException('Reopen the task before changing its effort or period. Time may still be recorded independently.');
     }
-    if ('delete' === $mutation->action) {
-      if ('draft' !== $intervention->status) {
-        throw new InterventionConflictException('Only prepared work items can be deleted.');
-      }
-      $this->assertNoTimeHistory($intervention, $record);
-      $this->entityManager->remove($record);
-      $this->touch($intervention, new DateTimeImmutable());
-      $this->entityManager->flush();
+  }
 
-      return null;
+  private function deleteWorkItem(InterventionWorkItemRecord $record, InterventionRecord $intervention): void
+  {
+    if ('draft' !== $intervention->status) {
+      throw new InterventionConflictException('Only prepared work items can be deleted.');
     }
-    $previousAssigneeId = $record->assigneeId;
-    $previousWorkItemStatus = $record->status;
+    $this->assertNoTimeHistory($intervention, $record);
+    $this->entityManager->remove($record);
+    $this->touch($intervention, new DateTimeImmutable());
+    $this->entityManager->flush();
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   */
+  private function applyWorkItemPatch(InterventionWorkItemRecord $record, InterventionRecord $intervention, array $payload, string $previousStatus): bool
+  {
     $interventionAutoStarted = false;
-    if (array_key_exists('status', $mutation->payload)) {
-      $status = $this->requiredString($mutation->payload, 'status');
-      $skipReason = $this->nullableString($mutation->payload, 'skipReason');
+    if (array_key_exists('status', $payload)) {
+      $status = $this->requiredString($payload, 'status');
+      $skipReason = $this->nullableString($payload, 'skipReason');
       $nextWorkItemStatus = InterventionWorkItemStatus::from($status);
       $this->workItemTransitionPolicy->assertAllowed(InterventionWorkItemStatus::from($record->status), $nextWorkItemStatus, $skipReason);
       $record->status = $nextWorkItemStatus->value;
@@ -740,70 +840,56 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $interventionAutoStarted = true;
       }
     }
-    if (array_key_exists('skipReason', $mutation->payload)) {
-      $skipReason = $this->nullableString($mutation->payload, 'skipReason');
+    if (array_key_exists('skipReason', $payload)) {
+      $skipReason = $this->nullableString($payload, 'skipReason');
       $record->skipReason = null === $skipReason ? null : trim($skipReason);
     }
-    if (array_key_exists('resultResource', $mutation->payload)) {
-      $record->resultResource = $this->nullableString($mutation->payload, 'resultResource');
+    if (array_key_exists('resultResource', $payload)) {
+      $record->resultResource = $this->nullableString($payload, 'resultResource');
     }
-    if (array_key_exists('assigneeId', $mutation->payload)) {
-      $record->assigneeId = $this->nullableString($mutation->payload, 'assigneeId');
+    if (array_key_exists('assigneeId', $payload)) {
+      $record->assigneeId = $this->nullableString($payload, 'assigneeId');
       if (null !== $record->assigneeId) {
         $this->memberPolicy->assertActiveMember($this->organizationId($intervention), $record->assigneeId);
       }
     }
-    $this->applyWorkItemEffort($record, $intervention, $mutation->payload, false);
-    if (in_array($previousWorkItemStatus, ['completed', 'skipped'], true)
+    $this->applyWorkItemEffort($record, $intervention, $payload, false);
+    if (in_array($previousStatus, ['completed', 'skipped'], true)
       && !in_array($record->status, ['completed', 'skipped'], true)
-      && !array_key_exists('remainingMinutes', $mutation->payload)) {
+      && !array_key_exists('remainingMinutes', $payload)) {
       $record->remainingMinutes = null;
     }
-    $now = new DateTimeImmutable();
-    ++$record->revision;
-    $record->updatedAt = $now;
-    $this->touch($intervention, $now);
-    if ($record->assigneeId !== $previousAssigneeId) {
-      $this->recordAssignment($record, $previousAssigneeId, $mutation->userId, $now);
-    }
-    $this->entityManager->flush();
-    // Starting work on any item auto-advances the intervention
-    // planned -> in_progress; journal it as a `status_changed` activity so the
-    // audit feed reflects the lifecycle change (RNCP traceability), mirroring
-    // the explicit intervention status-transition path.
-    if ($interventionAutoStarted) {
-      $activityOrganizationId = $this->organizationId($intervention);
-      $this->activities->append(
-        $intervention->id,
-        $activityOrganizationId,
-        $this->memberPolicy->findMemberId($activityOrganizationId, $mutation->userId),
-        'system',
-        'status_changed',
-        null,
-        ['from' => 'planned', 'to' => 'in_progress'],
-      );
-      // Audit ledger: same deferred-until-commit treatment as the explicit
-      // transition path in updateIntervention().
-      $autoStartInterventionId = $intervention->id;
-      $autoStartInterventionNumber = $intervention->number;
-      $autoStartActorUserId = $mutation->userId;
-      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
-        organizationId: $activityOrganizationId,
-        interventionId: $autoStartInterventionId,
-        interventionNumber: $autoStartInterventionNumber,
-        actorUserId: $autoStartActorUserId,
-        fromStatus: 'planned',
-        toStatus: 'in_progress',
-      ));
-    }
-    if (null !== $record->assigneeId && $record->assigneeId !== $previousAssigneeId) {
-      $interventionId = $intervention->id;
-      $interventionName = $intervention->name;
-      $assigneeId = $record->assigneeId;
-      $notifications[] = fn () => $this->notifications->assigned($interventionId, $interventionName, $assigneeId);
-    }
 
-    return $this->views->workItemView($record);
+    return $interventionAutoStarted;
+  }
+
+  /**
+   * @param list<callable(): void> $notifications
+   */
+  private function recordWorkItemAutoStart(InterventionRecord $intervention, string $actorUserId, array &$notifications): void
+  {
+    // Starting work advances planned -> in_progress and journals that change.
+    $organizationId = $this->organizationId($intervention);
+    $this->activities->append(
+      $intervention->id,
+      $organizationId,
+      $this->memberPolicy->findMemberId($organizationId, $actorUserId),
+      'system',
+      'status_changed',
+      null,
+      ['from' => 'planned', 'to' => 'in_progress'],
+    );
+    // Audit ledger dispatch is deferred until the transaction commits.
+    $interventionId = $intervention->id;
+    $interventionNumber = $intervention->number;
+    $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
+      organizationId: $organizationId,
+      interventionId: $interventionId,
+      interventionNumber: $interventionNumber,
+      actorUserId: $actorUserId,
+      fromStatus: 'planned',
+      toStatus: 'in_progress',
+    ));
   }
 
   /**
@@ -1272,30 +1358,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         ->andWhere('l.id IN (:labelIds)')
         ->setParameter('labelIds', $labelIds);
     }
-    if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
-      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
-        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :participant)',
-        ['organization' => $organizationId, 'participant' => $filters['participantId']],
-      );
-      $qb->andWhere([] === $ids ? '1 = 0' : 'm.id IN (:participantIds)');
-      if ([] !== $ids) {
-        $qb->setParameter('participantIds', $ids);
-      }
-    }
-    if (is_string($filters['memberId'] ?? null) && '' !== $filters['memberId']) {
-      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
-        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :member)',
-        ['organization' => $organizationId, 'member' => $filters['memberId']],
-      );
-      $qb->andWhere(
-        [] === $ids
-          ? 'm.responsibleId = :memberId'
-          : '(m.responsibleId = :memberId OR m.id IN (:memberInterventionIds))',
-      )->setParameter('memberId', $filters['memberId']);
-      if ([] !== $ids) {
-        $qb->setParameter('memberInterventionIds', $ids);
-      }
-    }
+    $this->applyMembershipFilters($qb, $organizationId, $filters);
     foreach (
       [
         'dueAtAfter' => ['dueAt', '>='],
@@ -1328,6 +1391,37 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }
 
     return $qb;
+  }
+
+  /**
+   * @param array<string, mixed> $filters
+   */
+  private function applyMembershipFilters(QueryBuilder $qb, string $organizationId, array $filters): void
+  {
+    if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
+      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :participant)',
+        ['organization' => $organizationId, 'participant' => $filters['participantId']],
+      );
+      $qb->andWhere([] === $ids ? '1 = 0' : 'm.id IN (:participantIds)');
+      if ([] !== $ids) {
+        $qb->setParameter('participantIds', $ids);
+      }
+    }
+    if (is_string($filters['memberId'] ?? null) && '' !== $filters['memberId']) {
+      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :member)',
+        ['organization' => $organizationId, 'member' => $filters['memberId']],
+      );
+      $qb->andWhere(
+        [] === $ids
+          ? 'm.responsibleId = :memberId'
+          : '(m.responsibleId = :memberId OR m.id IN (:memberInterventionIds))',
+      )->setParameter('memberId', $filters['memberId']);
+      if ([] !== $ids) {
+        $qb->setParameter('memberInterventionIds', $ids);
+      }
+    }
   }
 
   /**
