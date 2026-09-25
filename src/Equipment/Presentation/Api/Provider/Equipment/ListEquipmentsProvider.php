@@ -82,7 +82,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $request = $this->requestStack->getCurrentRequest();
     $uriFacilityId = $uriVariables['facilityId'] ?? null;
     $queryFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facilityId');
-    $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
+    $facilityId = self::optionalFilter($uriFacilityId) ?? self::optionalFilter($queryFacilityId);
     $type = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('type');
     $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
     $brand = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('brand');
@@ -107,16 +107,16 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
       /** @var PaginatedResult<GetEquipmentResult> $result */
       $result = $this->queryBus->ask(new ListEquipmentsQuery(
         organizationId: $organizationId,
-        facilityId: is_string($facilityId) && '' !== $facilityId ? $facilityId : null,
-        type: is_string($type) && '' !== $type ? $type : null,
-        status: is_string($status) && '' !== $status ? $status : null,
-        brand: is_string($brand) && '' !== $brand ? $brand : null,
-        model: is_string($model) && '' !== $model ? $model : null,
-        subType: is_string($subType) && '' !== $subType ? $subType : null,
+        facilityId: $facilityId,
+        type: self::optionalFilter($type),
+        status: self::optionalFilter($status),
+        brand: self::optionalFilter($brand),
+        model: self::optionalFilter($model),
+        subType: self::optionalFilter($subType),
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
-        maintenanceDueStatus: is_string($maintenanceDueStatus) && '' !== $maintenanceDueStatus ? $maintenanceDueStatus : null,
+        maintenanceDueStatus: self::optionalFilter($maintenanceDueStatus),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -140,6 +140,11 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
       itemsPerPage: (float) $itemsPerPage,
       totalItems: (float) $result->total,
     );
+  }
+
+  private static function optionalFilter(mixed $value): ?string
+  {
+    return is_string($value) && '' !== $value ? $value : null;
   }
 
   // #endregion

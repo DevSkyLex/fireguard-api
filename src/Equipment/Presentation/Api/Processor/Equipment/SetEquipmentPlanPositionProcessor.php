@@ -26,6 +26,7 @@ use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRun
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Throwable;
 
 use function is_string;
 
@@ -116,45 +117,53 @@ final readonly class SetEquipmentPlanPositionProcessor implements ProcessorInter
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, EquipmentNotFoundException::class);
-      if ($notFound instanceof EquipmentNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $attachmentNotFound = $this->findException($exception, FloorPlanAttachmentNotFoundException::class);
-      if ($attachmentNotFound instanceof FloorPlanAttachmentNotFoundException) {
-        throw new NotFoundHttpException($attachmentNotFound->getMessage(), $exception);
-      }
-
-      $decommissioned = $this->findException($exception, EquipmentAlreadyDecommissionedException::class);
-      if ($decommissioned instanceof EquipmentAlreadyDecommissionedException) {
-        throw new ConflictHttpException($decommissioned->getMessage(), $exception);
-      }
-
-      $notAssigned = $this->findException($exception, EquipmentNotAssignedToFacilityException::class);
-      if ($notAssigned instanceof EquipmentNotAssignedToFacilityException) {
-        throw new ConflictHttpException($notAssigned->getMessage(), $exception);
-      }
-
-      $notFloorPlan = $this->findException($exception, FloorPlanAttachmentNotFloorPlanException::class);
-      if ($notFloorPlan instanceof FloorPlanAttachmentNotFloorPlanException) {
-        throw new ConflictHttpException($notFloorPlan->getMessage(), $exception);
-      }
-
-      $notAncestor = $this->findException($exception, FloorPlanAttachmentNotAncestorException::class);
-      if ($notAncestor instanceof FloorPlanAttachmentNotAncestorException) {
-        throw new ConflictHttpException($notAncestor->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerFailure($exception);
     }
 
     return $this->detail->read($organizationId, $equipmentId);
+  }
+
+  /**
+   * Preserve the HTTP status of domain failures wrapped by the command bus.
+   */
+  private function mapMessengerFailure(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findException($exception, EquipmentNotFoundException::class);
+    if ($notFound instanceof EquipmentNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $attachmentNotFound = $this->findException($exception, FloorPlanAttachmentNotFoundException::class);
+    if ($attachmentNotFound instanceof FloorPlanAttachmentNotFoundException) {
+      return new NotFoundHttpException($attachmentNotFound->getMessage(), $exception);
+    }
+
+    $decommissioned = $this->findException($exception, EquipmentAlreadyDecommissionedException::class);
+    if ($decommissioned instanceof EquipmentAlreadyDecommissionedException) {
+      return new ConflictHttpException($decommissioned->getMessage(), $exception);
+    }
+
+    $notAssigned = $this->findException($exception, EquipmentNotAssignedToFacilityException::class);
+    if ($notAssigned instanceof EquipmentNotAssignedToFacilityException) {
+      return new ConflictHttpException($notAssigned->getMessage(), $exception);
+    }
+
+    $notFloorPlan = $this->findException($exception, FloorPlanAttachmentNotFloorPlanException::class);
+    if ($notFloorPlan instanceof FloorPlanAttachmentNotFloorPlanException) {
+      return new ConflictHttpException($notFloorPlan->getMessage(), $exception);
+    }
+
+    $notAncestor = $this->findException($exception, FloorPlanAttachmentNotAncestorException::class);
+    if ($notAncestor instanceof FloorPlanAttachmentNotAncestorException) {
+      return new ConflictHttpException($notAncestor->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
   // #endregion
 }
