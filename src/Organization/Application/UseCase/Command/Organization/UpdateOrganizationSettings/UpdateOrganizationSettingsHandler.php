@@ -16,6 +16,7 @@ use Organization\Domain\Exception\{
   OrganizationNotFoundException,
   OrganizationSlugAlreadyExistsException
 };
+use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{
   OrganizationAutomationSettings,
   OrganizationCountry,
@@ -93,102 +94,9 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
       throw OrganizationArchivedException::cannotSuspend();
     }
 
-    /** @var list<string> $changedFields */
-    $changedFields = [];
-
-    if (null !== $command->name) {
-      $organization->rename(new OrganizationName($command->name));
-      $changedFields[] = 'name';
-    }
-
-    $targetSlug = null;
-    if (null !== $command->slug) {
-      $targetSlug = new OrganizationSlug($command->slug);
-      $organization->changeSlug($targetSlug);
-      $changedFields[] = 'slug';
-    }
-
-    if (null !== $command->description) {
-      $organization->changeDescription($command->description);
-      $changedFields[] = 'description';
-    }
-
-    if (null !== $command->isActive) {
-      $command->isActive ? $organization->activate() : $organization->deactivate();
-    }
-
-    if (null !== $command->logoUrl) {
-      $organization->setLogoUrl($command->logoUrl);
-      $changedFields[] = 'logo';
-    }
-
-    if (null !== $command->notifications) {
-      $merged = self::mergeProvided($organization->settings()->notifications->toArray(), $command->notifications);
-      $organization->updateNotificationSettings(OrganizationNotificationSettings::fromArray($merged));
-      $changedFields[] = 'notifications';
-    }
-
-    if (null !== $command->regional) {
-      $merged = self::mergeProvided($organization->settings()->regional->toArray(), $command->regional);
-      $organization->updateRegionalSettings(OrganizationRegionalSettings::fromArray($merged));
-      $changedFields[] = 'regional';
-    }
-
-    if (null !== $command->compliance) {
-      $organization->updateComplianceSettings(
-        $organization->settings()->compliance->mergedWith($command->compliance),
-      );
-      $changedFields[] = 'compliance';
-    }
-
-    if (null !== $command->automation) {
-      $merged = self::mergeProvided($organization->settings()->automation->toArray(), $command->automation);
-      $organization->updateAutomationSettings(OrganizationAutomationSettings::fromArray($merged));
-      $changedFields[] = 'automation';
-    }
-
-    if (null !== $command->approval) {
-      $organization->updateApprovalSettings(
-        $organization->settings()->approval->mergedWith($command->approval),
-      );
-      $changedFields[] = 'approval';
-    }
-
-    if (null !== $command->assistant) {
-      $organization->updateAssistantSettings(
-        $organization->settings()->assistant->mergedWith($command->assistant),
-      );
-      $changedFields[] = 'assistant';
-    }
-
-    $legalChanged = false;
-
-    if (null !== $command->country) {
-      $organization->changeCountry('' === $command->country ? null : new OrganizationCountry($command->country));
-      $legalChanged = true;
-    }
-
-    if (null !== $command->legalType) {
-      $organization->changeLegalType('' === $command->legalType ? null : OrganizationLegalType::from($command->legalType));
-      $legalChanged = true;
-    }
-
-    if (null !== $command->legalName) {
-      $organization->changeLegalName($command->legalName);
-      $legalChanged = true;
-    }
-
-    if (null !== $command->registrationNumber) {
-      $organization->changeRegistrationNumber('' === $command->registrationNumber ? null : new OrganizationRegistrationNumber($command->registrationNumber));
-      $legalChanged = true;
-    }
-
-    if (null !== $command->vatNumber) {
-      $organization->changeVatNumber('' === $command->vatNumber ? null : new OrganizationVatNumber($command->vatNumber));
-      $legalChanged = true;
-    }
-
-    if ($legalChanged) {
+    $generalChanges = $this->applyGeneralChanges($organization, $command);
+    $changedFields = [...$generalChanges['fields'], ...$this->applySectionChanges($organization, $command)];
+    if ($this->applyLegalChanges($organization, $command)) {
       $changedFields[] = 'legal';
     }
 
@@ -204,30 +112,128 @@ final readonly class UpdateOrganizationSettingsHandler implements CommandHandler
       });
     } catch (Throwable $exception) {
       if ($this->isDuplicateSlugConstraintViolation($exception)) {
-        throw OrganizationSlugAlreadyExistsException::withSlug((string) ($targetSlug ?? $organization->slug()));
+        throw OrganizationSlugAlreadyExistsException::withSlug((string) ($generalChanges['targetSlug'] ?? $organization->slug()));
       }
 
       throw $exception;
     }
-
-
-
-    if (null !== $command->isActive) {
-      if ($command->isActive && OrganizationStatus::ACTIVE !== $previousStatus) {
-        $this->eventDispatcher->dispatch(new OrganizationRestoredEvent(
-          organizationId: $command->organizationId,
-          previousStatus: $previousStatus->value,
-        ));
-      } elseif (!$command->isActive && OrganizationStatus::SUSPENDED !== $previousStatus) {
-        $this->eventDispatcher->dispatch(new OrganizationSuspendedEvent(
-          organizationId: $command->organizationId,
-        ));
-      }
-    }
+    $this->dispatchStatusChange($command, $previousStatus);
 
     return new UpdateOrganizationSettingsResult(
       organizationId: (string) $organization->id(),
     );
+  }
+
+  /**
+   * @return array{fields: list<string>, targetSlug: ?OrganizationSlug}
+   */
+  private function applyGeneralChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): array
+  {
+    $fields = [];
+    if (null !== $command->name) {
+      $organization->rename(new OrganizationName($command->name));
+      $fields[] = 'name';
+    }
+    $targetSlug = null;
+    if (null !== $command->slug) {
+      $targetSlug = new OrganizationSlug($command->slug);
+      $organization->changeSlug($targetSlug);
+      $fields[] = 'slug';
+    }
+    if (null !== $command->description) {
+      $organization->changeDescription($command->description);
+      $fields[] = 'description';
+    }
+    if (null !== $command->isActive) {
+      $command->isActive ? $organization->activate() : $organization->deactivate();
+    }
+    if (null !== $command->logoUrl) {
+      $organization->setLogoUrl($command->logoUrl);
+      $fields[] = 'logo';
+    }
+
+    return ['fields' => $fields, 'targetSlug' => $targetSlug];
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function applySectionChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): array
+  {
+    $fields = [];
+    if (null !== $command->notifications) {
+      $merged = self::mergeProvided($organization->settings()->notifications->toArray(), $command->notifications);
+      $organization->updateNotificationSettings(OrganizationNotificationSettings::fromArray($merged));
+      $fields[] = 'notifications';
+    }
+    if (null !== $command->regional) {
+      $merged = self::mergeProvided($organization->settings()->regional->toArray(), $command->regional);
+      $organization->updateRegionalSettings(OrganizationRegionalSettings::fromArray($merged));
+      $fields[] = 'regional';
+    }
+    if (null !== $command->compliance) {
+      $organization->updateComplianceSettings($organization->settings()->compliance->mergedWith($command->compliance));
+      $fields[] = 'compliance';
+    }
+    if (null !== $command->automation) {
+      $merged = self::mergeProvided($organization->settings()->automation->toArray(), $command->automation);
+      $organization->updateAutomationSettings(OrganizationAutomationSettings::fromArray($merged));
+      $fields[] = 'automation';
+    }
+    if (null !== $command->approval) {
+      $organization->updateApprovalSettings($organization->settings()->approval->mergedWith($command->approval));
+      $fields[] = 'approval';
+    }
+    if (null !== $command->assistant) {
+      $organization->updateAssistantSettings($organization->settings()->assistant->mergedWith($command->assistant));
+      $fields[] = 'assistant';
+    }
+
+    return $fields;
+  }
+
+  private function applyLegalChanges(Organization $organization, UpdateOrganizationSettingsCommand $command): bool
+  {
+    $changed = false;
+    if (null !== $command->country) {
+      $organization->changeCountry('' === $command->country ? null : new OrganizationCountry($command->country));
+      $changed = true;
+    }
+    if (null !== $command->legalType) {
+      $organization->changeLegalType('' === $command->legalType ? null : OrganizationLegalType::from($command->legalType));
+      $changed = true;
+    }
+    if (null !== $command->legalName) {
+      $organization->changeLegalName($command->legalName);
+      $changed = true;
+    }
+    if (null !== $command->registrationNumber) {
+      $organization->changeRegistrationNumber('' === $command->registrationNumber ? null : new OrganizationRegistrationNumber($command->registrationNumber));
+      $changed = true;
+    }
+    if (null !== $command->vatNumber) {
+      $organization->changeVatNumber('' === $command->vatNumber ? null : new OrganizationVatNumber($command->vatNumber));
+      $changed = true;
+    }
+
+    return $changed;
+  }
+
+  private function dispatchStatusChange(UpdateOrganizationSettingsCommand $command, OrganizationStatus $previousStatus): void
+  {
+    if (null === $command->isActive) {
+      return;
+    }
+    if ($command->isActive && OrganizationStatus::ACTIVE !== $previousStatus) {
+      $this->eventDispatcher->dispatch(new OrganizationRestoredEvent(
+        organizationId: $command->organizationId,
+        previousStatus: $previousStatus->value,
+      ));
+    } elseif (!$command->isActive && OrganizationStatus::SUSPENDED !== $previousStatus) {
+      $this->eventDispatcher->dispatch(new OrganizationSuspendedEvent(
+        organizationId: $command->organizationId,
+      ));
+    }
   }
 
   /**
