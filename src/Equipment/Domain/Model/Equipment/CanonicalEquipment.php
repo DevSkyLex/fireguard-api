@@ -200,38 +200,7 @@ final class CanonicalEquipment
   {
     $previousStatus = $this->status;
 
-    if ($patch->hasType && null !== $patch->type) {
-      $this->type = $patch->type;
-    }
-
-    if ($patch->hasStatus && null !== $patch->status) {
-      $this->status = EquipmentStatus::tryFrom($patch->status)
-        ?? throw CanonicalEquipmentValidationException::unsupportedValue('status', $patch->status);
-    }
-
-    if ($patch->hasSubType) {
-      $this->subType = $patch->subType;
-    }
-
-    if ($patch->hasBrand) {
-      $this->brand = $patch->brand;
-    }
-
-    if ($patch->hasModel) {
-      $this->model = $patch->model;
-    }
-
-    if ($patch->hasSerialNumber) {
-      $this->serialNumber = $patch->serialNumber;
-    }
-
-    if ($patch->hasLocationLabel) {
-      $this->locationLabel = $patch->locationLabel;
-    }
-
-    if ($patch->hasFacility) {
-      $this->facilityId = $patch->facilityId;
-    }
+    $this->applyFields($patch);
 
     // Checked on EVERY patch, not only on a status change: a request that
     // merely clears the facility of an operational asset is exactly the one
@@ -469,6 +438,45 @@ final class CanonicalEquipment
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  /**
+   * Apply patch fields in their original validation and mutation order.
+   */
+  private function applyFields(CanonicalEquipmentPatch $patch): void
+  {
+    if ($patch->hasType && null !== $patch->type) {
+      $this->type = $patch->type;
+    }
+
+    if ($patch->hasStatus && null !== $patch->status) {
+      $this->status = EquipmentStatus::tryFrom($patch->status)
+        ?? throw CanonicalEquipmentValidationException::unsupportedValue('status', $patch->status);
+    }
+
+    if ($patch->hasSubType) {
+      $this->subType = $patch->subType;
+    }
+
+    if ($patch->hasBrand) {
+      $this->brand = $patch->brand;
+    }
+
+    if ($patch->hasModel) {
+      $this->model = $patch->model;
+    }
+
+    if ($patch->hasSerialNumber) {
+      $this->serialNumber = $patch->serialNumber;
+    }
+
+    if ($patch->hasLocationLabel) {
+      $this->locationLabel = $patch->locationLabel;
+    }
+
+    if ($patch->hasFacility) {
+      $this->facilityId = $patch->facilityId;
+    }
   }
 
   /**
