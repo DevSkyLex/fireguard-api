@@ -8,7 +8,7 @@ use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQ
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use InvalidArgumentException;
 use LogicException;
-use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
+use Onboarding\Application\Contract\Setup\{OrganizationSetupConflict, OrganizationSetupOperation};
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
@@ -168,19 +168,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         throw new LogicException(sprintf('Onboarding is blocked: %s.', $reason));
       }
 
-      if ($session->creationIntent() && in_array($stepKey, $session->completedSteps(), true)) {
-        foreach ($session->stepHistory() as $entry) {
-          if ($entry->stepKey === $stepKey && !$entry->skipped) {
-            return $this->buildState($session, $computed);
-          }
-        }
+      if ($this->isConfirmedStep($session, $stepKey)) {
+        return $this->buildState($session, $computed);
       }
 
-      foreach ($this->setupRepository?->listOperations($session->id()) ?? [] as $setupOperation) {
-        if ($setupOperation->stepKey === $stepKey && null === $setupOperation->resourceId) {
-          throw OrganizationSetupConflict::because('Finish the prepared batch before confirming its step.');
-        }
-      }
+      $this->assertNoPreparedSetupOperation($session, $stepKey);
 
       if ($stepKey !== $computed->nextStep) {
         $expectedStep = $computed->nextStep ?? 'none';
@@ -390,6 +382,29 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     return $state;
   }
 
+  private function isConfirmedStep(OrganizationOnboardingSession $session, string $stepKey): bool
+  {
+    if (!$session->creationIntent() || !in_array($stepKey, $session->completedSteps(), true)) {
+      return false;
+    }
+    foreach ($session->stepHistory() as $entry) {
+      if ($entry->stepKey === $stepKey && !$entry->skipped) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private function assertNoPreparedSetupOperation(OrganizationOnboardingSession $session, string $stepKey): void
+  {
+    foreach ($this->setupRepository?->listOperations($session->id()) ?? [] as $setupOperation) {
+      if ($setupOperation->stepKey === $stepKey && null === $setupOperation->resourceId) {
+        throw OrganizationSetupConflict::because('Finish the prepared batch before confirming its step.');
+      }
+    }
+  }
+
   /**
    * Method getOrCreateSession.
    *
@@ -441,25 +456,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         return $this->completeForAlreadyJoinedOrganization($session, $joinedOrganization);
       }
 
-      if (null !== $session->targetOrganizationId() && !($this->setupRepository?->hasJournal($session->id()) ?? false)) {
-        $this->setupRepository?->saveOperations($session->id(), []);
-      }
-      $session->clearTargetOrganization();
-      foreach (OrganizationOnboardingStep::all() as $step) {
-        $session->markStepPending($step);
-        $session->removeSkippedStep($step);
-      }
-      $session->clearStepHistory();
-      $session->clearRollbackStack();
-      $session->setInProgress(OrganizationOnboardingStep::CREATE_ORGANIZATION);
-
-      return new ComputedOnboardingState(
-        state: OrganizationOnboardingState::IN_PROGRESS,
-        nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        blockedReason: null,
-        targetOrganizationId: null,
-        targetOrganizationName: null,
-      );
+      return $this->resetSessionWithoutTarget($session);
     }
 
     $session->setTargetOrganization($targetOrganization->id, $targetOrganization->name);
@@ -473,31 +470,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       $session->clearRollbackStack();
     }
 
-    $completedSteps = $session->completedSteps();
-    $skippedSteps = $session->skippedSteps();
-    $orgId = $targetOrganization->id;
-
-    // Build a map of which steps are done (completed or skipped) vs pending
-    $stepDone = [];
-    foreach (OrganizationOnboardingStep::all() as $step) {
-      if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $step) {
-        // create_organization requires explicit confirmation via executeStep
-        $stepDone[$step] = in_array($step, $completedSteps, true);
-      } else {
-        $stepDone[$step] = in_array($step, $completedSteps, true)
-          || in_array($step, $skippedSteps, true);
-      }
-    }
-
-    // Find the first pending step in canonical order
-    $nextStep = null;
-    foreach (OrganizationOnboardingStep::all() as $step) {
-      if (!$stepDone[$step]) {
-        $nextStep = $step;
-
-        break;
-      }
-    }
+    $nextStep = $this->nextPendingStep($session);
 
     if (null === $nextStep) {
       $session->setCompleted();
@@ -520,6 +493,48 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       targetOrganizationId: $targetOrganization->id,
       targetOrganizationName: $targetOrganization->name,
     );
+  }
+
+  private function resetSessionWithoutTarget(OrganizationOnboardingSession $session): ComputedOnboardingState
+  {
+    if (null !== $session->targetOrganizationId() && !($this->setupRepository?->hasJournal($session->id()) ?? false)) {
+      $this->setupRepository?->saveOperations($session->id(), []);
+    }
+    $session->clearTargetOrganization();
+    foreach (OrganizationOnboardingStep::all() as $step) {
+      $session->markStepPending($step);
+      $session->removeSkippedStep($step);
+    }
+    $session->clearStepHistory();
+    $session->clearRollbackStack();
+    $session->setInProgress(OrganizationOnboardingStep::CREATE_ORGANIZATION);
+
+    return new ComputedOnboardingState(
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      blockedReason: null,
+      targetOrganizationId: null,
+      targetOrganizationName: null,
+    );
+  }
+
+  private function nextPendingStep(OrganizationOnboardingSession $session): ?string
+  {
+    $completedSteps = $session->completedSteps();
+    $skippedSteps = $session->skippedSteps();
+    foreach (OrganizationOnboardingStep::all() as $step) {
+      if (in_array($step, $completedSteps, true)) {
+        continue;
+      }
+      // Creation requires explicit confirmation, even if marked skipped.
+      if (OrganizationOnboardingStep::CREATE_ORGANIZATION !== $step && in_array($step, $skippedSteps, true)) {
+        continue;
+      }
+
+      return $step;
+    }
+
+    return null;
   }
 
   /**
@@ -804,34 +819,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   ): ?GetOrganizationResult {
     $setupOperations = $this->setupRepository?->listOperations($session->id()) ?? [];
     if ([] !== $setupOperations || ($this->setupRepository?->hasJournal($session->id()) ?? false)) {
-      if ([] === $setupOperations) {
-        return null;
-      }
-      foreach ($setupOperations as $operation) {
-        if (OrganizationOnboardingStep::CREATE_ORGANIZATION !== $operation->stepKey) {
-          continue;
-        }
-        // A prepared creator item cannot adopt an unrelated organization while
-        // its resource write has not completed. Only its durable result may pin.
-        if (null === $operation->resourceId) {
-          return null;
-        }
-        foreach ($organizationsResult->items as $organization) {
-          if ($organization->id === $operation->resourceId
-            && $organization->isActive
-            && $organization->createdByUserId === $session->userId()
-            && $organization->ownerUserId === $session->userId()
-            && $organization->createdAt >= $session->createdAt()) {
-            return $organization;
-          }
-        }
-
-        // Keep the receipt when its organization disappears or ownership changes.
-        // Clearing it would let the next GET adopt another organization by date.
-        throw OrganizationSetupConflict::because('The organization created by this setup is no longer available. Reset the creation session explicitly.');
-      }
-
-      throw OrganizationSetupConflict::because('The setup creation receipt is missing.');
+      return $this->resolveFromSetupReceipt($session, $organizationsResult, $setupOperations);
     }
 
     if ([] === $organizationsResult->items) {
@@ -850,20 +838,70 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return null;
     }
 
-    // No org pinned yet — only adopt an org created during this onboarding session
-    // (createdAt >= session.createdAt). Pick the most recently created qualifying org
-    // in case the user created several organizations before confirming the step.
-    $sessionCreatedAt = $session->createdAt();
+    return $this->latestEligibleOrganization($session, $organizationsResult);
+  }
+
+  /**
+   * @param PaginatedResult<GetOrganizationResult> $organizationsResult
+   * @param list<OrganizationSetupOperation> $setupOperations
+   */
+  private function resolveFromSetupReceipt(
+    OrganizationOnboardingSession $session,
+    PaginatedResult $organizationsResult,
+    array $setupOperations,
+  ): ?GetOrganizationResult {
+    if ([] === $setupOperations) {
+      return null;
+    }
+    foreach ($setupOperations as $operation) {
+      if (OrganizationOnboardingStep::CREATE_ORGANIZATION !== $operation->stepKey) {
+        continue;
+      }
+      // Only a completed creator receipt may pin its resulting organization.
+      if (null === $operation->resourceId) {
+        return null;
+      }
+      foreach ($organizationsResult->items as $organization) {
+        if ($organization->id === $operation->resourceId && $this->isEligibleCreationTarget($organization, $session)) {
+          return $organization;
+        }
+      }
+
+      // Preserve a stale receipt instead of adopting an unrelated organization.
+      throw OrganizationSetupConflict::because('The organization created by this setup is no longer available. Reset the creation session explicitly.');
+    }
+
+    throw OrganizationSetupConflict::because('The setup creation receipt is missing.');
+  }
+
+  /**
+   * @param PaginatedResult<GetOrganizationResult> $organizationsResult
+   */
+  private function latestEligibleOrganization(
+    OrganizationOnboardingSession $session,
+    PaginatedResult $organizationsResult,
+  ): ?GetOrganizationResult {
     $candidate = null;
     foreach ($organizationsResult->items as $organization) {
-      if ($organization->isActive && $organization->createdByUserId === $session->userId() && $organization->ownerUserId === $session->userId() && $organization->createdAt >= $sessionCreatedAt) {
-        if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
-          $candidate = $organization;
-        }
+      if (!$this->isEligibleCreationTarget($organization, $session)) {
+        continue;
+      }
+      if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
+        $candidate = $organization;
       }
     }
 
     return $candidate;
+  }
+
+  private function isEligibleCreationTarget(
+    GetOrganizationResult $organization,
+    OrganizationOnboardingSession $session,
+  ): bool {
+    return $organization->isActive
+      && $organization->createdByUserId === $session->userId()
+      && $organization->ownerUserId === $session->userId()
+      && $organization->createdAt >= $session->createdAt();
   }
 
   /**
