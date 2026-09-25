@@ -66,7 +66,7 @@ use Symfony\Component\HttpFoundation\Response;
       uriTemplate: '/connections',
       output: FederatedConnectionsOutput::class,
       provider: FederatedConnectionsProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(tags: ['Authentication'], summary: 'List sign-in methods'),
     ),
     new Post(
@@ -78,7 +78,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: FederatedStartInput::class,
       output: FederatedStartOutput::class,
       processor: FederatedStartProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(tags: ['Authentication'], summary: 'Start linking a sign-in provider'),
     ),
     new Post(
@@ -90,7 +90,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: FederatedCompleteInput::class,
       output: FederatedConnectionsOutput::class,
       processor: FederatedCompleteProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(tags: ['Authentication'], summary: 'Complete linking a sign-in provider'),
     ),
     new Delete(
@@ -102,11 +102,12 @@ use Symfony\Component\HttpFoundation\Response;
       input: false,
       output: FederatedConnectionsOutput::class,
       processor: FederatedDisconnectProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(tags: ['Authentication'], summary: 'Disconnect a sign-in provider'),
     ),
   ],
 )]
 final class FederatedAuthResource
 {
+  private const USER_SECURITY = "is_granted('ROLE_USER')";
 }

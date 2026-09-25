@@ -58,6 +58,8 @@ final readonly class FederatedAuthenticationService
 
   private const string LINK = 'link';
 
+  private const string INVALID_FLOW_MESSAGE = 'This connection request is no longer valid.';
+
   public function __construct(
     private FederatedProviderClientPort $providerClient,
     private FederatedFlowRepositoryPort $flows,
@@ -187,7 +189,7 @@ final readonly class FederatedAuthenticationService
   ): FederatedConnections {
     $flow = $this->consume($provider, self::LINK, $state, $browserBinding);
     if ($flow->userId !== $userId) {
-      throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+      throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
     }
 
     $profile = $this->providerProfile($provider, $flow, $code, $providerError);
@@ -282,11 +284,11 @@ final readonly class FederatedAuthenticationService
   private function consume(FederatedProvider $provider, string $intent, string $state, string $browserBinding): FederatedFlow
   {
     if ('' === $state) {
-      throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+      throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
     }
     $flow = $this->flows->consume($state, $browserBinding, $provider, $intent);
     if (null === $flow) {
-      throw new FederatedAuthException('invalid_flow', 'This connection request is no longer valid.');
+      throw new FederatedAuthException('invalid_flow', self::INVALID_FLOW_MESSAGE);
     }
 
     return $flow;

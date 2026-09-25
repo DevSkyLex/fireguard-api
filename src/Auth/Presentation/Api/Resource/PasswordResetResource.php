@@ -55,7 +55,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [AuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [AuthSerializationGroup::PASSWORD_RESET_WRITE]],
       openapi: new Operation(
-        tags: ['Password Reset'],
+        tags: [self::TAG],
         summary: 'Request Password Reset',
         description: 'Request a password reset by email. An OTP code will be sent to the user\'s email if the account exists.',
         responses: [
@@ -87,7 +87,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [AuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [AuthSerializationGroup::PASSWORD_RESET_WRITE]],
       openapi: new Operation(
-        tags: ['Password Reset'],
+        tags: [self::TAG],
         summary: 'Resend Password Reset Code',
         description: 'Resend the password reset OTP code using the existing challenge token.',
         responses: [
@@ -122,7 +122,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       normalizationContext: ['groups' => [AuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [AuthSerializationGroup::PASSWORD_RESET_WRITE]],
       openapi: new Operation(
-        tags: ['Password Reset'],
+        tags: [self::TAG],
         summary: 'Confirm Password Reset',
         description: 'Confirm password reset using the token, code, and new password. All active sessions will be terminated.',
         responses: [
@@ -151,4 +151,5 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class PasswordResetResource
 {
+  private const TAG = 'Password Reset';
 }
