@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Webhook\Infrastructure\Adapter\Crypto;
 
-use RuntimeException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Webhook\Application\Port\Outbound\WebhookSecretCipherPort;
+use Webhook\Infrastructure\Exception\WebhookSecretCipherException;
 
 use function base64_decode;
 use function base64_encode;
@@ -86,7 +86,7 @@ final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretC
     // verified against aes-256-gcm with 0/1/16/31/33/64-byte keys. Kept because
     // the function's signature allows false.
     if (false === $ciphertext) {
-      throw new RuntimeException('Failed to encrypt the webhook signing secret.');
+      throw new WebhookSecretCipherException('Failed to encrypt the webhook signing secret.');
     }
     // @codeCoverageIgnoreEnd
 
@@ -98,7 +98,7 @@ final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretC
     $raw = base64_decode($ciphertext, true);
 
     if (false === $raw || mb_strlen($raw, '8bit') <= self::NONCE_LENGTH + self::TAG_LENGTH) {
-      throw new RuntimeException('Malformed webhook secret ciphertext.');
+      throw new WebhookSecretCipherException('Malformed webhook secret ciphertext.');
     }
 
     $nonce = substr($raw, 0, self::NONCE_LENGTH);
@@ -115,7 +115,7 @@ final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretC
     );
 
     if (false === $plaintext) {
-      throw new RuntimeException('Failed to decrypt the webhook signing secret — the ciphertext may have been tampered with, or WEBHOOK_ENCRYPTION_KEY has changed.');
+      throw new WebhookSecretCipherException('Failed to decrypt the webhook signing secret — the ciphertext may have been tampered with, or WEBHOOK_ENCRYPTION_KEY has changed.');
     }
 
     return $plaintext;
