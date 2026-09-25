@@ -93,6 +93,44 @@ final class Session
   }
 
   /**
+   * Restores a persisted session without changing token or revocation state.
+   *
+   * @since 1.1.0
+   *
+   * @param SessionId $id the session ID
+   * @param string $userId the owning user ID
+   * @param IpAddress $ipAddress the client IP address
+   * @param UserAgent $userAgent the client user agent
+   * @param SessionMetadata $metadata persisted device metadata
+   * @param RestoredSessionTokens $tokens persisted token identifiers
+   * @param RestoredSessionLifecycle $lifecycle persisted timestamps
+   *
+   * @return self the restored session
+   */
+  public static function restore(
+    SessionId $id,
+    string $userId,
+    IpAddress $ipAddress,
+    UserAgent $userAgent,
+    SessionMetadata $metadata,
+    RestoredSessionTokens $tokens,
+    RestoredSessionLifecycle $lifecycle,
+  ): self {
+    return new self(
+      id: $id,
+      userId: $userId,
+      accessTokenId: $tokens->accessTokenId,
+      refreshTokenId: $tokens->refreshTokenId,
+      ipAddress: $ipAddress,
+      userAgent: $userAgent,
+      metadata: $metadata,
+      createdAt: $lifecycle->createdAt,
+      lastActivityAt: $lifecycle->lastActivityAt,
+      revokedAt: $lifecycle->revokedAt,
+    );
+  }
+
+  /**
    * Method id.
    *
    * Returns the session ID.

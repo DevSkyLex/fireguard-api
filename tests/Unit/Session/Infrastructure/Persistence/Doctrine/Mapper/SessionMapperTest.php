@@ -46,6 +46,44 @@ final class SessionMapperTest extends TestCase
   #[Test]
   public function testToDomainMapsRecord(): void
   {
+    $record = $this->sessionRecord();
+
+    $session = SessionMapper::toDomain($record);
+
+    self::assertInstanceOf(Session::class, $session);
+    self::assertSame($record->id->toRfc4122(), (string) $session->id());
+    self::assertSame('user-1', $session->userId());
+    self::assertSame('access-1', $session->accessTokenId());
+    self::assertSame('refresh-1', $session->refreshTokenId());
+    self::assertSame('127.0.0.1', (string) $session->ipAddress());
+    self::assertSame('agent', (string) $session->userAgent());
+    self::assertSame($record->metadata, $session->metadata()->toArray());
+    self::assertSame($record->createdAt, $session->createdAt());
+    self::assertSame($record->lastActivityAt, $session->lastActivityAt());
+    self::assertFalse($session->isRevoked());
+    self::assertNull($session->revokedAt());
+
+    $restored = SessionMapper::toRecord($session);
+    self::assertEquals($record, $restored);
+  }
+
+  #[Test]
+  public function testToDomainPreservesRevocationTimestamp(): void
+  {
+    $revokedAt = new DateTimeImmutable('2024-01-03 00:00:00');
+    $record = $this->sessionRecord($revokedAt);
+
+    $session = SessionMapper::toDomain($record);
+
+    self::assertTrue($session->isRevoked());
+    self::assertSame($revokedAt, $session->revokedAt());
+    $session->revoke();
+    self::assertSame($revokedAt, $session->revokedAt());
+    self::assertEquals($record, SessionMapper::toRecord($session));
+  }
+
+  private function sessionRecord(?DateTimeImmutable $revokedAt = null): SessionRecord
+  {
     $record = new SessionRecord();
     $record->id = Uuid::fromString('123e4567-e89b-12d3-a456-426614174000');
     $record->userId = 'user-1';
@@ -53,16 +91,19 @@ final class SessionMapperTest extends TestCase
     $record->refreshTokenId = 'refresh-1';
     $record->ipAddress = '127.0.0.1';
     $record->userAgent = 'agent';
-    $record->metadata = ['key' => 'value'];
+    $record->metadata = [
+      'device_type' => 'desktop',
+      'browser' => 'Firefox',
+      'operating_system' => 'Windows',
+      'country' => 'FR',
+      'city' => 'Paris',
+      'remember_me' => true,
+    ];
     $record->createdAt = new DateTimeImmutable('2024-01-01 00:00:00');
-    $record->lastActivityAt = new DateTimeImmutable('2024-01-01 00:00:00');
-    $record->revokedAt = null;
+    $record->lastActivityAt = new DateTimeImmutable('2024-01-02 00:00:00');
+    $record->revokedAt = $revokedAt;
 
-    $session = SessionMapper::toDomain($record);
-
-    self::assertInstanceOf(Session::class, $session);
-    self::assertSame('user-1', $session->userId());
-    self::assertSame('access-1', $session->accessTokenId());
+    return $record;
   }
   // #endregion
 }
