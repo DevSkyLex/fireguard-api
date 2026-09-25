@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Assistant\Infrastructure\Adapter\Realtime;
 
 use Assistant\Application\Port\Outbound\AssistantRealtimePublisherPort;
+use Assistant\Domain\Model\Message\AssistantMessage;
 use Symfony\Component\Mercure\{HubInterface, Update};
 
 use function json_encode;
@@ -47,31 +48,21 @@ final readonly class MercureAssistantRealtimePublisherAdapter implements Assista
   // #endregion
 
   // #region Methods
-  public function publishGenerationEvent(
-    string $organizationId,
-    string $threadId,
-    string $messageId,
-    string $status,
-    string $body,
-    ?int $tokenCount = null,
-    ?string $errorCode = null,
-    ?string $attemptId = null,
-    int $attemptNumber = 0,
-    int $attemptSequence = 0,
-    ?string $attemptExpiresAt = null,
-  ): void {
+  public function publishGenerationEvent(AssistantMessage $message): void
+  {
+    $messageId = (string) $message->id();
     $update = new Update(
-      topics: [self::topic($organizationId, $threadId)],
+      topics: [self::topic($message->organizationId(), $message->threadId())],
       data: json_encode([
         'messageId' => $messageId,
-        'status' => $status,
-        'body' => $body,
-        'tokenCount' => $tokenCount,
-        'errorCode' => $errorCode,
-        'attemptId' => $attemptId,
-        'attemptNumber' => $attemptNumber,
-        'attemptSequence' => $attemptSequence,
-        'attemptExpiresAt' => $attemptExpiresAt,
+        'status' => $message->status()->value,
+        'body' => $message->body(),
+        'tokenCount' => $message->tokenCount(),
+        'errorCode' => $message->errorCode(),
+        'attemptId' => $message->attemptId() ?? $messageId,
+        'attemptNumber' => $message->attemptNumber(),
+        'attemptSequence' => $message->attemptSequence(),
+        'attemptExpiresAt' => $message->attemptExpiresAt()?->format('c'),
       ], JSON_THROW_ON_ERROR),
       private: true,
     );
