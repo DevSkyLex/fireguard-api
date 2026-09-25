@@ -28,6 +28,8 @@ use function str_replace;
  */
 final readonly class UserRepository implements UserRepositoryPort
 {
+  private const string SEARCH_PARAMETER = ':search';
+
   /**
    * Constructor.
    *
@@ -170,11 +172,11 @@ final readonly class UserRepository implements UserRepositoryPort
     if (null !== $search && '' !== $search) {
       $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
       $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('u.username', ':search'),
-        $qb->expr()->like('u.email', ':search'),
-        $qb->expr()->like('u.firstName', ':search'),
-        $qb->expr()->like('u.lastName', ':search'),
-        $qb->expr()->like('u.status', ':search'),
+        $qb->expr()->like('u.username', self::SEARCH_PARAMETER),
+        $qb->expr()->like('u.email', self::SEARCH_PARAMETER),
+        $qb->expr()->like('u.firstName', self::SEARCH_PARAMETER),
+        $qb->expr()->like('u.lastName', self::SEARCH_PARAMETER),
+        $qb->expr()->like('u.status', self::SEARCH_PARAMETER),
       ))->setParameter('search', '%' . $escaped . '%');
     }
 

@@ -52,6 +52,8 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
    * not an unbounded one.
    */
   private const int TOP_N = 10;
+
+  private const string OPEN_STATUSES_PREDICATE = 'nonConformity.status IN (:openStatuses)';
   // #endregion
 
   // #region Constructor
@@ -116,7 +118,7 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
         'COUNT(nonConformity.id) AS open',
         "SUM(CASE WHEN nonConformity.severity = 'critical' THEN 1 ELSE 0 END) AS critical",
       )
-      ->andWhere('nonConformity.status IN (:openStatuses)')
+      ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->andWhere('inspection.facilityId IS NOT NULL')
       ->setParameter('openStatuses', self::OPEN_STATUSES)
       ->groupBy('inspection.facilityId')
@@ -139,7 +141,7 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
     $equipmentTypeRows = (clone $base)
       ->select('equipment.type AS type', 'COUNT(nonConformity.id) AS open')
       ->join(EquipmentRecord::class, 'equipment', 'WITH', 'equipment.id = inspection.equipmentId')
-      ->andWhere('nonConformity.status IN (:openStatuses)')
+      ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->setParameter('openStatuses', self::OPEN_STATUSES)
       ->groupBy('equipment.type')
       ->orderBy('open', 'DESC')
@@ -158,7 +160,7 @@ final readonly class DoctrineNonConformityStatisticsGatewayAdapter implements No
 
     $slaBreachedOpen = (int) (clone $base)
       ->select('COUNT(nonConformity.id)')
-      ->andWhere('nonConformity.status IN (:openStatuses)')
+      ->andWhere(self::OPEN_STATUSES_PREDICATE)
       ->andWhere('nonConformity.slaBreachNotifiedAt IS NOT NULL')
       ->setParameter('openStatuses', self::OPEN_STATUSES)
       ->getQuery()

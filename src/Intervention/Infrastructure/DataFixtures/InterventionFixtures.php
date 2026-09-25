@@ -196,7 +196,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['templateReference' => self::REGIONAL_AUDIT_TEMPLATE_REFERENCE, 'action' => 'inventory', 'target' => 'Reconcile the asset register', 'required' => 'no'],
     ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'site_setup', 'target' => 'Declare buildings, floors and zones', 'required' => 'yes'],
     ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'inventory', 'target' => 'Register the delivered equipment', 'required' => 'yes'],
-    ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'inspection', 'target' => 'Commissioning inspection', 'required' => 'yes'],
+    ['templateReference' => self::SITE_OPENING_TEMPLATE_REFERENCE, 'action' => 'inspection', 'target' => self::COMMISSIONING_INSPECTION_TARGET, 'required' => 'yes'],
   ];
 
   /**
@@ -511,7 +511,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['interventionNumber' => '1', 'action' => 'inventory', 'target' => 'Reconcile the Paris asset register', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'discovered', 'required' => 'no', 'assigneeReference' => OrganizationFixtures::OWNER_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '2', 'action' => 'site_setup', 'target' => 'Declare the warehouse and loading bay', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '2', 'action' => 'inventory', 'target' => 'Register the delivered equipment', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
-    ['interventionNumber' => '2', 'action' => 'inspection', 'target' => 'Commissioning inspection', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
+    ['interventionNumber' => '2', 'action' => 'inspection', 'target' => self::COMMISSIONING_INSPECTION_TARGET, 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '2', 'action' => 'inspection', 'target' => 'Fire door survey', 'equipmentReference' => '', 'status' => 'skipped', 'source' => 'discovered', 'required' => 'no', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => 'Door supplier had not finished the installation.'],
     ['interventionNumber' => '3', 'action' => 'inventory', 'target' => 'Warehouse aisles A to D', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '3', 'action' => 'inventory', 'target' => 'Cold store', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::FIELD_TECHNICIAN_MEMBER_REFERENCE, 'skipReason' => ''],
@@ -521,7 +521,7 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
     ['interventionNumber' => '4', 'action' => 'inventory', 'target' => 'Order the replacement sensors', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'discovered', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::SAFETY_MANAGER_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '5', 'action' => 'site_setup', 'target' => 'Declare the training block and burn room', 'equipmentReference' => '', 'status' => 'completed', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '5', 'action' => 'inventory', 'target' => 'Register the emergency lighting', 'equipmentReference' => '', 'status' => 'in_progress', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
-    ['interventionNumber' => '5', 'action' => 'inspection', 'target' => 'Commissioning inspection', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
+    ['interventionNumber' => '5', 'action' => 'inspection', 'target' => self::COMMISSIONING_INSPECTION_TARGET, 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '6', 'action' => 'inventory', 'target' => 'Depot racks', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::WAREHOUSE_LEAD_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '6', 'action' => 'inventory', 'target' => 'Dispatch zone', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::REGIONAL_COORDINATOR_MEMBER_REFERENCE, 'skipReason' => ''],
     ['interventionNumber' => '7', 'action' => 'inspection', 'target' => 'Suppression system discharge test', 'equipmentReference' => '', 'status' => 'planned', 'source' => 'planned', 'required' => 'yes', 'assigneeReference' => OrganizationFixtures::EXTERNAL_AUDITOR_MEMBER_REFERENCE, 'skipReason' => ''],
@@ -719,6 +719,8 @@ final class InterventionFixtures extends Fixture implements DependentFixtureInte
    * @var int
    */
   public const int BULK_INTERVENTION_COUNT = 40;
+
+  private const string COMMISSIONING_INSPECTION_TARGET = 'Commissioning inspection';
 
   /**
    * Constant BULK_STATUS_CYCLE.

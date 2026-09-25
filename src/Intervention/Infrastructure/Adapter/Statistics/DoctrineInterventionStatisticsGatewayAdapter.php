@@ -56,6 +56,10 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
    * unbounded one.
    */
   private const int TOP_N = 10;
+
+  private const string INTERVENTION_COUNT_EXPRESSION = 'COUNT(intervention.id)';
+
+  private const string INTERVENTION_COUNT_PROJECTION = 'COUNT(intervention.id) AS count';
   // #endregion
 
   // #region Constructor
@@ -87,13 +91,13 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
       ->setParameter('organization', $organization);
 
     $total = (int) (clone $base)
-      ->select('COUNT(intervention.id)')
+      ->select(self::INTERVENTION_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
 
     /** @var list<array{status: string, count: int|string}> $statusRows */
     $statusRows = (clone $base)
-      ->select('intervention.status AS status', 'COUNT(intervention.id) AS count')
+      ->select('intervention.status AS status', self::INTERVENTION_COUNT_PROJECTION)
       ->groupBy('intervention.status')
       ->getQuery()
       ->getArrayResult();
@@ -104,7 +108,7 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
 
     /** @var list<array{priority: string, count: int|string}> $priorityRows */
     $priorityRows = (clone $base)
-      ->select('intervention.priority AS priority', 'COUNT(intervention.id) AS count')
+      ->select('intervention.priority AS priority', self::INTERVENTION_COUNT_PROJECTION)
       ->groupBy('intervention.priority')
       ->getQuery()
       ->getArrayResult();
@@ -119,7 +123,7 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
     // excludes the exact same set, via the same domain method, so the KPI
     // tile and the list it links to never disagree.
     $overdue = (int) (clone $base)
-      ->select('COUNT(intervention.id)')
+      ->select(self::INTERVENTION_COUNT_EXPRESSION)
       ->andWhere('intervention.status NOT IN (:closed)')
       ->andWhere('intervention.dueAt IS NOT NULL')
       ->andWhere('intervention.dueAt < :now')
@@ -130,7 +134,7 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
 
     $dueSoonThreshold = $now->modify(sprintf('+%d hours', self::DUE_SOON_WINDOW_HOURS));
     $dueSoon = (int) (clone $base)
-      ->select('COUNT(intervention.id)')
+      ->select(self::INTERVENTION_COUNT_EXPRESSION)
       ->andWhere('intervention.status IN (:active)')
       ->andWhere('intervention.dueAt IS NOT NULL')
       ->andWhere('intervention.dueAt >= :now')
@@ -143,20 +147,20 @@ final readonly class DoctrineInterventionStatisticsGatewayAdapter implements Int
 
     /** @var list<array{id: string, count: int|string}> $siteRows */
     $siteRows = (clone $base)
-      ->select('intervention.siteId AS id', 'COUNT(intervention.id) AS count')
+      ->select('intervention.siteId AS id', self::INTERVENTION_COUNT_PROJECTION)
       ->andWhere('intervention.siteId IS NOT NULL')
       ->groupBy('intervention.siteId')
-      ->orderBy('COUNT(intervention.id)', 'DESC')
+      ->orderBy(self::INTERVENTION_COUNT_EXPRESSION, 'DESC')
       ->setMaxResults(self::TOP_N)
       ->getQuery()
       ->getArrayResult();
 
     /** @var list<array{id: string, count: int|string}> $responsibleRows */
     $responsibleRows = (clone $base)
-      ->select('intervention.responsibleId AS id', 'COUNT(intervention.id) AS count')
+      ->select('intervention.responsibleId AS id', self::INTERVENTION_COUNT_PROJECTION)
       ->andWhere('intervention.responsibleId IS NOT NULL')
       ->groupBy('intervention.responsibleId')
-      ->orderBy('COUNT(intervention.id)', 'DESC')
+      ->orderBy(self::INTERVENTION_COUNT_EXPRESSION, 'DESC')
       ->setMaxResults(self::TOP_N)
       ->getQuery()
       ->getArrayResult();

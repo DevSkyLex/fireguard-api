@@ -26,6 +26,10 @@ use function trim;
  */
 final class Intervention
 {
+  // #region Constants
+  private const string IMMUTABLE_INTERVENTION_MESSAGE = 'Published or abandoned interventions are immutable.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -602,7 +606,7 @@ final class Intervention
   private function assertMutable(): void
   {
     if (!$this->status->isMutable()) {
-      throw new InterventionConflictException('Published or abandoned interventions are immutable.');
+      throw new InterventionConflictException(self::IMMUTABLE_INTERVENTION_MESSAGE);
     }
   }
 
@@ -623,7 +627,7 @@ final class Intervention
       throw new InterventionConflictException(
         $this->status->isMutable()
           ? 'The site is frozen after planning; create a new intervention to target another site.'
-          : 'Published or abandoned interventions are immutable.',
+          : self::IMMUTABLE_INTERVENTION_MESSAGE,
       );
     }
   }
@@ -644,7 +648,7 @@ final class Intervention
       throw new InterventionConflictException(
         $this->status->isMutable()
           ? 'The responsible member is frozen once field work has started.'
-          : 'Published or abandoned interventions are immutable.',
+          : self::IMMUTABLE_INTERVENTION_MESSAGE,
       );
     }
   }
@@ -666,7 +670,7 @@ final class Intervention
       throw new InterventionConflictException(
         $this->status->isMutable()
           ? 'A submitted intervention is frozen while under review; withdraw it to replan.'
-          : 'Published or abandoned interventions are immutable.',
+          : self::IMMUTABLE_INTERVENTION_MESSAGE,
       );
     }
   }

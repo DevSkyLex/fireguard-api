@@ -42,6 +42,10 @@ use function is_string;
  */
 final readonly class MediaProcessor implements ProcessorInterface
 {
+  // #region Constants
+  private const string MEDIA_NOT_FOUND_MESSAGE = 'Media not found.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -188,15 +192,15 @@ final readonly class MediaProcessor implements ProcessorInterface
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $record = $this->entityManager->find(EquipmentAttachmentRecord::class, $id);
     if (!$record instanceof EquipmentAttachmentRecord || null === $record->equipment) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $equipment = $record->equipment;
     if (null === $equipment->organization) {
-      throw new NotFoundHttpException('Media not found.');
+      throw new NotFoundHttpException(self::MEDIA_NOT_FOUND_MESSAGE);
     }
     $organization = $equipment->organization;
     $interventionId = 'draft' === $equipment->recordStatus ? $equipment->interventionId : null;

@@ -39,6 +39,10 @@ use function trim;
  */
 final readonly class CreateOrganizationHandler implements CommandHandler
 {
+  // #region Constants
+  private const string SETUP_JOURNAL_UNAVAILABLE_MESSAGE = 'Setup journaling is unavailable.';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -85,7 +89,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
   public function __invoke(CreateOrganizationCommand $command): CreateOrganizationResult
   {
     if (null !== $command->setupContext && null === $this->setup) {
-      throw OrganizationSetupConflict::because('Setup journaling is unavailable.');
+      throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE);
     }
     // Validate the owner account before creating organization data.
     $ownerUserId = new UserId($command->ownerUserId);
@@ -169,7 +173,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
         &$replayed,
       ): CreateOrganizationResult {
         if (null !== $command->setupContext) {
-          $operation = ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug]);
+          $operation = ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->begin($command->setupContext, 'create_organization', null, ['name' => $command->name, 'slug' => $command->slug]);
           if (null !== $operation->resourceId) {
             $existing = $this->organizationRepository->findById(OrganizationId::fromString($operation->resourceId));
             if (null === $existing || $existing->ownerUserId() !== $command->ownerUserId) {
@@ -207,7 +211,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
         $this->memberRepository->save($ownerMember);
         $this->memberRepository->assignRole($ownerMemberId, $ownerRoleId);
         if (null !== $command->setupContext) {
-          ($this->setup ?? throw OrganizationSetupConflict::because('Setup journaling is unavailable.'))->complete($command->setupContext, 'create_organization', (string) $organizationId, ['ownerMemberId' => (string) $ownerMemberId, 'ownerRoleId' => (string) $ownerRoleId]);
+          ($this->setup ?? throw OrganizationSetupConflict::because(self::SETUP_JOURNAL_UNAVAILABLE_MESSAGE))->complete($command->setupContext, 'create_organization', (string) $organizationId, ['ownerMemberId' => (string) $ownerMemberId, 'ownerRoleId' => (string) $ownerRoleId]);
         }
 
         return new CreateOrganizationResult(

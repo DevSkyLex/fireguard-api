@@ -33,6 +33,10 @@ use function str_replace;
  */
 final class AuditEventRepository implements AuditEventRepositoryPort
 {
+  // #region Constants
+  private const string SEARCH_PLACEHOLDER = ':search';
+  // #endregion
+
   /**
    * @var EntityRepository<AuditEventRecord>
    */
@@ -437,9 +441,9 @@ final class AuditEventRepository implements AuditEventRepositoryPort
     if ($criteria->search) {
       $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $criteria->search);
       $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('a.action', ':search'),
-        $qb->expr()->like('a.actorType', ':search'),
-        $qb->expr()->like('a.actorEmail', ':search'),
+        $qb->expr()->like('a.action', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('a.actorType', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('a.actorEmail', self::SEARCH_PLACEHOLDER),
       ))->setParameter('search', '%' . $escaped . '%');
     }
   }

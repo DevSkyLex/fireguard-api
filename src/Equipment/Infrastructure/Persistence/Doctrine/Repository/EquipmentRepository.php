@@ -40,6 +40,14 @@ use function strtoupper;
  */
 final readonly class EquipmentRepository implements EquipmentRepositoryPort
 {
+  // #region Constants
+  private const string EQUIPMENT_COUNT_EXPRESSION = 'COUNT(e.id)';
+
+  private const string ORGANIZATION_PREDICATE = 'e.organization = :organization';
+
+  private const string PUBLISHED_RECORD_PREDICATE = 'e.recordStatus = :publishedRecordStatus';
+  // #endregion
+
   // #region Properties
   /**
    * @var EntityRepository<EquipmentRecord>
@@ -212,7 +220,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $subType,
       $search,
     )
-      ->select('COUNT(e.id)')
+      ->select(self::EQUIPMENT_COUNT_EXPRESSION)
       ->getQuery()
       ->getSingleScalarResult();
   }
@@ -244,7 +252,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
         'COALESCE(SUM(CASE WHEN e.status = :decommissionedStatus THEN 1 ELSE 0 END), 0) AS decommissioned',
       )
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('inStockStatus', 'in_stock')
       ->setParameter('operationalStatus', 'operational')
@@ -421,10 +429,10 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return (int) $this->entityManager->createQueryBuilder()
-      ->select('COUNT(e.id)')
+      ->select(self::EQUIPMENT_COUNT_EXPRESSION)
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published')
       ->getQuery()
@@ -447,8 +455,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $records = $this->entityManager->createQueryBuilder()
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published')
       ->orderBy('e.updatedAt', 'DESC')
@@ -487,7 +495,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId,
   ): int {
     $builder = $this->createLabelCandidateQueryBuilder($organizationId, $equipmentIds, $facilityId)
-      ->select('COUNT(e.id)');
+      ->select(self::EQUIPMENT_COUNT_EXPRESSION);
 
     return (int) $builder->getQuery()->getSingleScalarResult();
   }
@@ -558,8 +566,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
 
     $builder = $this->entityManager->createQueryBuilder()
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('publishedRecordStatus', 'published');
 
@@ -608,8 +616,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
-      ->where('e.organization = :organization')
-      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->where(self::ORGANIZATION_PREDICATE)
+      ->andWhere(self::PUBLISHED_RECORD_PREDICATE)
       ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 

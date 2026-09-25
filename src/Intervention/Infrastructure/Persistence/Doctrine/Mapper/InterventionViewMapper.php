@@ -42,6 +42,14 @@ use function in_array;
  */
 final readonly class InterventionViewMapper
 {
+  // #region Constants
+  private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
+
+  private const string MEMBER_IRI_SEGMENT = '/members/';
+
+  private const string INTERVENTION_IRI_PREFIX = '/api/interventions/';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -130,16 +138,16 @@ final readonly class InterventionViewMapper
 
     return new InterventionWorkflowView('intervention', $organizationId, [
       'id' => $intervention->id,
-      'organization' => '/api/organizations/' . $organizationId,
+      'organization' => self::ORGANIZATION_IRI_PREFIX . $organizationId,
       'number' => $intervention->number,
       'type' => $intervention->type,
       'name' => $intervention->name,
       'description' => $intervention->description,
       'status' => $intervention->status,
       'site' => null === $intervention->siteId ? null : '/api/facilities/' . $intervention->siteId,
-      'responsible' => null === $intervention->responsibleId ? null : '/api/organizations/' . $organizationId . '/members/' . $intervention->responsibleId,
+      'responsible' => null === $intervention->responsibleId ? null : self::ORGANIZATION_IRI_PREFIX . $organizationId . self::MEMBER_IRI_SEGMENT . $intervention->responsibleId,
       'participants' => array_map(
-        static fn (string $id): string => '/api/organizations/' . $organizationId . '/members/' . $id,
+        static fn (string $id): string => self::ORGANIZATION_IRI_PREFIX . $organizationId . self::MEMBER_IRI_SEGMENT . $id,
         $intervention->participants,
       ),
       'priority' => $intervention->priority,
@@ -185,11 +193,11 @@ final readonly class InterventionViewMapper
 
     return new InterventionWorkflowView('work_item', $organizationId, [
       'id' => $record->id,
-      'intervention' => '/api/interventions/' . $intervention->id,
+      'intervention' => self::INTERVENTION_IRI_PREFIX . $intervention->id,
       'action' => $record->action,
       'target' => $record->target,
       'resultResource' => $record->resultResource,
-      'assignee' => null === $record->assigneeId ? null : '/api/organizations/' . $organizationId . '/members/' . $record->assigneeId,
+      'assignee' => null === $record->assigneeId ? null : self::ORGANIZATION_IRI_PREFIX . $organizationId . self::MEMBER_IRI_SEGMENT . $record->assigneeId,
       'source' => $record->source,
       'status' => $record->status,
       'required' => $record->required,
@@ -225,7 +233,7 @@ final readonly class InterventionViewMapper
 
     return new InterventionWorkflowView('change', $this->organizationId($intervention), [
       'id' => $record->id,
-      'intervention' => '/api/interventions/' . $intervention->id,
+      'intervention' => self::INTERVENTION_IRI_PREFIX . $intervention->id,
       'workItem' => null === $record->workItem ? null : '/api/intervention-work-items/' . $record->workItem->id,
       'resource' => $record->resource,
       'patch' => $record->patch,
@@ -252,10 +260,10 @@ final readonly class InterventionViewMapper
 
     return new InterventionWorkflowView('activity', $organizationId, [
       'id' => $record->id,
-      'intervention' => '/api/interventions/' . $intervention->id,
+      'intervention' => self::INTERVENTION_IRI_PREFIX . $intervention->id,
       'kind' => $record->kind,
       'event' => $record->event,
-      'actor' => null === $record->actorId ? null : '/api/organizations/' . $organizationId . '/members/' . $record->actorId,
+      'actor' => null === $record->actorId ? null : self::ORGANIZATION_IRI_PREFIX . $organizationId . self::MEMBER_IRI_SEGMENT . $record->actorId,
       'body' => $record->body,
       'payload' => $record->payload,
       'createdAt' => $record->createdAt->format('c'),

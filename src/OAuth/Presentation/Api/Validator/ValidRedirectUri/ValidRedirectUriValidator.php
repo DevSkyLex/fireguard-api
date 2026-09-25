@@ -23,6 +23,8 @@ use function parse_url;
  */
 final class ValidRedirectUriValidator extends ConstraintValidator
 {
+  private const string URI_PLACEHOLDER = '{{ uri }}';
+
   // #region Methods
   /**
    * Method validate
@@ -83,7 +85,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
     // Check if valid URL
     if (false === $parsed || !isset($parsed['scheme'], $parsed['host'])) {
       $this->context->buildViolation(message: $constraint->messageInvalid)
-        ->setParameter('{{ uri }}', $uri)
+        ->setParameter(self::URI_PLACEHOLDER, $uri)
         ->addViolation();
 
       return;
@@ -94,7 +96,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
       $this->context->buildViolation(
         message: $constraint->messageFragment,
       )
-        ->setParameter('{{ uri }}', $uri)
+        ->setParameter(self::URI_PLACEHOLDER, $uri)
         ->addViolation();
 
       return;
@@ -106,7 +108,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
 
     if (!$isHttps && !($constraint->allowLocalhost && $isLocalhost)) {
       $this->context->buildViolation(message: $constraint->messageScheme)
-        ->setParameter('{{ uri }}', $uri)
+        ->setParameter(self::URI_PLACEHOLDER, $uri)
         ->addViolation();
     }
   }

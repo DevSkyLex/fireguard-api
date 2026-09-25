@@ -30,6 +30,16 @@ use function min;
  */
 final readonly class MaintenanceScheduleRepository implements MaintenanceScheduleRepositoryPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 's.organization = :organization';
+
+  private const string FACILITY_PREDICATE = 's.facilityId = :facilityId';
+
+  private const string EQUIPMENT_TYPE_PREDICATE = 's.equipmentType = :equipmentType';
+
+  private const string DUE_BEFORE_PREDICATE = 's.nextDueAt IS NOT NULL AND s.nextDueAt <= :dueBefore';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -85,20 +95,20 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $qb = $this->entityManager->createQueryBuilder()
       ->select('s')
       ->from(MaintenanceScheduleRecord::class, 's')
-      ->where('s.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization);
 
     if (null !== $facilityId) {
-      $qb->andWhere('s.facilityId = :facilityId')->setParameter('facilityId', $facilityId);
+      $qb->andWhere(self::FACILITY_PREDICATE)->setParameter('facilityId', $facilityId);
     }
     if (null !== $equipmentType) {
-      $qb->andWhere('s.equipmentType = :equipmentType')->setParameter('equipmentType', $equipmentType);
+      $qb->andWhere(self::EQUIPMENT_TYPE_PREDICATE)->setParameter('equipmentType', $equipmentType);
     }
     if (null !== $dueStatus) {
       $qb->andWhere('s.dueStatus = :dueStatus')->setParameter('dueStatus', $dueStatus);
     }
     if (null !== $dueBefore) {
-      $qb->andWhere('s.nextDueAt IS NOT NULL AND s.nextDueAt <= :dueBefore')->setParameter('dueBefore', $dueBefore);
+      $qb->andWhere(self::DUE_BEFORE_PREDICATE)->setParameter('dueBefore', $dueBefore);
     }
 
     $total = (int) (clone $qb)
@@ -129,19 +139,19 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
     $qb = $this->entityManager->createQueryBuilder()
       ->select('s')
       ->from(MaintenanceScheduleRecord::class, 's')
-      ->where('s.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('s.dueStatus IN (:dueStatuses)')
-      ->andWhere('s.nextDueAt IS NOT NULL AND s.nextDueAt <= :dueBefore')
+      ->andWhere(self::DUE_BEFORE_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('dueStatuses', ['due_soon', 'overdue'])
       ->setParameter('dueBefore', $dueBefore)
       ->orderBy('s.nextDueAt', 'ASC');
 
     if (null !== $facilityId) {
-      $qb->andWhere('s.facilityId = :facilityId')->setParameter('facilityId', $facilityId);
+      $qb->andWhere(self::FACILITY_PREDICATE)->setParameter('facilityId', $facilityId);
     }
     if (null !== $equipmentType) {
-      $qb->andWhere('s.equipmentType = :equipmentType')->setParameter('equipmentType', $equipmentType);
+      $qb->andWhere(self::EQUIPMENT_TYPE_PREDICATE)->setParameter('equipmentType', $equipmentType);
     }
 
     /** @var list<MaintenanceScheduleRecord> $records */
@@ -301,21 +311,21 @@ final readonly class MaintenanceScheduleRepository implements MaintenanceSchedul
 
     $qb = $this->entityManager->createQueryBuilder()
       ->from(MaintenanceScheduleRecord::class, 's')
-      ->where('s.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization);
 
     if (null !== $facilityId) {
-      $qb->andWhere('s.facilityId = :facilityId')->setParameter('facilityId', $facilityId);
+      $qb->andWhere(self::FACILITY_PREDICATE)->setParameter('facilityId', $facilityId);
     }
     if (null !== $equipmentType) {
-      $qb->andWhere('s.equipmentType = :equipmentType')->setParameter('equipmentType', $equipmentType);
+      $qb->andWhere(self::EQUIPMENT_TYPE_PREDICATE)->setParameter('equipmentType', $equipmentType);
     }
     if (null !== $dueStatus) {
       $qb->andWhere('s.dueStatus = :dueStatus')->setParameter('dueStatus', $dueStatus);
     }
 
     if (null !== $dueBefore) {
-      $qb->andWhere('s.nextDueAt IS NOT NULL AND s.nextDueAt <= :dueBefore')->setParameter('dueBefore', $dueBefore);
+      $qb->andWhere(self::DUE_BEFORE_PREDICATE)->setParameter('dueBefore', $dueBefore);
     }
 
     return $qb;

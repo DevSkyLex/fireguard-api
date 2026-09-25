@@ -32,6 +32,12 @@ use const SORT_STRING;
  */
 final class MessageOutputFactory
 {
+  // #region Constants
+  private const string ORGANIZATION_IRI_PREFIX = '/api/organizations/';
+
+  private const string MEMBER_IRI_SEGMENT = '/members/';
+  // #endregion
+
   // #region Constructor
   public function __construct(
     private readonly MessagingAttachmentRepositoryPort $attachments,
@@ -129,11 +135,11 @@ final class MessageOutputFactory
     $output = new MessageOutput();
     $output->id = $view->id;
     $output->conversation = '/api/conversations/' . $view->conversationId;
-    $output->authorMember = '/api/organizations/' . $view->organizationId . '/members/' . $view->authorMemberId;
+    $output->authorMember = self::ORGANIZATION_IRI_PREFIX . $view->organizationId . self::MEMBER_IRI_SEGMENT . $view->authorMemberId;
     $output->authorDisplayName = $displayNames[$view->authorMemberId] ?? null;
     $output->body = $isDeleted ? null : $view->body;
     $output->mentions = $isDeleted ? [] : array_map(
-      fn (string $memberId): string => '/api/organizations/' . $view->organizationId . '/members/' . $memberId,
+      fn (string $memberId): string => self::ORGANIZATION_IRI_PREFIX . $view->organizationId . self::MEMBER_IRI_SEGMENT . $memberId,
       $view->mentions,
     );
     $output->mentionNames = $isDeleted ? [] : array_filter(
@@ -149,7 +155,7 @@ final class MessageOutputFactory
     $output->attachments = $isDeleted ? [] : array_map($this->attachmentMapper->fromAttachment(...), $attachments);
     $output->pinnedAt = $view->pinnedAt?->format('c');
     $output->pinnedBy = null !== $view->pinnedByMemberId
-      ? '/api/organizations/' . $view->organizationId . '/members/' . $view->pinnedByMemberId
+      ? self::ORGANIZATION_IRI_PREFIX . $view->organizationId . self::MEMBER_IRI_SEGMENT . $view->pinnedByMemberId
       : null;
     $output->reactions = $isDeleted ? [] : $this->aggregateReactions($reactions, $currentMemberId);
     // Deliberately NOT redacted on delete, unlike attachments/reactions: a

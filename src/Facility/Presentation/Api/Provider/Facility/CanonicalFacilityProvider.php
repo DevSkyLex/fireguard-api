@@ -38,6 +38,10 @@ use function min;
  */
 final readonly class CanonicalFacilityProvider implements ProviderInterface
 {
+  // #region Constants
+  private const string FACILITY_NOT_FOUND_MESSAGE = 'Facility not found.';
+  // #endregion
+
   /**
    * Constructor.
    *
@@ -78,10 +82,10 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     if (is_string($id) && '' !== $id) {
       $record = $this->entityManager->find(FacilityRecord::class, $id);
       if (!$record instanceof FacilityRecord) {
-        throw new NotFoundHttpException('Facility not found.');
+        throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
       }
       if (null === $record->organization) {
-        throw new NotFoundHttpException('Facility not found.');
+        throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
       }
       $this->assertRead($record->organization->id);
 
@@ -211,7 +215,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
 
     $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.read');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Facility not found.');
+      throw new NotFoundHttpException(self::FACILITY_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');

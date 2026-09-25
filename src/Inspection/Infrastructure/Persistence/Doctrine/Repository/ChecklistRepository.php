@@ -19,6 +19,10 @@ use function str_replace;
 
 final readonly class ChecklistRepository implements ChecklistRepositoryPort
 {
+  // #region Constants
+  private const string SEARCH_PLACEHOLDER = ':search';
+  // #endregion
+
   /**
    * @var EntityRepository<ChecklistRecord>
    */
@@ -282,9 +286,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     if (null !== $search && '' !== $search) {
       $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
       $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('c.name', ':search'),
-        $qb->expr()->like('c.version', ':search'),
-        $qb->expr()->like('c.status', ':search'),
+        $qb->expr()->like('c.name', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('c.version', self::SEARCH_PLACEHOLDER),
+        $qb->expr()->like('c.status', self::SEARCH_PLACEHOLDER),
       ))->setParameter('search', '%' . $escaped . '%');
     }
 

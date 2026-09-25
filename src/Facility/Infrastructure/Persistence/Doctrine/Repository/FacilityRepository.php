@@ -44,6 +44,10 @@ use const JSON_THROW_ON_ERROR;
  */
 final readonly class FacilityRepository implements FacilityRepositoryPort
 {
+  // #region Constants
+  private const string ORGANIZATION_PREDICATE = 'f.organization = :organization';
+  // #endregion
+
   // #region Properties
   /**
    * @var EntityRepository<FacilityRecord>
@@ -253,7 +257,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('IDENTITY(f.parentFacility) AS parentId', 'COUNT(f.id) AS childCount')
       ->from(FacilityRecord::class, 'f')
-      ->where('f.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('IDENTITY(f.parentFacility) IN (:parentIds)')
       ->setParameter('organization', $organization)
       ->setParameter('parentIds', $parentIdValues)
@@ -471,7 +475,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         'COALESCE(SUM(CASE WHEN f.status = :activeStatus THEN 1 ELSE 0 END), 0) AS active',
       )
       ->from(FacilityRecord::class, 'f')
-      ->where('f.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->setParameter('organization', $organization)
       ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
 
@@ -612,7 +616,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     /** @var list<array{id: string, name: string}> $rows */
     $rows = $this->repository->createQueryBuilder('f')
       ->select('f.id AS id, f.name AS name')
-      ->where('f.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('f.id IN (:facilityIds)')
       ->setParameter('organization', $organization)
       ->setParameter('facilityIds', $facilityIds)
@@ -653,7 +657,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     /** @var list<array{id: string, code: ?string}> $rows */
     $rows = $this->repository->createQueryBuilder('f')
       ->select('f.id AS id, f.code AS code')
-      ->where('f.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('f.id IN (:facilityIds)')
       ->setParameter('organization', $organization)
       ->setParameter('facilityIds', $facilityIds)
@@ -1213,7 +1217,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     $queryBuilder = $this->entityManager->createQueryBuilder()
       ->select('f')
       ->from(FacilityRecord::class, 'f')
-      ->where('f.organization = :organization')
+      ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('f.recordStatus = :publishedRecordStatus')
       ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);

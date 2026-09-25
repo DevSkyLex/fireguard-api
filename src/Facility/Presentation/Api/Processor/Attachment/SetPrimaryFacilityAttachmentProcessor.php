@@ -39,6 +39,10 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
 {
   use MessengerExceptionUnwrapperTrait;
 
+  // #region Constants
+  private const string ATTACHMENT_NOT_FOUND_MESSAGE = 'Attachment not found.';
+  // #endregion
+
   // #region Constructor
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -64,19 +68,19 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id) || '' === $id) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $record = $this->entityManager->find(FacilityAttachmentRecord::class, $id);
     if (!$record instanceof FacilityAttachmentRecord || null === $record->facility?->organization) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
 
     $organization = $record->facility->organization;
     $user = $this->user();
     $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.write');
     if ($decision->isOutsideScope()) {
-      throw new NotFoundHttpException('Attachment not found.');
+      throw new NotFoundHttpException(self::ATTACHMENT_NOT_FOUND_MESSAGE);
     }
     if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
