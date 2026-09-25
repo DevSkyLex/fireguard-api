@@ -106,23 +106,11 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
 
     $user = $this->user();
     $request = $this->currentRequest();
-    $clientId = $request->request->get('clientId');
-    if (null !== $clientId && !is_string($clientId)) {
-      throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.');
-    }
-    if (is_string($clientId) && '' !== $clientId) {
-      try {
-        $clientId = (string) InterventionAttachmentId::fromString($clientId);
-      } catch (InvalidValueException $exception) {
-        throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.', $exception);
-      }
-      $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);
-      if ($existing instanceof InterventionAttachmentRecord) {
-        if ($existing->intervention?->id !== $interventionId) {
-          throw new ConflictHttpException('Attachment client UUID is already assigned to another intervention.');
-        }
-
-        return InterventionMediaProvider::output($existing);
+    $clientId = self::validatedClientId($request->request->get('clientId'));
+    if (null !== $clientId) {
+      $existing = $this->existingAttachment($clientId, $interventionId);
+      if ($existing instanceof InterventionAttachmentOutput) {
+        return $existing;
       }
     }
 
@@ -148,7 +136,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
         mimeType: $uploaded->mimeType,
         size: $uploaded->size,
         label: $uploaded->label,
-        attachmentId: is_string($clientId) && '' !== $clientId ? $clientId : null,
+        attachmentId: $clientId,
         workItemId: $workItemId,
         kind: is_string($kind) && '' !== $kind ? $kind : 'file',
       ));
@@ -157,6 +145,35 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     }
 
     return $this->outputFor($result->attachmentId);
+  }
+
+  private static function validatedClientId(mixed $clientId): ?string
+  {
+    if (null !== $clientId && !is_string($clientId)) {
+      throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.');
+    }
+    if (null === $clientId || '' === $clientId) {
+      return null;
+    }
+
+    try {
+      return (string) InterventionAttachmentId::fromString($clientId);
+    } catch (InvalidValueException $exception) {
+      throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.', $exception);
+    }
+  }
+
+  private function existingAttachment(string $clientId, string $interventionId): ?InterventionAttachmentOutput
+  {
+    $existing = $this->entityManager->find(InterventionAttachmentRecord::class, $clientId);
+    if (!$existing instanceof InterventionAttachmentRecord) {
+      return null;
+    }
+    if ($existing->intervention?->id !== $interventionId) {
+      throw new ConflictHttpException('Attachment client UUID is already assigned to another intervention.');
+    }
+
+    return InterventionMediaProvider::output($existing);
   }
 
   /**

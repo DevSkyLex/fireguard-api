@@ -110,25 +110,30 @@ final readonly class MoveFacilityProcessor implements ProcessorInterface
     } catch (FacilityHierarchyException|InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findFacilityNotFoundException($exception);
-      if ($notFound instanceof FacilityNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $hierarchy = $this->findFacilityHierarchyException($exception);
-      if ($hierarchy instanceof FacilityHierarchyException) {
-        throw new BadRequestHttpException($hierarchy->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     return $this->detail->read($organizationId, $result->facilityId);
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findFacilityNotFoundException($exception);
+    if ($notFound instanceof FacilityNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $hierarchy = $this->findFacilityHierarchyException($exception);
+    if ($hierarchy instanceof FacilityHierarchyException) {
+      return new BadRequestHttpException($hierarchy->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

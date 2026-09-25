@@ -80,54 +80,11 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
 
     try {
       if ($data instanceof CreateInterventionTemplateInput) {
-        /** @var CreateInterventionTemplateResult $result */
-        $result = $this->commandBus->dispatch(new CreateInterventionTemplateCommand(
-          userId: $user->getId(),
-          organizationId: ResourceIriParser::id($data->organization, 'organizations'),
-          name: $data->name,
-          description: $data->description,
-          type: $data->type,
-          priority: $data->priority,
-          defaultSiteId: null === $data->defaultSite ? null : ResourceIriParser::id($data->defaultSite, 'facilities'),
-          defaultResponsibleId: null === $data->defaultResponsible ? null : ResourceIriParser::memberId($data->defaultResponsible),
-          duration: $data->duration,
-          labelIds: $data->labelIds,
-          items: array_map(self::itemPayload(...), $data->items),
-        ));
-
-        return $this->mapper->fromView($result->template);
+        return $this->create($data, $user);
       }
 
       if ($data instanceof UpdateInterventionTemplateInput) {
-        if (null === $id) {
-          throw new BadRequestHttpException('The id URI parameter is required.');
-        }
-        $fields = $this->mergePatchFields->all();
-        /** @var UpdateInterventionTemplateResult $result */
-        $result = $this->commandBus->dispatch(new UpdateInterventionTemplateCommand(
-          userId: $user->getId(),
-          templateId: $id,
-          name: $data->name,
-          description: $data->description,
-          type: $data->type,
-          priority: $data->priority,
-          defaultSiteId: null === $data->defaultSite ? null : ResourceIriParser::id($data->defaultSite, 'facilities'),
-          defaultResponsibleId: null === $data->defaultResponsible ? null : ResourceIriParser::memberId($data->defaultResponsible),
-          duration: $data->duration,
-          labelIds: $data->labelIds,
-          items: null === $data->items ? null : array_map(self::itemPayload(...), $data->items),
-          hasName: array_key_exists('name', $fields),
-          hasDescription: array_key_exists('description', $fields),
-          hasType: array_key_exists('type', $fields),
-          hasPriority: array_key_exists('priority', $fields),
-          hasDefaultSiteId: array_key_exists('defaultSite', $fields),
-          hasDefaultResponsibleId: array_key_exists('defaultResponsible', $fields),
-          hasDuration: array_key_exists('duration', $fields),
-          hasLabelIds: array_key_exists('labelIds', $fields),
-          hasItems: array_key_exists('items', $fields),
-        ));
-
-        return $this->mapper->fromView($result->template);
+        return $this->update($data, $user, $id);
       }
 
       if (null === $id) {
@@ -139,6 +96,59 @@ final readonly class InterventionTemplateProcessor implements ProcessorInterface
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);
     }
+  }
+
+  private function create(CreateInterventionTemplateInput $data, SecurityUser $user): InterventionTemplateOutput
+  {
+    /** @var CreateInterventionTemplateResult $result */
+    $result = $this->commandBus->dispatch(new CreateInterventionTemplateCommand(
+      userId: $user->getId(),
+      organizationId: ResourceIriParser::id($data->organization, 'organizations'),
+      name: $data->name,
+      description: $data->description,
+      type: $data->type,
+      priority: $data->priority,
+      defaultSiteId: null === $data->defaultSite ? null : ResourceIriParser::id($data->defaultSite, 'facilities'),
+      defaultResponsibleId: null === $data->defaultResponsible ? null : ResourceIriParser::memberId($data->defaultResponsible),
+      duration: $data->duration,
+      labelIds: $data->labelIds,
+      items: array_map(self::itemPayload(...), $data->items),
+    ));
+
+    return $this->mapper->fromView($result->template);
+  }
+
+  private function update(UpdateInterventionTemplateInput $data, SecurityUser $user, ?string $id): InterventionTemplateOutput
+  {
+    if (null === $id) {
+      throw new BadRequestHttpException('The id URI parameter is required.');
+    }
+    $fields = $this->mergePatchFields->all();
+    /** @var UpdateInterventionTemplateResult $result */
+    $result = $this->commandBus->dispatch(new UpdateInterventionTemplateCommand(
+      userId: $user->getId(),
+      templateId: $id,
+      name: $data->name,
+      description: $data->description,
+      type: $data->type,
+      priority: $data->priority,
+      defaultSiteId: null === $data->defaultSite ? null : ResourceIriParser::id($data->defaultSite, 'facilities'),
+      defaultResponsibleId: null === $data->defaultResponsible ? null : ResourceIriParser::memberId($data->defaultResponsible),
+      duration: $data->duration,
+      labelIds: $data->labelIds,
+      items: null === $data->items ? null : array_map(self::itemPayload(...), $data->items),
+      hasName: array_key_exists('name', $fields),
+      hasDescription: array_key_exists('description', $fields),
+      hasType: array_key_exists('type', $fields),
+      hasPriority: array_key_exists('priority', $fields),
+      hasDefaultSiteId: array_key_exists('defaultSite', $fields),
+      hasDefaultResponsibleId: array_key_exists('defaultResponsible', $fields),
+      hasDuration: array_key_exists('duration', $fields),
+      hasLabelIds: array_key_exists('labelIds', $fields),
+      hasItems: array_key_exists('items', $fields),
+    ));
+
+    return $this->mapper->fromView($result->template);
   }
 
   /**

@@ -19,6 +19,7 @@ use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRun
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Throwable;
 
 use function is_string;
 
@@ -99,27 +100,7 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFloorPlan = $this->findException($exception, FacilityAttachmentNotFloorPlanException::class);
-      if ($notFloorPlan instanceof FacilityAttachmentNotFloorPlanException) {
-        throw new ConflictHttpException($notFloorPlan->getMessage(), $exception);
-      }
-
-      $notFound = $this->findException($exception, FacilityAttachmentNotFoundException::class);
-      if ($notFound instanceof FacilityAttachmentNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $facilityNotFound = $this->findException($exception, FacilityNotFoundException::class);
-      if ($facilityNotFound instanceof FacilityNotFoundException) {
-        throw new NotFoundHttpException($facilityNotFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     // Re-read: the command mutated the row (this attachment's flag, and
@@ -128,6 +109,31 @@ final readonly class SetPrimaryFacilityAttachmentProcessor implements ProcessorI
     $this->entityManager->refresh($record);
 
     return FacilityMediaProvider::output($record);
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFloorPlan = $this->findException($exception, FacilityAttachmentNotFloorPlanException::class);
+    if ($notFloorPlan instanceof FacilityAttachmentNotFloorPlanException) {
+      return new ConflictHttpException($notFloorPlan->getMessage(), $exception);
+    }
+
+    $notFound = $this->findException($exception, FacilityAttachmentNotFoundException::class);
+    if ($notFound instanceof FacilityAttachmentNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $facilityNotFound = $this->findException($exception, FacilityNotFoundException::class);
+    if ($facilityNotFound instanceof FacilityNotFoundException) {
+      return new NotFoundHttpException($facilityNotFound->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

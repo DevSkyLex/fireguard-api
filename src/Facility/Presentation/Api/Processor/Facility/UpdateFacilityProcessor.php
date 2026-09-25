@@ -135,25 +135,30 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $codeConflict = $this->findFacilityCodeAlreadyExistsException($exception);
-      if ($codeConflict instanceof FacilityCodeAlreadyExistsException) {
-        throw new ConflictHttpException($codeConflict->getMessage(), $exception);
-      }
-
-      $notFound = $this->findFacilityNotFoundException($exception);
-      if ($notFound instanceof FacilityNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     return $this->detail->read($organizationId, $result->facilityId);
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $codeConflict = $this->findFacilityCodeAlreadyExistsException($exception);
+    if ($codeConflict instanceof FacilityCodeAlreadyExistsException) {
+      return new ConflictHttpException($codeConflict->getMessage(), $exception);
+    }
+
+    $notFound = $this->findFacilityNotFoundException($exception);
+    if ($notFound instanceof FacilityNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

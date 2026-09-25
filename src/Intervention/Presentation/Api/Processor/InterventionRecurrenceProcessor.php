@@ -76,57 +76,11 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
 
     try {
       if ($data instanceof CreateInterventionRecurrenceInput) {
-        /** @var CreateInterventionRecurrenceResult $result */
-        $result = $this->commandBus->dispatch(new CreateInterventionRecurrenceCommand(
-          userId: $user->getId(),
-          organizationId: ResourceIriParser::id($data->organization, 'organizations'),
-          templateId: ResourceIriParser::id($data->template, 'intervention-templates'),
-          name: $data->name,
-          siteId: null === $data->site ? null : ResourceIriParser::id($data->site, 'facilities'),
-          responsibleId: null === $data->responsible ? null : ResourceIriParser::memberId($data->responsible),
-          frequency: $data->frequency,
-          interval: $data->interval,
-          anchorDate: new DateTimeImmutable($data->anchorDate),
-          timezone: $data->timezone,
-          leadTimeDays: $data->leadTimeDays,
-          endAt: null === $data->endAt ? null : new DateTimeImmutable($data->endAt),
-        ));
-
-        return $this->mapper->fromView($result->recurrence);
+        return $this->create($data, $user);
       }
 
       if ($data instanceof UpdateInterventionRecurrenceInput) {
-        if (null === $id) {
-          throw new BadRequestHttpException('The id URI parameter is required.');
-        }
-        $fields = $this->mergePatchFields->all();
-        /** @var UpdateInterventionRecurrenceResult $result */
-        $result = $this->commandBus->dispatch(new UpdateInterventionRecurrenceCommand(
-          userId: $user->getId(),
-          recurrenceId: $id,
-          name: $data->name,
-          siteId: null === $data->site ? null : ResourceIriParser::id($data->site, 'facilities'),
-          responsibleId: null === $data->responsible ? null : ResourceIriParser::memberId($data->responsible),
-          frequency: $data->frequency,
-          interval: $data->interval,
-          anchorDate: null === $data->anchorDate ? null : new DateTimeImmutable($data->anchorDate),
-          timezone: $data->timezone,
-          leadTimeDays: $data->leadTimeDays,
-          endAt: null === $data->endAt ? null : new DateTimeImmutable($data->endAt),
-          isActive: $data->isActive,
-          hasName: array_key_exists('name', $fields),
-          hasSiteId: array_key_exists('site', $fields),
-          hasResponsibleId: array_key_exists('responsible', $fields),
-          hasFrequency: array_key_exists('frequency', $fields),
-          hasInterval: array_key_exists('interval', $fields),
-          hasAnchorDate: array_key_exists('anchorDate', $fields),
-          hasTimezone: array_key_exists('timezone', $fields),
-          hasLeadTimeDays: array_key_exists('leadTimeDays', $fields),
-          hasEndAt: array_key_exists('endAt', $fields),
-          hasIsActive: array_key_exists('isActive', $fields),
-        ));
-
-        return $this->mapper->fromView($result->recurrence);
+        return $this->update($data, $user, $id);
       }
 
       if (null === $id) {
@@ -138,6 +92,62 @@ final readonly class InterventionRecurrenceProcessor implements ProcessorInterfa
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);
     }
+  }
+
+  private function create(CreateInterventionRecurrenceInput $data, SecurityUser $user): InterventionRecurrenceOutput
+  {
+    /** @var CreateInterventionRecurrenceResult $result */
+    $result = $this->commandBus->dispatch(new CreateInterventionRecurrenceCommand(
+      userId: $user->getId(),
+      organizationId: ResourceIriParser::id($data->organization, 'organizations'),
+      templateId: ResourceIriParser::id($data->template, 'intervention-templates'),
+      name: $data->name,
+      siteId: null === $data->site ? null : ResourceIriParser::id($data->site, 'facilities'),
+      responsibleId: null === $data->responsible ? null : ResourceIriParser::memberId($data->responsible),
+      frequency: $data->frequency,
+      interval: $data->interval,
+      anchorDate: new DateTimeImmutable($data->anchorDate),
+      timezone: $data->timezone,
+      leadTimeDays: $data->leadTimeDays,
+      endAt: null === $data->endAt ? null : new DateTimeImmutable($data->endAt),
+    ));
+
+    return $this->mapper->fromView($result->recurrence);
+  }
+
+  private function update(UpdateInterventionRecurrenceInput $data, SecurityUser $user, ?string $id): InterventionRecurrenceOutput
+  {
+    if (null === $id) {
+      throw new BadRequestHttpException('The id URI parameter is required.');
+    }
+    $fields = $this->mergePatchFields->all();
+    /** @var UpdateInterventionRecurrenceResult $result */
+    $result = $this->commandBus->dispatch(new UpdateInterventionRecurrenceCommand(
+      userId: $user->getId(),
+      recurrenceId: $id,
+      name: $data->name,
+      siteId: null === $data->site ? null : ResourceIriParser::id($data->site, 'facilities'),
+      responsibleId: null === $data->responsible ? null : ResourceIriParser::memberId($data->responsible),
+      frequency: $data->frequency,
+      interval: $data->interval,
+      anchorDate: null === $data->anchorDate ? null : new DateTimeImmutable($data->anchorDate),
+      timezone: $data->timezone,
+      leadTimeDays: $data->leadTimeDays,
+      endAt: null === $data->endAt ? null : new DateTimeImmutable($data->endAt),
+      isActive: $data->isActive,
+      hasName: array_key_exists('name', $fields),
+      hasSiteId: array_key_exists('site', $fields),
+      hasResponsibleId: array_key_exists('responsible', $fields),
+      hasFrequency: array_key_exists('frequency', $fields),
+      hasInterval: array_key_exists('interval', $fields),
+      hasAnchorDate: array_key_exists('anchorDate', $fields),
+      hasTimezone: array_key_exists('timezone', $fields),
+      hasLeadTimeDays: array_key_exists('leadTimeDays', $fields),
+      hasEndAt: array_key_exists('endAt', $fields),
+      hasIsActive: array_key_exists('isActive', $fields),
+    ));
+
+    return $this->mapper->fromView($result->recurrence);
   }
 
   /**
