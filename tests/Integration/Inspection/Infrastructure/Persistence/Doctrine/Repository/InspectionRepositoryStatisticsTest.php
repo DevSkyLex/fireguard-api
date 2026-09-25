@@ -7,6 +7,7 @@ namespace Tests\Integration\Inspection\Infrastructure\Persistence\Doctrine\Repos
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
@@ -257,45 +258,47 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
 
     self::assertEqualsCanonicalizing(
       [self::INSPECTION_A_ID, self::INSPECTION_C_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, equipmentId: self::EQUIPMENT_A_ID)),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(subject: new InspectionSubjectCriteria(equipmentId: self::EQUIPMENT_A_ID)))),
     );
     self::assertEqualsCanonicalizing(
       [self::INSPECTION_B_ID, self::INSPECTION_C_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, facilityId: self::FACILITY_B_ID)),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(subject: new InspectionSubjectCriteria(facilityId: self::FACILITY_B_ID)))),
     );
     self::assertSame(
       [self::INSPECTION_B_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, result: 'fail')),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(execution: new InspectionExecutionCriteria(result: 'fail')))),
     );
     self::assertSame(
       [self::INSPECTION_C_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, status: 'closed')),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(execution: new InspectionExecutionCriteria(status: 'closed')))),
     );
     self::assertEqualsCanonicalizing(
       [self::INSPECTION_A_ID, self::INSPECTION_C_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, inspectorUserId: self::INSPECTOR_USER_ID)),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(inspector: new InspectionInspectorCriteria(userId: self::INSPECTOR_USER_ID)))),
     );
     self::assertSame(
       [self::INSPECTION_B_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, inspectorType: 'external')),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(inspector: new InspectionInspectorCriteria(type: 'external')))),
     );
     self::assertEqualsCanonicalizing(
       [self::INSPECTION_A_ID, self::INSPECTION_C_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, checklistId: self::CHECKLIST_A_ID)),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(subject: new InspectionSubjectCriteria(checklistId: self::CHECKLIST_A_ID)))),
     );
     // Performed-at window keeps only the February inspection.
     self::assertSame(
       [self::INSPECTION_B_ID],
       $this->ids($this->repository->findByOrganizationId(
         $organizationId,
-        performedAtFrom: '2026-02-01T00:00:00+00:00',
-        performedAtTo: '2026-02-28T23:59:59+00:00',
+        new InspectionListCriteria(execution: new InspectionExecutionCriteria(
+          performedAtFrom: '2026-02-01T00:00:00+00:00',
+          performedAtTo: '2026-02-28T23:59:59+00:00',
+        )),
       )),
     );
     // Trigram/LIKE search matches the external inspector name only.
     self::assertSame(
       [self::INSPECTION_B_ID],
-      $this->ids($this->repository->findByOrganizationId($organizationId, search: 'bob')),
+      $this->ids($this->repository->findByOrganizationId($organizationId, new InspectionListCriteria(search: 'bob'))),
     );
   }
 
@@ -339,9 +342,24 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $organizationId = InspectionOrganizationId::fromString(self::ORGANIZATION_ID);
 
     self::assertSame(3, $this->repository->countByOrganizationId($organizationId));
-    self::assertSame(1, $this->repository->countByOrganizationId($organizationId, result: 'fail'));
-    self::assertSame(2, $this->repository->countByOrganizationId($organizationId, equipmentId: self::EQUIPMENT_A_ID));
-    self::assertSame(0, $this->repository->countByOrganizationId($organizationId, status: 'draft', result: 'fail'));
+    self::assertSame(1, $this->repository->countByOrganizationId($organizationId, new InspectionListCriteria(execution: new InspectionExecutionCriteria(result: 'fail'))));
+    self::assertSame(2, $this->repository->countByOrganizationId($organizationId, new InspectionListCriteria(subject: new InspectionSubjectCriteria(equipmentId: self::EQUIPMENT_A_ID))));
+    self::assertSame(0, $this->repository->countByOrganizationId($organizationId, new InspectionListCriteria(execution: new InspectionExecutionCriteria(result: 'fail', status: 'draft'))));
+  }
+
+  #[Test]
+  public function testExportCandidatesKeepIndexedFiltersAndIgnoreListOnlyFilters(): void
+  {
+    $this->seedStandardDataset();
+    $organizationId = InspectionOrganizationId::fromString(self::ORGANIZATION_ID);
+    $criteria = new InspectionListCriteria(
+      subject: new InspectionSubjectCriteria(equipmentId: self::EQUIPMENT_A_ID),
+      inspector: new InspectionInspectorCriteria(type: 'external'),
+      search: 'no inspection matches this text',
+    );
+
+    self::assertSame(2, $this->repository->countExportCandidates($organizationId, $criteria));
+    self::assertCount(2, $this->repository->listExportCandidates($organizationId, $criteria));
   }
 
   #[Test]
