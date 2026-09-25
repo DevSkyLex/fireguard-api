@@ -37,23 +37,11 @@ final readonly class EditInspectionHandler implements CommandHandler
       $inspectionId = InspectionId::fromString($command->inspectionId);
       $organizationId = InspectionOrganizationId::fromString($command->organizationId);
 
-      if ($command->hasEquipmentId) {
-        if (null === $command->equipmentId) {
-          throw InvalidValueException::because('Field "equipmentId" cannot be null when provided.');
-        }
+      $this->assertReferences($command);
 
-        $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
-      }
-
-      if ($command->hasFacilityId && null !== $command->facilityId) {
-        $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
-      }
-
-      if ($command->hasChecklistId && null !== $command->checklistId) {
-        $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
-      }
-
-      $equipmentId = $command->hasEquipmentId ? InspectionEquipmentId::fromString($command->equipmentId) : null;
+      /** @var string $validatedEquipmentId assertReferences() rejects null when equipmentId is provided. */
+      $validatedEquipmentId = $command->equipmentId;
+      $equipmentId = $command->hasEquipmentId ? InspectionEquipmentId::fromString($validatedEquipmentId) : null;
       $facilityId = $command->hasFacilityId && null !== $command->facilityId
         ? InspectionFacilityId::fromString($command->facilityId)
         : null;
@@ -104,5 +92,22 @@ final readonly class EditInspectionHandler implements CommandHandler
       organizationId: (string) $inspection->organizationId(),
       updatedAt: $inspection->updatedAt(),
     );
+  }
+
+  private function assertReferences(EditInspectionCommand $command): void
+  {
+    if ($command->hasEquipmentId) {
+      if (null === $command->equipmentId) {
+        throw InvalidValueException::because('Field "equipmentId" cannot be null when provided.');
+      }
+
+      $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
+    }
+    if ($command->hasFacilityId && null !== $command->facilityId) {
+      $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
+    }
+    if ($command->hasChecklistId && null !== $command->checklistId) {
+      $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
+    }
   }
 }

@@ -163,9 +163,9 @@ HELP
     $organizationId = trim($organizationIdRaw);
     $name = trim($nameRaw);
     $type = trim($typeRaw);
-    $code = is_string($codeRaw) && '' !== trim($codeRaw) ? trim($codeRaw) : null;
-    $address = is_string($addressRaw) && '' !== trim($addressRaw) ? trim($addressRaw) : null;
-    $parentId = is_string($parentIdRaw) && '' !== trim($parentIdRaw) ? trim($parentIdRaw) : null;
+    $code = self::nonEmptyOption($codeRaw);
+    $address = self::nonEmptyOption($addressRaw);
+    $parentId = self::nonEmptyOption($parentIdRaw);
 
     if (!in_array($type, FacilityType::values(), true)) {
       $io->error(sprintf(
@@ -177,18 +177,7 @@ HELP
       return Command::FAILURE;
     }
 
-    try {
-      $orgId = OrganizationId::fromString($organizationId);
-      $organization = $this->organizationRepository->findById(id: $orgId);
-
-      if (null === $organization) {
-        $io->error(sprintf('Organization "%s" not found.', $organizationId));
-
-        return Command::FAILURE;
-      }
-    } catch (InvalidValueException $e) {
-      $io->error(sprintf('Invalid organization ID: %s', $e->getMessage()));
-
+    if (!$this->organizationExists($organizationId, $io)) {
       return Command::FAILURE;
     }
 
@@ -230,6 +219,29 @@ HELP
 
       return Command::FAILURE;
     }
+  }
+
+  private function organizationExists(string $organizationId, SymfonyStyle $io): bool
+  {
+    try {
+      $orgId = OrganizationId::fromString($organizationId);
+      if (null === $this->organizationRepository->findById(id: $orgId)) {
+        $io->error(sprintf('Organization "%s" not found.', $organizationId));
+
+        return false;
+      }
+    } catch (InvalidValueException $exception) {
+      $io->error(sprintf('Invalid organization ID: %s', $exception->getMessage()));
+
+      return false;
+    }
+
+    return true;
+  }
+
+  private static function nonEmptyOption(mixed $value): ?string
+  {
+    return is_string($value) && '' !== trim($value) ? trim($value) : null;
   }
   // #endregion
 }

@@ -194,44 +194,7 @@ final class CanonicalFacility
       'levelIndex' => $this->levelIndex,
     ];
 
-    if ($patch->hasType && null !== $patch->type) {
-      $this->type = FacilityType::tryFrom($patch->type)
-        ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type);
-    }
-
-    if ($patch->hasName && null !== $patch->name) {
-      $this->name = trim($patch->name);
-    }
-
-    if ($patch->hasCode) {
-      $this->code = null === $patch->code ? null : trim($patch->code);
-    }
-
-    if ($patch->hasAddress) {
-      $this->address = null === $patch->address ? null : trim($patch->address);
-    }
-
-    if ($patch->hasLatitude || $patch->hasLongitude) {
-      $this->latitude = $patch->latitude;
-      $this->longitude = $patch->longitude;
-    }
-
-    if ($patch->hasMetadata) {
-      $this->metadata = $patch->metadata ?? [];
-    }
-
-    if ($patch->hasLevelIndex) {
-      $this->levelIndex = self::normalizeLevelIndex($patch->levelIndex);
-    }
-
-    if ($patch->hasStatus && null !== $patch->status) {
-      $this->status = FacilityStatus::tryFrom($patch->status)
-        ?? throw CanonicalFacilityValidationException::unsupportedValue('status', $patch->status);
-    }
-
-    if ($patch->hasParent) {
-      $this->parentFacilityId = $parent?->id;
-    }
+    $this->applyFields($patch, $parent);
 
     $published = FacilityRecordStatus::PUBLISHED === $this->recordStatus;
 
@@ -256,18 +219,7 @@ final class CanonicalFacility
       return new CanonicalFacilityChange();
     }
 
-    $changedFields = [];
-    foreach (['type', 'name', 'code', 'address', 'levelIndex'] as $field) {
-      if ($previous[$field] !== $this->{$field}) {
-        $changedFields[] = $field;
-      }
-    }
-    if ($previous['latitude'] !== $this->latitude || $previous['longitude'] !== $this->longitude) {
-      $changedFields[] = 'coordinates';
-    }
-    if ($previous['metadata'] !== $this->metadata) {
-      $changedFields[] = 'metadata';
-    }
+    $changedFields = $this->changedFields($previous);
 
     return new CanonicalFacilityChange(
       archived: FacilityStatus::ARCHIVED !== $previousStatus && FacilityStatus::ARCHIVED === $this->status,
@@ -550,6 +502,63 @@ final class CanonicalFacility
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  private function applyFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
+  {
+    if ($patch->hasType && null !== $patch->type) {
+      $this->type = FacilityType::tryFrom($patch->type)
+        ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type);
+    }
+    if ($patch->hasName && null !== $patch->name) {
+      $this->name = trim($patch->name);
+    }
+    if ($patch->hasCode) {
+      $this->code = null === $patch->code ? null : trim($patch->code);
+    }
+    if ($patch->hasAddress) {
+      $this->address = null === $patch->address ? null : trim($patch->address);
+    }
+    if ($patch->hasLatitude || $patch->hasLongitude) {
+      $this->latitude = $patch->latitude;
+      $this->longitude = $patch->longitude;
+    }
+    if ($patch->hasMetadata) {
+      $this->metadata = $patch->metadata ?? [];
+    }
+    if ($patch->hasLevelIndex) {
+      $this->levelIndex = self::normalizeLevelIndex($patch->levelIndex);
+    }
+    if ($patch->hasStatus && null !== $patch->status) {
+      $this->status = FacilityStatus::tryFrom($patch->status)
+        ?? throw CanonicalFacilityValidationException::unsupportedValue('status', $patch->status);
+    }
+    if ($patch->hasParent) {
+      $this->parentFacilityId = $parent?->id;
+    }
+  }
+
+  /**
+   * @param array<string, mixed> $previous
+   *
+   * @return list<string>
+   */
+  private function changedFields(array $previous): array
+  {
+    $changedFields = [];
+    foreach (['type', 'name', 'code', 'address', 'levelIndex'] as $field) {
+      if ($previous[$field] !== $this->{$field}) {
+        $changedFields[] = $field;
+      }
+    }
+    if ($previous['latitude'] !== $this->latitude || $previous['longitude'] !== $this->longitude) {
+      $changedFields[] = 'coordinates';
+    }
+    if ($previous['metadata'] !== $this->metadata) {
+      $changedFields[] = 'metadata';
+    }
+
+    return $changedFields;
   }
 
   /**
