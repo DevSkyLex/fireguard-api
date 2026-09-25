@@ -25,6 +25,7 @@ use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response as HttpResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Throwable;
 
 use function is_string;
 
@@ -88,24 +89,7 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findInspectionNotFoundException($exception);
-      if ($notFound instanceof InspectionNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-      $ncNotFound = $this->findNonConformityNotFoundException($exception);
-      if ($ncNotFound instanceof NonConformityNotFoundException) {
-        throw new NotFoundHttpException($ncNotFound->getMessage(), $exception);
-      }
-      $resolved = $this->findNonConformityAlreadyResolvedException($exception);
-      if ($resolved instanceof NonConformityAlreadyResolvedException) {
-        throw new ConflictHttpException($resolved->getMessage(), $exception);
-      }
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     $output = new NonConformityOutput();
@@ -121,6 +105,28 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
     $output->updatedAt = $result->updatedAt->format('c');
 
     return $output;
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findInspectionNotFoundException($exception);
+    if ($notFound instanceof InspectionNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+    $ncNotFound = $this->findNonConformityNotFoundException($exception);
+    if ($ncNotFound instanceof NonConformityNotFoundException) {
+      return new NotFoundHttpException($ncNotFound->getMessage(), $exception);
+    }
+    $resolved = $this->findNonConformityAlreadyResolvedException($exception);
+    if ($resolved instanceof NonConformityAlreadyResolvedException) {
+      return new ConflictHttpException($resolved->getMessage(), $exception);
+    }
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   /**

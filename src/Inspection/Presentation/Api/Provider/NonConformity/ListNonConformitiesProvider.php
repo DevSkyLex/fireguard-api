@@ -62,10 +62,6 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
-    $request = $this->requestStack->getCurrentRequest();
-    $severity = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('severity');
-    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
-
     $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
@@ -78,21 +74,11 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
     $itemsPerPage = max(1, $itemsPerPage);
 
     $offset = ($page - 1) * $itemsPerPage;
-
-    $search = SearchExtractor::fromContext($context);
-    $sorting = SortingExtractor::fromContext($context, ['severity', 'status', 'dueAt', 'createdAt'], 'createdAt');
+    $query = $this->listQuery($operation, $context, $organizationId, $inspectionId, $offset, $itemsPerPage);
 
     try {
       /** @var PaginatedResult<NonConformityResult> $queryResult */
-      $queryResult = $this->queryBus->ask(new ListNonConformitiesQuery(
-        organizationId: $organizationId,
-        inspectionId: $inspectionId,
-        severity: is_string($severity) && '' !== $severity ? $severity : null,
-        status: is_string($status) && '' !== $status ? $status : null,
-        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
-        search: $search,
-        sorting: $sorting,
-      ));
+      $queryResult = $this->queryBus->ask($query);
     } catch (InspectionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
@@ -121,6 +107,35 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
       itemsPerPage: (float) $itemsPerPage,
       totalItems: (float) $queryResult->total,
     );
+  }
+
+  /**
+   * @param array<string, mixed> $context
+   */
+  private function listQuery(
+    Operation $operation,
+    array $context,
+    string $organizationId,
+    string $inspectionId,
+    int $offset,
+    int $itemsPerPage,
+  ): ListNonConformitiesQuery {
+    $params = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+
+    return new ListNonConformitiesQuery(
+      organizationId: $organizationId,
+      inspectionId: $inspectionId,
+      severity: self::optionalString($params->get('severity')),
+      status: self::optionalString($params->get('status')),
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+      search: SearchExtractor::fromContext($context),
+      sorting: SortingExtractor::fromContext($context, ['severity', 'status', 'dueAt', 'createdAt'], 'createdAt'),
+    );
+  }
+
+  private static function optionalString(mixed $value): ?string
+  {
+    return is_string($value) && '' !== $value ? $value : null;
   }
 
   private function mapResult(NonConformityResult $result): NonConformityOutput

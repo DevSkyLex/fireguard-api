@@ -121,28 +121,7 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findChecklistNotFoundException($exception);
-      if ($notFound instanceof ChecklistNotFoundException) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-      $archived = $this->findChecklistArchivedException($exception);
-      if ($archived instanceof ChecklistArchivedException) {
-        throw new ConflictHttpException($archived->getMessage(), $exception);
-      }
-      $inUse = $this->findChecklistInUseException($exception);
-      if ($inUse instanceof ChecklistInUseException) {
-        throw new ConflictHttpException($inUse->getMessage(), $exception);
-      }
-      $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
-      if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
-        throw new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
-      }
-      $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      throw $this->mapMessengerException($exception);
     }
 
     /** @var GetChecklistResult $result */
@@ -152,6 +131,32 @@ final readonly class UpdateChecklistProcessor implements ProcessorInterface
     ));
 
     return $this->mapResult($result);
+  }
+
+  private function mapMessengerException(MessengerRuntimeException $exception): Throwable
+  {
+    $notFound = $this->findChecklistNotFoundException($exception);
+    if ($notFound instanceof ChecklistNotFoundException) {
+      return new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+    $archived = $this->findChecklistArchivedException($exception);
+    if ($archived instanceof ChecklistArchivedException) {
+      return new ConflictHttpException($archived->getMessage(), $exception);
+    }
+    $inUse = $this->findChecklistInUseException($exception);
+    if ($inUse instanceof ChecklistInUseException) {
+      return new ConflictHttpException($inUse->getMessage(), $exception);
+    }
+    $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
+    if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
+      return new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
+    }
+    $invalidArgument = $this->findInvalidArgumentException($exception);
+    if ($invalidArgument instanceof InvalidArgumentException) {
+      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    return $exception;
   }
 
   private function mapResult(GetChecklistResult $result): ChecklistOutput

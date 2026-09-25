@@ -75,18 +75,6 @@ final readonly class ListInspectionsProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Missing organization.inspection.read permission.');
     }
 
-    $request = $this->requestStack->getCurrentRequest();
-    $equipmentId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('equipmentId');
-    $uriFacilityId = $uriVariables['facilityId'] ?? null;
-    $queryFacilityId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('facilityId');
-    $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
-    $result = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('result');
-    $status = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('status');
-    $performedAtFrom = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('performedAtFrom');
-    $performedAtTo = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('performedAtTo');
-    $inspectorUserId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('inspectorUserId');
-    $checklistId = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $request)->get('checklistId');
-
     $filters = \Shared\Presentation\Api\Http\OperationParameterReader::filters($operation, $context);
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
@@ -99,23 +87,11 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     $itemsPerPage = max(1, $itemsPerPage);
 
     $offset = ($page - 1) * $itemsPerPage;
+    $query = $this->listQuery($operation, $uriVariables, $context, $organizationId, $offset, $itemsPerPage);
 
     try {
       /** @var PaginatedResult<GetInspectionResult> $queryResult */
-      $queryResult = $this->queryBus->ask(new ListInspectionsQuery(
-        organizationId: $organizationId,
-        equipmentId: is_string($equipmentId) && '' !== $equipmentId ? $equipmentId : null,
-        facilityId: is_string($facilityId) && '' !== $facilityId ? $facilityId : null,
-        result: is_string($result) && '' !== $result ? $result : null,
-        status: is_string($status) && '' !== $status ? $status : null,
-        performedAtFrom: is_string($performedAtFrom) && '' !== $performedAtFrom ? $performedAtFrom : null,
-        performedAtTo: is_string($performedAtTo) && '' !== $performedAtTo ? $performedAtTo : null,
-        inspectorUserId: is_string($inspectorUserId) && '' !== $inspectorUserId ? $inspectorUserId : null,
-        checklistId: is_string($checklistId) && '' !== $checklistId ? $checklistId : null,
-        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
-        search: SearchExtractor::fromContext($context),
-        sorting: SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt'),
-      ));
+      $queryResult = $this->queryBus->ask($query);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
@@ -138,6 +114,42 @@ final readonly class ListInspectionsProvider implements ProviderInterface
       itemsPerPage: (float) $itemsPerPage,
       totalItems: (float) $queryResult->total,
     );
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   * @param array<string, mixed> $context
+   */
+  private function listQuery(
+    Operation $operation,
+    array $uriVariables,
+    array $context,
+    string $organizationId,
+    int $offset,
+    int $itemsPerPage,
+  ): ListInspectionsQuery {
+    $params = \Shared\Presentation\Api\Http\OperationParameterReader::query($operation, $this->requestStack->getCurrentRequest());
+    $facilityId = self::optionalString($uriVariables['facilityId'] ?? null) ?? $params->get('facilityId');
+
+    return new ListInspectionsQuery(
+      organizationId: $organizationId,
+      equipmentId: self::optionalString($params->get('equipmentId')),
+      facilityId: self::optionalString($facilityId),
+      result: self::optionalString($params->get('result')),
+      status: self::optionalString($params->get('status')),
+      performedAtFrom: self::optionalString($params->get('performedAtFrom')),
+      performedAtTo: self::optionalString($params->get('performedAtTo')),
+      inspectorUserId: self::optionalString($params->get('inspectorUserId')),
+      checklistId: self::optionalString($params->get('checklistId')),
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+      search: SearchExtractor::fromContext($context),
+      sorting: SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt'),
+    );
+  }
+
+  private static function optionalString(mixed $value): ?string
+  {
+    return is_string($value) && '' !== $value ? $value : null;
   }
 
   /**
