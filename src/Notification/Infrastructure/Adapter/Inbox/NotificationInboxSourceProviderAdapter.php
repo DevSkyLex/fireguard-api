@@ -6,6 +6,7 @@ namespace Notification\Infrastructure\Adapter\Inbox;
 
 use DateTimeImmutable;
 use Notification\Application\Contract\Inbox\{InboxCursor, InboxItem};
+use Notification\Application\Contract\Notification\NotificationListCriteria;
 use Notification\Application\Port\Outbound\{InboxSourceProviderPort, NotificationRepositoryPort};
 use Notification\Domain\Model\Notification\Notification;
 
@@ -59,20 +60,13 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
 
   public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit, ?InboxCursor $cursor = null): array
   {
-    // Every parameter is passed explicitly (even where it is just the
-    // default) so the intent is unambiguous: this adapter reuses the same
-    // filtered query the paginated notification list relies on, adding
-    // only the cursor.
+    // Reuse the notification list query with the inbox's organization scope
+    // and cursor. The other filters retain the collection defaults.
     $notifications = $this->notificationRepository->findByUserId(
       userId: $userId,
-      onlyUnread: false,
+      criteria: new NotificationListCriteria(organizationId: $organizationId),
       limit: $limit,
       offset: 0,
-      type: null,
-      category: null,
-      organizationId: $organizationId,
-      hideReadBefore: null,
-      hiddenReadCategories: [],
       before: $before,
       cursor: $cursor,
     );

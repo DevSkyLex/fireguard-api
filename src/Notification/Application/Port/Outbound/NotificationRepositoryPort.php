@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Notification\Application\Port\Outbound;
 
 use DateTimeImmutable;
+use Notification\Application\Contract\Inbox\InboxCursor;
+use Notification\Application\Contract\Notification\NotificationListCriteria;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
 
@@ -53,30 +55,21 @@ interface NotificationRepositoryPort
    * @since 1.0.0
    *
    * @param string $userId the user identifier
-   * @param bool $onlyUnread whether to return only unread notifications
+   * @param NotificationListCriteria $criteria filters also used by the matching count
    * @param int $limit max number of results
    * @param int $offset zero-based row offset for pagination
-   * @param string|null $type exact type filter (e.g. `organization.invitation`)
-   * @param string|null $category category prefix filter (e.g. `organization`)
-   * @param string|null $organizationId exact organization filter; when null, notifications across all organizations (and account-level ones) are returned
-   * @param DateTimeImmutable|null $hideReadBefore hides read notifications older than this cutoff for selected categories
-   * @param list<string> $hiddenReadCategories category prefixes subject to read-history masking
    * @param DateTimeImmutable|null $before cursor: when provided, restricts results to notifications created strictly before this instant (used by the unified inbox seam for stable, non-offset pagination); when null, no cursor restriction applies
+   * @param InboxCursor|null $cursor composite cursor for the unified inbox
    *
    * @return list<Notification> the notifications
    */
   public function findByUserId(
     string $userId,
-    bool $onlyUnread = false,
+    NotificationListCriteria $criteria = new NotificationListCriteria(),
     int $limit = 50,
     int $offset = 0,
-    ?string $type = null,
-    ?string $category = null,
-    ?string $organizationId = null,
-    ?DateTimeImmutable $hideReadBefore = null,
-    array $hiddenReadCategories = [],
     ?DateTimeImmutable $before = null,
-    ?\Notification\Application\Contract\Inbox\InboxCursor $cursor = null,
+    ?InboxCursor $cursor = null,
   ): array;
 
   /**
@@ -89,23 +82,13 @@ interface NotificationRepositoryPort
    * @since 1.1.0
    *
    * @param string $userId the user identifier
-   * @param bool $onlyUnread whether to count only unread notifications
-   * @param string|null $type exact type filter (e.g. `organization.invitation`)
-   * @param string|null $category category prefix filter (e.g. `organization`)
-   * @param string|null $organizationId exact organization filter; when null, notifications across all organizations (and account-level ones) are counted
-   * @param DateTimeImmutable|null $hideReadBefore hides read notifications older than this cutoff for selected categories
-   * @param list<string> $hiddenReadCategories category prefixes subject to read-history masking
+   * @param NotificationListCriteria $criteria the same filters as the collection
    *
    * @return int the total matching count
    */
   public function countByUserId(
     string $userId,
-    bool $onlyUnread = false,
-    ?string $type = null,
-    ?string $category = null,
-    ?string $organizationId = null,
-    ?DateTimeImmutable $hideReadBefore = null,
-    array $hiddenReadCategories = [],
+    NotificationListCriteria $criteria = new NotificationListCriteria(),
   ): int;
 
   /**

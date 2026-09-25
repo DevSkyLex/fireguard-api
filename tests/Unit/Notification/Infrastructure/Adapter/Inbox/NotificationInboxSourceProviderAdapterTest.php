@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Infrastructure\Adapter\Inbox;
 
 use DateTimeImmutable;
+use Notification\Application\Contract\Notification\NotificationListCriteria;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
@@ -36,14 +37,9 @@ final class NotificationInboxSourceProviderAdapterTest extends TestCase
       ->method('findByUserId')
       ->with(
         'user-1',
-        false,
+        new NotificationListCriteria(organizationId: 'org-1'),
         15,
         0,
-        null,
-        null,
-        'org-1',
-        null,
-        [],
         $before,
       )
       ->willReturn([]);
