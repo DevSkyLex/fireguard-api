@@ -23,6 +23,7 @@ use function in_array;
 use function is_string;
 use function sprintf;
 use function trim;
+use function ucfirst;
 
 /**
  * Command SendNotificationConsoleCommand.
@@ -140,38 +141,21 @@ HELP
   {
     $io = new SymfonyStyle($input, $output);
 
-    $typeRaw = $input->getArgument('type');
-    $subjectRaw = $input->getArgument('subject');
-    $bodyRaw = $input->getArgument('body');
-    $userIdRaw = $input->getOption('user-id');
-    $emailRaw = $input->getOption('email');
-    $organizationIdRaw = $input->getOption('organization-id');
-    $channelsRaw = $input->getOption('channels');
-
-    if (!is_string($typeRaw) || '' === trim($typeRaw)) {
-      $io->error('Type is required.');
-
+    $type = $this->requiredArgument($input, $io, 'type');
+    if (null === $type) {
       return Command::FAILURE;
     }
-
-    if (!is_string($subjectRaw) || '' === trim($subjectRaw)) {
-      $io->error('Subject is required.');
-
+    $subject = $this->requiredArgument($input, $io, 'subject');
+    if (null === $subject) {
       return Command::FAILURE;
     }
-
-    if (!is_string($bodyRaw) || '' === trim($bodyRaw)) {
-      $io->error('Body is required.');
-
+    $body = $this->requiredArgument($input, $io, 'body');
+    if (null === $body) {
       return Command::FAILURE;
     }
-
-    $type = trim($typeRaw);
-    $subject = trim($subjectRaw);
-    $body = trim($bodyRaw);
-    $userId = is_string($userIdRaw) && '' !== trim($userIdRaw) ? trim($userIdRaw) : null;
-    $email = is_string($emailRaw) && '' !== trim($emailRaw) ? trim($emailRaw) : null;
-    $organizationId = is_string($organizationIdRaw) && '' !== trim($organizationIdRaw) ? trim($organizationIdRaw) : null;
+    $userId = $this->nullableOption($input, 'user-id');
+    $email = $this->nullableOption($input, 'email');
+    $organizationId = $this->nullableOption($input, 'organization-id');
 
     if (!NotificationType::isValid($type)) {
       $io->warning(sprintf(
@@ -181,6 +165,7 @@ HELP
       ));
     }
 
+    $channelsRaw = $input->getOption('channels');
     $channels = $this->resolveChannels(is_string($channelsRaw) ? $channelsRaw : '');
 
     if ([] === $channels) {
@@ -230,6 +215,25 @@ HELP
 
       return Command::FAILURE;
     }
+  }
+
+  private function requiredArgument(InputInterface $input, SymfonyStyle $io, string $name): ?string
+  {
+    $raw = $input->getArgument($name);
+    if (!is_string($raw) || '' === trim($raw)) {
+      $io->error(sprintf('%s is required.', ucfirst($name)));
+
+      return null;
+    }
+
+    return trim($raw);
+  }
+
+  private function nullableOption(InputInterface $input, string $name): ?string
+  {
+    $raw = $input->getOption($name);
+
+    return is_string($raw) && '' !== trim($raw) ? trim($raw) : null;
   }
 
   /**
