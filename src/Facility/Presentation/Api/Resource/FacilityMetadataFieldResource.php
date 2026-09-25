@@ -47,7 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateFacilityMetadataFieldProcessor::class,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Create a facility metadata field definition',
@@ -55,7 +55,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Metadata field created'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Metadata field key already exists for this organization'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Organization has reached the metadata field definition cap (50)'),
@@ -70,7 +70,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilityMetadataFieldsProvider::class,
       paginationEnabled: false,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'List facility metadata field definitions',
@@ -78,7 +78,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Metadata field definitions retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
         ],
       ),
@@ -92,7 +92,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateFacilityMetadataFieldProcessor::class,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Patch a facility metadata field definition',
@@ -100,7 +100,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Metadata field updated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Metadata field not found'),
         ],
       ),
@@ -112,14 +112,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: DeleteFacilityMetadataFieldProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Delete a facility metadata field definition',
         description: 'Deletes one metadata field definition. Existing facility metadata values for this key are left untouched.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Metadata field deleted'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Metadata field not found'),
         ],
       ),
@@ -128,4 +128,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class FacilityMetadataFieldResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

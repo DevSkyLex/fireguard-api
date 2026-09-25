@@ -24,8 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'Facility',
   operations: [
-    new Post(uriTemplate: '/facilities', input: CreateFacilityInput::class, output: FacilityOutput::class, processor: CreateFacilityProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: 'canonical_facility_put', uriTemplate: '/facilities/{id}', read: false, input: CreateFacilityInput::class, output: FacilityOutput::class, processor: CreateFacilityProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(uriTemplate: '/facilities', input: CreateFacilityInput::class, output: FacilityOutput::class, processor: CreateFacilityProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: 'canonical_facility_put', uriTemplate: self::FACILITY_URI_TEMPLATE, read: false, input: CreateFacilityInput::class, output: FacilityOutput::class, processor: CreateFacilityProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       uriTemplate: '/facilities',
       output: FacilityOutput::class,
@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 50,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -66,11 +66,16 @@ use Symfony\Component\HttpFoundation\Response;
       ],
       openapi: new Operation(parameters: []),
     ),
-    new Get(uriTemplate: '/facilities/{id}', output: FacilityOutput::class, provider: CanonicalFacilityProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(name: 'canonical_facility_patch', uriTemplate: '/facilities/{id}', read: false, input: PatchCanonicalFacilityInput::class, output: FacilityOutput::class, processor: CanonicalFacilityMutationProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(name: 'canonical_facility_delete', uriTemplate: '/facilities/{id}', read: false, input: false, output: false, processor: CanonicalFacilityMutationProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(uriTemplate: self::FACILITY_URI_TEMPLATE, output: FacilityOutput::class, provider: CanonicalFacilityProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(name: 'canonical_facility_patch', uriTemplate: self::FACILITY_URI_TEMPLATE, read: false, input: PatchCanonicalFacilityInput::class, output: FacilityOutput::class, processor: CanonicalFacilityMutationProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(name: 'canonical_facility_delete', uriTemplate: self::FACILITY_URI_TEMPLATE, read: false, input: false, output: false, processor: CanonicalFacilityMutationProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class CanonicalFacilityResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FACILITY_URI_TEMPLATE = '/facilities/{id}';
+  // #endregion
 }

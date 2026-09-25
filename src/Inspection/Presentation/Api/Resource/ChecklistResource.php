@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateChecklistProcessor::class,
       denormalizationContext: ['groups' => [InspectionSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Checklist'],
         summary: 'Create a checklist',
@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Checklist created'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -50,7 +50,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -69,7 +69,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Checklist list'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -80,15 +80,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ChecklistOutput::class,
       provider: GetChecklistProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Checklist'],
         summary: 'Get a checklist',
         description: 'Retrieves detailed information about a specific checklist.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Checklist details'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Checklist not found'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -101,16 +101,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       read: false,
       processor: ArchiveChecklistProcessor::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Checklist'],
         summary: 'Archive a checklist',
         description: 'Archives a checklist, preventing it from being used in new inspections.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Checklist archived'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Checklist not found'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Checklist already archived'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -123,7 +123,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateChecklistProcessor::class,
       denormalizationContext: ['groups' => [InspectionSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Checklist'],
         summary: 'Update a checklist',
@@ -131,9 +131,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Checklist updated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Checklist not found'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Checklist archived, referenced by existing inspections, or duplicate reference code'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -141,4 +141,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class ChecklistResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+
+  private const string NOT_FOUND_DESCRIPTION = 'Checklist not found';
+  // #endregion
 }

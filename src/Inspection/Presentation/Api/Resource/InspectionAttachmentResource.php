@@ -38,7 +38,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: InspectionAttachmentOutput::class,
       processor: InspectionMediaProcessor::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Upload an inspection attachment',
@@ -47,7 +47,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CREATED => new Response(description: 'Attachment uploaded'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'MIME type or size rejected'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
         ],
       ),
@@ -59,14 +59,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: InspectionAttachmentOutput::class,
       provider: InspectionMediaProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List inspection attachments',
         description: 'Lists the inspection-level attachments of an inspection.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
         ],
       ),
@@ -79,7 +79,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: InspectionAttachmentOutput::class,
       processor: InspectionMediaProcessor::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Upload a non-conformity field-proof photo',
@@ -88,7 +88,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CREATED => new Response(description: 'Attachment uploaded'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'MIME type or size rejected'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Non-conformity not found'),
         ],
       ),
@@ -100,14 +100,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: InspectionAttachmentOutput::class,
       provider: InspectionMediaProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List non-conformity field-proof photos',
         description: 'Lists the field-proof photo attachments of a non-conformity.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Non-conformity not found'),
         ],
       ),
@@ -119,13 +119,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: InspectionAttachmentOutput::class,
       provider: InspectionMediaProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Get an inspection attachment',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachment retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Attachment not found'),
         ],
       ),
@@ -137,7 +137,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: InspectionMediaProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Delete an inspection attachment',
@@ -145,7 +145,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Attachment deleted'),
           HttpResponse::HTTP_PRECONDITION_REQUIRED => new Response(description: 'If-Match header is required'),
           HttpResponse::HTTP_PRECONDITION_FAILED => new Response(description: 'Attachment revision is stale'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Attachment not found'),
         ],
       ),
@@ -154,4 +154,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class InspectionAttachmentResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

@@ -38,7 +38,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: ImportJobOutput::class,
       processor: ConfirmImportSimulationProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       strictQueryParameterValidation: true,
       parameters: new \ApiPlatform\Metadata\Parameters(),
       openapi: new Operation(
@@ -62,7 +62,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: ImportJobOutput::class,
       processor: ResumeImportJobProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       strictQueryParameterValidation: true,
       parameters: new \ApiPlatform\Metadata\Parameters(),
       openapi: new Operation(
@@ -83,7 +83,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: ImportJobOutput::class,
       processor: CreateImportJobProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Import'],
         summary: 'Upload a bulk CSV import',
@@ -95,7 +95,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
               'schema' => [
                 'type' => 'object',
                 'properties' => [
-                  'organization' => ['type' => 'string', 'description' => 'Organization IRI.'],
+                  'organization' => ['type' => 'string', 'description' => self::ORGANIZATION_IRI_DESCRIPTION],
                   'kind' => ['type' => 'string', 'enum' => ['equipment', 'facility', 'member']],
                   'file' => ['type' => 'string', 'format' => 'binary'],
                   'dryRun' => [
@@ -125,16 +125,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Organization IRI.',
+          description: self::ORGANIZATION_IRI_DESCRIPTION,
           required: true,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'organization', in: 'query', description: self::ORGANIZATION_IRI_DESCRIPTION, required: true, schema: ['type' => 'string']),
         ),
         'kind' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -152,10 +152,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       uriTemplate: '/imports/{id}',
       output: ImportJobOutput::class,
       provider: ImportJobProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class ImportJobResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string ORGANIZATION_IRI_DESCRIPTION = 'Organization IRI.';
+  // #endregion
 }

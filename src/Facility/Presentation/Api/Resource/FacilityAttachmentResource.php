@@ -36,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityAttachmentOutput::class,
       processor: FacilityMediaProcessor::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Upload a facility attachment',
@@ -45,7 +45,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CREATED => new Response(description: 'Attachment uploaded'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'MIME type or size rejected'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
         ],
       ),
@@ -56,7 +56,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityAttachmentOutput::class,
       provider: FacilityMediaProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'kind' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['document', 'floor_plan']],
@@ -75,7 +75,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
         ],
       ),
@@ -86,14 +86,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityAttachmentOutput::class,
       provider: FacilityMediaProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Get a facility attachment',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachment retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Attachment not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -103,7 +103,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: FacilityMediaProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Delete a facility attachment',
@@ -111,8 +111,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Attachment deleted'),
           HttpResponse::HTTP_PRECONDITION_REQUIRED => new Response(description: 'If-Match header is required'),
           HttpResponse::HTTP_PRECONDITION_FAILED => new Response(description: 'Attachment revision is stale'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Attachment not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -125,7 +125,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityAttachmentOutput::class,
       processor: SetPrimaryFacilityAttachmentProcessor::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Set the facility primary floor plan',
@@ -133,8 +133,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachment promoted to primary plan'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'The attachment is not a floor plan'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Attachment not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -142,4 +142,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class FacilityAttachmentResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+
+  private const string NOT_FOUND_DESCRIPTION = 'Attachment not found';
+  // #endregion
 }

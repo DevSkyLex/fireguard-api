@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: InterventionTemplateOutput::class,
       processor: InterventionTemplateProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: InterventionOperations::LIST_INTERVENTION_TEMPLATES,
@@ -51,7 +51,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -76,29 +76,29 @@ use Symfony\Component\HttpFoundation\Response;
     ),
     new Get(
       name: InterventionOperations::GET_INTERVENTION_TEMPLATE,
-      uriTemplate: '/intervention-templates/{id}',
+      uriTemplate: self::TEMPLATE_URI_TEMPLATE,
       output: InterventionTemplateOutput::class,
       provider: InterventionTemplateProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       name: InterventionOperations::UPDATE_INTERVENTION_TEMPLATE,
-      uriTemplate: '/intervention-templates/{id}',
+      uriTemplate: self::TEMPLATE_URI_TEMPLATE,
       read: false,
       input: UpdateInterventionTemplateInput::class,
       output: InterventionTemplateOutput::class,
       processor: InterventionTemplateProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: InterventionOperations::DELETE_INTERVENTION_TEMPLATE,
-      uriTemplate: '/intervention-templates/{id}',
+      uriTemplate: self::TEMPLATE_URI_TEMPLATE,
       read: false,
       input: false,
       output: false,
       processor: InterventionTemplateProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Post(
       name: InterventionOperations::INSTANTIATE_INTERVENTION_TEMPLATE,
@@ -108,10 +108,15 @@ use Symfony\Component\HttpFoundation\Response;
       output: InstantiateInterventionTemplateOutput::class,
       processor: InstantiateInterventionTemplateProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class InterventionTemplateResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string TEMPLATE_URI_TEMPLATE = '/intervention-templates/{id}';
+  // #endregion
 }

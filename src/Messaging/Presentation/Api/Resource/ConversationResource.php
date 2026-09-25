@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -95,20 +95,20 @@ use Symfony\Component\HttpFoundation\Response;
       input: GetOrCreateConversationInput::class,
       output: ConversationOutput::class,
       processor: GetOrCreateConversationProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Get(
       uriTemplate: '/conversations/{id}',
       output: ConversationOutput::class,
       provider: GetConversationProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       uriTemplate: '/conversations/{id}',
       input: ArchiveConversationInput::class,
       output: ConversationOutput::class,
       processor: ArchiveConversationProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       name: 'messaging_mark_conversation_read',
@@ -120,14 +120,14 @@ use Symfony\Component\HttpFoundation\Response;
       // works entirely from the URI id and the command, so skip the read.
       read: false,
       processor: MarkConversationReadProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Get(
       name: 'messaging_conversation_subscription',
       uriTemplate: '/conversations/{id}/subscription',
       output: MessagingSubscriptionOutput::class,
       provider: GetMessagingSubscriptionProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     // L1.5: favorite conversations (sidebar ordering only — a channel id IS
     // a conversation id, so these ALSO cover channels, unlike the pin/save
@@ -140,7 +140,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: ConversationOutput::class,
       processor: FavoriteConversationProcessor::class,
       status: Response::HTTP_OK,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: 'unfavorite_conversation',
@@ -149,7 +149,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: UnfavoriteConversationProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     // Conversation activity heatmap: 26 (default) zero-filled daily buckets
     // ending today (UTC), gated by the same read access rule as
@@ -161,7 +161,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: ConversationActivityBucketOutput::class,
       provider: GetConversationActivityProvider::class,
       paginationEnabled: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'buckets' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'integer'],
@@ -179,4 +179,7 @@ use Symfony\Component\HttpFoundation\Response;
 )]
 final class ConversationResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }

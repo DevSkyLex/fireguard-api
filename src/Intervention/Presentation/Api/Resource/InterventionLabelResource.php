@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: InterventionLabelOutput::class,
       processor: InterventionLabelProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: InterventionOperations::LIST_INTERVENTION_LABELS,
@@ -46,7 +46,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -67,7 +67,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: UpdateInterventionLabelInput::class,
       output: InterventionLabelOutput::class,
       processor: InterventionLabelProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: InterventionOperations::DELETE_INTERVENTION_LABEL,
@@ -77,10 +77,13 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: InterventionLabelProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class InterventionLabelResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }

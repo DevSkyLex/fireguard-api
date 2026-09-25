@@ -25,8 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'InterventionChange',
   operations: [
-    new Post(name: InterventionOperations::CREATE_INTERVENTION_CHANGE, uriTemplate: '/intervention-changes', input: CreateInterventionChangeInput::class, output: InterventionChangeOutput::class, processor: InterventionChangeProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: InterventionOperations::PUT_INTERVENTION_CHANGE, uriTemplate: '/intervention-changes/{id}', read: false, input: CreateInterventionChangeInput::class, output: InterventionChangeOutput::class, processor: InterventionChangeProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(name: InterventionOperations::CREATE_INTERVENTION_CHANGE, uriTemplate: '/intervention-changes', input: CreateInterventionChangeInput::class, output: InterventionChangeOutput::class, processor: InterventionChangeProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: InterventionOperations::PUT_INTERVENTION_CHANGE, uriTemplate: self::CHANGE_URI_TEMPLATE, read: false, input: CreateInterventionChangeInput::class, output: InterventionChangeOutput::class, processor: InterventionChangeProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       name: InterventionOperations::LIST_INTERVENTION_CHANGES,
       uriTemplate: '/intervention-changes',
@@ -68,13 +68,18 @@ use Symfony\Component\HttpFoundation\Response;
         ),
       ],
       openapi: new Operation(parameters: []),
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
-    new Get(name: InterventionOperations::GET_INTERVENTION_CHANGE, uriTemplate: '/intervention-changes/{id}', output: InterventionChangeOutput::class, provider: InterventionChangeProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(name: InterventionOperations::UPDATE_INTERVENTION_CHANGE, uriTemplate: '/intervention-changes/{id}', read: false, input: UpdateInterventionChangeInput::class, output: InterventionChangeOutput::class, processor: InterventionChangeProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(name: InterventionOperations::DELETE_INTERVENTION_CHANGE, uriTemplate: '/intervention-changes/{id}', read: false, input: false, output: false, processor: InterventionChangeProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(name: InterventionOperations::GET_INTERVENTION_CHANGE, uriTemplate: self::CHANGE_URI_TEMPLATE, output: InterventionChangeOutput::class, provider: InterventionChangeProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(name: InterventionOperations::UPDATE_INTERVENTION_CHANGE, uriTemplate: self::CHANGE_URI_TEMPLATE, read: false, input: UpdateInterventionChangeInput::class, output: InterventionChangeOutput::class, processor: InterventionChangeProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(name: InterventionOperations::DELETE_INTERVENTION_CHANGE, uriTemplate: self::CHANGE_URI_TEMPLATE, read: false, input: false, output: false, processor: InterventionChangeProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class InterventionChangeResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string CHANGE_URI_TEMPLATE = '/intervention-changes/{id}';
+  // #endregion
 }

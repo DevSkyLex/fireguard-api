@@ -25,8 +25,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'InterventionWorkItem',
   operations: [
-    new Post(name: InterventionOperations::CREATE_INTERVENTION_WORK_ITEM, uriTemplate: '/intervention-work-items', input: CreateInterventionWorkItemInput::class, output: InterventionWorkItemOutput::class, processor: InterventionWorkItemProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: InterventionOperations::PUT_INTERVENTION_WORK_ITEM, uriTemplate: '/intervention-work-items/{id}', read: false, input: CreateInterventionWorkItemInput::class, output: InterventionWorkItemOutput::class, processor: InterventionWorkItemProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(name: InterventionOperations::CREATE_INTERVENTION_WORK_ITEM, uriTemplate: '/intervention-work-items', input: CreateInterventionWorkItemInput::class, output: InterventionWorkItemOutput::class, processor: InterventionWorkItemProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: InterventionOperations::PUT_INTERVENTION_WORK_ITEM, uriTemplate: self::WORK_ITEM_URI_TEMPLATE, read: false, input: CreateInterventionWorkItemInput::class, output: InterventionWorkItemOutput::class, processor: InterventionWorkItemProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       name: InterventionOperations::LIST_INTERVENTION_WORK_ITEMS,
       uriTemplate: '/intervention-work-items',
@@ -102,13 +102,18 @@ use Symfony\Component\HttpFoundation\Response;
         ),
       ],
       openapi: new Operation(parameters: []),
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
-    new Get(name: InterventionOperations::GET_INTERVENTION_WORK_ITEM, uriTemplate: '/intervention-work-items/{id}', output: InterventionWorkItemOutput::class, provider: InterventionWorkItemProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(name: InterventionOperations::UPDATE_INTERVENTION_WORK_ITEM, uriTemplate: '/intervention-work-items/{id}', read: false, input: UpdateInterventionWorkItemInput::class, output: InterventionWorkItemOutput::class, processor: InterventionWorkItemProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(name: InterventionOperations::DELETE_INTERVENTION_WORK_ITEM, uriTemplate: '/intervention-work-items/{id}', read: false, input: false, output: false, processor: InterventionWorkItemProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(name: InterventionOperations::GET_INTERVENTION_WORK_ITEM, uriTemplate: self::WORK_ITEM_URI_TEMPLATE, output: InterventionWorkItemOutput::class, provider: InterventionWorkItemProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(name: InterventionOperations::UPDATE_INTERVENTION_WORK_ITEM, uriTemplate: self::WORK_ITEM_URI_TEMPLATE, read: false, input: UpdateInterventionWorkItemInput::class, output: InterventionWorkItemOutput::class, processor: InterventionWorkItemProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(name: InterventionOperations::DELETE_INTERVENTION_WORK_ITEM, uriTemplate: self::WORK_ITEM_URI_TEMPLATE, read: false, input: false, output: false, processor: InterventionWorkItemProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class InterventionWorkItemResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string WORK_ITEM_URI_TEMPLATE = '/intervention-work-items/{id}';
+  // #endregion
 }

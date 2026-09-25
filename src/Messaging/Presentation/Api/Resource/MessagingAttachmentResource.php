@@ -36,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: MessageAttachmentOutput::class,
       processor: MessagingMediaProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Messaging'],
         summary: 'Upload a message attachment',
@@ -45,7 +45,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CREATED => new Response(description: 'Attachment uploaded'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'MIME type, size, or message state rejected'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Message not found'),
         ],
       ),
@@ -60,7 +60,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'page' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'integer'],
@@ -86,7 +86,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Attachments retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Conversation not found'),
         ],
       ),
@@ -98,7 +98,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: MessagingMediaProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Messaging'],
         summary: 'Delete a message attachment',
@@ -106,7 +106,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Attachment deleted'),
           HttpResponse::HTTP_PRECONDITION_REQUIRED => new Response(description: 'If-Match header is required'),
           HttpResponse::HTTP_PRECONDITION_FAILED => new Response(description: 'Attachment revision is stale'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Attachment not found'),
         ],
       ),
@@ -115,4 +115,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class MessagingAttachmentResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

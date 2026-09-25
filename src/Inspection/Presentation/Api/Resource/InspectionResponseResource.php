@@ -24,8 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'InspectionResponse',
   operations: [
-    new Post(uriTemplate: '/inspection-responses', input: CreateInspectionResponseInput::class, output: InspectionResponseOutput::class, processor: InspectionResponseProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: 'inspection_response_put', uriTemplate: '/inspection-responses/{id}', read: false, input: CreateInspectionResponseInput::class, output: InspectionResponseOutput::class, processor: InspectionResponseProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(uriTemplate: '/inspection-responses', input: CreateInspectionResponseInput::class, output: InspectionResponseOutput::class, processor: InspectionResponseProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: 'inspection_response_put', uriTemplate: self::RESPONSE_URI_TEMPLATE, read: false, input: CreateInspectionResponseInput::class, output: InspectionResponseOutput::class, processor: InspectionResponseProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       uriTemplate: '/inspection-responses',
       output: InspectionResponseOutput::class,
@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 50,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -75,11 +75,16 @@ use Symfony\Component\HttpFoundation\Response;
       ],
       openapi: new Operation(parameters: []),
     ),
-    new Get(uriTemplate: '/inspection-responses/{id}', output: InspectionResponseOutput::class, provider: InspectionResponseProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(uriTemplate: '/inspection-responses/{id}', read: false, input: PatchInspectionResponseInput::class, output: InspectionResponseOutput::class, processor: InspectionResponseProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(uriTemplate: '/inspection-responses/{id}', read: false, input: false, output: false, processor: InspectionResponseProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(uriTemplate: self::RESPONSE_URI_TEMPLATE, output: InspectionResponseOutput::class, provider: InspectionResponseProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(uriTemplate: self::RESPONSE_URI_TEMPLATE, read: false, input: PatchInspectionResponseInput::class, output: InspectionResponseOutput::class, processor: InspectionResponseProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(uriTemplate: self::RESPONSE_URI_TEMPLATE, read: false, input: false, output: false, processor: InspectionResponseProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class InspectionResponseResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string RESPONSE_URI_TEMPLATE = '/inspection-responses/{id}';
+  // #endregion
 }

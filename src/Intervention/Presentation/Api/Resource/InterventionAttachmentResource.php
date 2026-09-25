@@ -36,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: InterventionAttachmentOutput::class,
       processor: InterventionMediaProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         parameters: [
           new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
@@ -66,7 +66,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: false,
       output: InterventionAttachmentOutput::class,
       provider: InterventionMediaProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'workItem' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -86,7 +86,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: false,
       output: InterventionAttachmentOutput::class,
       provider: InterventionMediaProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: InterventionOperations::DELETE_INTERVENTION_ATTACHMENT,
@@ -96,10 +96,13 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: InterventionMediaProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class InterventionAttachmentResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }

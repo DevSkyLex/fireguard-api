@@ -42,7 +42,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateCalendarEventProcessor::class,
       denormalizationContext: ['groups' => [CalendarSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [CalendarSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Create calendar event',
@@ -56,11 +56,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Get(
       name: CalendarOperations::GET_CALENDAR_EVENT,
-      uriTemplate: '/{organizationId}/calendar/events/{eventId}',
+      uriTemplate: self::EVENT_URI_TEMPLATE,
       output: CalendarEventOutput::class,
       provider: GetCalendarEventProvider::class,
       normalizationContext: ['groups' => [CalendarSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Get calendar event',
@@ -73,14 +73,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Patch(
       name: CalendarOperations::UPDATE_CALENDAR_EVENT,
-      uriTemplate: '/{organizationId}/calendar/events/{eventId}',
+      uriTemplate: self::EVENT_URI_TEMPLATE,
       read: false,
       input: UpdateCalendarEventInput::class,
       output: CalendarEventOutput::class,
       processor: UpdateCalendarEventProcessor::class,
       denormalizationContext: ['groups' => [CalendarSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [CalendarSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Update calendar event',
@@ -89,12 +89,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Delete(
       name: CalendarOperations::DELETE_CALENDAR_EVENT,
-      uriTemplate: '/{organizationId}/calendar/events/{eventId}',
+      uriTemplate: self::EVENT_URI_TEMPLATE,
       read: false,
       input: false,
       output: false,
       processor: DeleteCalendarEventProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Delete calendar event',
@@ -110,4 +110,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class CalendarEventResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string EVENT_URI_TEMPLATE = '/{organizationId}/calendar/events/{eventId}';
+  // #endregion
 }

@@ -37,7 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: InterventionRecurrenceOutput::class,
       processor: InterventionRecurrenceProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: InterventionOperations::LIST_INTERVENTION_RECURRENCES,
@@ -48,7 +48,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -73,32 +73,37 @@ use Symfony\Component\HttpFoundation\Response;
     ),
     new Get(
       name: InterventionOperations::GET_INTERVENTION_RECURRENCE,
-      uriTemplate: '/intervention-recurrences/{id}',
+      uriTemplate: self::RECURRENCE_URI_TEMPLATE,
       output: InterventionRecurrenceOutput::class,
       provider: InterventionRecurrenceProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       name: InterventionOperations::UPDATE_INTERVENTION_RECURRENCE,
-      uriTemplate: '/intervention-recurrences/{id}',
+      uriTemplate: self::RECURRENCE_URI_TEMPLATE,
       read: false,
       input: UpdateInterventionRecurrenceInput::class,
       output: InterventionRecurrenceOutput::class,
       processor: InterventionRecurrenceProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: InterventionOperations::DELETE_INTERVENTION_RECURRENCE,
-      uriTemplate: '/intervention-recurrences/{id}',
+      uriTemplate: self::RECURRENCE_URI_TEMPLATE,
       read: false,
       input: false,
       output: false,
       processor: InterventionRecurrenceProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class InterventionRecurrenceResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string RECURRENCE_URI_TEMPLATE = '/intervention-recurrences/{id}';
+  // #endregion
 }

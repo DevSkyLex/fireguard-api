@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AddNonConformityProcessor::class,
       denormalizationContext: ['groups' => [InspectionSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Add a non-conformity',
@@ -38,7 +38,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CREATED => new Response(description: 'Non-conformity created'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -53,25 +53,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'severity' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by severity (low, medium, high, critical)',
+          description: self::SEVERITY_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'severity', in: 'query', description: self::SEVERITY_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by status (open, in_progress, done, waived)',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'status', in: 'query', description: self::STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(
@@ -82,7 +82,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -97,25 +97,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'severity' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by severity (low, medium, high, critical)',
+          description: self::SEVERITY_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'severity', in: 'query', description: self::SEVERITY_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by status (open, in_progress, done, waived)',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'status', in: 'query', description: self::STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(
@@ -125,7 +125,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -139,25 +139,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       deserialize: false,
       serialize: false,
       output: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'severity' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by severity (low, medium, high, critical)',
+          description: self::SEVERITY_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'severity', in: 'query', description: self::SEVERITY_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by status (open, in_progress, done, waived)',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'status', in: 'query', description: self::STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(
@@ -190,25 +190,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       deserialize: false,
       serialize: false,
       output: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'severity' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by severity (low, medium, high, critical)',
+          description: self::SEVERITY_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'severity', in: 'query', description: self::SEVERITY_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by status (open, in_progress, done, waived)',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'status', in: 'query', description: self::STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(
@@ -239,7 +239,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: NonConformityOutput::class,
       provider: GetNonConformityProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Get a non-conformity',
@@ -247,7 +247,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity details'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Non-conformity not found'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -260,7 +260,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateNonConformityStatusProcessor::class,
       denormalizationContext: ['groups' => [InspectionSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'Update non-conformity status',
@@ -270,7 +270,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Non-conformity not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Non-conformity already resolved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -278,4 +278,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class NonConformityResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+
+  private const string SEVERITY_FILTER_DESCRIPTION = 'Filter by severity (low, medium, high, critical)';
+
+  private const string STATUS_FILTER_DESCRIPTION = 'Filter by status (open, in_progress, done, waived)';
+  // #endregion
 }
