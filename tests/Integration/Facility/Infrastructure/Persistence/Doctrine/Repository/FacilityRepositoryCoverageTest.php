@@ -6,6 +6,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
@@ -329,35 +330,35 @@ final class FacilityRepositoryCoverageTest extends KernelTestCase
     $buildings = $this->repository->findByOrganizationId(
       organizationId: $organizationId,
       includeArchived: true,
-      type: 'building',
+      criteria: new FacilityListCriteria(type: 'building'),
     );
     self::assertSame([self::BETA_ID, self::GAMMA_ID], $this->facilityIds($buildings));
     self::assertSame(2, $this->repository->countByOrganizationId(
       organizationId: $organizationId,
       includeArchived: true,
-      type: 'building',
+      criteria: new FacilityListCriteria(type: 'building'),
     ));
 
     // Explicit status filter (an explicit status disables the default active filter).
-    $archived = $this->repository->findByOrganizationId(organizationId: $organizationId, status: 'archived');
+    $archived = $this->repository->findByOrganizationId(organizationId: $organizationId, criteria: new FacilityListCriteria(status: 'archived'));
     self::assertSame([self::GAMMA_ID], $this->facilityIds($archived));
 
     // Exact code filter.
-    $byCode = $this->repository->findByOrganizationId(organizationId: $organizationId, code: 'HQ-001');
+    $byCode = $this->repository->findByOrganizationId(organizationId: $organizationId, criteria: new FacilityListCriteria(code: 'HQ-001'));
     self::assertSame([self::ALPHA_ID], $this->facilityIds($byCode));
-    self::assertSame(1, $this->repository->countByOrganizationId(organizationId: $organizationId, code: 'HQ-001'));
+    self::assertSame(1, $this->repository->countByOrganizationId(organizationId: $organizationId, criteria: new FacilityListCriteria(code: 'HQ-001')));
 
     // Parent filter (non roots-only branch).
     $childrenOfAlpha = $this->repository->findByOrganizationId(
       organizationId: $organizationId,
       includeArchived: true,
-      parentFacilityId: self::ALPHA_ID,
+      criteria: new FacilityListCriteria(parentFacilityId: self::ALPHA_ID),
     );
     self::assertSame([self::BETA_ID, self::GAMMA_ID], $this->facilityIds($childrenOfAlpha));
     self::assertSame(2, $this->repository->countByOrganizationId(
       organizationId: $organizationId,
       includeArchived: true,
-      parentFacilityId: self::ALPHA_ID,
+      criteria: new FacilityListCriteria(parentFacilityId: self::ALPHA_ID),
     ));
   }
 

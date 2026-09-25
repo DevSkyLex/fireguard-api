@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\ExportFacilities;
 
 use Facility\Application\Contract\Export\{FacilityExportCandidate, FacilityExportRow};
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Exception\{FacilityAccessDeniedException, FacilityExportTooLargeException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
@@ -123,9 +124,7 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
       throw InvalidValueException::because('rootsOnly cannot be combined with parentFacilityId.');
     }
 
-    $total = $this->facilityRepository->countByOrganizationId(
-      organizationId: $organizationId,
-      includeArchived: $includeArchived,
+    $criteria = new FacilityListCriteria(
       type: $type,
       status: $status,
       parentFacilityId: $parentFacilityId,
@@ -135,6 +134,12 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
       hasCoordinates: $hasCoordinates,
     );
 
+    $total = $this->facilityRepository->countByOrganizationId(
+      organizationId: $organizationId,
+      includeArchived: $includeArchived,
+      criteria: $criteria,
+    );
+
     if ($total > self::MAX_EXPORT_ROWS) {
       throw FacilityExportTooLargeException::exceedsCap(matched: $total, maxRows: self::MAX_EXPORT_ROWS);
     }
@@ -142,16 +147,10 @@ final readonly class ExportFacilitiesHandler implements QueryHandler
     $facilities = $this->facilityRepository->findByOrganizationId(
       organizationId: $organizationId,
       includeArchived: $includeArchived,
-      type: $type,
-      status: $status,
-      parentFacilityId: $parentFacilityId,
-      code: $code,
-      search: $search,
+      criteria: $criteria,
       sorting: new Sorting('name', SortDirection::ASC),
       limit: self::MAX_EXPORT_ROWS,
       offset: 0,
-      rootsOnly: $rootsOnly,
-      hasCoordinates: $hasCoordinates,
     );
 
     $candidates = array_map(static fn (Facility $facility): FacilityExportCandidate => new FacilityExportCandidate(

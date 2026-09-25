@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\Port\Outbound;
 
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -168,26 +169,14 @@ interface FacilityRepositoryPort
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
    * @param bool $includeArchived whether archived facilities are included by default when no explicit status filter is provided
-   * @param ?string $type optional type filter
-   * @param ?string $status optional status filter
-   * @param ?string $parentFacilityId optional parent facility filter
-   * @param ?string $code optional exact code filter
-   * @param ?string $search optional text search applied before counting
-   * @param bool $rootsOnly whether only facilities without parent are counted
-   * @param ?bool $hasCoordinates when true, count only facilities with both latitude and longitude set; when false, count only facilities missing coordinates; null applies no coordinate filtering
+   * @param FacilityListCriteria $criteria filters applied before counting
    *
    * @return int the facilities count
    */
   public function countByOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $parentFacilityId = null,
-    ?string $code = null,
-    ?string $search = null,
-    bool $rootsOnly = false,
-    ?bool $hasCoordinates = null,
+    FacilityListCriteria $criteria = new FacilityListCriteria(),
   ): int;
 
   /**
@@ -283,32 +272,20 @@ interface FacilityRepositoryPort
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
    * @param bool $includeArchived whether archived facilities are included by default when no explicit status filter is provided
-   * @param ?string $type optional type filter
-   * @param ?string $status optional status filter
-   * @param ?string $parentFacilityId optional parent facility filter
-   * @param ?string $code optional exact code filter
-   * @param ?string $search optional text search applied before pagination
+   * @param FacilityListCriteria $criteria filters applied before pagination
    * @param Sorting $sorting requested sorting applied before pagination
    * @param int $limit maximum number of results
    * @param int $offset result offset
-   * @param bool $rootsOnly whether only facilities without parent are listed
-   * @param ?bool $hasCoordinates when true, list only facilities with both latitude and longitude set; when false, list only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return list<Facility> the facilities collection
    */
   public function findByOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
-    ?string $type = null,
-    ?string $status = null,
-    ?string $parentFacilityId = null,
-    ?string $code = null,
-    ?string $search = null,
+    FacilityListCriteria $criteria = new FacilityListCriteria(),
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
-    bool $rootsOnly = false,
-    ?bool $hasCoordinates = null,
   ): array;
 
   /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Adapter\Organization;
 
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\{FacilityOrganizationId, FacilityStatus, FacilityType};
 use Organization\Application\Port\Outbound\FacilityStatisticsPort;
@@ -38,7 +39,7 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
     return $this->facilityRepository->countByOrganizationId(
       organizationId: FacilityOrganizationId::fromString($organizationId),
       includeArchived: true,
-      type: $type,
+      criteria: new FacilityListCriteria(type: $type),
     );
   }
 
@@ -50,8 +51,7 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
     return $this->facilityRepository->countByOrganizationId(
       organizationId: FacilityOrganizationId::fromString($organizationId),
       includeArchived: false,
-      type: $type,
-      status: FacilityStatus::ACTIVE->value,
+      criteria: new FacilityListCriteria(type: $type, status: FacilityStatus::ACTIVE->value),
     );
   }
 

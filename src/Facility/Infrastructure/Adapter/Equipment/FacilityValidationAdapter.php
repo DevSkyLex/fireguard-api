@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Adapter\Equipment;
 
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
+use Facility\Application\Contract\Facility\FacilityListCriteria;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
@@ -81,7 +82,7 @@ final readonly class FacilityValidationAdapter implements FacilityValidationPort
     $matches = $this->facilityRepository->findByOrganizationId(
       organizationId: FacilityOrganizationId::fromString($organizationId),
       includeArchived: false,
-      code: $code,
+      criteria: new FacilityListCriteria(code: $code),
       limit: 1,
       offset: 0,
     );
