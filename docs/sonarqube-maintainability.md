@@ -1,8 +1,10 @@
 # Triage des issues Maintenability SonarQube — API `develop`
 
 Le scan du commit `a0b87097508456e28bde666e96b6ff9c206451b6` (23 septembre 2026)
-comptait 889 issues Maintenability ouvertes. Ce relevé est un point de départ :
-les issues et leurs emplacements sont à revérifier après chaque analyse de `develop`.
+comptait 889 issues Maintenability ouvertes. Le 25 septembre, après les PR
+intermédiaires déjà fusionnées et avant le lot agrégé, le projet
+`fireguard-api-develop` en compte 705. Ce relevé est un point de départ : les
+issues et leurs emplacements sont à revérifier après chaque analyse de `develop`.
 
 Chaque PR de correction cite les clés des issues traitées et les tests qui protègent
 le comportement. Les décisions ci-dessous concernent uniquement les alertes qui
@@ -25,8 +27,17 @@ projet `fireguard-api-develop`, après revue du cas et commentaire dans SonarQub
 | Clé Sonar | Règle et emplacement | Décision | Preuve et justification | Commit / revue |
 | --- | --- | --- | --- | --- |
 
-Aucune décision **False Positive** ou **Accepted** n'est établie sur l'API
-`develop` au 25 septembre 2026.
+| `73de1227-a548-4e1d-80c9-1f621d75b226` | `php:S1144`, `ApprovalActionTypeCatalogProvider::toOutput` | False Positive | `provide()` transmet `self::toOutput(...)` à `array_map(ApprovalActionTypes::all())` ligne 45 ; méthode et corps couverts par les tests. | Triage du 25 septembre 2026 |
+| `ef76e739-659a-4351-92ed-ae943be1cd54` | `php:S1144`, `CalendarFeedAggregator::compare` | False Positive | `usort($items, self::compare(...))` ligne 136 appelle le comparateur privé pour ordonner le flux. | Triage du 25 septembre 2026 |
+| `70ff2332-46e8-49a0-8633-0ee2e9cbe481` | `php:S1144`, `ListSafetyRegisterSnapshotsHandler::toView` | False Positive | `array_map(self::toView(...), $snapshots)` ligne 88 convertit les instantanés. | Triage du 25 septembre 2026 |
+| `6b323f8a-e81a-440a-b84c-c912b9058856` | `php:S1144`, `ImportJobOutputFactory::rowErrorOutput` | False Positive | `array_map(self::rowErrorOutput(...), $view->errorReport)` ligne 76 convertit chaque erreur de ligne. | Triage du 25 septembre 2026 |
+| `947dde4e-703a-4498-9142-43e4de016b2e` | `php:S1144`, `InterventionTemplateProcessor::itemPayload` | False Positive | `array_map(self::itemPayload(...), $data->items)` lignes 95 et 118 produit les charges des éléments. | Triage du 25 septembre 2026 |
+| `dcf17992-1744-414b-94d4-bf45d5adb669` | `php:S1144`, `EditMessageProcessor::referenceToArray` | False Positive | `array_map(self::referenceToArray(...), $data->references)` ligne 96 convertit les références du message édité. | Triage du 25 septembre 2026 |
+| `ac5a0cf0-917c-4bb2-8e26-cdabcaa08f97` | `php:S1144`, `PostMessageProcessor::referenceToArray` | False Positive | Même callable passé à `array_map` ligne 96, dans la création d'un message. | Triage du 25 septembre 2026 |
+| `549eb967-1f84-40f7-857a-3dd028ef084c` | `php:S1144`, `PutMessageProcessor::referenceToArray` | False Positive | Même callable passé à `array_map` ligne 123, dans le remplacement d'un message. | Triage du 25 septembre 2026 |
+| `87a599b2-ca8d-4807-a777-efd15325df4d` | `php:S1144`, `GetConversationActivityProvider::toOutput` | False Positive | `array_map(self::toOutput(...), $result->buckets)` ligne 105 construit les éléments d'activité. | Triage du 25 septembre 2026 |
+| `b4239fd6-6ab3-4d70-885e-5f07ed57be98` | `php:S1144`, `InboxAggregator::compare` | False Positive | `usort($collected, self::compare(...))` ligne 107 appelle le comparateur de la boîte de réception. | Triage du 25 septembre 2026 |
+| `09408df4-e375-40b5-a444-eb3adb2d2b3a` | `php:S1144`, `WebhookEventTypeProvider::toOutput` | False Positive | `array_map(self::toOutput(...), WebhookEventCatalog::allowedEventTypes())` ligne 48 construit les sorties du catalogue. | Triage du 25 septembre 2026 |
 
 ## Inventaire `php:S107` à examiner individuellement
 
