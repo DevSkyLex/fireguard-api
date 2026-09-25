@@ -36,8 +36,43 @@ final class ConsentMapperTest extends TestCase
 
     $consent = ConsentMapper::toDomain($record);
 
+    self::assertSame($record->id->toRfc4122(), $consent->id()->value);
     self::assertSame('user-1', $consent->userId());
     self::assertSame('client-1', $consent->clientId());
+    self::assertSame(['OPENID'], $consent->scopes()->toArray());
+    self::assertSame($record->grantedAt, $consent->grantedAt());
+    self::assertFalse($consent->isRevoked());
+    self::assertNull($consent->revokedAt());
+    self::assertFalse($consent->hasScope('READ'));
+
+    $restoredRecord = ConsentMapper::toRecord($consent);
+    self::assertSame($record->id->toRfc4122(), $restoredRecord->id->toRfc4122());
+    self::assertSame($record->grantedAt, $restoredRecord->grantedAt);
+    self::assertNull($restoredRecord->revokedAt);
+  }
+
+  #[Test]
+  public function testToDomainPreservesRevokedConsent(): void
+  {
+    $record = new ConsentRecord();
+    $record->id = Uuid::fromString('123e4567-e89b-12d3-a456-426614174000');
+    $record->userId = 'user-1';
+    $record->clientId = 'client-1';
+    $record->scopes = ['OPENID'];
+    $record->grantedAt = new DateTimeImmutable('2024-01-01 00:00:00');
+    $record->revokedAt = new DateTimeImmutable('2024-01-02 00:00:00');
+
+    $consent = ConsentMapper::toDomain($record);
+
+    self::assertTrue($consent->isRevoked());
+    self::assertSame($record->revokedAt, $consent->revokedAt());
+    $consent->revoke();
+    self::assertSame($record->revokedAt, $consent->revokedAt());
+
+    $restoredRecord = ConsentMapper::toRecord($consent);
+    self::assertSame($record->scopes, $restoredRecord->scopes);
+    self::assertSame($record->grantedAt, $restoredRecord->grantedAt);
+    self::assertSame($record->revokedAt, $restoredRecord->revokedAt);
   }
 
   #[Test]

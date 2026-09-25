@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client;
 
-use OAuth\Domain\Model\Client\Client;
+use OAuth\Domain\Model\Client\{Client, RestoredClientLifecycle, RestoredClientSettings};
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret};
 use OAuth\Domain\ValueObject\Scope\Scopes;
 use OAuth\Domain\ValueObject\Security\GrantTypes;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\ClientRecord;
-use ReflectionClass;
 use Symfony\Component\Uid\Uuid;
 
 use function array_map;
@@ -42,37 +41,24 @@ final class ClientMapper
    */
   public static function toDomain(ClientRecord $record): Client
   {
-    $reflection = new ReflectionClass(objectOrClass: Client::class);
-    $client = $reflection->newInstanceWithoutConstructor();
+    /** @var list<string> $redirectUris */
+    $redirectUris = $record->redirectUris;
 
-    $idProperty = $reflection->getProperty(name: 'id');
-    $idProperty->setValue($client, new ClientId(value: $record->id->toRfc4122()));
-
-    $nameProperty = $reflection->getProperty(name: 'name');
-    $nameProperty->setValue($client, new ClientName(value: $record->name));
-
-    $secretProperty = $reflection->getProperty(name: 'secret');
-    $secretProperty->setValue($client, new ClientSecret(value: $record->secret));
-
-    $redirectUrisProperty = $reflection->getProperty(name: 'redirectUris');
-    $redirectUrisProperty->setValue($client, $record->redirectUris);
-
-    $grantTypesProperty = $reflection->getProperty(name: 'grantTypes');
-    $grantTypesProperty->setValue($client, GrantTypes::fromArray(grantTypes: $record->grantTypes));
-
-    $scopesProperty = $reflection->getProperty(name: 'scopes');
-    $scopesProperty->setValue($client, Scopes::fromArray(scopes: $record->scopes));
-
-    $isActiveProperty = $reflection->getProperty(name: 'isActive');
-    $isActiveProperty->setValue($client, $record->isActive);
-
-    $createdAtProperty = $reflection->getProperty(name: 'createdAt');
-    $createdAtProperty->setValue($client, $record->createdAt);
-
-    $deletedAtProperty = $reflection->getProperty(name: 'deletedAt');
-    $deletedAtProperty->setValue($client, $record->deletedAt);
-
-    return $client;
+    return Client::restore(
+      id: new ClientId(value: $record->id->toRfc4122()),
+      name: new ClientName(value: $record->name),
+      secret: new ClientSecret(value: $record->secret),
+      settings: new RestoredClientSettings(
+        redirectUris: $redirectUris,
+        grantTypes: GrantTypes::fromArray(grantTypes: $record->grantTypes),
+        scopes: Scopes::fromArray(scopes: $record->scopes),
+      ),
+      lifecycle: new RestoredClientLifecycle(
+        isActive: $record->isActive,
+        createdAt: $record->createdAt,
+        deletedAt: $record->deletedAt,
+      ),
+    );
   }
 
   /**
