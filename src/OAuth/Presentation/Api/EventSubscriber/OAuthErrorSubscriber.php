@@ -177,10 +177,9 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
       $previous = $exception->getPrevious();
 
       if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof OAuthAuthorizationException || $nestedException instanceof OAuthServerException) {
-            return $nestedException;
-          }
+        $nestedException = $this->oauthWrappedException($previous);
+        if (null !== $nestedException) {
+          return $nestedException;
         }
       }
 
@@ -194,14 +193,24 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
     }
 
     if ($exception instanceof HandlerFailedException) {
-      foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof OAuthAuthorizationException || $nestedException instanceof OAuthServerException) {
-          return $nestedException;
-        }
+      $nestedException = $this->oauthWrappedException($exception);
+      if (null !== $nestedException) {
+        return $nestedException;
       }
     }
 
     return $exception;
+  }
+
+  private function oauthWrappedException(HandlerFailedException $exception): ?Throwable
+  {
+    foreach ($exception->getWrappedExceptions() as $nestedException) {
+      if ($nestedException instanceof OAuthAuthorizationException || $nestedException instanceof OAuthServerException) {
+        return $nestedException;
+      }
+    }
+
+    return null;
   }
 
   /**
