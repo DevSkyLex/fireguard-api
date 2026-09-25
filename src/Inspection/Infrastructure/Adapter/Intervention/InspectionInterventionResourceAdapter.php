@@ -262,29 +262,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
     }
     $previousStatus = $record->status;
 
-    if (array_key_exists('result', $patch)) {
-      $result = $patch['result'];
-      if (!is_string($result) || !in_array($result, self::RESULTS, true)) {
-        throw new InterventionConflictException('Proposed inspection result is invalid.');
-      }
-      $record->result = $result;
-    }
-    if (array_key_exists('status', $patch)) {
-      $status = $patch['status'];
-      if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
-        throw new InterventionConflictException('Proposed inspection status is invalid.');
-      }
-      $record->status = $status;
-    }
-    foreach (['notes', 'signature'] as $property) {
-      if (array_key_exists($property, $patch)) {
-        $value = $patch[$property];
-        if (null !== $value && !is_string($value)) {
-          throw new InterventionConflictException(sprintf('Inspection field "%s" must be a string or null.', $property));
-        }
-        $record->{$property} = $value;
-      }
-    }
+    $this->applyPatch($record, $patch);
 
     // A published inspection follows the domain lifecycle even on the
     // intervention publication path: draft -> submitted -> closed, no skipping.
@@ -356,6 +334,36 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ->setParameter('draft', 'draft')
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * @param array<string, mixed> $patch
+   */
+  private function applyPatch(InspectionRecord $record, array $patch): void
+  {
+    if (array_key_exists('result', $patch)) {
+      $result = $patch['result'];
+      if (!is_string($result) || !in_array($result, self::RESULTS, true)) {
+        throw new InterventionConflictException('Proposed inspection result is invalid.');
+      }
+      $record->result = $result;
+    }
+    if (array_key_exists('status', $patch)) {
+      $status = $patch['status'];
+      if (!is_string($status) || !in_array($status, self::STATUSES, true)) {
+        throw new InterventionConflictException('Proposed inspection status is invalid.');
+      }
+      $record->status = $status;
+    }
+    foreach (['notes', 'signature'] as $property) {
+      if (array_key_exists($property, $patch)) {
+        $value = $patch[$property];
+        if (null !== $value && !is_string($value)) {
+          throw new InterventionConflictException(sprintf('Inspection field "%s" must be a string or null.', $property));
+        }
+        $record->{$property} = $value;
+      }
+    }
   }
 
   /**

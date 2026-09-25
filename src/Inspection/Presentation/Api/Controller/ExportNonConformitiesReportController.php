@@ -278,35 +278,41 @@ final class ExportNonConformitiesReportController extends AbstractController
 
     if (isset($context['severityGroups']) && is_array($context['severityGroups'])) {
       $context['severityGroups'] = array_map(
-        static function (mixed $group) use ($formatter): mixed {
-          if (!is_array($group) || !isset($group['rows']) || !is_array($group['rows'])) {
-            return $group;
-          }
-
-          $group['rows'] = array_map(
-            static function (mixed $row) use ($formatter): mixed {
-              if (!is_array($row)) {
-                return $row;
-              }
-
-              $createdAt = $row['createdAt'] ?? null;
-              $row['createdAt'] = $formatter->formatDate(is_string($createdAt) ? $createdAt : null);
-
-              $resolvedAt = $row['resolvedAt'] ?? null;
-              $row['resolvedAt'] = $formatter->formatDate(is_string($resolvedAt) ? $resolvedAt : null);
-
-              return $row;
-            },
-            $group['rows'],
-          );
-
-          return $group;
-        },
+        static fn (mixed $group): mixed => self::localizeSeverityGroup($group, $formatter),
         $context['severityGroups'],
       );
     }
 
     return $context;
+  }
+
+  private static function localizeSeverityGroup(mixed $group, DocumentDateFormatter $formatter): mixed
+  {
+    if (!is_array($group) || !isset($group['rows']) || !is_array($group['rows'])) {
+      return $group;
+    }
+
+    $group['rows'] = array_map(
+      static fn (mixed $row): mixed => self::localizeNonConformityRow($row, $formatter),
+      $group['rows'],
+    );
+
+    return $group;
+  }
+
+  private static function localizeNonConformityRow(mixed $row, DocumentDateFormatter $formatter): mixed
+  {
+    if (!is_array($row)) {
+      return $row;
+    }
+
+    $createdAt = $row['createdAt'] ?? null;
+    $row['createdAt'] = $formatter->formatDate(is_string($createdAt) ? $createdAt : null);
+
+    $resolvedAt = $row['resolvedAt'] ?? null;
+    $row['resolvedAt'] = $formatter->formatDate(is_string($resolvedAt) ? $resolvedAt : null);
+
+    return $row;
   }
   // #endregion
 }

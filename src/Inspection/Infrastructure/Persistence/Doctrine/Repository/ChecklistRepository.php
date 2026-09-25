@@ -53,46 +53,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     $existing = $this->checklistRepository->find($record->id);
 
     if ($existing instanceof ChecklistRecord) {
-      $existing->organization = $organization;
-      $existing->name = $record->name;
-      $existing->referenceCode = $record->referenceCode;
-      $existing->version = $record->version;
-      $existing->status = $record->status;
-      $existing->updatedAt = $record->updatedAt;
-
-      // Upsert items: update existing, add new, remove deleted
-      $existingItems = $this->itemRepository->findBy(['checklist' => $existing]);
-      /** @var array<string, ChecklistItemRecord> $existingById */
-      $existingById = [];
-      foreach ($existingItems as $existingItem) {
-        $existingById[$existingItem->id] = $existingItem;
-      }
-
-      $newIds = [];
-      foreach ($itemRecords as $itemRecord) {
-        $newIds[] = $itemRecord->id;
-        if (isset($existingById[$itemRecord->id])) {
-          $existingById[$itemRecord->id]->label = $itemRecord->label;
-          $existingById[$itemRecord->id]->position = $itemRecord->position;
-          $existingById[$itemRecord->id]->required = $itemRecord->required;
-          $existingById[$itemRecord->id]->description = $itemRecord->description;
-        } else {
-          $itemRecord->checklist = $existing;
-          $this->entityManager->persist($itemRecord);
-        }
-      }
-
-      foreach ($existingItems as $existingItem) {
-        if (!in_array($existingItem->id, $newIds, true)) {
-          $this->entityManager->remove($existingItem);
-        }
-      }
+      $this->updateExistingRecord($existing, $record, $organization, $itemRecords);
     } else {
-      $this->entityManager->persist($record);
-      foreach ($itemRecords as $itemRecord) {
-        $itemRecord->checklist = $record;
-        $this->entityManager->persist($itemRecord);
-      }
+      $this->insertRecord($record, $itemRecords);
     }
 
     $this->entityManager->flush();
@@ -263,6 +226,59 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     );
 
     return $ids;
+  }
+
+  /**
+   * @param list<ChecklistItemRecord> $itemRecords
+   */
+  private function updateExistingRecord(ChecklistRecord $existing, ChecklistRecord $record, OrganizationRecord $organization, array $itemRecords): void
+  {
+    $existing->organization = $organization;
+    $existing->name = $record->name;
+    $existing->referenceCode = $record->referenceCode;
+    $existing->version = $record->version;
+    $existing->status = $record->status;
+    $existing->updatedAt = $record->updatedAt;
+
+    // Upsert items: update existing, add new, remove deleted.
+    $existingItems = $this->itemRepository->findBy(['checklist' => $existing]);
+    /** @var array<string, ChecklistItemRecord> $existingById */
+    $existingById = [];
+    foreach ($existingItems as $existingItem) {
+      $existingById[$existingItem->id] = $existingItem;
+    }
+
+    $newIds = [];
+    foreach ($itemRecords as $itemRecord) {
+      $newIds[] = $itemRecord->id;
+      if (isset($existingById[$itemRecord->id])) {
+        $existingById[$itemRecord->id]->label = $itemRecord->label;
+        $existingById[$itemRecord->id]->position = $itemRecord->position;
+        $existingById[$itemRecord->id]->required = $itemRecord->required;
+        $existingById[$itemRecord->id]->description = $itemRecord->description;
+      } else {
+        $itemRecord->checklist = $existing;
+        $this->entityManager->persist($itemRecord);
+      }
+    }
+
+    foreach ($existingItems as $existingItem) {
+      if (!in_array($existingItem->id, $newIds, true)) {
+        $this->entityManager->remove($existingItem);
+      }
+    }
+  }
+
+  /**
+   * @param list<ChecklistItemRecord> $itemRecords
+   */
+  private function insertRecord(ChecklistRecord $record, array $itemRecords): void
+  {
+    $this->entityManager->persist($record);
+    foreach ($itemRecords as $itemRecord) {
+      $itemRecord->checklist = $record;
+      $this->entityManager->persist($itemRecord);
+    }
   }
 
   private function createListQueryBuilder(

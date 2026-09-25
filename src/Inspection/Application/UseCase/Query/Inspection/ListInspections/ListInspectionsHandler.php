@@ -9,6 +9,7 @@ use Exception;
 use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
+use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -106,6 +107,23 @@ final readonly class ListInspectionsHandler implements QueryHandler
       $query->search,
     );
 
+    $results = $this->mapResults($inspections);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
+    );
+  }
+
+  /**
+   * @param list<Inspection> $inspections
+   *
+   * @return list<GetInspectionResult>
+   */
+  private function mapResults(array $inspections): array
+  {
     $results = [];
 
     $inspectionIds = [];
@@ -169,12 +187,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
       );
     }
 
-    return new PaginatedResult(
-      items: $results,
-      total: $total,
-      limit: $query->pagination->limit,
-      offset: $query->pagination->offset,
-    );
+    return $results;
   }
   // #endregion
 }

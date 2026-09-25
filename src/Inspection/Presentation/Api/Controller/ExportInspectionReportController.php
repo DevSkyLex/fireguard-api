@@ -335,26 +335,29 @@ final class ExportInspectionReportController extends AbstractController
 
     if (isset($context['nonConformities']) && is_array($context['nonConformities'])) {
       $context['nonConformities'] = array_map(
-        static function (mixed $nonConformity) use ($formatter): mixed {
-          if (!is_array($nonConformity)) {
-            return $nonConformity;
-          }
-
-          foreach (['dueAt', 'resolvedAt'] as $dateKey) {
-            $value = $nonConformity[$dateKey] ?? null;
-            $nonConformity[$dateKey] = $formatter->formatDate(is_string($value) ? $value : null);
-          }
-
-          $createdAt = $nonConformity['createdAt'] ?? null;
-          $nonConformity['createdAt'] = $formatter->formatDateTime(is_string($createdAt) ? $createdAt : null);
-
-          return $nonConformity;
-        },
+        static fn (mixed $nonConformity): mixed => self::localizeNonConformity($nonConformity, $formatter),
         $context['nonConformities'],
       );
     }
 
     return $context;
+  }
+
+  private static function localizeNonConformity(mixed $nonConformity, DocumentDateFormatter $formatter): mixed
+  {
+    if (!is_array($nonConformity)) {
+      return $nonConformity;
+    }
+
+    foreach (['dueAt', 'resolvedAt'] as $dateKey) {
+      $value = $nonConformity[$dateKey] ?? null;
+      $nonConformity[$dateKey] = $formatter->formatDate(is_string($value) ? $value : null);
+    }
+
+    $createdAt = $nonConformity['createdAt'] ?? null;
+    $nonConformity['createdAt'] = $formatter->formatDateTime(is_string($createdAt) ? $createdAt : null);
+
+    return $nonConformity;
   }
   // #endregion
 }
