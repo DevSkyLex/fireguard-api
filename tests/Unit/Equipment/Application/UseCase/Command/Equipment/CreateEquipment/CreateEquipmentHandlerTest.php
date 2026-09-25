@@ -8,8 +8,10 @@ use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityNaming
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\EquipmentId;
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
 use InvalidArgumentException;
+use Onboarding\Application\Contract\Setup\{OrganizationSetupContext, OrganizationSetupOperation};
+use Onboarding\Application\Port\Inbound\OrganizationSetupPort;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -263,6 +265,130 @@ final class CreateEquipmentHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function itCompletesTheSetupReceiptInsideTheCreationTransaction(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440981';
+    $equipmentId = '550e8400-e29b-41d4-a716-446655440905';
+    $facilityId = '550e8400-e29b-41d4-a716-446655440990';
+    $context = new OrganizationSetupContext('user-id', 'session-id', 'first-item');
+    $calls = [];
+
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::once())->method('transactional')->willReturnCallback(
+      static function (callable $operation) use (&$calls): mixed {
+        $calls[] = 'transaction.begin';
+        $result = $operation();
+        $calls[] = 'transaction.end';
+
+        return $result;
+      },
+    );
+
+    $setup = $this->createMock(OrganizationSetupPort::class);
+    $setup->expects(self::once())->method('begin')->willReturnCallback(
+      static function (OrganizationSetupContext $actualContext, string $step, ?string $actualOrganizationId, array $payload) use (&$calls, $context, $organizationId, $facilityId): OrganizationSetupOperation {
+        $calls[] = 'receipt.begin';
+        self::assertSame($context, $actualContext);
+        self::assertSame('create_first_equipment', $step);
+        self::assertSame($organizationId, $actualOrganizationId);
+        self::assertSame('/api/facilities/' . $facilityId, $payload['facility']);
+
+        return new OrganizationSetupOperation($step, $context->itemKey, []);
+      },
+    );
+    $setup->expects(self::once())->method('complete')->willReturnCallback(
+      static function (OrganizationSetupContext $actualContext, string $step, string $resourceId) use (&$calls, $context, $equipmentId): void {
+        $calls[] = 'receipt.complete';
+        self::assertSame($context, $actualContext);
+        self::assertSame('create_first_equipment', $step);
+        self::assertSame($equipmentId, $resourceId);
+      },
+    );
+
+    $validation = $this->createMock(FacilityValidationPort::class);
+    $validation->expects(self::once())->method('assertFacilityIsAssignable')->willReturnCallback(
+      static function (string $actualFacilityId, string $actualOrganizationId) use (&$calls, $facilityId, $organizationId): void {
+        $calls[] = 'facility.validate';
+        self::assertSame($facilityId, $actualFacilityId);
+        self::assertSame($organizationId, $actualOrganizationId);
+      },
+    );
+
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::once())->method('assertCanAdd')->willReturnCallback(
+      static function (string $actualOrganizationId, OrganizationQuotaResource $resource) use (&$calls, $organizationId): void {
+        $calls[] = 'quota';
+        self::assertSame($organizationId, $actualOrganizationId);
+        self::assertSame(OrganizationQuotaResource::EQUIPMENT, $resource);
+      },
+    );
+
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->willReturnCallback(
+      static function (Equipment $equipment) use (&$calls, $facilityId): void {
+        $calls[] = 'save';
+        self::assertSame($facilityId, (string) $equipment->facilityId());
+      },
+    );
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new EquipmentId($equipmentId));
+
+    $result = ($this->handler($repository, $uuidFactory, $quota, $validation, $setup, $transactionManager))(
+      new CreateEquipmentCommand(
+        organizationId: $organizationId,
+        type: 'fire_extinguisher',
+        resourceId: null,
+        setupContext: $context,
+        facilityId: $facilityId,
+      ),
+    );
+
+    self::assertSame($equipmentId, $result->equipmentId);
+    self::assertSame(['transaction.begin', 'receipt.begin', 'facility.validate', 'quota', 'save', 'receipt.complete', 'transaction.end'], $calls);
+  }
+
+  #[Test]
+  public function itReplaysAnExistingSetupReceiptWithoutCreatingAnotherEquipment(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440981';
+    $equipmentId = '550e8400-e29b-41d4-a716-446655440905';
+    $context = new OrganizationSetupContext('user-id', 'session-id', 'first-item');
+    $existing = Equipment::create(
+      new EquipmentId($equipmentId),
+      new EquipmentOrganizationId($organizationId),
+      EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $setup = $this->createMock(OrganizationSetupPort::class);
+    $setup->expects(self::once())->method('begin')->willReturn(new OrganizationSetupOperation(
+      'create_first_equipment',
+      $context->itemKey,
+      [],
+      $equipmentId,
+    ));
+    $setup->expects(self::never())->method('complete');
+
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->with(self::callback(
+      static fn (EquipmentId $id): bool => (string) $id === $equipmentId,
+    ))->willReturn($existing);
+    $repository->expects(self::never())->method('save');
+
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new EquipmentId('550e8400-e29b-41d4-a716-446655440906'));
+
+    $result = ($this->handler($repository, $uuidFactory, $quota, setup: $setup))(
+      new CreateEquipmentCommand($organizationId, 'fire_extinguisher', setupContext: $context),
+    );
+
+    self::assertSame($equipmentId, $result->equipmentId);
+  }
+
   /**
    * Builds the handler with a pass-through transaction manager (invokes the
    * operation inline) and a permissive quota port unless one is supplied.
@@ -272,11 +398,15 @@ final class CreateEquipmentHandlerTest extends TestCase
     UuidFactory $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
     ?FacilityValidationPort $facilityValidation = null,
+    ?OrganizationSetupPort $setup = null,
+    ?TransactionManagerPort $transactionManager = null,
   ): CreateEquipmentHandler {
-    $transactionManager = $this->createStub(TransactionManagerPort::class);
-    $transactionManager->method('transactional')->willReturnCallback(
-      static fn (callable $operation): mixed => $operation(),
-    );
+    if (null === $transactionManager) {
+      $transactionManager = $this->createStub(TransactionManagerPort::class);
+      $transactionManager->method('transactional')->willReturnCallback(
+        static fn (callable $operation): mixed => $operation(),
+      );
+    }
 
     return new CreateEquipmentHandler(
       facilityNaming: $this->createStub(FacilityNamingPort::class),
@@ -285,6 +415,7 @@ final class CreateEquipmentHandlerTest extends TestCase
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
       transactionManager: $transactionManager,
       facilityValidation: $facilityValidation,
+      setup: $setup,
     );
   }
 }
