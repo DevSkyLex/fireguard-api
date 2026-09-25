@@ -72,14 +72,12 @@ final readonly class MessagingConversationFavoriteRepository implements Messagin
       return [];
     }
 
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT conversation_id FROM messaging_conversation_favorites WHERE member_id = :memberId AND conversation_id IN (:conversationIds)',
       ['memberId' => $memberId, 'conversationIds' => $conversationIds],
       ['conversationIds' => ArrayParameterType::STRING],
     );
-
-    return $ids;
   }
   // #endregion
 }

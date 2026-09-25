@@ -46,8 +46,7 @@ trait InvitationInvalidationTrait
     string $revokedByUserId,
     string $expectedTokenHash,
   ): ?OrganizationInvitation {
-    /** @var OrganizationInvitation|null $invalidated */
-    $invalidated = $this->transactionManager->transactional(function () use (
+    return $this->transactionManager->transactional(function () use (
       $invitationId,
       $revokedByUserId,
       $expectedTokenHash,
@@ -62,7 +61,5 @@ trait InvitationInvalidationTrait
 
       return $invitation;
     });
-
-    return $invalidated;
   }
 }

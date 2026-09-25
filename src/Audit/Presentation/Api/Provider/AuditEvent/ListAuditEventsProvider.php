@@ -181,9 +181,7 @@ final readonly class ListAuditEventsProvider implements ProviderInterface
       return $parsed;
     }
 
-    $parsed = new DateTimeImmutable($value);
-
-    return $parsed;
+    return new DateTimeImmutable($value);
   }
 
   /**

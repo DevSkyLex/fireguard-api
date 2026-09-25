@@ -376,13 +376,11 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       SELECT id, name, type FROM ancestors ORDER BY depth DESC
       SQL;
 
-    /** @var list<array{id: string, name: string, type: string}> $rows */
-    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+    /** @var list<array{id: string, name: string, type: string}> */
+    return $this->entityManager->getConnection()->executeQuery($sql, [
       'facilityId' => $facilityId,
       'published' => 'published',
     ])->fetchAllAssociative();
-
-    return $rows;
   }
 
   /**
@@ -1137,14 +1135,12 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       SELECT id FROM descendants
       SQL;
 
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->executeQuery($sql, [
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->executeQuery($sql, [
       'rootId' => $rootId,
       'organizationId' => (string) $organizationId,
       'published' => 'published',
     ])->fetchFirstColumn();
-
-    return $ids;
   }
 
   /**

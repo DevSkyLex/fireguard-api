@@ -133,16 +133,14 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
 
   public function removePendingForUser(UserId $userId): int
   {
-    /** @var int $deleted */
-    $deleted = $this->entityManager->createQueryBuilder()
+    /** @var int */
+    return $this->entityManager->createQueryBuilder()
       ->delete(UserEmailChangeRequestRecord::class, 'r')
       ->where('r.userId = :userId')
       ->andWhere(self::UNCONFIRMED_PREDICATE)
       ->setParameter('userId', $userId->value)
       ->getQuery()
       ->execute();
-
-    return $deleted;
   }
 
   /**

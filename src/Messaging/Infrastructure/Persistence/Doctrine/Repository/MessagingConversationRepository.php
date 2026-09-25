@@ -344,13 +344,11 @@ final readonly class MessagingConversationRepository implements MessagingConvers
 
   public function findChannelIdsBoundToTeam(string $organizationId, string $teamId): array
   {
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       "SELECT id FROM messaging_conversations WHERE organization_id = :organizationId AND team_id = :teamId AND subject_type = 'channel'",
       ['organizationId' => $organizationId, 'teamId' => $teamId],
     );
-
-    return $ids;
   }
 
   public function findSubjectTypesByIds(array $conversationIds): array
@@ -359,14 +357,12 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       return [];
     }
 
-    /** @var array<string, string> $map */
-    $map = $this->entityManager->getConnection()->fetchAllKeyValue(
+    /** @var array<string, string> */
+    return $this->entityManager->getConnection()->fetchAllKeyValue(
       'SELECT id, subject_type FROM messaging_conversations WHERE id IN (:conversationIds)',
       ['conversationIds' => $conversationIds],
       ['conversationIds' => ArrayParameterType::STRING],
     );
-
-    return $map;
   }
 
   /**

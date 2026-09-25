@@ -218,14 +218,12 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     }
 
     // Draft inspections already contain evidence; publication status never relaxes immutability.
-    /** @var list<string> $ids */
-    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+    /** @var list<string> */
+    return $this->entityManager->getConnection()->fetchFirstColumn(
       'SELECT DISTINCT checklist_id FROM inspections WHERE organization_id = :organization AND checklist_id IN (:ids)',
       ['organization' => (string) $organizationId, 'ids' => $checklistIds],
       ['ids' => \Doctrine\DBAL\ArrayParameterType::STRING],
     );
-
-    return $ids;
   }
 
   /**

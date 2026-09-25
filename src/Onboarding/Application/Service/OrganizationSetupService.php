@@ -245,10 +245,9 @@ final readonly class OrganizationSetupService implements OrganizationSetupPort
         $normalized[$coordinate] = (float) $normalized[$coordinate];
       }
     }
-    /** @var array<string,mixed> $canonical */
-    $canonical = $this->canonicalize($normalized);
 
-    return $canonical;
+    /** @var array<string,mixed> */
+    return $this->canonicalize($normalized);
   }
 
   /**
