@@ -136,28 +136,7 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
-      if (null !== $accessDenied) {
-        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
-      }
-
-      $conflict = $this->findWrappedException($exception, OrganizationLastAdminException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
-      if (null !== $invalidArgument) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->rethrowWrappedFailure($exception);
     }
 
     $output = new OrganizationRoleOutput();
@@ -179,6 +158,32 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     $output->description = $result->description;
 
     return $output;
+  }
+
+  private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
+  {
+    $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
+    if (null !== $accessDenied) {
+      throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
+    }
+
+    $conflict = $this->findWrappedException($exception, OrganizationLastAdminException::class);
+    if (null !== $conflict) {
+      throw new ConflictHttpException($conflict->getMessage(), $exception);
+    }
+
+    $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
+      ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
+    if (null !== $notFound) {
+      throw new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+    if (null !== $invalidArgument) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
 
   // #endregion

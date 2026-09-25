@@ -56,51 +56,13 @@ final readonly class OrganizationDomainProofAdapter implements OrganizationDomai
    */
   public function normalize(string $domain): string
   {
-    $domain = strtolower(rtrim(trim($domain), '.'));
-    if (function_exists('idn_to_ascii')) {
-      $ascii = idn_to_ascii($domain);
-      if (false === $ascii) {
-        throw new OrganizationJoinInputException('organization_join_domain_invalid');
-      }
-      $domain = strtolower($ascii);
-    }
+    $domain = $this->asciiDomain($domain);
     if (1 !== preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/D', $domain)) {
       throw new OrganizationJoinInputException('organization_join_domain_invalid');
     }
-    $psl = __DIR__ . '/../../Resources/public_suffix_list.dat';
-    $disposable = __DIR__ . '/../../Resources/disposable_email_blocklist.conf';
-    if (!is_file($psl) || !is_file($disposable)) {
-      throw new OrganizationJoinInputException('organization_join_domain_catalog_unavailable');
-    }
-    $rules = file($psl, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    $blocked = file($disposable, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if (false === $rules || false === $blocked) {
-      throw new OrganizationJoinInputException('organization_join_domain_catalog_unavailable');
-    }
-    $parts = explode('.', $domain);
-    $suffix = $parts[count($parts) - 1];
-    $exception = false;
-    foreach ($rules as $rule) {
-      $rule = strtolower(trim($rule));
-      if ('' === $rule || str_starts_with($rule, '//')) {
-        continue;
-      }
-      if ('!' . $domain === $rule) {
-        $exception = true;
-      }
-      if ($domain === $rule || ('*.' . implode('.', array_slice($parts, 1))) === $rule) {
-        $suffix = $domain;
-      }
-    }
-    if (!$exception && $suffix === $domain) {
-      throw new OrganizationJoinInputException('organization_join_domain_public');
-    }
-    foreach ([...self::GENERIC, ...$blocked] as $item) {
-      $item = strtolower(trim($item));
-      if ('' !== $item && ($domain === $item || str_ends_with($domain, '.' . $item))) {
-        throw new OrganizationJoinInputException('organization_join_domain_generic');
-      }
-    }
+    [$rules, $blocked] = $this->catalogs();
+    $this->assertRegistrableDomain($domain, $rules);
+    $this->assertNotBlocked($domain, $blocked);
 
     return $domain;
   }
@@ -156,5 +118,76 @@ final readonly class OrganizationDomainProofAdapter implements OrganizationDomai
     $hex = bin2hex($bytes);
 
     return substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-' . substr($hex, 12, 4) . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
+  }
+
+  private function asciiDomain(string $domain): string
+  {
+    $domain = strtolower(rtrim(trim($domain), '.'));
+    if (function_exists('idn_to_ascii')) {
+      $ascii = idn_to_ascii($domain);
+      if (false === $ascii) {
+        throw new OrganizationJoinInputException('organization_join_domain_invalid');
+      }
+      $domain = strtolower($ascii);
+    }
+
+    return $domain;
+  }
+
+  /**
+   * @return array{list<string>, list<string>}
+   */
+  private function catalogs(): array
+  {
+    $psl = __DIR__ . '/../../Resources/public_suffix_list.dat';
+    $disposable = __DIR__ . '/../../Resources/disposable_email_blocklist.conf';
+    if (!is_file($psl) || !is_file($disposable)) {
+      throw new OrganizationJoinInputException('organization_join_domain_catalog_unavailable');
+    }
+    $rules = file($psl, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    $blocked = file($disposable, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (false === $rules || false === $blocked) {
+      throw new OrganizationJoinInputException('organization_join_domain_catalog_unavailable');
+    }
+
+    return [$rules, $blocked];
+  }
+
+  /**
+   * @param list<string> $rules
+   */
+  private function assertRegistrableDomain(string $domain, array $rules): void
+  {
+    $parts = explode('.', $domain);
+    $suffix = $parts[count($parts) - 1];
+    $exception = false;
+    foreach ($rules as $rule) {
+      $rule = strtolower(trim($rule));
+      if ('' === $rule || str_starts_with($rule, '//')) {
+        continue;
+      }
+      if ('!' . $domain === $rule) {
+        $exception = true;
+      }
+      if ($domain === $rule || ('*.' . implode('.', array_slice($parts, 1))) === $rule) {
+        $suffix = $domain;
+      }
+    }
+    if (!$exception && $suffix === $domain) {
+      throw new OrganizationJoinInputException('organization_join_domain_public');
+    }
+  }
+
+  /**
+   * @param list<string> $blocked
+   */
+  private function assertNotBlocked(string $domain, array $blocked): void
+  {
+    foreach ([...self::GENERIC, ...$blocked] as $item) {
+      $item = strtolower(trim($item));
+      if ('' !== $item && ($domain === $item || str_ends_with($domain, '.' . $item))) {
+        throw new OrganizationJoinInputException('organization_join_domain_generic');
+      }
+    }
   }
 }

@@ -116,26 +116,31 @@ final readonly class ResendOrganizationInvitationProcessor implements ProcessorI
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class)
-        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $notificationFailed = $this->findWrappedException($exception, OrganizationInvitationNotificationFailedException::class);
-      if (null !== $notificationFailed) {
-        throw new HttpException(self::HTTP_BAD_GATEWAY, $notificationFailed->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
-      if (null !== $invalidArgument) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->rethrowWrappedFailure($exception);
     }
 
     return $this->buildInvitationOutput($result);
+  }
+
+  private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
+  {
+    $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class)
+      ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
+    if (null !== $notFound) {
+      throw new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $notificationFailed = $this->findWrappedException($exception, OrganizationInvitationNotificationFailedException::class);
+    if (null !== $notificationFailed) {
+      throw new HttpException(self::HTTP_BAD_GATEWAY, $notificationFailed->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+    if (null !== $invalidArgument) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
 
   /**
