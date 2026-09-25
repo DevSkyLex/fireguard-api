@@ -61,7 +61,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
       ],
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'List all roles',
         description: 'Returns a paginated list of all roles with their associated permissions. Requires roles.read permission.',
         security: [['bearerAuth' => []]],
@@ -71,7 +71,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'List of roles retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions - roles.read required',
@@ -81,14 +81,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Get(
       name: AuthorizationOperations::ROLE_GET,
-      uriTemplate: '/roles/{id}',
+      uriTemplate: self::ITEM_URI,
       input: false,
       output: RoleOutput::class,
       provider: GetRoleProvider::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
       security: "is_granted('roles.read')",
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'Get role details',
         description: 'Returns details of a specific role including all its assigned permissions. Requires roles.read permission.',
         security: [['bearerAuth' => []]],
@@ -100,30 +100,30 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::ROLE_UPDATE,
                 'description' => 'Update this role',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'DeleteRole' => [
                 'operationId' => AuthorizationOperations::ROLE_DELETE,
                 'description' => 'Delete this role (if not a system role)',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'AddPermission' => [
                 'operationId' => AuthorizationOperations::ROLE_ADD_PERMISSION,
-                'description' => 'Add a permission to this role',
+                'description' => self::ADD_PERMISSION_DESCRIPTION,
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found',
+            description: self::NOT_FOUND,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions - roles.read required',
@@ -141,7 +141,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       denormalizationContext: ['groups' => [RoleSerializationGroup::WRITE]],
       security: "is_granted('roles.create')",
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'Create a new role',
         description: 'Creates a new role with optional permissions. Role names must be unique and follow the naming convention (lowercase, starts with letter). Requires roles.create permission.',
         security: [['bearerAuth' => []]],
@@ -153,14 +153,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the created role details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'AddPermission' => [
                 'operationId' => AuthorizationOperations::ROLE_ADD_PERMISSION,
-                'description' => 'Add a permission to this role',
+                'description' => self::ADD_PERMISSION_DESCRIPTION,
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
@@ -172,7 +172,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role name already exists',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions - roles.create required',
@@ -182,15 +182,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Patch(
       name: AuthorizationOperations::ROLE_UPDATE,
-      uriTemplate: '/roles/{id}',
+      uriTemplate: self::ITEM_URI,
       input: RoleInput::class,
       output: RoleOutput::class,
       processor: UpdateRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
       denormalizationContext: ['groups' => [RoleSerializationGroup::UPDATE]],
-      security: "is_granted('roles.update')",
+      security: self::UPDATE_SECURITY,
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'Update a role',
         description: 'Updates the description or permissions of an existing role. Role name cannot be changed after creation. Requires roles.update permission.',
         security: [['bearerAuth' => []]],
@@ -202,7 +202,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the updated role details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
@@ -211,26 +211,26 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Invalid request - validation failed',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found',
+            description: self::NOT_FOUND,
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - roles.update required',
+            description: self::UPDATE_FORBIDDEN,
           ),
         ],
       ),
     ),
     new Delete(
       name: AuthorizationOperations::ROLE_DELETE,
-      uriTemplate: '/roles/{id}',
+      uriTemplate: self::ITEM_URI,
       input: false,
       output: false,
       processor: DeleteRoleProcessor::class,
       security: "is_granted('roles.delete')",
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'Delete a role',
         description: 'Permanently deletes a role. System roles cannot be deleted. Users assigned to this role will lose these permissions. Requires roles.delete permission.',
         security: [['bearerAuth' => []]],
@@ -239,13 +239,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found',
+            description: self::NOT_FOUND,
           ),
           HttpResponse::HTTP_CONFLICT => new Response(
             description: 'Cannot delete system role',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions - roles.delete required',
@@ -267,9 +267,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: RoleOutput::class,
       processor: AddPermissionToRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('roles.update')",
+      security: self::UPDATE_SECURITY,
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'Add permission to role',
         description: 'Adds a permission to an existing role. If the permission is already assigned, no error is returned. Requires roles.update permission.',
         security: [['bearerAuth' => []]],
@@ -281,14 +281,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the role details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'RemovePermission' => [
                 'operationId' => AuthorizationOperations::ROLE_REMOVE_PERMISSION,
                 'description' => 'Remove a permission from this role',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
@@ -300,10 +300,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role or permission not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - roles.update required',
+            description: self::UPDATE_FORBIDDEN,
           ),
         ],
       ),
@@ -325,9 +325,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: RoleOutput::class,
       processor: RemovePermissionFromRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('roles.update')",
+      security: self::UPDATE_SECURITY,
       openapi: new Operation(
-        tags: ['Authorization - Roles'],
+        tags: [self::TAG],
         summary: 'Remove permission from role',
         description: 'Removes a permission from an existing role. Returns the updated role. Requires roles.update permission.',
         security: [['bearerAuth' => []]],
@@ -339,14 +339,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                 'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the role details',
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
               'AddPermission' => [
                 'operationId' => AuthorizationOperations::ROLE_ADD_PERMISSION,
-                'description' => 'Add a permission to this role',
+                'description' => self::ADD_PERMISSION_DESCRIPTION,
                 'parameters' => [
-                  'id' => '$response.body#/id',
+                  'id' => self::RESPONSE_ID,
                 ],
               ],
             ]),
@@ -355,10 +355,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role or permission not found, or permission not assigned to role',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token',
+            description: self::AUTHENTICATION_REQUIRED,
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - roles.update required',
+            description: self::UPDATE_FORBIDDEN,
           ),
         ],
       ),
@@ -367,4 +367,19 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class RoleResource
 {
+  private const TAG = 'Authorization - Roles';
+
+  private const AUTHENTICATION_REQUIRED = 'Authentication required - missing or invalid access token';
+
+  private const ITEM_URI = '/roles/{id}';
+
+  private const RESPONSE_ID = '$response.body#/id';
+
+  private const ADD_PERMISSION_DESCRIPTION = 'Add a permission to this role';
+
+  private const NOT_FOUND = 'Role not found';
+
+  private const UPDATE_SECURITY = "is_granted('roles.update')";
+
+  private const UPDATE_FORBIDDEN = 'Insufficient permissions - roles.update required';
 }
