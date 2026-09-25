@@ -8,9 +8,11 @@ use DateTimeImmutable;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationJoinAccessPort};
 use Organization\Application\Port\Outbound\{OrganizationJoinRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationJoinException, OrganizationNotFoundException};
+use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationJoin\{OrganizationDomain, OrganizationJoinRequest};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationJoinMode, OrganizationJoinPermissions, OrganizationRoleId, OrganizationRoleName};
 use Throwable;
+use User\Application\Contract\EmailOwnershipResult;
 use User\Application\Port\Inbound\EmailOwnershipPort;
 
 use function array_map;
@@ -126,36 +128,11 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
   {
     $org = $this->organizations->findById(OrganizationId::fromString($request->organizationId));
     $state = $request->state(new DateTimeImmutable());
-
-    try {
-      $email = $this->emails->get($request->userId);
-      $emailMatches = $email->verified && null !== $email->verifiedAt && $email->verifiedAt <= $request->createdAt && strtolower($email->email) === $request->email;
-    } catch (Throwable $failure) {
-      if ('email_ownership_unavailable' !== $failure->getMessage()) {
-        throw $failure;
-      }
-      $emailMatches = false;
-    }
-    if ('pending' === $state && !$emailMatches) {
+    $email = $this->requestEmailProof($request);
+    if ('pending' === $state && !$this->emailMatchesRequest($email, $request)) {
       $state = 'cancelled';
     }
-    $actions = [];
-    if ('pending' === $state && $actor === $request->userId) {
-      $actions = ['cancel'];
-    }
-    if ($manager && 'pending' === $state) {
-      $actions = ['reject'];
-      if (null !== $org && $org->status()->isActive() && isset($email) && $email->verified && OrganizationJoinMode::INVITATION_ONLY !== $this->joins->policy($request->organizationId)->mode) {
-        try {
-          $this->eligibleDomain($request->organizationId, $email->email, new DateTimeImmutable());
-          $actions = ['approve', 'reject'];
-        } catch (OrganizationJoinException) { /* Missing proof is an expected eligibility state. */
-        }
-      }
-    }
-    if ('approved' === $state && $actor === $request->userId && null !== $org && $org->status()->isActive() && $this->authorization->isMemberOf($actor, $request->organizationId)) {
-      $actions = ['open'];
-    }
+    $actions = $this->requestActions($request, $actor, $manager, $state, $org, $email);
 
     return [...($manager ? ['applicantEmail' => $request->email] : []), 'id' => $request->id, 'organizationId' => $request->organizationId, 'organizationName' => null !== $org ? (string) $org->name() : '', 'status' => $state, 'createdAt' => $request->createdAt->format('c'), 'expiresAt' => $request->expiresAt->format('c'), 'actions' => $actions];
   }
@@ -171,5 +148,59 @@ final readonly class OrganizationJoinAccessService implements OrganizationJoinAc
     if (null === $permissions || null === $member || !OrganizationJoinPermissions::isSubset($permissions, $member->permissions())) {
       throw new OrganizationJoinException('organization_join_role_in_use');
     }
+  }
+
+  private function requestEmailProof(OrganizationJoinRequest $request): ?EmailOwnershipResult
+  {
+    try {
+      return $this->emails->get($request->userId);
+    } catch (Throwable $failure) {
+      if ('email_ownership_unavailable' !== $failure->getMessage()) {
+        throw $failure;
+      }
+
+      return null;
+    }
+  }
+
+  private function emailMatchesRequest(?EmailOwnershipResult $email, OrganizationJoinRequest $request): bool
+  {
+    return null !== $email
+      && $email->verified
+      && null !== $email->verifiedAt
+      && $email->verifiedAt <= $request->createdAt
+      && strtolower($email->email) === $request->email;
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function requestActions(
+    OrganizationJoinRequest $request,
+    string $actor,
+    bool $manager,
+    string $state,
+    ?Organization $org,
+    ?EmailOwnershipResult $email,
+  ): array {
+    $actions = [];
+    if ('pending' === $state && $actor === $request->userId) {
+      $actions = ['cancel'];
+    }
+    if ($manager && 'pending' === $state) {
+      $actions = ['reject'];
+      if (null !== $org && $org->status()->isActive() && null !== $email && $email->verified && OrganizationJoinMode::INVITATION_ONLY !== $this->joins->policy($request->organizationId)->mode) {
+        try {
+          $this->eligibleDomain($request->organizationId, $email->email, new DateTimeImmutable());
+          $actions = ['approve', 'reject'];
+        } catch (OrganizationJoinException) { /* Missing proof is an expected eligibility state. */
+        }
+      }
+    }
+    if ('approved' === $state && $actor === $request->userId && null !== $org && $org->status()->isActive() && $this->authorization->isMemberOf($actor, $request->organizationId)) {
+      $actions = ['open'];
+    }
+
+    return $actions;
   }
 }
