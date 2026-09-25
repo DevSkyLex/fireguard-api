@@ -30,6 +30,8 @@ use const JSON_THROW_ON_ERROR;
  */
 final readonly class ApprovalRequestRepository implements ApprovalRequestRepositoryPort
 {
+  private const string STATUS_PREDICATE = 'r.status = :status';
+
   // #region Properties
   /**
    * @var EntityRepository<ApprovalRequestRecord>
@@ -148,7 +150,7 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
       ->setMaxResults($limit);
 
     if (null !== $status) {
-      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+      $qb->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     if (null !== $actionType) {
@@ -169,7 +171,7 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
       ->setParameter('organizationId', $organizationId);
 
     if (null !== $status) {
-      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+      $qb->andWhere(self::STATUS_PREDICATE)->setParameter('status', $status);
     }
 
     if (null !== $actionType) {
@@ -183,7 +185,7 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
   {
     /** @var list<ApprovalRequestRecord> $records */
     $records = $this->repository->createQueryBuilder('r')
-      ->where('r.status = :status')
+      ->where(self::STATUS_PREDICATE)
       ->andWhere('r.expiresAt <= :now')
       ->setParameter('status', ApprovalStatus::PENDING->value)
       ->setParameter('now', $now)

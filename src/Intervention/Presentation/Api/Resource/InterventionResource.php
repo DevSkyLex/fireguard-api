@@ -28,8 +28,8 @@ use Symfony\Component\HttpFoundation\Response;
   shortName: 'Intervention',
   description: 'Field intervention coordinating draft operational resources.',
   operations: [
-    new Post(name: InterventionOperations::CREATE_INTERVENTION, uriTemplate: '/interventions', input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: InterventionOperations::PUT_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(name: InterventionOperations::CREATE_INTERVENTION, uriTemplate: '/interventions', input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: InterventionOperations::PUT_INTERVENTION, uriTemplate: self::INTERVENTION_URI_TEMPLATE, requirements: ['id' => self::UUID_PATTERN], read: false, input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       name: InterventionOperations::LIST_INTERVENTIONS,
       uriTemplate: '/interventions',
@@ -39,34 +39,34 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Organization IRI.',
+          description: self::ORGANIZATION_IRI_DESCRIPTION,
           required: true,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'organization', in: 'query', description: self::ORGANIZATION_IRI_DESCRIPTION, required: true, schema: ['type' => 'string']),
         ),
         'name' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Case-insensitive partial match on the intervention name.',
+          description: self::NAME_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'name', in: 'query', description: 'Case-insensitive partial match on the intervention name.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'name', in: 'query', description: self::NAME_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'responsible' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Responsible member IRI.',
+          description: self::RESPONSIBLE_IRI_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'responsible', in: 'query', description: 'Responsible member IRI.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'responsible', in: 'query', description: self::RESPONSIBLE_IRI_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'participant' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -88,30 +88,30 @@ use Symfony\Component\HttpFoundation\Response;
         ),
         'type' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Intervention type.',
+          description: self::TYPE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'type', in: 'query', description: 'Intervention type.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'type', in: 'query', description: self::TYPE_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Intervention status.',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'status', in: 'query', description: 'Intervention status.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'status', in: 'query', description: self::STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'priority' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Intervention priority: low, normal, high, urgent.',
+          description: self::PRIORITY_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'priority', in: 'query', description: 'Intervention priority: low, normal, high, urgent.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'priority', in: 'query', description: self::PRIORITY_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'site' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -142,21 +142,21 @@ use Symfony\Component\HttpFoundation\Response;
         ),
         'dueAtAfter' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'Inclusive lower due-date bound.',
+          description: self::DUE_FROM_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueAtAfter', in: 'query', description: 'Inclusive lower due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'dueAtAfter', in: 'query', description: self::DUE_FROM_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
         'dueAtBefore' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'Inclusive upper due-date bound.',
+          description: self::DUE_BEFORE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueAtBefore', in: 'query', description: 'Inclusive upper due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'dueAtBefore', in: 'query', description: self::DUE_BEFORE_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
         'due' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['overdue']],
@@ -198,52 +198,52 @@ use Symfony\Component\HttpFoundation\Response;
       deserialize: false,
       serialize: false,
       output: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Organization IRI.',
+          description: self::ORGANIZATION_IRI_DESCRIPTION,
           required: true,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'organization', in: 'query', description: self::ORGANIZATION_IRI_DESCRIPTION, required: true, schema: ['type' => 'string']),
         ),
         'name' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Case-insensitive partial match on the intervention name.',
+          description: self::NAME_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'name', in: 'query', description: 'Case-insensitive partial match on the intervention name.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'name', in: 'query', description: self::NAME_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'type' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Intervention type.',
+          description: self::TYPE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'type', in: 'query', description: 'Intervention type.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'type', in: 'query', description: self::TYPE_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Intervention status.',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'status', in: 'query', description: 'Intervention status.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'status', in: 'query', description: self::STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'priority' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Intervention priority: low, normal, high, urgent.',
+          description: self::PRIORITY_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'priority', in: 'query', description: 'Intervention priority: low, normal, high, urgent.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'priority', in: 'query', description: self::PRIORITY_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'site' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -256,30 +256,30 @@ use Symfony\Component\HttpFoundation\Response;
         ),
         'responsible' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Responsible member IRI.',
+          description: self::RESPONSIBLE_IRI_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'responsible', in: 'query', description: 'Responsible member IRI.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'responsible', in: 'query', description: self::RESPONSIBLE_IRI_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'dueAtAfter' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'Inclusive lower due-date bound.',
+          description: self::DUE_FROM_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueAtAfter', in: 'query', description: 'Inclusive lower due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'dueAtAfter', in: 'query', description: self::DUE_FROM_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
         'dueAtBefore' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'date-time'],
-          description: 'Inclusive upper due-date bound.',
+          description: self::DUE_BEFORE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueAtBefore', in: 'query', description: 'Inclusive upper due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          openApi: new Parameter(name: 'dueAtBefore', in: 'query', description: self::DUE_BEFORE_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         ),
         'due' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['overdue']],
@@ -311,9 +311,9 @@ use Symfony\Component\HttpFoundation\Response;
         ],
       ),
     ),
-    new Get(name: InterventionOperations::GET_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(name: InterventionOperations::UPDATE_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(name: InterventionOperations::DELETE_INTERVENTION, uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: false, output: false, processor: InterventionProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(name: InterventionOperations::GET_INTERVENTION, uriTemplate: self::INTERVENTION_URI_TEMPLATE, requirements: ['id' => self::UUID_PATTERN], output: InterventionOutput::class, provider: InterventionProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(name: InterventionOperations::UPDATE_INTERVENTION, uriTemplate: self::INTERVENTION_URI_TEMPLATE, requirements: ['id' => self::UUID_PATTERN], read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(name: InterventionOperations::DELETE_INTERVENTION, uriTemplate: self::INTERVENTION_URI_TEMPLATE, requirements: ['id' => self::UUID_PATTERN], read: false, input: false, output: false, processor: InterventionProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class InterventionResource
@@ -332,5 +332,25 @@ final class InterventionResource
    * @var string
    */
   private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string INTERVENTION_URI_TEMPLATE = '/interventions/{id}';
+
+  private const string ORGANIZATION_IRI_DESCRIPTION = 'Organization IRI.';
+
+  private const string NAME_FILTER_DESCRIPTION = 'Case-insensitive partial match on the intervention name.';
+
+  private const string RESPONSIBLE_IRI_DESCRIPTION = 'Responsible member IRI.';
+
+  private const string TYPE_FILTER_DESCRIPTION = 'Intervention type.';
+
+  private const string STATUS_FILTER_DESCRIPTION = 'Intervention status.';
+
+  private const string PRIORITY_FILTER_DESCRIPTION = 'Intervention priority: low, normal, high, urgent.';
+
+  private const string DUE_FROM_FILTER_DESCRIPTION = 'Inclusive lower due-date bound.';
+
+  private const string DUE_BEFORE_FILTER_DESCRIPTION = 'Inclusive upper due-date bound.';
   // #endregion
 }

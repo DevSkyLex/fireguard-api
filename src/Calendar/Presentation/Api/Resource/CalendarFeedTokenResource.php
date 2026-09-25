@@ -36,13 +36,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   operations: [
     new Post(
       name: CalendarOperations::CREATE_CALENDAR_FEED_TOKEN,
-      uriTemplate: '/{organizationId}/calendar/feed-token',
+      uriTemplate: self::FEED_TOKEN_URI_TEMPLATE,
       status: HttpResponse::HTTP_CREATED,
       input: false,
       output: CalendarFeedTokenSecretOutput::class,
       processor: RotateCalendarFeedTokenProcessor::class,
       normalizationContext: ['groups' => [CalendarSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Create or regenerate the member calendar feed token',
@@ -57,11 +57,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Get(
       name: CalendarOperations::GET_CALENDAR_FEED_TOKEN,
-      uriTemplate: '/{organizationId}/calendar/feed-token',
+      uriTemplate: self::FEED_TOKEN_URI_TEMPLATE,
       output: CalendarFeedTokenOutput::class,
       provider: GetCalendarFeedTokenProvider::class,
       normalizationContext: ['groups' => [CalendarSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Get the member calendar feed token metadata',
@@ -74,13 +74,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new Delete(
       name: CalendarOperations::DELETE_CALENDAR_FEED_TOKEN,
-      uriTemplate: '/{organizationId}/calendar/feed-token',
+      uriTemplate: self::FEED_TOKEN_URI_TEMPLATE,
       status: HttpResponse::HTTP_NO_CONTENT,
       read: false,
       input: false,
       output: false,
       processor: RevokeCalendarFeedTokenProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Calendar'],
         summary: 'Revoke the member calendar feed token',
@@ -95,4 +95,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class CalendarFeedTokenResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FEED_TOKEN_URI_TEMPLATE = '/{organizationId}/calendar/feed-token';
+  // #endregion
 }

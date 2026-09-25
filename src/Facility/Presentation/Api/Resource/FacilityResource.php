@@ -62,7 +62,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateFacilityProcessor::class,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Create facility',
@@ -71,7 +71,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CREATED => new Response(description: 'Facility created'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Facility code already exists in this organization'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Parent facility not found'),
         ],
       ),
@@ -91,11 +91,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'When true, archived facilities are included. Default: false.',
+          description: self::INCLUDE_ARCHIVED_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -104,13 +104,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'includeArchived',
             in: 'query',
             required: false,
-            description: 'When true, archived facilities are included. Default: false.',
+            description: self::INCLUDE_ARCHIVED_DESCRIPTION,
             schema: ['type' => 'boolean', 'default' => false],
           ),
         ),
         'type' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
-          description: 'Filter by facility type.',
+          description: self::TYPE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -119,13 +119,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'type',
             in: 'query',
             required: false,
-            description: 'Filter by facility type.',
+            description: self::TYPE_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
           ),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['active', 'archived']],
-          description: 'Filter by facility status.',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -134,13 +134,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'status',
             in: 'query',
             required: false,
-            description: 'Filter by facility status.',
+            description: self::STATUS_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'enum' => ['active', 'archived']],
           ),
         ),
         'parentFacilityId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'uuid'],
-          description: 'Filter by direct parent facility identifier.',
+          description: self::PARENT_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -149,13 +149,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'parentFacilityId',
             in: 'query',
             required: false,
-            description: 'Filter by direct parent facility identifier.',
+            description: self::PARENT_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
         ),
         'rootsOnly' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+          description: self::ROOT_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -164,13 +164,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'rootsOnly',
             in: 'query',
             required: false,
-            description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+            description: self::ROOT_FILTER_DESCRIPTION,
             schema: ['type' => 'boolean', 'default' => false],
           ),
         ),
         'code' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by exact facility code.',
+          description: self::CODE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -179,13 +179,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'code',
             in: 'query',
             required: false,
-            description: 'Filter by exact facility code.',
+            description: self::CODE_FILTER_DESCRIPTION,
             schema: ['type' => 'string'],
           ),
         ),
         'hasCoordinates' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+          description: self::COORDINATES_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -194,7 +194,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'hasCoordinates',
             in: 'query',
             required: false,
-            description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+            description: self::COORDINATES_FILTER_DESCRIPTION,
             schema: ['type' => 'boolean'],
           ),
         ),
@@ -207,7 +207,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facilities retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -221,11 +221,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       deserialize: false,
       serialize: false,
       output: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'When true, archived facilities are included. Default: false.',
+          description: self::INCLUDE_ARCHIVED_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -234,13 +234,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'includeArchived',
             in: 'query',
             required: false,
-            description: 'When true, archived facilities are included. Default: false.',
+            description: self::INCLUDE_ARCHIVED_DESCRIPTION,
             schema: ['type' => 'boolean', 'default' => false],
           ),
         ),
         'type' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
-          description: 'Filter by facility type.',
+          description: self::TYPE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -249,13 +249,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'type',
             in: 'query',
             required: false,
-            description: 'Filter by facility type.',
+            description: self::TYPE_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
           ),
         ),
         'status' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'enum' => ['active', 'archived']],
-          description: 'Filter by facility status.',
+          description: self::STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -264,13 +264,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'status',
             in: 'query',
             required: false,
-            description: 'Filter by facility status.',
+            description: self::STATUS_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'enum' => ['active', 'archived']],
           ),
         ),
         'parentFacilityId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'uuid'],
-          description: 'Filter by direct parent facility identifier.',
+          description: self::PARENT_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -279,13 +279,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'parentFacilityId',
             in: 'query',
             required: false,
-            description: 'Filter by direct parent facility identifier.',
+            description: self::PARENT_FILTER_DESCRIPTION,
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
         ),
         'rootsOnly' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+          description: self::ROOT_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -294,13 +294,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'rootsOnly',
             in: 'query',
             required: false,
-            description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+            description: self::ROOT_FILTER_DESCRIPTION,
             schema: ['type' => 'boolean', 'default' => false],
           ),
         ),
         'code' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Filter by exact facility code.',
+          description: self::CODE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -309,7 +309,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'code',
             in: 'query',
             required: false,
-            description: 'Filter by exact facility code.',
+            description: self::CODE_FILTER_DESCRIPTION,
             schema: ['type' => 'string'],
           ),
         ),
@@ -330,7 +330,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ),
         'hasCoordinates' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
-          description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+          description: self::COORDINATES_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
@@ -339,7 +339,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             name: 'hasCoordinates',
             in: 'query',
             required: false,
-            description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+            description: self::COORDINATES_FILTER_DESCRIPTION,
             schema: ['type' => 'boolean'],
           ),
         ),
@@ -377,7 +377,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: GeocodeAddressOutput::class,
       provider: GeocodeAddressProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'address' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'maxLength' => GeocodeAddressHandler::MAX_ADDRESS_LENGTH],
@@ -422,7 +422,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: SuggestAddressesOutput::class,
       provider: SuggestAddressesProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'q' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'minLength' => 3, 'maxLength' => 250],
@@ -456,16 +456,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityOutput::class,
       provider: GetFacilityProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Get facility',
         description: 'Returns one facility by identifier for the target organization.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility retrieved'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::INVALID_IDENTIFIER_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -484,7 +484,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 200,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
@@ -512,9 +512,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility children retrieved'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::INVALID_IDENTIFIER_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -526,7 +526,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListFacilityDescendantsProvider::class,
       paginationEnabled: false,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'includeArchived' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'boolean'],
@@ -554,9 +554,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility descendants retrieved'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::INVALID_IDENTIFIER_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -569,7 +569,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateFacilityProcessor::class,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Patch facility',
@@ -578,8 +578,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Facility updated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Facility code already exists in this organization'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -591,7 +591,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityOutput::class,
       processor: ArchiveFacilityProcessor::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Archive facility',
@@ -599,9 +599,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility archived'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::INVALID_IDENTIFIER_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -612,7 +612,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityOutput::class,
       processor: RestoreFacilityProcessor::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Restore facility',
@@ -620,8 +620,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility restored'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or parent state'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -634,7 +634,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: MoveFacilityProcessor::class,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Move facility',
@@ -643,8 +643,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility moved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid hierarchy'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
         ],
       ),
     ),
@@ -657,7 +657,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: SetFacilityPlanGeometryProcessor::class,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Set facility plan geometry',
@@ -665,7 +665,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Plan geometry set or cleared'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid geometry shape, bounds, or point count'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
         ],
@@ -678,7 +678,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityPlanOverlayOutput::class,
       provider: FacilityPlanOverlayProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'attachmentId' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string', 'format' => 'uuid'],
@@ -703,8 +703,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         parameters: [],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Plan overlay retrieved'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: self::INVALID_IDENTIFIER_DESCRIPTION),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
         ],
@@ -716,15 +716,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: FacilityBuildingModelOutput::class,
       provider: FacilityBuildingModelProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Get facility 3D building model',
         description: 'Assembles, for a `building` facility, the ordered stack of floors a 3D viewer extrudes — each floor\'s outline and its rooms. A building with no floors, a floor with no primary plan, or a floor with no room are all valid "200" shapes, never errors.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Building model retrieved'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Facility is not a building'),
         ],
       ),
@@ -738,7 +738,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       status: HttpResponse::HTTP_CREATED,
       denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'Duplicate facility subtree',
@@ -746,8 +746,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Facility subtree duplicated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input or target parent'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
-          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: self::NOT_FOUND_DESCRIPTION),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Source facility is archived, or the organization plan quota would be exceeded'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Subtree exceeds the duplication size limit'),
         ],
@@ -766,4 +766,27 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 final class FacilityResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+
+  private const string INCLUDE_ARCHIVED_DESCRIPTION = 'When true, archived facilities are included. Default: false.';
+
+  private const string TYPE_FILTER_DESCRIPTION = 'Filter by facility type.';
+
+  private const string STATUS_FILTER_DESCRIPTION = 'Filter by facility status.';
+
+  private const string PARENT_FILTER_DESCRIPTION = 'Filter by direct parent facility identifier.';
+
+  private const string ROOT_FILTER_DESCRIPTION = 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.';
+
+  private const string CODE_FILTER_DESCRIPTION = 'Filter by exact facility code.';
+
+  private const string COORDINATES_FILTER_DESCRIPTION = 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.';
+
+  private const string INVALID_IDENTIFIER_DESCRIPTION = 'Invalid identifier';
+
+  private const string NOT_FOUND_DESCRIPTION = 'Facility not found';
+  // #endregion
 }

@@ -42,7 +42,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: ChannelOutput::class,
       processor: CreateChannelProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       uriTemplate: '/channels',
@@ -52,7 +52,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -76,24 +76,24 @@ use Symfony\Component\HttpFoundation\Response;
       openapi: new Operation(parameters: []),
     ),
     new Get(
-      uriTemplate: '/channels/{id}',
+      uriTemplate: self::CHANNEL_URI_TEMPLATE,
       output: ChannelOutput::class,
       provider: GetChannelProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
-      uriTemplate: '/channels/{id}',
+      uriTemplate: self::CHANNEL_URI_TEMPLATE,
       input: UpdateChannelInput::class,
       output: ChannelOutput::class,
       processor: UpdateChannelProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
-      uriTemplate: '/channels/{id}',
+      uriTemplate: self::CHANNEL_URI_TEMPLATE,
       output: false,
       processor: DeleteChannelProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Post(
       name: 'messaging_channel_add_participant',
@@ -102,7 +102,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: ChannelParticipantOutput::class,
       processor: AddChannelParticipantProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: 'messaging_channel_list_participants',
@@ -110,7 +110,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: ChannelParticipantOutput::class,
       provider: ListChannelParticipantsProvider::class,
       paginationEnabled: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: 'messaging_channel_remove_participant',
@@ -118,7 +118,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: RemoveChannelParticipantProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       name: 'messaging_channel_bind_team',
@@ -126,7 +126,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: BindChannelTeamInput::class,
       output: ChannelOutput::class,
       processor: BindChannelTeamProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       name: 'messaging_channel_set_parent',
@@ -134,10 +134,15 @@ use Symfony\Component\HttpFoundation\Response;
       input: SetChannelParentInput::class,
       output: ChannelOutput::class,
       processor: SetChannelParentProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class ChannelResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string CHANNEL_URI_TEMPLATE = '/channels/{id}';
+  // #endregion
 }

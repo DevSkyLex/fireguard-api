@@ -45,7 +45,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: SafetyRegisterSnapshotOutput::class,
       processor: CreateSafetyRegisterSnapshotProcessor::class,
       read: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Compliance'],
         summary: 'Archive the safety register as a dated snapshot',
@@ -63,7 +63,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Compliance'],
         summary: 'List archived safety register snapshots',
@@ -79,7 +79,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       deserialize: false,
       serialize: false,
       output: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Compliance'],
         summary: 'Download an archived safety register snapshot PDF',
@@ -89,4 +89,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class SafetyRegisterSnapshotResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }

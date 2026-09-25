@@ -32,7 +32,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'page' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'integer'],
@@ -59,7 +59,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: MessageOutput::class,
       processor: PostMessageProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     // Idempotent, create-only twin of the POST above: the client owns the id,
     // so replaying a queued offline send conflicts instead of duplicating.
@@ -71,7 +71,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: MessageOutput::class,
       processor: PutMessageProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(responses: [
         Response::HTTP_CREATED => new OpenApiResponse(description: 'Message created'),
         Response::HTTP_CONFLICT => new OpenApiResponse(description: 'This client identifier was already used'),
@@ -84,14 +84,14 @@ use Symfony\Component\HttpFoundation\Response;
       input: EditMessageInput::class,
       output: MessageOutput::class,
       processor: EditMessageProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       uriTemplate: '/messages/{id}',
       output: false,
       processor: DeleteMessageProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: 'list_pinned_messages',
@@ -102,7 +102,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'page' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'integer'],
@@ -131,7 +131,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: MessageOutput::class,
       processor: PinMessageProcessor::class,
       status: Response::HTTP_OK,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: 'unpin_message',
@@ -140,7 +140,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: UnpinMessageProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Post(
       name: 'add_reaction',
@@ -150,7 +150,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: MessageOutput::class,
       processor: AddReactionProcessor::class,
       status: Response::HTTP_OK,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: 'remove_reaction',
@@ -159,7 +159,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: RemoveReactionProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     // L2.5: threaded replies. `{id}` is the PARENT (root) message; a reply
     // to a reply is refused (single-level threading, see `PostReplyHandler`).
@@ -170,7 +170,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: MessageOutput::class,
       processor: PostReplyProcessor::class,
       status: Response::HTTP_CREATED,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: 'list_replies',
@@ -181,7 +181,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'page' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'integer'],
@@ -213,7 +213,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -251,7 +251,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: MessageOutput::class,
       processor: SaveMessageProcessor::class,
       status: Response::HTTP_OK,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Delete(
       name: 'unsave_message',
@@ -260,10 +260,13 @@ use Symfony\Component\HttpFoundation\Response;
       output: false,
       processor: UnsaveMessageProcessor::class,
       status: Response::HTTP_NO_CONTENT,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
 final class MessageResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }

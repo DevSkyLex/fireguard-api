@@ -24,8 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'Inspection',
   operations: [
-    new Post(uriTemplate: '/inspections', input: CreateInspectionInput::class, output: InspectionOutput::class, processor: CreateInspectionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: 'canonical_inspection_put', uriTemplate: '/inspections/{id}', read: false, input: CreateInspectionInput::class, output: InspectionOutput::class, processor: CreateInspectionProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(uriTemplate: '/inspections', input: CreateInspectionInput::class, output: InspectionOutput::class, processor: CreateInspectionProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: 'canonical_inspection_put', uriTemplate: self::INSPECTION_URI_TEMPLATE, read: false, input: CreateInspectionInput::class, output: InspectionOutput::class, processor: CreateInspectionProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       uriTemplate: '/inspections',
       output: InspectionOutput::class,
@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 50,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -75,11 +75,16 @@ use Symfony\Component\HttpFoundation\Response;
       ],
       openapi: new Operation(parameters: []),
     ),
-    new Get(uriTemplate: '/inspections/{id}', output: InspectionOutput::class, provider: CanonicalInspectionProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(name: 'canonical_inspection_patch', uriTemplate: '/inspections/{id}', read: false, input: PatchCanonicalInspectionInput::class, output: InspectionOutput::class, processor: CanonicalInspectionMutationProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(name: 'canonical_inspection_delete', uriTemplate: '/inspections/{id}', read: false, input: false, output: false, processor: CanonicalInspectionMutationProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(uriTemplate: self::INSPECTION_URI_TEMPLATE, output: InspectionOutput::class, provider: CanonicalInspectionProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(name: 'canonical_inspection_patch', uriTemplate: self::INSPECTION_URI_TEMPLATE, read: false, input: PatchCanonicalInspectionInput::class, output: InspectionOutput::class, processor: CanonicalInspectionMutationProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(name: 'canonical_inspection_delete', uriTemplate: self::INSPECTION_URI_TEMPLATE, read: false, input: false, output: false, processor: CanonicalInspectionMutationProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class CanonicalInspectionResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string INSPECTION_URI_TEMPLATE = '/inspections/{id}';
+  // #endregion
 }

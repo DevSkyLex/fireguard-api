@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: StartCheckoutProcessor::class,
       denormalizationContext: ['groups' => [BillingSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Billing'],
         summary: 'Start subscription checkout',
@@ -48,7 +48,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Checkout session created'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Plan not available for purchase'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -60,7 +60,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: PortalSessionOutput::class,
       processor: StartPortalProcessor::class,
       normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Billing'],
         summary: 'Open Billing Portal',
@@ -68,7 +68,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Portal session created'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'No billing customer for the organization'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -81,7 +81,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: SubscriptionOutput::class,
       processor: CancelSubscriptionProcessor::class,
       normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Billing'],
         summary: 'Cancel subscription at period end',
@@ -89,7 +89,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Cancellation scheduled'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'No active subscription to cancel'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -102,7 +102,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: SubscriptionOutput::class,
       processor: ResumeSubscriptionProcessor::class,
       normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Billing'],
         summary: 'Resume a scheduled cancellation',
@@ -110,7 +110,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Cancellation cleared'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'No subscription to resume'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -121,14 +121,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: SubscriptionOutput::class,
       provider: GetSubscriptionProvider::class,
       normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Billing'],
         summary: 'Get organization subscription',
         description: 'Returns the current Stripe subscription state of the organization. Requires the organization.read permission.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Subscription state returned'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -139,14 +139,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: PaymentMethodOutput::class,
       provider: GetPaymentMethodProvider::class,
       normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Billing'],
         summary: 'Get organization payment method',
         description: 'Returns the organization\'s saved Stripe card (brand, last 4 digits, expiry). Card details are never collected or transmitted by this API — read only, sourced from Stripe. To change the card, start a hosted Billing Portal session. Requires the organization.read permission.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Payment method state returned (hasPaymentMethod may be false)'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_SERVICE_UNAVAILABLE => new Response(description: 'The Stripe gateway could not be reached'),
         ],
       ),
@@ -155,4 +155,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class OrganizationBillingResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

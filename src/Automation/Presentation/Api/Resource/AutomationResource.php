@@ -12,14 +12,17 @@ use Automation\Presentation\Api\Provider\AutomationHistoryProvider;
 
 /** Resource AutomationResource. Separate organization history and management access. */
 #[ApiResource(shortName: 'AutomationAttempt', operations: [
-  new Get(name: 'automation_get_attempt', uriTemplate: '/organizations/{organizationId}/automation/attempts/{id}', output: AutomationAttemptOutput::class, provider: AutomationHistoryProvider::class, security: "is_granted('ROLE_USER')", strictQueryParameterValidation: true),
-  new Get(name: 'automation_get_policy', uriTemplate: '/organizations/{organizationId}/automation', output: AutomationPolicyOutput::class, provider: AutomationHistoryProvider::class, security: "is_granted('ROLE_USER')", strictQueryParameterValidation: true),
-  new GetCollection(name: 'automation_list_attempts', uriTemplate: '/organizations/{organizationId}/automation/runs', output: AutomationAttemptOutput::class, provider: AutomationHistoryProvider::class, security: "is_granted('ROLE_USER')", strictQueryParameterValidation: true, paginationClientItemsPerPage: true, paginationMaximumItemsPerPage: 100, paginationItemsPerPage: 30, parameters: new Parameters([
+  new Get(name: 'automation_get_attempt', uriTemplate: '/organizations/{organizationId}/automation/attempts/{id}', output: AutomationAttemptOutput::class, provider: AutomationHistoryProvider::class, security: self::SECURITY_ROLE_USER, strictQueryParameterValidation: true),
+  new Get(name: 'automation_get_policy', uriTemplate: '/organizations/{organizationId}/automation', output: AutomationPolicyOutput::class, provider: AutomationHistoryProvider::class, security: self::SECURITY_ROLE_USER, strictQueryParameterValidation: true),
+  new GetCollection(name: 'automation_list_attempts', uriTemplate: '/organizations/{organizationId}/automation/runs', output: AutomationAttemptOutput::class, provider: AutomationHistoryProvider::class, security: self::SECURITY_ROLE_USER, strictQueryParameterValidation: true, paginationClientItemsPerPage: true, paginationMaximumItemsPerPage: 100, paginationItemsPerPage: 30, parameters: new Parameters([
     'page' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'default' => 1], castToNativeType: true),
     'itemsPerPage' => new QueryParameter(schema: ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 30], castToNativeType: true),
   ])),
-  new Post(name: 'automation_retry_attempt', uriTemplate: '/organizations/{organizationId}/automation/runs/{runId}/retry', status: 202, read: false, input: RetryAutomationAttemptInput::class, output: AutomationAttemptOutput::class, processor: RetryAutomationAttemptProcessor::class, security: "is_granted('ROLE_USER')", strictQueryParameterValidation: true),
+  new Post(name: 'automation_retry_attempt', uriTemplate: '/organizations/{organizationId}/automation/runs/{runId}/retry', status: 202, read: false, input: RetryAutomationAttemptInput::class, output: AutomationAttemptOutput::class, processor: RetryAutomationAttemptProcessor::class, security: self::SECURITY_ROLE_USER, strictQueryParameterValidation: true),
 ])]
 final class AutomationResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+  // #endregion
 }

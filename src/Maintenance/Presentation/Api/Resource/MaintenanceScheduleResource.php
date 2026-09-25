@@ -39,52 +39,52 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Organization IRI.',
+          description: self::ORGANIZATION_IRI_DESCRIPTION,
           required: true,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'organization', in: 'query', description: self::ORGANIZATION_IRI_DESCRIPTION, required: true, schema: ['type' => 'string']),
         ),
         'facility' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Facility IRI filter.',
+          description: self::FACILITY_IRI_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'facility', in: 'query', description: 'Facility IRI filter.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'facility', in: 'query', description: self::FACILITY_IRI_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'equipmentType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Equipment type filter.',
+          description: self::EQUIPMENT_TYPE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'equipmentType', in: 'query', description: 'Equipment type filter.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'equipmentType', in: 'query', description: self::EQUIPMENT_TYPE_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'dueStatus' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Due status filter (unscheduled|up_to_date|due_soon|overdue).',
+          description: self::DUE_STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueStatus', in: 'query', description: 'Due status filter (unscheduled|up_to_date|due_soon|overdue).', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'dueStatus', in: 'query', description: self::DUE_STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'dueBefore' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'ISO-8601 upper bound on the next due date.',
+          description: self::NEXT_DUE_UPPER_BOUND_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueBefore', in: 'query', description: 'ISO-8601 upper bound on the next due date.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'dueBefore', in: 'query', description: self::NEXT_DUE_UPPER_BOUND_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(parameters: []),
@@ -99,52 +99,52 @@ use Symfony\Component\HttpFoundation\Response;
       deserialize: false,
       serialize: false,
       output: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Organization IRI.',
+          description: self::ORGANIZATION_IRI_DESCRIPTION,
           required: true,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'organization', in: 'query', description: self::ORGANIZATION_IRI_DESCRIPTION, required: true, schema: ['type' => 'string']),
         ),
         'facility' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Facility IRI filter.',
+          description: self::FACILITY_IRI_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'facility', in: 'query', description: 'Facility IRI filter.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'facility', in: 'query', description: self::FACILITY_IRI_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'equipmentType' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Equipment type filter.',
+          description: self::EQUIPMENT_TYPE_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'equipmentType', in: 'query', description: 'Equipment type filter.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'equipmentType', in: 'query', description: self::EQUIPMENT_TYPE_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'dueStatus' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'Due status filter (unscheduled|up_to_date|due_soon|overdue).',
+          description: self::DUE_STATUS_FILTER_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueStatus', in: 'query', description: 'Due status filter (unscheduled|up_to_date|due_soon|overdue).', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'dueStatus', in: 'query', description: self::DUE_STATUS_FILTER_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
         'dueBefore' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
-          description: 'ISO-8601 upper bound on the next due date.',
+          description: self::NEXT_DUE_UPPER_BOUND_DESCRIPTION,
           required: false,
           castToArray: false,
           castToNativeType: false,
           constraints: [],
-          openApi: new Parameter(name: 'dueBefore', in: 'query', description: 'ISO-8601 upper bound on the next due date.', required: false, schema: ['type' => 'string']),
+          openApi: new Parameter(name: 'dueBefore', in: 'query', description: self::NEXT_DUE_UPPER_BOUND_DESCRIPTION, required: false, schema: ['type' => 'string']),
         ),
       ],
       openapi: new Operation(
@@ -173,7 +173,7 @@ use Symfony\Component\HttpFoundation\Response;
       requirements: ['id' => self::UUID_PATTERN],
       output: MaintenanceScheduleOutput::class,
       provider: MaintenanceScheduleProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new Patch(
       uriTemplate: '/maintenance/schedules/{id}',
@@ -182,7 +182,7 @@ use Symfony\Component\HttpFoundation\Response;
       input: UpdateMaintenanceScheduleInput::class,
       output: MaintenanceScheduleOutput::class,
       processor: MaintenanceScheduleProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
   ],
 )]
@@ -200,5 +200,17 @@ final class MaintenanceScheduleResource
    * @var string
    */
   private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string ORGANIZATION_IRI_DESCRIPTION = 'Organization IRI.';
+
+  private const string FACILITY_IRI_FILTER_DESCRIPTION = 'Facility IRI filter.';
+
+  private const string EQUIPMENT_TYPE_FILTER_DESCRIPTION = 'Equipment type filter.';
+
+  private const string DUE_STATUS_FILTER_DESCRIPTION = 'Due status filter (unscheduled|up_to_date|due_soon|overdue).';
+
+  private const string NEXT_DUE_UPPER_BOUND_DESCRIPTION = 'ISO-8601 upper bound on the next due date.';
   // #endregion
 }
