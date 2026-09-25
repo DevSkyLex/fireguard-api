@@ -351,19 +351,13 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
       $requiredSegment = $requiredSegments[$index] ?? null;
       $isLastGrantedSegment = $index === count($grantedSegments) - 1;
 
-      if ('*' === $grantedSegment) {
-        if ($isLastGrantedSegment) {
-          return true;
-        }
-
-        if (null === $requiredSegment) {
-          return false;
-        }
-
-        continue;
+      if ('*' === $grantedSegment && $isLastGrantedSegment) {
+        return true;
       }
-
-      if (null === $requiredSegment || $grantedSegment !== $requiredSegment) {
+      if (null === $requiredSegment) {
+        return false;
+      }
+      if ('*' !== $grantedSegment && $grantedSegment !== $requiredSegment) {
         return false;
       }
     }
