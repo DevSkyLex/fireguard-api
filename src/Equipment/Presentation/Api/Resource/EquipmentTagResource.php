@@ -39,7 +39,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'search' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -65,7 +65,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Tag catalog retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
         ],
       ),
     ),
@@ -77,7 +77,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: AddTagToEquipmentProcessor::class,
       denormalizationContext: ['groups' => [EquipmentSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'Add tag to equipment',
@@ -85,7 +85,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_CREATED => new Response(description: 'Tag added'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment not found'),
         ],
       ),
@@ -97,7 +97,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: RemoveTagFromEquipmentProcessor::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'Remove tag from equipment',
@@ -105,7 +105,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Tag removed'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
-          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: self::FORBIDDEN_DESCRIPTION),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment or tag not found'),
         ],
       ),
@@ -114,4 +114,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class EquipmentTagResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string FORBIDDEN_DESCRIPTION = 'Insufficient permissions';
+  // #endregion
 }

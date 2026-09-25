@@ -24,8 +24,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'Equipment',
   operations: [
-    new Post(uriTemplate: '/equipment', input: CreateEquipmentInput::class, output: EquipmentOutput::class, processor: CreateEquipmentProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: 'canonical_equipment_put', uriTemplate: '/equipment/{id}', read: false, input: CreateEquipmentInput::class, output: EquipmentOutput::class, processor: CreateEquipmentProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Post(uriTemplate: '/equipment', input: CreateEquipmentInput::class, output: EquipmentOutput::class, processor: CreateEquipmentProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Put(name: 'canonical_equipment_put', uriTemplate: self::ITEM_URI_TEMPLATE, read: false, input: CreateEquipmentInput::class, output: EquipmentOutput::class, processor: CreateEquipmentProcessor::class, status: Response::HTTP_CREATED, security: self::SECURITY_ROLE_USER),
     new GetCollection(
       uriTemplate: '/equipment',
       output: EquipmentOutput::class,
@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Response;
       paginationClientItemsPerPage: true,
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 50,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -75,11 +75,16 @@ use Symfony\Component\HttpFoundation\Response;
       ],
       openapi: new Operation(parameters: []),
     ),
-    new Get(uriTemplate: '/equipment/{id}', output: EquipmentOutput::class, provider: CanonicalEquipmentProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(name: 'canonical_equipment_patch', uriTemplate: '/equipment/{id}', read: false, input: PatchCanonicalEquipmentInput::class, output: EquipmentOutput::class, processor: CanonicalEquipmentMutationProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(name: 'canonical_equipment_delete', uriTemplate: '/equipment/{id}', read: false, input: false, output: false, processor: CanonicalEquipmentMutationProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(uriTemplate: self::ITEM_URI_TEMPLATE, output: EquipmentOutput::class, provider: CanonicalEquipmentProvider::class, security: self::SECURITY_ROLE_USER),
+    new Patch(name: 'canonical_equipment_patch', uriTemplate: self::ITEM_URI_TEMPLATE, read: false, input: PatchCanonicalEquipmentInput::class, output: EquipmentOutput::class, processor: CanonicalEquipmentMutationProcessor::class, security: self::SECURITY_ROLE_USER),
+    new Delete(name: 'canonical_equipment_delete', uriTemplate: self::ITEM_URI_TEMPLATE, read: false, input: false, output: false, processor: CanonicalEquipmentMutationProcessor::class, status: Response::HTTP_NO_CONTENT, security: self::SECURITY_ROLE_USER),
   ],
 )]
 final class CanonicalEquipmentResource
 {
+  // #region Constants
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
+
+  private const string ITEM_URI_TEMPLATE = '/equipment/{id}';
+  // #endregion
 }
