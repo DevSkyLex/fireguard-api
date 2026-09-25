@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\ListInspections;
 
 use DateTimeImmutable;
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
 use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
@@ -51,16 +52,12 @@ final class ListInspectionsHandlerTest extends TestCase
       ->method('findByOrganizationId')
       ->with(
         InspectionOrganizationId::fromString(self::ORG_ID),
-        self::EQUIPMENT_ID,
-        '550e8400-e29b-41d4-a716-446655449005',
-        'pass',
-        'draft',
-        '2026-01-01T00:00:00+00:00',
-        '2026-01-31T23:59:59+00:00',
-        '550e8400-e29b-41d4-a716-446655449004',
-        null,
-        '550e8400-e29b-41d4-a716-446655449006',
-        'john',
+        new InspectionListCriteria(
+          subject: new InspectionSubjectCriteria(self::EQUIPMENT_ID, '550e8400-e29b-41d4-a716-446655449005', '550e8400-e29b-41d4-a716-446655449006'),
+          execution: new InspectionExecutionCriteria('pass', 'draft', '2026-01-01T00:00:00+00:00', '2026-01-31T23:59:59+00:00'),
+          inspector: new InspectionInspectorCriteria(userId: '550e8400-e29b-41d4-a716-446655449004'),
+          search: 'john',
+        ),
         new Sorting('performedAt', SortDirection::DESC),
         15,
         30,
@@ -70,16 +67,12 @@ final class ListInspectionsHandlerTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         InspectionOrganizationId::fromString(self::ORG_ID),
-        self::EQUIPMENT_ID,
-        '550e8400-e29b-41d4-a716-446655449005',
-        'pass',
-        'draft',
-        '2026-01-01T00:00:00+00:00',
-        '2026-01-31T23:59:59+00:00',
-        '550e8400-e29b-41d4-a716-446655449004',
-        null,
-        '550e8400-e29b-41d4-a716-446655449006',
-        'john',
+        new InspectionListCriteria(
+          subject: new InspectionSubjectCriteria(self::EQUIPMENT_ID, '550e8400-e29b-41d4-a716-446655449005', '550e8400-e29b-41d4-a716-446655449006'),
+          execution: new InspectionExecutionCriteria('pass', 'draft', '2026-01-01T00:00:00+00:00', '2026-01-31T23:59:59+00:00'),
+          inspector: new InspectionInspectorCriteria(userId: '550e8400-e29b-41d4-a716-446655449004'),
+          search: 'john',
+        ),
       )
       ->willReturn(4);
 

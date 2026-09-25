@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Application\Contract\Export\InspectionExportCandidate;
-use Inspection\Application\Contract\Inspection\InspectionScope;
+use Inspection\Application\Contract\Inspection\{InspectionListCriteria, InspectionScope};
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -81,16 +81,7 @@ interface InspectionRepositoryPort
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param ?string $equipmentId optional equipment filter
-   * @param ?string $facilityId optional facility filter
-   * @param ?string $result optional result filter
-   * @param ?string $status optional status filter
-   * @param ?string $performedAtFrom optional lower bound for performedAt
-   * @param ?string $performedAtTo optional upper bound for performedAt
-   * @param ?string $inspectorUserId optional inspector user filter
-   * @param ?string $inspectorType optional inspector type filter
-   * @param ?string $checklistId optional checklist filter
-   * @param ?string $search optional text search applied before pagination
+   * @param InspectionListCriteria $criteria the filters applied before pagination
    * @param Sorting $sorting requested sorting applied before pagination
    * @param int $limit maximum number of results
    * @param int $offset result offset
@@ -99,16 +90,7 @@ interface InspectionRepositoryPort
    */
   public function findByOrganizationId(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $inspectorType = null,
-    ?string $checklistId = null,
-    ?string $search = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
@@ -122,31 +104,13 @@ interface InspectionRepositoryPort
    * @since 1.0.0
    *
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param ?string $equipmentId optional equipment filter
-   * @param ?string $facilityId optional facility filter
-   * @param ?string $result optional result filter
-   * @param ?string $status optional status filter
-   * @param ?string $performedAtFrom optional lower bound for performedAt
-   * @param ?string $performedAtTo optional upper bound for performedAt
-   * @param ?string $inspectorUserId optional inspector user filter
-   * @param ?string $inspectorType optional inspector type filter
-   * @param ?string $checklistId optional checklist filter
-   * @param ?string $search optional text search applied before counting
+   * @param InspectionListCriteria $criteria the filters applied before counting
    *
    * @return int the inspection count
    */
   public function countByOrganizationId(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $inspectorType = null,
-    ?string $checklistId = null,
-    ?string $search = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
   ): int;
 
   /**
@@ -258,27 +222,13 @@ interface InspectionRepositoryPort
    * @since 1.6.0
    *
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param ?string $equipmentId optional equipment filter
-   * @param ?string $facilityId optional facility filter
-   * @param ?string $result optional result filter
-   * @param ?string $status optional status filter
-   * @param ?string $performedAtFrom optional lower bound for performedAt
-   * @param ?string $performedAtTo optional upper bound for performedAt
-   * @param ?string $inspectorUserId optional inspector user filter
-   * @param ?string $checklistId optional checklist filter
+   * @param InspectionListCriteria $criteria the CSV filter subset (inspector type and search are ignored)
    *
    * @return int the matching inspection count
    */
   public function countExportCandidates(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $checklistId = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
   ): int;
 
   /**
@@ -294,27 +244,13 @@ interface InspectionRepositoryPort
    * @since 1.6.0
    *
    * @param InspectionOrganizationId $organizationId the organization identifier
-   * @param ?string $equipmentId optional equipment filter
-   * @param ?string $facilityId optional facility filter
-   * @param ?string $result optional result filter
-   * @param ?string $status optional status filter
-   * @param ?string $performedAtFrom optional lower bound for performedAt
-   * @param ?string $performedAtTo optional upper bound for performedAt
-   * @param ?string $inspectorUserId optional inspector user filter
-   * @param ?string $checklistId optional checklist filter
+   * @param InspectionListCriteria $criteria the CSV filter subset (inspector type and search are ignored)
    *
    * @return list<InspectionExportCandidate> the matching inspection rows
    */
   public function listExportCandidates(
     InspectionOrganizationId $organizationId,
-    ?string $equipmentId = null,
-    ?string $facilityId = null,
-    ?string $result = null,
-    ?string $status = null,
-    ?string $performedAtFrom = null,
-    ?string $performedAtTo = null,
-    ?string $inspectorUserId = null,
-    ?string $checklistId = null,
+    InspectionListCriteria $criteria = new InspectionListCriteria(),
   ): array;
   // #endregion
 }

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\{Connection, Result};
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionEquipmentId, InspectionId, InspectionOrganizationId, InspectionResult, InspectionStatus, Inspector};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
@@ -57,8 +58,10 @@ final class InspectionRepositoryTest extends TestCase
 
     $repository->countByOrganizationId(
       organizationId: $organizationId,
-      performedAtFrom: '2026-03-29T00:00:00+01:00',
-      performedAtTo: '2026-03-30T23:59:59+02:00',
+      criteria: new InspectionListCriteria(execution: new InspectionExecutionCriteria(
+        performedAtFrom: '2026-03-29T00:00:00+01:00',
+        performedAtTo: '2026-03-30T23:59:59+02:00',
+      )),
     );
 
     self::assertInstanceOf(DateTimeImmutable::class, $capturedParameters['performedAtFrom']);
@@ -292,7 +295,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $repository->countByOrganizationId(
       organizationId: $organizationId,
-      search: 'A_B pass',
+      criteria: new InspectionListCriteria(search: 'A_B pass'),
     );
 
     $searchClause = null;

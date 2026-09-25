@@ -7,6 +7,7 @@ namespace Inspection\Infrastructure\Adapter\Calendar;
 use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use Calendar\Application\Port\Outbound\Feed\InspectionCalendarFeedPort;
 use DateTimeImmutable;
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
@@ -62,8 +63,7 @@ final readonly class InspectionCalendarFeedAdapter implements InspectionCalendar
   {
     $inspections = $this->inspections->findByOrganizationId(
       InspectionOrganizationId::fromString($organizationId),
-      performedAtFrom: $from->format('c'),
-      performedAtTo: $to->format('c'),
+      criteria: new InspectionListCriteria(execution: new InspectionExecutionCriteria(performedAtFrom: $from->format('c'), performedAtTo: $to->format('c'))),
       sorting: new Sorting('performedAt', SortDirection::ASC),
       limit: $limit,
       offset: 0,

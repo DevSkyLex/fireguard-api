@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Infrastructure\Adapter\Organization;
 
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria};
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\ValueObject\InspectionOrganizationId;
 use Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter;
@@ -25,14 +26,11 @@ final class InspectionStatisticsAdapterTest extends TestCase
       ->method('countByOrganizationId')
       ->willReturnCallback(static function (
         InspectionOrganizationId $organizationId,
-        ?string $equipmentId = null,
-        ?string $facilityId = null,
-        ?string $result = null,
-        ?string $status = null,
+        InspectionListCriteria $criteria = new InspectionListCriteria(),
       ): int {
         self::assertSame(self::ORG_ID, (string) $organizationId);
 
-        return 'cancelled' === $status ? 2 : 9;
+        return 'cancelled' === $criteria->execution->status ? 2 : 9;
       });
 
     $adapter = new InspectionStatisticsAdapter($repository);
@@ -188,14 +186,10 @@ final class InspectionStatisticsAdapterTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
-        null,
-        null,
-        'pass',
-        'closed',
-        null,
-        null,
-        null,
-        'user',
+        new InspectionListCriteria(
+          execution: new InspectionExecutionCriteria(result: 'pass', status: 'closed'),
+          inspector: new InspectionInspectorCriteria(type: 'user'),
+        ),
       )
       ->willReturn(5);
 
@@ -211,11 +205,7 @@ final class InspectionStatisticsAdapterTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
-        null,
-        null,
-        null,
-        null,
-        '2026-03-01T00:00:00+00:00',
+        new InspectionListCriteria(execution: new InspectionExecutionCriteria(performedAtFrom: '2026-03-01T00:00:00+00:00')),
       )
       ->willReturn(4);
 
@@ -234,14 +224,10 @@ final class InspectionStatisticsAdapterTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
-        null,
-        null,
-        'fail',
-        'submitted',
-        '2026-03-01T00:00:00+00:00',
-        '2026-03-31T23:59:59+00:00',
-        null,
-        'external',
+        new InspectionListCriteria(
+          execution: new InspectionExecutionCriteria('fail', 'submitted', '2026-03-01T00:00:00+00:00', '2026-03-31T23:59:59+00:00'),
+          inspector: new InspectionInspectorCriteria(type: 'external'),
+        ),
       )
       ->willReturn(2);
 

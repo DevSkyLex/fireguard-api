@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Adapter\Organization;
 
+use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria};
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResult, InspectionStatus, InspectorType};
 use Organization\Application\Port\Outbound\InspectionStatisticsPort;
@@ -35,9 +36,10 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
   ): int {
     return $this->inspectionRepository->countByOrganizationId(
       InspectionOrganizationId::fromString($organizationId),
-      result: $result,
-      status: $status,
-      inspectorType: $inspectorType,
+      new InspectionListCriteria(
+        execution: new InspectionExecutionCriteria(result: $result, status: $status),
+        inspector: new InspectionInspectorCriteria(type: $inspectorType),
+      ),
     );
   }
 
@@ -51,7 +53,7 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     $total = $this->inspectionRepository->countByOrganizationId($organization);
     $cancelled = $this->inspectionRepository->countByOrganizationId(
       $organization,
-      status: InspectionStatus::CANCELLED->value,
+      new InspectionListCriteria(execution: new InspectionExecutionCriteria(status: InspectionStatus::CANCELLED->value)),
     );
 
     return $total - $cancelled;
@@ -132,7 +134,7 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
   {
     return $this->inspectionRepository->countByOrganizationId(
       organizationId: InspectionOrganizationId::fromString($organizationId),
-      performedAtFrom: $performedAtFrom,
+      criteria: new InspectionListCriteria(execution: new InspectionExecutionCriteria(performedAtFrom: $performedAtFrom)),
     );
   }
 
@@ -146,11 +148,10 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
   ): int {
     return $this->inspectionRepository->countByOrganizationId(
       organizationId: InspectionOrganizationId::fromString($organizationId),
-      result: $result,
-      status: $status,
-      performedAtFrom: $performedAtFrom,
-      performedAtTo: $performedAtTo,
-      inspectorType: $inspectorType,
+      criteria: new InspectionListCriteria(
+        execution: new InspectionExecutionCriteria($result, $status, $performedAtFrom, $performedAtTo),
+        inspector: new InspectionInspectorCriteria(type: $inspectorType),
+      ),
     );
   }
 
