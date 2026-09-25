@@ -8,7 +8,7 @@ use Calendar\Application\Contract\Feed\CalendarFeedItem;
 use DateTimeImmutable;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionListCriteria};
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionCreationOptions};
 use Inspection\Domain\ValueObject\{InspectionEquipmentId, InspectionId, InspectionOrganizationId, InspectionResult, Inspector};
 use Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -41,8 +41,7 @@ final class InspectionCalendarFeedAdapterTest extends TestCase
       inspector: Inspector::forUser('user-1', 'Jane Doe'),
       result: InspectionResult::PASS,
       performedAt: new DateTimeImmutable('2026-08-10T09:00:00+00:00'),
-      facilityId: null,
-      notes: 'Routine check',
+      options: new InspectionCreationOptions(notes: 'Routine check'),
     );
 
     $from = new DateTimeImmutable('2026-08-01T00:00:00+00:00');

@@ -134,6 +134,20 @@ HELP
   protected function execute(InputInterface $input, OutputInterface $output): int
   {
     $io = new SymfonyStyle($input, $output);
+    $command = $this->validatedCommand($input, $io);
+    if (null === $command) {
+      return Command::FAILURE;
+    }
+
+    if (!$this->organizationExists($command->organizationId, $io)) {
+      return Command::FAILURE;
+    }
+
+    return $this->createFacility($command, $io);
+  }
+
+  private function validatedCommand(InputInterface $input, SymfonyStyle $io): ?CreateFacilityCommand
+  {
 
     $organizationIdRaw = $input->getArgument('organization-id');
     $nameRaw = $input->getArgument('name');
@@ -141,28 +155,22 @@ HELP
     $codeRaw = $input->getOption('code');
     $addressRaw = $input->getOption('address');
     $parentIdRaw = $input->getOption('parent-facility-id');
+    $organizationId = is_string($organizationIdRaw) ? trim($organizationIdRaw) : '';
+    $name = is_string($nameRaw) ? trim($nameRaw) : '';
+    $type = is_string($typeRaw) ? trim($typeRaw) : '';
 
-    if (!is_string($organizationIdRaw) || '' === trim($organizationIdRaw)) {
-      $io->error('Organization ID is required.');
+    $error = match (true) {
+      '' === $organizationId => 'Organization ID is required.',
+      '' === $name => 'Facility name is required.',
+      '' === $type => 'Facility type is required.',
+      default => null,
+    };
+    if (null !== $error) {
+      $io->error($error);
 
-      return Command::FAILURE;
+      return null;
     }
 
-    if (!is_string($nameRaw) || '' === trim($nameRaw)) {
-      $io->error('Facility name is required.');
-
-      return Command::FAILURE;
-    }
-
-    if (!is_string($typeRaw) || '' === trim($typeRaw)) {
-      $io->error('Facility type is required.');
-
-      return Command::FAILURE;
-    }
-
-    $organizationId = trim($organizationIdRaw);
-    $name = trim($nameRaw);
-    $type = trim($typeRaw);
     $code = self::nonEmptyOption($codeRaw);
     $address = self::nonEmptyOption($addressRaw);
     $parentId = self::nonEmptyOption($parentIdRaw);
@@ -174,23 +182,24 @@ HELP
         implode(', ', FacilityType::values()),
       ));
 
-      return Command::FAILURE;
+      return null;
     }
 
-    if (!$this->organizationExists($organizationId, $io)) {
-      return Command::FAILURE;
-    }
+    return new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: $type,
+      name: $name,
+      parentFacilityId: $parentId,
+      code: $code,
+      address: $address,
+    );
+  }
 
+  private function createFacility(CreateFacilityCommand $command, SymfonyStyle $io): int
+  {
     try {
       /** @var CreateFacilityResult $result */
-      $result = $this->commandBus->dispatch(new CreateFacilityCommand(
-        organizationId: $organizationId,
-        type: $type,
-        name: $name,
-        parentFacilityId: $parentId,
-        code: $code,
-        address: $address,
-      ));
+      $result = $this->commandBus->dispatch($command);
 
       $io->success(sprintf(
         'Facility "%s" created successfully with ID: %s',

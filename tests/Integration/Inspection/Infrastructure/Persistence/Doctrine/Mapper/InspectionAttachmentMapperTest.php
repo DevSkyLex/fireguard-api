@@ -7,7 +7,7 @@ namespace Tests\Integration\Inspection\Infrastructure\Persistence\Doctrine\Mappe
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
+use Inspection\Domain\ValueObject\{InspectionAttachmentFile, InspectionAttachmentId, InspectionId, NonConformityId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionAttachmentMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
 use LogicException;
@@ -191,7 +191,7 @@ final class InspectionAttachmentMapperTest extends KernelTestCase
     $attachment = InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      file: new RestoredInspectionAttachmentFile(
+      file: new InspectionAttachmentFile(
         fileName: 'report.pdf',
         storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/report.pdf',
         mimeType: 'application/pdf',

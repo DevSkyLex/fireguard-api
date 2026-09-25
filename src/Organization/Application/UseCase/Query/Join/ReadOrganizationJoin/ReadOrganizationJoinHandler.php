@@ -138,23 +138,32 @@ final readonly class ReadOrganizationJoinHandler implements QueryHandler
    */
   private function organizationView(OrganizationDomain $domain, DateTimeImmutable $now, array $invitations, array $requests, string $userId): ?array
   {
-    if (!$domain->isUsable($now)) {
-      return null;
-    }
-    $organization = $this->organizations->findById(OrganizationId::fromString($domain->organizationId));
-    if (null === $organization || !$organization->status()->isActive() || in_array($domain->organizationId, array_column($invitations, 'organizationId'), true)) {
+    $organization = $this->eligibleOrganization($domain, $now, $invitations);
+    if (null === $organization) {
       return null;
     }
     $policy = $this->joins->policy($domain->organizationId);
-    if (OrganizationJoinMode::INVITATION_ONLY === $policy->mode) {
-      return null;
-    }
-    $access = $this->joinAccess($domain, $organization, $policy, $requests, $userId);
-    if (null === $access) {
+    $access = OrganizationJoinMode::INVITATION_ONLY === $policy->mode
+      ? null
+      : $this->joinAccess($domain, $organization, $policy, $requests, $userId);
+
+    return null === $access ? null : ['id' => $domain->organizationId, 'name' => (string) $organization->name(), 'logoUrl' => $organization->logoUrl(), 'domain' => $domain->domain, 'roleLabel' => $access['roleLabel'], 'actions' => $access['actions']];
+  }
+
+  /**
+   * @param list<array<string, mixed>> $invitations
+   */
+  private function eligibleOrganization(OrganizationDomain $domain, DateTimeImmutable $now, array $invitations): ?Organization
+  {
+    if (!$domain->isUsable($now)) {
       return null;
     }
 
-    return ['id' => $domain->organizationId, 'name' => (string) $organization->name(), 'logoUrl' => $organization->logoUrl(), 'domain' => $domain->domain, 'roleLabel' => $access['roleLabel'], 'actions' => $access['actions']];
+    $organization = $this->organizations->findById(OrganizationId::fromString($domain->organizationId));
+
+    return null !== $organization && $organization->status()->isActive() && !in_array($domain->organizationId, array_column($invitations, 'organizationId'), true)
+      ? $organization
+      : null;
   }
 
   /**

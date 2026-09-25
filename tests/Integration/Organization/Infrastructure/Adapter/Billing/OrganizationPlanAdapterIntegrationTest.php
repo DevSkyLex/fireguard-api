@@ -6,7 +6,7 @@ namespace Tests\Integration\Organization\Infrastructure\Adapter\Billing;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use Organization\Infrastructure\Adapter\Billing\OrganizationPlanAdapter;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -122,9 +122,11 @@ final class OrganizationPlanAdapterIntegrationTest extends KernelTestCase
       key: new PlanKey($key),
       name: $name,
       limits: [],
-      isActive: true,
-      isDefault: $isDefault,
-      sortOrder: $sortOrder,
+      options: new PlanCreationOptions(
+        isActive: true,
+        isDefault: $isDefault,
+        sortOrder: $sortOrder,
+      ),
     );
   }
 

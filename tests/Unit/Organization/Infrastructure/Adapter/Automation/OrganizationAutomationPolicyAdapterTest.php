@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Infrastructure\Adapter\Automation;
 use Automation\Application\Contract\Policy\AutomationPolicy;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\ValueObject\{
   OrganizationAutomationSettings,
   OrganizationComplianceSettings,
@@ -51,9 +51,11 @@ final class OrganizationAutomationPolicyAdapterTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Fireguard Test'),
       ownerUserId: self::OWNER_USER_ID,
-      settings: new OrganizationSettings(
-        compliance: new OrganizationComplianceSettings(nonConformitySlaDays: ['critical' => 3]),
-        automation: new OrganizationAutomationSettings(autoCreateInterventionOnCriticalNc: true),
+      options: new OrganizationCreationOptions(
+        settings: new OrganizationSettings(
+          compliance: new OrganizationComplianceSettings(nonConformitySlaDays: ['critical' => 3]),
+          automation: new OrganizationAutomationSettings(autoCreateInterventionOnCriticalNc: true),
+        ),
       ),
     );
 

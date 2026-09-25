@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Domain\Model\Attachment;
 
 use DateTimeImmutable;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
+use Inspection\Domain\ValueObject\{InspectionAttachmentFile, InspectionAttachmentId, InspectionId, NonConformityId};
 
 /**
  * Model InspectionAttachment.
@@ -31,24 +31,16 @@ final class InspectionAttachment
    *
    * @param InspectionAttachmentId $id the attachment identifier
    * @param InspectionId $inspectionId the inspection identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
+   * @param InspectionAttachmentFile $file the file metadata
    * @param DateTimeImmutable $uploadedAt the upload timestamp
    * @param ?NonConformityId $nonConformityId the optional non-conformity identifier (field-proof photo)
-   * @param ?string $label the optional label
    */
   private function __construct(
     private InspectionAttachmentId $id,
     private InspectionId $inspectionId,
-    private string $fileName,
-    private string $storagePath,
-    private string $mimeType,
-    private int $size,
+    private InspectionAttachmentFile $file,
     private DateTimeImmutable $uploadedAt,
     private ?NonConformityId $nonConformityId = null,
-    private ?string $label = null,
   ) {
   }
   // #endregion
@@ -63,35 +55,23 @@ final class InspectionAttachment
    *
    * @param InspectionAttachmentId $id the attachment identifier
    * @param InspectionId $inspectionId the inspection identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
+   * @param InspectionAttachmentFile $file the file metadata
    * @param ?NonConformityId $nonConformityId the optional non-conformity identifier
-   * @param ?string $label the optional label
    *
    * @return self the created attachment
    */
   public static function create(
     InspectionAttachmentId $id,
     InspectionId $inspectionId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
+    InspectionAttachmentFile $file,
     ?NonConformityId $nonConformityId = null,
-    ?string $label = null,
   ): self {
     return new self(
       id: $id,
       inspectionId: $inspectionId,
-      fileName: $fileName,
-      storagePath: $storagePath,
-      mimeType: $mimeType,
-      size: $size,
+      file: $file,
       uploadedAt: new DateTimeImmutable(),
       nonConformityId: $nonConformityId,
-      label: $label,
     );
   }
 
@@ -104,7 +84,7 @@ final class InspectionAttachment
    *
    * @param InspectionAttachmentId $id the attachment identifier
    * @param InspectionId $inspectionId the inspection identifier
-   * @param RestoredInspectionAttachmentFile $file the persisted file metadata
+   * @param InspectionAttachmentFile $file the persisted file metadata
    * @param DateTimeImmutable $uploadedAt the upload timestamp
    * @param ?NonConformityId $nonConformityId the optional non-conformity identifier
    *
@@ -113,20 +93,16 @@ final class InspectionAttachment
   public static function reconstitute(
     InspectionAttachmentId $id,
     InspectionId $inspectionId,
-    RestoredInspectionAttachmentFile $file,
+    InspectionAttachmentFile $file,
     DateTimeImmutable $uploadedAt,
     ?NonConformityId $nonConformityId = null,
   ): self {
     return new self(
       id: $id,
       inspectionId: $inspectionId,
-      fileName: $file->fileName,
-      storagePath: $file->storagePath,
-      mimeType: $file->mimeType,
-      size: $file->size,
+      file: $file,
       uploadedAt: $uploadedAt,
       nonConformityId: $nonConformityId,
-      label: $file->label,
     );
   }
 
@@ -167,7 +143,7 @@ final class InspectionAttachment
    */
   public function fileName(): string
   {
-    return $this->fileName;
+    return $this->file->fileName;
   }
 
   /**
@@ -177,7 +153,7 @@ final class InspectionAttachment
    */
   public function storagePath(): string
   {
-    return $this->storagePath;
+    return $this->file->storagePath;
   }
 
   /**
@@ -187,7 +163,7 @@ final class InspectionAttachment
    */
   public function mimeType(): string
   {
-    return $this->mimeType;
+    return $this->file->mimeType;
   }
 
   /**
@@ -197,7 +173,7 @@ final class InspectionAttachment
    */
   public function size(): int
   {
-    return $this->size;
+    return $this->file->size;
   }
 
   /**
@@ -207,7 +183,7 @@ final class InspectionAttachment
    */
   public function label(): ?string
   {
-    return $this->label;
+    return $this->file->label;
   }
 
   /**

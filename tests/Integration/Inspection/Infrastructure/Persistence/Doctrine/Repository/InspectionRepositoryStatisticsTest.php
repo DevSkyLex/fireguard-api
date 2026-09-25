@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
-use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -135,13 +135,13 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $updated = Inspection::reconstitute(
       id: InspectionId::fromString(self::UPSERT_INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_B_ID),
         inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
         facilityId: InspectionFacilityId::fromString(self::FACILITY_A_ID),
         checklistId: InspectionChecklistId::fromString(self::CHECKLIST_A_ID),
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::FAIL,
         status: InspectionStatus::SUBMITTED,
         performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
@@ -198,11 +198,11 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $unsaved = Inspection::reconstitute(
       id: InspectionId::fromString(self::UNKNOWN_INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_A_ID),
         inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::PASS,
         status: InspectionStatus::DRAFT,
         performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
@@ -615,13 +615,13 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString($id),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString($equipmentId),
         inspector: $inspector,
         facilityId: null !== $facilityId ? InspectionFacilityId::fromString($facilityId) : null,
         checklistId: null !== $checklistId ? InspectionChecklistId::fromString($checklistId) : null,
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: $result,
         status: $status,
         performedAt: $performedAt,

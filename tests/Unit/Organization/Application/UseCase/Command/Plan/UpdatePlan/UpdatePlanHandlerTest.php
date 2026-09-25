@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Plan\UpdatePlan;
 use Organization\Application\Port\Outbound\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Plan\UpdatePlan\{UpdatePlanCommand, UpdatePlanHandler};
 use Organization\Domain\Exception\PlanNotFoundException;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -228,10 +228,12 @@ final class UpdatePlanHandlerTest extends TestCase
       new PlanKey('starter'),
       $name,
       $limits,
-      $description,
-      $isActive,
-      $isDefault,
-      $sortOrder,
+      options: new PlanCreationOptions(
+        description: $description,
+        isActive: $isActive,
+        isDefault: $isDefault,
+        sortOrder: $sortOrder,
+      ),
     );
   }
 

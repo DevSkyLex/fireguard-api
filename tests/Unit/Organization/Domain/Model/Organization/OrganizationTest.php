@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Domain\Model\Organization;
 
 use DateTimeImmutable;
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationOwnershipUnchangedException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, OrganizationCreationOptions};
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationLegal, RestoredOrganizationProfile, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{
   OrganizationApprovalSettings,
@@ -78,12 +78,14 @@ final class OrganizationTest extends TestCase
       id: OrganizationId::fromString(self::ORGANIZATION_ID),
       name: new OrganizationName('Acme Safety'),
       ownerUserId: self::OWNER_ID,
-      slug: new OrganizationSlug('custom-slug'),
-      createdByUserId: self::CREATOR_ID,
-      description: 'Fire safety experts',
-      logoUrl: 'https://cdn.example.test/logo.png',
-      settings: $settings,
-      planId: PlanId::fromString(self::PLAN_ID),
+      options: new OrganizationCreationOptions(
+        slug: new OrganizationSlug('custom-slug'),
+        createdByUserId: self::CREATOR_ID,
+        description: 'Fire safety experts',
+        logoUrl: 'https://cdn.example.test/logo.png',
+        settings: $settings,
+        planId: PlanId::fromString(self::PLAN_ID),
+      ),
     );
 
     self::assertSame('custom-slug', (string) $organization->slug());

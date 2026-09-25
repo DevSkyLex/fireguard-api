@@ -202,10 +202,8 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   private function askTrend(GetOrganizationDashboardTrendQuery $query): GetOrganizationDashboardTrendResult
   {
     try {
-      /** @var GetOrganizationDashboardTrendResult $result */
-      $result = $this->queryBus->ask($query);
-
-      return $result;
+      /** @var GetOrganizationDashboardTrendResult */
+      return $this->queryBus->ask($query);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (OrganizationAccessDeniedException $exception) {

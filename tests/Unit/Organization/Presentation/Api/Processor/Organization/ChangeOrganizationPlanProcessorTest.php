@@ -20,7 +20,7 @@ use Organization\Domain\Exception\{
   OrganizationPlanUsageExceededException,
   PlanNotFoundException
 };
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationSettings, PlanId, PlanKey};
 use Organization\Presentation\Api\Dto\Input\Organization\ChangeOrganizationPlanInput;
 use Organization\Presentation\Api\Processor\Organization\ChangeOrganizationPlanProcessor;
@@ -217,7 +217,9 @@ final class ChangeOrganizationPlanProcessorTest extends TestCase
       key: new PlanKey('pro'),
       name: 'Pro',
       limits: ['members' => 500],
-      isDefault: false,
+      options: new PlanCreationOptions(
+        isDefault: false,
+      ),
     );
 
     $processor = $this->createProcessorWithPlan($this->createStub(CommandBusPort::class), $paidPlan);
@@ -452,7 +454,9 @@ final class ChangeOrganizationPlanProcessorTest extends TestCase
       key: new PlanKey('free'),
       name: 'Free',
       limits: ['members' => 50],
-      isDefault: true,
+      options: new PlanCreationOptions(
+        isDefault: true,
+      ),
     );
   }
 

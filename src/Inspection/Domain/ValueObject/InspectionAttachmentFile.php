@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Domain\ValueObject;
 
 /**
- * File metadata restored exactly from an inspection attachment row.
+ * File metadata for a new or restored inspection attachment.
  *
  * @category ValueObject
  *
@@ -13,7 +13,7 @@ namespace Inspection\Domain\ValueObject;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RestoredInspectionAttachmentFile
+final readonly class InspectionAttachmentFile
 {
   public function __construct(
     public string $fileName,

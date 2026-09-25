@@ -11,13 +11,13 @@ use Inspection\Domain\Exception\{InspectionAttachmentNotFoundException, Inspecti
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
+  InspectionAttachmentFile,
   InspectionAttachmentId,
   InspectionEquipmentId,
   InspectionId,
   InspectionOrganizationId,
   InspectionResult,
-  Inspector,
-  RestoredInspectionAttachmentFile
+  Inspector
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -163,7 +163,7 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     return InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString(self::ATTACHMENT_ID),
       inspectionId: InspectionId::fromString($inspectionId),
-      file: new RestoredInspectionAttachmentFile(
+      file: new InspectionAttachmentFile(
         fileName: 'report.pdf',
         storagePath: 'inspection/' . $inspectionId . '/attachments/' . self::ATTACHMENT_ID . '_report.pdf',
         mimeType: 'application/pdf',

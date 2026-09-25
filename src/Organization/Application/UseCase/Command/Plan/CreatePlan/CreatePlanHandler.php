@@ -6,7 +6,7 @@ namespace Organization\Application\UseCase\Command\Plan\CreatePlan;
 
 use Organization\Application\Port\Outbound\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanKeyAlreadyExistsException;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
@@ -71,10 +71,12 @@ final readonly class CreatePlanHandler implements CommandHandler
       key: $key,
       name: $command->name,
       limits: $command->limits,
-      description: $command->description,
-      isActive: $command->isActive,
-      isDefault: $command->isDefault,
-      sortOrder: $command->sortOrder,
+      options: new PlanCreationOptions(
+        description: $command->description,
+        isActive: $command->isActive,
+        isDefault: $command->isDefault,
+        sortOrder: $command->sortOrder,
+      ),
     );
 
     $this->transactionManager->transactional(function () use ($plan, $command): void {

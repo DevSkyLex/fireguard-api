@@ -7,7 +7,7 @@ namespace User\Application\UseCase\Command\User\CreateUser;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
 use Shared\Domain\Service\EventIdProvider;
-use Shared\Domain\ValueObject\Email;
+use Shared\Domain\ValueObject\{Email, TenantId};
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
@@ -77,7 +77,7 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
         avatarUrl: $command->avatarUrl,
       ),
       eventIdProvider: $this->eventIdProvider,
-      tenantId: null, // TODO: Handle tenant ID
+      tenantId: null === $command->tenantId ? null : TenantId::fromString($command->tenantId),
     );
 
     // Save the user

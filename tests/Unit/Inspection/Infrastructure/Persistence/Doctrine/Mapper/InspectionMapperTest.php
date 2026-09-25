@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -147,13 +147,13 @@ final class InspectionMapperTest extends TestCase
     return Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
         inspector: Inspector::forUser(self::USER_ID, 'Inspector'),
         facilityId: $withOptionalIds ? InspectionFacilityId::fromString(self::FACILITY_ID) : null,
         checklistId: $withOptionalIds ? InspectionChecklistId::fromString(self::CHECKLIST_ID) : null,
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::PASS,
         status: InspectionStatus::DRAFT,
         performedAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),

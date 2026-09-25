@@ -112,17 +112,12 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
    */
   private static function extractWrapped(Throwable $exception, string $type): ?Throwable
   {
-    if ($exception instanceof $type) {
-      return $exception;
-    }
-    if ($exception instanceof HandlerFailedException) {
-      return self::findInHandler($exception, $type);
-    }
-    if ($exception instanceof MessengerRuntimeException) {
-      return self::findInRuntime($exception, $type);
-    }
-
-    return null;
+    return match (true) {
+      $exception instanceof $type => $exception,
+      $exception instanceof HandlerFailedException => self::findInHandler($exception, $type),
+      $exception instanceof MessengerRuntimeException => self::findInRuntime($exception, $type),
+      default => null,
+    };
   }
 
   /**

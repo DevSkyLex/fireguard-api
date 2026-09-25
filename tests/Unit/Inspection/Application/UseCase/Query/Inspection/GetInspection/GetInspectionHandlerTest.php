@@ -17,7 +17,7 @@ use Inspection\Application\UseCase\Query\Inspection\GetInspection\{
   GetInspectionQuery
 };
 use Inspection\Domain\Exception\InspectionNotFoundException;
-use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
+use Inspection\Domain\Model\Inspection\{Inspection, InspectionFinding, InspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -66,13 +66,13 @@ final class GetInspectionHandlerTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
         inspector: Inspector::reconstitute(InspectorType::USER, 'Jane Doe', 'user-123', null),
         facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
         checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::PASS,
         status: InspectionStatus::SUBMITTED,
         performedAt: $performedAt,
@@ -136,13 +136,13 @@ final class GetInspectionHandlerTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
         inspector: Inspector::reconstitute(InspectorType::EXTERNAL, 'Acme Auditor', null, 'Acme Ltd'),
         facilityId: null,
         checklistId: null,
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::FAIL,
         status: InspectionStatus::DRAFT,
         performedAt: new DateTimeImmutable('2026-02-01T12:00:00+00:00'),
@@ -218,11 +218,11 @@ final class GetInspectionHandlerTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      references: new RestoredInspectionReferences(
+      references: new InspectionReferences(
         equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
         inspector: Inspector::reconstitute(InspectorType::USER, 'Jane Doe', 'user-123', null),
       ),
-      finding: new RestoredInspectionFinding(
+      finding: new InspectionFinding(
         result: InspectionResult::PASS,
         status: InspectionStatus::SUBMITTED,
         performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),

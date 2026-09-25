@@ -103,12 +103,15 @@ final readonly class InterventionWorkflowWorkloadCoordinator
     if ('create' === $mutation->action) {
       return true;
     }
+    $requiresAssessment = false;
     foreach (['status', 'assigneeId', 'workStartsOn', 'workEndsOn', 'plannedStartAt', 'dueAt'] as $field) {
       if (array_key_exists($field, $mutation->payload)) {
-        return true;
+        $requiresAssessment = true;
+
+        break;
       }
     }
 
-    return false;
+    return $requiresAssessment;
   }
 }

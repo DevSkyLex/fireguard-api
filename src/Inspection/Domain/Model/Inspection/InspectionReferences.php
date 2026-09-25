@@ -6,8 +6,8 @@ namespace Inspection\Domain\Model\Inspection;
 
 use Inspection\Domain\ValueObject\{InspectionChecklistId, InspectionEquipmentId, InspectionFacilityId, Inspector};
 
-/** Persisted equipment and inspector references for an inspection. */
-final readonly class RestoredInspectionReferences
+/** Equipment and inspector references for a new or restored inspection. */
+final readonly class InspectionReferences
 {
   public function __construct(
     public InspectionEquipmentId $equipmentId,

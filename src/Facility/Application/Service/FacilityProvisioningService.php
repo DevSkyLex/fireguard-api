@@ -94,6 +94,11 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
       // the dry-run projection below never looks the parent up by id.
     }
 
+    return $this->dispatchCreate($request, $parentFacilityId);
+  }
+
+  private function dispatchCreate(ProvisionFacilityRequest $request, ?string $parentFacilityId): ProvisionFacilityResult
+  {
     try {
       /** @var CreateFacilityResult $result */
       $result = $this->commandBus->dispatch(new CreateFacilityCommand(
@@ -108,18 +113,21 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
         dryRun: $request->dryRun,
         quotaProjectionOffset: $request->quotaProjectionOffset,
       ));
-    } catch (OrganizationQuotaExceededException $exception) {
-      return new ProvisionFacilityResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
-    } catch (
-      FacilityCodeAlreadyExistsException|FacilityArchivedException
-      |FacilityNotFoundException|InvalidArgumentException $exception
-    ) {
-      return new ProvisionFacilityResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
-    } catch (MessengerRuntimeException $exception) {
-      return $this->fromWrappedException($exception);
-    }
 
-    return new ProvisionFacilityResult(ProvisionOutcome::CREATED, resourceId: $result->facilityId);
+      return new ProvisionFacilityResult(ProvisionOutcome::CREATED, resourceId: $result->facilityId);
+    } catch (
+      OrganizationQuotaExceededException|FacilityCodeAlreadyExistsException|FacilityArchivedException
+      |FacilityNotFoundException|InvalidArgumentException|MessengerRuntimeException $exception
+    ) {
+      if ($exception instanceof MessengerRuntimeException) {
+        return $this->fromWrappedException($exception);
+      }
+
+      return new ProvisionFacilityResult(
+        $exception instanceof OrganizationQuotaExceededException ? ProvisionOutcome::QUOTA_EXCEEDED : ProvisionOutcome::INVALID,
+        message: $exception->getMessage(),
+      );
+    }
   }
 
   /**

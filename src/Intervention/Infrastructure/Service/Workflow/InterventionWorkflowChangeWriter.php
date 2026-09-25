@@ -66,6 +66,26 @@ final readonly class InterventionWorkflowChangeWriter
 
       return null;
     }
+
+    return $this->updateChange($intervention, $record, $mutation);
+  }
+
+  /**
+   * Applies the requested fields to an existing proposed change.
+   *
+   * @since 1.1.0
+   *
+   * @param InterventionRecord $intervention the owning intervention
+   * @param InterventionChangeRecord $record the existing change
+   * @param InterventionWorkflowMutation $mutation the requested mutation
+   *
+   * @return InterventionWorkflowView the resulting change view
+   */
+  private function updateChange(
+    InterventionRecord $intervention,
+    InterventionChangeRecord $record,
+    InterventionWorkflowMutation $mutation,
+  ): InterventionWorkflowView {
     if ([] === $mutation->payload) {
       return $this->runtime->views->changeView($record);
     }

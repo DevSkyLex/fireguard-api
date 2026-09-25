@@ -13,7 +13,7 @@ use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{L
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, PlanCreationOptions};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -120,7 +120,9 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       key: new PlanKey('free'),
       name: 'Free',
       limits: [],
-      isDefault: true,
+      options: new PlanCreationOptions(
+        isDefault: true,
+      ),
     ));
 
     $role = new GetOrganizationCallerRoleResult(id: '550e8400-e29b-41d4-a716-446655440820', label: 'fire_safety_officer');
@@ -196,7 +198,9 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       key: new PlanKey('free'),
       name: 'Free',
       limits: [],
-      isDefault: true,
+      options: new PlanCreationOptions(
+        isDefault: true,
+      ),
     ));
 
     /** @var OrganizationCallerMembershipPort&MockObject $callerMembership */
