@@ -44,7 +44,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       paginationMaximumItemsPerPage: 100,
       paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Approvals'],
         summary: 'List approval requests',
@@ -57,7 +57,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ApprovalRequestOutput::class,
       provider: GetApprovalRequestProvider::class,
       normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Approvals'],
         summary: 'Get approval request',
@@ -77,7 +77,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: ApproveApprovalRequestProcessor::class,
       denormalizationContext: ['groups' => [ApprovalSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Approvals'],
         summary: 'Approve an approval request',
@@ -98,7 +98,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: RejectApprovalRequestProcessor::class,
       denormalizationContext: ['groups' => [ApprovalSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Approvals'],
         summary: 'Reject an approval request',
@@ -121,7 +121,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       strictQueryParameterValidation: true,
       denormalizationContext: ['groups' => [ApprovalSerializationGroup::WRITE]],
       normalizationContext: ['groups' => [ApprovalSerializationGroup::READ]],
-      security: "is_granted('ROLE_USER')",
+      security: self::USER_SECURITY,
       openapi: new Operation(
         tags: ['Approvals'],
         summary: 'Withdraw your pending approval request',
@@ -138,4 +138,5 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 )]
 final class ApprovalRequestResource
 {
+  private const USER_SECURITY = "is_granted('ROLE_USER')";
 }
