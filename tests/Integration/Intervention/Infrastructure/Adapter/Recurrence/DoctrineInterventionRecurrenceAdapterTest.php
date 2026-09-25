@@ -6,6 +6,8 @@ namespace Tests\Integration\Intervention\Infrastructure\Adapter\Recurrence;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCadencePatch, InterventionRecurrenceIdentityPatch, InterventionRecurrenceLifecyclePatch, InterventionRecurrenceSchedulePatch, InterventionRecurrenceUpdateRequest};
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRequest, InterventionRecurrenceSchedule};
 use Intervention\Domain\Exception\InterventionNotFoundException;
 use Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecurrenceRecord, InterventionTemplateRecord};
@@ -78,20 +80,14 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
     $next = new DateTimeImmutable('2026-02-01 09:00:00');
     $end = new DateTimeImmutable('2026-12-31 00:00:00');
 
-    $view = $this->adapter->create(
+    $view = $this->adapter->create(new InterventionRecurrenceCreateRequest(
       self::ORGANIZATION_ID,
       self::TEMPLATE_ID,
       'Quarterly extinguisher check',
       'site-42',
       'resp-7',
-      'quarterly',
-      2,
-      $anchor,
-      'Europe/Paris',
-      10,
-      $next,
-      $end,
-    );
+      new InterventionRecurrenceSchedule('quarterly', 2, $anchor, 'Europe/Paris', 10, $next, $end),
+    ));
     $this->entityManager->clear();
 
     self::assertSame(self::ORGANIZATION_ID, $view->organizationId);
@@ -119,20 +115,14 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
   {
     $this->expectException(InterventionNotFoundException::class);
 
-    $this->adapter->create(
+    $this->adapter->create(new InterventionRecurrenceCreateRequest(
       self::MISSING_ID,
       self::TEMPLATE_ID,
       'Orphan',
       null,
       null,
-      'monthly',
-      1,
-      new DateTimeImmutable('2026-01-01 00:00:00'),
-      'UTC',
-      7,
-      new DateTimeImmutable('2026-02-01 00:00:00'),
-      null,
-    );
+      new InterventionRecurrenceSchedule('monthly', 1, new DateTimeImmutable('2026-01-01 00:00:00'), 'UTC', 7, new DateTimeImmutable('2026-02-01 00:00:00'), null),
+    ));
   }
 
   #[Test]
@@ -140,20 +130,14 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
   {
     $this->expectException(InterventionNotFoundException::class);
 
-    $this->adapter->create(
+    $this->adapter->create(new InterventionRecurrenceCreateRequest(
       self::ORGANIZATION_ID,
       self::MISSING_ID,
       'Orphan',
       null,
       null,
-      'monthly',
-      1,
-      new DateTimeImmutable('2026-01-01 00:00:00'),
-      'UTC',
-      7,
-      new DateTimeImmutable('2026-02-01 00:00:00'),
-      null,
-    );
+      new InterventionRecurrenceSchedule('monthly', 1, new DateTimeImmutable('2026-01-01 00:00:00'), 'UTC', 7, new DateTimeImmutable('2026-02-01 00:00:00'), null),
+    ));
   }
 
   #[Test]
@@ -167,31 +151,13 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
   {
     $recurrenceId = $this->persistRecurrence('rec-update', 'Original', true, new DateTimeImmutable('2026-03-01 08:00:00'));
 
-    $updated = $this->adapter->update(
+    $updated = $this->adapter->update(new InterventionRecurrenceUpdateRequest(
       $recurrenceId,
-      'Renamed',
-      'site-9',
-      'resp-3',
-      'weekly',
-      4,
-      new DateTimeImmutable('2026-04-01 00:00:00'),
-      'America/New_York',
-      21,
-      new DateTimeImmutable('2026-05-01 07:30:00'),
-      new DateTimeImmutable('2027-01-01 00:00:00'),
-      false,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-    );
+      new InterventionRecurrenceIdentityPatch('Renamed', 'site-9', 'resp-3', true, true, true),
+      new InterventionRecurrenceCadencePatch('weekly', 4, new DateTimeImmutable('2026-04-01 00:00:00'), true, true, true),
+      new InterventionRecurrenceSchedulePatch('America/New_York', 21, new DateTimeImmutable('2026-05-01 07:30:00'), true, true, true),
+      new InterventionRecurrenceLifecyclePatch(new DateTimeImmutable('2027-01-01 00:00:00'), false, true, true),
+    ));
     $this->entityManager->clear();
 
     self::assertSame('Renamed', $updated->name);
@@ -217,31 +183,13 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
   {
     $recurrenceId = $this->persistRecurrence('rec-noop', 'Untouched', true, new DateTimeImmutable('2026-03-01 08:00:00'));
 
-    $updated = $this->adapter->update(
+    $updated = $this->adapter->update(new InterventionRecurrenceUpdateRequest(
       $recurrenceId,
-      'Ignored',
-      'ignored-site',
-      'ignored-resp',
-      'annual',
-      99,
-      new DateTimeImmutable('2030-01-01 00:00:00'),
-      'Asia/Tokyo',
-      365,
-      new DateTimeImmutable('2030-02-01 00:00:00'),
-      new DateTimeImmutable('2030-03-01 00:00:00'),
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-    );
+      new InterventionRecurrenceIdentityPatch('Ignored', 'ignored-site', 'ignored-resp', false, false, false),
+      new InterventionRecurrenceCadencePatch('annual', 99, new DateTimeImmutable('2030-01-01 00:00:00'), false, false, false),
+      new InterventionRecurrenceSchedulePatch('Asia/Tokyo', 365, new DateTimeImmutable('2030-02-01 00:00:00'), false, false, false),
+      new InterventionRecurrenceLifecyclePatch(new DateTimeImmutable('2030-03-01 00:00:00'), false, false, false),
+    ));
     $this->entityManager->clear();
 
     self::assertSame('Untouched', $updated->name);
@@ -269,31 +217,13 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
       'resp-x',
     );
 
-    $updated = $this->adapter->update(
+    $updated = $this->adapter->update(new InterventionRecurrenceUpdateRequest(
       $recurrenceId,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      true,
-      true,
-      true,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      true,
-      true,
-    );
+      new InterventionRecurrenceIdentityPatch(null, null, null, true, true, true),
+      new InterventionRecurrenceCadencePatch(null, null, null, false, false, false),
+      new InterventionRecurrenceSchedulePatch(null, null, null, false, false, false),
+      new InterventionRecurrenceLifecyclePatch(null, null, true, true),
+    ));
     $this->entityManager->clear();
 
     // Name kept: hasName is true, but the value is null so no change applies.
@@ -311,31 +241,13 @@ final class DoctrineInterventionRecurrenceAdapterTest extends KernelTestCase
   {
     $this->expectException(InterventionNotFoundException::class);
 
-    $this->adapter->update(
+    $this->adapter->update(new InterventionRecurrenceUpdateRequest(
       self::MISSING_ID,
-      'x',
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      true,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-      false,
-    );
+      new InterventionRecurrenceIdentityPatch('x', null, null, true, false, false),
+      new InterventionRecurrenceCadencePatch(null, null, null, false, false, false),
+      new InterventionRecurrenceSchedulePatch(null, null, null, false, false, false),
+      new InterventionRecurrenceLifecyclePatch(null, null, false, false),
+    ));
   }
 
   #[Test]

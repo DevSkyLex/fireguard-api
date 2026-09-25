@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\UseCase\Command\Mfa\MfaResend;
 
-use Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendResult;
+use Auth\Application\UseCase\Command\Mfa\MfaResend\{MfaResendResult, ResentMfaChallenge};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -26,13 +26,15 @@ final class MfaResendResultTest extends TestCase
     $expiresAt = new DateTimeImmutable('2026-01-01T10:00:00+00:00');
 
     $result = MfaResendResult::success(
-      preAuthToken: 'pre-auth',
-      challengeToken: 'challenge',
-      mfaMethod: 'email',
-      mfaDestination: 'j***e@example.com',
-      expiresAt: $expiresAt,
-      maxAttempts: 5,
-      canResendIn: 30,
+      challenge: new ResentMfaChallenge(
+        preAuthToken: 'pre-auth',
+        challengeToken: 'challenge',
+        mfaMethod: 'email',
+        mfaDestination: 'j***e@example.com',
+        expiresAt: $expiresAt,
+        maxAttempts: 5,
+        canResendIn: 30,
+      ),
     );
 
     self::assertTrue($result->success);
@@ -52,13 +54,15 @@ final class MfaResendResultTest extends TestCase
   public function testSuccessFactoryAcceptsACustomMessage(): void
   {
     $result = MfaResendResult::success(
-      preAuthToken: 'pre-auth',
-      challengeToken: 'challenge',
-      mfaMethod: 'sms',
-      mfaDestination: '+33******89',
-      expiresAt: new DateTimeImmutable('2026-01-01T10:00:00+00:00'),
-      maxAttempts: 3,
-      canResendIn: 60,
+      challenge: new ResentMfaChallenge(
+        preAuthToken: 'pre-auth',
+        challengeToken: 'challenge',
+        mfaMethod: 'sms',
+        mfaDestination: '+33******89',
+        expiresAt: new DateTimeImmutable('2026-01-01T10:00:00+00:00'),
+        maxAttempts: 3,
+        canResendIn: 60,
+      ),
       message: 'Code resent by SMS.',
     );
 

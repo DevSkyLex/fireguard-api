@@ -6,7 +6,7 @@ namespace Tests\Unit\Intervention\Domain\Model\Intervention;
 
 use DateTimeImmutable;
 use Intervention\Domain\Exception\InterventionConflictException;
-use Intervention\Domain\Model\Intervention\Intervention;
+use Intervention\Domain\Model\Intervention\{Intervention, InterventionContent, InterventionCreation, InterventionOwnership, InterventionOwnershipChanges, InterventionPatch, InterventionRestoredState, InterventionSchedule, InterventionScheduleChanges, InterventionTextChanges};
 use Intervention\Domain\Service\InterventionTransitionPolicy;
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use PHPUnit\Framework\Attributes\Test;
@@ -21,15 +21,11 @@ final class InterventionTest extends TestCase
   {
     $intervention = $this->intervention();
 
-    $intervention->edit(
-      policy: new InterventionTransitionPolicy(),
-      name: 'North site inventory',
-      participants: ['member-2', 'member-2', 'member-3'],
-      priority: InterventionPriority::HIGH,
-      hasName: true,
-      hasParticipants: true,
-      hasPriority: true,
-    );
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      text: new InterventionTextChanges(name: 'North site inventory', hasName: true),
+      ownership: new InterventionOwnershipChanges(participants: ['member-2', 'member-2', 'member-3'], hasParticipants: true),
+      schedule: new InterventionScheduleChanges(priority: InterventionPriority::HIGH, hasPriority: true),
+    ));
 
     self::assertSame(2, $intervention->revision());
     self::assertSame('North site inventory', $intervention->name());
@@ -40,18 +36,14 @@ final class InterventionTest extends TestCase
   #[Test]
   public function itRequiresPreparedScopeBeforePlanning(): void
   {
-    $intervention = Intervention::create(
-      id: 'intervention-1',
-      organizationId: 'organization-1',
-      type: InterventionType::INVENTORY,
-      name: 'Inventory',
-      siteId: null,
-      responsibleId: null,
-      participants: [],
-      priority: InterventionPriority::NORMAL,
-      plannedStartAt: null,
-      dueAt: null,
-    );
+    $intervention = Intervention::create(new InterventionCreation(
+      'intervention-1',
+      'organization-1',
+      InterventionType::INVENTORY,
+      new InterventionContent('Inventory', null),
+      new InterventionOwnership(null, null, []),
+      new InterventionSchedule(InterventionPriority::NORMAL, null, null),
+    ));
 
     $this->expectException(InterventionConflictException::class);
     $intervention->transitionTo(InterventionStatus::PLANNED, new InterventionTransitionPolicy());
@@ -64,15 +56,9 @@ final class InterventionTest extends TestCase
     $intervention = $this->intervention();
     $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
 
-    $intervention->edit(
-      policy: $policy,
-      priority: InterventionPriority::URGENT,
-      plannedStartAt: new DateTimeImmutable('2026-07-03T08:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-07-04T18:00:00+00:00'),
-      hasPriority: true,
-      hasPlannedStartAt: true,
-      hasDueAt: true,
-    );
+    $intervention->edit($policy, new InterventionPatch(
+      schedule: new InterventionScheduleChanges(priority: InterventionPriority::URGENT, plannedStartAt: new DateTimeImmutable('2026-07-03T08:00:00+00:00'), dueAt: new DateTimeImmutable('2026-07-04T18:00:00+00:00'), hasPriority: true, hasPlannedStartAt: true, hasDueAt: true),
+    ));
 
     self::assertSame(InterventionPriority::URGENT, $intervention->priority());
     self::assertSame('2026-07-03T08:00:00+00:00', $intervention->plannedStartAt()?->format('c'));
@@ -86,13 +72,10 @@ final class InterventionTest extends TestCase
     $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
     $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
 
-    $intervention->edit(
-      policy: $policy,
-      participants: ['member-9'],
-      dueAt: new DateTimeImmutable('2026-07-09T18:00:00+00:00'),
-      hasParticipants: true,
-      hasDueAt: true,
-    );
+    $intervention->edit($policy, new InterventionPatch(
+      ownership: new InterventionOwnershipChanges(participants: ['member-9'], hasParticipants: true),
+      schedule: new InterventionScheduleChanges(dueAt: new DateTimeImmutable('2026-07-09T18:00:00+00:00'), hasDueAt: true),
+    ));
 
     self::assertSame(['member-9'], $intervention->participants());
     self::assertSame('2026-07-09T18:00:00+00:00', $intervention->dueAt()?->format('c'));
@@ -104,13 +87,17 @@ final class InterventionTest extends TestCase
     $policy = new InterventionTransitionPolicy();
     $intervention = $this->intervention();
     $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
-    $intervention->edit(policy: $policy, responsibleId: 'member-2', hasResponsibleId: true);
+    $intervention->edit($policy, new InterventionPatch(
+      ownership: new InterventionOwnershipChanges(responsibleId: 'member-2', hasResponsibleId: true),
+    ));
     self::assertSame('member-2', $intervention->responsibleId());
 
     $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(policy: $policy, responsibleId: 'member-3', hasResponsibleId: true);
+    $intervention->edit($policy, new InterventionPatch(
+      ownership: new InterventionOwnershipChanges(responsibleId: 'member-3', hasResponsibleId: true),
+    ));
   }
 
   #[Test]
@@ -123,11 +110,9 @@ final class InterventionTest extends TestCase
     $intervention->transitionTo(InterventionStatus::SUBMITTED, $policy);
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(
-      policy: $policy,
-      dueAt: new DateTimeImmutable('2026-08-01T18:00:00+00:00'),
-      hasDueAt: true,
-    );
+    $intervention->edit($policy, new InterventionPatch(
+      schedule: new InterventionScheduleChanges(dueAt: new DateTimeImmutable('2026-08-01T18:00:00+00:00'), hasDueAt: true),
+    ));
   }
 
   #[Test]
@@ -138,7 +123,9 @@ final class InterventionTest extends TestCase
     $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(policy: $policy, dueAt: null, hasDueAt: true);
+    $intervention->edit($policy, new InterventionPatch(
+      schedule: new InterventionScheduleChanges(dueAt: null, hasDueAt: true),
+    ));
   }
 
   #[Test]
@@ -171,19 +158,14 @@ final class InterventionTest extends TestCase
   #[Test]
   public function itCreatesADraftWithNormalizedFields(): void
   {
-    $intervention = Intervention::create(
-      id: 'intervention-1',
-      organizationId: '  organization-1  ',
-      type: InterventionType::SITE_SETUP,
-      name: '  Kickoff  ',
-      siteId: '  site-1  ',
-      responsibleId: '  member-1  ',
-      participants: ['member-2', 'member-2'],
-      priority: InterventionPriority::LOW,
-      plannedStartAt: new DateTimeImmutable('2026-06-15T08:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-06-15T18:00:00+00:00'),
-      description: '  Prepare the site  ',
-    );
+    $intervention = Intervention::create(new InterventionCreation(
+      'intervention-1',
+      '  organization-1  ',
+      InterventionType::SITE_SETUP,
+      new InterventionContent('  Kickoff  ', '  Prepare the site  '),
+      new InterventionOwnership('  site-1  ', '  member-1  ', ['member-2', 'member-2']),
+      new InterventionSchedule(InterventionPriority::LOW, new DateTimeImmutable('2026-06-15T08:00:00+00:00'), new DateTimeImmutable('2026-06-15T18:00:00+00:00')),
+    ));
 
     self::assertSame('intervention-1', $intervention->id());
     self::assertSame('organization-1', $intervention->organizationId());
@@ -204,54 +186,42 @@ final class InterventionTest extends TestCase
   public function itRejectsABlankOrganizationIdOnCreate(): void
   {
     $this->expectException(InterventionConflictException::class);
-    Intervention::create(
-      id: 'intervention-1',
-      organizationId: '   ',
-      type: InterventionType::INVENTORY,
-      name: 'Inventory',
-      siteId: null,
-      responsibleId: null,
-      participants: [],
-      priority: InterventionPriority::NORMAL,
-      plannedStartAt: null,
-      dueAt: null,
-    );
+    Intervention::create(new InterventionCreation(
+      'intervention-1',
+      '   ',
+      InterventionType::INVENTORY,
+      new InterventionContent('Inventory', null),
+      new InterventionOwnership(null, null, []),
+      new InterventionSchedule(InterventionPriority::NORMAL, null, null),
+    ));
   }
 
   #[Test]
   public function itRejectsANameLongerThan160CharactersOnCreate(): void
   {
     $this->expectException(InterventionConflictException::class);
-    Intervention::create(
-      id: 'intervention-1',
-      organizationId: 'organization-1',
-      type: InterventionType::INVENTORY,
-      name: str_repeat('a', 161),
-      siteId: null,
-      responsibleId: null,
-      participants: [],
-      priority: InterventionPriority::NORMAL,
-      plannedStartAt: null,
-      dueAt: null,
-    );
+    Intervention::create(new InterventionCreation(
+      'intervention-1',
+      'organization-1',
+      InterventionType::INVENTORY,
+      new InterventionContent(str_repeat('a', 161), null),
+      new InterventionOwnership(null, null, []),
+      new InterventionSchedule(InterventionPriority::NORMAL, null, null),
+    ));
   }
 
   #[Test]
   public function itRejectsADueDateNotAfterPlannedStartOnCreate(): void
   {
     $this->expectException(InterventionConflictException::class);
-    Intervention::create(
-      id: 'intervention-1',
-      organizationId: 'organization-1',
-      type: InterventionType::INVENTORY,
-      name: 'Inventory',
-      siteId: null,
-      responsibleId: null,
-      participants: [],
-      priority: InterventionPriority::NORMAL,
-      plannedStartAt: new DateTimeImmutable('2026-06-15T18:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-06-15T08:00:00+00:00'),
-    );
+    Intervention::create(new InterventionCreation(
+      'intervention-1',
+      'organization-1',
+      InterventionType::INVENTORY,
+      new InterventionContent('Inventory', null),
+      new InterventionOwnership(null, null, []),
+      new InterventionSchedule(InterventionPriority::NORMAL, new DateTimeImmutable('2026-06-15T18:00:00+00:00'), new DateTimeImmutable('2026-06-15T08:00:00+00:00')),
+    ));
   }
 
   #[Test]
@@ -262,24 +232,21 @@ final class InterventionTest extends TestCase
     $plannedStartAt = new DateTimeImmutable('2026-06-15T08:00:00+00:00');
     $dueAt = new DateTimeImmutable('2026-06-15T18:00:00+00:00');
 
-    $intervention = Intervention::reconstitute(
-      id: 'intervention-9',
-      organizationId: 'organization-1',
-      type: InterventionType::INSPECTION_CAMPAIGN,
-      name: 'Annual campaign',
-      description: 'Full sweep',
-      status: InterventionStatus::SUBMITTED,
-      siteId: 'site-3',
-      responsibleId: 'member-7',
-      participants: ['member-2', 'member-3'],
-      priority: InterventionPriority::HIGH,
-      plannedStartAt: $plannedStartAt,
-      dueAt: $dueAt,
-      reviewNote: 'looks good',
-      revision: 7,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-    );
+    $intervention = Intervention::reconstitute(new InterventionRestoredState(
+      new InterventionCreation(
+        'intervention-9',
+        'organization-1',
+        InterventionType::INSPECTION_CAMPAIGN,
+        new InterventionContent('Annual campaign', 'Full sweep'),
+        new InterventionOwnership('site-3', 'member-7', ['member-2', 'member-3']),
+        new InterventionSchedule(InterventionPriority::HIGH, $plannedStartAt, $dueAt),
+      ),
+      InterventionStatus::SUBMITTED,
+      'looks good',
+      7,
+      $createdAt,
+      $updatedAt,
+    ));
 
     self::assertSame('intervention-9', $intervention->id());
     self::assertSame('organization-1', $intervention->organizationId());
@@ -340,17 +307,10 @@ final class InterventionTest extends TestCase
     $policy = new InterventionTransitionPolicy();
     $intervention = $this->intervention();
 
-    $intervention->edit(
-      policy: $policy,
-      siteId: '  site-2  ',
-      responsibleId: null,
-      participants: ['a', 'a', 'b'],
-      priority: InterventionPriority::URGENT,
-      hasSiteId: true,
-      hasResponsibleId: true,
-      hasParticipants: true,
-      hasPriority: true,
-    );
+    $intervention->edit($policy, new InterventionPatch(
+      ownership: new InterventionOwnershipChanges(siteId: '  site-2  ', responsibleId: null, participants: ['a', 'a', 'b'], hasSiteId: true, hasResponsibleId: true, hasParticipants: true),
+      schedule: new InterventionScheduleChanges(priority: InterventionPriority::URGENT, hasPriority: true),
+    ));
 
     self::assertSame('site-2', $intervention->siteId());
     self::assertNull($intervention->responsibleId());
@@ -364,13 +324,9 @@ final class InterventionTest extends TestCase
     $intervention = $this->intervention();
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(
-      policy: new InterventionTransitionPolicy(),
-      plannedStartAt: new DateTimeImmutable('2026-07-01T18:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-07-01T08:00:00+00:00'),
-      hasPlannedStartAt: true,
-      hasDueAt: true,
-    );
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      schedule: new InterventionScheduleChanges(plannedStartAt: new DateTimeImmutable('2026-07-01T18:00:00+00:00'), dueAt: new DateTimeImmutable('2026-07-01T08:00:00+00:00'), hasPlannedStartAt: true, hasDueAt: true),
+    ));
   }
 
   #[Test]
@@ -381,7 +337,9 @@ final class InterventionTest extends TestCase
     $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(policy: $policy, siteId: 'site-2', hasSiteId: true);
+    $intervention->edit($policy, new InterventionPatch(
+      ownership: new InterventionOwnershipChanges(siteId: 'site-2', hasSiteId: true),
+    ));
   }
 
   #[Test]
@@ -447,28 +405,12 @@ final class InterventionTest extends TestCase
     $plannedStartAt = new DateTimeImmutable('2026-07-01T08:00:00+00:00');
     $dueAt = new DateTimeImmutable('2026-07-01T18:00:00+00:00');
 
-    $intervention->edit(
-      policy: new InterventionTransitionPolicy(),
-      name: '  New name  ',
-      description: '  New description  ',
-      siteId: '  site-9  ',
-      responsibleId: '  member-9  ',
-      participants: ['a', 'a', 'b'],
-      priority: InterventionPriority::URGENT,
-      plannedStartAt: $plannedStartAt,
-      dueAt: $dueAt,
-      reviewNote: '  a note  ',
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      text: new InterventionTextChanges(name: '  New name  ', description: '  New description  ', reviewNote: '  a note  ', hasName: true, hasDescription: true, hasReviewNote: true),
+      ownership: new InterventionOwnershipChanges(siteId: '  site-9  ', responsibleId: '  member-9  ', participants: ['a', 'a', 'b'], hasSiteId: true, hasResponsibleId: true, hasParticipants: true),
+      schedule: new InterventionScheduleChanges(priority: InterventionPriority::URGENT, plannedStartAt: $plannedStartAt, dueAt: $dueAt, hasPriority: true, hasPlannedStartAt: true, hasDueAt: true),
       nextStatus: InterventionStatus::PLANNED,
-      hasName: true,
-      hasDescription: true,
-      hasSiteId: true,
-      hasResponsibleId: true,
-      hasParticipants: true,
-      hasPriority: true,
-      hasPlannedStartAt: true,
-      hasDueAt: true,
-      hasReviewNote: true,
-    );
+    ));
 
     self::assertSame('New name', $intervention->name());
     self::assertSame('New description', $intervention->description());
@@ -488,11 +430,9 @@ final class InterventionTest extends TestCase
   {
     $intervention = $this->intervention();
 
-    $intervention->edit(
-      policy: new InterventionTransitionPolicy(),
-      priority: null,
-      hasPriority: true,
-    );
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      schedule: new InterventionScheduleChanges(priority: null, hasPriority: true),
+    ));
 
     self::assertSame(InterventionPriority::NORMAL, $intervention->priority());
     self::assertSame(2, $intervention->revision());
@@ -504,11 +444,9 @@ final class InterventionTest extends TestCase
     $intervention = $this->intervention();
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(
-      policy: new InterventionTransitionPolicy(),
-      name: null,
-      hasName: true,
-    );
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      text: new InterventionTextChanges(name: null, hasName: true),
+    ));
   }
 
   #[Test]
@@ -518,11 +456,9 @@ final class InterventionTest extends TestCase
     $intervention->transitionTo(InterventionStatus::PLANNED, new InterventionTransitionPolicy());
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(
-      policy: new InterventionTransitionPolicy(),
-      siteId: 'site-2',
-      hasSiteId: true,
-    );
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      ownership: new InterventionOwnershipChanges(siteId: 'site-2', hasSiteId: true),
+    ));
   }
 
   #[Test]
@@ -531,44 +467,39 @@ final class InterventionTest extends TestCase
     $intervention = $this->published();
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->edit(new InterventionTransitionPolicy(), name: 'Renamed', hasName: true);
+    $intervention->edit(new InterventionTransitionPolicy(), new InterventionPatch(
+      text: new InterventionTextChanges(name: 'Renamed', hasName: true),
+    ));
   }
 
   private function intervention(): Intervention
   {
-    return Intervention::create(
-      id: 'intervention-1',
-      organizationId: 'organization-1',
-      type: InterventionType::INVENTORY,
-      name: 'Inventory',
-      siteId: 'site-1',
-      responsibleId: 'member-1',
-      participants: ['member-2'],
-      priority: InterventionPriority::NORMAL,
-      plannedStartAt: new DateTimeImmutable('2026-06-15T08:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-06-15T18:00:00+00:00'),
-    );
+    return Intervention::create(new InterventionCreation(
+      'intervention-1',
+      'organization-1',
+      InterventionType::INVENTORY,
+      new InterventionContent('Inventory', null),
+      new InterventionOwnership('site-1', 'member-1', ['member-2']),
+      new InterventionSchedule(InterventionPriority::NORMAL, new DateTimeImmutable('2026-06-15T08:00:00+00:00'), new DateTimeImmutable('2026-06-15T18:00:00+00:00')),
+    ));
   }
 
   private function published(): Intervention
   {
-    return Intervention::reconstitute(
-      id: 'intervention-9',
-      organizationId: 'organization-1',
-      type: InterventionType::INSPECTION_CAMPAIGN,
-      name: 'Published campaign',
-      description: 'Done',
-      status: InterventionStatus::PUBLISHED,
-      siteId: 'site-1',
-      responsibleId: 'member-1',
-      participants: ['member-2'],
-      priority: InterventionPriority::HIGH,
-      plannedStartAt: new DateTimeImmutable('2026-06-15T08:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-06-15T18:00:00+00:00'),
-      reviewNote: 'ok',
-      revision: 7,
-      createdAt: new DateTimeImmutable('2026-06-01T00:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-06-10T00:00:00+00:00'),
-    );
+    return Intervention::reconstitute(new InterventionRestoredState(
+      new InterventionCreation(
+        'intervention-9',
+        'organization-1',
+        InterventionType::INSPECTION_CAMPAIGN,
+        new InterventionContent('Published campaign', 'Done'),
+        new InterventionOwnership('site-1', 'member-1', ['member-2']),
+        new InterventionSchedule(InterventionPriority::HIGH, new DateTimeImmutable('2026-06-15T08:00:00+00:00'), new DateTimeImmutable('2026-06-15T18:00:00+00:00')),
+      ),
+      InterventionStatus::PUBLISHED,
+      'ok',
+      7,
+      new DateTimeImmutable('2026-06-01T00:00:00+00:00'),
+      new DateTimeImmutable('2026-06-10T00:00:00+00:00'),
+    ));
   }
 }

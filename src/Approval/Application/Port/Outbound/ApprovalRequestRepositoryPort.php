@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Approval\Application\Port\Outbound;
 
 use Approval\Application\Contract\Reservation\ApprovalReservation;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 
@@ -35,29 +35,11 @@ interface ApprovalRequestRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param string $id the identifier to claim, when the reservation is new
-   * @param string $organizationId the owning organization identifier
-   * @param string $actionType the regulated action type
-   * @param string $subjectId the acted-upon subject identifier
-   * @param string $requestedByMemberId the requesting member identifier
-   * @param string $requestedByUserId the requesting user identifier
-   * @param array<string, mixed> $payload the deferred action's payload
-   * @param DateTimeImmutable $expiresAt the expiry deadline
-   * @param DateTimeImmutable $now the current time
+   * @param ApprovalRequestCreation $creation the pending request to claim
    *
    * @return ApprovalReservation the reservation outcome
    */
-  public function reservePending(
-    string $id,
-    string $organizationId,
-    string $actionType,
-    string $subjectId,
-    string $requestedByMemberId,
-    string $requestedByUserId,
-    array $payload,
-    DateTimeImmutable $expiresAt,
-    DateTimeImmutable $now,
-  ): ApprovalReservation;
+  public function reservePending(ApprovalRequestCreation $creation): ApprovalReservation;
 
   /**
    * Method save.

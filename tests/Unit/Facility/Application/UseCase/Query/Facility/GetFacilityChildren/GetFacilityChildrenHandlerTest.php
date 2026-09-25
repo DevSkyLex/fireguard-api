@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityChil
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacilityChildren\{GetFacilityChildrenHandler, GetFacilityChildrenQuery};
 use Facility\Domain\Exception\FacilityNotFoundException;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -37,7 +37,9 @@ final class GetFacilityChildrenHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building'),
-      parentFacilityId: $facilityId,
+      details: new FacilityDetails(
+        parentFacilityId: $facilityId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */

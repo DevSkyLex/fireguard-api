@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Onboarding\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{OrganizationOnboardingSession, StepHistoryEntry};
+use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{RollbackActionFactory, RollbackActionInterface};
 use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboardingSessionRecord;
 
@@ -82,22 +83,30 @@ final class OrganizationOnboardingSessionMapper
     );
 
     return OrganizationOnboardingSession::reconstitute(
-      id: $record->id,
-      userId: $record->userId,
-      flow: $record->flow,
-      state: $record->state,
-      nextStep: $record->nextStep,
-      blockedReason: $record->blockedReason,
-      targetOrganizationId: $record->targetOrganizationId,
-      targetOrganizationName: $record->targetOrganizationName,
-      completedSteps: $record->completedSteps,
-      skippedSteps: $record->skippedSteps,
-      rollbackStack: $rollbackStack,
-      stepHistory: $stepHistory,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      dismissedAt: $record->dismissedAt,
-      creationIntent: $record->creationIntent,
+      identity: new RestoredOnboardingIdentity(
+        id: $record->id,
+        userId: $record->userId,
+        flow: $record->flow,
+      ),
+      status: new RestoredOnboardingStatus(
+        state: $record->state,
+        nextStep: $record->nextStep,
+        blockedReason: $record->blockedReason,
+        targetOrganizationId: $record->targetOrganizationId,
+        targetOrganizationName: $record->targetOrganizationName,
+        creationIntent: $record->creationIntent,
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: $record->completedSteps,
+        skippedSteps: $record->skippedSteps,
+        rollbackStack: $rollbackStack,
+        stepHistory: $stepHistory,
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        dismissedAt: $record->dismissedAt,
+      ),
     );
   }
   // #endregion

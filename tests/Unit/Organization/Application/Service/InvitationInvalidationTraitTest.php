@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Application\Service\InvitationInvalidationTrait;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
@@ -113,15 +114,21 @@ final class InvitationInvalidationTraitTest extends TestCase
   private function invitation(OrganizationInvitationStatus $status): OrganizationInvitation
   {
     return OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId(self::INVITATION_ID),
-      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655445501'),
-      email: new Email('member@example.com'),
-      tokenHash: 'hashed-token',
-      invitedByUserId: '550e8400-e29b-41d4-a716-446655445502',
-      status: $status,
-      expiresAt: new DateTimeImmutable('+7 days'),
-      createdAt: new DateTimeImmutable('-1 day'),
-      updatedAt: new DateTimeImmutable('-1 day'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId(self::INVITATION_ID),
+        organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655445501'),
+        email: new Email('member@example.com'),
+        tokenHash: 'hashed-token',
+        invitedByUserId: '550e8400-e29b-41d4-a716-446655445502',
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: $status,
+        expiresAt: new DateTimeImmutable('+7 days'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-1 day'),
+        updatedAt: new DateTimeImmutable('-1 day'),
+      ),
     );
   }
 }

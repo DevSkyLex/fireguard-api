@@ -9,7 +9,7 @@ use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLog
 use Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\{ListMaintenanceLogsHandler, ListMaintenanceLogsQuery, ListMaintenanceLogsResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\Model\MaintenanceLog\{EquipmentMaintenanceLog, InterventionMaintenanceDetails};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId, MaintenanceLogSource};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -208,11 +208,13 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
       equipmentId: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       occurredAt: new DateTimeImmutable('2026-07-10T12:00:00+00:00'),
-      interventionId: '550e8400-e29b-41d4-a716-446655499100',
-      interventionNumber: 12,
-      workItemAction: 'status_change',
-      actorId: '550e8400-e29b-41d4-a716-446655499101',
-      summary: 'Replaced detector',
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: '550e8400-e29b-41d4-a716-446655499100',
+        interventionNumber: 12,
+        workItemAction: 'status_change',
+        actorId: '550e8400-e29b-41d4-a716-446655499101',
+        summary: 'Replaced detector',
+      ),
     );
 
     $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);

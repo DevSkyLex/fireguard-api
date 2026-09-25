@@ -36,8 +36,8 @@ use const DIRECTORY_SEPARATOR;
  * baseline is a ratchet, not a target.
  *
  * `Audit` is exempt as a CONSUMER: it is the hash-chained ledger that fans in
- * every module's domain events by design (`AuditEventSubscriber` subscribes to
- * ~45 event names across 8 modules). Its imports are the architecture working
+ * every module's domain events by design (the Audit subscriber families subscribe
+ * to events across modules). Its imports are the architecture working
  * as intended, not debt.
  *
  * @category Architecture Unit Tests

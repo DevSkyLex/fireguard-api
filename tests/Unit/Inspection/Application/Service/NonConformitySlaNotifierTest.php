@@ -165,11 +165,11 @@ final class NonConformitySlaNotifierTest extends TestCase
   private function policy(bool $nonConformitySlaBreached = true, bool $inAppEnabled = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
-    $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
-      emailEnabled: $emailEnabled,
-      inAppEnabled: $inAppEnabled,
-      nonConformitySlaBreached: $nonConformitySlaBreached,
-    ));
+    $policy->method('notificationPolicy')->willReturn(OrganizationNotificationSettings::fromArray([
+      'email_enabled' => $emailEnabled,
+      'in_app_enabled' => $inAppEnabled,
+      'non_conformity_sla_breached' => $nonConformitySlaBreached,
+    ]));
 
     return $policy;
   }

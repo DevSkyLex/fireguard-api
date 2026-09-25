@@ -131,12 +131,8 @@ final class TotpEnrollment
    * @since 1.0.0
    *
    * @param string $userId the user ID
-   * @param TotpSecret|null $activeSecret the active secret
-   * @param DateTimeImmutable|null $activeConfirmedAt active confirmation time
-   * @param TotpSecret|null $pendingSecret the pending secret
-   * @param DateTimeImmutable|null $pendingCreatedAt pending creation time
-   * @param int $attempts confirmation attempts made
-   * @param int $maxAttempts maximum confirmation attempts allowed
+   * @param TotpEnrollmentSecrets $secrets the active and pending secret slots
+   * @param TotpEnrollmentAttempts $attemptState the independent attempt counters
    * @param DateTimeImmutable $createdAt creation time
    * @param DateTimeImmutable $updatedAt last update time
    *
@@ -144,29 +140,23 @@ final class TotpEnrollment
    */
   public static function reconstitute(
     string $userId,
-    ?TotpSecret $activeSecret,
-    ?DateTimeImmutable $activeConfirmedAt,
-    ?TotpSecret $pendingSecret,
-    ?DateTimeImmutable $pendingCreatedAt,
-    int $attempts,
-    int $maxAttempts,
+    TotpEnrollmentSecrets $secrets,
+    TotpEnrollmentAttempts $attemptState,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    int $disableAttempts = 0,
-    ?DateTimeImmutable $disableLockedUntil = null,
   ): self {
     return new self(
       userId: $userId,
-      activeSecret: $activeSecret,
-      activeConfirmedAt: $activeConfirmedAt,
-      pendingSecret: $pendingSecret,
-      pendingCreatedAt: $pendingCreatedAt,
-      attempts: $attempts,
-      maxAttempts: $maxAttempts,
+      activeSecret: $secrets->activeSecret,
+      activeConfirmedAt: $secrets->activeConfirmedAt,
+      pendingSecret: $secrets->pendingSecret,
+      pendingCreatedAt: $secrets->pendingCreatedAt,
+      attempts: $attemptState->attempts,
+      maxAttempts: $attemptState->maxAttempts,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      disableAttempts: $disableAttempts,
-      disableLockedUntil: $disableLockedUntil,
+      disableAttempts: $attemptState->disableAttempts,
+      disableLockedUntil: $attemptState->disableLockedUntil,
     );
   }
   // #endregion

@@ -7,7 +7,7 @@ namespace Tests\Unit\Notification\Infrastructure\Adapter\Inbox;
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\NotificationListCriteria;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Adapter\Inbox\NotificationInboxSourceProviderAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -59,12 +59,14 @@ final class NotificationInboxSourceProviderAdapterTest extends TestCase
       body: 'Join the Fireguard HQ organization.',
       channels: ['mercure'],
       payload: [],
-      createdAt: new DateTimeImmutable('2026-07-18T09:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-07-18T09:00:00+00:00'),
-      recipientUserId: 'user-1',
-      isRead: true,
-      readAt: new DateTimeImmutable('2026-07-18T09:05:00+00:00'),
-      organizationId: 'org-1',
+      restoredState: new RestoredNotificationState(
+        createdAt: new DateTimeImmutable('2026-07-18T09:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-07-18T09:00:00+00:00'),
+        recipientUserId: 'user-1',
+        isRead: true,
+        readAt: new DateTimeImmutable('2026-07-18T09:05:00+00:00'),
+        organizationId: 'org-1',
+      ),
     );
 
     $repository = $this->createStub(NotificationRepositoryPort::class);

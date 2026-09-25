@@ -18,6 +18,7 @@ use Organization\Application\Port\Outbound\{
 };
 use Organization\Application\Service\OrganizationQuotaService;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource as DomainQuotaResource, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -386,12 +387,16 @@ final class OrganizationQuotaServiceTest extends TestCase
   private function organization(): Organization
   {
     return Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Test'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      planId: PlanId::fromString(self::PLAN_ID),
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Test'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
+      profile: new RestoredOrganizationProfile(
+        planId: PlanId::fromString(self::PLAN_ID),
+      ),
     );
   }
 

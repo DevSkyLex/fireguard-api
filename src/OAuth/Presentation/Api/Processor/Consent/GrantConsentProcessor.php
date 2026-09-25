@@ -283,10 +283,6 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
 
   private function extractCodeFromLocation(string $location): ?string
   {
-    if ('' === $location) {
-      return null;
-    }
-
     $parts = parse_url($location);
     if (!is_array($parts)) {
       return null;
@@ -324,10 +320,6 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
 
   private function extractCodeFromFormPostBody(string $body): ?string
   {
-    if ('' === $body) {
-      return null;
-    }
-
     if (1 === preg_match('/name=["\']code["\'][^>]*value=["\']([^"\']+)["\']/i', $body, $matches)) {
       return $matches[1];
     }
@@ -336,11 +328,9 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
       return $matches[1];
     }
 
-    if (1 === preg_match('/(?:^|[?&])code=([^&\\s"\']+)/i', $body, $matches)) {
-      return urldecode($matches[1]);
-    }
-
-    return null;
+    return 1 === preg_match('/(?:^|[?&])code=([^&\\s"\']+)/i', $body, $matches)
+      ? urldecode($matches[1])
+      : null;
   }
 
   private function readResponseBody(\Psr\Http\Message\ResponseInterface $response): string
@@ -351,14 +341,14 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
         return '';
       }
 
-      if (!$body->isSeekable()) {
-        return $body->getContents();
+      if ($body->isSeekable()) {
+        $position = $body->tell();
+        $body->rewind();
+        $contents = $body->getContents();
+        $body->seek($position);
+      } else {
+        $contents = $body->getContents();
       }
-
-      $position = $body->tell();
-      $body->rewind();
-      $contents = $body->getContents();
-      $body->seek($position);
 
       return $contents;
     } catch (Throwable) {

@@ -11,7 +11,7 @@ use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\ChallengeInfo;
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -77,18 +77,22 @@ final class MfaResendHandlerTest extends TestCase
   public function testInvokePreservesFederatedGrantTypeWhenChallengeIsResent(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174032'),
-      challengeToken: ChallengeToken::fromString('original-challenge'),
-      userId: 'user-1',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'user@example.com',
-      expiresAt: new DateTimeImmutable('+10 minutes'),
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-10 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174032'),
+        challengeToken: ChallengeToken::fromString('original-challenge'),
+        userId: 'user-1',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+10 minutes'),
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-10 minutes'),
+      ),
     );
 
     $jwtService = $this->createMock(JwtTokenServicePort::class);

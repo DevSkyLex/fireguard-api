@@ -7,11 +7,13 @@ namespace Tests\Unit\OAuth\Infrastructure\OAuth2\League\Server;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Nyholm\Psr7\Response;
+use OAuth\Application\Port\Outbound\Token\{AccessTokenGrantParameters, AccessTokenRequest};
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use OAuth\Infrastructure\OAuth2\League\Server\AuthorizationServerAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 
 use function json_encode;
@@ -41,12 +43,14 @@ final class AuthorizationServerAdapterTest extends TestCase
 
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
-    $result = $adapter->issueAccessToken(
+    $result = $adapter->issueAccessToken(new AccessTokenRequest(
       grantType: 'client_credentials',
       clientId: 'client-id',
       clientSecret: 'client-secret',
-      scope: 'openid profile',
-    );
+      grant: new AccessTokenGrantParameters(
+        scope: 'openid profile',
+      ),
+    ));
 
     self::assertInstanceOf(IssueTokenResult::class, $result);
     self::assertSame('access-token', $result->accessToken);
@@ -54,6 +58,37 @@ final class AuthorizationServerAdapterTest extends TestCase
     self::assertSame(3600, $result->expiresIn);
     self::assertSame('refresh-token', $result->refreshToken);
     self::assertSame('openid profile', $result->scope);
+  }
+
+  #[Test]
+  public function testIssueAccessTokenForwardsAuthorizationCodeAndPkceParameters(): void
+  {
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('respondToAccessTokenRequest')
+      ->with(self::callback(static fn (ServerRequestInterface $request): bool => [
+        'grant_type' => 'authorization_code',
+        'client_id' => 'client-id',
+        'client_secret' => 'client-secret',
+        'scope' => 'openid',
+        'code' => 'auth-code',
+        'redirect_uri' => 'https://client.example/callback',
+        'code_verifier' => 'pkce-verifier',
+      ] === $request->getParsedBody()))
+      ->willReturn(new Response(200, [], (string) json_encode(['access_token' => 'access-token'])));
+
+    $adapter = new AuthorizationServerAdapter($authorizationServer);
+    $adapter->issueAccessToken(new AccessTokenRequest(
+      grantType: 'authorization_code',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      grant: new AccessTokenGrantParameters(
+        scope: 'openid',
+        code: 'auth-code',
+        redirectUri: 'https://client.example/callback',
+        codeVerifier: 'pkce-verifier',
+      ),
+    ));
   }
 
   #[Test]
@@ -68,11 +103,11 @@ final class AuthorizationServerAdapterTest extends TestCase
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
     try {
-      $adapter->issueAccessToken(
+      $adapter->issueAccessToken(new AccessTokenRequest(
         grantType: 'client_credentials',
         clientId: 'client-id',
         clientSecret: 'client-secret',
-      );
+      ));
       self::fail('Expected AuthorizationException to be thrown.');
     } catch (AuthorizationException $exception) {
       self::assertSame($expectedErrorType, $exception->errorType());
@@ -90,12 +125,14 @@ final class AuthorizationServerAdapterTest extends TestCase
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
     try {
-      $adapter->issueAccessToken(
+      $adapter->issueAccessToken(new AccessTokenRequest(
         grantType: 'authorization_code',
         clientId: 'client-id',
         clientSecret: 'client-secret',
-        code: 'auth-code',
-      );
+        grant: new AccessTokenGrantParameters(
+          code: 'auth-code',
+        ),
+      ));
       self::fail('Expected AuthorizationException to be thrown.');
     } catch (AuthorizationException $exception) {
       self::assertSame('invalid_grant', $exception->errorType());
@@ -114,12 +151,14 @@ final class AuthorizationServerAdapterTest extends TestCase
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
     try {
-      $adapter->issueAccessToken(
+      $adapter->issueAccessToken(new AccessTokenRequest(
         grantType: 'refresh_token',
         clientId: 'client-id',
         clientSecret: 'client-secret',
-        refreshToken: 'refresh-token',
-      );
+        grant: new AccessTokenGrantParameters(
+          refreshToken: 'refresh-token',
+        ),
+      ));
       self::fail('Expected AuthorizationException to be thrown.');
     } catch (AuthorizationException $exception) {
       self::assertSame('invalid_grant', $exception->errorType());
@@ -138,12 +177,14 @@ final class AuthorizationServerAdapterTest extends TestCase
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
     try {
-      $adapter->issueAccessToken(
+      $adapter->issueAccessToken(new AccessTokenRequest(
         grantType: 'refresh_token',
         clientId: 'client-id',
         clientSecret: 'client-secret',
-        refreshToken: 'refresh-token',
-      );
+        grant: new AccessTokenGrantParameters(
+          refreshToken: 'refresh-token',
+        ),
+      ));
       self::fail('Expected AuthorizationException to be thrown.');
     } catch (AuthorizationException $exception) {
       self::assertSame('invalid_grant', $exception->errorType());
@@ -162,12 +203,14 @@ final class AuthorizationServerAdapterTest extends TestCase
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
     try {
-      $adapter->issueAccessToken(
+      $adapter->issueAccessToken(new AccessTokenRequest(
         grantType: 'authorization_code',
         clientId: 'client-id',
         clientSecret: 'client-secret',
-        code: 'auth-code',
-      );
+        grant: new AccessTokenGrantParameters(
+          code: 'auth-code',
+        ),
+      ));
       self::fail('Expected AuthorizationException to be thrown.');
     } catch (AuthorizationException $exception) {
       self::assertSame('invalid_grant', $exception->errorType());
@@ -186,11 +229,11 @@ final class AuthorizationServerAdapterTest extends TestCase
     $adapter = new AuthorizationServerAdapter($authorizationServer);
 
     try {
-      $adapter->issueAccessToken(
+      $adapter->issueAccessToken(new AccessTokenRequest(
         grantType: 'client_credentials',
         clientId: 'client-id',
         clientSecret: 'client-secret',
-      );
+      ));
       self::fail('Expected AuthorizationException to be thrown.');
     } catch (AuthorizationException $exception) {
       self::assertSame('server_error', $exception->errorType());

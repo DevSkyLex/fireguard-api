@@ -12,7 +12,7 @@ use Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange\{
 };
 use DateTimeImmutable;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -248,36 +248,44 @@ final class ConfirmPasswordChangeHandlerTest extends TestCase
   private function makeExpiredOtp(): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId(self::OTP_ID),
-      challengeToken: ChallengeToken::fromString('a-valid-challenge-token-string'),
-      userId: self::USER_ID,
-      purpose: OtpPurpose::SENSITIVE_OPERATION,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'jdoe@example.com',
-      expiresAt: new DateTimeImmutable('-1 minute'),
-      maxAttempts: 3,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-10 minutes'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId(self::OTP_ID),
+        challengeToken: ChallengeToken::fromString('a-valid-challenge-token-string'),
+        userId: self::USER_ID,
+        purpose: OtpPurpose::SENSITIVE_OPERATION,
+        channel: OtpChannel::EMAIL,
+        recipient: 'jdoe@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('-1 minute'),
+        maxAttempts: 3,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-10 minutes'),
+      ),
     );
   }
 
   private function makeExhaustedOtp(): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId(self::OTP_ID),
-      challengeToken: ChallengeToken::fromString('a-valid-challenge-token-string'),
-      userId: self::USER_ID,
-      purpose: OtpPurpose::SENSITIVE_OPERATION,
-      channel: OtpChannel::EMAIL,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: 'jdoe@example.com',
-      expiresAt: new DateTimeImmutable('+5 minutes'),
-      maxAttempts: 3,
-      attempts: 3,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-1 minute'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId(self::OTP_ID),
+        challengeToken: ChallengeToken::fromString('a-valid-challenge-token-string'),
+        userId: self::USER_ID,
+        purpose: OtpPurpose::SENSITIVE_OPERATION,
+        channel: OtpChannel::EMAIL,
+        recipient: 'jdoe@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+5 minutes'),
+        maxAttempts: 3,
+        attempts: 3,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-1 minute'),
+      ),
     );
   }
 

@@ -104,13 +104,8 @@ final readonly class PermissionName implements Stringable
    */
   public function matches(self $required): bool
   {
-    // Exact match
-    if ($this->value === $required->value) {
-      return true;
-    }
-
-    // Super admin wildcard (*.*)
-    if ('*.*' === $this->value) {
+    // Exact match or super admin wildcard (*.*)
+    if ($this->value === $required->value || '*.*' === $this->value) {
       return true;
     }
 

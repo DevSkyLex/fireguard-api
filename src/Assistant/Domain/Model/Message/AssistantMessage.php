@@ -166,12 +166,9 @@ final class AssistantMessage
    * @param string $threadId the owning thread identifier
    * @param string $organizationId the owning organization identifier
    * @param AssistantMessageRole $role the message role
-   * @param string $body the message body
-   * @param AssistantMessageStatus $status the current generation status
-   * @param ?string $errorCode the last failure code, if any
-   * @param ?int $tokenCount the generated token count, if any
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param ?DateTimeImmutable $completedAt the completion/failure timestamp, if any
+   * @param RestoredAssistantMessageContent $content the persisted content and generation result
+   * @param RestoredAssistantMessageAttempt $attempt the persisted generation attempt
+   * @param RestoredAssistantMessageTimeline $timeline the persisted timestamps
    *
    * @return self the reconstituted assistant message
    */
@@ -180,36 +177,27 @@ final class AssistantMessage
     string $threadId,
     string $organizationId,
     AssistantMessageRole $role,
-    string $body,
-    AssistantMessageStatus $status,
-    ?string $errorCode,
-    ?int $tokenCount,
-    DateTimeImmutable $createdAt,
-    ?DateTimeImmutable $completedAt,
-    ?string $attemptId = null,
-    int $attemptNumber = 0,
-    int $attemptSequence = 0,
-    ?DateTimeImmutable $attemptExpiresAt = null,
-    ?string $questionMessageId = null,
-    ?float $temperature = null,
+    RestoredAssistantMessageContent $content,
+    RestoredAssistantMessageAttempt $attempt,
+    RestoredAssistantMessageTimeline $timeline,
   ): self {
     return new self(
       id: $id,
       threadId: $threadId,
       organizationId: $organizationId,
       role: $role,
-      body: $body,
-      status: $status,
-      errorCode: $errorCode,
-      tokenCount: $tokenCount,
-      createdAt: $createdAt,
-      completedAt: $completedAt,
-      attemptId: $attemptId,
-      attemptNumber: $attemptNumber,
-      attemptSequence: $attemptSequence,
-      attemptExpiresAt: $attemptExpiresAt,
-      questionMessageId: $questionMessageId,
-      temperature: $temperature,
+      body: $content->body,
+      status: $content->status,
+      errorCode: $content->errorCode,
+      tokenCount: $content->tokenCount,
+      createdAt: $timeline->createdAt,
+      completedAt: $timeline->completedAt,
+      attemptId: $attempt->attemptId,
+      attemptNumber: $attempt->attemptNumber,
+      attemptSequence: $attempt->attemptSequence,
+      attemptExpiresAt: $attempt->attemptExpiresAt,
+      questionMessageId: $attempt->questionMessageId,
+      temperature: $attempt->temperature,
     );
   }
 

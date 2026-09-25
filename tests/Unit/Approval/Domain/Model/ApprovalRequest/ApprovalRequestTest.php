@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Approval\Domain\Model\ApprovalRequest;
 
 use Approval\Domain\Exception\ApprovalRequestNotPendingException;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestResolution, ApprovalRequestRestoredState, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -169,25 +169,19 @@ final class ApprovalRequestTest extends TestCase
     $decidedAt = new DateTimeImmutable('2026-01-03T00:00:00+00:00');
     $executedAt = new DateTimeImmutable('2026-01-03T00:01:00+00:00');
 
-    $request = ApprovalRequest::reconstitute(
-      id: ApprovalRequestId::fromString(self::ID),
-      organizationId: self::ORG_ID,
-      actionType: 'equipment_decommission',
-      subjectId: 'equip-1',
-      status: ApprovalStatus::APPROVED,
-      requestedByMemberId: 'member-1',
-      requestedByUserId: 'user-1',
-      decisionByMemberId: 'member-2',
-      decisionByUserId: 'user-2',
-      decisionNote: 'ok',
-      payload: ['organizationId' => self::ORG_ID, 'equipmentId' => 'equip-1'],
-      expiresAt: $expiresAt,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      decidedAt: $decidedAt,
-      executedAt: $executedAt,
-      executionError: null,
-    );
+    $request = ApprovalRequest::reconstitute(new ApprovalRequestRestoredState(
+      new ApprovalRequestCreation(
+        ApprovalRequestId::fromString(self::ID),
+        self::ORG_ID,
+        'equipment_decommission',
+        'equip-1',
+        new ApprovalRequestSubmission('member-1', 'user-1', ['organizationId' => self::ORG_ID, 'equipmentId' => 'equip-1']),
+        new ApprovalRequestSchedule($expiresAt, $createdAt),
+      ),
+      ApprovalStatus::APPROVED,
+      $updatedAt,
+      new ApprovalRequestResolution('member-2', 'user-2', 'ok', $decidedAt, $executedAt, null),
+    ));
 
     self::assertSame(self::ID, (string) $request->id());
     self::assertSame(self::ORG_ID, $request->organizationId());
@@ -209,16 +203,13 @@ final class ApprovalRequestTest extends TestCase
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
-    return ApprovalRequest::create(
-      id: ApprovalRequestId::fromString(self::ID),
-      organizationId: self::ORG_ID,
-      actionType: 'nc_waiver',
-      subjectId: 'nc-1',
-      requestedByMemberId: 'requester-member',
-      requestedByUserId: 'requester-user',
-      payload: ['organizationId' => self::ORG_ID, 'inspectionId' => 'insp-1', 'nonConformityId' => 'nc-1', 'severity' => 'critical'],
-      expiresAt: $now->modify('+14 days'),
-      now: $now,
-    );
+    return ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::ID),
+      self::ORG_ID,
+      'nc_waiver',
+      'nc-1',
+      new ApprovalRequestSubmission('requester-member', 'requester-user', ['organizationId' => self::ORG_ID, 'inspectionId' => 'insp-1', 'nonConformityId' => 'nc-1', 'severity' => 'critical']),
+      new ApprovalRequestSchedule($now->modify('+14 days'), $now),
+    ));
   }
 }

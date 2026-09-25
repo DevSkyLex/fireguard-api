@@ -11,7 +11,7 @@ use DateTimeImmutable;
  *
  * Raised when an organization webhook subscription is created. Carries the
  * target URL's host only — never the signing secret — since this event
- * feeds the audit ledger (see `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber`).
+ * feeds the audit ledger (see `Audit\Infrastructure\EventSubscriber\GovernanceAuditEventSubscriber`).
  *
  * @category Event
  *

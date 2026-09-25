@@ -17,8 +17,8 @@ use Facility\Domain\Exception\{
   FacilityAttachmentNotFoundException,
   FacilityNotFoundException
 };
-use Facility\Domain\Model\Attachment\FacilityAttachment;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanGeometry};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -388,7 +388,9 @@ final class SetFacilityPlanGeometryHandlerTest extends TestCase
       organizationId: FacilityOrganizationId::fromString($organizationId),
       type: FacilityType::ZONE,
       name: new FacilityName('Test Zone'),
-      parentFacilityId: null !== $parentFacilityId ? FacilityId::fromString($parentFacilityId) : null,
+      details: new FacilityDetails(
+        parentFacilityId: null !== $parentFacilityId ? FacilityId::fromString($parentFacilityId) : null,
+      ),
     );
   }
 
@@ -406,7 +408,7 @@ final class SetFacilityPlanGeometryHandlerTest extends TestCase
       storagePath: 'facility/' . $facilityId . '/attachments/' . $id . '_plan.png',
       mimeType: AttachmentKind::FLOOR_PLAN === $kind ? 'image/png' : 'application/pdf',
       size: 1024,
-      kind: $kind,
+      options: new FacilityAttachmentCreationOptions(kind: $kind),
     );
   }
 }

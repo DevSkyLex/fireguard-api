@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedOutEvent};
 use Auth\Domain\Event\Token\TokenIssuedEvent as AuthTokenIssuedEvent;
@@ -32,13 +32,14 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * Wiring proof for the authentication / OAuth2 slice: every session
  * and token domain event, dispatched through the real event-name
  * derivation of SymfonyEventDispatcherAdapter, reaches
- * AuditEventSubscriber and produces the expected audit record.
+ * the audit subscribers and produces the expected audit record.
  *
  * @category Event Subscriber Tests
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: SecurityAuditEventSubscriber::class)]
 final class AuthAuditWiringTest extends TestCase
 {
   // #region Constants
@@ -247,7 +248,7 @@ final class AuthAuditWiringTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $subscriber = new AuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -258,7 +259,9 @@ final class AuthAuditWiringTest extends TestCase
     );
 
     $symfonyDispatcher = new EventDispatcher();
-    $symfonyDispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $symfonyDispatcher->addSubscriber($subscriber);
+    }
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),

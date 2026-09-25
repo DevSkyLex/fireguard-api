@@ -18,6 +18,7 @@ use Otp\Domain\ValueObject\{
   ChallengeToken,
   OtpChannel,
   OtpCode,
+  OtpGenerationOptions,
   OtpId,
   OtpPurpose,
 };
@@ -101,9 +102,7 @@ final class Otp
    * @param OtpPurpose $purpose the purpose
    * @param OtpChannel $channel the channel
    * @param string $recipient the recipient
-   * @param int|null $ttlSeconds custom TTL (null for default)
-   * @param int|null $maxAttempts custom max attempts (null for default)
-   * @param int|null $codeLength custom OTP code length (null for default)
+   * @param OtpGenerationOptions|null $options optional generation policy overrides
    *
    * @return self the new OTP
    */
@@ -113,12 +112,11 @@ final class Otp
     OtpPurpose $purpose,
     OtpChannel $channel,
     string $recipient,
-    ?int $ttlSeconds = null,
-    ?int $maxAttempts = null,
-    ?int $codeLength = null,
+    ?OtpGenerationOptions $options = null,
   ): self {
-    $ttl = $ttlSeconds ?? $purpose->getDefaultTtlSeconds();
-    $attempts = $maxAttempts ?? $purpose->getDefaultMaxAttempts();
+    $ttl = $options->ttlSeconds ?? $purpose->getDefaultTtlSeconds();
+    $attempts = $options->maxAttempts ?? $purpose->getDefaultMaxAttempts();
+    $codeLength = $options?->codeLength;
     $effectiveCodeLength = null === $codeLength ? null : max(1, $codeLength);
     $otpCode = null === $effectiveCodeLength
       ? OtpCode::generate()
@@ -558,48 +556,25 @@ final class Otp
    *
    * @since 1.0.0
    *
-   * @param OtpId $id the OTP ID
-   * @param ChallengeToken $challengeToken the challenge token
-   * @param string $userId the user ID
-   * @param OtpPurpose $purpose the purpose
-   * @param OtpChannel $channel the channel
-   * @param string $codeHash the code hash
-   * @param string $recipient the recipient
-   * @param DateTimeImmutable $expiresAt the expiration time
-   * @param int $maxAttempts the maximum attempt count
-   * @param int $attempts the attempt count
-   * @param ?DateTimeImmutable $verifiedAt the verification time
-   * @param DateTimeImmutable $createdAt the creation time
-   *
    * @return self the reconstituted OTP
    */
   public static function reconstitute(
-    OtpId $id,
-    ChallengeToken $challengeToken,
-    string $userId,
-    OtpPurpose $purpose,
-    OtpChannel $channel,
-    string $codeHash,
-    string $recipient,
-    DateTimeImmutable $expiresAt,
-    int $maxAttempts,
-    int $attempts,
-    ?DateTimeImmutable $verifiedAt,
-    DateTimeImmutable $createdAt,
+    OtpRestoredIdentity $identity,
+    OtpRestoredProgress $progress,
   ): self {
     return new self(
-      id: $id,
-      challengeToken: $challengeToken,
-      userId: $userId,
-      purpose: $purpose,
-      channel: $channel,
-      code: OtpCode::fromHash($codeHash),
-      recipient: $recipient,
-      expiresAt: $expiresAt,
-      maxAttempts: $maxAttempts,
-      attempts: $attempts,
-      verifiedAt: $verifiedAt,
-      createdAt: $createdAt,
+      id: $identity->id,
+      challengeToken: $identity->challengeToken,
+      userId: $identity->userId,
+      purpose: $identity->purpose,
+      channel: $identity->channel,
+      code: OtpCode::fromHash($progress->codeHash),
+      recipient: $identity->recipient,
+      expiresAt: $progress->expiresAt,
+      maxAttempts: $progress->maxAttempts,
+      attempts: $progress->attempts,
+      verifiedAt: $progress->verifiedAt,
+      createdAt: $progress->createdAt,
     );
   }
 

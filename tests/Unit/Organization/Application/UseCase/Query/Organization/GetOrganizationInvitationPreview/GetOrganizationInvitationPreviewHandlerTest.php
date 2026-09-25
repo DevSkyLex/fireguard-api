@@ -9,8 +9,9 @@ use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\{GetOrganizationInvitationPreviewHandler, GetOrganizationInvitationPreviewQuery, GetOrganizationInvitationPreviewResult};
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -32,23 +33,31 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655444403';
 
     $invitation = OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444402'),
-      organizationId: new OrganizationId($organizationId),
-      email: new Email($email),
-      tokenHash: 'hashed-token',
-      invitedByUserId: $inviterUserId,
-      status: OrganizationInvitationStatus::PENDING,
-      expiresAt: new DateTimeImmutable('+7 days'),
-      createdAt: new DateTimeImmutable('-1 day'),
-      updatedAt: new DateTimeImmutable('-1 day'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444402'),
+        organizationId: new OrganizationId($organizationId),
+        email: new Email($email),
+        tokenHash: 'hashed-token',
+        invitedByUserId: $inviterUserId,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::PENDING,
+        expiresAt: new DateTimeImmutable('+7 days'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-1 day'),
+        updatedAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: $inviterUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: $inviterUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
@@ -100,15 +109,21 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $secondRoleId = '550e8400-e29b-41d4-a716-446655444424';
 
     $invitation = OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444422'),
-      organizationId: new OrganizationId($organizationId),
-      email: new Email('member@example.com'),
-      tokenHash: 'hashed-token',
-      invitedByUserId: $inviterUserId,
-      status: OrganizationInvitationStatus::PENDING,
-      expiresAt: new DateTimeImmutable('+7 days'),
-      createdAt: new DateTimeImmutable('-1 day'),
-      updatedAt: new DateTimeImmutable('-1 day'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444422'),
+        organizationId: new OrganizationId($organizationId),
+        email: new Email('member@example.com'),
+        tokenHash: 'hashed-token',
+        invitedByUserId: $inviterUserId,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::PENDING,
+        expiresAt: new DateTimeImmutable('+7 days'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-1 day'),
+        updatedAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
@@ -171,15 +186,21 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $inviterUserId = '550e8400-e29b-41d4-a716-446655444431';
 
     $invitation = OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444432'),
-      organizationId: new OrganizationId($organizationId),
-      email: new Email('member@example.com'),
-      tokenHash: 'hashed-token',
-      invitedByUserId: $inviterUserId,
-      status: OrganizationInvitationStatus::PENDING,
-      expiresAt: new DateTimeImmutable('+7 days'),
-      createdAt: new DateTimeImmutable('-1 day'),
-      updatedAt: new DateTimeImmutable('-1 day'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444432'),
+        organizationId: new OrganizationId($organizationId),
+        email: new Email('member@example.com'),
+        tokenHash: 'hashed-token',
+        invitedByUserId: $inviterUserId,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::PENDING,
+        expiresAt: new DateTimeImmutable('+7 days'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-1 day'),
+        updatedAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
@@ -281,15 +302,21 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $inviterUserId = '550e8400-e29b-41d4-a716-446655444411';
 
     $invitation = OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444412'),
-      organizationId: new OrganizationId($organizationId),
-      email: new Email('ab@example.com'),
-      tokenHash: 'hashed-token',
-      invitedByUserId: $inviterUserId,
-      status: OrganizationInvitationStatus::PENDING,
-      expiresAt: new DateTimeImmutable('-1 hour'),
-      createdAt: new DateTimeImmutable('-8 days'),
-      updatedAt: new DateTimeImmutable('-8 days'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444412'),
+        organizationId: new OrganizationId($organizationId),
+        email: new Email('ab@example.com'),
+        tokenHash: 'hashed-token',
+        invitedByUserId: $inviterUserId,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::PENDING,
+        expiresAt: new DateTimeImmutable('-1 hour'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-8 days'),
+        updatedAt: new DateTimeImmutable('-8 days'),
+      ),
     );
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */

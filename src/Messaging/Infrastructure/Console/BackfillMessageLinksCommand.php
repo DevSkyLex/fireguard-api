@@ -55,14 +55,15 @@ final class BackfillMessageLinksCommand extends Command
     $dryRun = (bool) $input->getOption('dry-run');
     $processed = 0;
     $extracted = 0;
+    $unexpectedResult = false;
 
     try {
       do {
         $result = $this->commandBus->dispatch(new BackfillBatch($cursor, $batchSize, $dryRun));
         if (!$result instanceof BackfillMessageLinksResult) {
-          $io->error('The messaging link backfill returned an unexpected result.');
+          $unexpectedResult = true;
 
-          return Command::FAILURE;
+          break;
         }
 
         $processed += $result->processedMessages;
@@ -79,6 +80,12 @@ final class BackfillMessageLinksCommand extends Command
       } while ($result->hasMore && null !== $cursor);
     } catch (Throwable $error) {
       $io->error(sprintf('Messaging link backfill failed after %d message(s): %s', $processed, $error->getMessage()));
+
+      return Command::FAILURE;
+    }
+
+    if ($unexpectedResult) {
+      $io->error('The messaging link backfill returned an unexpected result.');
 
       return Command::FAILURE;
     }

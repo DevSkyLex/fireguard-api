@@ -8,7 +8,7 @@ use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
@@ -134,15 +134,10 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     );
 
     $attachment = InterventionAttachment::create(
-      id: $attachmentId,
-      interventionId: $command->interventionId,
-      fileName: $command->fileName,
-      storagePath: $storagePath,
-      mimeType: $command->mimeType,
-      size: $command->size,
-      label: $command->label,
-      workItemId: $command->workItemId,
-      kind: $kind,
+      $attachmentId,
+      $command->interventionId,
+      new InterventionAttachmentFile($command->fileName, $storagePath, $command->mimeType, $command->size),
+      new InterventionAttachmentOptions(label: $command->label, workItemId: $command->workItemId, kind: $kind),
     );
 
     $this->fileStorage->write($storagePath, $command->contents);

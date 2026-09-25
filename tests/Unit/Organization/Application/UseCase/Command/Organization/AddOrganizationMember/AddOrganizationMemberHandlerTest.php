@@ -16,7 +16,7 @@ use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Exception\OrganizationUserNotFoundException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -44,11 +44,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $defaultRoleId = '550e8400-e29b-41d4-a716-446655440103';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $defaultRole = OrganizationRole::reconstitute(
@@ -209,11 +211,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440813';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $inactiveMember = OrganizationMember::reconstitute(
@@ -330,11 +334,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440813';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $inactiveMember = OrganizationMember::reconstitute(
@@ -454,11 +460,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440503';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -619,11 +627,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $organizationId = '550e8400-e29b-41d4-a716-446655440100';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Test'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Test'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
@@ -666,11 +676,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $userId = '550e8400-e29b-41d4-a716-446655440102';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Test'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Test'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
@@ -722,11 +734,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $userId = '550e8400-e29b-41d4-a716-446655440102';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -794,11 +808,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440923';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Bordeaux'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Bordeaux'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $role = OrganizationRole::reconstitute(
@@ -1040,11 +1056,13 @@ final class AddOrganizationMemberHandlerTest extends TestCase
   private function activeMemberFixtures(string $organizationId, string $memberId, string $userId, string $roleId): array
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Test'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Test'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(

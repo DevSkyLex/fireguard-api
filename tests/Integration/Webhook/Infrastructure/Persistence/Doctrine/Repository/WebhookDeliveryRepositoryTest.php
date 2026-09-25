@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Webhook\Domain\Model\Delivery\WebhookDelivery;
+use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 use Webhook\Infrastructure\Persistence\Doctrine\Record\WebhookSubscriptionRecord;
 use Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookDeliveryRepository;
@@ -238,17 +238,21 @@ final class WebhookDeliveryRepositoryTest extends KernelTestCase
       id: WebhookDeliveryId::fromString($id),
       subscriptionId: WebhookSubscriptionId::fromString($subscriptionId),
       organizationId: self::ORGANIZATION_ID,
-      eventType: 'intervention.published',
-      eventId: $eventId,
-      payload: ['id' => $id],
-      status: $status,
-      attempts: WebhookDeliveryStatus::DELIVERED === $status ? 1 : 0,
-      createdAt: $timestamp,
-      updatedAt: $timestamp,
-      httpStatus: WebhookDeliveryStatus::DELIVERED === $status ? 200 : null,
-      lastError: null,
-      nextRetryAt: null,
-      deliveredAt: WebhookDeliveryStatus::DELIVERED === $status ? $timestamp : null,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: 'intervention.published',
+        eventId: $eventId,
+        payload: ['id' => $id],
+        createdAt: $timestamp,
+        updatedAt: $timestamp,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: $status,
+        attempts: WebhookDeliveryStatus::DELIVERED === $status ? 1 : 0,
+        httpStatus: WebhookDeliveryStatus::DELIVERED === $status ? 200 : null,
+        lastError: null,
+        nextRetryAt: null,
+        deliveredAt: WebhookDeliveryStatus::DELIVERED === $status ? $timestamp : null,
+      ),
     );
 
     $this->repository->save($delivery);

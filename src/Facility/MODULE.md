@@ -669,7 +669,7 @@ Cross-module contracts and lifecycle invariants:
   are invisible to both, and archived intermediate nodes are traversed so a live
   descendant beneath them is still found.
 - Regulated actions emit domain events (`src/Facility/Domain/Event/`) recorded
-  in the audit ledger by Audit's `AuditEventSubscriber`: `facility.created`,
+  in the audit ledger by Audit's `ResourceAuditEventSubscriber`: `facility.created`,
   `facility.archived`, `facility.restored`, `facility.moved` (previous/new
   parent in metadata), `facility.updated` (`changedFields` — the field
   NAMES that changed, never their values, keeping PII/noise such as address

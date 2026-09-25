@@ -13,6 +13,7 @@ use Equipment\Domain\ValueObject\{
   EquipmentStatus,
   EquipmentType
 };
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
@@ -123,7 +124,11 @@ final class EquipmentMapperTest extends TestCase
       id: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::SMOKE_DETECTOR,
-      status: EquipmentStatus::IN_STOCK,
+      details: new EquipmentCatalogDetails(
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::IN_STOCK,
+      ),
       createdAt: $now,
       updatedAt: $now,
     );
@@ -146,10 +151,14 @@ final class EquipmentMapperTest extends TestCase
       id: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       type: EquipmentType::HYDRANT,
-      status: EquipmentStatus::DECOMMISSIONED,
+      details: new EquipmentCatalogDetails(
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::DECOMMISSIONED,
+        facilityId: EquipmentFacilityId::fromString(self::FACILITY_ID),
+      ),
       createdAt: $now,
       updatedAt: $now,
-      facilityId: EquipmentFacilityId::fromString(self::FACILITY_ID),
     );
 
     $record = EquipmentMapper::toRecord($equipment);

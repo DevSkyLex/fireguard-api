@@ -120,24 +120,16 @@ final readonly class DPoPValidator implements DPoPValidatorPort
   ): ?DPoPProof {
     try {
       $parts = explode('.', $dpopHeader);
-      if (3 !== count($parts)) {
-        return null;
-      }
-      $header = $this->validatedHeader($parts[0]);
-      if (null === $header || !$this->verifySignature($parts, $header['alg'], $header['jwk'])) {
+      if (
+        3 !== count($parts)
+        || null === ($header = $this->validatedHeader($parts[0]))
+        || !$this->verifySignature($parts, $header['alg'], $header['jwk'])
+      ) {
         return null;
       }
       $payload = $this->validatedPayload($parts[1], $expectedNonce, $accessToken);
-      if (null === $payload) {
-        return null;
-      }
-      $proof = DPoPProof::fromJwt($payload['claims'], $header['thumbprint']);
-      if (!$proof->isValidFor($httpMethod, $httpUri, self::MAX_PROOF_AGE)) {
-        return null;
-      }
-      $this->markJtiUsed($payload['jti']);
 
-      return $proof;
+      return null === $payload ? null : $this->acceptProof($payload, $header['thumbprint'], $httpMethod, $httpUri);
 
     } catch (Throwable) {
       return null;
@@ -168,22 +160,12 @@ final readonly class DPoPValidator implements DPoPValidatorPort
   {
     try {
       $parts = explode('.', $dpopHeader);
-      if (3 !== count($parts)) {
-        return null;
-      }
-
-      $headerJson = $this->base64UrlDecode($parts[0]);
-      if (null === $headerJson) {
-        return null;
-      }
-
-      $header = json_decode($headerJson, true);
-      if (!is_array($header)) {
-        return null;
-      }
-
-      $jwkRaw = $header['jwk'] ?? null;
-      if (!is_array($jwkRaw)) {
+      if (
+        3 !== count($parts)
+        || null === ($headerJson = $this->base64UrlDecode($parts[0]))
+        || !is_array($header = json_decode($headerJson, true))
+        || !is_array($jwkRaw = $header['jwk'] ?? null)
+      ) {
         return null;
       }
 
@@ -198,34 +180,42 @@ final readonly class DPoPValidator implements DPoPValidatorPort
   }
 
   /**
+   * @param array{claims: array<string, mixed>, jti: string} $payload
+   */
+  private function acceptProof(array $payload, string $thumbprint, string $httpMethod, string $httpUri): ?DPoPProof
+  {
+    $proof = DPoPProof::fromJwt($payload['claims'], $thumbprint);
+    if (!$proof->isValidFor($httpMethod, $httpUri, self::MAX_PROOF_AGE)) {
+      return null;
+    }
+
+    $this->markJtiUsed($payload['jti']);
+
+    return $proof;
+  }
+
+  /**
    * @return array{alg: string, jwk: array<string, mixed>, thumbprint: string}|null
    */
   private function validatedHeader(string $encoded): ?array
   {
-    $headerJson = $this->base64UrlDecode($encoded);
-    if (null === $headerJson) {
-      return null;
-    }
-    $header = json_decode($headerJson, true);
-    if (!is_array($header) || ($header['typ'] ?? '') !== 'dpop+jwt') {
+    if (
+      null === ($headerJson = $this->base64UrlDecode($encoded))
+      || !is_array($header = json_decode($headerJson, true))
+      || ($header['typ'] ?? '') !== 'dpop+jwt'
+    ) {
       return null;
     }
     $alg = $header['alg'] ?? null;
-    if (!is_string($alg) || '' === $alg) {
-      return null;
-    }
     $jwkRaw = $header['jwk'] ?? null;
-    if (!is_array($jwkRaw)) {
+    if (!is_string($alg) || '' === $alg || !is_array($jwkRaw)) {
       return null;
     }
     /** @var array<string, mixed> $jwk */
     $jwk = array_filter($jwkRaw, fn ($key): bool => is_string($key), ARRAY_FILTER_USE_KEY);
     $thumbprint = $this->calculateJwkThumbprint($jwk);
-    if (null === $thumbprint) {
-      return null;
-    }
 
-    return ['alg' => $alg, 'jwk' => $jwk, 'thumbprint' => $thumbprint];
+    return null === $thumbprint ? null : ['alg' => $alg, 'jwk' => $jwk, 'thumbprint' => $thumbprint];
   }
 
   /**
@@ -233,22 +223,16 @@ final readonly class DPoPValidator implements DPoPValidatorPort
    */
   private function validatedPayload(string $encoded, ?string $expectedNonce, ?string $accessToken): ?array
   {
-    $payloadJson = $this->base64UrlDecode($encoded);
-    if (null === $payloadJson) {
-      return null;
-    }
-    $payload = json_decode($payloadJson, true);
-    if (!is_array($payload)) {
+    if (null === ($payloadJson = $this->base64UrlDecode($encoded)) || !is_array($payload = json_decode($payloadJson, true))) {
       return null;
     }
     $jti = $payload['jti'] ?? null;
-    if (!is_string($jti) || $this->isJtiUsed($jti)) {
-      return null;
-    }
-    if (null !== $expectedNonce && ($payload['nonce'] ?? null) !== $expectedNonce) {
-      return null;
-    }
-    if (null !== $accessToken && ($payload['ath'] ?? null) !== $this->calculateAccessTokenHash($accessToken)) {
+    if (
+      !is_string($jti)
+      || $this->isJtiUsed($jti)
+      || (null !== $expectedNonce && ($payload['nonce'] ?? null) !== $expectedNonce)
+      || (null !== $accessToken && ($payload['ath'] ?? null) !== $this->calculateAccessTokenHash($accessToken))
+    ) {
       return null;
     }
 
@@ -264,30 +248,15 @@ final readonly class DPoPValidator implements DPoPValidatorPort
    */
   private function verifySignature(array $parts, string $alg, array $jwk): bool
   {
-    if (!function_exists('openssl_verify')) {
+    if (
+      !function_exists('openssl_verify')
+      || null === ($opensslAlgorithm = $this->mapAlgToOpenSsl($alg))
+      || null === ($signature = $this->base64UrlDecode($parts[2]))
+    ) {
       return false;
     }
-
-    $opensslAlgorithm = $this->mapAlgToOpenSsl($alg);
-    if (null === $opensslAlgorithm) {
+    if (null === ($publicKey = $this->jwkToPem($jwk, $alg)) || null === ($signature = $this->opensslSignature($signature, $alg))) {
       return false;
-    }
-
-    $signature = $this->base64UrlDecode($parts[2]);
-    if (null === $signature) {
-      return false;
-    }
-
-    $publicKey = $this->jwkToPem($jwk, $alg);
-    if (null === $publicKey) {
-      return false;
-    }
-
-    if (str_starts_with($alg, 'ES')) {
-      $signature = $this->joseEcdsaSignatureToDer($signature, $alg);
-      if (null === $signature) {
-        return false;
-      }
     }
 
     $result = openssl_verify(
@@ -298,6 +267,11 @@ final readonly class DPoPValidator implements DPoPValidatorPort
     );
 
     return 1 === $result;
+  }
+
+  private function opensslSignature(string $signature, string $alg): ?string
+  {
+    return str_starts_with($alg, 'ES') ? $this->joseEcdsaSignatureToDer($signature, $alg) : $signature;
   }
 
   /**
@@ -351,12 +325,9 @@ final readonly class DPoPValidator implements DPoPValidatorPort
    */
   private function rsaJwkToPem(array $jwk, string $alg): ?string
   {
-    if (!str_starts_with($alg, 'RS')) {
-      return null;
-    }
     $n = $jwk['n'] ?? null;
     $e = $jwk['e'] ?? null;
-    if (!is_string($n) || !is_string($e)) {
+    if (!str_starts_with($alg, 'RS') || !is_string($n) || !is_string($e)) {
       return null;
     }
     $modulus = $this->base64UrlDecode($n);
@@ -373,31 +344,36 @@ final readonly class DPoPValidator implements DPoPValidatorPort
    */
   private function ecJwkToPem(array $jwk, string $alg): ?string
   {
-    if (!str_starts_with($alg, 'ES')) {
-      return null;
-    }
     $curve = $jwk['crv'] ?? null;
     $x = $jwk['x'] ?? null;
     $y = $jwk['y'] ?? null;
-    if (!is_string($curve) || !is_string($x) || !is_string($y)) {
+    if (!str_starts_with($alg, 'ES') || !is_string($curve) || !is_string($x) || !is_string($y)) {
       return null;
     }
     $curveInfo = $this->getEcCurveInfo($curve);
     if (null === $curveInfo || $curveInfo['alg'] !== $alg) {
       return null;
     }
+    $coordinates = $this->ecCoordinates($x, $y, $curveInfo['size']);
+
+    return null === $coordinates ? null : $this->buildEcPublicKeyPem($curveInfo['oid'], $coordinates['x'], $coordinates['y']);
+  }
+
+  /**
+   * @return array{x: string, y: string}|null
+   */
+  private function ecCoordinates(string $x, string $y, int $size): ?array
+  {
     $xBytes = $this->base64UrlDecode($x);
     $yBytes = $this->base64UrlDecode($y);
     if (null === $xBytes || null === $yBytes) {
       return null;
     }
-    $xBytes = $this->leftPadToLength($xBytes, $curveInfo['size']);
-    $yBytes = $this->leftPadToLength($yBytes, $curveInfo['size']);
-    if (null === $xBytes || null === $yBytes) {
-      return null;
-    }
 
-    return $this->buildEcPublicKeyPem($curveInfo['oid'], $xBytes, $yBytes);
+    $xBytes = $this->leftPadToLength($xBytes, $size);
+    $yBytes = $this->leftPadToLength($yBytes, $size);
+
+    return null === $xBytes || null === $yBytes ? null : ['x' => $xBytes, 'y' => $yBytes];
   }
 
   /**

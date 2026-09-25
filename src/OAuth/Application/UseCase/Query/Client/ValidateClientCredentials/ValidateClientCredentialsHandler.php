@@ -62,22 +62,14 @@ final readonly class ValidateClientCredentialsHandler implements QueryHandler
 
     $client = $this->clientRepository->findById(id: $clientId);
 
-    if (!$client) {
-      return new ValidateClientCredentialsResult(isValid: false);
-    }
-
-    // Check if client is active
-    if (!$client->isActive()) {
-      return new ValidateClientCredentialsResult(isValid: false);
-    }
-
-    // Verify the secret
-    $isSecretValid = $this->hashing->verify(
-      value: $query->clientSecret,
-      hashed: $client->secret(),
-    );
-
-    if (!$isSecretValid) {
+    if (
+      !$client
+      || !$client->isActive()
+      || !$this->hashing->verify(
+        value: $query->clientSecret,
+        hashed: $client->secret(),
+      )
+    ) {
       return new ValidateClientCredentialsResult(isValid: false);
     }
 

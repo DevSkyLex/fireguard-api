@@ -12,7 +12,7 @@ use Messaging\Domain\Exception\{
   MessagingSubjectNotFoundException,
   MessagingValidationException
 };
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId, MessageReference, MessagingSubjectType};
 use Shared\Application\Factory\UuidFactory;
@@ -139,7 +139,7 @@ final readonly class PostMessageHandler implements CommandHandler
       authorMemberId: $authorMemberId,
       rawBody: $command->body,
       mentionExtractor: $this->mentionExtractor,
-      references: $references,
+      links: new MessageCreationLinks(references: $references),
     );
 
     $view = $this->messages->append($message);

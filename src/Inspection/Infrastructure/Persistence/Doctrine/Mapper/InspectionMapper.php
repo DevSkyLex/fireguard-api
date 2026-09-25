@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -31,22 +31,26 @@ final class InspectionMapper
     return Inspection::reconstitute(
       id: InspectionId::fromString($record->id),
       organizationId: InspectionOrganizationId::fromString($record->organization->id),
-      equipmentId: InspectionEquipmentId::fromString($record->equipmentId),
-      inspector: Inspector::reconstitute(
-        type: InspectorType::from($record->inspectorType),
-        name: $record->inspectorName,
-        userId: $record->inspectorUserId,
-        organizationName: $record->inspectorOrganizationName,
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString($record->equipmentId),
+        inspector: Inspector::reconstitute(
+          type: InspectorType::from($record->inspectorType),
+          name: $record->inspectorName,
+          userId: $record->inspectorUserId,
+          organizationName: $record->inspectorOrganizationName,
+        ),
+        facilityId: null !== $record->facilityId ? InspectionFacilityId::fromString($record->facilityId) : null,
+        checklistId: null !== $record->checklistId ? InspectionChecklistId::fromString($record->checklistId) : null,
       ),
-      result: InspectionResult::from($record->result),
-      status: InspectionStatus::from($record->status),
-      performedAt: $record->performedAt,
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::from($record->result),
+        status: InspectionStatus::from($record->status),
+        performedAt: $record->performedAt,
+        notes: $record->notes,
+        signature: $record->signature,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      facilityId: null !== $record->facilityId ? InspectionFacilityId::fromString($record->facilityId) : null,
-      checklistId: null !== $record->checklistId ? InspectionChecklistId::fromString($record->checklistId) : null,
-      notes: $record->notes,
-      signature: $record->signature,
     );
   }
 

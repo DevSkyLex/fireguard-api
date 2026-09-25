@@ -64,22 +64,11 @@ final readonly class ImageDimensions
    */
   public static function fromContents(string $contents, string $mimeType): ?self
   {
-    if ('image/svg+xml' === $mimeType) {
-      return self::fromSvg($contents);
+    if ('image/svg+xml' !== $mimeType) {
+      return self::fromRaster($contents);
     }
 
-    $info = @getimagesizefromstring($contents);
-    if (!is_array($info)) {
-      return null;
-    }
-
-    $width = (int) $info[0];
-    $height = (int) $info[1];
-    if ($width <= 0 || $height <= 0) {
-      return null;
-    }
-
-    return new self($width, $height);
+    return self::fromSvg($contents);
   }
 
   /**
@@ -100,6 +89,31 @@ final readonly class ImageDimensions
   public function height(): int
   {
     return $this->height;
+  }
+
+  /**
+   * Reads dimensions from an in-memory raster image.
+   *
+   * @since 1.0.0
+   *
+   * @param string $contents the raw image bytes
+   *
+   * @return ?self the pixel dimensions, or null when the bytes are invalid
+   */
+  private static function fromRaster(string $contents): ?self
+  {
+    $info = @getimagesizefromstring($contents);
+    if (!is_array($info)) {
+      return null;
+    }
+
+    $width = (int) $info[0];
+    $height = (int) $info[1];
+    if ($width <= 0 || $height <= 0) {
+      return null;
+    }
+
+    return new self($width, $height);
   }
 
   /**
@@ -128,6 +142,20 @@ final readonly class ImageDimensions
       return new self($width, $height);
     }
 
+    return self::fromSvgViewBox($tag);
+  }
+
+  /**
+   * Reads dimensions from the SVG viewBox when pixel attributes are absent.
+   *
+   * @since 1.0.0
+   *
+   * @param string $tag the opening `<svg …>` tag
+   *
+   * @return ?self the rounded viewBox dimensions, or null when invalid
+   */
+  private static function fromSvgViewBox(string $tag): ?self
+  {
     if (1 === preg_match('/\bviewBox="\s*[\d.\-]+\s+[\d.\-]+\s+([\d.]+)\s+([\d.]+)\s*"/i', $tag, $viewBoxMatch)) {
       $viewBoxWidth = (int) round((float) $viewBoxMatch[1]);
       $viewBoxHeight = (int) round((float) $viewBoxMatch[2]);

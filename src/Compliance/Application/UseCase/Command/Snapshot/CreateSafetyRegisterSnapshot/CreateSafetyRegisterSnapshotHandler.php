@@ -11,7 +11,7 @@ use Compliance\Application\UseCase\Query\GetComplianceOverview\{GetComplianceOve
 use Compliance\Application\UseCase\Query\GetFacilityCompliance\{GetFacilityComplianceQuery, GetFacilityComplianceResult};
 use Compliance\Domain\Event\SafetyRegisterSnapshotCreatedEvent;
 use Compliance\Domain\Exception\{ComplianceAccessDeniedException, ComplianceExportNotEntitledException, ComplianceNotFoundException};
-use Compliance\Domain\Model\Snapshot\SafetyRegisterSnapshot;
+use Compliance\Domain\Model\Snapshot\{SafetyRegisterSnapshot, SafetyRegisterStoredFile};
 use Compliance\Domain\ValueObject\SafetyRegisterSnapshotId;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationDocumentBrandingPort};
 use Shared\Application\Factory\UuidFactory;
@@ -137,9 +137,11 @@ final readonly class CreateSafetyRegisterSnapshotHandler implements CommandHandl
       facilityId: $command->facilityId,
       generatedAt: $generatedAt,
       generatedByUserId: $command->userId,
-      contentHash: hash('sha256', $pdf),
-      sizeBytes: strlen($pdf),
-      storagePath: $storagePath,
+      file: new SafetyRegisterStoredFile(
+        contentHash: hash('sha256', $pdf),
+        sizeBytes: strlen($pdf),
+        storagePath: $storagePath,
+      ),
     );
 
     $this->fileStorage->write($storagePath, $pdf);

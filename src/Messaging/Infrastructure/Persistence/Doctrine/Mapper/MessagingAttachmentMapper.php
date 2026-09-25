@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Infrastructure\Persistence\Doctrine\Mapper;
 
 use LogicException;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingMessageRecord};
 
@@ -38,12 +38,14 @@ final class MessagingAttachmentMapper
       conversationId: $record->conversationId,
       organizationId: $record->organizationId,
       uploadedByMemberId: $record->uploadedByMemberId,
-      fileName: $record->fileName,
-      storagePath: $record->storagePath,
-      mimeType: $record->mimeType,
-      size: $record->size,
+      file: new MessagingAttachmentFile(
+        fileName: $record->fileName,
+        storagePath: $record->storagePath,
+        mimeType: $record->mimeType,
+        size: $record->size,
+        label: $record->label,
+      ),
       uploadedAt: $record->uploadedAt,
-      label: $record->label,
     );
   }
 

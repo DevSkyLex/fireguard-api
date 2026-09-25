@@ -74,11 +74,11 @@ final readonly class ResolveInspectionResponseScopeHandler implements QueryHandl
       }
     }
 
-    if (null === $query->inspectionId) {
-      return new ResolveInspectionResponseScopeResult();
-    }
+    $organizationId = null === $query->inspectionId
+      ? null
+      : $this->inspectionOrganizationId($query->inspectionId);
 
-    return new ResolveInspectionResponseScopeResult($this->inspectionOrganizationId($query->inspectionId));
+    return new ResolveInspectionResponseScopeResult($organizationId);
   }
 
   /**

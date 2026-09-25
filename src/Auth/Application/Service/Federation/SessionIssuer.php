@@ -170,10 +170,12 @@ final readonly class SessionIssuer
     }
 
     try {
-      return !$this->trustedDeviceCheck->isTrusted($userId, $trustedDeviceToken);
+      $isTrusted = $this->trustedDeviceCheck->isTrusted($userId, $trustedDeviceToken);
     } catch (Throwable) {
-      return true;
+      $isTrusted = false;
     }
+
+    return !$isTrusted;
   }
 
   private function hasActiveTotpEnrollment(string $userId): bool

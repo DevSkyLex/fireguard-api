@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Import\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Import\Domain\Model\ImportJob\ImportJob;
+use Import\Domain\Model\ImportJob\{ImportJob, ImportJobProgress, ImportJobSource, ImportJobTimeline};
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError, ImportStatus};
 use Import\Infrastructure\Persistence\Doctrine\Record\ImportJobRecord;
 
@@ -38,32 +38,33 @@ final class ImportJobMapper
   public static function toDomain(ImportJobRecord $record): ImportJob
   {
     return ImportJob::reconstitute(
-      id: ImportJobId::fromString($record->id),
-      organizationId: $record->organizationId,
-      kind: ImportKind::from($record->kind),
-      status: ImportStatus::from($record->status),
-      storagePath: $record->storagePath,
-      originalFilename: $record->originalFilename,
-      createdBy: $record->createdBy,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      dryRun: $record->dryRun,
-      totalRows: $record->totalRows,
-      processedRows: $record->processedRows,
-      successfulRows: $record->successfulRows,
-      failedRows: $record->failedRows,
-      errorReport: array_map(
-        static fn (array $error): ImportRowError => new ImportRowError(
-          rowNumber: (int) $error['rowNumber'],
-          code: (string) $error['code'],
-          message: (string) $error['message'],
-          column: isset($error['column']) ? (string) $error['column'] : null,
-        ),
-        $record->errorReport ?? [],
+      source: new ImportJobSource(
+        ImportJobId::fromString($record->id),
+        $record->organizationId,
+        ImportKind::from($record->kind),
+        $record->storagePath,
+        $record->originalFilename,
+        $record->createdBy,
+        $record->dryRun,
       ),
-      jobError: $record->jobError,
-      startedAt: $record->startedAt,
-      completedAt: $record->completedAt,
+      progress: new ImportJobProgress(
+        ImportStatus::from($record->status),
+        $record->totalRows,
+        $record->processedRows,
+        $record->successfulRows,
+        $record->failedRows,
+        array_map(
+          static fn (array $error): ImportRowError => new ImportRowError(
+            rowNumber: (int) $error['rowNumber'],
+            code: (string) $error['code'],
+            message: (string) $error['message'],
+            column: isset($error['column']) ? (string) $error['column'] : null,
+          ),
+          $record->errorReport ?? [],
+        ),
+        $record->jobError,
+      ),
+      timeline: new ImportJobTimeline($record->createdAt, $record->updatedAt, $record->startedAt, $record->completedAt),
       confirmedJobId: $record->confirmedJobId,
     );
   }

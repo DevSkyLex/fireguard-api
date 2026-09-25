@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace User\Application\UseCase\Command\EmailChange\ConfirmEmailChange;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort;
+use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Shared\Application\Message\CommandHandler;
@@ -13,6 +14,8 @@ use Shared\Domain\Service\EventIdProvider;
 use Throwable;
 use User\Application\Port\Outbound\{EmailChangeRequestRepositoryPort, UserRepositoryPort};
 use User\Application\Service\{EmailChangeNotifier, EmailChangeTokenHasher};
+use User\Domain\Model\EmailChange\EmailChangeRequest;
+use User\Domain\Model\User\User;
 
 use function array_values;
 
@@ -112,6 +115,19 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
       );
     }
 
+    return $this->confirmActiveRequest($request, $now);
+  }
+
+  /**
+   * Checks the account and address before applying a pending request.
+   *
+   * @param EmailChangeRequest $request the pending email change request
+   * @param DateTimeImmutable $now the confirmation time
+   *
+   * @return ConfirmEmailChangeResult the confirmation result
+   */
+  private function confirmActiveRequest(EmailChangeRequest $request, DateTimeImmutable $now): ConfirmEmailChangeResult
+  {
     $user = $this->userRepository->findById($request->userId());
 
     if (null === $user) {
@@ -123,24 +139,38 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
 
     // The address may have been registered by someone else between the
     // request and the confirmation — re-check before applying.
-    if ($this->userRepository->existsByEmail($request->newEmail())) {
-      return ConfirmEmailChangeResult::failed(
-        message: 'This email address cannot be used.',
-        errorCode: ConfirmEmailChangeResult::ERROR_EMAIL_NOT_AVAILABLE,
-      );
-    }
+    $addressUnavailable = $this->userRepository->existsByEmail($request->newEmail());
 
     // Domain guard (defence in depth over the active lookup): an expired
     // or already-confirmed request gets the same neutral refusal. Checked
     // without mutating the aggregate — the token is only marked used
     // AFTER the user save succeeds, so a failed save cannot burn it.
-    if ($request->isConfirmed() || $request->isExpired($now)) {
-      return ConfirmEmailChangeResult::failed(
-        message: self::INVALID_TOKEN_MESSAGE,
-        errorCode: ConfirmEmailChangeResult::ERROR_INVALID_TOKEN,
-      );
+    if ($addressUnavailable || $request->isConfirmed() || $request->isExpired($now)) {
+      return $addressUnavailable
+        ? ConfirmEmailChangeResult::failed(
+          message: 'This email address cannot be used.',
+          errorCode: ConfirmEmailChangeResult::ERROR_EMAIL_NOT_AVAILABLE,
+        )
+        : ConfirmEmailChangeResult::failed(
+          message: self::INVALID_TOKEN_MESSAGE,
+          errorCode: ConfirmEmailChangeResult::ERROR_INVALID_TOKEN,
+        );
     }
 
+    return $this->applyChange($request, $user, $now);
+  }
+
+  /**
+   * Saves the new email before consuming the token, then performs notifications.
+   *
+   * @param EmailChangeRequest $request the validated request
+   * @param User $user the account to update
+   * @param DateTimeImmutable $now the confirmation time
+   *
+   * @return ConfirmEmailChangeResult the confirmation result
+   */
+  private function applyChange(EmailChangeRequest $request, User $user, DateTimeImmutable $now): ConfirmEmailChangeResult
+  {
     // Apply the change to the user FIRST. The `existsByEmail` pre-check
     // above races with concurrent registrations, so the users.email
     // unique constraint can still fire here — map it to the same neutral

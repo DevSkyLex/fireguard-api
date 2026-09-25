@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Domain\Model\Inspection;
 
 use DateTimeImmutable;
 use Inspection\Domain\Exception\{CanonicalInspectionConflictException, CanonicalInspectionValidationException, InspectionRevisionMismatchException};
-use Inspection\Domain\Model\Inspection\CanonicalInspection;
+use Inspection\Domain\Model\Inspection\{CanonicalInspection, RestoredCanonicalInspectionState};
 use Inspection\Domain\ValueObject\{
   CanonicalInspectionPatch,
   InspectionEquipmentId,
@@ -309,13 +309,15 @@ final class CanonicalInspectionTest extends TestCase
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
       equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      status: $status,
-      result: InspectionResult::PASS,
-      notes: $notes,
-      signature: $signature,
-      revision: 3,
+      state: new RestoredCanonicalInspectionState(
+        recordStatus: $recordStatus,
+        interventionId: $interventionId,
+        status: $status,
+        result: InspectionResult::PASS,
+        notes: $notes,
+        signature: $signature,
+        revision: 3,
+      ),
       updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
     );
   }

@@ -45,53 +45,29 @@ deptrac:
       - Organization\Domain\Exception\OrganizationAccessDeniedException
     Audit\Application\UseCase\Command\RecordAuditEvent\RecordAuditEventHandler:
       - Shared\Application\Factory\UuidFactory
-    Audit\Infrastructure\EventSubscriber\AuditEventSubscriber:
+    Audit\Infrastructure\EventSubscriber\ExportAuditEventSubscriber:
+      - Compliance\Domain\Event\SafetyRegisterExportedEvent
+      - Equipment\Domain\Event\Export\EquipmentLabelsExportedEvent
+      - Equipment\Domain\Event\Export\EquipmentReportExportedEvent
+      - Equipment\Domain\Event\Export\EquipmentsExportedEvent
+      - Facility\Domain\Event\Export\FacilitiesExportedEvent
+      - Inspection\Domain\Event\Export\InspectionReportExportedEvent
+      - Inspection\Domain\Event\Export\InspectionsExportedEvent
+      - Inspection\Domain\Event\Export\NonConformitiesExportedEvent
+      - Inspection\Domain\Event\Export\NonConformitiesReportExportedEvent
+      - Intervention\Domain\Event\Export\InterventionsExportedEvent
+      - Intervention\Domain\Event\InterventionReportExportedEvent
+      - Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent
+    Audit\Infrastructure\EventSubscriber\GovernanceAuditEventSubscriber:
       - Approval\Domain\Event\Request\ApprovalApprovedEvent
       - Approval\Domain\Event\Request\ApprovalExecutionFailedEvent
       - Approval\Domain\Event\Request\ApprovalExpiredEvent
       - Approval\Domain\Event\Request\ApprovalRejectedEvent
       - Approval\Domain\Event\Request\ApprovalRequestedEvent
-      - Auth\Domain\Event\Session\LoginFailedEvent
-      - Auth\Domain\Event\Session\UserLoggedInEvent
-      - Auth\Domain\Event\Session\UserLoggedOutEvent
-      - Auth\Domain\Event\Token\TokenIssuedEvent
-      - Auth\Infrastructure\Security\User\SecurityUser
-      - Automation\Domain\Event\Rule\AutomationRuleExecutedEvent
-      - Automation\Domain\Event\Rule\AutomationRuleFailedEvent
-      - Calendar\Domain\Event\CalendarEventCreatedEvent
-      - Calendar\Domain\Event\CalendarEventDeletedEvent
-      - Calendar\Domain\Event\CalendarEventUpdatedEvent
-      - Calendar\Domain\Event\CalendarFeedTokenCreatedEvent
-      - Calendar\Domain\Event\CalendarFeedTokenRevokedEvent
-      - Compliance\Domain\Event\SafetyRegisterExportedEvent
       - Compliance\Domain\Event\SafetyRegisterSnapshotCreatedEvent
-      - Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent
-      - Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent
-      - Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent
-      - Equipment\Domain\Event\Equipment\EquipmentReturnedToStockEvent
-      - Equipment\Domain\Event\Export\EquipmentLabelsExportedEvent
-      - Equipment\Domain\Event\Export\EquipmentReportExportedEvent
-      - Equipment\Domain\Event\Export\EquipmentsExportedEvent
-      - Facility\Domain\Event\Export\FacilitiesExportedEvent
-      - Facility\Domain\Event\Facility\FacilityArchivedEvent
-      - Facility\Domain\Event\Facility\FacilityCreatedEvent
-      - Facility\Domain\Event\Facility\FacilityMovedEvent
-      - Facility\Domain\Event\Facility\FacilityRestoredEvent
-      - Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent
-      - Facility\Domain\Event\Facility\FacilityUpdatedEvent
-      - Import\Domain\Event\ImportJobCompletedEvent
-      - Import\Domain\Event\ImportJobFailedEvent
-      - Inspection\Domain\Event\Export\InspectionReportExportedEvent
-      - Inspection\Domain\Event\Export\InspectionsExportedEvent
-      - Inspection\Domain\Event\Export\NonConformitiesExportedEvent
-      - Inspection\Domain\Event\Export\NonConformitiesReportExportedEvent
-      - Inspection\Domain\Event\Inspection\InspectionCancelledEvent
-      - Inspection\Domain\Event\Inspection\InspectionClosedEvent
-      - Inspection\Domain\Event\Inspection\InspectionSubmittedEvent
-      - Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent
-      - Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent
-      - Intervention\Domain\Event\Export\InterventionsExportedEvent
-      - Intervention\Domain\Event\InterventionReportExportedEvent
+      - Webhook\Domain\Event\Subscription\WebhookSubscriptionCreatedEvent
+      - Webhook\Domain\Event\Subscription\WebhookSubscriptionDeletedEvent
+    Audit\Infrastructure\EventSubscriber\InterventionAuditEventSubscriber:
       - Intervention\Domain\Event\Publication\InterventionPublicationFailedEvent
       - Intervention\Domain\Event\Publication\InterventionPublishedEvent
       - Intervention\Domain\Event\Recurrence\InterventionRecurrenceCreatedEvent
@@ -100,8 +76,17 @@ deptrac:
       - Intervention\Domain\Event\Recurrence\InterventionRecurrenceUpdatedEvent
       - Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent
       - Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent
-      - Maintenance\Domain\Event\Export\MaintenanceSchedulesExportedEvent
       - Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent
+    Audit\Infrastructure\EventSubscriber\OperationsAuditEventSubscriber:
+      - Automation\Domain\Event\Rule\AutomationRuleExecutedEvent
+      - Automation\Domain\Event\Rule\AutomationRuleFailedEvent
+      - Calendar\Domain\Event\CalendarEventCreatedEvent
+      - Calendar\Domain\Event\CalendarEventDeletedEvent
+      - Calendar\Domain\Event\CalendarEventUpdatedEvent
+      - Calendar\Domain\Event\CalendarFeedTokenCreatedEvent
+      - Calendar\Domain\Event\CalendarFeedTokenRevokedEvent
+      - Import\Domain\Event\ImportJobCompletedEvent
+      - Import\Domain\Event\ImportJobFailedEvent
       - Messaging\Domain\Event\Channel\MessagingChannelCreatedEvent
       - Messaging\Domain\Event\Channel\MessagingChannelParentChangedEvent
       - Messaging\Domain\Event\Channel\MessagingChannelParticipantAddedEvent
@@ -110,24 +95,12 @@ deptrac:
       - Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent
       - Messaging\Domain\Event\Message\MessagingMessageModeratedEvent
       - Messaging\Domain\Event\Message\MessagingMessageUnpinModeratedEvent
-      - OAuth\Domain\Event\Consent\ConsentGrantedEvent
-      - OAuth\Domain\Event\Token\TokenIssueFailedEvent
-      - OAuth\Domain\Event\Token\TokenIssuedEvent
-      - OAuth\Domain\Event\Token\TokenRefreshFailedEvent
-      - OAuth\Domain\Event\Token\TokenRefreshedEvent
-      - OAuth\Domain\Event\Token\TokenRevokedEvent
+    Audit\Infrastructure\EventSubscriber\OrganizationAccessAuditEventSubscriber:
       - Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent
       - Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent
       - Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent
-      - Organization\Domain\Event\Join\OrganizationJoinChangedEvent
       - Organization\Domain\Event\Member\OrganizationMemberAddedEvent
       - Organization\Domain\Event\Member\OrganizationMemberRemovedEvent
-      - Organization\Domain\Event\Organization\OrganizationArchivedEvent
-      - Organization\Domain\Event\Organization\OrganizationCreatedEvent
-      - Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent
-      - Organization\Domain\Event\Organization\OrganizationRestoredEvent
-      - Organization\Domain\Event\Organization\OrganizationSuspendedEvent
-      - Organization\Domain\Event\Plan\OrganizationPlanChangedEvent
       - Organization\Domain\Event\Role\OrganizationRoleAssignedEvent
       - Organization\Domain\Event\Role\OrganizationRoleCreatedEvent
       - Organization\Domain\Event\Role\OrganizationRoleDeletedEvent
@@ -140,13 +113,48 @@ deptrac:
       - Organization\Domain\Event\Team\TeamMemberAddedEvent
       - Organization\Domain\Event\Team\TeamMemberRemovedEvent
       - Organization\Domain\Event\Team\TeamUpdatedEvent
+    Audit\Infrastructure\EventSubscriber\OrganizationLifecycleAuditEventSubscriber:
+      - Organization\Domain\Event\Join\OrganizationJoinChangedEvent
+      - Organization\Domain\Event\Organization\OrganizationArchivedEvent
+      - Organization\Domain\Event\Organization\OrganizationCreatedEvent
+      - Organization\Domain\Event\Organization\OrganizationOwnershipTransferredEvent
+      - Organization\Domain\Event\Organization\OrganizationRestoredEvent
+      - Organization\Domain\Event\Organization\OrganizationSuspendedEvent
+      - Organization\Domain\Event\Plan\OrganizationPlanChangedEvent
+    Audit\Infrastructure\EventSubscriber\ResourceAuditEventSubscriber:
+      - Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent
+      - Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent
+      - Equipment\Domain\Event\Equipment\EquipmentReturnedToStockEvent
+      - Facility\Domain\Event\Facility\FacilityArchivedEvent
+      - Facility\Domain\Event\Facility\FacilityCreatedEvent
+      - Facility\Domain\Event\Facility\FacilityMovedEvent
+      - Facility\Domain\Event\Facility\FacilityRestoredEvent
+      - Facility\Domain\Event\Facility\FacilitySubtreeDuplicatedEvent
+      - Facility\Domain\Event\Facility\FacilityUpdatedEvent
+      - Inspection\Domain\Event\Inspection\InspectionCancelledEvent
+      - Inspection\Domain\Event\Inspection\InspectionClosedEvent
+      - Inspection\Domain\Event\Inspection\InspectionSubmittedEvent
+      - Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent
+      - Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent
+    Audit\Infrastructure\EventSubscriber\SecurityAuditEventSubscriber:
+      - Auth\Domain\Event\Session\LoginFailedEvent
+      - Auth\Domain\Event\Session\UserLoggedInEvent
+      - Auth\Domain\Event\Session\UserLoggedOutEvent
+      - Auth\Domain\Event\Token\TokenIssuedEvent
+      - OAuth\Domain\Event\Consent\ConsentGrantedEvent
+      - OAuth\Domain\Event\Token\TokenIssueFailedEvent
+      - OAuth\Domain\Event\Token\TokenIssuedEvent
+      - OAuth\Domain\Event\Token\TokenRefreshFailedEvent
+      - OAuth\Domain\Event\Token\TokenRefreshedEvent
+      - OAuth\Domain\Event\Token\TokenRevokedEvent
       - Otp\Domain\Event\Totp\TotpEnrollmentConfirmedEvent
       - Otp\Domain\Event\Totp\TotpEnrollmentDisabledEvent
       - User\Domain\Event\UserEmailChangeCancelledEvent
       - User\Domain\Event\UserEmailChangeConfirmedEvent
       - User\Domain\Event\UserEmailChangeRequestedEvent
-      - Webhook\Domain\Event\Subscription\WebhookSubscriptionCreatedEvent
-      - Webhook\Domain\Event\Subscription\WebhookSubscriptionDeletedEvent
+    Audit\Infrastructure\Service\AuditActorResolver:
+      - Auth\Infrastructure\Security\User\SecurityUser
     Audit\Presentation\Api\Controller\ExportAuditEventsController:
       - Auth\Infrastructure\Security\User\SecurityUser
       - Shared\Application\Exception\MessengerExceptionUnwrapperTrait
@@ -914,10 +922,15 @@ deptrac:
     Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter:
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
       - Shared\Application\Factory\UuidFactory
-    Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter:
+    Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowReader:
       - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
-      - Shared\Application\Factory\UuidFactory
       - Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression
+    Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowInterventionWriter:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowMutationSupport:
+      - Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord
+    Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowWriterRuntime:
+      - Shared\Application\Factory\UuidFactory
     Intervention\Infrastructure\DataFixtures\InterventionFixtures:
       - Equipment\Infrastructure\DataFixtures\EquipmentFixtures
       - Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord

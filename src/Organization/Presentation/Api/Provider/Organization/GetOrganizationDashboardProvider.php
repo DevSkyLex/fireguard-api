@@ -20,7 +20,7 @@ use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Organization\Presentation\Api\Support\{OrganizationDashboardOutputNormalizer, UnwrapsOrganizationBusFailures};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -30,21 +30,15 @@ use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_column;
 use function array_keys;
-use function array_shift;
-use function explode;
 use function filter_var;
 use function implode;
 use function in_array;
 use function is_array;
 use function is_bool;
-use function is_float;
-use function is_int;
 use function is_string;
 use function sprintf;
-use function str_contains;
 use function timezone_identifiers_list;
 use function trim;
-use function ucfirst;
 
 use const FILTER_NULL_ON_FAILURE;
 use const FILTER_VALIDATE_BOOLEAN;
@@ -73,73 +67,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * @see UnwrapsOrganizationBusFailures
    */
   use UnwrapsOrganizationBusFailures;
-  // #endregion
 
-  // region Constants
   private const string INVALID_BOOLEAN_FILTER_MESSAGE = 'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.';
-
-  /**
-   * @var list<array{source: string, metric: string, key: string, label: string}>
-   */
-  private const array COMPARISON_CARD_DEFINITIONS = [
-    [
-      'source' => 'inspectionsPerformed',
-      'metric' => 'inspections_performed',
-      'key' => 'inspections',
-      'label' => 'Inspections',
-    ],
-    [
-      'source' => 'facilitiesCreated',
-      'metric' => 'facilities_created',
-      'key' => 'facilities',
-      'label' => 'Facilities',
-    ],
-    [
-      'source' => 'membersJoined',
-      'metric' => 'members_joined',
-      'key' => 'members',
-      'label' => 'Members',
-    ],
-    [
-      'source' => 'equipmentCreated',
-      'metric' => 'equipment_created',
-      'key' => 'equipment',
-      'label' => 'Equipment',
-    ],
-    [
-      'source' => 'nonConformitiesOpened',
-      'metric' => 'non_conformities_opened',
-      'key' => 'nonConformitiesOpened',
-      'label' => 'Non-Conformities Opened',
-    ],
-    [
-      'source' => 'nonConformitiesResolved',
-      'metric' => 'non_conformities_resolved',
-      'key' => 'nonConformitiesResolved',
-      'label' => 'Non-Conformities Resolved',
-    ],
-  ];
-
-  /**
-   * @var array<string, string>
-   */
-  private const array OVERVIEW_PRIMARY_KEYS = [
-    'members' => 'total',
-    'roles' => 'total',
-    'invitations' => 'pending',
-    'facilities' => 'total',
-    'equipment' => 'operational',
-    'inspections' => 'closed',
-    'nonConformities' => 'open',
-    // Open, not total: the headline figure is the work still in flight, the
-    // same reading `nonConformities` takes.
-    'interventions' => 'open',
-  ];
-
-  private const string HEALTH_UNIT_PERCENT = 'percent';
-
-  private const float HEALTH_PERCENT_MAX = 100.0;
-  // endregion
+  // #endregion
 
   // #region Constructor
   /**
@@ -206,7 +136,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
     $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
     $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
-    $overviewPrimaryMetricKeys = $this->resolveOverviewPrimaryMetricKeys(
+    $overviewPrimaryMetricKeys = OrganizationDashboardOutputNormalizer::resolveOverviewPrimaryMetricKeys(
       equipmentStatus: $equipmentStatus,
       inspectionStatus: $inspectionStatus,
       nonConformityStatus: $nonConformityStatus,
@@ -257,10 +187,10 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
       throw $exception;
     }
 
-    $normalizedOverview = $this->normalizeOverview($result->overview, $overviewPrimaryMetricKeys);
-    $normalizedHealth = $this->normalizeHealth($result->health);
-    $normalizedAlerts = $this->normalizeAlerts($result->alerts);
-    $normalizedComparison = $this->normalizeComparison($result->comparison);
+    $normalizedOverview = OrganizationDashboardOutputNormalizer::normalizeOverview($result->overview, $overviewPrimaryMetricKeys);
+    $normalizedHealth = OrganizationDashboardOutputNormalizer::normalizeHealth($result->health);
+    $normalizedAlerts = OrganizationDashboardOutputNormalizer::normalizeAlerts($result->alerts);
+    $normalizedComparison = OrganizationDashboardOutputNormalizer::normalizeComparison($result->comparison);
 
     $output = new OrganizationDashboardOutput();
     $output->generatedAt = $result->generatedAt;
@@ -269,7 +199,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $output->health = $normalizedHealth;
     $output->alerts = $normalizedAlerts;
     $output->comparison = $normalizedComparison;
-    $output->trends = $this->normalizeTrends($result->trends);
+    $output->trends = OrganizationDashboardOutputNormalizer::normalizeTrends($result->trends);
     $output->recentInterventions = $this->normalizeRecentInterventions($result->recentInterventions);
 
     return $output;
@@ -443,409 +373,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $value;
-  }
-
-  /**
-   * @param array<string, mixed> $overview
-   * @param array<string, string> $primaryMetricKeys
-   *
-   * @return array<string, array{summary: list<array{key: string, value: int}>, primary: ?array{key: string, value: int}}>
-   */
-  private function normalizeOverview(array $overview, array $primaryMetricKeys = []): array
-  {
-    $normalized = [];
-    foreach ($overview as $widgetKey => $widgetData) {
-      if (!is_array($widgetData)) {
-        continue;
-      }
-
-      $summary = [];
-      foreach ($widgetData as $entryKey => $entryValue) {
-        if (!is_string($entryKey)) {
-          continue;
-        }
-
-        if (is_int($entryValue)) {
-          $summary[] = [
-            'key' => $entryKey,
-            'value' => $entryValue,
-          ];
-
-          continue;
-        }
-      }
-
-      $normalized[$widgetKey] = [
-        'summary' => $summary,
-        'primary' => $this->resolveOverviewPrimaryMetric($widgetKey, $summary, $primaryMetricKeys[$widgetKey] ?? null),
-      ];
-    }
-
-    return $normalized;
-  }
-
-  /**
-   * @param array<string, float> $health
-   *
-   * @return array{metrics: list<array{key: string, value: float, unit: string, max: ?float}>}
-   */
-  private function normalizeHealth(array $health): array
-  {
-    $metrics = [];
-    foreach ($health as $metricKey => $value) {
-      $metrics[] = [
-        'key' => $metricKey,
-        'value' => $value,
-        'unit' => self::HEALTH_UNIT_PERCENT,
-        'max' => self::HEALTH_PERCENT_MAX,
-      ];
-    }
-
-    return ['metrics' => $metrics];
-  }
-
-  /**
-   * @param list<array{code: string, severity: string, count: int}> $alerts
-   *
-   * @return list<array{code: string, severity: string, count: int}>
-   */
-  private function normalizeAlerts(array $alerts): array
-  {
-    return $alerts;
-  }
-
-  /**
-   * @param array<string, mixed> $comparison
-   *
-   * @return array{
-   *   mode: string,
-   *   from: ?string,
-   *   to: ?string,
-   *   metrics: list<array{key: string, metric: string, label: string, value: ?string, current: ?int, previous: ?int, delta: ?float, direction: ?string}>,
-   *   health: array{metrics: list<array{key: string, unit: string, max: ?float, current: ?float, previous: ?float, delta: ?float, direction: ?string}>}
-   * }
-   */
-  private function normalizeComparison(array $comparison): array
-  {
-    $mode = is_string($comparison['mode'] ?? null) ? $comparison['mode'] : 'none';
-    $from = is_string($comparison['from'] ?? null) ? $comparison['from'] : null;
-    $to = is_string($comparison['to'] ?? null) ? $comparison['to'] : null;
-    $current = $this->normalizeMixedMap($comparison['current'] ?? []);
-    $previous = $this->normalizeMixedMap($comparison['previous'] ?? []);
-    $deltas = $this->normalizeMixedMap($comparison['deltas'] ?? []);
-    $health = is_array($comparison['health'] ?? null) ? $comparison['health'] : [];
-    $healthCurrent = $this->normalizeScalarMap($health['current'] ?? []);
-    $healthPrevious = $this->normalizeScalarMap($health['previous'] ?? []);
-    $healthDeltas = $this->normalizeScalarMap($health['deltas'] ?? []);
-
-    return [
-      'mode' => $mode,
-      'from' => $from,
-      'to' => $to,
-      'metrics' => 'previous_period' === $mode ? $this->buildComparisonMetrics($current, $previous, $deltas) : [],
-      'health' => [
-        'metrics' => 'previous_period' === $mode
-          ? $this->buildHealthComparisonMetrics($healthCurrent, $healthPrevious, $healthDeltas)
-          : [],
-      ],
-    ];
-  }
-
-  /**
-   * @param array<string, mixed> $current
-   * @param array<string, mixed> $previous
-   * @param array<string, mixed> $deltas
-   *
-   * @return list<array{key: string, metric: string, label: string, value: ?string, current: ?int, previous: ?int, delta: ?float, direction: ?string}>
-   */
-  private function buildComparisonMetrics(array $current, array $previous, array $deltas): array
-  {
-    $metrics = [];
-    foreach (self::COMPARISON_CARD_DEFINITIONS as $definition) {
-      $sourceKey = $definition['source'];
-      $metricKey = $definition['metric'];
-      $currentValue = $this->extractMetricIntValue($current, $sourceKey, $metricKey);
-      $previousValue = $this->extractMetricIntValue($previous, $sourceKey, $metricKey);
-      $delta = $this->extractMetricFloatValue($deltas, $sourceKey, $metricKey);
-      $difference = null !== $currentValue && null !== $previousValue ? $currentValue - $previousValue : null;
-
-      $metrics[] = [
-        'key' => $definition['key'],
-        'metric' => $metricKey,
-        'label' => $definition['label'],
-        'value' => $this->formatSignedMetricDifference($difference),
-        'current' => $currentValue,
-        'previous' => $previousValue,
-        'delta' => $delta,
-        'direction' => $this->resolveDirection(null !== $difference ? (float) $difference : $delta),
-      ];
-    }
-
-    return $metrics;
-  }
-
-  /**
-   * @param array<string, float> $current
-   * @param array<string, float> $previous
-   * @param array<string, float> $deltas
-   *
-   * @return list<array{key: string, unit: string, max: ?float, current: ?float, previous: ?float, delta: ?float, direction: ?string}>
-   */
-  private function buildHealthComparisonMetrics(array $current, array $previous, array $deltas): array
-  {
-    $keys = [];
-    foreach ([$current, $previous, $deltas] as $source) {
-      foreach (array_keys($source) as $key) {
-        $keys[$key] = true;
-      }
-    }
-
-    $metrics = [];
-    foreach (array_keys($keys) as $key) {
-      $delta = $deltas[$key] ?? null;
-
-      $metrics[] = [
-        'key' => $key,
-        'unit' => self::HEALTH_UNIT_PERCENT,
-        'max' => self::HEALTH_PERCENT_MAX,
-        'current' => $current[$key] ?? null,
-        'previous' => $previous[$key] ?? null,
-        'delta' => $delta,
-        'direction' => $this->resolveDirection($delta),
-      ];
-    }
-
-    return $metrics;
-  }
-
-  /**
-   * @param list<array{key: string, value: int}> $summary
-   *
-   * @return ?array{key: string, value: int}
-   */
-  private function resolveOverviewPrimaryMetric(string $widgetKey, array $summary, ?string $overrideKey = null): ?array
-  {
-    $preferredKey = $overrideKey ?? self::OVERVIEW_PRIMARY_KEYS[$widgetKey] ?? null;
-
-    if (null !== $preferredKey) {
-      foreach ($summary as $entry) {
-        if ($entry['key'] === $preferredKey) {
-          return $entry;
-        }
-      }
-    }
-
-    return $summary[0] ?? null;
-  }
-
-  /**
-   * @return array<string, string>
-   */
-  private function resolveOverviewPrimaryMetricKeys(?string $equipmentStatus, ?string $inspectionStatus, ?string $nonConformityStatus): array
-  {
-    $keys = [];
-
-    if (null !== $equipmentStatus) {
-      $keys['equipment'] = $this->camelizeOverviewMetricKey($equipmentStatus);
-    }
-
-    if (null !== $inspectionStatus) {
-      $keys['inspections'] = $this->camelizeOverviewMetricKey($inspectionStatus);
-    }
-
-    if (null !== $nonConformityStatus) {
-      $keys['nonConformities'] = $this->camelizeOverviewMetricKey($nonConformityStatus);
-    }
-
-    return $keys;
-  }
-
-  private function camelizeOverviewMetricKey(string $value): string
-  {
-    if (!str_contains($value, '_')) {
-      return $value;
-    }
-
-    $segments = explode('_', $value);
-    $normalized = (string) array_shift($segments);
-
-    foreach ($segments as $segment) {
-      $normalized .= ucfirst($segment);
-    }
-
-    return $normalized;
-  }
-
-  private function resolveDirection(?float $delta): ?string
-  {
-    if (null === $delta) {
-      return null;
-    }
-
-    if ($delta > 0.0) {
-      return 'up';
-    }
-
-    if ($delta < 0.0) {
-      return 'down';
-    }
-
-    return 'stable';
-  }
-
-  private function formatSignedMetricDifference(?int $difference): ?string
-  {
-    if (null === $difference) {
-      return null;
-    }
-
-    if (0 === $difference) {
-      return '0';
-    }
-
-    return sprintf('%+d', $difference);
-  }
-
-  /**
-   * Method extractMetricIntValue.
-   *
-   * Extracts an integer metric value from the provided values array by checking
-   * both the legacy and current metric keys.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $values the array of metric values to search, expected to
-   *                                     be an associative array where keys are metric identifiers and values are their corresponding mixed values
-   * @param string $legacyKey The legacy metric key to check for the integer value (e.g., "totalEinterventions").
-   * @param string $metricKey The current metric key to check for the integer value (e.g., "emissionsTotal").
-   *
-   * @return int|null the extracted integer value if found under either the legacy or current
-   *                  metric key, or null if not found or if the value is not an integer
-   */
-  private function extractMetricIntValue(array $values, string $legacyKey, string $metricKey): ?int
-  {
-    foreach ([$metricKey, $legacyKey] as $candidate) {
-      if (isset($values[$candidate]) && is_int($values[$candidate])) {
-        return $values[$candidate];
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Method extractMetricFloatValue.
-   *
-   * Extracts a float metric value from the provided values array by checking
-   * both the legacy and current metric keys.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $values the array of metric values to search, expected to
-   *                                     be an associative array where keys are metric identifiers and values are their corresponding mixed values
-   * @param string $legacyKey The legacy metric key to check for the float value (e.g., "emissionsDeltaPercent").
-   * @param string $metricKey The current metric key to check for the float value (
-   *                          e.g., "emissionsDeltaPercentage").
-   *
-   * @return float|null The extracted float value if found under either the legacy or current
-   */
-  private function extractMetricFloatValue(array $values, string $legacyKey, string $metricKey): ?float
-  {
-    foreach ([$metricKey, $legacyKey] as $candidate) {
-      if (isset($values[$candidate]) && (is_float($values[$candidate]) || is_int($values[$candidate]))) {
-        return (float) $values[$candidate];
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Method normalizeMixedMap.
-   *
-   * Normalizes a mixed input into an associative array with
-   * string keys and mixed values.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $values the mixed input to normalize, expected
-   *                      to be an array of key-value pairs where keys are strings
-   *
-   * @return array<string, mixed> An associative array with string
-   *                              keys and mixed values, where non-string keys are ignored.
-   *                              If the input is not an array, an empty array is returned.
-   */
-  private function normalizeMixedMap(mixed $values): array
-  {
-    if (!is_array($values)) {
-      return [];
-    }
-
-    $normalized = [];
-    foreach ($values as $key => $value) {
-      if (!is_string($key)) {
-        continue;
-      }
-
-      $normalized[$key] = $value;
-    }
-
-    return $normalized;
-  }
-
-  /**
-   * Method normalizeScalarMap.
-   *
-   * Normalizes a mixed input into an associative array with string keys and float values.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $values the mixed input to normalize, expected to be an array
-   *                      of key-value pairs where keys are strings and values are numeric (int or float)
-   *
-   * @return array<string, float> An associative array with string keys and float
-   *                              values, where non-string keys or non-numeric values are ignored. If the input
-   *                              is not an array, an empty array is returned.
-   */
-  private function normalizeScalarMap(mixed $values): array
-  {
-    if (!is_array($values)) {
-      return [];
-    }
-
-    $normalized = [];
-    foreach ($values as $key => $value) {
-      if (!is_string($key) || (!is_float($value) && !is_int($value))) {
-        continue;
-      }
-
-      $normalized[$key] = (float) $value;
-    }
-
-    return $normalized;
-  }
-
-  /**
-   * Method normalizeTrends.
-   *
-   * Passes the per-KPI running-total sparkline series through unchanged
-   * (the handler already produces the exact shape); defensive defaults
-   * keep the output stable if a series is ever missing.
-   *
-   * @since 1.0.0
-   *
-   * @param array{facilities?: list<array{bucket: string, value: int}>, members?: list<array{bucket: string, value: int}>, equipment?: list<array{bucket: string, value: int}>, inspections?: list<array{bucket: string, value: int}>} $trends
-   *
-   * @return array{facilities: list<array{bucket: string, value: int}>, members: list<array{bucket: string, value: int}>, equipment: list<array{bucket: string, value: int}>, inspections: list<array{bucket: string, value: int}>}
-   */
-  private function normalizeTrends(array $trends): array
-  {
-    return [
-      'facilities' => $trends['facilities'] ?? [],
-      'members' => $trends['members'] ?? [],
-      'equipment' => $trends['equipment'] ?? [],
-      'inspections' => $trends['inspections'] ?? [],
-    ];
   }
 
   /**

@@ -7,6 +7,7 @@ namespace Tests\Unit\Organization\Domain\Model\OrganizationInvitation;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -53,19 +54,25 @@ final class OrganizationInvitationTest extends TestCase
     $revokedAt = new DateTimeImmutable('-1 day');
 
     $invitation = OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655440010'),
-      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655440011'),
-      email: new Email('restored@example.com'),
-      tokenHash: 'restored-token',
-      invitedByUserId: '550e8400-e29b-41d4-a716-446655440012',
-      status: OrganizationInvitationStatus::ACCEPTED,
-      expiresAt: new DateTimeImmutable('+3 days'),
-      createdAt: new DateTimeImmutable('-10 days'),
-      updatedAt: new DateTimeImmutable('-2 days'),
-      acceptedAt: $acceptedAt,
-      acceptedByUserId: '550e8400-e29b-41d4-a716-446655440013',
-      revokedAt: $revokedAt,
-      revokedByUserId: '550e8400-e29b-41d4-a716-446655440014',
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655440010'),
+        organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655440011'),
+        email: new Email('restored@example.com'),
+        tokenHash: 'restored-token',
+        invitedByUserId: '550e8400-e29b-41d4-a716-446655440012',
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::ACCEPTED,
+        expiresAt: new DateTimeImmutable('+3 days'),
+        acceptedAt: $acceptedAt,
+        acceptedByUserId: '550e8400-e29b-41d4-a716-446655440013',
+        revokedAt: $revokedAt,
+        revokedByUserId: '550e8400-e29b-41d4-a716-446655440014',
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-10 days'),
+        updatedAt: new DateTimeImmutable('-2 days'),
+      ),
     );
 
     self::assertSame(OrganizationInvitationStatus::ACCEPTED, $invitation->status());
@@ -273,15 +280,21 @@ final class OrganizationInvitationTest extends TestCase
   private function reconstitute(OrganizationInvitationStatus $status, DateTimeImmutable $expiresAt): OrganizationInvitation
   {
     return OrganizationInvitation::reconstitute(
-      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655440100'),
-      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655440101'),
-      email: new Email('member@example.com'),
-      tokenHash: 'old-hashed-token',
-      invitedByUserId: '550e8400-e29b-41d4-a716-446655440102',
-      status: $status,
-      expiresAt: $expiresAt,
-      createdAt: new DateTimeImmutable('-10 days'),
-      updatedAt: new DateTimeImmutable('-1 day'),
+      identity: new RestoredInvitationIdentity(
+        id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655440100'),
+        organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655440101'),
+        email: new Email('member@example.com'),
+        tokenHash: 'old-hashed-token',
+        invitedByUserId: '550e8400-e29b-41d4-a716-446655440102',
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: $status,
+        expiresAt: $expiresAt,
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('-10 days'),
+        updatedAt: new DateTimeImmutable('-1 day'),
+      ),
     );
   }
 }

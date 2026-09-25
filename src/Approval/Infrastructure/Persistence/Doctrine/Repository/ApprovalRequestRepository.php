@@ -6,7 +6,7 @@ namespace Approval\Infrastructure\Persistence\Doctrine\Repository;
 
 use Approval\Application\Contract\Reservation\ApprovalReservation;
 use Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Mapper\ApprovalRequestMapper;
 use Approval\Infrastructure\Persistence\Doctrine\Record\ApprovalRequestRecord;
@@ -55,17 +55,8 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
   // #endregion
 
   // #region Methods
-  public function reservePending(
-    string $id,
-    string $organizationId,
-    string $actionType,
-    string $subjectId,
-    string $requestedByMemberId,
-    string $requestedByUserId,
-    array $payload,
-    DateTimeImmutable $expiresAt,
-    DateTimeImmutable $now,
-  ): ApprovalReservation {
+  public function reservePending(ApprovalRequestCreation $creation): ApprovalReservation
+  {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
     // deliberately: a unique-constraint violation during an ORM flush()
     // closes the EntityManager (see
@@ -85,17 +76,17 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
       . 'VALUES (:id, :organizationId, :actionType, :subjectId, :status, :requestedByMemberId, :requestedByUserId, :payload, :expiresAt, :createdAt, :updatedAt) '
       . 'ON CONFLICT DO NOTHING',
       [
-        'id' => $id,
-        'organizationId' => $organizationId,
-        'actionType' => $actionType,
-        'subjectId' => $subjectId,
+        'id' => (string) $creation->id,
+        'organizationId' => $creation->organizationId,
+        'actionType' => $creation->actionType,
+        'subjectId' => $creation->subjectId,
         'status' => ApprovalStatus::PENDING->value,
-        'requestedByMemberId' => $requestedByMemberId,
-        'requestedByUserId' => $requestedByUserId,
-        'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
-        'expiresAt' => $expiresAt,
-        'createdAt' => $now,
-        'updatedAt' => $now,
+        'requestedByMemberId' => $creation->submission->requestedByMemberId,
+        'requestedByUserId' => $creation->submission->requestedByUserId,
+        'payload' => json_encode($creation->submission->payload, JSON_THROW_ON_ERROR),
+        'expiresAt' => $creation->schedule->expiresAt,
+        'createdAt' => $creation->schedule->createdAt,
+        'updatedAt' => $creation->schedule->createdAt,
       ],
       [
         'expiresAt' => 'datetime_immutable',
@@ -105,12 +96,12 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     );
 
     if (0 === $inserted) {
-      $existingId = $this->findExistingPendingId($organizationId, $actionType, $subjectId);
+      $existingId = $this->findExistingPendingId($creation->organizationId, $creation->actionType, $creation->subjectId);
 
-      return new ApprovalReservation($existingId ?? $id, false);
+      return new ApprovalReservation($existingId ?? (string) $creation->id, false);
     }
 
-    return new ApprovalReservation($id, true);
+    return new ApprovalReservation((string) $creation->id, true);
   }
 
   public function save(ApprovalRequest $request): void

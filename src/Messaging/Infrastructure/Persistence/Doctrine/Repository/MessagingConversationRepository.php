@@ -11,7 +11,7 @@ use Messaging\Application\Contract\Channel\{ChannelPage, ChannelView};
 use Messaging\Application\Contract\Conversation\{ConversationPage, ConversationView};
 use Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort;
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Conversation\Conversation;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity, RestoredConversationChannel};
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId, ConversationVisibility, MessagingSubjectType};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingParticipantRecord, MessagingReadMarkerRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -500,16 +500,20 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       $this->organizationId($record),
       MessagingSubjectType::from($record->subjectType),
       $record->subjectId,
-      ConversationVisibility::from($record->visibility),
-      $record->lastMessageAt,
-      $record->messagesCount,
-      $record->isArchived,
-      $record->createdAt,
-      $record->updatedAt,
-      null !== $record->name ? new ChannelName($record->name) : null,
-      $record->teamId,
-      $record->createdByMemberId,
-      $record->parentConversation?->id,
+      new RestoredConversationActivity(
+        ConversationVisibility::from($record->visibility),
+        $record->lastMessageAt,
+        $record->messagesCount,
+        $record->isArchived,
+        $record->createdAt,
+        $record->updatedAt,
+      ),
+      new RestoredConversationChannel(
+        null !== $record->name ? new ChannelName($record->name) : null,
+        $record->teamId,
+        $record->createdByMemberId,
+        $record->parentConversation?->id,
+      ),
     );
   }
 

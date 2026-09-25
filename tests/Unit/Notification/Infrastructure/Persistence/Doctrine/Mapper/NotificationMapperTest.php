@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Mapper\NotificationMapper;
 use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationRecord;
@@ -46,13 +46,15 @@ final class NotificationMapperTest extends TestCase
       body: 'An inspection is due next week.',
       channels: ['email', 'mercure'],
       payload: ['facilityId' => 'facility-1'],
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      recipientUserId: self::RECIPIENT_USER_ID,
-      recipientEmail: new Email('recipient@example.com'),
-      isRead: true,
-      readAt: $readAt,
-      organizationId: self::ORGANIZATION_ID,
+      restoredState: new RestoredNotificationState(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        recipientUserId: self::RECIPIENT_USER_ID,
+        recipientEmail: new Email('recipient@example.com'),
+        isRead: true,
+        readAt: $readAt,
+        organizationId: self::ORGANIZATION_ID,
+      ),
     );
 
     $record = NotificationMapper::toRecord($notification);
@@ -173,9 +175,11 @@ final class NotificationMapperTest extends TestCase
       body: 'An inspection is due next week.',
       channels: ['mercure'],
       payload: [],
-      createdAt: $timestamp,
-      updatedAt: $timestamp,
-      recipientUserId: self::RECIPIENT_USER_ID,
+      restoredState: new RestoredNotificationState(
+        createdAt: $timestamp,
+        updatedAt: $timestamp,
+        recipientUserId: self::RECIPIENT_USER_ID,
+      ),
     );
   }
   // #endregion

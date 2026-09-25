@@ -6,7 +6,7 @@ namespace Tests\Unit\Equipment\Domain\Model\Equipment;
 
 use DateTimeImmutable;
 use Equipment\Domain\Exception\{CanonicalEquipmentValidationException, EquipmentRevisionMismatchException};
-use Equipment\Domain\Model\Equipment\CanonicalEquipment;
+use Equipment\Domain\Model\Equipment\{CanonicalEquipment, RestoredCanonicalEquipmentLifecycle, RestoredCanonicalEquipmentMetadata};
 use Equipment\Domain\ValueObject\{
   CanonicalEquipmentPatch,
   EquipmentId,
@@ -14,6 +14,7 @@ use Equipment\Domain\ValueObject\{
   EquipmentRecordStatus,
   EquipmentStatus
 };
+use Equipment\Domain\ValueObject\EquipmentCatalogDetails;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -326,19 +327,25 @@ final class CanonicalEquipmentTest extends TestCase
     return CanonicalEquipment::reconstitute(
       id: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      facilityId: $facilityId,
-      type: 'fire_extinguisher',
-      subType: null,
-      brand: $brand,
-      model: $model,
-      serialNumber: null,
-      locationLabel: null,
-      status: $status,
-      commissionedAt: $commissionedAt,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      metadata: new RestoredCanonicalEquipmentMetadata(
+        facilityId: $facilityId,
+        type: 'fire_extinguisher',
+        details: new EquipmentCatalogDetails(
+          subType: null,
+          brand: $brand,
+          model: $model,
+          serialNumber: null,
+          locationLabel: null,
+        ),
+      ),
+      lifecycle: new RestoredCanonicalEquipmentLifecycle(
+        recordStatus: $recordStatus,
+        interventionId: $interventionId,
+        status: $status,
+        commissionedAt: $commissionedAt,
+        revision: 3,
+        updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      ),
     );
   }
   // #endregion

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Equipment\Domain\Model\Equipment\CanonicalEquipment;
+use Equipment\Domain\Model\Equipment\{CanonicalEquipment, RestoredCanonicalEquipmentLifecycle, RestoredCanonicalEquipmentMetadata};
+use Equipment\Domain\ValueObject\EquipmentCatalogDetails;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentRecordStatus, EquipmentStatus};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
@@ -45,19 +46,25 @@ final class CanonicalEquipmentMapper
     return CanonicalEquipment::reconstitute(
       id: EquipmentId::fromString($record->id),
       organizationId: EquipmentOrganizationId::fromString($record->organization->id),
-      recordStatus: EquipmentRecordStatus::from($record->recordStatus),
-      interventionId: $record->interventionId,
-      facilityId: $record->facilityId,
-      type: $record->type,
-      subType: $record->subType,
-      brand: $record->brand,
-      model: $record->model,
-      serialNumber: $record->serialNumber,
-      locationLabel: $record->locationLabel,
-      status: EquipmentStatus::from($record->status),
-      commissionedAt: $record->commissionedAt,
-      revision: $record->revision,
-      updatedAt: $record->updatedAt,
+      metadata: new RestoredCanonicalEquipmentMetadata(
+        facilityId: $record->facilityId,
+        type: $record->type,
+        details: new EquipmentCatalogDetails(
+          subType: $record->subType,
+          brand: $record->brand,
+          model: $record->model,
+          serialNumber: $record->serialNumber,
+          locationLabel: $record->locationLabel,
+        ),
+      ),
+      lifecycle: new RestoredCanonicalEquipmentLifecycle(
+        recordStatus: EquipmentRecordStatus::from($record->recordStatus),
+        interventionId: $record->interventionId,
+        status: EquipmentStatus::from($record->status),
+        commissionedAt: $record->commissionedAt,
+        revision: $record->revision,
+        updatedAt: $record->updatedAt,
+      ),
     );
   }
 

@@ -7,7 +7,8 @@ namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetCanonicalE
 use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\CanonicalEquipmentRepositoryPort;
 use Equipment\Application\UseCase\Query\Equipment\GetCanonicalEquipment\{GetCanonicalEquipmentHandler, GetCanonicalEquipmentQuery};
-use Equipment\Domain\Model\Equipment\CanonicalEquipment;
+use Equipment\Domain\Model\Equipment\{CanonicalEquipment, RestoredCanonicalEquipmentLifecycle, RestoredCanonicalEquipmentMetadata};
+use Equipment\Domain\ValueObject\EquipmentCatalogDetails;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentRecordStatus, EquipmentStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -102,19 +103,25 @@ final class GetCanonicalEquipmentHandlerTest extends TestCase
     return CanonicalEquipment::reconstitute(
       id: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: EquipmentRecordStatus::DRAFT,
-      interventionId: self::INTERVENTION_ID,
-      facilityId: null,
-      type: 'fire_extinguisher',
-      subType: null,
-      brand: null,
-      model: null,
-      serialNumber: null,
-      locationLabel: null,
-      status: EquipmentStatus::IN_STOCK,
-      commissionedAt: null,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      metadata: new RestoredCanonicalEquipmentMetadata(
+        facilityId: null,
+        type: 'fire_extinguisher',
+        details: new EquipmentCatalogDetails(
+          subType: null,
+          brand: null,
+          model: null,
+          serialNumber: null,
+          locationLabel: null,
+        ),
+      ),
+      lifecycle: new RestoredCanonicalEquipmentLifecycle(
+        recordStatus: EquipmentRecordStatus::DRAFT,
+        interventionId: self::INTERVENTION_ID,
+        status: EquipmentStatus::IN_STOCK,
+        commissionedAt: null,
+        revision: 3,
+        updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      ),
     );
   }
   // #endregion

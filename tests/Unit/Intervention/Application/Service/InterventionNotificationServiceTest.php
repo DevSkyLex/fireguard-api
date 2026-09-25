@@ -829,12 +829,12 @@ final class InterventionNotificationServiceTest extends TestCase
   private function policy(bool $inAppEnabled = true, bool $interventionAssigned = true, bool $emailEnabled = true, bool $interventionPublished = true): OrganizationNotificationPolicyPort
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
-    $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
-      emailEnabled: $emailEnabled,
-      inAppEnabled: $inAppEnabled,
-      interventionPublished: $interventionPublished,
-      interventionAssigned: $interventionAssigned,
-    ));
+    $policy->method('notificationPolicy')->willReturn(OrganizationNotificationSettings::fromArray([
+      'email_enabled' => $emailEnabled,
+      'in_app_enabled' => $inAppEnabled,
+      'intervention_published' => $interventionPublished,
+      'intervention_assigned' => $interventionAssigned,
+    ]));
 
     return $policy;
   }

@@ -76,37 +76,7 @@ final class MigrateTotpSecretsCommand extends Command
     $outdated = 0;
     do {
       $count = $this->entityManager->wrapInTransaction(function () use (&$cursor, &$outdated, $batchSize, $verifyOnly): int {
-        /** @var list<string> $ids */
-        $ids = $this->entityManager->getConnection()->fetchFirstColumn(
-          'SELECT user_id FROM totp_enrollments WHERE user_id > :cursor ORDER BY user_id LIMIT :limit FOR UPDATE',
-          ['cursor' => $cursor, 'limit' => $batchSize],
-          ['cursor' => ParameterType::STRING, 'limit' => ParameterType::INTEGER],
-        );
-        foreach ($ids as $id) {
-          $record = $this->entityManager->find(TotpEnrollmentRecord::class, $id);
-          if (null === $record) {
-            throw new TotpSecretMigrationException('A locked TOTP enrollment could not be read.');
-          }
-          $this->entityManager->refresh($record);
-          $before = $this->mapper->toDomain($record);
-          $needsUpdate = !$record->secretsEncrypted
-            || null !== $record->getActiveSecret() || null !== $record->getPendingSecret()
-            || (null !== $record->activeSecretCiphertext && $this->cipher->needsRotation($record->activeSecretCiphertext))
-            || (null !== $record->pendingSecretCiphertext && $this->cipher->needsRotation($record->pendingSecretCiphertext));
-          if ($needsUpdate) {
-            ++$outdated;
-            if (!$verifyOnly) {
-              $this->mapper->toRecord($before, $record);
-              $after = $this->mapper->toDomain($record);
-              if ($before->activeSecret()?->secret !== $after->activeSecret()?->secret || $before->pendingSecret()?->secret !== $after->pendingSecret()?->secret) {
-                throw new TotpSecretMigrationException('Verification of migrated TOTP secrets failed.');
-              }
-            }
-          }
-          $cursor = $id;
-        }
-
-        return count($ids);
+        return $this->migrateBatch($cursor, $outdated, $batchSize, $verifyOnly);
       });
       $scanned += $count;
       $this->entityManager->clear();
@@ -115,5 +85,59 @@ final class MigrateTotpSecretsCommand extends Command
     $io->writeln(sprintf('Scanned: %d; %s: %d.', $scanned, $verifyOnly ? 'requiring migration' : 'migrated or rotated', $outdated));
 
     return $verifyOnly && $outdated > 0 ? Command::FAILURE : Command::SUCCESS;
+  }
+
+  /**
+   * Processes one locked batch within the caller's transaction.
+   *
+   * @since 1.0.0
+   */
+  private function migrateBatch(string &$cursor, int &$outdated, int $batchSize, bool $verifyOnly): int
+  {
+    /** @var list<string> $ids */
+    $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+      'SELECT user_id FROM totp_enrollments WHERE user_id > :cursor ORDER BY user_id LIMIT :limit FOR UPDATE',
+      ['cursor' => $cursor, 'limit' => $batchSize],
+      ['cursor' => ParameterType::STRING, 'limit' => ParameterType::INTEGER],
+    );
+    foreach ($ids as $id) {
+      $record = $this->entityManager->find(TotpEnrollmentRecord::class, $id);
+      if (null === $record) {
+        throw new TotpSecretMigrationException('A locked TOTP enrollment could not be read.');
+      }
+      $this->entityManager->refresh($record);
+      if ($this->migrateRecord($record, $verifyOnly)) {
+        ++$outdated;
+      }
+      $cursor = $id;
+    }
+
+    return count($ids);
+  }
+
+  /**
+   * Checks and optionally rewrites one locked enrollment without exposing its secrets.
+   *
+   * @since 1.0.0
+   */
+  private function migrateRecord(TotpEnrollmentRecord $record, bool $verifyOnly): bool
+  {
+    $before = $this->mapper->toDomain($record);
+    $needsUpdate = !$record->secretsEncrypted
+      || null !== $record->getActiveSecret() || null !== $record->getPendingSecret()
+      || (null !== $record->activeSecretCiphertext && $this->cipher->needsRotation($record->activeSecretCiphertext))
+      || (null !== $record->pendingSecretCiphertext && $this->cipher->needsRotation($record->pendingSecretCiphertext));
+    if (!$needsUpdate) {
+      return false;
+    }
+    if (!$verifyOnly) {
+      $this->mapper->toRecord($before, $record);
+      $after = $this->mapper->toDomain($record);
+      if ($before->activeSecret()?->secret !== $after->activeSecret()?->secret || $before->pendingSecret()?->secret !== $after->pendingSecret()?->secret) {
+        throw new TotpSecretMigrationException('Verification of migrated TOTP secrets failed.');
+      }
+    }
+
+    return true;
   }
 }

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\FacilityMetadataValidationException;
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -64,6 +64,9 @@ final class FacilityMetadataSchemaGuardTest extends TestCase
       'boolean' => [FacilityMetadataFieldType::BOOLEAN, true, []],
       'date' => [FacilityMetadataFieldType::DATE, '2026-08-16', []],
       'date-time' => [FacilityMetadataFieldType::DATE, '2026-08-16T10:00:00+00:00', []],
+      'date-time with space' => [FacilityMetadataFieldType::DATE, '2026-08-16 10:00:00', []],
+      'date-time with fraction and UTC' => [FacilityMetadataFieldType::DATE, '2026-08-16T10:00:00.123Z', []],
+      'date-time with compact offset' => [FacilityMetadataFieldType::DATE, '2026-08-16T10:00:00+0000', []],
       'select' => [FacilityMetadataFieldType::SELECT, 'ERP', ['ERP', 'IGH']],
     ];
   }
@@ -92,6 +95,8 @@ final class FacilityMetadataSchemaGuardTest extends TestCase
       'number as string' => [FacilityMetadataFieldType::NUMBER, 'not-a-number', []],
       'boolean as string' => [FacilityMetadataFieldType::BOOLEAN, 'true', []],
       'date malformed' => [FacilityMetadataFieldType::DATE, 'not-a-date', []],
+      'date-time without seconds' => [FacilityMetadataFieldType::DATE, '2026-08-16T10:00', []],
+      'date-time with trailing text' => [FacilityMetadataFieldType::DATE, '2026-08-16T10:00:00Zextra', []],
       'select not in options' => [FacilityMetadataFieldType::SELECT, 'Unknown', ['ERP', 'IGH']],
     ];
   }
@@ -184,14 +189,9 @@ final class FacilityMetadataSchemaGuardTest extends TestCase
     return FacilityMetadataField::reconstitute(
       id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655440101'),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('the-field'),
-      label: new FacilityMetadataFieldLabel('The field'),
-      fieldType: $fieldType,
-      required: $required,
+      definition: new FacilityMetadataFieldDefinition(new FacilityMetadataFieldKey('the-field'), new FacilityMetadataFieldLabel('The field'), $fieldType, $required, $options, $facilityType),
       createdAt: new DateTimeImmutable(),
       updatedAt: new DateTimeImmutable(),
-      options: $options,
-      facilityType: $facilityType,
     );
   }
 }

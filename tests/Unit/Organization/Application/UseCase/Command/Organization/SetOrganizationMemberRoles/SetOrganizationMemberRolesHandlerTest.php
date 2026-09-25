@@ -10,7 +10,7 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles\{SetOrganizationMemberRolesCommand, SetOrganizationMemberRolesHandler, SetOrganizationMemberRolesResult};
 use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleUnassignedEvent};
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -639,11 +639,13 @@ final class SetOrganizationMemberRolesHandlerTest extends TestCase
   private function organization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
   }
 

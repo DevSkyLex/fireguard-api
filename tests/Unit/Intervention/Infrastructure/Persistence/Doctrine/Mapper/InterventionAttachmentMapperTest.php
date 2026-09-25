@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionAttachmentMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
@@ -139,15 +139,11 @@ final class InterventionAttachmentMapperTest extends TestCase
   private function attachment(?string $label = 'Site report', InterventionAttachmentKind $kind = InterventionAttachmentKind::FILE): InterventionAttachment
   {
     return InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'report.pdf',
-      storagePath: 'interventions/report.pdf',
-      mimeType: 'application/pdf',
-      size: 4096,
-      uploadedAt: new DateTimeImmutable('2026-01-06T11:00:00+00:00'),
-      label: $label,
-      kind: $kind,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('report.pdf', 'interventions/report.pdf', 'application/pdf', 4096),
+      new DateTimeImmutable('2026-01-06T11:00:00+00:00'),
+      new InterventionAttachmentOptions(label: $label, kind: $kind),
     );
   }
   // #endregion

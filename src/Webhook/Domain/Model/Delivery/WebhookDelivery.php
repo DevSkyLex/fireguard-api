@@ -125,17 +125,8 @@ final class WebhookDelivery
    * @param WebhookDeliveryId $id the delivery identifier
    * @param WebhookSubscriptionId $subscriptionId the target subscription identifier
    * @param string $organizationId the owning organization identifier
-   * @param string $eventType the public event type delivered
-   * @param string $eventId the source domain event identifier
-   * @param array<string, mixed> $payload the rendered public payload envelope
-   * @param WebhookDeliveryStatus $status the current lifecycle status
-   * @param int $attempts the number of delivery attempts made so far
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?int $httpStatus the HTTP status of the most recent attempt
-   * @param ?string $lastError the most recent failure reason
-   * @param ?DateTimeImmutable $nextRetryAt when the next retry is due
-   * @param ?DateTimeImmutable $deliveredAt when the delivery succeeded
+   * @param RestoredWebhookDeliveryMetadata $metadata the stored event and timestamps
+   * @param RestoredWebhookDeliveryAttempt $attempt the stored lifecycle and last attempt
    *
    * @return self the reconstituted delivery
    */
@@ -143,33 +134,24 @@ final class WebhookDelivery
     WebhookDeliveryId $id,
     WebhookSubscriptionId $subscriptionId,
     string $organizationId,
-    string $eventType,
-    string $eventId,
-    array $payload,
-    WebhookDeliveryStatus $status,
-    int $attempts,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?int $httpStatus,
-    ?string $lastError,
-    ?DateTimeImmutable $nextRetryAt,
-    ?DateTimeImmutable $deliveredAt,
+    RestoredWebhookDeliveryMetadata $metadata,
+    RestoredWebhookDeliveryAttempt $attempt,
   ): self {
     return new self(
       id: $id,
       subscriptionId: $subscriptionId,
       organizationId: $organizationId,
-      eventType: $eventType,
-      eventId: $eventId,
-      payload: $payload,
-      status: $status,
-      attempts: $attempts,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      httpStatus: $httpStatus,
-      lastError: $lastError,
-      nextRetryAt: $nextRetryAt,
-      deliveredAt: $deliveredAt,
+      eventType: $metadata->eventType,
+      eventId: $metadata->eventId,
+      payload: $metadata->payload,
+      status: $attempt->status,
+      attempts: $attempt->attempts,
+      createdAt: $metadata->createdAt,
+      updatedAt: $metadata->updatedAt,
+      httpStatus: $attempt->httpStatus,
+      lastError: $attempt->lastError,
+      nextRetryAt: $attempt->nextRetryAt,
+      deliveredAt: $attempt->deliveredAt,
     );
   }
 

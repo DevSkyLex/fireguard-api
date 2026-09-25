@@ -99,6 +99,24 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
    */
   public function provision(ProvisionMemberInvitationRequest $request): ProvisionMemberInvitationResult
   {
+    $roleIds = $this->validateInvitation($request);
+    if ($roleIds instanceof ProvisionMemberInvitationResult) {
+      return $roleIds;
+    }
+
+    if ($request->dryRun) {
+      // Nothing is persisted and no email is sent after structural validation.
+      return new ProvisionMemberInvitationResult(ProvisionOutcome::CREATED);
+    }
+
+    return $this->dispatchInvitation($request, $roleIds);
+  }
+
+  /**
+   * @return list<string>|ProvisionMemberInvitationResult validated role identifiers or a validation failure
+   */
+  private function validateInvitation(ProvisionMemberInvitationRequest $request): array|ProvisionMemberInvitationResult
+  {
     try {
       new Email(strtolower(trim($request->email)));
     } catch (InvalidValueException) {
@@ -108,20 +126,18 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
       );
     }
 
-    $roleIds = [];
-
     try {
-      $roleIds = $this->resolveRoleIds($request);
+      return $this->resolveRoleIds($request);
     } catch (OrganizationRoleNotFoundException $exception) {
       return new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $exception->getMessage());
     }
+  }
 
-    if ($request->dryRun) {
-      // Nothing is persisted and no email is sent: structural validation
-      // (email + role names) is the whole of the member dry run.
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::CREATED);
-    }
-
+  /**
+   * @param list<string> $roleIds
+   */
+  private function dispatchInvitation(ProvisionMemberInvitationRequest $request, array $roleIds): ProvisionMemberInvitationResult
+  {
     try {
       /** @var InviteOrganizationMemberResult $result */
       $result = $this->commandBus->dispatch(new InviteOrganizationMemberCommand(
@@ -131,19 +147,23 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
         roleIds: $roleIds,
         deferDelivery: true,
       ));
-    } catch (OrganizationQuotaExceededException $exception) {
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
-    } catch (OrganizationMembershipConflictException $exception) {
-      return $this->fromConflict($exception);
-    } catch (OrganizationRoleNotFoundException $exception) {
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $exception->getMessage());
-    } catch (OrganizationNotFoundException|InvalidValueException|InvalidArgumentException $exception) {
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
-    } catch (MessengerRuntimeException $exception) {
-      return $this->fromWrappedException($exception);
-    }
 
-    return new ProvisionMemberInvitationResult(ProvisionOutcome::CREATED, resourceId: $result->invitationId);
+      return new ProvisionMemberInvitationResult(ProvisionOutcome::CREATED, resourceId: $result->invitationId);
+    } catch (Throwable $exception) {
+      return $this->fromDispatchException($exception);
+    }
+  }
+
+  private function fromDispatchException(Throwable $exception): ProvisionMemberInvitationResult
+  {
+    return match (true) {
+      $exception instanceof OrganizationQuotaExceededException => new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage()),
+      $exception instanceof OrganizationMembershipConflictException => $this->fromConflict($exception),
+      $exception instanceof OrganizationRoleNotFoundException => new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $exception->getMessage()),
+      $exception instanceof OrganizationNotFoundException || $exception instanceof InvalidValueException || $exception instanceof InvalidArgumentException => new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $exception->getMessage()),
+      $exception instanceof MessengerRuntimeException => $this->fromWrappedException($exception),
+      default => throw $exception,
+    };
   }
 
   /**
@@ -221,29 +241,15 @@ final readonly class MemberInvitationProvisioningService implements MemberInvita
    */
   private function fromWrappedException(MessengerRuntimeException $exception): ProvisionMemberInvitationResult
   {
-    $quota = $this->findException($exception, OrganizationQuotaExceededException::class);
-    if ($quota instanceof OrganizationQuotaExceededException) {
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $quota->getMessage());
-    }
-
-    $conflict = $this->findException($exception, OrganizationMembershipConflictException::class);
-    if ($conflict instanceof OrganizationMembershipConflictException) {
-      return $this->fromConflict($conflict);
-    }
-
-    $role = $this->findException($exception, OrganizationRoleNotFoundException::class);
-    if ($role instanceof OrganizationRoleNotFoundException) {
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $role->getMessage());
-    }
-
-    $invalid = $this->findException($exception, OrganizationNotFoundException::class)
-      ?? $this->findException($exception, InvalidValueException::class)
-      ?? $this->findException($exception, InvalidArgumentException::class);
-    if (null !== $invalid) {
-      return new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $invalid->getMessage());
-    }
-
-    throw $exception;
+    return match (true) {
+      ($quota = $this->findException($exception, OrganizationQuotaExceededException::class)) instanceof OrganizationQuotaExceededException => new ProvisionMemberInvitationResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $quota->getMessage()),
+      ($conflict = $this->findException($exception, OrganizationMembershipConflictException::class)) instanceof OrganizationMembershipConflictException => $this->fromConflict($conflict),
+      ($role = $this->findException($exception, OrganizationRoleNotFoundException::class)) instanceof OrganizationRoleNotFoundException => new ProvisionMemberInvitationResult(ProvisionOutcome::UNKNOWN_ROLE, message: $role->getMessage()),
+      null !== ($invalid = $this->findException($exception, OrganizationNotFoundException::class)
+        ?? $this->findException($exception, InvalidValueException::class)
+        ?? $this->findException($exception, InvalidArgumentException::class)) => new ProvisionMemberInvitationResult(ProvisionOutcome::INVALID, message: $invalid->getMessage()),
+      default => throw $exception,
+    };
   }
   // #endregion
 }

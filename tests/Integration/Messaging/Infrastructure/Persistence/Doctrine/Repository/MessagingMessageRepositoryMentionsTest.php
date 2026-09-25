@@ -7,7 +7,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Reposi
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\MessageId;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord;
 use Messaging\Infrastructure\Persistence\Doctrine\Repository\{MessagingConversationRepository, MessagingMessageRepository, MessagingReadMarkerRepository};
@@ -263,17 +263,28 @@ final class MessagingMessageRepositoryMentionsTest extends KernelTestCase
     ?DateTimeImmutable $deletedAt = null,
   ): MessageView {
     $message = Message::reconstitute(
-      id: MessageId::fromString($this->uuid()),
-      conversationId: $conversationId,
-      organizationId: $organizationId,
-      authorMemberId: $authorMemberId,
-      body: 'Please check this.',
-      mentions: $mentions,
-      editedAt: null,
-      deletedAt: $deletedAt,
-      deletedByMemberId: null !== $deletedAt ? $authorMemberId : null,
-      createdAt: $createdAt,
-      updatedAt: $createdAt,
+      MessageId::fromString($this->uuid()),
+      $conversationId,
+      $organizationId,
+      $authorMemberId,
+      new RestoredMessageContent(
+        'Please check this.',
+        $mentions,
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        $deletedAt,
+        null !== $deletedAt ? $authorMemberId : null,
+        $createdAt,
+        $createdAt,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
 
     return $repository->append($message);

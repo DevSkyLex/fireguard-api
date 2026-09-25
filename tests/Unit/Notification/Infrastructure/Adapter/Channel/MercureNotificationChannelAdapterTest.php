@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Notification\Infrastructure\Adapter\Channel;
 
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Adapter\Channel\MercureNotificationChannelAdapter;
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
@@ -123,9 +123,11 @@ final class MercureNotificationChannelAdapterTest extends TestCase
       body: '<p>Open invitation details.</p>',
       channels: ['mercure'],
       payload: ['organizationName' => 'Fireguard HQ'],
-      recipientUserId: $recipientUserId,
-      recipientEmail: null,
-      organizationId: $organizationId,
+      target: new NotificationTarget(
+        recipientUserId: $recipientUserId,
+        recipientEmail: null,
+        organizationId: $organizationId,
+      ),
     );
   }
 }

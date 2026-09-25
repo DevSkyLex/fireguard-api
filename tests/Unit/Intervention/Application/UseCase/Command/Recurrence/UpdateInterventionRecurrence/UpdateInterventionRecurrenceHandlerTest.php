@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Command\Recurrence\UpdateInterventionRecurrence;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Recurrence\InterventionRecurrenceView;
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceUpdateRequest, InterventionRecurrenceView};
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
 use Intervention\Application\UseCase\Command\Recurrence\UpdateInterventionRecurrence\{UpdateInterventionRecurrenceCommand, UpdateInterventionRecurrenceHandler};
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceUpdatedEvent;
@@ -16,7 +16,6 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
 
-use function compact;
 use function sprintf;
 
 /**
@@ -183,56 +182,17 @@ final class UpdateInterventionRecurrenceHandlerTest extends TestCase
     $recurrences->method('find')->willReturn($existing);
     $recurrences->expects(self::once())
       ->method('update')
-      ->willReturnCallback(function (
-        string $id,
-        ?string $name,
-        ?string $siteId,
-        ?string $responsibleId,
-        ?string $frequency,
-        ?int $interval,
-        ?DateTimeImmutable $anchorDate,
-        ?string $timezone,
-        ?int $leadTimeDays,
-        ?DateTimeImmutable $nextOccurrenceAt,
-        ?DateTimeImmutable $endAt,
-        ?bool $isActive,
-        bool $hasName,
-        bool $hasSiteId,
-        bool $hasResponsibleId,
-        bool $hasFrequency,
-        bool $hasInterval,
-        bool $hasAnchorDate,
-        bool $hasTimezone,
-        bool $hasLeadTimeDays,
-        bool $hasNextOccurrenceAt,
-        bool $hasEndAt,
-        bool $hasIsActive,
-      ) use (&$captured, $updated): InterventionRecurrenceView {
-        $captured = compact(
-          'id',
-          'name',
-          'siteId',
-          'responsibleId',
-          'frequency',
-          'interval',
-          'anchorDate',
-          'timezone',
-          'leadTimeDays',
-          'nextOccurrenceAt',
-          'endAt',
-          'isActive',
-          'hasName',
-          'hasSiteId',
-          'hasResponsibleId',
-          'hasFrequency',
-          'hasInterval',
-          'hasAnchorDate',
-          'hasTimezone',
-          'hasLeadTimeDays',
-          'hasNextOccurrenceAt',
-          'hasEndAt',
-          'hasIsActive',
-        );
+      ->willReturnCallback(function (InterventionRecurrenceUpdateRequest $request) use (&$captured, $updated): InterventionRecurrenceView {
+        $captured = [
+          'id' => $request->id,
+          'name' => $request->identity->name,
+          'hasName' => $request->identity->hasName,
+          'hasFrequency' => $request->cadence->hasFrequency,
+          'interval' => $request->cadence->interval,
+          'hasInterval' => $request->cadence->hasInterval,
+          'nextOccurrenceAt' => $request->schedule->nextOccurrenceAt,
+          'hasNextOccurrenceAt' => $request->schedule->hasNextOccurrenceAt,
+        ];
 
         return $updated;
       });

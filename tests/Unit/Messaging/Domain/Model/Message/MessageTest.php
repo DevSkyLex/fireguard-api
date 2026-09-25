@@ -6,7 +6,8 @@ namespace Tests\Unit\Messaging\Domain\Model\Message;
 
 use DateTimeImmutable;
 use Messaging\Domain\Exception\MessagingValidationException;
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
+use Messaging\Domain\Model\Message\{RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{MessageId, MessageReference};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -112,13 +113,24 @@ final class MessageTest extends TestCase
       'conversation-1',
       'org-1',
       'author-1',
-      'Persisted body',
-      [self::MEMBER_A],
-      null,
-      null,
-      null,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Persisted body',
+        [self::MEMBER_A],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
 
     self::assertSame('Persisted body', $message->body());
@@ -190,15 +202,24 @@ final class MessageTest extends TestCase
       'conversation-1',
       'org-1',
       'author-1',
-      'Persisted body',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
-      $pinnedAt,
-      'pinner-1',
+      new RestoredMessageContent(
+        'Persisted body',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        $pinnedAt,
+        'pinner-1',
+        null,
+        0,
+      ),
     );
 
     self::assertTrue($message->isPinned());
@@ -227,7 +248,7 @@ final class MessageTest extends TestCase
       'author-1',
       'A reply',
       new MentionExtractor(),
-      $parentId,
+      new MessageCreationLinks(parentMessageId: $parentId),
     );
 
     self::assertTrue($message->isReply());
@@ -258,17 +279,24 @@ final class MessageTest extends TestCase
       'conversation-1',
       'org-1',
       'author-1',
-      'A reply',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
-      null,
-      null,
-      $parentId,
-      3,
+      new RestoredMessageContent(
+        'A reply',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        $parentId,
+        3,
+      ),
     );
 
     self::assertTrue($message->isReply());
@@ -296,7 +324,7 @@ final class MessageTest extends TestCase
       'author-1',
       'Hello team',
       new MentionExtractor(),
-      references: [$reference],
+      links: new MessageCreationLinks(references: [$reference]),
     );
 
     self::assertSame([$reference], $message->references());
@@ -307,7 +335,7 @@ final class MessageTest extends TestCase
   {
     $reference = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
     $extractor = new MentionExtractor();
-    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, references: [$reference]);
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, links: new MessageCreationLinks(references: [$reference]));
 
     $message->edit('Updated body', $extractor, null);
 
@@ -319,7 +347,7 @@ final class MessageTest extends TestCase
   {
     $reference = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
     $extractor = new MentionExtractor();
-    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, references: [$reference]);
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, links: new MessageCreationLinks(references: [$reference]));
 
     $message->edit('Updated body', $extractor, []);
 
@@ -332,7 +360,7 @@ final class MessageTest extends TestCase
     $original = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
     $replacement = MessageReference::fromArray(['type' => 'equipment', 'id' => 'equipment-1']);
     $extractor = new MentionExtractor();
-    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, references: [$original]);
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, links: new MessageCreationLinks(references: [$original]));
 
     $message->edit('Updated body', $extractor, [$replacement]);
 
@@ -350,18 +378,24 @@ final class MessageTest extends TestCase
       'conversation-1',
       'org-1',
       'author-1',
-      'Persisted body',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
-      null,
-      null,
-      null,
-      0,
-      [$reference],
+      new RestoredMessageContent(
+        'Persisted body',
+        [],
+        [$reference],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
 
     self::assertSame([$reference], $message->references());

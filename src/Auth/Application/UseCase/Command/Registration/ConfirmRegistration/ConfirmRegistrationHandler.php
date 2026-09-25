@@ -92,33 +92,43 @@ final readonly class ConfirmRegistrationHandler implements CommandHandler
       );
     }
 
+    $verificationFailure = null;
+
     try {
       $verified = $otp->verify($command->code);
       $this->otpRepository->save($otp);
 
       if (!$verified) {
-        return ConfirmRegistrationResult::failed(
+        $verificationFailure = ConfirmRegistrationResult::failed(
           message: 'Invalid verification code. Please check and try again.',
           errorCode: ConfirmRegistrationResult::ERROR_INVALID_CODE,
           attemptsRemaining: $otp->attemptsRemaining(),
         );
       }
     } catch (OtpExpiredException) {
-      return ConfirmRegistrationResult::failed(
+      $verificationFailure = ConfirmRegistrationResult::failed(
         message: 'The verification code has expired. Please request a new one.',
         errorCode: ConfirmRegistrationResult::ERROR_EXPIRED,
       );
     } catch (OtpMaxAttemptsException) {
-      return ConfirmRegistrationResult::failed(
+      $verificationFailure = ConfirmRegistrationResult::failed(
         message: 'Maximum verification attempts exceeded. Please request a new code.',
         errorCode: ConfirmRegistrationResult::ERROR_MAX_ATTEMPTS,
       );
     }
 
-    $userId = new UserId($otp->userId());
+    if (null !== $verificationFailure) {
+      return $verificationFailure;
+    }
+
+    return $this->activateAndLogIn(new UserId($otp->userId()), $otp->recipient(), $command);
+  }
+
+  private function activateAndLogIn(UserId $userId, string $recipient, ConfirmRegistrationCommand $command): ConfirmRegistrationResult
+  {
     $user = $this->userRepository->findById($userId);
 
-    if (null === $user || $otp->recipient() !== $user->email()->value) {
+    if (null === $user || $recipient !== $user->email()->value) {
       return ConfirmRegistrationResult::failed(
         message: 'User not found.',
         errorCode: ConfirmRegistrationResult::ERROR_INVALID_TOKEN,

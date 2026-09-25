@@ -56,16 +56,8 @@ final readonly class CheckDeviceTrustedHandler implements QueryHandler
 
     $device = $this->repository->findByToken(tokenHash: $tokenHash);
 
-    if (null === $device) {
-      return CheckDeviceTrustedResult::notTrusted();
-    }
-
-    // Verify token and user
-    if (!$device->verify(plainToken: $query->token)) {
-      return CheckDeviceTrustedResult::notTrusted();
-    }
-
-    if ($device->userId() !== $query->userId) {
+    // Preserve the same result for a missing, invalid, or foreign device.
+    if (null === $device || !$device->verify(plainToken: $query->token) || $device->userId() !== $query->userId) {
       return CheckDeviceTrustedResult::notTrusted();
     }
 

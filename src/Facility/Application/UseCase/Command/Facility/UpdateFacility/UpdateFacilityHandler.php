@@ -91,13 +91,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     // Captured before the mutation so the changed-field list reflects what
     // actually differs, not merely which fields were present in the patch —
     // a PATCH that re-sends the current value must stay a no-op.
-    $previousType = $facility->type();
-    $previousName = (string) $facility->name();
-    $previousCode = $facility->code();
-    $previousAddress = $facility->address();
-    $previousCoordinates = $facility->coordinates();
-    $previousMetadata = $facility->metadata();
-    $previousLevelIndex = $facility->levelIndex();
+    $previous = clone $facility;
 
     try {
       $this->applyChanges($facility, $command);
@@ -134,16 +128,7 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     // ledger row; a patch that changes nothing (same values re-sent) must
     // not emit. Status and parent are covered by the dedicated
     // archived/restored/moved events and are never listed here.
-    $changedFields = $this->changedFields(
-      $facility,
-      $previousType,
-      $previousName,
-      $previousCode,
-      $previousAddress,
-      $previousCoordinates,
-      $previousMetadata,
-      $previousLevelIndex,
-    );
+    $changedFields = $this->changedFields($facility, $previous);
     if ([] !== $changedFields) {
       $this->eventDispatcher->dispatch(new FacilityUpdatedEvent(
         organizationId: (string) $facility->organizationId(),
@@ -251,53 +236,39 @@ final readonly class UpdateFacilityHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param Facility $facility the facility after mutation
-   * @param FacilityType $previousType the type before mutation
-   * @param string $previousName the name before mutation
-   * @param ?string $previousCode the code before mutation
-   * @param ?string $previousAddress the address before mutation
-   * @param ?FacilityCoordinates $previousCoordinates the coordinates before mutation
-   * @param array<string, mixed> $previousMetadata the metadata before mutation
-   * @param ?int $previousLevelIndex the level index before mutation
+   * @param Facility $previous the facility snapshot before mutation
    *
    * @return list<string> the changed field names
    */
-  private function changedFields(
-    Facility $facility,
-    FacilityType $previousType,
-    string $previousName,
-    ?string $previousCode,
-    ?string $previousAddress,
-    ?FacilityCoordinates $previousCoordinates,
-    array $previousMetadata,
-    ?int $previousLevelIndex,
-  ): array {
+  private function changedFields(Facility $facility, Facility $previous): array
+  {
     $changed = [];
 
-    if ($previousType !== $facility->type()) {
+    if ($previous->type() !== $facility->type()) {
       $changed[] = 'type';
     }
 
-    if ($previousName !== (string) $facility->name()) {
+    if ((string) $previous->name() !== (string) $facility->name()) {
       $changed[] = 'name';
     }
 
-    if ($previousCode !== $facility->code()) {
+    if ($previous->code() !== $facility->code()) {
       $changed[] = 'code';
     }
 
-    if ($previousAddress !== $facility->address()) {
+    if ($previous->address() !== $facility->address()) {
       $changed[] = 'address';
     }
 
-    if (!$this->coordinatesEqual($previousCoordinates, $facility->coordinates())) {
+    if (!$this->coordinatesEqual($previous->coordinates(), $facility->coordinates())) {
       $changed[] = 'coordinates';
     }
 
-    if ($previousMetadata !== $facility->metadata()) {
+    if ($previous->metadata() !== $facility->metadata()) {
       $changed[] = 'metadata';
     }
 
-    if ($previousLevelIndex !== $facility->levelIndex()) {
+    if ($previous->levelIndex() !== $facility->levelIndex()) {
       $changed[] = 'levelIndex';
     }
 

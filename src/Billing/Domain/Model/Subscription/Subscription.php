@@ -103,14 +103,9 @@ final class Subscription
    * @param SubscriptionId $id the subscription identifier
    * @param string $organizationId the owning organization identifier
    * @param string $stripeCustomerId the Stripe customer identifier
-   * @param SubscriptionStatus $status the current lifecycle status
+   * @param RestoredSubscriptionState $state persisted lifecycle and billing state
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?string $stripeSubscriptionId the Stripe subscription identifier when active
-   * @param ?string $planKey the currently billed plan key
-   * @param ?BillingInterval $interval the billing cadence
-   * @param ?DateTimeImmutable $currentPeriodEnd the end of the current billing period
-   * @param bool $cancelAtPeriodEnd whether cancellation is scheduled at period end
    *
    * @return self the reconstituted subscription aggregate
    */
@@ -118,27 +113,22 @@ final class Subscription
     SubscriptionId $id,
     string $organizationId,
     string $stripeCustomerId,
-    SubscriptionStatus $status,
+    RestoredSubscriptionState $state,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    ?string $stripeSubscriptionId = null,
-    ?string $planKey = null,
-    ?BillingInterval $interval = null,
-    ?DateTimeImmutable $currentPeriodEnd = null,
-    bool $cancelAtPeriodEnd = false,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
       stripeCustomerId: $stripeCustomerId,
-      status: $status,
+      status: $state->status,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      stripeSubscriptionId: $stripeSubscriptionId,
-      planKey: $planKey,
-      interval: $interval,
-      currentPeriodEnd: $currentPeriodEnd,
-      cancelAtPeriodEnd: $cancelAtPeriodEnd,
+      stripeSubscriptionId: $state->stripeSubscriptionId,
+      planKey: $state->planKey,
+      interval: $state->interval,
+      currentPeriodEnd: $state->currentPeriodEnd,
+      cancelAtPeriodEnd: $state->cancelAtPeriodEnd,
     );
   }
 

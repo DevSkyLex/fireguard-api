@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Domain\Model\Conversation;
 
 use DateTimeImmutable;
-use Messaging\Domain\Model\Conversation\Conversation;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity, RestoredConversationChannel};
 use Messaging\Domain\ValueObject\{ChannelName, ConversationId, ConversationVisibility, MessagingSubjectType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -63,12 +63,14 @@ final class ConversationTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       'facility-1',
-      ConversationVisibility::SUBJECT,
-      null,
-      0,
-      true,
-      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      new RestoredConversationActivity(
+        ConversationVisibility::SUBJECT,
+        null,
+        0,
+        true,
+        new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+        new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
     );
 
     self::assertTrue($conversation->unarchive());
@@ -155,15 +157,19 @@ final class ConversationTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::CHANNEL,
       null,
-      ConversationVisibility::PARTICIPANTS,
-      null,
-      0,
-      false,
-      $now,
-      $now,
-      new ChannelName('General'),
-      'team-1',
-      'member-1',
+      new RestoredConversationActivity(
+        ConversationVisibility::PARTICIPANTS,
+        null,
+        0,
+        false,
+        $now,
+        $now,
+      ),
+      new RestoredConversationChannel(
+        new ChannelName('General'),
+        'team-1',
+        'member-1',
+      ),
     );
 
     self::assertSame('General', (string) $channel->name());
@@ -211,16 +217,20 @@ final class ConversationTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::CHANNEL,
       null,
-      ConversationVisibility::PARTICIPANTS,
-      null,
-      0,
-      false,
-      $now,
-      $now,
-      new ChannelName('Extincteurs — RDC'),
-      null,
-      'member-1',
-      'parent-channel-1',
+      new RestoredConversationActivity(
+        ConversationVisibility::PARTICIPANTS,
+        null,
+        0,
+        false,
+        $now,
+        $now,
+      ),
+      new RestoredConversationChannel(
+        new ChannelName('Extincteurs — RDC'),
+        null,
+        'member-1',
+        'parent-channel-1',
+      ),
     );
 
     self::assertSame('parent-channel-1', $channel->parentConversationId());
@@ -238,12 +248,14 @@ final class ConversationTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::EQUIPMENT,
       'equipment-9',
-      ConversationVisibility::SUBJECT,
-      null,
-      0,
-      false,
-      $createdAt,
-      $updatedAt,
+      new RestoredConversationActivity(
+        ConversationVisibility::SUBJECT,
+        null,
+        0,
+        false,
+        $createdAt,
+        $updatedAt,
+      ),
     );
 
     self::assertSame($id, $conversation->id());

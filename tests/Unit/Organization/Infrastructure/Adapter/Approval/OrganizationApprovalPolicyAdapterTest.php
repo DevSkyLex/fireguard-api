@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationApprovalDefaults;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\ValueObject\{
   OrganizationApprovalSettings,
   OrganizationId,
@@ -107,12 +108,16 @@ final class OrganizationApprovalPolicyAdapterTest extends TestCase
   private function organizationWith(OrganizationApprovalSettings $approval): Organization
   {
     return Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme'),
-      createdByUserId: 'user-1',
-      isActive: true,
-      createdAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
-      settings: new OrganizationSettings(approval: $approval),
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme'),
+        createdByUserId: 'user-1',
+        isActive: true,
+        createdAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
+      ),
+      profile: new RestoredOrganizationProfile(
+        settings: new OrganizationSettings(approval: $approval),
+      ),
     );
   }
 }

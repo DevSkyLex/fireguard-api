@@ -10,6 +10,7 @@ use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo\{RemoveOrganizationLogoCommand, RemoveOrganizationLogoHandler, RemoveOrganizationLogoResult};
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -189,13 +190,19 @@ final class RemoveOrganizationLogoHandlerTest extends TestCase
   private function createOrganization(?string $logoUrl, OrganizationStatus $status = OrganizationStatus::ACTIVE): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Metz'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: OrganizationStatus::ACTIVE === $status,
-      createdAt: new DateTimeImmutable('-10 days'),
-      status: $status,
-      logoUrl: $logoUrl,
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Metz'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: OrganizationStatus::ACTIVE === $status,
+        createdAt: new DateTimeImmutable('-10 days'),
+      ),
+      state: new RestoredOrganizationState(
+        status: $status,
+      ),
+      profile: new RestoredOrganizationProfile(
+        logoUrl: $logoUrl,
+      ),
     );
   }
 }

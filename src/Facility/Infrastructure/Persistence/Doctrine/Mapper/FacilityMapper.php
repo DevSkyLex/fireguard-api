@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails, FacilityLifecycle};
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
@@ -50,20 +50,24 @@ final class FacilityMapper
     return Facility::reconstitute(
       id: FacilityId::fromString($record->id),
       organizationId: FacilityOrganizationId::fromString($record->organization->id),
-      parentFacilityId: null !== $record->parentFacility ? FacilityId::fromString($record->parentFacility->id) : null,
       type: FacilityType::from($record->type),
       name: new FacilityName($record->name),
-      code: $record->code,
-      status: FacilityStatus::from($record->status),
-      address: $record->address,
-      metadata: $record->metadata,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      coordinates: null !== $record->latitude && null !== $record->longitude
+      lifecycle: new FacilityLifecycle(
+        status: FacilityStatus::from($record->status),
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+      ),
+      details: new FacilityDetails(
+        parentFacilityId: null !== $record->parentFacility ? FacilityId::fromString($record->parentFacility->id) : null,
+        code: $record->code,
+        address: $record->address,
+        metadata: $record->metadata,
+        coordinates: null !== $record->latitude && null !== $record->longitude
         ? new FacilityCoordinates($record->latitude, $record->longitude)
         : null,
+        levelIndex: $record->levelIndex,
+      ),
       planGeometry: null !== $record->planGeometry ? PlanGeometry::fromArray($record->planGeometry) : null,
-      levelIndex: $record->levelIndex,
     );
   }
 

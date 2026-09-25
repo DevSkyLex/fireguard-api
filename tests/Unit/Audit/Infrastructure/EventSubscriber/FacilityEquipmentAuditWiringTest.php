@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ResourceAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
@@ -28,12 +28,13 @@ use function sprintf;
  * End-to-end wiring proof for the Facility/Equipment compliance
  * slice: every domain event, dispatched through the real event-name
  * derivation of SymfonyEventDispatcherAdapter, reaches
- * AuditEventSubscriber and produces the expected audit action,
+ * the audit subscribers and produces the expected audit action,
  * subject and metadata.
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: ResourceAuditEventSubscriber::class)]
 final class FacilityEquipmentAuditWiringTest extends TestCase
 {
   // #region Tests
@@ -77,7 +78,7 @@ final class FacilityEquipmentAuditWiringTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $subscriber = new AuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -88,7 +89,9 @@ final class FacilityEquipmentAuditWiringTest extends TestCase
     );
 
     $symfonyDispatcher = new EventDispatcher();
-    $symfonyDispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $symfonyDispatcher->addSubscriber($subscriber);
+    }
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),

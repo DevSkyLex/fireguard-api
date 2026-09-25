@@ -6,7 +6,7 @@ namespace Tests\Integration\Otp\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\OtpMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository;
@@ -160,18 +160,22 @@ final class OtpRepositoryIntegrationTest extends KernelTestCase
     $code = OtpCode::generate();
 
     return Otp::reconstitute(
-      id: new OtpId($id),
-      challengeToken: ChallengeToken::generate(),
-      userId: $userId,
-      purpose: $purpose,
-      channel: OtpChannel::EMAIL,
-      codeHash: $code->hash(),
-      recipient: 'user@example.com',
-      expiresAt: $expiresAt,
-      maxAttempts: 5,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: $createdAt ?? new DateTimeImmutable(),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId($id),
+        challengeToken: ChallengeToken::generate(),
+        userId: $userId,
+        purpose: $purpose,
+        channel: OtpChannel::EMAIL,
+        recipient: 'user@example.com',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: $code->hash(),
+        expiresAt: $expiresAt,
+        maxAttempts: 5,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: $createdAt ?? new DateTimeImmutable(),
+      ),
     );
   }
   // #endregion

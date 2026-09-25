@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -24,7 +24,7 @@ use User\Domain\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEv
  *
  * Wiring proof for the User email-change slice: each of the three
  * domain events, dispatched through the real event-name derivation of
- * SymfonyEventDispatcherAdapter, reaches AuditEventSubscriber and
+ * SymfonyEventDispatcherAdapter, reaches the audit subscribers and
  * produces a ledger entry whose metadata carries the sanitized
  * addresses and their hashes — never a raw address without its hash.
  *
@@ -32,7 +32,8 @@ use User\Domain\Event\{UserEmailChangeCancelledEvent, UserEmailChangeConfirmedEv
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: SecurityAuditEventSubscriber::class)]
 final class UserAuditWiringTest extends TestCase
 {
   // #region Constants
@@ -133,7 +134,7 @@ final class UserAuditWiringTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $subscriber = new AuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -144,7 +145,9 @@ final class UserAuditWiringTest extends TestCase
     );
 
     $symfonyDispatcher = new EventDispatcher();
-    $symfonyDispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $symfonyDispatcher->addSubscriber($subscriber);
+    }
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),

@@ -124,15 +124,21 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
   private function seedWeek(EntityManagerInterface $manager, InterventionRecord $source, DateTimeImmutable $monday, DateTimeImmutable $today, DateTimeImmutable $now, int $offset): void
   {
     $start = $monday->modify('+' . $offset . ' days');
-    $intervention = $this->intervention($manager, $source, 'operations:' . $start->format('Y-m-d'), 'Workload demo - field operations - ' . $start->format('Y-m-d'), 0 === $offset ? 'in_progress' : 'planned', $start, $start->modify('+6 days'), $now);
+    $intervention = $this->intervention($manager, $source, new InterventionWorkloadScenario(
+      'operations:' . $start->format('Y-m-d'),
+      'Workload demo - field operations - ' . $start->format('Y-m-d'),
+      0 === $offset ? 'in_progress' : 'planned',
+      $start,
+      $start->modify('+6 days'),
+    ), $now);
     if (null === $intervention) {
       return;
     }
     for ($day = 0; $day < 5; ++$day) {
       $this->seedDay($manager, $intervention, $start->modify('+' . $day . ' days'), $today, $now, $day);
     }
-    $this->task($manager, $intervention, 'unestimated', 'Additional equipment survey - estimate needed', self::COORDINATOR, null, $start, $start->modify('+4 days'), $now);
-    $this->task($manager, $intervention, 'unassigned', 'Loading bay inventory - assignment needed', null, 180, $start, $start->modify('+4 days'), $now);
+    $this->task($manager, $intervention, new InterventionWorkloadTask('unestimated', 'Additional equipment survey - estimate needed', self::COORDINATOR, null, $start, $start->modify('+4 days')), $now);
+    $this->task($manager, $intervention, new InterventionWorkloadTask('unassigned', 'Loading bay inventory - assignment needed', null, 180, $start, $start->modify('+4 days')), $now);
   }
 
   private function seedDay(ObjectManager $manager, InterventionRecord $intervention, DateTimeImmutable $date, DateTimeImmutable $today, DateTimeImmutable $now, int $day): void
@@ -151,7 +157,7 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
       } elseif (self::FIELD_TECHNICIAN === $memberId && 2 === $day) {
         $remaining = 300;
       }
-      $item = $this->task($manager, $intervention, $memberId . ':' . $date->format('Y-m-d'), $label, $memberId, $remaining, $date, $date, $now);
+      $item = $this->task($manager, $intervention, new InterventionWorkloadTask($memberId . ':' . $date->format('Y-m-d'), $label, $memberId, $remaining, $date, $date), $now);
       if ($date < $today) {
         $item->status = 'completed';
         $item->remainingMinutes = 0;
@@ -165,17 +171,17 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
 
   private function seedOtherScenarios(EntityManagerInterface $manager, InterventionRecord $source, DateTimeImmutable $monday, DateTimeImmutable $now): void
   {
-    $draft = $this->intervention($manager, $source, 'forecast:' . $monday->format('Y-m-d'), 'Workload demo - upcoming campaign (draft)', 'draft', $monday, $monday->modify('+13 days'), $now);
+    $draft = $this->intervention($manager, $source, new InterventionWorkloadScenario('forecast:' . $monday->format('Y-m-d'), 'Workload demo - upcoming campaign (draft)', 'draft', $monday, $monday->modify('+13 days')), $now);
     if (null !== $draft) {
-      $this->task($manager, $draft, 'forecast', 'Prepare the next inventory campaign', self::OWNER, 300, $monday, $monday->modify('+11 days'), $now);
+      $this->task($manager, $draft, new InterventionWorkloadTask('forecast', 'Prepare the next inventory campaign', self::OWNER, 300, $monday, $monday->modify('+11 days')), $now);
     }
-    $undated = $this->intervention($manager, $source, 'undated:' . $monday->format('Y-m-d'), 'Workload demo - dates to confirm', 'draft', null, null, $now);
+    $undated = $this->intervention($manager, $source, new InterventionWorkloadScenario('undated:' . $monday->format('Y-m-d'), 'Workload demo - dates to confirm', 'draft', null, null), $now);
     if (null !== $undated) {
-      $this->task($manager, $undated, 'undated', 'Reschedule the equipment survey', self::COORDINATOR, 120, null, null, $now);
+      $this->task($manager, $undated, new InterventionWorkloadTask('undated', 'Reschedule the equipment survey', self::COORDINATOR, 120, null, null), $now);
     }
-    $overdue = $this->intervention($manager, $source, 'overdue:' . $monday->format('Y-m-d'), 'Workload demo - overdue follow-up', 'in_progress', $monday->modify('-7 days'), $monday->modify('-3 days'), $now);
+    $overdue = $this->intervention($manager, $source, new InterventionWorkloadScenario('overdue:' . $monday->format('Y-m-d'), 'Workload demo - overdue follow-up', 'in_progress', $monday->modify('-7 days'), $monday->modify('-3 days')), $now);
     if (null !== $overdue) {
-      $this->task($manager, $overdue, 'overdue', 'Finish the previous inventory report', self::PARIS_TECHNICIAN, 90, null, null, $now);
+      $this->task($manager, $overdue, new InterventionWorkloadTask('overdue', 'Finish the previous inventory report', self::PARIS_TECHNICIAN, 90, null, null), $now);
     }
   }
 
@@ -184,18 +190,14 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
    *
    * @param EntityManagerInterface $manager main entity manager
    * @param InterventionRecord $source existing same-module record providing organization and site associations
-   * @param string $key stable scenario identifier
-   * @param string $name demo title
-   * @param string $status legal seeded workflow state
-   * @param ?DateTimeImmutable $start local first working date
-   * @param ?DateTimeImmutable $end local last working date
+   * @param InterventionWorkloadScenario $scenario deterministic scenario details
    * @param DateTimeImmutable $now audit timestamp
    *
    * @return ?InterventionRecord null when the scenario already exists and must be preserved
    */
-  private function intervention(EntityManagerInterface $manager, InterventionRecord $source, string $key, string $name, string $status, ?DateTimeImmutable $start, ?DateTimeImmutable $end, DateTimeImmutable $now): ?InterventionRecord
+  private function intervention(EntityManagerInterface $manager, InterventionRecord $source, InterventionWorkloadScenario $scenario, DateTimeImmutable $now): ?InterventionRecord
   {
-    $id = SeedUuid::from('workload-demo:intervention:' . $key);
+    $id = SeedUuid::from('workload-demo:intervention:' . $scenario->key);
     if (null !== $manager->find(InterventionRecord::class, $id)) {
       return null;
     }
@@ -212,20 +214,20 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
     $intervention->id = $id;
     $intervention->organization = $source->organization;
     $intervention->number = (int) $number;
-    $intervention->name = $name;
+    $intervention->name = $scenario->name;
     $intervention->type = 'inventory';
-    $intervention->status = $status;
+    $intervention->status = $scenario->status;
     $intervention->description = 'Demo data for workload planning: recorded time and remaining effort are independent. Safe to edit; fixture replay preserves this intervention.';
     $intervention->siteId = $source->siteId;
     $intervention->responsibleId = self::OWNER;
     $intervention->participants = array_keys(self::TASKS);
-    $intervention->plannedStartAt = $start?->setTime(8, 0);
-    $intervention->dueAt = $end?->setTime(18, 0);
+    $intervention->plannedStartAt = $scenario->start?->setTime(8, 0);
+    $intervention->dueAt = $scenario->end?->setTime(18, 0);
     $intervention->createdAt = $now->modify('-21 days');
     $intervention->updatedAt = $now;
     $manager->persist($intervention);
 
-    $path = match ($status) {
+    $path = match ($scenario->status) {
       'in_progress' => ['draft', 'planned', 'in_progress'],
       'planned' => ['draft', 'planned'],
       default => ['draft'],
@@ -252,36 +254,31 @@ final readonly class InterventionWorkloadFixtures implements FixtureInterface, F
    *
    * @param ObjectManager $manager main object manager
    * @param InterventionRecord $intervention new demo intervention
-   * @param string $key scenario-local stable key
-   * @param string $label human-readable work target
-   * @param ?string $memberId current assignee, null for the unassigned example
-   * @param ?int $minutes explicit estimate and initial remaining effort
-   * @param ?DateTimeImmutable $start optional local task start
-   * @param ?DateTimeImmutable $end optional local task end
+   * @param InterventionWorkloadTask $task deterministic task details
    * @param DateTimeImmutable $now audit timestamp
    *
    * @return InterventionWorkItemRecord newly persisted task
    */
-  private function task(ObjectManager $manager, InterventionRecord $intervention, string $key, string $label, ?string $memberId, ?int $minutes, ?DateTimeImmutable $start, ?DateTimeImmutable $end, DateTimeImmutable $now): InterventionWorkItemRecord
+  private function task(ObjectManager $manager, InterventionRecord $intervention, InterventionWorkloadTask $task, DateTimeImmutable $now): InterventionWorkItemRecord
   {
     $item = new InterventionWorkItemRecord();
-    $item->id = SeedUuid::from('workload-demo:task:' . $intervention->id . ':' . $key);
+    $item->id = SeedUuid::from('workload-demo:task:' . $intervention->id . ':' . $task->key);
     $item->intervention = $intervention;
     $item->action = 'inventory';
-    $item->target = $label;
-    $item->assigneeId = $memberId;
-    $item->estimatedMinutes = $minutes;
-    $item->remainingMinutes = $minutes;
-    $item->workStartsOn = $start?->format('Y-m-d');
-    $item->workEndsOn = $end?->format('Y-m-d');
+    $item->target = $task->label;
+    $item->assigneeId = $task->memberId;
+    $item->estimatedMinutes = $task->minutes;
+    $item->remainingMinutes = $task->minutes;
+    $item->workStartsOn = $task->start?->format('Y-m-d');
+    $item->workEndsOn = $task->end?->format('Y-m-d');
     $item->createdAt = $intervention->createdAt;
     $item->updatedAt = $now;
     $manager->persist($item);
-    if (null !== $memberId) {
+    if (null !== $task->memberId) {
       $assignment = new InterventionWorkItemAssignmentRecord();
       $assignment->id = SeedUuid::from('workload-demo:assignment:' . $item->id);
       $assignment->workItem = $item;
-      $assignment->memberId = $memberId;
+      $assignment->memberId = $task->memberId;
       $assignment->actorId = self::OWNER;
       $assignment->assignedAt = $item->createdAt;
       $manager->persist($assignment);

@@ -93,15 +93,16 @@ final readonly class EquipmentProvisioningService implements EquipmentProvisioni
         quotaProjectionOffset: $request->quotaProjectionOffset,
         facilityId: $facilityId,
       ));
+      $outcome = new ProvisionEquipmentResult(ProvisionOutcome::CREATED, resourceId: $result->equipmentId);
     } catch (OrganizationQuotaExceededException $exception) {
-      return new ProvisionEquipmentResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
+      $outcome = new ProvisionEquipmentResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
     } catch (EquipmentSerialNumberAlreadyExistsException|InvalidArgumentException|InvalidValueException $exception) {
-      return new ProvisionEquipmentResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
+      $outcome = new ProvisionEquipmentResult(ProvisionOutcome::INVALID, message: $exception->getMessage());
     } catch (MessengerRuntimeException $exception) {
-      return $this->fromWrappedException($exception);
+      $outcome = $this->fromWrappedException($exception);
     }
 
-    return new ProvisionEquipmentResult(ProvisionOutcome::CREATED, resourceId: $result->equipmentId);
+    return $outcome;
   }
 
   /**

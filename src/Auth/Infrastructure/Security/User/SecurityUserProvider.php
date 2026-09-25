@@ -162,18 +162,10 @@ final readonly class SecurityUserProvider implements UserProviderInterface
       return null;
     }
 
-    try {
-      $cached = $this->cache->get(SecurityUserCacheKeys::user($userId));
-    } catch (Throwable) {
-      return null;
-    }
-
-    if (!is_array($cached)) {
-      return null;
-    }
-
+    $cached = $this->cachedValue($userId);
     if (
-      !isset($cached['id'], $cached['email'], $cached['roles'])
+      !is_array($cached)
+      || !isset($cached['id'], $cached['email'], $cached['roles'])
       || !array_key_exists('isActive', $cached)
       || !is_string($cached['id'])
       || !is_string($cached['email'])
@@ -194,6 +186,15 @@ final readonly class SecurityUserProvider implements UserProviderInterface
       'isActive' => (bool) $cached['isActive'],
       'tenantId' => is_string($tenantId) && '' !== $tenantId ? $tenantId : null,
     ];
+  }
+
+  private function cachedValue(string $userId): mixed
+  {
+    try {
+      return $this->cache?->get(SecurityUserCacheKeys::user($userId));
+    } catch (Throwable) {
+      return null;
+    }
   }
 
   /**

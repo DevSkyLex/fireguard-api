@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationLegal, RestoredOrganizationProfile, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{
   OrganizationCountry,
   OrganizationId,
@@ -50,24 +51,32 @@ final class OrganizationMapper
       : OrganizationStatus::fromIsActive($record->isActive);
 
     return Organization::reconstitute(
-      id: OrganizationId::fromString($record->id),
-      name: new OrganizationName($record->name),
-      createdByUserId: $record->createdByUserId,
-      isActive: $record->isActive,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      ownerUserId: $record->ownerUserId,
-      slug: new OrganizationSlug($record->slug),
-      status: $status,
-      description: $record->description,
-      logoUrl: $record->logoUrl,
-      settings: OrganizationSettings::fromArray($record->settings),
-      planId: null !== $record->planId ? PlanId::fromString($record->planId) : null,
-      country: null !== $record->country ? new OrganizationCountry($record->country) : null,
-      legalType: null !== $record->legalType ? OrganizationLegalType::from($record->legalType) : null,
-      legalName: $record->legalName,
-      registrationNumber: null !== $record->registrationNumber ? new OrganizationRegistrationNumber($record->registrationNumber) : null,
-      vatNumber: null !== $record->vatNumber ? new OrganizationVatNumber($record->vatNumber) : null,
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString($record->id),
+        name: new OrganizationName($record->name),
+        createdByUserId: $record->createdByUserId,
+        isActive: $record->isActive,
+        createdAt: $record->createdAt,
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: $record->updatedAt,
+        ownerUserId: $record->ownerUserId,
+        slug: new OrganizationSlug($record->slug),
+        status: $status,
+      ),
+      profile: new RestoredOrganizationProfile(
+        description: $record->description,
+        logoUrl: $record->logoUrl,
+        settings: OrganizationSettings::fromArray($record->settings),
+        planId: null !== $record->planId ? PlanId::fromString($record->planId) : null,
+      ),
+      legal: new RestoredOrganizationLegal(
+        country: null !== $record->country ? new OrganizationCountry($record->country) : null,
+        legalType: null !== $record->legalType ? OrganizationLegalType::from($record->legalType) : null,
+        legalName: $record->legalName,
+        registrationNumber: null !== $record->registrationNumber ? new OrganizationRegistrationNumber($record->registrationNumber) : null,
+        vatNumber: null !== $record->vatNumber ? new OrganizationVatNumber($record->vatNumber) : null,
+      ),
     );
   }
 

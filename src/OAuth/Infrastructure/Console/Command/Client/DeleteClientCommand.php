@@ -105,22 +105,17 @@ final class DeleteClientCommand extends Command
         return Command::FAILURE;
       }
 
-      if (!$force) {
-        $confirm = $io->confirm(
-          sprintf('Are you sure you want to delete client "%s" (%s)?', $client->name()->value, $clientIdString),
-          false,
-        );
+      $confirmed = $force || $io->confirm(
+        sprintf('Are you sure you want to delete client "%s" (%s)?', $client->name()->value, $clientIdString),
+        false,
+      );
 
-        if (!$confirm) {
-          $io->info('Operation cancelled.');
-
-          return Command::SUCCESS;
-        }
+      if (!$confirmed) {
+        $io->info('Operation cancelled.');
+      } else {
+        $this->clientRepository->delete($client);
+        $io->success(sprintf('Client "%s" deleted successfully.', $client->name()->value));
       }
-
-      $this->clientRepository->delete($client);
-
-      $io->success(sprintf('Client "%s" deleted successfully.', $client->name()->value));
 
       return Command::SUCCESS;
     } catch (Throwable $e) {

@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Domain\Model\Attachment;
 
 use DateTimeImmutable;
 use Facility\Domain\Exception\FacilityAttachmentNotFloorPlanException;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions, FacilityAttachmentRestoredState};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -40,7 +40,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/plan.pdf',
       mimeType: 'application/pdf',
       size: 2048,
-      label: 'Floor plan',
+      options: new FacilityAttachmentCreationOptions(label: 'Floor plan'),
     );
     $after = new DateTimeImmutable();
 
@@ -82,8 +82,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/report.pdf',
       mimeType: 'application/pdf',
       size: 4096,
-      uploadedAt: $uploadedAt,
-      label: 'Report',
+      state: new FacilityAttachmentRestoredState($uploadedAt, new FacilityAttachmentCreationOptions(label: 'Report')),
     );
 
     self::assertSame($uploadedAt, $attachment->uploadedAt());
@@ -120,9 +119,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/ground-floor.svg',
       mimeType: 'image/svg+xml',
       size: 1024,
-      kind: AttachmentKind::FLOOR_PLAN,
-      imageWidth: 800,
-      imageHeight: 600,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN, imageWidth: 800, imageHeight: 600),
     );
 
     self::assertSame(AttachmentKind::FLOOR_PLAN, $attachment->kind());
@@ -143,7 +140,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/plan.pdf',
       mimeType: 'application/pdf',
       size: 2048,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
   }
 
@@ -159,9 +156,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/report.pdf',
       mimeType: 'application/pdf',
       size: 4096,
-      uploadedAt: new DateTimeImmutable(),
-      kind: AttachmentKind::DOCUMENT,
-      isPrimaryPlan: true,
+      state: new FacilityAttachmentRestoredState(new DateTimeImmutable(), new FacilityAttachmentCreationOptions(kind: AttachmentKind::DOCUMENT), true),
     );
   }
 
@@ -175,7 +170,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/plan.png',
       mimeType: 'image/png',
       size: 2048,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
 
     self::assertFalse($attachment->isPrimaryPlan());
@@ -212,7 +207,7 @@ final class FacilityAttachmentTest extends TestCase
       storagePath: 'facilities/plan.png',
       mimeType: 'image/png',
       size: 2048,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
     $attachment->markAsPrimary();
 

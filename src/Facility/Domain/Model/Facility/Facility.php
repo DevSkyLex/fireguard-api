@@ -88,12 +88,6 @@ final class Facility
    * @param FacilityOrganizationId $organizationId the organization identifier
    * @param FacilityType $type the facility type
    * @param FacilityName $name the facility name
-   * @param ?FacilityId $parentFacilityId the optional parent facility identifier
-   * @param ?string $code the optional facility code
-   * @param ?string $address the optional address
-   * @param array<string, mixed> $metadata the optional metadata
-   * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
-   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    *
    * @return self the created facility aggregate
    */
@@ -102,14 +96,10 @@ final class Facility
     FacilityOrganizationId $organizationId,
     FacilityType $type,
     FacilityName $name,
-    ?FacilityId $parentFacilityId = null,
-    ?string $code = null,
-    ?string $address = null,
-    array $metadata = [],
-    ?FacilityCoordinates $coordinates = null,
-    ?int $levelIndex = null,
+    ?FacilityDetails $details = null,
   ): self {
     $now = new DateTimeImmutable();
+    $details ??= new FacilityDetails();
 
     return new self(
       id: $id,
@@ -119,13 +109,13 @@ final class Facility
       status: FacilityStatus::ACTIVE,
       createdAt: $now,
       updatedAt: $now,
-      parentFacilityId: $parentFacilityId,
-      code: self::normalizeCode($code),
-      address: self::normalizeAddress($address),
-      metadata: self::normalizeMetadata($metadata),
-      coordinates: $coordinates,
+      parentFacilityId: $details->parentFacilityId,
+      code: self::normalizeCode($details->code),
+      address: self::normalizeAddress($details->address),
+      metadata: self::normalizeMetadata($details->metadata),
+      coordinates: $details->coordinates,
       planGeometry: null,
-      levelIndex: self::normalizeLevelIndex($levelIndex),
+      levelIndex: self::normalizeLevelIndex($details->levelIndex),
     );
   }
 
@@ -140,16 +130,7 @@ final class Facility
    * @param FacilityOrganizationId $organizationId the organization identifier
    * @param FacilityType $type the facility type
    * @param FacilityName $name the facility name
-   * @param FacilityStatus $status the facility status
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param ?FacilityId $parentFacilityId the optional parent facility identifier
-   * @param ?string $code the optional facility code
-   * @param ?string $address the optional address
-   * @param array<string, mixed> $metadata the optional metadata
-   * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    * @param ?PlanGeometry $planGeometry the optional spatial geometry bound to an ancestor's floor plan
-   * @param ?int $levelIndex the optional stacking order of the floor (ground floor = 0, first basement = -1)
    *
    * @return self the reconstituted facility aggregate
    */
@@ -158,32 +139,27 @@ final class Facility
     FacilityOrganizationId $organizationId,
     FacilityType $type,
     FacilityName $name,
-    FacilityStatus $status,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?FacilityId $parentFacilityId = null,
-    ?string $code = null,
-    ?string $address = null,
-    array $metadata = [],
-    ?FacilityCoordinates $coordinates = null,
+    FacilityLifecycle $lifecycle,
+    ?FacilityDetails $details = null,
     ?PlanGeometry $planGeometry = null,
-    ?int $levelIndex = null,
   ): self {
+    $details ??= new FacilityDetails();
+
     return new self(
       id: $id,
       organizationId: $organizationId,
       type: $type,
       name: $name,
-      status: $status,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      parentFacilityId: $parentFacilityId,
-      code: self::normalizeCode($code),
-      address: self::normalizeAddress($address),
-      metadata: self::normalizeMetadata($metadata),
-      coordinates: $coordinates,
+      status: $lifecycle->status,
+      createdAt: $lifecycle->createdAt,
+      updatedAt: $lifecycle->updatedAt,
+      parentFacilityId: $details->parentFacilityId,
+      code: self::normalizeCode($details->code),
+      address: self::normalizeAddress($details->address),
+      metadata: self::normalizeMetadata($details->metadata),
+      coordinates: $details->coordinates,
       planGeometry: $planGeometry,
-      levelIndex: self::normalizeLevelIndex($levelIndex),
+      levelIndex: self::normalizeLevelIndex($details->levelIndex),
     );
   }
 

@@ -15,7 +15,7 @@ use Approval\Domain\Exception\{
   SelfApprovalNotAllowedException
 };
 use Approval\Domain\Exception\ApprovalAccessDeniedException;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
@@ -212,17 +212,14 @@ final class RejectApprovalRequestHandlerTest extends TestCase
 
   private function pendingRequest(): ApprovalRequest
   {
-    return ApprovalRequest::create(
-      id: ApprovalRequestId::fromString(self::REQUEST_ID),
-      organizationId: self::ORG_ID,
-      actionType: 'nc_waiver',
-      subjectId: 'nc-1',
-      requestedByMemberId: self::REQUESTER_MEMBER_ID,
-      requestedByUserId: 'requester-user',
-      payload: [],
-      expiresAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      now: new DateTimeImmutable('2026-01-18T00:00:00+00:00'),
-    );
+    return ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::REQUEST_ID),
+      self::ORG_ID,
+      'nc_waiver',
+      'nc-1',
+      new ApprovalRequestSubmission(self::REQUESTER_MEMBER_ID, 'requester-user', []),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-02-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-18T00:00:00+00:00')),
+    ));
   }
 
   private static function policy(): ApprovalPolicy

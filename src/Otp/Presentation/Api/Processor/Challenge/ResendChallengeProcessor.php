@@ -85,13 +85,13 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
 
       return $output;
     } catch (Throwable $exception) {
-      $otpNotFound = $this->extractOtpNotFoundException($exception);
-      if (null !== $otpNotFound) {
+      $otpNotFound = self::extractWrapped($exception, OtpNotFoundException::class);
+      if ($otpNotFound instanceof OtpNotFoundException) {
         throw new NotFoundHttpException('Challenge not found.');
       }
 
-      $resendNotAllowed = $this->extractResendNotAllowedException($exception);
-      if (null !== $resendNotAllowed) {
+      $resendNotAllowed = self::extractWrapped($exception, ResendNotAllowedException::class);
+      if ($resendNotAllowed instanceof ResendNotAllowedException) {
         throw new TooManyRequestsHttpException(
           $resendNotAllowed->retryAfterSeconds(),
           "Please wait {$resendNotAllowed->retryAfterSeconds()} seconds before resending.",
@@ -102,79 +102,71 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
     }
   }
 
-  private function extractOtpNotFoundException(Throwable $exception): ?OtpNotFoundException
+  /**
+   * @template T of Throwable
+   *
+   * @param Throwable $exception the bus failure
+   * @param class-string<T> $type the domain exception to find
+   *
+   * @return ?T the matching exception, when present
+   */
+  private static function extractWrapped(Throwable $exception, string $type): ?Throwable
   {
-    if ($exception instanceof OtpNotFoundException) {
+    if ($exception instanceof $type) {
       return $exception;
     }
-
     if ($exception instanceof HandlerFailedException) {
-      foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof OtpNotFoundException) {
-          return $nestedException;
-        }
-      }
-
-      return null;
+      return self::findInHandler($exception, $type);
+    }
+    if ($exception instanceof MessengerRuntimeException) {
+      return self::findInRuntime($exception, $type);
     }
 
-    if ($exception instanceof MessengerRuntimeException) {
-      $previous = $exception->getPrevious();
+    return null;
+  }
 
-      if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof OtpNotFoundException) {
-            return $nestedException;
-          }
-        }
-      }
-
-      while ($previous) {
-        if ($previous instanceof OtpNotFoundException) {
-          return $previous;
-        }
-
-        $previous = $previous->getPrevious();
+  /**
+   * @template T of Throwable
+   *
+   * @param HandlerFailedException $exception the wrapped handler failure
+   * @param class-string<T> $type the domain exception to find
+   *
+   * @return ?T the matching wrapped exception
+   */
+  private static function findInHandler(HandlerFailedException $exception, string $type): ?Throwable
+  {
+    foreach ($exception->getWrappedExceptions() as $nestedException) {
+      if ($nestedException instanceof $type) {
+        return $nestedException;
       }
     }
 
     return null;
   }
 
-  private function extractResendNotAllowedException(Throwable $exception): ?ResendNotAllowedException
+  /**
+   * @template T of Throwable
+   *
+   * @param MessengerRuntimeException $exception the outer bus failure
+   * @param class-string<T> $type the domain exception to find
+   *
+   * @return ?T the matching nested or previous exception
+   */
+  private static function findInRuntime(MessengerRuntimeException $exception, string $type): ?Throwable
   {
-    if ($exception instanceof ResendNotAllowedException) {
-      return $exception;
+    $previous = $exception->getPrevious();
+    if ($previous instanceof HandlerFailedException) {
+      $nested = self::findInHandler($previous, $type);
+      if (null !== $nested) {
+        return $nested;
+      }
     }
 
-    if ($exception instanceof HandlerFailedException) {
-      foreach ($exception->getWrappedExceptions() as $nestedException) {
-        if ($nestedException instanceof ResendNotAllowedException) {
-          return $nestedException;
-        }
+    while ($previous) {
+      if ($previous instanceof $type) {
+        return $previous;
       }
-
-      return null;
-    }
-
-    if ($exception instanceof MessengerRuntimeException) {
-      $previous = $exception->getPrevious();
-
-      if ($previous instanceof HandlerFailedException) {
-        foreach ($previous->getWrappedExceptions() as $nestedException) {
-          if ($nestedException instanceof ResendNotAllowedException) {
-            return $nestedException;
-          }
-        }
-      }
-
-      while ($previous) {
-        if ($previous instanceof ResendNotAllowedException) {
-          return $previous;
-        }
-
-        $previous = $previous->getPrevious();
-      }
+      $previous = $previous->getPrevious();
     }
 
     return null;

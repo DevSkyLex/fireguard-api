@@ -84,44 +84,27 @@ final class ApprovalRequest
    *
    * @since 1.0.0
    *
-   * @param ApprovalRequestId $id the approval request identifier
-   * @param string $organizationId the owning organization identifier
-   * @param string $actionType the regulated action type
-   * @param string $subjectId the acted-upon subject identifier
-   * @param string $requestedByMemberId the requesting member identifier
-   * @param string $requestedByUserId the requesting user identifier
-   * @param array<string, mixed> $payload the deferred action's payload
-   * @param DateTimeImmutable $expiresAt the expiry deadline
-   * @param DateTimeImmutable $now the current time
+   * @param ApprovalRequestCreation $creation the request submitted for approval
    *
    * @return self the created approval request
    */
-  public static function create(
-    ApprovalRequestId $id,
-    string $organizationId,
-    string $actionType,
-    string $subjectId,
-    string $requestedByMemberId,
-    string $requestedByUserId,
-    array $payload,
-    DateTimeImmutable $expiresAt,
-    DateTimeImmutable $now,
-  ): self {
+  public static function create(ApprovalRequestCreation $creation): self
+  {
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      actionType: $actionType,
-      subjectId: $subjectId,
+      id: $creation->id,
+      organizationId: $creation->organizationId,
+      actionType: $creation->actionType,
+      subjectId: $creation->subjectId,
       status: ApprovalStatus::PENDING,
-      requestedByMemberId: $requestedByMemberId,
-      requestedByUserId: $requestedByUserId,
+      requestedByMemberId: $creation->submission->requestedByMemberId,
+      requestedByUserId: $creation->submission->requestedByUserId,
       decisionByMemberId: null,
       decisionByUserId: null,
       decisionNote: null,
-      payload: $payload,
-      expiresAt: $expiresAt,
-      createdAt: $now,
-      updatedAt: $now,
+      payload: $creation->submission->payload,
+      expiresAt: $creation->schedule->expiresAt,
+      createdAt: $creation->schedule->createdAt,
+      updatedAt: $creation->schedule->createdAt,
       decidedAt: null,
       executedAt: null,
       executionError: null,
@@ -137,63 +120,30 @@ final class ApprovalRequest
    *
    * @since 1.0.0
    *
-   * @param ApprovalRequestId $id the approval request identifier
-   * @param string $organizationId the owning organization identifier
-   * @param string $actionType the regulated action type
-   * @param string $subjectId the acted-upon subject identifier
-   * @param ApprovalStatus $status the current status
-   * @param string $requestedByMemberId the requesting member identifier
-   * @param string $requestedByUserId the requesting user identifier
-   * @param ?string $decisionByMemberId the deciding member identifier
-   * @param ?string $decisionByUserId the deciding user identifier
-   * @param ?string $decisionNote the free-form decision note
-   * @param array<string, mixed> $payload the deferred action's payload
-   * @param DateTimeImmutable $expiresAt the expiry deadline
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the last update timestamp
-   * @param ?DateTimeImmutable $decidedAt the decision timestamp
-   * @param ?DateTimeImmutable $executedAt the execution timestamp
-   * @param ?string $executionError the last execution/cancellation error
+   * @param ApprovalRequestRestoredState $state the persisted request state
    *
    * @return self the reconstituted approval request
    */
-  public static function reconstitute(
-    ApprovalRequestId $id,
-    string $organizationId,
-    string $actionType,
-    string $subjectId,
-    ApprovalStatus $status,
-    string $requestedByMemberId,
-    string $requestedByUserId,
-    ?string $decisionByMemberId,
-    ?string $decisionByUserId,
-    ?string $decisionNote,
-    array $payload,
-    DateTimeImmutable $expiresAt,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?DateTimeImmutable $decidedAt,
-    ?DateTimeImmutable $executedAt,
-    ?string $executionError,
-  ): self {
+  public static function reconstitute(ApprovalRequestRestoredState $state): self
+  {
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      actionType: $actionType,
-      subjectId: $subjectId,
-      status: $status,
-      requestedByMemberId: $requestedByMemberId,
-      requestedByUserId: $requestedByUserId,
-      decisionByMemberId: $decisionByMemberId,
-      decisionByUserId: $decisionByUserId,
-      decisionNote: $decisionNote,
-      payload: $payload,
-      expiresAt: $expiresAt,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      decidedAt: $decidedAt,
-      executedAt: $executedAt,
-      executionError: $executionError,
+      id: $state->creation->id,
+      organizationId: $state->creation->organizationId,
+      actionType: $state->creation->actionType,
+      subjectId: $state->creation->subjectId,
+      status: $state->status,
+      requestedByMemberId: $state->creation->submission->requestedByMemberId,
+      requestedByUserId: $state->creation->submission->requestedByUserId,
+      decisionByMemberId: $state->resolution->decisionByMemberId,
+      decisionByUserId: $state->resolution->decisionByUserId,
+      decisionNote: $state->resolution->decisionNote,
+      payload: $state->creation->submission->payload,
+      expiresAt: $state->creation->schedule->expiresAt,
+      createdAt: $state->creation->schedule->createdAt,
+      updatedAt: $state->updatedAt,
+      decidedAt: $state->resolution->decidedAt,
+      executedAt: $state->resolution->executedAt,
+      executionError: $state->resolution->executionError,
     );
   }
 

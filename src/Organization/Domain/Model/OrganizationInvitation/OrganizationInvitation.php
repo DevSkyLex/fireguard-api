@@ -107,51 +107,31 @@ final class OrganizationInvitation
    *
    * @since 1.0.0
    *
-   * @param OrganizationInvitationId $id the invitation identifier
-   * @param OrganizationId $organizationId the organization identifier
-   * @param Email $email the invited email
-   * @param string $tokenHash the hashed invitation token
-   * @param string $invitedByUserId the inviter user identifier
-   * @param OrganizationInvitationStatus $status the invitation status
-   * @param DateTimeImmutable $expiresAt the expiration datetime
-   * @param DateTimeImmutable $createdAt the creation datetime
-   * @param DateTimeImmutable $updatedAt the update datetime
-   * @param ?DateTimeImmutable $acceptedAt the acceptance datetime
-   * @param ?string $acceptedByUserId the acceptor user identifier
-   * @param ?DateTimeImmutable $revokedAt the revocation datetime
-   * @param ?string $revokedByUserId the revoker user identifier
+   * @param RestoredInvitationIdentity $identity persisted invitation identity
+   * @param RestoredInvitationLifecycle $lifecycle persisted status and actors
+   * @param RestoredInvitationTimestamps $timestamps persisted creation/update times
    *
    * @return self the reconstituted invitation aggregate
    */
   public static function reconstitute(
-    OrganizationInvitationId $id,
-    OrganizationId $organizationId,
-    Email $email,
-    string $tokenHash,
-    string $invitedByUserId,
-    OrganizationInvitationStatus $status,
-    DateTimeImmutable $expiresAt,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?DateTimeImmutable $acceptedAt = null,
-    ?string $acceptedByUserId = null,
-    ?DateTimeImmutable $revokedAt = null,
-    ?string $revokedByUserId = null,
+    RestoredInvitationIdentity $identity,
+    RestoredInvitationLifecycle $lifecycle,
+    RestoredInvitationTimestamps $timestamps,
   ): self {
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      email: $email,
-      tokenHash: $tokenHash,
-      invitedByUserId: $invitedByUserId,
-      status: $status,
-      expiresAt: $expiresAt,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      acceptedAt: $acceptedAt,
-      acceptedByUserId: $acceptedByUserId,
-      revokedAt: $revokedAt,
-      revokedByUserId: $revokedByUserId,
+      id: $identity->id,
+      organizationId: $identity->organizationId,
+      email: $identity->email,
+      tokenHash: $identity->tokenHash,
+      invitedByUserId: $identity->invitedByUserId,
+      status: $lifecycle->status,
+      expiresAt: $lifecycle->expiresAt,
+      createdAt: $timestamps->createdAt,
+      updatedAt: $timestamps->updatedAt,
+      acceptedAt: $lifecycle->acceptedAt,
+      acceptedByUserId: $lifecycle->acceptedByUserId,
+      revokedAt: $lifecycle->revokedAt,
+      revokedByUserId: $lifecycle->revokedByUserId,
     );
   }
 

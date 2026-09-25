@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Domain\Model\Attachment;
 
 use DateTimeImmutable;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId};
+use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
 
 /**
  * Model InspectionAttachment.
@@ -104,37 +104,29 @@ final class InspectionAttachment
    *
    * @param InspectionAttachmentId $id the attachment identifier
    * @param InspectionId $inspectionId the inspection identifier
-   * @param string $fileName the original file name
-   * @param string $storagePath the storage path
-   * @param string $mimeType the MIME type
-   * @param int $size the file size in bytes
+   * @param RestoredInspectionAttachmentFile $file the persisted file metadata
    * @param DateTimeImmutable $uploadedAt the upload timestamp
    * @param ?NonConformityId $nonConformityId the optional non-conformity identifier
-   * @param ?string $label the optional label
    *
    * @return self the reconstituted attachment
    */
   public static function reconstitute(
     InspectionAttachmentId $id,
     InspectionId $inspectionId,
-    string $fileName,
-    string $storagePath,
-    string $mimeType,
-    int $size,
+    RestoredInspectionAttachmentFile $file,
     DateTimeImmutable $uploadedAt,
     ?NonConformityId $nonConformityId = null,
-    ?string $label = null,
   ): self {
     return new self(
       id: $id,
       inspectionId: $inspectionId,
-      fileName: $fileName,
-      storagePath: $storagePath,
-      mimeType: $mimeType,
-      size: $size,
+      fileName: $file->fileName,
+      storagePath: $file->storagePath,
+      mimeType: $file->mimeType,
+      size: $file->size,
       uploadedAt: $uploadedAt,
       nonConformityId: $nonConformityId,
-      label: $label,
+      label: $file->label,
     );
   }
 

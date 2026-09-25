@@ -437,10 +437,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::FIRE_EXTINGUISHER->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-06T08:00:00+00:00'),
-      brand: 'Sicli',
-      model: self::PRO_6_MODEL,
-      serialNumber: 'SEED-EXT-001',
-      locationLabel: 'Zone A - Corridor',
+      details: new EquipmentSeedDetails('Sicli', self::PRO_6_MODEL, 'SEED-EXT-001', 'Zone A - Corridor'),
     );
     $manager->persist($extinguisher);
     $this->addReference(self::EXTINGUISHER_REFERENCE, $extinguisher);
@@ -452,10 +449,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::SMOKE_DETECTOR->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-15T08:00:00+00:00'),
-      brand: 'Honeywell',
-      model: 'SD-42',
-      serialNumber: 'SEED-SMK-001',
-      locationLabel: 'Server Room - Ceiling',
+      details: new EquipmentSeedDetails('Honeywell', 'SD-42', 'SEED-SMK-001', 'Server Room - Ceiling'),
     );
     $manager->persist($detector);
     $this->addReference(self::DETECTOR_REFERENCE, $detector);
@@ -467,10 +461,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::HYDRANT->value,
       status: EquipmentStatus::IN_STOCK->value,
       createdAt: SeedTimeline::at('2026-03-28T08:00:00+00:00'),
-      brand: 'Desautel',
-      model: 'H-120',
-      serialNumber: 'SEED-HYD-001',
-      locationLabel: 'Warehouse',
+      details: new EquipmentSeedDetails('Desautel', 'H-120', 'SEED-HYD-001', 'Warehouse'),
     );
     $manager->persist($hydrant);
     $this->addReference(self::HYDRANT_REFERENCE, $hydrant);
@@ -541,10 +532,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::SPRINKLER->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-30T09:00:00+00:00'),
-      brand: 'Viking',
-      model: 'VK301',
-      serialNumber: 'SEED-SPR-001',
-      locationLabel: 'Zone B - Ceiling',
+      details: new EquipmentSeedDetails('Viking', 'VK301', 'SEED-SPR-001', 'Zone B - Ceiling'),
     );
     $manager->persist($sprinkler);
     $this->addReference(self::SPRINKLER_REFERENCE, $sprinkler);
@@ -556,10 +544,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::FIRE_ALARM_PANEL->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-30T09:10:00+00:00'),
-      brand: 'Notifier',
-      model: 'NFS2-3030',
-      serialNumber: 'SEED-ALP-001',
-      locationLabel: 'Zone B - Wall Panel',
+      details: new EquipmentSeedDetails('Notifier', 'NFS2-3030', 'SEED-ALP-001', 'Zone B - Wall Panel'),
     );
     $manager->persist($alarmPanel);
     $this->addReference(self::ALARM_PANEL_REFERENCE, $alarmPanel);
@@ -571,10 +556,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::HEAT_DETECTOR->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-30T09:20:00+00:00'),
-      brand: self::SYSTEM_SENSOR_BRAND,
-      model: '5601P',
-      serialNumber: 'SEED-HTD-001',
-      locationLabel: 'Storage Room - Ceiling',
+      details: new EquipmentSeedDetails(self::SYSTEM_SENSOR_BRAND, '5601P', 'SEED-HTD-001', 'Storage Room - Ceiling'),
     );
     $manager->persist($heatDetector);
     $this->addReference(self::HEAT_DETECTOR_REFERENCE, $heatDetector);
@@ -586,10 +568,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::EMERGENCY_LIGHTING->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-31T08:00:00+00:00'),
-      brand: 'Legrand',
-      model: self::BAES_ECO_45_MODEL,
-      serialNumber: 'SEED-EML-001',
-      locationLabel: 'Paris Headquarters - Main entrance',
+      details: new EquipmentSeedDetails('Legrand', self::BAES_ECO_45_MODEL, 'SEED-EML-001', 'Paris Headquarters - Main entrance'),
     );
     $manager->persist($siteEmergencyLighting);
     $this->addReference(self::SITE_EMERGENCY_LIGHTING_REFERENCE, $siteEmergencyLighting);
@@ -601,10 +580,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::FIRE_DOOR->value,
       status: EquipmentStatus::UNDER_MAINTENANCE->value,
       createdAt: SeedTimeline::at('2026-03-31T08:10:00+00:00'),
-      brand: self::ASSA_ABLOY_BRAND,
-      model: 'EI60',
-      serialNumber: 'SEED-FDR-001',
-      locationLabel: 'Main Building - Stairwell A',
+      details: new EquipmentSeedDetails(self::ASSA_ABLOY_BRAND, 'EI60', 'SEED-FDR-001', 'Main Building - Stairwell A'),
     );
     $manager->persist($buildingFireDoor);
     $this->addReference(self::BUILDING_FIRE_DOOR_REFERENCE, $buildingFireDoor);
@@ -616,10 +592,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::CAMERA->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-31T08:20:00+00:00'),
-      brand: 'Axis',
-      model: 'M3085-V',
-      serialNumber: 'SEED-CAM-001',
-      locationLabel: 'Floor 1 - Elevator lobby',
+      details: new EquipmentSeedDetails('Axis', 'M3085-V', 'SEED-CAM-001', 'Floor 1 - Elevator lobby'),
     );
     $manager->persist($floorOneCamera);
     $this->addReference(self::FLOOR_ONE_CAMERA_REFERENCE, $floorOneCamera);
@@ -631,10 +604,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       type: EquipmentType::GAS_DETECTOR->value,
       status: EquipmentStatus::OPERATIONAL->value,
       createdAt: SeedTimeline::at('2026-03-31T08:30:00+00:00'),
-      brand: 'Drager',
-      model: self::POLYTRON_7000_MODEL,
-      serialNumber: 'SEED-GAS-001',
-      locationLabel: 'Floor 2 - Technical closet',
+      details: new EquipmentSeedDetails('Drager', self::POLYTRON_7000_MODEL, 'SEED-GAS-001', 'Floor 2 - Technical closet'),
     );
     $manager->persist($floorTwoGasDetector);
     $this->addReference(self::FLOOR_TWO_GAS_DETECTOR_REFERENCE, $floorTwoGasDetector);
@@ -674,17 +644,19 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
         type: $seed['type'],
         status: $seed['status'],
         createdAt: $createdAt,
-        brand: $seed['brand'],
-        model: $seed['model'],
-        serialNumber: $seed['serialNumber'],
-        locationLabel: $seed['locationLabel'],
-        planPosition: isset(self::PLAN_PINNED_EQUIPMENT[$seed['reference']])
-          ? [
-            'attachmentId' => FacilityFixtures::FLOOR_ONE_PLAN_ID,
-            'x' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['x'],
-            'y' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['y'],
-          ]
-          : null,
+        details: new EquipmentSeedDetails(
+          brand: $seed['brand'],
+          model: $seed['model'],
+          serialNumber: $seed['serialNumber'],
+          locationLabel: $seed['locationLabel'],
+          planPosition: isset(self::PLAN_PINNED_EQUIPMENT[$seed['reference']])
+            ? [
+              'attachmentId' => FacilityFixtures::FLOOR_ONE_PLAN_ID,
+              'x' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['x'],
+              'y' => self::PLAN_PINNED_EQUIPMENT[$seed['reference']]['y'],
+            ]
+            : null,
+        ),
       );
       $manager->persist($equipment);
       $this->addReference($seed['reference'], $equipment);
@@ -720,10 +692,12 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
           type: $kit['type'],
           status: $kit['status'],
           createdAt: $createdAt,
-          brand: $kit['brand'],
-          model: $kit['model'],
-          serialNumber: sprintf('SEED-EXR-%02d', $extraRegionalIndex + 1),
-          locationLabel: sprintf('%s %s - %s', ucfirst(str_replace('-', ' ', $slug)), 'site' === $depth ? 'Site' : 'Zone', 'site' === $depth ? 'Main entrance' : 'Operations area'),
+          details: new EquipmentSeedDetails(
+            brand: $kit['brand'],
+            model: $kit['model'],
+            serialNumber: sprintf('SEED-EXR-%02d', $extraRegionalIndex + 1),
+            locationLabel: sprintf('%s %s - %s', ucfirst(str_replace('-', ' ', $slug)), 'site' === $depth ? 'Site' : 'Zone', 'site' === $depth ? 'Main entrance' : 'Operations area'),
+          ),
         );
         $manager->persist($extraEquipment);
         $this->addReference(self::extraRegionalEquipmentReference($extraRegionalIndex), $extraEquipment);
@@ -733,7 +707,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
   }
 
   /**
-   * @param array{attachmentId: string, x: float, y: float}|null $planPosition
+   * @param EquipmentSeedDetails $details the catalogue fields and plan position
    */
   private function createEquipment(
     string $id,
@@ -742,22 +716,18 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     string $type,
     string $status,
     DateTimeImmutable $createdAt,
-    ?string $brand,
-    ?string $model,
-    ?string $serialNumber,
-    ?string $locationLabel,
-    ?array $planPosition = null,
+    EquipmentSeedDetails $details,
   ): EquipmentRecord {
     $equipment = new EquipmentRecord();
     $equipment->id = $id;
     $equipment->organization = $organization;
     $equipment->facilityId = $facilityId;
     $equipment->type = $type;
-    $equipment->brand = $brand;
-    $equipment->model = $model;
-    $equipment->serialNumber = $serialNumber;
-    $equipment->locationLabel = $locationLabel;
-    $equipment->planPosition = $planPosition;
+    $equipment->brand = $details->brand;
+    $equipment->model = $details->model;
+    $equipment->serialNumber = $details->serialNumber;
+    $equipment->locationLabel = $details->locationLabel;
+    $equipment->planPosition = $details->planPosition;
     $equipment->status = $status;
     $equipment->installedAt = EquipmentStatus::IN_STOCK->value === $status
       ? null

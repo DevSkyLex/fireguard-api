@@ -63,21 +63,12 @@ final class TenantFilter extends SQLFilter
    */
   public function addFilterConstraint(ClassMetadata $targetEntity, string $targetTableAlias): string
   {
-    if (!$targetEntity->hasField('tenantId')) {
+    if (!$targetEntity->hasField('tenantId') || self::isExempt($targetEntity)) {
       return '';
     }
 
-    if (self::isExempt($targetEntity)) {
-      return '';
-    }
-
-    try {
-      $tenantId = $this->getParameter('tenant_id');
-    } catch (InvalidArgumentException) {
-      return '';
-    }
-
-    if ('' === trim((string) $tenantId, "'")) {
+    $tenantId = $this->tenantIdParameter();
+    if (null === $tenantId || '' === trim($tenantId, "'")) {
       return '';
     }
 
@@ -85,6 +76,22 @@ final class TenantFilter extends SQLFilter
     $column = $targetEntity->getColumnName('tenantId');
 
     return sprintf('%s.%s = %s', (string) $targetTableAlias, $column, (string) $tenantId);
+  }
+
+  /**
+   * Method tenantIdParameter.
+   *
+   * @since 1.1.0
+   *
+   * @return ?string the quoted tenant parameter when configured
+   */
+  private function tenantIdParameter(): ?string
+  {
+    try {
+      return $this->getParameter('tenant_id');
+    } catch (InvalidArgumentException) {
+      return null;
+    }
   }
 
   /**

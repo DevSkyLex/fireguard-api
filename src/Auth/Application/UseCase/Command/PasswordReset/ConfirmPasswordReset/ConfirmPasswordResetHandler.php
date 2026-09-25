@@ -79,6 +79,8 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
     }
 
     // Verify the OTP code
+    $verificationFailure = null;
+
     try {
       $verified = $otp->verify($command->code);
 
@@ -86,26 +88,34 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
       $this->otpRepository->save($otp);
 
       if (!$verified) {
-        return ConfirmPasswordResetResult::failed(
+        $verificationFailure = ConfirmPasswordResetResult::failed(
           message: 'Invalid or expired reset code. Please check the code, or request a new reset.',
           errorCode: ConfirmPasswordResetResult::ERROR_INVALID_CODE,
           attemptsRemaining: $otp->attemptsRemaining(),
         );
       }
     } catch (OtpExpiredException) {
-      return ConfirmPasswordResetResult::failed(
+      $verificationFailure = ConfirmPasswordResetResult::failed(
         message: 'The password reset code has expired. Please request a new one.',
         errorCode: ConfirmPasswordResetResult::ERROR_EXPIRED,
       );
     } catch (OtpMaxAttemptsException) {
-      return ConfirmPasswordResetResult::failed(
+      $verificationFailure = ConfirmPasswordResetResult::failed(
         message: 'Maximum verification attempts exceeded. Please request a new code.',
         errorCode: ConfirmPasswordResetResult::ERROR_MAX_ATTEMPTS,
       );
     }
 
+    if (null !== $verificationFailure) {
+      return $verificationFailure;
+    }
+
     // Get the user from the OTP (OTP stores userId)
-    $userId = new UserId($otp->userId());
+    return $this->changePassword(new UserId($otp->userId()), $command->newPassword);
+  }
+
+  private function changePassword(UserId $userId, string $newPassword): ConfirmPasswordResetResult
+  {
     $user = $this->userRepository->findById($userId);
 
     if (null === $user) {
@@ -116,7 +126,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
     }
 
     // Change the password
-    $user->changePassword(HashedPassword::fromPlain($command->newPassword));
+    $user->changePassword(HashedPassword::fromPlain($newPassword));
     $this->userRepository->save($user);
 
     // Revoke all active sessions for security

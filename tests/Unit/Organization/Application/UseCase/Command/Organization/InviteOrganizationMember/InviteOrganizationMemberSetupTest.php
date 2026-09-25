@@ -12,7 +12,7 @@ use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberHandler};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
@@ -41,7 +41,15 @@ final class InviteOrganizationMemberSetupTest extends TestCase
     $orgId = 'cc11c711-0000-4000-8000-000000000201';
     $id = 'cc11c711-0000-4000-8000-000000000202';
     $roleId = 'cc11c711-0000-4000-8000-000000000203';
-    $org = Organization::reconstitute(id: OrganizationId::fromString($orgId), name: new OrganizationName('Saved org'), createdByUserId: 'creator', isActive: true, createdAt: new DateTimeImmutable('-1 day'));
+    $org = Organization::reconstitute(
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString($orgId),
+        name: new OrganizationName('Saved org'),
+        createdByUserId: 'creator',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
+    );
     $role = OrganizationRole::create(OrganizationRoleId::fromString($roleId), OrganizationId::fromString($orgId), new OrganizationRoleName('member'), ['organization.read'], true);
     $invitation = OrganizationInvitation::create(OrganizationInvitationId::fromString($id), OrganizationId::fromString($orgId), new Email('member@example.com'), 'persisted-hash', 'creator', new DateTimeImmutable('+1 day'));
     $orgs = $this->createStub(OrganizationRepositoryPort::class);

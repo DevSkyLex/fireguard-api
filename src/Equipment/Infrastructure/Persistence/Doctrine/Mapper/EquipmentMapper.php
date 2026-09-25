@@ -13,6 +13,7 @@ use Equipment\Domain\ValueObject\{
   EquipmentType,
   PlanPosition
 };
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -50,18 +51,22 @@ final class EquipmentMapper
       id: EquipmentId::fromString($record->id),
       organizationId: EquipmentOrganizationId::fromString($record->organization->id),
       type: EquipmentType::from($record->type),
-      status: EquipmentStatus::from($record->status),
+      details: new EquipmentCatalogDetails(
+        subType: $record->subType,
+        brand: $record->brand,
+        model: $record->model,
+        serialNumber: $record->serialNumber,
+        locationLabel: $record->locationLabel,
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::from($record->status),
+        facilityId: null !== $record->facilityId ? EquipmentFacilityId::fromString($record->facilityId) : null,
+        installedAt: $record->installedAt,
+        commissionedAt: $record->commissionedAt,
+        planPosition: null !== $record->planPosition ? PlanPosition::fromArray($record->planPosition) : null,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      facilityId: null !== $record->facilityId ? EquipmentFacilityId::fromString($record->facilityId) : null,
-      subType: $record->subType,
-      brand: $record->brand,
-      model: $record->model,
-      serialNumber: $record->serialNumber,
-      locationLabel: $record->locationLabel,
-      installedAt: $record->installedAt,
-      commissionedAt: $record->commissionedAt,
-      planPosition: null !== $record->planPosition ? PlanPosition::fromArray($record->planPosition) : null,
     );
   }
 

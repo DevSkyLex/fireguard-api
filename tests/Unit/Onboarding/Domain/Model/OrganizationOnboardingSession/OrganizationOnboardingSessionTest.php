@@ -6,6 +6,7 @@ namespace Tests\Unit\Onboarding\Domain\Model\OrganizationOnboardingSession;
 
 use DateTimeImmutable;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\{OrganizationOnboardingSession, StepHistoryEntry};
+use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -46,20 +47,28 @@ final class OrganizationOnboardingSessionTest extends TestCase
   public function testReconstituteFiltersInvalidCompletedAndSkippedSteps(): void
   {
     $session = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-550000000001',
-      userId: '550e8400-e29b-41d4-a716-550000000002',
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: null,
-      targetOrganizationName: null,
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION, 'invalid_step'],
-      skippedSteps: ['also_invalid', OrganizationOnboardingStep::INVITE_MEMBERS],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-550000000001',
+        userId: '550e8400-e29b-41d4-a716-550000000002',
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: null,
+        targetOrganizationName: null,
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION, 'invalid_step'],
+        skippedSteps: ['also_invalid', OrganizationOnboardingStep::INVITE_MEMBERS],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     self::assertSame([OrganizationOnboardingStep::CREATE_ORGANIZATION], $session->completedSteps());
@@ -74,20 +83,28 @@ final class OrganizationOnboardingSessionTest extends TestCase
     $rollback = new DeleteOrganizationRollbackAction('org-123');
 
     $session = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-550000000010',
-      userId: '550e8400-e29b-41d4-a716-550000000011',
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: 'org-123',
-      targetOrganizationName: 'My Org',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [$rollback],
-      stepHistory: [],
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-550000000010',
+        userId: '550e8400-e29b-41d4-a716-550000000011',
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: 'org-123',
+        targetOrganizationName: 'My Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [$rollback],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+      ),
     );
 
     self::assertSame('only', 'only');
@@ -584,21 +601,29 @@ final class OrganizationOnboardingSessionTest extends TestCase
     $dismissedAt = new DateTimeImmutable('2026-06-23T09:00:00+00:00');
 
     $session = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-550000000010',
-      userId: '550e8400-e29b-41d4-a716-550000000011',
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: 'org-123',
-      targetOrganizationName: 'My Org',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-06-23T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-06-23T09:00:00+00:00'),
-      dismissedAt: $dismissedAt,
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-550000000010',
+        userId: '550e8400-e29b-41d4-a716-550000000011',
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: 'org-123',
+        targetOrganizationName: 'My Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-06-23T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-06-23T09:00:00+00:00'),
+        dismissedAt: $dismissedAt,
+      ),
     );
 
     self::assertTrue($session->isDismissed());
@@ -613,20 +638,28 @@ final class OrganizationOnboardingSessionTest extends TestCase
   public function testAddStepHistoryAppendsTheEntryAndTouchesTheSession(): void
   {
     $session = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-550000000020',
-      userId: '550e8400-e29b-41d4-a716-550000000021',
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: 'org-123',
-      targetOrganizationName: 'My Org',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-06-23T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-06-23T09:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-550000000020',
+        userId: '550e8400-e29b-41d4-a716-550000000021',
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: 'org-123',
+        targetOrganizationName: 'My Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-06-23T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-06-23T09:00:00+00:00'),
+      ),
     );
 
     $before = $session->updatedAt();

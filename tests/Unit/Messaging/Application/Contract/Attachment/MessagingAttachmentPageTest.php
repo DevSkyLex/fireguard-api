@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\Contract\Attachment;
 
 use Messaging\Application\Contract\Attachment\MessagingAttachmentPage;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -29,10 +29,12 @@ final class MessagingAttachmentPageTest extends TestCase
       conversationId: 'conv-1',
       organizationId: 'org-1',
       uploadedByMemberId: 'member-1',
-      fileName: 'file.pdf',
-      storagePath: 'org-1/conv-1/file.pdf',
-      mimeType: 'application/pdf',
-      size: 100,
+      file: new MessagingAttachmentFile(
+        fileName: 'file.pdf',
+        storagePath: 'org-1/conv-1/file.pdf',
+        mimeType: 'application/pdf',
+        size: 100,
+      ),
     );
 
     $page = new MessagingAttachmentPage(items: [$attachment], page: 1, itemsPerPage: 10, total: 1);

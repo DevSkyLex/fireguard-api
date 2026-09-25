@@ -6,7 +6,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Reposi
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{MessageId, MessagingAttachmentId};
@@ -205,12 +205,14 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORG_ID,
       uploadedByMemberId: 'member-2',
-      fileName: 'final.png',
-      storagePath: 'messaging/' . $id . '-final',
-      mimeType: 'image/png',
-      size: 4096,
+      file: new MessagingAttachmentFile(
+        fileName: 'final.png',
+        storagePath: 'messaging/' . $id . '-final',
+        mimeType: 'image/png',
+        size: 4096,
+        label: 'Final revision',
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-02T11:00:00+00:00'),
-      label: 'Final revision',
     ));
     $this->entityManager->clear();
 
@@ -234,12 +236,14 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORG_ID,
       uploadedByMemberId: 'member-1',
-      fileName: $fileName,
-      storagePath: 'messaging/' . $id,
-      mimeType: 'application/pdf',
-      size: 1024,
+      file: new MessagingAttachmentFile(
+        fileName: $fileName,
+        storagePath: 'messaging/' . $id,
+        mimeType: 'application/pdf',
+        size: 1024,
+        label: null,
+      ),
       uploadedAt: $uploadedAt,
-      label: null,
     );
   }
 

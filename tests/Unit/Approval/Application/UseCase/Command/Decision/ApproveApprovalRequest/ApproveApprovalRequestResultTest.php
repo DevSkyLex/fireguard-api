@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest;
 
 use Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest\ApproveApprovalRequestResult;
-use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequest, ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -28,17 +28,14 @@ final class ApproveApprovalRequestResultTest extends TestCase
   {
     $decidedAt = new DateTimeImmutable('2026-01-20T00:00:00+00:00');
 
-    $request = ApprovalRequest::create(
-      id: ApprovalRequestId::fromString(self::REQUEST_ID),
-      organizationId: 'org-1',
-      actionType: 'equipment_decommission',
-      subjectId: 'equip-1',
-      requestedByMemberId: 'member-1',
-      requestedByUserId: 'user-1',
-      payload: [],
-      expiresAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
-      now: new DateTimeImmutable('2026-01-18T00:00:00+00:00'),
-    );
+    $request = ApprovalRequest::create(new ApprovalRequestCreation(
+      ApprovalRequestId::fromString(self::REQUEST_ID),
+      'org-1',
+      'equipment_decommission',
+      'equip-1',
+      new ApprovalRequestSubmission('member-1', 'user-1', []),
+      new ApprovalRequestSchedule(new DateTimeImmutable('2026-02-01T00:00:00+00:00'), new DateTimeImmutable('2026-01-18T00:00:00+00:00')),
+    ));
     $request->approve('approver-member', 'approver-user', 'approved', $decidedAt);
     $request->markExecuted($decidedAt);
 

@@ -13,8 +13,8 @@ use Webhook\Application\Contract\Http\WebhookHttpResponse;
 use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookHttpClientPort, WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
 use Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\{DeliverWebhookCommand, DeliverWebhookHandler};
 use Webhook\Domain\Exception\WebhookDeliveryAttemptFailedException;
-use Webhook\Domain\Model\Delivery\WebhookDelivery;
-use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
+use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 
 use function hash_hmac;
@@ -252,17 +252,21 @@ final class DeliverWebhookHandlerTest extends TestCase
       id: WebhookDeliveryId::fromString(self::DELIVERY_ID),
       subscriptionId: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: self::ORGANIZATION_ID,
-      eventType: 'intervention.published',
-      eventId: 'event-1',
-      payload: ['interventionId' => 'i-1'],
-      status: WebhookDeliveryStatus::PENDING,
-      attempts: $attempts,
-      createdAt: $now,
-      updatedAt: $now,
-      httpStatus: null,
-      lastError: null,
-      nextRetryAt: null,
-      deliveredAt: null,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: 'intervention.published',
+        eventId: 'event-1',
+        payload: ['interventionId' => 'i-1'],
+        createdAt: $now,
+        updatedAt: $now,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: WebhookDeliveryStatus::PENDING,
+        attempts: $attempts,
+        httpStatus: null,
+        lastError: null,
+        nextRetryAt: null,
+        deliveredAt: null,
+      ),
     );
   }
 
@@ -280,9 +284,7 @@ final class DeliverWebhookHandlerTest extends TestCase
       secretCiphertext: 'ciphertext',
       eventTypes: ['intervention.published'],
       isActive: true,
-      description: '',
-      createdAt: new DateTimeImmutable(),
-      updatedAt: new DateTimeImmutable(),
+      metadata: new RestoredWebhookSubscriptionMetadata('', new DateTimeImmutable(), new DateTimeImmutable()),
     );
   }
 }

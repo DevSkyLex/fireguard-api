@@ -228,28 +228,22 @@ final readonly class GetFacilityBuildingModelHandler implements QueryHandler
   private function buildOutline(array $floor, array $leafRooms): ?array
   {
     $planGeometry = $floor['planGeometry'];
-    if (null !== $planGeometry && $planGeometry['attachmentId'] === $floor['primaryPlanAttachmentId']) {
-      return [
+
+    return match (true) {
+      null !== $planGeometry && $planGeometry['attachmentId'] === $floor['primaryPlanAttachmentId'] => [
         'source' => 'plan_geometry',
         'points' => $planGeometry['points'],
-      ];
-    }
-
-    if ([] !== $leafRooms) {
-      return [
+      ],
+      [] !== $leafRooms => [
         'source' => 'rooms_bbox',
         'points' => $this->boundingBoxOf($leafRooms),
-      ];
-    }
-
-    if (null !== $floor['primaryPlanAttachmentId']) {
-      return [
+      ],
+      null !== $floor['primaryPlanAttachmentId'] => [
         'source' => 'image_rect',
         'points' => [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
-      ];
-    }
-
-    return null;
+      ],
+      default => null,
+    };
   }
 
   /**

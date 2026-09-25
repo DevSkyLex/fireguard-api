@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Otp\Domain\Model\Totp\TotpEnrollment;
+use Otp\Domain\Model\Totp\{TotpEnrollment, TotpEnrollmentAttempts, TotpEnrollmentSecrets};
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter;
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper;
@@ -46,12 +46,8 @@ final class TotpEnrollmentMapperTest extends TestCase
 
     $enrollment = TotpEnrollment::reconstitute(
       userId: self::USER_ID,
-      activeSecret: new TotpSecret(self::ACTIVE_SECRET),
-      activeConfirmedAt: $activeConfirmedAt,
-      pendingSecret: new TotpSecret(self::PENDING_SECRET),
-      pendingCreatedAt: $pendingCreatedAt,
-      attempts: 2,
-      maxAttempts: 5,
+      secrets: new TotpEnrollmentSecrets(new TotpSecret(self::ACTIVE_SECRET), $activeConfirmedAt, new TotpSecret(self::PENDING_SECRET), $pendingCreatedAt),
+      attemptState: new TotpEnrollmentAttempts(2, 5),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
     );
@@ -87,12 +83,8 @@ final class TotpEnrollmentMapperTest extends TestCase
 
     $enrollment = TotpEnrollment::reconstitute(
       userId: self::USER_ID,
-      activeSecret: null,
-      activeConfirmedAt: null,
-      pendingSecret: null,
-      pendingCreatedAt: null,
-      attempts: 0,
-      maxAttempts: 5,
+      secrets: new TotpEnrollmentSecrets(null, null, null, null),
+      attemptState: new TotpEnrollmentAttempts(0, 5),
       createdAt: $timestamp,
       updatedAt: $timestamp,
     );
@@ -209,12 +201,8 @@ final class TotpEnrollmentMapperTest extends TestCase
 
     return TotpEnrollment::reconstitute(
       userId: self::USER_ID,
-      activeSecret: new TotpSecret(self::ACTIVE_SECRET),
-      activeConfirmedAt: $timestamp,
-      pendingSecret: null,
-      pendingCreatedAt: null,
-      attempts: 0,
-      maxAttempts: 4,
+      secrets: new TotpEnrollmentSecrets(new TotpSecret(self::ACTIVE_SECRET), $timestamp, null, null),
+      attemptState: new TotpEnrollmentAttempts(0, 4),
       createdAt: $timestamp,
       updatedAt: $timestamp,
     );

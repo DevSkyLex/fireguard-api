@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Token\IssueToken;
 
-use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
+use OAuth\Application\Port\Outbound\Token\{AccessTokenGrantParameters, AccessTokenRepositoryPort, AccessTokenRequest, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent};
@@ -80,16 +80,18 @@ final readonly class IssueTokenHandler implements CommandHandler
   public function __invoke(IssueTokenCommand $command): IssueTokenResult
   {
     try {
-      $result = $this->authorizationServer->issueAccessToken(
+      $result = $this->authorizationServer->issueAccessToken(new AccessTokenRequest(
         grantType: $command->grantType,
         clientId: $command->clientId,
         clientSecret: $command->clientSecret,
-        scope: $command->scope,
-        refreshToken: $command->refreshToken,
-        code: $command->code,
-        redirectUri: $command->redirectUri,
-        codeVerifier: $command->codeVerifier,
-      );
+        grant: new AccessTokenGrantParameters(
+          scope: $command->scope,
+          refreshToken: $command->refreshToken,
+          code: $command->code,
+          redirectUri: $command->redirectUri,
+          codeVerifier: $command->codeVerifier,
+        ),
+      ));
 
       $context = $this->resolveTokenContext($command, $this->parseScopes($result->scope));
       $scopes = $context['scopes'];

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Infrastructure\Adapter\Notifier;
 
 use DateTimeImmutable;
-use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
+use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpGenerationOptions, OtpId, OtpPurpose};
 use Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -177,7 +177,7 @@ final class OtpNotifierAdapterTest extends TestCase
       purpose: OtpPurpose::LOGIN,
       channel: OtpChannel::EMAIL,
       recipient: 'user@example.com',
-      ttlSeconds: 0,
+      options: new OtpGenerationOptions(ttlSeconds: 0),
     );
     $mailer = new FakeMailer();
 
@@ -218,18 +218,22 @@ final class OtpNotifierAdapterTest extends TestCase
   private function createOtpWithoutPlainCode(OtpChannel $channel, string $recipient): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174000'),
-      challengeToken: ChallengeToken::fromString('challenge'),
-      userId: 'user-123',
-      purpose: OtpPurpose::LOGIN,
-      channel: $channel,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: $recipient,
-      expiresAt: new DateTimeImmutable('+5 minutes'),
-      maxAttempts: 3,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('2024-01-01 00:00:00'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174000'),
+        challengeToken: ChallengeToken::fromString('challenge'),
+        userId: 'user-123',
+        purpose: OtpPurpose::LOGIN,
+        channel: $channel,
+        recipient: $recipient,
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+5 minutes'),
+        maxAttempts: 3,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('2024-01-01 00:00:00'),
+      ),
     );
   }
   // #endregion

@@ -14,7 +14,7 @@ use Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\{
   ListConversationAttachmentsResult
 };
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingMessageRecord};
 use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
@@ -240,10 +240,12 @@ final class MessagingMediaProviderTest extends TestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: 'org-1',
       uploadedByMemberId: 'member-1',
-      fileName: 'file.pdf',
-      storagePath: 'org-1/conv-1/file.pdf',
-      mimeType: 'application/pdf',
-      size: 100,
+      file: new MessagingAttachmentFile(
+        fileName: 'file.pdf',
+        storagePath: 'org-1/conv-1/file.pdf',
+        mimeType: 'application/pdf',
+        size: 100,
+      ),
     );
   }
   // #endregion

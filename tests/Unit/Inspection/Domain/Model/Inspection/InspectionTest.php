@@ -11,15 +11,18 @@ use Inspection\Domain\Exception\{
   InspectionAlreadySubmittedException,
   InspectionNotSubmittedException
 };
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
   InspectionFacilityId,
+  InspectionFindingPatch,
   InspectionId,
   InspectionOrganizationId,
+  InspectionReferencePatch,
   InspectionResult,
   InspectionStatus,
+  InspectionTextPatch,
   Inspector
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -226,17 +229,21 @@ final class InspectionTest extends TestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString(self::INSP_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORG_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIP_ID),
-      inspector: Inspector::forUser(userId: 'user-1', name: 'Jane Roe'),
-      result: InspectionResult::PARTIAL,
-      status: InspectionStatus::SUBMITTED,
-      performedAt: $performedAt,
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIP_ID),
+        inspector: Inspector::forUser(userId: 'user-1', name: 'Jane Roe'),
+        facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+        checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::PARTIAL,
+        status: InspectionStatus::SUBMITTED,
+        performedAt: $performedAt,
+        notes: '  raw notes kept verbatim  ',
+        signature: 'signature-blob',
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
-      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
-      notes: '  raw notes kept verbatim  ',
-      signature: 'signature-blob',
     );
 
     self::assertSame(InspectionStatus::SUBMITTED, $inspection->status());
@@ -324,20 +331,26 @@ final class InspectionTest extends TestCase
     $newPerformedAt = new DateTimeImmutable('2026-02-20T12:00:00+00:00');
 
     $inspection->edit(
-      equipmentId: InspectionEquipmentId::fromString(self::NEW_EQUIP_ID),
-      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
-      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
-      result: InspectionResult::FAIL,
-      performedAt: $newPerformedAt,
-      notes: '  Edited notes  ',
-      signature: 'new-signature',
-      hasEquipmentId: true,
-      hasFacilityId: true,
-      hasChecklistId: true,
-      hasResult: true,
-      hasPerformedAt: true,
-      hasNotes: true,
-      hasSignature: true,
+      references: new InspectionReferencePatch(
+        equipmentId: InspectionEquipmentId::fromString(self::NEW_EQUIP_ID),
+        hasEquipmentId: true,
+        facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+        hasFacilityId: true,
+        checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+        hasChecklistId: true,
+      ),
+      finding: new InspectionFindingPatch(
+        result: InspectionResult::FAIL,
+        hasResult: true,
+        performedAt: $newPerformedAt,
+        hasPerformedAt: true,
+        text: new InspectionTextPatch(
+          notes: '  Edited notes  ',
+          hasNotes: true,
+          signature: 'new-signature',
+          hasSignature: true,
+        ),
+      ),
     );
 
     self::assertSame(self::NEW_EQUIP_ID, (string) $inspection->equipmentId());
@@ -381,13 +394,16 @@ final class InspectionTest extends TestCase
     );
 
     $inspection->edit(
-      hasEquipmentId: true,
-      hasFacilityId: true,
-      hasChecklistId: true,
-      hasResult: true,
-      hasPerformedAt: true,
-      hasNotes: true,
-      hasSignature: true,
+      references: new InspectionReferencePatch(
+        hasEquipmentId: true,
+        hasFacilityId: true,
+        hasChecklistId: true,
+      ),
+      finding: new InspectionFindingPatch(
+        hasResult: true,
+        hasPerformedAt: true,
+        text: new InspectionTextPatch(hasNotes: true, hasSignature: true),
+      ),
     );
 
     // Optional fields are cleared when flagged with null.
@@ -409,7 +425,7 @@ final class InspectionTest extends TestCase
 
     $this->expectException(InspectionAlreadyClosedException::class);
 
-    $inspection->edit(result: InspectionResult::FAIL, hasResult: true);
+    $inspection->edit(finding: new InspectionFindingPatch(result: InspectionResult::FAIL, hasResult: true));
   }
 
   #[Test]
@@ -420,7 +436,7 @@ final class InspectionTest extends TestCase
 
     $this->expectException(InspectionAlreadySubmittedException::class);
 
-    $inspection->edit(result: InspectionResult::FAIL, hasResult: true);
+    $inspection->edit(finding: new InspectionFindingPatch(result: InspectionResult::FAIL, hasResult: true));
   }
 
   // #region Helpers

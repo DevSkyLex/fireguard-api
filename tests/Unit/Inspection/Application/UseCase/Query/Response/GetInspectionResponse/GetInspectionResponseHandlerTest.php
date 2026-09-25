@@ -7,7 +7,7 @@ namespace Tests\Unit\Inspection\Application\UseCase\Query\Response\GetInspection
 use DateTimeImmutable;
 use Inspection\Application\Port\Outbound\InspectionResponseRepositoryPort;
 use Inspection\Application\UseCase\Query\Response\GetInspectionResponse\{GetInspectionResponseHandler, GetInspectionResponseQuery};
-use Inspection\Domain\Model\Response\InspectionResponse;
+use Inspection\Domain\Model\Response\{InspectionResponse, RestoredInspectionResponseState};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -101,12 +101,14 @@ final class GetInspectionResponseHandlerTest extends TestCase
       id: InspectionResponseId::fromString(self::RESPONSE_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      interventionId: null,
-      clientId: null,
-      status: InspectionResponseStatus::DRAFT,
-      revision: 7,
-      itemKey: 'pressure',
-      value: null,
+      state: new RestoredInspectionResponseState(
+        interventionId: null,
+        clientId: null,
+        status: InspectionResponseStatus::DRAFT,
+        revision: 7,
+        itemKey: 'pressure',
+        value: null,
+      ),
       createdAt: $now,
       updatedAt: $now,
     );

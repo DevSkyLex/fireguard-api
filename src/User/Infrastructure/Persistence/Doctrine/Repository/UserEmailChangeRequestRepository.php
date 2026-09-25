@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Domain\ValueObject\Email;
 use User\Application\Port\Outbound\EmailChangeRequestRepositoryPort;
-use User\Domain\Model\EmailChange\EmailChangeRequest;
+use User\Domain\Model\EmailChange\{EmailChangeRequest, RestoredEmailChangeTimeline};
 use User\Domain\ValueObject\UserId;
 use User\Infrastructure\Persistence\Doctrine\Record\UserEmailChangeRequestRecord;
 
@@ -162,9 +162,11 @@ final readonly class UserEmailChangeRequestRepository implements EmailChangeRequ
       currentEmail: new Email($record->currentEmail),
       newEmail: new Email($record->newEmail),
       tokenHash: $record->tokenHash,
-      requestedAt: $record->requestedAt,
-      expiresAt: $record->expiresAt,
-      confirmedAt: $record->confirmedAt,
+      timeline: new RestoredEmailChangeTimeline(
+        requestedAt: $record->requestedAt,
+        expiresAt: $record->expiresAt,
+        confirmedAt: $record->confirmedAt,
+      ),
     );
   }
   // #endregion

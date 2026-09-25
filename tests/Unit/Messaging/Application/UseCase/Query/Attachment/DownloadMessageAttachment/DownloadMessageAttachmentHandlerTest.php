@@ -11,7 +11,7 @@ use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, Mess
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment\{DownloadMessageAttachmentHandler, DownloadMessageAttachmentQuery};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException, MessagingNotFoundException};
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\{MessagingAttachmentId, MessagingSubjectType};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -255,11 +255,13 @@ final class DownloadMessageAttachmentHandlerTest extends TestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORG_ID,
       uploadedByMemberId: 'member-1',
-      fileName: 'report.pdf',
-      storagePath: 'messaging/' . self::CONVERSATION_ID . '/' . self::ATTACHMENT_ID . '-report.pdf',
-      mimeType: 'application/pdf',
-      size: 9,
-      label: null,
+      file: new MessagingAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'messaging/' . self::CONVERSATION_ID . '/' . self::ATTACHMENT_ID . '-report.pdf',
+        mimeType: 'application/pdf',
+        size: 9,
+        label: null,
+      ),
     );
   }
 

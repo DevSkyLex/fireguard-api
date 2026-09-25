@@ -17,6 +17,7 @@ use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -67,13 +68,17 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $maintenanceLogRepository->expects(self::once())->method('save');
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655442011',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
-      updatedAt: new DateTimeImmutable('-1 day'),
-      ownerUserId: '550e8400-e29b-41d4-a716-446655442011',
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655442011',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: new DateTimeImmutable('-1 day'),
+        ownerUserId: '550e8400-e29b-41d4-a716-446655442011',
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -406,13 +411,17 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $maintenanceLogRepository->expects(self::once())->method('save');
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655442012',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
-      updatedAt: new DateTimeImmutable('-1 day'),
-      ownerUserId: '550e8400-e29b-41d4-a716-446655442012',
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655442012',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
+      state: new RestoredOrganizationState(
+        updatedAt: new DateTimeImmutable('-1 day'),
+        ownerUserId: '550e8400-e29b-41d4-a716-446655442012',
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

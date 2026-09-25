@@ -11,7 +11,7 @@ use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Conversation\ArchiveConversation\{ArchiveConversationCommand, ArchiveConversationHandler};
 use Messaging\Domain\Event\Conversation\MessagingConversationArchivedEvent;
 use Messaging\Domain\Exception\MessagingNotFoundException;
-use Messaging\Domain\Model\Conversation\Conversation;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity};
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessagingSubjectType};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
@@ -124,12 +124,14 @@ final class ArchiveConversationHandlerTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       'facility-1',
-      ConversationVisibility::SUBJECT,
-      null,
-      0,
-      $archived,
-      $now,
-      $now,
+      new RestoredConversationActivity(
+        ConversationVisibility::SUBJECT,
+        null,
+        0,
+        $archived,
+        $now,
+        $now,
+      ),
     );
   }
 

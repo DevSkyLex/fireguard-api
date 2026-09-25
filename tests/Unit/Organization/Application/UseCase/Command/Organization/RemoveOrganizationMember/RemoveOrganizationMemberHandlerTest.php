@@ -13,7 +13,7 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\{RemoveOrganizationMemberCommand, RemoveOrganizationMemberHandler, RemoveOrganizationMemberResult};
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -40,11 +40,13 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
   public function testInvokeDeactivatesMemberWhenMemberBelongsToOrganization(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -194,11 +196,13 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsWhenMemberNotFound(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -250,11 +254,13 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
   public function testInvokeThrowsWhenMemberDoesNotBelongToOrganization(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $memberFromAnotherOrg = OrganizationMember::reconstitute(
@@ -314,11 +320,13 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
   public function testInvokeReturnsResultWhenNotificationDispatchFails(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -400,11 +408,13 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
   public function testInvokeDoesNotNotifyWhenMemberAlreadyInactive(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -467,11 +477,13 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
   public function testInvokePropagatesLastAdminExceptionAndPerformsNoWriteOrDispatch(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

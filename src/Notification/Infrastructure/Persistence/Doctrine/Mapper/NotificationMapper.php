@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, RestoredNotificationState};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationRecord;
 use Shared\Domain\ValueObject\Email;
@@ -73,13 +73,15 @@ final class NotificationMapper
       body: $record->body,
       channels: $record->channels,
       payload: $record->payload,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      recipientUserId: $record->recipientUserId,
-      recipientEmail: $recipientEmail,
-      isRead: $record->isRead,
-      readAt: $record->readAt,
-      organizationId: $record->organizationId,
+      restoredState: new RestoredNotificationState(
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        recipientUserId: $record->recipientUserId,
+        recipientEmail: $recipientEmail,
+        isRead: $record->isRead,
+        readAt: $record->readAt,
+        organizationId: $record->organizationId,
+      ),
     );
   }
   // #endregion

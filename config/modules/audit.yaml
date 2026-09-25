@@ -18,10 +18,6 @@ services:
   Audit\Application\UseCase\Command\RecordAuditEvent\RecordAuditEventHandler:
     tags: ['messenger.message_handler']
 
-  Audit\Infrastructure\EventSubscriber\AuditEventSubscriber:
-    arguments:
-      $eventConsumer: '@shared.auth_event_consumer'
-
   Audit\Application\UseCase\Query\GetAuditEvent\GetAuditEventHandler:
     tags: ['messenger.message_handler']
 

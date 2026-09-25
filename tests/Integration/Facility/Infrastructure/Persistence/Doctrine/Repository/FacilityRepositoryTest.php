@@ -7,7 +7,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Contract\Facility\FacilityListCriteria;
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
@@ -469,7 +469,9 @@ final class FacilityRepositoryTest extends KernelTestCase
       organizationId: $organizationId,
       type: FacilityType::ZONE,
       name: new FacilityName($name),
-      parentFacilityId: $parentFacilityId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentFacilityId,
+      ),
     );
     $facility->assignPlanGeometry(new PlanGeometry($attachmentId, $points));
 

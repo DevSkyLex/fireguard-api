@@ -16,6 +16,7 @@ use Onboarding\Application\Service\{
 };
 use Onboarding\Domain\Exception\{OnboardingStepNotExecutableException, UnsupportedOnboardingStepException};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
+use Onboarding\Domain\Model\OrganizationOnboardingSession\{RestoredOnboardingHistory, RestoredOnboardingIdentity, RestoredOnboardingStatus, RestoredOnboardingTimestamps};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
@@ -366,20 +367,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440193',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
-      blockedReason: null,
-      targetOrganizationId: null,
-      targetOrganizationName: null,
-      completedSteps: [],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440193',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        blockedReason: null,
+        targetOrganizationId: null,
+        targetOrganizationName: null,
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
@@ -406,23 +415,31 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440160';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440192',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::SELECT_PLAN,
-      ],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440192',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::SELECT_PLAN,
+        ],
+        skippedSteps: [],
+        rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -465,23 +482,31 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440161';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440191',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::SELECT_PLAN,
-      ],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440191',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::SELECT_PLAN,
+        ],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -549,25 +574,33 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440167';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440186',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::SELECT_PLAN,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-      ],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440186',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::SELECT_PLAN,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+          OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        ],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -621,23 +654,31 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440168';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440185',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [
-        OrganizationOnboardingStep::SELECT_PLAN,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-      ],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440185',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [
+          OrganizationOnboardingStep::SELECT_PLAN,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+        ],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     /**
@@ -671,25 +712,33 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440173';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440181',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::SELECT_PLAN,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-      ],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440181',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::SELECT_PLAN,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+          OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        ],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     /**
@@ -734,20 +783,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $otherOrgId = '550e8400-e29b-41d4-a716-446655440170';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440184',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Deleted Org',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440184',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Deleted Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     /**
@@ -783,23 +840,31 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440171';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440183',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [
-        OrganizationOnboardingStep::SELECT_PLAN,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-      ],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440183',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [
+          OrganizationOnboardingStep::SELECT_PLAN,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+        ],
+        rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -837,33 +902,41 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440172';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440182',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Deleted Org',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-      ],
-      skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
-      rollbackStack: [],
-      stepHistory: [
-        new \Onboarding\Domain\Model\OrganizationOnboardingSession\StepHistoryEntry(
-          stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
-          occurredAt: '2026-02-19T08:00:00+00:00',
-          skipped: false,
-        ),
-        new \Onboarding\Domain\Model\OrganizationOnboardingSession\StepHistoryEntry(
-          stepKey: OrganizationOnboardingStep::INVITE_MEMBERS,
-          occurredAt: '2026-02-19T09:00:00+00:00',
-          skipped: true,
-        ),
-      ],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440182',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Deleted Org',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        ],
+        skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
+        rollbackStack: [],
+        stepHistory: [
+          new \Onboarding\Domain\Model\OrganizationOnboardingSession\StepHistoryEntry(
+            stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+            occurredAt: '2026-02-19T08:00:00+00:00',
+            skipped: false,
+          ),
+          new \Onboarding\Domain\Model\OrganizationOnboardingSession\StepHistoryEntry(
+            stepKey: OrganizationOnboardingStep::INVITE_MEMBERS,
+            occurredAt: '2026-02-19T09:00:00+00:00',
+            skipped: true,
+          ),
+        ],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     /**
@@ -899,26 +972,34 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440180';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440230',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::SELECT_PLAN,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-      ],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440230',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::SELECT_PLAN,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+          OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+          OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        ],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     /**
@@ -957,20 +1038,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440181';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440231',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440231',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -1194,20 +1283,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     };
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440236',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [$unsupportedAction],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440236',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [$unsupportedAction],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -1277,21 +1374,29 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440188';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440238',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      dismissedAt: new DateTimeImmutable('2026-02-19T09:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440238',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        dismissedAt: new DateTimeImmutable('2026-02-19T09:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -1328,26 +1433,34 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440189';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440239',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: null,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::SELECT_PLAN,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-      ],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440239',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: null,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::SELECT_PLAN,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+          OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+          OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        ],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -1383,20 +1496,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440190';
 
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440240',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440240',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -1434,25 +1555,33 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     // Every step except the optional select_plan is already done; skipping it
     // is the last action needed to complete the flow.
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440241',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-      ],
-      skippedSteps: [],
-      rollbackStack: [],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440241',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [
+          OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          OrganizationOnboardingStep::INVITE_MEMBERS,
+          OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+          OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        ],
+        skippedSteps: [],
+        rollbackStack: [],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     $transactionManager = $this->createStub(TransactionManagerPort::class);
@@ -1502,20 +1631,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     // The rollback stack references an org id that no longer matches the pinned
     // target (e.g. the org was recreated externally): the stale stack is dropped.
     $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440242',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($staleOrgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: '550e8400-e29b-41d4-a716-446655440242',
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [new DeleteOrganizationRollbackAction($staleOrgId)],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
 
     /**
@@ -1685,20 +1822,28 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   private function buildRollbackableSession(string $userId, string $orgId, string $sessionId): OrganizationOnboardingSession
   {
     return OrganizationOnboardingSession::reconstitute(
-      id: $sessionId,
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      identity: new RestoredOnboardingIdentity(
+        id: $sessionId,
+        userId: $userId,
+        flow: 'organization',
+      ),
+      status: new RestoredOnboardingStatus(
+        state: OrganizationOnboardingState::IN_PROGRESS,
+        nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+        blockedReason: null,
+        targetOrganizationId: $orgId,
+        targetOrganizationName: 'Fireguard SAS',
+      ),
+      history: new RestoredOnboardingHistory(
+        completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+        skippedSteps: [],
+        rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+        stepHistory: [],
+      ),
+      timestamps: new RestoredOnboardingTimestamps(
+        createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      ),
     );
   }
 

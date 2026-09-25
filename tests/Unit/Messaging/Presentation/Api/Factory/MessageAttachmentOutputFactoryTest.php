@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Presentation\Api\Factory;
 
 use DateTimeImmutable;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -86,12 +86,14 @@ final class MessageAttachmentOutputFactoryTest extends TestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORGANIZATION_ID,
       uploadedByMemberId: self::MEMBER_ID,
-      fileName: 'plan.pdf',
-      storagePath: 'messaging/2026/plan.pdf',
-      mimeType: 'application/pdf',
-      size: 2048,
+      file: new MessagingAttachmentFile(
+        fileName: 'plan.pdf',
+        storagePath: 'messaging/2026/plan.pdf',
+        mimeType: 'application/pdf',
+        size: 2048,
+        label: $label,
+      ),
       uploadedAt: new DateTimeImmutable('2026-05-06T07:08:09+00:00'),
-      label: $label,
     );
   }
   // #endregion

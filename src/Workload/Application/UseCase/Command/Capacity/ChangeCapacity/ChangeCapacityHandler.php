@@ -73,36 +73,63 @@ final readonly class ChangeCapacityHandler implements CommandHandler
       $actor = self::activeActor($command, $members);
       $this->coordination->acquire($command->organizationId, null === $command->memberId ? [] : [$command->memberId], null === $command->memberId);
       if ('cancel_exception' === $command->kind) {
-        if (null === $command->memberId || null === $command->exceptionId || !$this->capacities->cancelException($command->organizationId, $command->memberId, $command->exceptionId, $actor)) {
-          throw new WorkloadNotFoundException('Availability exception not found.');
-        }
-
-        return new ChangeCapacityResult($command->exceptionId);
+        return $this->cancelException($command, $actor);
       }
       $weeks = $this->capacities->weeks($command->organizationId);
       $exceptions = $this->capacities->exceptions($command->organizationId);
       $id = $this->uuids->generate();
-      if ('week' === $command->kind) {
-        $week = new CapacityWeek($command->weekMinutes);
-        $date = LocalDate::fromString($command->effectiveOn ?? '');
-        $candidate = new CapacityWeekView($id, $command->memberId ?? $command->organizationId, $date->value, $week->minutes);
-        $weeks[] = $candidate;
-      } elseif ('exception' === $command->kind && null !== $command->memberId) {
-        $exception = new CapacityException(LocalDate::fromString($command->startsOn ?? ''), LocalDate::fromString($command->endsOn ?? ''), $command->minutes);
-        $candidateException = new CapacityExceptionView($id, $command->memberId, $exception->startsOn->value, $exception->endsOn->value, $exception->minutes);
-        $exceptions[] = $candidateException;
-      } else {
-        throw InvalidValueException::because('Invalid capacity change.');
-      }
-      self::validateSchedules($command, $members, $weeks, $exceptions);
-      if (isset($candidate)) {
-        $this->capacities->addWeek($command->organizationId, $candidate, $actor);
-      } elseif (isset($candidateException)) {
-        $this->capacities->addException($command->organizationId, $candidateException, $actor);
-      }
+      $this->saveCapacityChange($command, $members, $weeks, $exceptions, $id, $actor);
 
       return new ChangeCapacityResult($id);
     });
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param ChangeCapacityCommand $command the cancellation request
+   * @param string $actor the active member performing the change
+   */
+  private function cancelException(ChangeCapacityCommand $command, string $actor): ChangeCapacityResult
+  {
+    if (null === $command->memberId || null === $command->exceptionId || !$this->capacities->cancelException($command->organizationId, $command->memberId, $command->exceptionId, $actor)) {
+      throw new WorkloadNotFoundException('Availability exception not found.');
+    }
+
+    return new ChangeCapacityResult($command->exceptionId);
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param ChangeCapacityCommand $command the capacity change to persist
+   * @param list<OrganizationWorkforceMember> $members active workforce for schedule validation
+   * @param list<CapacityWeekView> $weeks existing weekly capacity changes
+   * @param list<CapacityExceptionView> $exceptions existing dated exceptions
+   * @param string $id generated identifier for the change
+   * @param string $actor active member performing the change
+   */
+  private function saveCapacityChange(ChangeCapacityCommand $command, array $members, array $weeks, array $exceptions, string $id, string $actor): void
+  {
+    if ('week' === $command->kind) {
+      $week = new CapacityWeek($command->weekMinutes);
+      $date = LocalDate::fromString($command->effectiveOn ?? '');
+      $candidate = new CapacityWeekView($id, $command->memberId ?? $command->organizationId, $date->value, $week->minutes);
+      $weeks[] = $candidate;
+    } elseif ('exception' === $command->kind && null !== $command->memberId) {
+      $exception = new CapacityException(LocalDate::fromString($command->startsOn ?? ''), LocalDate::fromString($command->endsOn ?? ''), $command->minutes);
+      $candidateException = new CapacityExceptionView($id, $command->memberId, $exception->startsOn->value, $exception->endsOn->value, $exception->minutes);
+      $exceptions[] = $candidateException;
+    } else {
+      throw InvalidValueException::because('Invalid capacity change.');
+    }
+
+    self::validateSchedules($command, $members, $weeks, $exceptions);
+    if (isset($candidate)) {
+      $this->capacities->addWeek($command->organizationId, $candidate, $actor);
+    } elseif (isset($candidateException)) {
+      $this->capacities->addException($command->organizationId, $candidateException, $actor);
+    }
   }
 
   /**

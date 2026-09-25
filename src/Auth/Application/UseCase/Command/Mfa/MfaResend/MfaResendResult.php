@@ -64,35 +64,23 @@ final readonly class MfaResendResult implements ResultMessage
   /**
    * Creates a successful result.
    *
-   * @param string $preAuthToken new pre-auth token
-   * @param string $challengeToken new challenge token
-   * @param string $mfaMethod MFA method (email, sms, totp)
-   * @param string $mfaDestination masked destination
-   * @param DateTimeImmutable $expiresAt OTP expiration timestamp
-   * @param int $maxAttempts max verification attempts
-   * @param int $canResendIn seconds until resend is allowed
+   * @param ResentMfaChallenge $challenge the new challenge and delivery details
    * @param string $message success message
    */
   public static function success(
-    string $preAuthToken,
-    string $challengeToken,
-    string $mfaMethod,
-    string $mfaDestination,
-    DateTimeImmutable $expiresAt,
-    int $maxAttempts,
-    int $canResendIn,
+    ResentMfaChallenge $challenge,
     string $message = 'A new MFA code has been sent.',
   ): self {
     return new self(
       success: true,
       message: $message,
-      preAuthToken: $preAuthToken,
-      challengeToken: $challengeToken,
-      mfaMethod: $mfaMethod,
-      mfaDestination: $mfaDestination,
-      expiresAt: $expiresAt,
-      maxAttempts: $maxAttempts,
-      canResendIn: $canResendIn,
+      preAuthToken: $challenge->preAuthToken,
+      challengeToken: $challenge->challengeToken,
+      mfaMethod: $challenge->mfaMethod,
+      mfaDestination: $challenge->mfaDestination,
+      expiresAt: $challenge->expiresAt,
+      maxAttempts: $challenge->maxAttempts,
+      canResendIn: $challenge->canResendIn,
     );
   }
 

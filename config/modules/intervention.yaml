@@ -153,6 +153,24 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  # Workflow collaborators share the gateway's main entity manager and
+  # participate in its single transaction; never fall back to auth.
+  Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowReader:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowMutationSupport:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowWriterRuntime:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Workflow\InterventionWorkflowWorkloadCoordinator:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'

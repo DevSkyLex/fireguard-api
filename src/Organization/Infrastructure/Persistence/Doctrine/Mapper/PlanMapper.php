@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Organization\Domain\Catalog\OrganizationQuotaCatalog;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, RestoredPlanMetadata};
 use Organization\Domain\ValueObject\{PlanId, PlanKey};
 use Organization\Infrastructure\Persistence\Doctrine\Record\PlanRecord;
 
@@ -52,10 +52,12 @@ final class PlanMapper
       limits: $limits,
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
-      description: $record->description,
-      isActive: $record->isActive,
-      isDefault: $record->isDefault,
-      sortOrder: $record->sortOrder,
+      metadata: new RestoredPlanMetadata(
+        description: $record->description,
+        isActive: $record->isActive,
+        isDefault: $record->isDefault,
+        sortOrder: $record->sortOrder,
+      ),
     );
   }
 

@@ -95,36 +95,24 @@ final readonly class OrganizationNotificationSettings
    *
    * @since 1.0.0
    *
-   * @param bool $emailEnabled whether email delivery is enabled
-   * @param bool $inAppEnabled whether in-app delivery is enabled
-   * @param bool $interventionPublished whether intervention publication notifies
-   * @param bool $interventionAssigned whether intervention assignment notifies
-   * @param bool $inspectionDue whether due inspections notify
-   * @param bool $nonConformityOpened whether opened non-conformities notify
-   * @param bool $nonConformitySlaBreached whether SLA-breaching non-conformities notify
-   * @param bool $memberInvited whether member invitations notify
-   * @param bool $weeklyDigest whether the weekly digest email is sent
+   * @param ?OrganizationNotificationChannels $channels enabled delivery channels
+   * @param ?OrganizationNotificationEvents $events enabled event categories
    */
   public function __construct(
-    bool $emailEnabled = true,
-    bool $inAppEnabled = true,
-    bool $interventionPublished = true,
-    bool $interventionAssigned = true,
-    bool $inspectionDue = true,
-    bool $nonConformityOpened = true,
-    bool $nonConformitySlaBreached = true,
-    bool $memberInvited = true,
-    bool $weeklyDigest = true,
+    ?OrganizationNotificationChannels $channels = null,
+    ?OrganizationNotificationEvents $events = null,
   ) {
-    $this->emailEnabled = $emailEnabled;
-    $this->inAppEnabled = $inAppEnabled;
-    $this->interventionPublished = $interventionPublished;
-    $this->interventionAssigned = $interventionAssigned;
-    $this->inspectionDue = $inspectionDue;
-    $this->nonConformityOpened = $nonConformityOpened;
-    $this->nonConformitySlaBreached = $nonConformitySlaBreached;
-    $this->memberInvited = $memberInvited;
-    $this->weeklyDigest = $weeklyDigest;
+    $channels ??= new OrganizationNotificationChannels();
+    $events ??= new OrganizationNotificationEvents();
+    $this->emailEnabled = $channels->emailEnabled;
+    $this->inAppEnabled = $channels->inAppEnabled;
+    $this->interventionPublished = $events->interventionPublished;
+    $this->interventionAssigned = $events->interventionAssigned;
+    $this->inspectionDue = $events->inspectionDue;
+    $this->nonConformityOpened = $events->nonConformityOpened;
+    $this->nonConformitySlaBreached = $events->nonConformitySlaBreached;
+    $this->memberInvited = $events->memberInvited;
+    $this->weeklyDigest = $events->weeklyDigest;
   }
   // #endregion
 
@@ -170,15 +158,19 @@ final readonly class OrganizationNotificationSettings
   public static function fromArray(array $data): self
   {
     return new self(
-      emailEnabled: (bool) ($data['email_enabled'] ?? true),
-      inAppEnabled: (bool) ($data['in_app_enabled'] ?? true),
-      interventionPublished: (bool) ($data['intervention_published'] ?? true),
-      interventionAssigned: (bool) ($data['intervention_assigned'] ?? true),
-      inspectionDue: (bool) ($data['inspection_due'] ?? true),
-      nonConformityOpened: (bool) ($data['non_conformity_opened'] ?? true),
-      nonConformitySlaBreached: (bool) ($data['non_conformity_sla_breached'] ?? true),
-      memberInvited: (bool) ($data['member_invited'] ?? true),
-      weeklyDigest: (bool) ($data['weekly_digest'] ?? true),
+      channels: new OrganizationNotificationChannels(
+        emailEnabled: (bool) ($data['email_enabled'] ?? true),
+        inAppEnabled: (bool) ($data['in_app_enabled'] ?? true),
+      ),
+      events: new OrganizationNotificationEvents(
+        interventionPublished: (bool) ($data['intervention_published'] ?? true),
+        interventionAssigned: (bool) ($data['intervention_assigned'] ?? true),
+        inspectionDue: (bool) ($data['inspection_due'] ?? true),
+        nonConformityOpened: (bool) ($data['non_conformity_opened'] ?? true),
+        nonConformitySlaBreached: (bool) ($data['non_conformity_sla_breached'] ?? true),
+        memberInvited: (bool) ($data['member_invited'] ?? true),
+        weeklyDigest: (bool) ($data['weekly_digest'] ?? true),
+      ),
     );
   }
   // #endregion

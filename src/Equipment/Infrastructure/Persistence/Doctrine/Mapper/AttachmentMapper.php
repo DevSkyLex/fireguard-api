@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
-use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, RestoredEquipmentAttachmentFile};
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
 use LogicException;
 
@@ -35,12 +35,14 @@ final class AttachmentMapper
     return EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString($record->id),
       equipmentId: EquipmentId::fromString($record->equipment->id),
-      fileName: $record->fileName,
-      storagePath: $record->storagePath,
-      mimeType: $record->mimeType,
-      size: $record->size,
+      file: new RestoredEquipmentAttachmentFile(
+        fileName: $record->fileName,
+        storagePath: $record->storagePath,
+        mimeType: $record->mimeType,
+        size: $record->size,
+        label: $record->label,
+      ),
       uploadedAt: $record->uploadedAt,
-      label: $record->label,
     );
   }
 

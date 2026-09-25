@@ -6,6 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use LogicException;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationRecord};
 use Shared\Domain\ValueObject\Email;
@@ -40,19 +41,25 @@ final class OrganizationInvitationMapper
     }
 
     return OrganizationInvitation::reconstitute(
-      id: OrganizationInvitationId::fromString($record->id),
-      organizationId: OrganizationId::fromString($record->organization->id),
-      email: new Email($record->email),
-      tokenHash: $record->tokenHash,
-      invitedByUserId: $record->invitedByUserId,
-      status: OrganizationInvitationStatus::from($record->status),
-      expiresAt: $record->expiresAt,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      acceptedAt: $record->acceptedAt,
-      acceptedByUserId: $record->acceptedByUserId,
-      revokedAt: $record->revokedAt,
-      revokedByUserId: $record->revokedByUserId,
+      identity: new RestoredInvitationIdentity(
+        id: OrganizationInvitationId::fromString($record->id),
+        organizationId: OrganizationId::fromString($record->organization->id),
+        email: new Email($record->email),
+        tokenHash: $record->tokenHash,
+        invitedByUserId: $record->invitedByUserId,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::from($record->status),
+        expiresAt: $record->expiresAt,
+        acceptedAt: $record->acceptedAt,
+        acceptedByUserId: $record->acceptedByUserId,
+        revokedAt: $record->revokedAt,
+        revokedByUserId: $record->revokedByUserId,
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+      ),
     );
   }
 

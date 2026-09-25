@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Port\Outbound;
 
+use Intervention\Application\Contract\Activity\InterventionActivityAppendRequest;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
 
 /**
@@ -31,26 +32,11 @@ interface InterventionActivityPort
    *
    * @since 1.0.0
    *
-   * @param string $interventionId the intervention id value
-   * @param string $organizationId the owning organization id value
-   * @param ?string $actorId the acting organization member id, or null for pure-system activities
-   * @param string $kind the activity kind (`comment` or `system`)
-   * @param string $event the activity event (`comment`, `created`, or `status_changed`)
-   * @param ?string $body the comment body, or null for system events
-   * @param ?array<string, mixed> $payload structured event data, or null
+   * @param InterventionActivityAppendRequest $request the activity and its owner
    *
    * @return InterventionWorkflowView the appended activity view
    */
-  public function append(
-    string $interventionId,
-    string $organizationId,
-    ?string $actorId,
-    string $kind,
-    string $event,
-    ?string $body,
-    ?array $payload,
-    ?string $clientId = null,
-  ): InterventionWorkflowView;
+  public function append(InterventionActivityAppendRequest $request): InterventionWorkflowView;
 
   /**
    * Method listByIntervention.

@@ -61,22 +61,22 @@ final readonly class OidcUserProviderAdapter implements OidcUserProviderPort
       return null;
     }
 
-    if (null === $result->user) {
-      return null;
+    $user = $result->user;
+    $oidcUser = null;
+    if (null !== $user) {
+      $oidcUser = new OidcUser(
+        subject: $user->id,
+        preferredUsername: $user->username,
+        email: $user->email,
+        emailVerified: $user->emailVerified,
+        givenName: $user->firstName,
+        familyName: $user->lastName,
+        pictureUrl: $user->avatarUrl,
+        authTime: $user->lastLoginAt,
+      );
     }
 
-    $user = $result->user;
-
-    return new OidcUser(
-      subject: $user->id,
-      preferredUsername: $user->username,
-      email: $user->email,
-      emailVerified: $user->emailVerified,
-      givenName: $user->firstName,
-      familyName: $user->lastName,
-      pictureUrl: $user->avatarUrl,
-      authTime: $user->lastLoginAt,
-    );
+    return $oidcUser;
   }
   // #endregion
 }

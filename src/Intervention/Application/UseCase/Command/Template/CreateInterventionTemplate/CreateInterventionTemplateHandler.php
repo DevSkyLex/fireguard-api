@@ -6,6 +6,7 @@ namespace Intervention\Application\UseCase\Command\Template\CreateInterventionTe
 
 use DateInterval;
 use Exception;
+use Intervention\Application\Contract\Template\{InterventionTemplateAttributes, InterventionTemplateCreateRequest, InterventionTemplateDefaults};
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionType};
@@ -70,18 +71,13 @@ final readonly class CreateInterventionTemplateHandler implements CommandHandler
     $items = self::validatedItems($command->items);
 
     return new CreateInterventionTemplateResult(
-      $this->templates->create(
-        organizationId: $command->organizationId,
-        name: $name,
-        description: $command->description,
-        type: $type,
-        priority: $priority,
-        defaultSiteId: $command->defaultSiteId,
-        defaultResponsibleId: $command->defaultResponsibleId,
-        duration: $duration,
-        labelIds: $command->labelIds,
-        items: $items,
-      ),
+      $this->templates->create(new InterventionTemplateCreateRequest(
+        $command->organizationId,
+        new InterventionTemplateAttributes($name, $command->description, $type, $priority, $duration),
+        new InterventionTemplateDefaults($command->defaultSiteId, $command->defaultResponsibleId),
+        $command->labelIds,
+        $items,
+      )),
     );
   }
 

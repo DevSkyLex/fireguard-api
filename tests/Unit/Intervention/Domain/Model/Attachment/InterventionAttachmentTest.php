@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Domain\Model\Attachment;
 
 use DateTimeImmutable;
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -32,11 +32,8 @@ final class InterventionAttachmentTest extends TestCase
     $attachment = InterventionAttachment::create(
       InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
       self::INTERVENTION_ID,
-      'evidence.jpg',
-      '/storage/evidence.jpg',
-      'image/jpeg',
-      2048,
-      'Before repair',
+      new InterventionAttachmentFile('evidence.jpg', '/storage/evidence.jpg', 'image/jpeg', 2048),
+      new InterventionAttachmentOptions(label: 'Before repair'),
     );
 
     self::assertSame(self::ATTACHMENT_ID, (string) $attachment->id());
@@ -55,10 +52,7 @@ final class InterventionAttachmentTest extends TestCase
     $attachment = InterventionAttachment::create(
       InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
       self::INTERVENTION_ID,
-      'report.pdf',
-      '/storage/report.pdf',
-      'application/pdf',
-      1024,
+      new InterventionAttachmentFile('report.pdf', '/storage/report.pdf', 'application/pdf', 1024),
     );
 
     self::assertNull($attachment->label());
@@ -72,12 +66,9 @@ final class InterventionAttachmentTest extends TestCase
     $attachment = InterventionAttachment::reconstitute(
       InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
       self::INTERVENTION_ID,
-      'photo.png',
-      '/storage/photo.png',
-      'image/png',
-      512,
+      new InterventionAttachmentFile('photo.png', '/storage/photo.png', 'image/png', 512),
       $uploadedAt,
-      'Site',
+      new InterventionAttachmentOptions(label: 'Site'),
     );
 
     self::assertSame($uploadedAt, $attachment->uploadedAt());
@@ -91,10 +82,7 @@ final class InterventionAttachmentTest extends TestCase
     $attachment = InterventionAttachment::create(
       InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
       self::INTERVENTION_ID,
-      'evidence.jpg',
-      '/storage/evidence.jpg',
-      'image/jpeg',
-      2048,
+      new InterventionAttachmentFile('evidence.jpg', '/storage/evidence.jpg', 'image/jpeg', 2048),
     );
 
     self::assertSame(InterventionAttachmentKind::FILE, $attachment->kind());
@@ -104,13 +92,10 @@ final class InterventionAttachmentTest extends TestCase
   public function testCreateAcceptsTheSignatureKind(): void
   {
     $attachment = InterventionAttachment::create(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'signature.png',
-      storagePath: '/storage/signature.png',
-      mimeType: 'image/png',
-      size: 1024,
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('signature.png', '/storage/signature.png', 'image/png', 1024),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     );
 
     self::assertSame(InterventionAttachmentKind::SIGNATURE, $attachment->kind());
@@ -120,14 +105,11 @@ final class InterventionAttachmentTest extends TestCase
   public function testReconstitutePreservesThePersistedKind(): void
   {
     $attachment = InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'signature.png',
-      storagePath: '/storage/signature.png',
-      mimeType: 'image/png',
-      size: 1024,
-      uploadedAt: new DateTimeImmutable('2026-01-02T03:04:05+00:00'),
-      kind: InterventionAttachmentKind::SIGNATURE,
+      InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('signature.png', '/storage/signature.png', 'image/png', 1024),
+      new DateTimeImmutable('2026-01-02T03:04:05+00:00'),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     );
 
     self::assertSame(InterventionAttachmentKind::SIGNATURE, $attachment->kind());

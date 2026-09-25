@@ -13,7 +13,7 @@ use Auth\Application\UseCase\Command\Registration\ConfirmRegistration\{
 use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use DateTimeImmutable;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -368,18 +368,22 @@ final class ConfirmRegistrationHandlerTest extends TestCase
   private function reconstitutedOtp(DateTimeImmutable $expiresAt, int $maxAttempts, int $attempts): Otp
   {
     return Otp::reconstitute(
-      id: new OtpId(self::OTP_ID),
-      challengeToken: ChallengeToken::fromString(self::TOKEN),
-      userId: self::USER_ID,
-      purpose: OtpPurpose::EMAIL_VERIFICATION,
-      channel: OtpChannel::EMAIL,
-      codeHash: self::UNUSED_CODE_HASH,
-      recipient: self::EMAIL,
-      expiresAt: $expiresAt,
-      maxAttempts: $maxAttempts,
-      attempts: $attempts,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('-2 hours'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId(self::OTP_ID),
+        challengeToken: ChallengeToken::fromString(self::TOKEN),
+        userId: self::USER_ID,
+        purpose: OtpPurpose::EMAIL_VERIFICATION,
+        channel: OtpChannel::EMAIL,
+        recipient: self::EMAIL,
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: self::UNUSED_CODE_HASH,
+        expiresAt: $expiresAt,
+        maxAttempts: $maxAttempts,
+        attempts: $attempts,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('-2 hours'),
+      ),
     );
   }
 

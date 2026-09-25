@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\Model\MaintenanceLog\{EquipmentMaintenanceLog, InterventionMaintenanceDetails};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId, MaintenanceLogSource};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\MaintenanceLogMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentMaintenanceLogRecord, EquipmentRecord};
@@ -85,11 +85,13 @@ final class MaintenanceLogMapperTest extends TestCase
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       occurredAt: $occurredAt,
-      interventionId: self::INTERVENTION_ID,
-      interventionNumber: 9,
-      workItemAction: 'update',
-      actorId: '550e8400-e29b-41d4-a716-446655481006',
-      summary: 'Inventory pass',
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: self::INTERVENTION_ID,
+        interventionNumber: 9,
+        workItemAction: 'update',
+        actorId: '550e8400-e29b-41d4-a716-446655481006',
+        summary: 'Inventory pass',
+      ),
     );
 
     $record = MaintenanceLogMapper::toRecord($log);

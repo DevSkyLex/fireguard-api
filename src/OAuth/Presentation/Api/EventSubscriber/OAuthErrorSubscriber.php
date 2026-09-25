@@ -116,90 +116,57 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
       return $this->buildError('invalid_request', $violationsDescription, 400, $operationName);
     }
 
-    if ($exception instanceof OAuthAuthorizationException) {
-      $status = $exception->getCode() > 0 ? $exception->getCode() : 400;
-
-      return $this->buildError(
+    return match (true) {
+      $exception instanceof OAuthAuthorizationException => $this->buildError(
         $exception->errorType(),
         $exception->getMessage(),
-        $status,
+        $exception->getCode() > 0 ? $exception->getCode() : 400,
         $operationName,
-      );
-    }
-
-    if ($exception instanceof OAuthServerException) {
-      return $this->buildError(
+      ),
+      $exception instanceof OAuthServerException => $this->buildError(
         $exception->getErrorType(),
         $exception->getMessage(),
         $exception->getHttpStatusCode(),
         $operationName,
-      );
-    }
-
-    if ($exception instanceof InvalidGrantTypeException) {
-      return $this->buildError('unsupported_grant_type', $exception->getMessage(), 400, $operationName);
-    }
-
-    if ($exception instanceof UnauthorizedGrantTypeException) {
-      return $this->buildError('unauthorized_client', $exception->getMessage(), 400, $operationName);
-    }
-
-    if ($exception instanceof InvalidScopeException) {
-      return $this->buildError('invalid_scope', $exception->getMessage(), 400, $operationName);
-    }
-
-    if ($exception instanceof InvalidClientException) {
-      return $this->buildError('invalid_client', $exception->getMessage(), 401, $operationName);
-    }
-
-    if ($exception instanceof InvalidOAuthClientIdentifierException) {
-      return $this->buildError('invalid_request', $exception->getMessage(), 400, $operationName);
-    }
-
-    if ($exception instanceof InvalidRedirectUriException) {
-      return $this->buildError('invalid_request', $exception->getMessage(), 400, $operationName);
-    }
-
-    if ($exception instanceof AuthenticationException || $exception instanceof AccessDeniedException) {
-      return $this->buildSecurityError($exception, $operationName);
-    }
-
-    if ($exception instanceof HttpExceptionInterface) {
-      return $this->buildHttpExceptionError($exception, $operationName);
-    }
-
-    return $this->buildError('server_error', null, 500, $operationName);
+      ),
+      $exception instanceof InvalidGrantTypeException => $this->buildError('unsupported_grant_type', $exception->getMessage(), 400, $operationName),
+      $exception instanceof UnauthorizedGrantTypeException => $this->buildError('unauthorized_client', $exception->getMessage(), 400, $operationName),
+      $exception instanceof InvalidScopeException => $this->buildError('invalid_scope', $exception->getMessage(), 400, $operationName),
+      $exception instanceof InvalidClientException => $this->buildError('invalid_client', $exception->getMessage(), 401, $operationName),
+      $exception instanceof InvalidOAuthClientIdentifierException => $this->buildError('invalid_request', $exception->getMessage(), 400, $operationName),
+      $exception instanceof InvalidRedirectUriException => $this->buildError('invalid_request', $exception->getMessage(), 400, $operationName),
+      $exception instanceof AuthenticationException || $exception instanceof AccessDeniedException => $this->buildSecurityError($exception, $operationName),
+      $exception instanceof HttpExceptionInterface => $this->buildHttpExceptionError($exception, $operationName),
+      default => $this->buildError('server_error', null, 500, $operationName),
+    };
   }
 
   private function unwrapMessengerException(Throwable $exception): Throwable
   {
+    $unwrapped = null;
     if ($exception instanceof MessengerRuntimeException) {
       $previous = $exception->getPrevious();
 
       if ($previous instanceof HandlerFailedException) {
-        $nestedException = $this->oauthWrappedException($previous);
-        if (null !== $nestedException) {
-          return $nestedException;
-        }
+        $unwrapped = $this->oauthWrappedException($previous);
       }
 
-      while ($previous) {
+      while (null === $unwrapped && null !== $previous) {
         if ($previous instanceof OAuthAuthorizationException || $previous instanceof OAuthServerException) {
-          return $previous;
+          $unwrapped = $previous;
+
+          break;
         }
 
         $previous = $previous->getPrevious();
       }
     }
 
-    if ($exception instanceof HandlerFailedException) {
-      $nestedException = $this->oauthWrappedException($exception);
-      if (null !== $nestedException) {
-        return $nestedException;
-      }
+    if (null === $unwrapped && $exception instanceof HandlerFailedException) {
+      $unwrapped = $this->oauthWrappedException($exception);
     }
 
-    return $exception;
+    return $unwrapped ?? $exception;
   }
 
   private function oauthWrappedException(HandlerFailedException $exception): ?Throwable
@@ -303,31 +270,21 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
 
   private function normalizeDescription(string $error, ?string $description): string
   {
-    if ('invalid_client' === $error) {
-      return 'Client authentication failed.';
-    }
-
-    if ('server_error' === $error) {
-      return 'The authorization server encountered an unexpected condition.';
-    }
-
-    if ('temporarily_unavailable' === $error) {
-      return 'The authorization server is temporarily unavailable.';
-    }
-
     $normalized = trim((string) $description);
-    if ('' !== $normalized) {
-      return $normalized;
-    }
 
     return match ($error) {
-      'invalid_request' => 'Invalid request.',
-      'invalid_grant' => 'Invalid grant.',
-      'invalid_scope' => 'Invalid scope.',
-      'unauthorized_client' => 'Unauthorized client.',
-      'unsupported_grant_type' => 'Unsupported grant type.',
-      'access_denied' => 'Access denied.',
-      default => 'Authorization error.',
+      'invalid_client' => 'Client authentication failed.',
+      'server_error' => 'The authorization server encountered an unexpected condition.',
+      'temporarily_unavailable' => 'The authorization server is temporarily unavailable.',
+      default => '' !== $normalized ? $normalized : match ($error) {
+        'invalid_request' => 'Invalid request.',
+        'invalid_grant' => 'Invalid grant.',
+        'invalid_scope' => 'Invalid scope.',
+        'unauthorized_client' => 'Unauthorized client.',
+        'unsupported_grant_type' => 'Unsupported grant type.',
+        'access_denied' => 'Access denied.',
+        default => 'Authorization error.',
+      },
     };
   }
 
@@ -374,11 +331,7 @@ final class OAuthErrorSubscriber implements EventSubscriberInterface
       $messages[] = $message;
     }
 
-    if ([] === $messages) {
-      return null;
-    }
-
-    return implode('; ', $messages);
+    return [] === $messages ? null : implode('; ', $messages);
   }
   // #endregion
 }

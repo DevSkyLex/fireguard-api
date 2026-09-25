@@ -11,7 +11,7 @@ use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole
 use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Exception\OrganizationSystemRoleImmutableException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -35,11 +35,13 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
   public function testInvokeDeletesNonSystemRole(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $role = OrganizationRole::reconstitute(
@@ -139,11 +141,13 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
   public function testInvokeThrowsWhenRoleNotFound(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -185,11 +189,13 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
   public function testInvokeThrowsWhenRoleDoesNotBelongToOrganization(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $roleFromAnotherOrg = OrganizationRole::reconstitute(
@@ -240,11 +246,13 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
   public function testInvokeThrowsWhenAttemptingToDeleteSystemRole(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $systemRole = OrganizationRole::reconstitute(
@@ -296,11 +304,13 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
   public function testInvokePropagatesLastAdminExceptionAndPerformsNoRemoveOrDispatch(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Paris'),
-      createdByUserId: self::USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Paris'),
+        createdByUserId: self::USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

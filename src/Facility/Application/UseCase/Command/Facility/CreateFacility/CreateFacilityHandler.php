@@ -18,7 +18,7 @@ use Facility\Domain\Exception\{
   FacilityNotFoundException,
   FacilityOrganizationNotFoundException
 };
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
@@ -117,12 +117,14 @@ final readonly class CreateFacilityHandler implements CommandHandler
         organizationId: $organizationId,
         type: FacilityType::from($command->type),
         name: new FacilityName($command->name),
-        parentFacilityId: $parentId,
-        code: $command->code,
-        address: $command->address,
-        metadata: $command->metadata,
-        coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
-        levelIndex: $command->levelIndex,
+        details: new FacilityDetails(
+          parentFacilityId: $parentId,
+          code: $command->code,
+          address: $command->address,
+          metadata: $command->metadata,
+          coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
+          levelIndex: $command->levelIndex,
+        ),
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);

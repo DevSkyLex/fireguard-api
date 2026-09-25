@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Organization\Application\Support;
 
+use BackedEnum;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function array_sum;
+use function count;
 use function in_array;
 use function max;
 use function round;
@@ -257,11 +259,8 @@ final class DashboardSeriesBuilder
     if ($days > 180) {
       return 'month';
     }
-    if ($days > 45) {
-      return 'week';
-    }
 
-    return 'day';
+    return $days > 45 ? 'week' : 'day';
   }
 
   /**
@@ -292,6 +291,134 @@ final class DashboardSeriesBuilder
     $normalized = [];
     foreach ($series as $bucket => $value) {
       $normalized[] = ['bucket' => $bucket, 'value' => $value];
+    }
+
+    return $normalized;
+  }
+
+  /**
+   * Method percentage.
+   *
+   * Calculate a percentage value with safe
+   * division and rounding.
+   *
+   * @since 1.0.0
+   *
+   * @param int $numerator the numerator for the percentage calculation
+   * @param int $denominator the denominator for the percentage calculation
+   *
+   * @return float the calculated percentage, rounded to 2 decimal places. Returns 0.0
+   *               if denominator is zero or negative to avoid division errors.
+   */
+  public static function percentage(int $numerator, int $denominator): float
+  {
+    return $denominator <= 0 ? 0.0 : round(($numerator / $denominator) * 100, 2);
+  }
+
+  /**
+   * Method relativeDeltaFloat.
+   *
+   * Calculate the relative percentage change between two float values,
+   * handling division by zero and rounding.
+   *
+   * @since 1.0.0
+   *
+   * @param float $current the current value for which to calculate the delta
+   * @param float $previous the previous value to compare against for the delta calculation
+   *
+   * @return float the calculated relative delta as a percentage, rounded to 2 decimal
+   *               places. If the previous value is zero, returns 100.0 if the current value is greater
+   *               than zero, or 0.0 otherwise.
+   */
+  public static function relativeDeltaFloat(float $current, float $previous): float
+  {
+    if (0.0 === $previous) {
+      return $current > 0.0 ? 100.0 : 0.0;
+    }
+
+    return round((($current - $previous) / $previous) * 100, 2);
+  }
+
+  /**
+   * Method buildRunningTotalSeries.
+   *
+   * Builds a per-day running-total sparkline series from a by-day
+   * creation/occurrence map, anchored on the CURRENT KPI total. Walks
+   * the period backward from the last day to the first, subtracting
+   * each day's count so that `value(bucket b) = anchorTotal -
+   * sum(byDayMap[b+1..periodEnd])`, clamped at zero.
+   *
+   * This is exact when the period ends at (or near) "now" (the default
+   * dashboard window), because the anchor IS the current total. For an
+   * explicitly historical window (a `to` in the past), the anchor still
+   * reflects the CURRENT total, so the series is an approximation of
+   * what the historical totals actually were at each bucket.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, int> $byDayMap map of YYYY-MM-DD => count created/occurred that day
+   * @param int $anchorTotal the current KPI total the series is anchored on
+   * @param DateTimeImmutable $periodStart the inclusive period start
+   * @param DateTimeImmutable $periodEnd the inclusive period end
+   * @param DateTimeZone $timeZone the timezone used to enumerate day buckets
+   *
+   * @return list<array{bucket: string, value: int}> one point per day, in chronological order
+   */
+  public static function buildRunningTotalSeries(array $byDayMap, int $anchorTotal, DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, DateTimeZone $timeZone): array
+  {
+    $days = [];
+    for (
+      $cursor = $periodStart->setTimezone($timeZone)->setTime(0, 0),
+      $lastDay = $periodEnd->setTimezone($timeZone)->setTime(0, 0);
+      $cursor <= $lastDay;
+      $cursor = $cursor->add(new DateInterval('P1D'))
+    ) {
+      $days[] = $cursor->format('Y-m-d');
+    }
+
+    $cumulativeAfter = 0;
+    $valueByDay = [];
+    for ($index = count($days) - 1; $index >= 0; --$index) {
+      $day = $days[$index];
+      $valueByDay[$day] = max(0, $anchorTotal - $cumulativeAfter);
+      $cumulativeAfter += $byDayMap[$day] ?? 0;
+    }
+
+    $series = [];
+    foreach ($days as $day) {
+      $series[] = ['bucket' => $day, 'value' => $valueByDay[$day]];
+    }
+
+    return $series;
+  }
+
+  /**
+   * Method normalizeBreakdown.
+   *
+   * Normalize a breakdown of counts by enum cases, ensuring that all cases are
+   * represented with a count, even if zero. This is useful for ensuring consistent
+   * output in dashboard metrics where certain categories
+   * may have no occurrences.
+   *
+   * @since 1.0.0
+   *
+   * @param array<int|string, int> $counts an associative array of counts indexed by enum
+   *                                       case values, which may be incomplete and missing some cases
+   * @param list<BackedEnum> $cases a list of all possible enum cases that should be
+   *                                included in the normalized breakdown, ensuring that any missing cases in the
+   *                                counts are filled with a count of zero
+   *
+   * @return array<int|string, int> an associative array where keys are enum case values
+   *                                and values are the corresponding counts, with all cases from the provided list
+   *                                included and missing cases filled with a count of zero
+   */
+  public static function normalizeBreakdown(array $counts, array $cases): array
+  {
+    /** @var array<int|string, int> $normalized */
+    $normalized = [];
+    foreach ($cases as $case) {
+      /** @var BackedEnum $case */
+      $normalized[$case->value] = (int) ($counts[$case->value] ?? 0);
     }
 
     return $normalized;

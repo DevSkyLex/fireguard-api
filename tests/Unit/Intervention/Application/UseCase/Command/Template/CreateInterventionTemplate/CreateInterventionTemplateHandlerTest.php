@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\UseCase\Command\Template\CreateInterventionTemplate;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Template\InterventionTemplateView;
+use Intervention\Application\Contract\Template\{InterventionTemplateCreateRequest, InterventionTemplateView};
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Application\UseCase\Command\Template\CreateInterventionTemplate\{CreateInterventionTemplateCommand, CreateInterventionTemplateHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
@@ -35,18 +35,16 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::once())
       ->method('create')
-      ->with(
-        self::ORGANIZATION_ID,
-        'Fire safety audit',
-        'A description',
-        'inspection_campaign',
-        'high',
-        null,
-        null,
-        'P14D',
-        ['label-1'],
-        [['action' => 'inspection', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null, 'estimatedMinutes' => null]],
-      )
+      ->with(self::callback(static fn (InterventionTemplateCreateRequest $request): bool => self::ORGANIZATION_ID === $request->organizationId
+        && 'Fire safety audit' === $request->attributes->name
+        && 'A description' === $request->attributes->description
+        && 'inspection_campaign' === $request->attributes->type
+        && 'high' === $request->attributes->priority
+        && null === $request->defaults->siteId
+        && null === $request->defaults->responsibleId
+        && 'P14D' === $request->attributes->duration
+        && ['label-1'] === $request->labelIds
+        && [['action' => 'inspection', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null, 'estimatedMinutes' => null]] === $request->items))
       ->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);

@@ -333,24 +333,26 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
     }
 
     if (str_starts_with($value, '/')) {
-      return $this->buildAbsoluteUrl(
+      $resolved = $this->buildAbsoluteUrl(
         baseUrl: $baseUrl,
         path: $value,
       );
+    } else {
+      try {
+        $resolved = $this->urlGenerator->generate(
+          name: $value,
+          parameters: [],
+          referenceType: UrlGeneratorInterface::ABSOLUTE_URL,
+        );
+      } catch (RouteNotFoundException) {
+        $resolved = $this->buildAbsoluteUrl(
+          baseUrl: $baseUrl,
+          path: $value,
+        );
+      }
     }
 
-    try {
-      return $this->urlGenerator->generate(
-        name: $value,
-        parameters: [],
-        referenceType: UrlGeneratorInterface::ABSOLUTE_URL,
-      );
-    } catch (RouteNotFoundException) {
-      return $this->buildAbsoluteUrl(
-        baseUrl: $baseUrl,
-        path: $value,
-      );
-    }
+    return $resolved;
   }
 
   /**

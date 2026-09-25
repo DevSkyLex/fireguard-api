@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Inspection\Domain\Model\Attachment\InspectionAttachment;
-use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId};
+use Inspection\Domain\ValueObject\{InspectionAttachmentId, InspectionId, NonConformityId, RestoredInspectionAttachmentFile};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionAttachmentRecord, InspectionRecord, NonConformityRecord};
 use LogicException;
 
@@ -35,15 +35,17 @@ final class InspectionAttachmentMapper
     return InspectionAttachment::reconstitute(
       id: InspectionAttachmentId::fromString($record->id),
       inspectionId: InspectionId::fromString($record->inspection->id),
-      fileName: $record->fileName,
-      storagePath: $record->storagePath,
-      mimeType: $record->mimeType,
-      size: $record->size,
+      file: new RestoredInspectionAttachmentFile(
+        fileName: $record->fileName,
+        storagePath: $record->storagePath,
+        mimeType: $record->mimeType,
+        size: $record->size,
+        label: $record->label,
+      ),
       uploadedAt: $record->uploadedAt,
       nonConformityId: $record->nonConformity instanceof NonConformityRecord
         ? NonConformityId::fromString($record->nonConformity->id)
         : null,
-      label: $record->label,
     );
   }
 

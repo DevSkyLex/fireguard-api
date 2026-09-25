@@ -6,7 +6,7 @@ namespace Tests\Unit\Authorization\Infrastructure\Persistence\Doctrine\Repositor
 
 use Authorization\Application\Service\AuthorizationCacheInvalidator;
 use Authorization\Domain\Model\Permission\Permission;
-use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\Model\Role\{RestoredRoleState, Role};
 use Authorization\Domain\ValueObject\{PermissionId, PermissionName, RoleId, RoleName, SubjectType};
 use Authorization\Infrastructure\Persistence\Doctrine\Mapper\{PermissionMapper, RoleMapper};
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleAssignmentRecord, RoleRecord};
@@ -118,12 +118,14 @@ final class RoleRepositoryTest extends TestCase
     $role = Role::reconstitute(
       id: new RoleId('223e4567-e89b-12d3-a456-426614174000'),
       name: new RoleName('admin'),
-      description: 'Admin role',
-      isSystem: true,
-      tenantId: null,
-      createdAt: new DateTimeImmutable('2024-01-01 00:00:00'),
-      updatedAt: null,
-      permissions: [$permission],
+      state: new RestoredRoleState(
+        description: 'Admin role',
+        isSystem: true,
+        tenantId: null,
+        createdAt: new DateTimeImmutable('2024-01-01 00:00:00'),
+        updatedAt: null,
+        permissions: [$permission],
+      ),
     );
 
     $permissionRecord = new PermissionRecord();
@@ -159,12 +161,14 @@ final class RoleRepositoryTest extends TestCase
     $role = Role::reconstitute(
       id: new RoleId($record->id),
       name: new RoleName($record->name),
-      description: $record->description,
-      isSystem: $record->isSystem,
-      tenantId: null,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      permissions: [],
+      state: new RestoredRoleState(
+        description: $record->description,
+        isSystem: $record->isSystem,
+        tenantId: null,
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        permissions: [],
+      ),
     );
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
@@ -259,12 +263,14 @@ final class RoleRepositoryTest extends TestCase
     $role = Role::reconstitute(
       id: new RoleId($record->id),
       name: new RoleName($record->name),
-      description: $record->description,
-      isSystem: $record->isSystem,
-      tenantId: null,
-      createdAt: $record->createdAt,
-      updatedAt: $record->updatedAt,
-      permissions: [],
+      state: new RestoredRoleState(
+        description: $record->description,
+        isSystem: $record->isSystem,
+        tenantId: null,
+        createdAt: $record->createdAt,
+        updatedAt: $record->updatedAt,
+        permissions: [],
+      ),
     );
 
     $assignment = new RoleAssignmentRecord();

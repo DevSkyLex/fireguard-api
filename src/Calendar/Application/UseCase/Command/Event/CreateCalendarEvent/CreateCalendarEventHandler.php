@@ -8,7 +8,7 @@ use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort;
 use Calendar\Domain\Event\CalendarEventCreatedEvent;
 use Calendar\Domain\Exception\CalendarEventValidationException;
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Factory\UuidFactory;
@@ -84,15 +84,19 @@ final readonly class CreateCalendarEventHandler implements CommandHandler
     $id = $this->uuidFactory->create(CalendarEventId::class);
 
     $event = CalendarEvent::create(
-      id: $id,
-      organizationId: $command->organizationId,
-      title: $command->title,
-      description: $command->description,
-      startsAt: $command->startsAt,
-      endsAt: $command->endsAt,
-      allDay: $command->allDay,
-      facilityId: $command->facilityId,
-      createdByMemberId: $memberId,
+      identity: new CalendarEventIdentity(
+        id: $id,
+        organizationId: $command->organizationId,
+        createdByMemberId: $memberId,
+      ),
+      content: new CalendarEventContent(
+        title: $command->title,
+        description: $command->description,
+        startsAt: $command->startsAt,
+        endsAt: $command->endsAt,
+        allDay: $command->allDay,
+        facilityId: $command->facilityId,
+      ),
     );
 
     $this->repository->save($event);

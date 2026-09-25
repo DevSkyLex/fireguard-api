@@ -11,6 +11,7 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationCallerRoleResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, PlanId, PlanKey};
@@ -57,11 +58,13 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     );
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Nantes'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-10 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Nantes'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-10 days'),
+      ),
     );
 
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
@@ -232,11 +235,13 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     );
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Rennes'),
-      createdByUserId: $userId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-30 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Rennes'),
+        createdByUserId: $userId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
     );
 
     $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
@@ -295,19 +300,25 @@ final class ListUserOrganizationsHandlerTest extends TestCase
 
     $organizations = [
       Organization::reconstitute(
-        id: new OrganizationId($memberOrganizationId),
-        name: new OrganizationName('Fireguard Rennes'),
-        createdByUserId: $userId,
-        isActive: true,
-        createdAt: new DateTimeImmutable('-30 days'),
+        core: new RestoredOrganizationCore(
+          id: new OrganizationId($memberOrganizationId),
+          name: new OrganizationName('Fireguard Rennes'),
+          createdByUserId: $userId,
+          isActive: true,
+          createdAt: new DateTimeImmutable('-30 days'),
+        ),
       ),
       Organization::reconstitute(
-        id: new OrganizationId($strayOrganizationId),
-        name: new OrganizationName('Fireguard Brest'),
-        createdByUserId: '550e8400-e29b-41d4-a716-446655440999',
-        isActive: true,
-        createdAt: new DateTimeImmutable('-20 days'),
-        planId: new PlanId('22222222-2222-4222-8222-222222222222'),
+        core: new RestoredOrganizationCore(
+          id: new OrganizationId($strayOrganizationId),
+          name: new OrganizationName('Fireguard Brest'),
+          createdByUserId: '550e8400-e29b-41d4-a716-446655440999',
+          isActive: true,
+          createdAt: new DateTimeImmutable('-20 days'),
+        ),
+        profile: new RestoredOrganizationProfile(
+          planId: new PlanId('22222222-2222-4222-8222-222222222222'),
+        ),
       ),
     ];
 

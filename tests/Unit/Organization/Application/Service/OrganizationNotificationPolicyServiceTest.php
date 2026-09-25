@@ -29,7 +29,7 @@ final class OrganizationNotificationPolicyServiceTest extends TestCase
       name: new OrganizationName('Acme'),
       ownerUserId: '018f0b68-6758-7a12-8a1d-3f0d97f63c13',
       settings: new OrganizationSettings(
-        notifications: new OrganizationNotificationSettings(emailEnabled: false, interventionPublished: false),
+        notifications: OrganizationNotificationSettings::fromArray(['email_enabled' => false, 'intervention_published' => false]),
       ),
     );
 

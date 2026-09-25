@@ -6,7 +6,7 @@ namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
 use Audit\Domain\Event\AuditEventsExportedEvent;
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, GovernanceAuditEventSubscriber, InterventionAuditEventSubscriber, OperationsAuditEventSubscriber, OrganizationAccessAuditEventSubscriber, OrganizationLifecycleAuditEventSubscriber, ResourceAuditEventSubscriber, SecurityAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\Security\User\SecurityUser;
@@ -31,20 +31,29 @@ use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
 use function hash_hmac;
+use function ksort;
 
 /**
  * Test AuditEventSubscriberTest.
  *
  * @category Event Subscriber Tests
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: SecurityAuditEventSubscriber::class)]
+#[CoversClass(className: OrganizationLifecycleAuditEventSubscriber::class)]
+#[CoversClass(className: OrganizationAccessAuditEventSubscriber::class)]
+#[CoversClass(className: ResourceAuditEventSubscriber::class)]
+#[CoversClass(className: InterventionAuditEventSubscriber::class)]
+#[CoversClass(className: OperationsAuditEventSubscriber::class)]
+#[CoversClass(className: GovernanceAuditEventSubscriber::class)]
+#[CoversClass(className: ExportAuditEventSubscriber::class)]
 final class AuditEventSubscriberTest extends TestCase
 {
   // #region Tests
   #[Test]
   public function testGetSubscribedEvents(): void
   {
-    self::assertSame([
+    $expected = [
       'auth.user_logged_in_event' => 'onUserLoggedIn',
       'auth.login_failed_event' => 'onLoginFailed',
       'auth.user_logged_out_event' => 'onUserLoggedOut',
@@ -150,7 +159,12 @@ final class AuditEventSubscriberTest extends TestCase
       'inspection.non_conformities_report_exported_event' => 'onNonConformitiesReportExported',
       'equipment.equipment_report_exported_event' => 'onEquipmentReportExported',
       'equipment.equipment_labels_exported_event' => 'onEquipmentLabelsExported',
-    ], AuditEventSubscriber::getSubscribedEvents());
+    ];
+    $actual = AuditSubscriberSet::subscribedEvents();
+    self::assertCount(105, $actual);
+    ksort($expected);
+    ksort($actual);
+    self::assertSame($expected, $actual);
   }
 
   #[Test]
@@ -186,7 +200,7 @@ final class AuditEventSubscriberTest extends TestCase
     $logger->expects(self::never())
       ->method('error');
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new SecurityAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: $sanitizer,
       requestStack: $requestStack,
@@ -223,7 +237,7 @@ final class AuditEventSubscriberTest extends TestCase
         )),
       );
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new SecurityAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -252,7 +266,7 @@ final class AuditEventSubscriberTest extends TestCase
         && 'user-123' === $command->actorId))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-124'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new SecurityAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -277,7 +291,7 @@ final class AuditEventSubscriberTest extends TestCase
         && 'user-123' === $command->actorId))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-125'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new SecurityAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -310,7 +324,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-126'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationAccessAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -351,7 +365,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-127'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationAccessAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -389,7 +403,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-128'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationAccessAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -431,7 +445,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-129'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationAccessAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -464,7 +478,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-130'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationAccessAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -498,7 +512,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-131'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationAccessAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -537,7 +551,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OperationsAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -575,7 +589,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-202'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OperationsAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -607,7 +621,7 @@ final class AuditEventSubscriberTest extends TestCase
         && ['organization_id' => 'org-1'] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-203'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OperationsAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -643,7 +657,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-132'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new GovernanceAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -677,7 +691,7 @@ final class AuditEventSubscriberTest extends TestCase
         && ['organization_id' => 'org-1'] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-133'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new GovernanceAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -714,7 +728,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-134'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new ExportAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -754,7 +768,7 @@ final class AuditEventSubscriberTest extends TestCase
         ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-200'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new InterventionAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -790,7 +804,7 @@ final class AuditEventSubscriberTest extends TestCase
       ] === $command->metadata))
       ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
 
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new InterventionAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -823,7 +837,7 @@ final class AuditEventSubscriberTest extends TestCase
         && ['organization_id' => 'organization'] === $command->metadata,
       ))
       ->willReturn(new RecordAuditEventResult(eventId: 'audit'));
-    $subscriber = new AuditEventSubscriber(
+    $subscriber = new OrganizationLifecycleAuditEventSubscriber(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),

@@ -165,16 +165,8 @@ final class Conversation
    * @param string $organizationId the owning organization identifier
    * @param MessagingSubjectType $subjectType the subject type
    * @param ?string $subjectId the subject identifier
-   * @param ConversationVisibility $visibility the visibility value
-   * @param ?DateTimeImmutable $lastMessageAt the last message date, if any
-   * @param int $messagesCount the persisted message count
-   * @param bool $isArchived the archived flag
-   * @param DateTimeImmutable $createdAt the creation date
-   * @param DateTimeImmutable $updatedAt the last update date
-   * @param ?ChannelName $name the channel display name, if this is a channel
-   * @param ?string $teamId the bound organization team identifier, if any
-   * @param ?string $createdByMemberId the creating member's identifier, if this is a channel
-   * @param ?string $parentConversationId the parent channel's identifier, if this channel is nested under another (L2.6)
+   * @param RestoredConversationActivity $activity the persisted activity and lifecycle
+   * @param ?RestoredConversationChannel $channel the optional persisted channel fields
    *
    * @return self the reconstituted conversation
    */
@@ -183,18 +175,25 @@ final class Conversation
     string $organizationId,
     MessagingSubjectType $subjectType,
     ?string $subjectId,
-    ConversationVisibility $visibility,
-    ?DateTimeImmutable $lastMessageAt,
-    int $messagesCount,
-    bool $isArchived,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-    ?ChannelName $name = null,
-    ?string $teamId = null,
-    ?string $createdByMemberId = null,
-    ?string $parentConversationId = null,
+    RestoredConversationActivity $activity,
+    ?RestoredConversationChannel $channel = null,
   ): self {
-    return new self($id, $organizationId, $subjectType, $subjectId, $visibility, $lastMessageAt, $messagesCount, $isArchived, $createdAt, $updatedAt, $name, $teamId, $createdByMemberId, $parentConversationId);
+    return new self(
+      id: $id,
+      organizationId: $organizationId,
+      subjectType: $subjectType,
+      subjectId: $subjectId,
+      visibility: $activity->visibility,
+      lastMessageAt: $activity->lastMessageAt,
+      messagesCount: $activity->messagesCount,
+      isArchived: $activity->isArchived,
+      createdAt: $activity->createdAt,
+      updatedAt: $activity->updatedAt,
+      name: $channel?->name,
+      teamId: $channel?->teamId,
+      createdByMemberId: $channel?->createdByMemberId,
+      parentConversationId: $channel?->parentConversationId,
+    );
   }
   // #endregion
 

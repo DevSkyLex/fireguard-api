@@ -11,7 +11,7 @@ use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Exception\{OrganizationRoleNameAlreadyExistsException, OrganizationSystemRoleImmutableException};
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -41,11 +41,13 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
   public function testInvokeUpdatesPermissions(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($organization);
@@ -102,11 +104,13 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
   public function testInvokeDoesNotDispatchEventWhenRoleIsSystem(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($organization);
@@ -584,11 +588,13 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
   private function createOrganization(): Organization
   {
     return Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-2 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-2 days'),
+      ),
     );
   }
 

@@ -6,7 +6,7 @@ namespace Tests\Integration\Import\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Import\Domain\Model\ImportJob\ImportJob;
+use Import\Domain\Model\ImportJob\{ImportJob, ImportJobProgress, ImportJobSource, ImportJobTimeline};
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportRowError, ImportStatus};
 use Import\Infrastructure\Persistence\Doctrine\Mapper\ImportJobMapper;
 use Import\Infrastructure\Persistence\Doctrine\Record\ImportJobRecord;
@@ -73,27 +73,12 @@ final class ImportJobMapperTest extends KernelTestCase
     $completedAt = new DateTimeImmutable('2026-01-10T08:14:00+00:00');
 
     $job = ImportJob::reconstitute(
-      id: ImportJobId::fromString(self::COMPLETED_JOB_ID),
-      organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::EQUIPMENT,
-      status: ImportStatus::COMPLETED,
-      storagePath: 'imports/2026/01/' . self::COMPLETED_JOB_ID . '.csv',
-      originalFilename: 'equipment-batch.csv',
-      createdBy: self::CREATED_BY,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      dryRun: false,
-      totalRows: 3,
-      processedRows: 3,
-      successfulRows: 1,
-      failedRows: 2,
-      errorReport: [
+      source: new ImportJobSource(ImportJobId::fromString(self::COMPLETED_JOB_ID), self::ORGANIZATION_ID, ImportKind::EQUIPMENT, 'imports/2026/01/' . self::COMPLETED_JOB_ID . '.csv', 'equipment-batch.csv', self::CREATED_BY, false),
+      progress: new ImportJobProgress(ImportStatus::COMPLETED, 3, 3, 1, 2, [
         new ImportRowError(rowNumber: 2, code: 'missing_required', message: 'Name is required.', column: 'name'),
         new ImportRowError(rowNumber: 3, code: 'quota_exceeded', message: 'Plan quota exceeded.'),
-      ],
-      jobError: null,
-      startedAt: $startedAt,
-      completedAt: $completedAt,
+      ], null),
+      timeline: new ImportJobTimeline($createdAt, $updatedAt, $startedAt, $completedAt),
     );
 
     // toRecord: assert the record was populated directly, including the JSON
@@ -207,24 +192,9 @@ final class ImportJobMapperTest extends KernelTestCase
     $now = new DateTimeImmutable('2026-01-12T10:00:00+00:00');
 
     $job = ImportJob::reconstitute(
-      id: ImportJobId::fromString(self::FAILED_JOB_ID),
-      organizationId: self::ORGANIZATION_ID,
-      kind: ImportKind::FACILITY,
-      status: ImportStatus::FAILED,
-      storagePath: 'imports/2026/01/' . self::FAILED_JOB_ID . '.csv',
-      originalFilename: 'broken.csv',
-      createdBy: self::CREATED_BY,
-      createdAt: $now,
-      updatedAt: $now,
-      dryRun: false,
-      totalRows: null,
-      processedRows: 0,
-      successfulRows: 0,
-      failedRows: 0,
-      errorReport: [],
-      jobError: 'The uploaded file has an invalid header.',
-      startedAt: $now,
-      completedAt: $now,
+      source: new ImportJobSource(ImportJobId::fromString(self::FAILED_JOB_ID), self::ORGANIZATION_ID, ImportKind::FACILITY, 'imports/2026/01/' . self::FAILED_JOB_ID . '.csv', 'broken.csv', self::CREATED_BY, false),
+      progress: new ImportJobProgress(ImportStatus::FAILED, null, 0, 0, 0, [], 'The uploaded file has an invalid header.'),
+      timeline: new ImportJobTimeline($now, $now, $now, $now),
     );
 
     $record = new ImportJobRecord();

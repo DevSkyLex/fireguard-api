@@ -116,9 +116,7 @@ final class WebhookSubscription
    * @param string $secretCiphertext the encrypted-at-rest signing secret
    * @param list<string> $eventTypes the subscribed public event type allowlist
    * @param bool $isActive whether deliveries are currently enqueued
-   * @param string $description the free-form description
-   * @param DateTimeImmutable $createdAt the creation timestamp
-   * @param DateTimeImmutable $updatedAt the last update timestamp
+   * @param RestoredWebhookSubscriptionMetadata $metadata the persisted description and timestamps
    *
    * @return self the reconstituted webhook subscription
    */
@@ -129,9 +127,7 @@ final class WebhookSubscription
     string $secretCiphertext,
     array $eventTypes,
     bool $isActive,
-    string $description,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
+    RestoredWebhookSubscriptionMetadata $metadata,
   ): self {
     return new self(
       id: $id,
@@ -140,9 +136,9 @@ final class WebhookSubscription
       secretCiphertext: $secretCiphertext,
       eventTypes: $eventTypes,
       isActive: $isActive,
-      description: $description,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      description: $metadata->description,
+      createdAt: $metadata->createdAt,
+      updatedAt: $metadata->updatedAt,
     );
   }
 

@@ -6,7 +6,7 @@ namespace Tests\Integration\Otp;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Otp\Domain\Model\Totp\TotpEnrollment;
+use Otp\Domain\Model\Totp\{TotpEnrollment, TotpEnrollmentAttempts, TotpEnrollmentSecrets};
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Adapter\Crypto\OpensslTotpSecretCipherAdapter;
 use Otp\Infrastructure\Console\MigrateTotpSecretsCommand;
@@ -46,16 +46,10 @@ final class TotpSecretMigrationTest extends KernelTestCase
     $now = new DateTimeImmutable('2026-09-20T12:00:00+00:00');
     $enrollment = TotpEnrollment::reconstitute(
       self::ID,
-      new TotpSecret(self::ACTIVE),
-      $now,
-      new TotpSecret(self::PENDING),
-      $now,
-      2,
-      5,
+      new TotpEnrollmentSecrets(new TotpSecret(self::ACTIVE), $now, new TotpSecret(self::PENDING), $now),
+      new TotpEnrollmentAttempts(2, 5, 4, $now->modify('+15 minutes')),
       $now,
       $now,
-      4,
-      $now->modify('+15 minutes'),
     );
     $legacyMapper = new TotpEnrollmentMapper(new OpensslTotpSecretCipherAdapter([], ''));
     new TotpEnrollmentRepository($em, $legacyMapper)->save($enrollment);

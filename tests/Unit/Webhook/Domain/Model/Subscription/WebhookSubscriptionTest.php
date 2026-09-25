@@ -7,7 +7,7 @@ namespace Tests\Unit\Webhook\Domain\Model\Subscription;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Domain\Model\Subscription\WebhookSubscription;
+use Webhook\Domain\Model\Subscription\{RestoredWebhookSubscriptionMetadata, WebhookSubscription};
 use Webhook\Domain\ValueObject\WebhookSubscriptionId;
 
 /**
@@ -112,9 +112,7 @@ final class WebhookSubscriptionTest extends TestCase
       secretCiphertext: 'CIPHER',
       eventTypes: ['inspection.closed'],
       isActive: false,
-      description: 'Reconstituted',
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
+      metadata: new RestoredWebhookSubscriptionMetadata('Reconstituted', $createdAt, $updatedAt),
     );
 
     self::assertFalse($subscription->isActive());

@@ -18,7 +18,7 @@ use Organization\Domain\Exception\{
   OrganizationRoleNotFoundException
 };
 use Organization\Domain\Exception\OrganizationMembershipConflictException;
-use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{Organization, RestoredOrganizationCore};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -72,11 +72,13 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $email = 'member@example.com';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: $inviterUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: $inviterUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $defaultRole = OrganizationRole::reconstitute(
@@ -260,11 +262,13 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $email = 'member@example.com';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: $inviterUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: $inviterUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $defaultRole = OrganizationRole::reconstitute(
@@ -410,11 +414,13 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $email = 'member@example.com';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: $inviterUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: $inviterUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $defaultRole = OrganizationRole::reconstitute(
@@ -550,11 +556,13 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $email = 'member@example.com';
 
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: $inviterUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: $inviterUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     );
 
     $defaultRole = OrganizationRole::reconstitute(
@@ -847,11 +855,13 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
   {
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn(Organization::reconstitute(
-      id: new OrganizationId(self::ORGANIZATION_ID),
-      name: new OrganizationName('Fireguard HQ'),
-      createdByUserId: self::INVITER_USER_ID,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-1 day'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORGANIZATION_ID),
+        name: new OrganizationName('Fireguard HQ'),
+        createdByUserId: self::INVITER_USER_ID,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
     ));
 
     return $organizationRepository;

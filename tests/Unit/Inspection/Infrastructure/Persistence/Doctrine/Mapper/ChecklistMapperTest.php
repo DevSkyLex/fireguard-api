@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
-use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
+use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem, RestoredChecklistRevision};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\ChecklistMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord};
@@ -113,18 +113,20 @@ final class ChecklistMapperTest extends TestCase
       id: ChecklistId::fromString(self::CHECKLIST_ID),
       organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
       name: 'Annual Safety Checklist',
-      version: '1.0',
-      status: ChecklistStatus::ARCHIVED,
-      items: [ChecklistItem::reconstitute(
-        id: 'item-1',
-        label: 'Check pressure gauge',
-        position: 1,
-        required: true,
-        description: 'Between 12 and 15 bar',
-      )],
+      revision: new RestoredChecklistRevision(
+        version: '1.0',
+        status: ChecklistStatus::ARCHIVED,
+        items: [ChecklistItem::reconstitute(
+          id: 'item-1',
+          label: 'Check pressure gauge',
+          position: 1,
+          required: true,
+          description: 'Between 12 and 15 bar',
+        )],
+        referenceCode: 'CHK-001',
+      ),
       createdAt: new DateTimeImmutable('2026-01-01T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-02T08:00:00+00:00'),
-      referenceCode: 'CHK-001',
     );
   }
 }

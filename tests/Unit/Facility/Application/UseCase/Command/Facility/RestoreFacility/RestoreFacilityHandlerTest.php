@@ -10,7 +10,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\RestoreFacility\{RestoreFacilityCommand, RestoreFacilityHandler, RestoreFacilityResult};
 use Facility\Domain\Event\Facility\FacilityRestoredEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -34,7 +34,9 @@ final class RestoreFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building R'),
-      code: 'BLDG-R',
+      details: new FacilityDetails(
+        code: 'BLDG-R',
+      ),
     );
     $facility->archive();
 
@@ -96,7 +98,9 @@ final class RestoreFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building Child'),
-      parentFacilityId: $parentId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+      ),
     );
     $facility->archive();
 
@@ -250,7 +254,9 @@ final class RestoreFacilityHandlerTest extends TestCase
       organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655443071'),
       type: FacilityType::BUILDING,
       name: new FacilityName('Orphan Child'),
-      parentFacilityId: $parentId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+      ),
     );
     $facility->archive();
 
@@ -302,7 +308,9 @@ final class RestoreFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Blocked Child'),
-      parentFacilityId: $parentId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+      ),
     );
     $facility->archive();
 

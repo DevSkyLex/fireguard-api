@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Assistant\Domain\Model\Thread\AssistantThread;
+use Assistant\Domain\Model\Thread\{AssistantThread, RestoredAssistantThreadTimeline};
 use Assistant\Domain\ValueObject\AssistantThreadId;
 use Assistant\Infrastructure\Persistence\Doctrine\Mapper\AssistantThreadMapper;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\AssistantThreadRecord;
@@ -92,9 +92,11 @@ final class AssistantThreadMapperTest extends TestCase
       memberId: self::MEMBER_ID,
       title: 'Evacuation drills',
       model: 'claude-opus',
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      lastMessageAt: $lastMessageAt,
+      timeline: new RestoredAssistantThreadTimeline(
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+        lastMessageAt: $lastMessageAt,
+      ),
     );
 
     $record = new AssistantThreadRecord();

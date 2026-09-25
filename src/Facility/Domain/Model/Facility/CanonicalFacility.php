@@ -56,22 +56,7 @@ final class CanonicalFacility
    *
    * @since 1.0.0
    *
-   * @param FacilityId $id the facility identifier
-   * @param FacilityOrganizationId $organizationId the owning organization identifier
-   * @param FacilityRecordStatus $recordStatus whether the row is published or a scratchpad
-   * @param ?string $interventionId the preparing intervention identifier
-   * @param ?string $parentFacilityId the parent facility identifier
-   * @param FacilityType $type the facility type
-   * @param string $name the facility name
-   * @param ?string $code the human-facing code
-   * @param ?string $address the postal address
-   * @param ?float $latitude the latitude
-   * @param ?float $longitude the longitude
-   * @param array<string, mixed> $metadata the typed metadata map
-   * @param FacilityStatus $status the facility lifecycle status
-   * @param int $revision the optimistic-concurrency revision
-   * @param DateTimeImmutable $updatedAt the last mutation timestamp
-   * @param ?int $levelIndex the stacking order of the floor (ground floor = 0, first basement = -1)
+   * @param array<string, mixed> $metadata the persisted metadata map
    */
   private function __construct(
     private FacilityId $id,
@@ -104,60 +89,30 @@ final class CanonicalFacility
    *
    * @since 1.0.0
    *
-   * @param FacilityId $id the facility identifier
-   * @param FacilityOrganizationId $organizationId the owning organization identifier
-   * @param FacilityRecordStatus $recordStatus whether the row is published or a scratchpad
-   * @param ?string $interventionId the preparing intervention identifier
-   * @param ?string $parentFacilityId the parent facility identifier
-   * @param FacilityType $type the facility type
-   * @param string $name the facility name
-   * @param ?string $code the human-facing code
-   * @param ?string $address the postal address
-   * @param ?float $latitude the latitude
-   * @param ?float $longitude the longitude
-   * @param array<string, mixed> $metadata the typed metadata map
-   * @param FacilityStatus $status the facility lifecycle status
-   * @param int $revision the optimistic-concurrency revision
-   * @param DateTimeImmutable $updatedAt the last mutation timestamp
-   * @param ?int $levelIndex the stacking order of the floor (ground floor = 0, first basement = -1)
-   *
    * @return self the reconstituted canonical facility
    */
   public static function reconstitute(
-    FacilityId $id,
-    FacilityOrganizationId $organizationId,
-    FacilityRecordStatus $recordStatus,
-    ?string $interventionId,
-    ?string $parentFacilityId,
-    FacilityType $type,
-    string $name,
-    ?string $code,
-    ?string $address,
-    ?float $latitude,
-    ?float $longitude,
-    array $metadata,
-    FacilityStatus $status,
-    int $revision,
-    DateTimeImmutable $updatedAt,
-    ?int $levelIndex = null,
+    CanonicalFacilityReference $reference,
+    CanonicalFacilityContent $content,
+    CanonicalFacilityVersion $version,
   ): self {
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      parentFacilityId: $parentFacilityId,
-      type: $type,
-      name: $name,
-      code: $code,
-      address: $address,
-      latitude: $latitude,
-      longitude: $longitude,
-      metadata: $metadata,
-      status: $status,
-      revision: $revision,
-      updatedAt: $updatedAt,
-      levelIndex: self::normalizeLevelIndex($levelIndex),
+      id: $reference->id,
+      organizationId: $reference->organizationId,
+      recordStatus: $reference->recordStatus,
+      interventionId: $reference->interventionId,
+      parentFacilityId: $reference->parentFacilityId,
+      type: $content->type,
+      name: $content->name,
+      code: $content->code,
+      address: $content->address,
+      latitude: $content->latitude,
+      longitude: $content->longitude,
+      metadata: $content->metadata,
+      status: $version->status,
+      revision: $version->revision,
+      updatedAt: $version->updatedAt,
+      levelIndex: self::normalizeLevelIndex($version->levelIndex),
     );
   }
 
@@ -506,6 +461,12 @@ final class CanonicalFacility
 
   private function applyFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
   {
+    $this->applyDescriptiveFields($patch);
+    $this->applyOtherFields($patch, $parent);
+  }
+
+  private function applyDescriptiveFields(CanonicalFacilityPatch $patch): void
+  {
     if ($patch->hasType && null !== $patch->type) {
       $this->type = FacilityType::tryFrom($patch->type)
         ?? throw CanonicalFacilityValidationException::unsupportedValue('type', $patch->type);
@@ -526,6 +487,10 @@ final class CanonicalFacility
     if ($patch->hasMetadata) {
       $this->metadata = $patch->metadata ?? [];
     }
+  }
+
+  private function applyOtherFields(CanonicalFacilityPatch $patch, ?CanonicalFacilityParent $parent): void
+  {
     if ($patch->hasLevelIndex) {
       $this->levelIndex = self::normalizeLevelIndex($patch->levelIndex);
     }

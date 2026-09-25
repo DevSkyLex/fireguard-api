@@ -126,12 +126,7 @@ final class InspectionResponse
    * @param InspectionResponseId $id the response identifier
    * @param InspectionOrganizationId $organizationId the owning organization identifier
    * @param InspectionId $inspectionId the inspection identifier
-   * @param ?string $interventionId the intervention identifier
-   * @param ?string $clientId the offline client identifier
-   * @param InspectionResponseStatus $status the representation lifecycle status
-   * @param int $revision the optimistic-concurrency revision
-   * @param string $itemKey the checklist item key
-   * @param mixed $value the answer payload
+   * @param RestoredInspectionResponseState $state the persisted answer and lifecycle
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last mutation timestamp
    *
@@ -141,12 +136,7 @@ final class InspectionResponse
     InspectionResponseId $id,
     InspectionOrganizationId $organizationId,
     InspectionId $inspectionId,
-    ?string $interventionId,
-    ?string $clientId,
-    InspectionResponseStatus $status,
-    int $revision,
-    string $itemKey,
-    mixed $value,
+    RestoredInspectionResponseState $state,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
   ): self {
@@ -154,12 +144,12 @@ final class InspectionResponse
       id: $id,
       organizationId: $organizationId,
       inspectionId: $inspectionId,
-      interventionId: $interventionId,
-      clientId: $clientId,
-      status: $status,
-      revision: $revision,
-      itemKey: $itemKey,
-      value: $value,
+      interventionId: $state->interventionId,
+      clientId: $state->clientId,
+      status: $state->status,
+      revision: $state->revision,
+      itemKey: $state->itemKey,
+      value: $state->value,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
     );

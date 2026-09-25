@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\{DeleteFacilityAttachmentCommand, DeleteFacilityAttachmentHandler, DeleteFacilityAttachmentResult};
 use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotFoundException};
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentRestoredState};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -100,7 +100,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       storagePath: 'facility/' . self::OTHER_FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
       mimeType: 'application/pdf',
       size: 10,
-      uploadedAt: new DateTimeImmutable(),
+      state: new FacilityAttachmentRestoredState(new DateTimeImmutable()),
     );
 
     $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
@@ -173,7 +173,7 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
       mimeType: 'application/pdf',
       size: 10,
-      uploadedAt: new DateTimeImmutable(),
+      state: new FacilityAttachmentRestoredState(new DateTimeImmutable()),
     );
   }
 }

@@ -15,7 +15,7 @@ use Facility\Domain\Exception\{
   FacilitySubtreeSourceArchivedException,
   FacilitySubtreeTooLargeException
 };
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId};
 use Organization\Application\Contract\Quota\OrganizationQuotaResource;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
@@ -222,11 +222,13 @@ final readonly class DuplicateFacilitySubtreeHandler implements CommandHandler
       organizationId: $original->organizationId(),
       type: $original->type(),
       name: $name,
-      parentFacilityId: $newParentId,
-      code: null,
-      address: $original->address(),
-      metadata: $original->metadata(),
-      coordinates: $original->coordinates(),
+      details: new FacilityDetails(
+        parentFacilityId: $newParentId,
+        code: null,
+        address: $original->address(),
+        metadata: $original->metadata(),
+        coordinates: $original->coordinates(),
+      ),
     );
   }
 

@@ -149,7 +149,7 @@ enum OtpChannel: string
    */
   private static function maskPhone(string $phone): string
   {
-    $digits = preg_replace('/[^0-9]/', '', $phone);
+    $digits = preg_replace('/\D/', '', $phone);
     $digits = is_string($digits) ? $digits : '';
     if (strlen($digits) < 4) {
       return '****';

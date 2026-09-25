@@ -9,7 +9,7 @@ use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, Mess
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment\{DeleteMessageAttachmentCommand, DeleteMessageAttachmentHandler, DeleteMessageAttachmentResult};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingAttachmentNotFoundException};
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -165,10 +165,12 @@ final class DeleteMessageAttachmentHandlerTest extends TestCase
       conversationId: 'conversation-1',
       organizationId: self::ORG_ID,
       uploadedByMemberId: self::UPLOADER_MEMBER_ID,
-      fileName: 'floor-plan.pdf',
-      storagePath: 'messaging/conversation-1/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
-      mimeType: 'application/pdf',
-      size: 12345,
+      file: new MessagingAttachmentFile(
+        fileName: 'floor-plan.pdf',
+        storagePath: 'messaging/conversation-1/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
+        mimeType: 'application/pdf',
+        size: 12345,
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
     );
   }

@@ -138,11 +138,7 @@ final readonly class DocumentDateFormatter
    */
   private function format(DateTimeImmutable|string|null $value, string $pattern): ?string
   {
-    if (null === $value) {
-      return null;
-    }
-
-    if ('' === $value) {
+    if (null === $value || '' === $value) {
       return null;
     }
 

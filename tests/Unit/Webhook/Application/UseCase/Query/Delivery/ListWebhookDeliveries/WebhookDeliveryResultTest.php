@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliveries\WebhookDeliveryResult;
-use Webhook\Domain\Model\Delivery\WebhookDelivery;
+use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 
 /**
@@ -69,17 +69,21 @@ final class WebhookDeliveryResultTest extends TestCase
       id: WebhookDeliveryId::fromString(self::DELIVERY_ID),
       subscriptionId: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: '018f0b68-6758-7a12-8a1d-3f0d97f64a12',
-      eventType: 'intervention.published',
-      eventId: 'evt-1',
-      payload: ['id' => 'evt-1'],
-      status: WebhookDeliveryStatus::DELIVERED,
-      attempts: 3,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      httpStatus: 204,
-      lastError: null,
-      nextRetryAt: $nextRetryAt,
-      deliveredAt: $deliveredAt,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: 'intervention.published',
+        eventId: 'evt-1',
+        payload: ['id' => 'evt-1'],
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: WebhookDeliveryStatus::DELIVERED,
+        attempts: 3,
+        httpStatus: 204,
+        lastError: null,
+        nextRetryAt: $nextRetryAt,
+        deliveredAt: $deliveredAt,
+      ),
     );
 
     $result = WebhookDeliveryResult::fromDomain($delivery);

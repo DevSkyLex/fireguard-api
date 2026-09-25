@@ -6,6 +6,7 @@ namespace Intervention\Infrastructure\Adapter\Activity;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Activity\InterventionActivityAppendRequest;
 use Intervention\Application\Contract\Workflow\{InterventionWorkflowPage, InterventionWorkflowView};
 use Intervention\Application\Port\Outbound\InterventionActivityPort;
 use Intervention\Domain\Exception\InterventionNotFoundException;
@@ -51,38 +52,24 @@ final readonly class DoctrineInterventionActivityAdapter implements Intervention
    *
    * @since 1.0.0
    *
-   * @param string $interventionId the intervention id value
-   * @param string $organizationId the owning organization id value
-   * @param ?string $actorId the acting organization member id value
-   * @param string $kind the activity kind value
-   * @param string $event the activity event value
-   * @param ?string $body the comment body value
-   * @param ?array<string, mixed> $payload structured event data
+   * @param InterventionActivityAppendRequest $request the activity
    *
    * @return InterventionWorkflowView the appended activity view
    */
-  public function append(
-    string $interventionId,
-    string $organizationId,
-    ?string $actorId,
-    string $kind,
-    string $event,
-    ?string $body,
-    ?array $payload,
-    ?string $clientId = null,
-  ): InterventionWorkflowView {
-    $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
+  public function append(InterventionActivityAppendRequest $request): InterventionWorkflowView
+  {
+    $intervention = $this->entityManager->find(InterventionRecord::class, $request->interventionId);
     if (!$intervention instanceof InterventionRecord) {
-      throw InterventionNotFoundException::withId($interventionId);
+      throw InterventionNotFoundException::withId($request->interventionId);
     }
 
     // An outbox replay can present the same write twice — a response lost in the
     // field is indistinguishable from a request that never arrived. Returning the
     // existing row makes the retry a no-op instead of a duplicate comment.
-    if (null !== $clientId) {
+    if (null !== $request->clientId) {
       $existing = $this->entityManager
         ->getRepository(InterventionActivityRecord::class)
-        ->findOneBy(['clientId' => $clientId]);
+        ->findOneBy(['clientId' => $request->clientId]);
 
       if ($existing instanceof InterventionActivityRecord) {
         return $this->views->activityView($existing);
@@ -91,14 +78,14 @@ final readonly class DoctrineInterventionActivityAdapter implements Intervention
 
     $record = new InterventionActivityRecord();
     $record->id = $this->uuidFactory->generateRaw();
-    $record->clientId = $clientId;
+    $record->clientId = $request->clientId;
     $record->intervention = $intervention;
-    $record->organizationId = $organizationId;
-    $record->actorId = $actorId;
-    $record->kind = $kind;
-    $record->event = $event;
-    $record->body = $body;
-    $record->payload = $payload;
+    $record->organizationId = $request->organizationId;
+    $record->actorId = $request->actorId;
+    $record->kind = $request->content->kind;
+    $record->event = $request->content->event;
+    $record->body = $request->content->body;
+    $record->payload = $request->content->payload;
     $record->createdAt = new DateTimeImmutable();
     $this->entityManager->persist($record);
     $this->entityManager->flush();

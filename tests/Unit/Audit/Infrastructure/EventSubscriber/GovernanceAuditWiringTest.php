@@ -13,7 +13,7 @@ use Approval\Domain\Event\Request\{
   ApprovalRequestedEvent
 };
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
-use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
+use Audit\Infrastructure\EventSubscriber\{AbstractAuditEventSubscriber, ExportAuditEventSubscriber, GovernanceAuditEventSubscriber, OperationsAuditEventSubscriber};
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
@@ -36,14 +36,17 @@ use function sprintf;
  *
  * Wiring proof for the approval / import / compliance slice: every
  * domain event, dispatched through the real event-name derivation of
- * SymfonyEventDispatcherAdapter, reaches AuditEventSubscriber and
+ * SymfonyEventDispatcherAdapter, reaches the audit subscribers and
  * produces the expected audit action, subject and metadata.
  *
  * @category Event Subscriber Tests
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AuditEventSubscriber::class)]
+#[CoversClass(className: AbstractAuditEventSubscriber::class)]
+#[CoversClass(className: GovernanceAuditEventSubscriber::class)]
+#[CoversClass(className: OperationsAuditEventSubscriber::class)]
+#[CoversClass(className: ExportAuditEventSubscriber::class)]
 final class GovernanceAuditWiringTest extends TestCase
 {
   // #region Constants
@@ -220,7 +223,7 @@ final class GovernanceAuditWiringTest extends TestCase
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
-    $subscriber = new AuditEventSubscriber(
+    $subscribers = AuditSubscriberSet::create(
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: 'salt-for-tests'),
       requestStack: new RequestStack(),
@@ -231,7 +234,9 @@ final class GovernanceAuditWiringTest extends TestCase
     );
 
     $symfonyDispatcher = new EventDispatcher();
-    $symfonyDispatcher->addSubscriber($subscriber);
+    foreach ($subscribers as $subscriber) {
+      $symfonyDispatcher->addSubscriber($subscriber);
+    }
     $adapter = new SymfonyEventDispatcherAdapter(
       eventDispatcher: $symfonyDispatcher,
       logger: new NullLogger(),

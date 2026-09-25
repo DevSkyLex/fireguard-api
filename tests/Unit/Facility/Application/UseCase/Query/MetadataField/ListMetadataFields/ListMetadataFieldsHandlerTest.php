@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\MetadataField\ListMetada
 use DateTimeImmutable;
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\{ListMetadataFieldsHandler, ListMetadataFieldsQuery, ListMetadataFieldsResult};
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -37,13 +37,9 @@ final class ListMetadataFieldsHandlerTest extends TestCase
     $field = FacilityMetadataField::reconstitute(
       id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655440501'),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('surface-m2'),
-      label: new FacilityMetadataFieldLabel('Surface (m²)'),
-      fieldType: FacilityMetadataFieldType::NUMBER,
-      required: true,
+      definition: new FacilityMetadataFieldDefinition(new FacilityMetadataFieldKey('surface-m2'), new FacilityMetadataFieldLabel('Surface (m²)'), FacilityMetadataFieldType::NUMBER, true, unit: 'm²'),
       createdAt: new DateTimeImmutable(),
       updatedAt: new DateTimeImmutable(),
-      unit: 'm²',
     );
 
     /** @var FacilityMetadataFieldRepositoryPort&MockObject $repository */

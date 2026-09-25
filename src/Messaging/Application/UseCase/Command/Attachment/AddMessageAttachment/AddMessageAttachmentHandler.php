@@ -7,7 +7,7 @@ namespace Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMessageRepositoryPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingAttachmentId, MessagingSubjectType};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
@@ -114,11 +114,13 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
       conversationId: $conversationId,
       organizationId: $organizationId,
       uploadedByMemberId: $uploaderMemberId,
-      fileName: $command->fileName,
-      storagePath: $storagePath,
-      mimeType: $command->mimeType,
-      size: $command->size,
-      label: $command->label,
+      file: new MessagingAttachmentFile(
+        fileName: $command->fileName,
+        storagePath: $storagePath,
+        mimeType: $command->mimeType,
+        size: $command->size,
+        label: $command->label,
+      ),
     );
 
     $this->fileStorage->write($storagePath, $command->contents);

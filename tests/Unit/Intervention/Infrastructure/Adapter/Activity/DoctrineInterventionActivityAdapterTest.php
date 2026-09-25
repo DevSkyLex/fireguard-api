@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Infrastructure\Adapter\Activity;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Activity\{InterventionActivityAppendRequest, InterventionActivityContent};
 use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\InterventionNotFoundException;
@@ -55,15 +56,12 @@ final class DoctrineInterventionActivityAdapterTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    $adapter->append(
+    $adapter->append(new InterventionActivityAppendRequest(
       self::INTERVENTION_ID,
       self::ORGANIZATION_ID,
       null,
-      'comment',
-      'comment',
-      'Looks good.',
-      null,
-    );
+      new InterventionActivityContent('comment', 'comment', 'Looks good.', null),
+    ));
   }
   // #endregion
 }

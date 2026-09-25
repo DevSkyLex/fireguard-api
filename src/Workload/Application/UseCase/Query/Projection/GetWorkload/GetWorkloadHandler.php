@@ -125,18 +125,7 @@ final readonly class GetWorkloadHandler implements QueryHandler
   {
     $members = null;
     if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.workload.read')) {
-      $callerId = null;
-      foreach ($this->workforce->members($query->organizationId) as $member) {
-        if ($member->active && $member->userId === $query->userId) {
-          $callerId = $member->id;
-
-          break;
-        }
-      }
-      if (null === $callerId || null !== $query->teamId || (null !== $query->memberId && $callerId !== $query->memberId)) {
-        throw new WorkloadAccessDeniedException('Team workload access is required.');
-      }
-      $members = [$callerId];
+      $members = [$this->callerMemberId($query)];
     } elseif (null !== $query->teamId) {
       if (null === $this->teams->resolveTeam($query->organizationId, $query->teamId)) {
         throw new WorkloadNotFoundException('Team not found.');
@@ -148,6 +137,32 @@ final readonly class GetWorkloadHandler implements QueryHandler
     }
 
     return $members;
+  }
+
+  /**
+   * Resolves the sole member a caller without team-read permission may see.
+   *
+   * @since 1.0.0
+   *
+   * @param GetWorkloadQuery $query requested read scope and caller context
+   *
+   * @return string the authorized caller member identifier
+   */
+  private function callerMemberId(GetWorkloadQuery $query): string
+  {
+    $callerId = null;
+    foreach ($this->workforce->members($query->organizationId) as $member) {
+      if ($member->active && $member->userId === $query->userId) {
+        $callerId = $member->id;
+
+        break;
+      }
+    }
+    if (null === $callerId || null !== $query->teamId || (null !== $query->memberId && $callerId !== $query->memberId)) {
+      throw new WorkloadAccessDeniedException('Team workload access is required.');
+    }
+
+    return $callerId;
   }
 
   /**

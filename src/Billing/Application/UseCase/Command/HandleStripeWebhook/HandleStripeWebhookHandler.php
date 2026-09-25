@@ -44,23 +44,29 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
   public function __invoke(HandleStripeWebhookCommand $command): VoidResult
   {
     $event = $this->stripe->parseEvent($command->payload, $command->signature);
-    if (!in_array($event->type, ['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'], true)) {
-      return new VoidResult();
+    if (in_array($event->type, ['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'], true)) {
+      $this->handleSubscriptionEvent($event);
     }
+
+    return new VoidResult();
+  }
+
+  private function handleSubscriptionEvent(StripeEvent $event): void
+  {
     if ($event->liveMode !== $this->stripe->isLiveMode()) {
       $this->logger->warning('Stripe webhook environment mismatch; event ignored.', ['event_id' => $event->eventId]);
 
-      return new VoidResult();
+      return;
     }
     if ('' === $event->eventId || null === $event->customerId || null === $event->subscriptionId) {
       $this->logger->warning('Incomplete Stripe subscription event; event ignored.', ['event_id' => $event->eventId]);
 
-      return new VoidResult();
+      return;
     }
 
     $organizationId = $this->resolveOrganizationId($event);
     if (null === $organizationId) {
-      return new VoidResult();
+      return;
     }
 
     $this->reconciliation->processEvent($organizationId, $event, function () use ($organizationId, $event): void {
@@ -75,8 +81,6 @@ final readonly class HandleStripeWebhookHandler implements CommandHandler
       }
       $this->reconcile($organizationId, $event, $subscription);
     });
-
-    return new VoidResult();
   }
 
   private function reconcile(string $organizationId, StripeEvent $event, ?Subscription $subscription): void

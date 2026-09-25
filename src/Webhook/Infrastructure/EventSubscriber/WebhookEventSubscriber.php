@@ -26,7 +26,7 @@ use Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWe
  * Reacts to the CURATED allowlist of domain events dispatched through
  * `Shared\Application\Port\Outbound\EventDispatcherPort` (event name =
  * `<module>.<snake_case_class>`, positioned exactly like
- * {@see \Audit\Infrastructure\EventSubscriber\AuditEventSubscriber} and
+ * the Audit event subscriber set and
  * {@see \Automation\Infrastructure\EventSubscriber\AutomationTriggerSubscriber},
  * which already subscribe to several of the very same events) and turns
  * each into a `DispatchWebhookEventCommand`, fire-and-forget dispatched

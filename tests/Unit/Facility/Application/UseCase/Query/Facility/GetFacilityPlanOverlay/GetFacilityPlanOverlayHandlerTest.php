@@ -21,7 +21,7 @@ use Facility\Domain\Exception\{
   FacilityAttachmentNotFoundException,
   FacilityNotFoundException
 };
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -320,9 +320,7 @@ final class GetFacilityPlanOverlayHandlerTest extends TestCase
       storagePath: 'facility/' . $facilityId . '/attachments/' . $id . '_plan.png',
       mimeType: AttachmentKind::FLOOR_PLAN === $kind ? 'image/png' : 'application/pdf',
       size: 1024,
-      kind: $kind,
-      imageWidth: $imageWidth,
-      imageHeight: $imageHeight,
+      options: new FacilityAttachmentCreationOptions(kind: $kind, imageWidth: $imageWidth, imageHeight: $imageHeight),
     );
   }
 }

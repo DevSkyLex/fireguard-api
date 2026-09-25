@@ -222,12 +222,7 @@ final readonly class InterventionNotificationService
     $this->remind(
       'intervention.due_soon',
       'Intervention due soon',
-      $interventionId,
-      $interventionNumber,
-      $interventionName,
-      $organizationId,
-      $dueAt,
-      $memberIds,
+      new InterventionReminderDelivery($interventionId, $interventionNumber, $interventionName, $organizationId, $dueAt, $memberIds),
     );
   }
 
@@ -262,12 +257,7 @@ final readonly class InterventionNotificationService
     $this->remind(
       'intervention.overdue',
       'Intervention overdue',
-      $interventionId,
-      $interventionNumber,
-      $interventionName,
-      $organizationId,
-      $dueAt,
-      $memberIds,
+      new InterventionReminderDelivery($interventionId, $interventionNumber, $interventionName, $organizationId, $dueAt, $memberIds),
       escalateToAdmins: true,
     );
   }
@@ -334,27 +324,17 @@ final readonly class InterventionNotificationService
    *
    * @param string $type the notification type value
    * @param string $subject the notification subject value
-   * @param string $interventionId the intervention id value
-   * @param int $interventionNumber the intervention's human-readable number
-   * @param string $interventionName the intervention name value
-   * @param string $organizationId the organization owning the intervention
-   * @param DateTimeImmutable $dueAt the intervention's due date
-   * @param list<string> $memberIds the candidate member ids
+   * @param InterventionReminderDelivery $delivery the intervention and candidate recipients
    * @param bool $escalateToAdmins whether to also notify the organization's administrators
    */
   private function remind(
     string $type,
     string $subject,
-    string $interventionId,
-    int $interventionNumber,
-    string $interventionName,
-    string $organizationId,
-    DateTimeImmutable $dueAt,
-    array $memberIds,
+    InterventionReminderDelivery $delivery,
     bool $escalateToAdmins = false,
   ): void {
     try {
-      $policy = $this->policy->notificationPolicy($organizationId);
+      $policy = $this->policy->notificationPolicy($delivery->organizationId);
 
       $channels = [];
       if ($policy->inAppEnabled) {
@@ -369,11 +349,11 @@ final readonly class InterventionNotificationService
 
       $body = sprintf(
         '"%s" (FG-%d) is due %s. /organizations/%s/interventions/%s',
-        $interventionName,
-        $interventionNumber,
-        $dueAt->format('Y-m-d'),
-        $organizationId,
-        $interventionId,
+        $delivery->interventionName,
+        $delivery->interventionNumber,
+        $delivery->dueAt->format('Y-m-d'),
+        $delivery->organizationId,
+        $delivery->interventionId,
       );
 
       $message = new SendNotificationRequest(
@@ -381,16 +361,16 @@ final readonly class InterventionNotificationService
         subject: $subject,
         body: $body,
         channels: $channels,
-        payload: ['interventionId' => $interventionId],
-        organizationId: $organizationId,
+        payload: ['interventionId' => $delivery->interventionId],
+        organizationId: $delivery->organizationId,
       );
-      $notifiedUserIds = $this->sendReminderToMembers($organizationId, $memberIds, $message);
+      $notifiedUserIds = $this->sendReminderToMembers($delivery->organizationId, $delivery->memberIds, $message);
 
       if (!$escalateToAdmins) {
         return;
       }
 
-      $this->sendReminderToAdministrators($organizationId, $notifiedUserIds, $message);
+      $this->sendReminderToAdministrators($delivery->organizationId, $notifiedUserIds, $message);
     } catch (Throwable) {
       // Notifications must not make a successful reminder sweep fail.
     }

@@ -11,7 +11,7 @@ use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, Me
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\PostMessage\{PostMessageCommand, PostMessageHandler};
 use Messaging\Domain\Exception\{MessagingClientMessageAlreadyExistsException, MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\Model\Conversation\Conversation;
+use Messaging\Domain\Model\Conversation\{Conversation, RestoredConversationActivity};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessageId, MessagingSubjectType};
@@ -473,12 +473,14 @@ final class PostMessageHandlerTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       'facility-1',
-      $visibility,
-      null,
-      0,
-      $archived,
-      $now,
-      $now,
+      new RestoredConversationActivity(
+        $visibility,
+        null,
+        0,
+        $archived,
+        $now,
+        $now,
+      ),
     );
   }
 

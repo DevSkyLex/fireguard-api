@@ -7,7 +7,7 @@ namespace Messaging\Application\UseCase\Command\Message\PostReply;
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId};
 use Shared\Application\Factory\UuidFactory;
@@ -140,7 +140,7 @@ final readonly class PostReplyHandler implements CommandHandler
       authorMemberId: $authorMemberId,
       rawBody: $command->body,
       mentionExtractor: $this->mentionExtractor,
-      parentMessageId: $command->parentMessageId,
+      links: new MessageCreationLinks(parentMessageId: $command->parentMessageId),
     );
 
     $view = $this->messages->append($reply);

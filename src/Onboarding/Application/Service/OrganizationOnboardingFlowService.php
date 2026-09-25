@@ -8,7 +8,8 @@ use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQ
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use InvalidArgumentException;
 use LogicException;
-use Onboarding\Application\Contract\Setup\{OrganizationSetupConflict, OrganizationSetupOperation};
+use Onboarding\Application\Contract\Organization\OnboardingOrganizationCandidate;
+use Onboarding\Application\Contract\Setup\OrganizationSetupConflict;
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
@@ -433,15 +434,25 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
      * @var PaginatedResult<GetOrganizationResult> $organizationsResult
      */
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
-    $targetOrganization = $this->resolveTargetOrganization($session, $organizationsResult);
+    $organizations = array_map(
+      static fn (GetOrganizationResult $organization): OnboardingOrganizationCandidate => new OnboardingOrganizationCandidate(
+        id: $organization->id,
+        name: $organization->name,
+        ownerUserId: $organization->ownerUserId,
+        createdByUserId: $organization->createdByUserId,
+        isActive: $organization->isActive,
+        createdAt: $organization->createdAt,
+      ),
+      $organizationsResult->items,
+    );
+    $targetOrganization = OnboardingTargetResolver::resolveTargetOrganization($session, $organizations, $this->setupRepository);
 
-    if (!$targetOrganization instanceof GetOrganizationResult) {
-      $joinedOrganization = $this->resolveAlreadyJoinedOrganization($session, $organizationsResult);
-      if ($joinedOrganization instanceof GetOrganizationResult) {
-        return $this->completeForAlreadyJoinedOrganization($session, $joinedOrganization);
-      }
+    if (!$targetOrganization instanceof OnboardingOrganizationCandidate) {
+      $joinedOrganization = OnboardingTargetResolver::resolveAlreadyJoinedOrganization($session, $organizations);
 
-      return $this->resetSessionWithoutTarget($session);
+      return $joinedOrganization instanceof OnboardingOrganizationCandidate
+        ? OnboardingTargetResolver::completeForAlreadyJoinedOrganization($session, $joinedOrganization)
+        : $this->resetSessionWithoutTarget($session);
     }
 
     $session->setTargetOrganization($targetOrganization->id, $targetOrganization->name);
@@ -689,204 +700,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       sessionId: $session->id(),
       setupOperations: $this->setupRepository?->listOperations($session->id()) ?? [],
     );
-  }
-
-  /**
-   * Method resolveAlreadyJoinedOrganization.
-   *
-   * Finds the organization a member already belongs to without having created
-   * it here — the shape of an invitation: they accepted, so they have a
-   * workspace, but no organization was created during this onboarding session
-   * for {@see self::resolveTargetOrganization()} to adopt.
-   *
-   * Only a session that never pinned an organization qualifies. A pinned one
-   * that disappeared is a different story, and resetting the flow there stays
-   * deliberate.
-   *
-   * @since 1.2.0
-   *
-   * @param OrganizationOnboardingSession $session the onboarding session aggregate
-   * @param PaginatedResult<GetOrganizationResult> $organizationsResult the current organizations list
-   *
-   * @return ?GetOrganizationResult the membership to complete the flow against
-   */
-  private function resolveAlreadyJoinedOrganization(
-    OrganizationOnboardingSession $session,
-    PaginatedResult $organizationsResult,
-  ): ?GetOrganizationResult {
-    if ($session->creationIntent()) {
-      return null;
-    }
-    $pinnedOrganizationId = $session->targetOrganizationId();
-    if (is_string($pinnedOrganizationId) && '' !== $pinnedOrganizationId) {
-      return null;
-    }
-
-    $candidate = null;
-    foreach ($organizationsResult->items as $organization) {
-      if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
-        $candidate = $organization;
-      }
-    }
-
-    return $candidate;
-  }
-
-  /**
-   * Method completeForAlreadyJoinedOrganization.
-   *
-   * Closes the flow for a member who arrived through an invitation. Without
-   * this the activation wizard has no organization to adopt, resets to
-   * `create_organization`, and `onboardingRequiredGuard` holds the member on
-   * the wizard for good — locked out of every page of the product.
-   *
-   * The rollback stack is cleared rather than extended: this organization
-   * predates the session and must never become something a later rollback can
-   * delete, which is exactly why {@see self::resolveTargetOrganization()}
-   * refuses to adopt it in the first place.
-   *
-   * @since 1.2.0
-   *
-   * @param OrganizationOnboardingSession $session the onboarding session aggregate
-   * @param GetOrganizationResult $organization the organization the member already belongs to
-   *
-   * @return ComputedOnboardingState the completed flow state
-   */
-  private function completeForAlreadyJoinedOrganization(
-    OrganizationOnboardingSession $session,
-    GetOrganizationResult $organization,
-  ): ComputedOnboardingState {
-    $session->setTargetOrganization($organization->id, $organization->name);
-    $session->clearRollbackStack();
-
-    foreach (OrganizationOnboardingStep::all() as $step) {
-      $session->markStepCompleted($step);
-    }
-
-    $session->setCompleted();
-
-    return new ComputedOnboardingState(
-      state: OrganizationOnboardingState::COMPLETED,
-      nextStep: null,
-      blockedReason: null,
-      targetOrganizationId: $organization->id,
-      targetOrganizationName: $organization->name,
-    );
-  }
-
-  /**
-   * Method resolveTargetOrganization.
-   *
-   * A setup journal is authoritative: only the completed creator receipt may
-   * select an organization. An unavailable result refuses recovery without
-   * discarding that receipt; a prepared item never adopts an unrelated result.
-   * The legacy rules below apply only to sessions without a setup journal.
-   *
-   * When a targetOrganizationId is already pinned on the session, only that
-   * organization is accepted. If it was deleted externally the method returns
-   * null so the flow resets instead of silently switching to another org.
-   *
-   * When no org is pinned yet (fresh session) only an organization whose
-   * createdAt is greater than or equal to the session createdAt is adopted.
-   * This prevents pre-existing production organizations from being silently
-   * adopted and later destroyed by the create_organization rollback action.
-   *
-   * @since 1.0.0
-   *
-   * @param OrganizationOnboardingSession $session the onboarding session aggregate
-   * @param PaginatedResult<GetOrganizationResult> $organizationsResult the current organizations list
-   *
-   * @return ?GetOrganizationResult the resolved target organization
-   */
-  private function resolveTargetOrganization(
-    OrganizationOnboardingSession $session,
-    PaginatedResult $organizationsResult,
-  ): ?GetOrganizationResult {
-    $setupOperations = $this->setupRepository?->listOperations($session->id()) ?? [];
-    if ([] !== $setupOperations || ($this->setupRepository?->hasJournal($session->id()) ?? false)) {
-      return $this->resolveFromSetupReceipt($session, $organizationsResult, $setupOperations);
-    }
-
-    if ([] === $organizationsResult->items) {
-      return null;
-    }
-
-    $targetOrganizationId = $session->targetOrganizationId();
-    if (is_string($targetOrganizationId) && '' !== $targetOrganizationId) {
-      foreach ($organizationsResult->items as $organization) {
-        if ($organization->id === $targetOrganizationId) {
-          return $organization;
-        }
-      }
-
-      // Pinned org was deleted externally — do not fall back to another org
-      return null;
-    }
-
-    return $this->latestEligibleOrganization($session, $organizationsResult);
-  }
-
-  /**
-   * @param PaginatedResult<GetOrganizationResult> $organizationsResult
-   * @param list<OrganizationSetupOperation> $setupOperations
-   */
-  private function resolveFromSetupReceipt(
-    OrganizationOnboardingSession $session,
-    PaginatedResult $organizationsResult,
-    array $setupOperations,
-  ): ?GetOrganizationResult {
-    if ([] === $setupOperations) {
-      return null;
-    }
-    foreach ($setupOperations as $operation) {
-      if (OrganizationOnboardingStep::CREATE_ORGANIZATION !== $operation->stepKey) {
-        continue;
-      }
-      // Only a completed creator receipt may pin its resulting organization.
-      if (null === $operation->resourceId) {
-        return null;
-      }
-      foreach ($organizationsResult->items as $organization) {
-        if ($organization->id === $operation->resourceId && $this->isEligibleCreationTarget($organization, $session)) {
-          return $organization;
-        }
-      }
-
-      // Preserve a stale receipt instead of adopting an unrelated organization.
-      throw OrganizationSetupConflict::because('The organization created by this setup is no longer available. Reset the creation session explicitly.');
-    }
-
-    throw OrganizationSetupConflict::because('The setup creation receipt is missing.');
-  }
-
-  /**
-   * @param PaginatedResult<GetOrganizationResult> $organizationsResult
-   */
-  private function latestEligibleOrganization(
-    OrganizationOnboardingSession $session,
-    PaginatedResult $organizationsResult,
-  ): ?GetOrganizationResult {
-    $candidate = null;
-    foreach ($organizationsResult->items as $organization) {
-      if (!$this->isEligibleCreationTarget($organization, $session)) {
-        continue;
-      }
-      if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
-        $candidate = $organization;
-      }
-    }
-
-    return $candidate;
-  }
-
-  private function isEligibleCreationTarget(
-    GetOrganizationResult $organization,
-    OrganizationOnboardingSession $session,
-  ): bool {
-    return $organization->isActive
-      && $organization->createdByUserId === $session->userId()
-      && $organization->ownerUserId === $session->userId()
-      && $organization->createdAt >= $session->createdAt();
   }
 
   /**

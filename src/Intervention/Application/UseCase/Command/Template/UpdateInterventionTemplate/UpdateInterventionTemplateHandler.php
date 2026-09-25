@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Command\Template\UpdateInterventionTemplate;
 
+use Intervention\Application\Contract\Template\{InterventionTemplateCollectionsPatch, InterventionTemplateDefaultsPatch, InterventionTemplateIdentityPatch, InterventionTemplatePlanningPatch, InterventionTemplateUpdateRequest};
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Application\UseCase\Command\Template\CreateInterventionTemplate\CreateInterventionTemplateHandler;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
@@ -79,27 +80,13 @@ final readonly class UpdateInterventionTemplateHandler implements CommandHandler
       : null;
 
     return new UpdateInterventionTemplateResult(
-      $this->templates->update(
-        id: $command->templateId,
-        name: $name,
-        description: $command->description,
-        type: $type,
-        priority: $priority,
-        defaultSiteId: $command->defaultSiteId,
-        defaultResponsibleId: $command->defaultResponsibleId,
-        duration: $duration,
-        labelIds: $command->labelIds,
-        items: $items,
-        hasName: $command->hasName,
-        hasDescription: $command->hasDescription,
-        hasType: $command->hasType,
-        hasPriority: $command->hasPriority,
-        hasDefaultSiteId: $command->hasDefaultSiteId,
-        hasDefaultResponsibleId: $command->hasDefaultResponsibleId,
-        hasDuration: $command->hasDuration,
-        hasLabelIds: $command->hasLabelIds,
-        hasItems: $command->hasItems,
-      ),
+      $this->templates->update(new InterventionTemplateUpdateRequest(
+        $command->templateId,
+        new InterventionTemplateIdentityPatch($name, $command->description, $type, $command->hasName, $command->hasDescription, $command->hasType),
+        new InterventionTemplatePlanningPatch($priority, $duration, $command->hasPriority, $command->hasDuration),
+        new InterventionTemplateDefaultsPatch($command->defaultSiteId, $command->defaultResponsibleId, $command->hasDefaultSiteId, $command->hasDefaultResponsibleId),
+        new InterventionTemplateCollectionsPatch($command->labelIds, $items, $command->hasLabelIds, $command->hasItems),
+      )),
     );
   }
 }

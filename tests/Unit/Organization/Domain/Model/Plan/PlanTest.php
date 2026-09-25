@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Domain\Model\Plan;
 
 use DateTimeImmutable;
-use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\Model\Plan\{Plan, RestoredPlanMetadata};
 use Organization\Domain\ValueObject\{OrganizationQuotaResource, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -136,8 +136,7 @@ final class PlanTest extends TestCase
       limits: [],
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      isDefault: true,
-      sortOrder: 3,
+      metadata: new RestoredPlanMetadata(isDefault: true, sortOrder: 3),
     );
 
     self::assertSame([], $plan->limits());

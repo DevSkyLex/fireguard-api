@@ -43,7 +43,7 @@ final class AutomationTriggerSubscriberTest extends TestCase
     $subscribed = AutomationTriggerSubscriber::getSubscribedEvents();
 
     self::assertArrayHasKey('inspection.non_conformity_recorded_event', $subscribed);
-    self::assertSame(AutomationTriggers::NON_CONFORMITY_RECORDED_EVENT, 'inspection.non_conformity_recorded_event');
+    self::assertSame('inspection.non_conformity_recorded_event', AutomationTriggers::NON_CONFORMITY_RECORDED_EVENT);
   }
 
   #[Test]

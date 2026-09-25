@@ -13,7 +13,7 @@ use Notification\Application\Port\Outbound\{
   NotificationRepositoryPort,
   RecipientDirectoryPort
 };
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
 use Notification\Domain\ValueObject\NotificationId;
 use Shared\Application\Factory\UuidFactory;
@@ -150,9 +150,11 @@ final readonly class SendNotificationHandler implements CommandHandler
       body: $command->body,
       channels: $channelValues,
       payload: $command->payload,
-      recipientUserId: $recipientUserId,
-      recipientEmail: $email,
-      organizationId: $this->normalizeNullableString($command->organizationId),
+      target: new NotificationTarget(
+        recipientUserId: $recipientUserId,
+        recipientEmail: $email,
+        organizationId: $this->normalizeNullableString($command->organizationId),
+      ),
     );
 
     $this->notificationRepository->save($notification);

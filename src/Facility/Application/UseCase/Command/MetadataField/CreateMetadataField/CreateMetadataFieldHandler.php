@@ -7,7 +7,7 @@ namespace Facility\Application\UseCase\Command\MetadataField\CreateMetadataField
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
 use Facility\Domain\Exception\{FacilityMetadataFieldKeyAlreadyExistsException, FacilityMetadataFieldLimitExceededException};
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -75,13 +75,7 @@ final readonly class CreateMetadataFieldHandler implements CommandHandler
       $field = FacilityMetadataField::create(
         id: $fieldId,
         organizationId: $organizationId,
-        key: $key,
-        label: $label,
-        fieldType: $fieldType,
-        required: $command->required,
-        options: $command->options,
-        facilityType: $facilityType,
-        unit: $command->unit,
+        definition: new FacilityMetadataFieldDefinition($key, $label, $fieldType, $command->required, $command->options, $facilityType, $command->unit),
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);

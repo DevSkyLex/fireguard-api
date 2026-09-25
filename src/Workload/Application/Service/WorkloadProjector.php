@@ -10,7 +10,7 @@ use Intervention\Application\Port\Inbound\InterventionWorkloadContributionsPort;
 use Organization\Application\Port\Inbound\OrganizationWorkforceDirectoryPort;
 use Shared\Application\Port\Outbound\ClockPort;
 use Shared\Domain\Exception\InvalidValueException;
-use Workload\Application\Contract\Capacity\CapacityWeekView;
+use Workload\Application\Contract\Capacity\{CapacityExceptionView, CapacityWeekView};
 use Workload\Application\Contract\Projection\{MemberWorkloadView, UnallocatedWorkView, WorkloadDayView, WorkloadProjectionSnapshot, WorkloadProjectionView};
 use Workload\Application\Port\Inbound\WorkloadProjectionPort;
 use Workload\Application\Port\Outbound\CapacityRepositoryPort;
@@ -85,37 +85,16 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
     $today = LocalDate::fromString($now->setTimezone(new DateTimeZone($context->timezone))->format('Y-m-d'));
     $weeks = $this->capacities->weeks($organizationId);
     $exceptions = $this->capacities->exceptions($organizationId);
-    $tasks = [];
-    foreach ($this->contributions->tasks($organizationId, $context->timezone) as $task) {
-      $tasks[$task->taskId] = $task;
-    }
-    foreach ($replacements as $replacement) {
-      $tasks[$replacement->taskId] = $replacement;
-    }
-    ksort($tasks);
+    $tasks = $this->tasksForProjection($organizationId, $context->timezone, $replacements);
     $actuals = $this->contributions->actuals($organizationId, $from, $to);
     $members = $this->selectedMembers($organizationId, $memberIds, $tasks, $actuals);
     $organizationWeeks = array_values(array_filter($weeks, static fn ($week): bool => $week->scopeId === $organizationId));
     $toChange = static fn (CapacityWeekView $week): CapacityChange => new CapacityChange(LocalDate::fromString($week->effectiveOn), new CapacityWeek($week->minutes));
     // Index complete source reads once. Member pagination remains outside this projection.
-    $weeksByScope = [];
-    foreach ($weeks as $week) {
-      $weeksByScope[$week->scopeId][] = $week;
-    }
-    $exceptionsByMember = [];
-    foreach ($exceptions as $exception) {
-      $exceptionsByMember[$exception->memberId][] = $exception;
-    }
-    $tasksByMember = [];
-    foreach ($tasks as $task) {
-      if (null !== $task->memberId) {
-        $tasksByMember[$task->memberId][] = $task;
-      }
-    }
-    $actualsByMember = [];
-    foreach ($actuals as $entry) {
-      $actualsByMember[$entry->memberId][] = $entry;
-    }
+    $weeksByScope = self::weeksByScope($weeks);
+    $exceptionsByMember = self::exceptionsByMember($exceptions);
+    $tasksByMember = self::tasksByMember($tasks);
+    $actualsByMember = self::actualsByMember($actuals);
     $organizationChanges = array_map($toChange, $organizationWeeks);
     $dates = iterator_to_array(self::dates($start, $end), false);
     $output = [];
@@ -163,6 +142,97 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
   }
 
   /**
+   * @since 1.0.0
+   *
+   * @param list<InterventionWorkContribution> $replacements proposed task overrides
+   *
+   * @return array<string, InterventionWorkContribution> tasks keyed and ordered by task id
+   */
+  private function tasksForProjection(string $organizationId, string $timezone, array $replacements): array
+  {
+    $tasks = [];
+    foreach ($this->contributions->tasks($organizationId, $timezone) as $task) {
+      $tasks[$task->taskId] = $task;
+    }
+    foreach ($replacements as $replacement) {
+      $tasks[$replacement->taskId] = $replacement;
+    }
+    ksort($tasks);
+
+    return $tasks;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param list<CapacityWeekView> $weeks weekly capacity changes
+   *
+   * @return array<string, list<CapacityWeekView>> changes by scope
+   */
+  private static function weeksByScope(array $weeks): array
+  {
+    $indexed = [];
+    foreach ($weeks as $week) {
+      $indexed[$week->scopeId][] = $week;
+    }
+
+    return $indexed;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param list<CapacityExceptionView> $exceptions dated capacity exceptions
+   *
+   * @return array<string, list<CapacityExceptionView>> exceptions by member
+   */
+  private static function exceptionsByMember(array $exceptions): array
+  {
+    $indexed = [];
+    foreach ($exceptions as $exception) {
+      $indexed[$exception->memberId][] = $exception;
+    }
+
+    return $indexed;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param array<string, InterventionWorkContribution> $tasks task contributions
+   *
+   * @return array<string, list<InterventionWorkContribution>> tasks by assigned member
+   */
+  private static function tasksByMember(array $tasks): array
+  {
+    $indexed = [];
+    foreach ($tasks as $task) {
+      if (null !== $task->memberId) {
+        $indexed[$task->memberId][] = $task;
+      }
+    }
+
+    return $indexed;
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param list<InterventionTimeContribution> $actuals recorded time contributions
+   *
+   * @return array<string, list<InterventionTimeContribution>> records by member
+   */
+  private static function actualsByMember(array $actuals): array
+  {
+    $indexed = [];
+    foreach ($actuals as $entry) {
+      $indexed[$entry->memberId][] = $entry;
+    }
+
+    return $indexed;
+  }
+
+  /**
    * Keep future remaining demand separate from factual time contributions.
    *
    * @since 1.0.0
@@ -192,17 +262,31 @@ final readonly class WorkloadProjector implements WorkloadProjectionPort
       if (null !== $allocation->unallocatedReason) {
         $unallocated[] = self::unallocated($task, $allocation->unallocatedReason);
       }
-      foreach ($allocation->dailyMinutes as $date => $minutes) {
-        if ($date >= $from && $date <= $to && $minutes > 0) {
-          $shares[$date][] = ['taskId' => $task->taskId, 'kind' => $task->commitment, 'minutes' => $minutes, 'entryId' => null, 'interventionId' => $task->interventionId, 'label' => $task->label];
-        }
-      }
+      self::appendDailyShares($shares, $task, $allocation->dailyMinutes, $from, $to);
     }
     foreach ($actuals as $entry) {
       $shares[$entry->workedOn][] = ['taskId' => $entry->taskId, 'kind' => 'actual', 'minutes' => $entry->minutes, 'entryId' => $entry->entryId, 'interventionId' => $entry->interventionId, 'label' => $entry->label];
     }
 
     return [$shares, $unallocated];
+  }
+
+  /**
+   * @since 1.0.0
+   *
+   * @param array<string, list<array{taskId: string, kind: string, minutes: int, entryId: ?string, interventionId: ?string, label: ?string}>> $shares
+   * @param InterventionWorkContribution $task the allocated task
+   * @param array<string, int> $dailyMinutes allocation over the full task period
+   * @param string $from inclusive first visible date
+   * @param string $to inclusive last visible date
+   */
+  private static function appendDailyShares(array &$shares, InterventionWorkContribution $task, array $dailyMinutes, string $from, string $to): void
+  {
+    foreach ($dailyMinutes as $date => $minutes) {
+      if ($date >= $from && $date <= $to && $minutes > 0) {
+        $shares[$date][] = ['taskId' => $task->taskId, 'kind' => $task->commitment, 'minutes' => $minutes, 'entryId' => null, 'interventionId' => $task->interventionId, 'label' => $task->label];
+      }
+    }
   }
 
   /**

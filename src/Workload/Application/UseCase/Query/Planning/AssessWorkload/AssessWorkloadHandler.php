@@ -143,32 +143,8 @@ final readonly class AssessWorkloadHandler implements QueryHandler
       if (null === $task) {
         throw new WorkloadNotFoundException('Editable work item not found.');
       }
-      if (null !== $change->memberId && !in_array($change->memberId, $activeMembers, true)) {
-        throw new WorkloadNotFoundException('Active member not found.');
-      }
-      if ((null === $change->startsOn) !== (null === $change->endsOn)) {
-        throw InvalidValueException::because('Both task period dates are required.');
-      }
       $commitment = $replacements[$task->taskId]->commitment ?? $task->commitment;
-      new WorkDemand(
-        $task->taskId,
-        $change->memberId,
-        $change->remainingMinutes,
-        null === $change->startsOn ? null : LocalDate::fromString($change->startsOn),
-        null === $change->endsOn ? null : LocalDate::fromString($change->endsOn),
-        $commitment,
-      );
-      $replacements[$task->taskId] = new InterventionWorkContribution(
-        $task->taskId,
-        $task->interventionId,
-        $task->label,
-        $change->memberId,
-        $change->remainingMinutes,
-        $change->startsOn,
-        $change->endsOn,
-        $commitment,
-        $task->revision,
-      );
+      $replacements[$task->taskId] = self::replacementFor($change, $task, $activeMembers, $commitment);
       if (null !== $task->memberId) {
         $members[] = $task->memberId;
       }
@@ -178,5 +154,47 @@ final readonly class AssessWorkloadHandler implements QueryHandler
     }
 
     return [$replacements, $members];
+  }
+
+  /**
+   * Validates and projects a single proposed task replacement.
+   *
+   * @since 1.0.0
+   *
+   * @param WorkloadTaskProposal $change the proposed task edit
+   * @param InterventionWorkContribution $task the existing task contribution
+   * @param list<string> $activeMembers members eligible for assignment
+   * @param string $commitment the effective commitment after draft planning
+   *
+   * @return InterventionWorkContribution the validated replacement
+   */
+  private static function replacementFor(WorkloadTaskProposal $change, InterventionWorkContribution $task, array $activeMembers, string $commitment): InterventionWorkContribution
+  {
+    if (null !== $change->memberId && !in_array($change->memberId, $activeMembers, true)) {
+      throw new WorkloadNotFoundException('Active member not found.');
+    }
+    if ((null === $change->startsOn) !== (null === $change->endsOn)) {
+      throw InvalidValueException::because('Both task period dates are required.');
+    }
+    new WorkDemand(
+      $task->taskId,
+      $change->memberId,
+      $change->remainingMinutes,
+      null === $change->startsOn ? null : LocalDate::fromString($change->startsOn),
+      null === $change->endsOn ? null : LocalDate::fromString($change->endsOn),
+      $commitment,
+    );
+
+    return new InterventionWorkContribution(
+      $task->taskId,
+      $task->interventionId,
+      $task->label,
+      $change->memberId,
+      $change->remainingMinutes,
+      $change->startsOn,
+      $change->endsOn,
+      $commitment,
+      $task->revision,
+    );
   }
 }

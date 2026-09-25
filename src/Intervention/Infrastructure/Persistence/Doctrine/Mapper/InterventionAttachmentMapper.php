@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
 use LogicException;
@@ -33,16 +33,11 @@ final class InterventionAttachmentMapper
     }
 
     return InterventionAttachment::reconstitute(
-      id: InterventionAttachmentId::fromString($record->id),
-      interventionId: $record->intervention->id,
-      fileName: $record->fileName,
-      storagePath: $record->storagePath,
-      mimeType: $record->mimeType,
-      size: $record->size,
-      uploadedAt: $record->uploadedAt,
-      label: $record->label,
-      workItemId: $record->workItem?->id,
-      kind: InterventionAttachmentKind::tryFrom($record->kind) ?? InterventionAttachmentKind::FILE,
+      InterventionAttachmentId::fromString($record->id),
+      $record->intervention->id,
+      new InterventionAttachmentFile($record->fileName, $record->storagePath, $record->mimeType, $record->size),
+      $record->uploadedAt,
+      new InterventionAttachmentOptions(label: $record->label, workItemId: $record->workItem?->id, kind: InterventionAttachmentKind::tryFrom($record->kind) ?? InterventionAttachmentKind::FILE),
     );
   }
 

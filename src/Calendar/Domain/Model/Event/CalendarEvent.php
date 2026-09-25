@@ -75,45 +75,31 @@ final class CalendarEvent
    *
    * @since 1.0.0
    *
-   * @param CalendarEventId $id the event identifier
-   * @param string $organizationId the owning organization identifier
-   * @param string $title the event title
-   * @param ?string $description the free-form description
-   * @param DateTimeImmutable $startsAt the event start
-   * @param ?DateTimeImmutable $endsAt the event end, when any
-   * @param bool $allDay whether the event spans whole day(s)
-   * @param ?string $facilityId the associated facility identifier, when any
-   * @param string $createdByMemberId the creating organization member identifier
+   * @param CalendarEventIdentity $identity organization-scoped identity and author
+   * @param CalendarEventContent $content event details and schedule
    *
    * @throws CalendarEventValidationException when `$endsAt` is before `$startsAt`
    *
    * @return self the created calendar event
    */
   public static function create(
-    CalendarEventId $id,
-    string $organizationId,
-    string $title,
-    ?string $description,
-    DateTimeImmutable $startsAt,
-    ?DateTimeImmutable $endsAt,
-    bool $allDay,
-    ?string $facilityId,
-    string $createdByMemberId,
+    CalendarEventIdentity $identity,
+    CalendarEventContent $content,
   ): self {
-    self::assertChronological($startsAt, $endsAt);
+    self::assertChronological($content->startsAt, $content->endsAt);
 
     $now = new DateTimeImmutable();
 
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      title: $title,
-      description: $description,
-      startsAt: $startsAt,
-      endsAt: $endsAt,
-      allDay: $allDay,
-      facilityId: $facilityId,
-      createdByMemberId: $createdByMemberId,
+      id: $identity->id,
+      organizationId: $identity->organizationId,
+      title: $content->title,
+      description: $content->description,
+      startsAt: $content->startsAt,
+      endsAt: $content->endsAt,
+      allDay: $content->allDay,
+      facilityId: $content->facilityId,
+      createdByMemberId: $identity->createdByMemberId,
       createdAt: $now,
       updatedAt: $now,
     );
@@ -128,43 +114,29 @@ final class CalendarEvent
    *
    * @since 1.0.0
    *
-   * @param CalendarEventId $id the event identifier
-   * @param string $organizationId the owning organization identifier
-   * @param string $title the event title
-   * @param ?string $description the free-form description
-   * @param DateTimeImmutable $startsAt the event start
-   * @param ?DateTimeImmutable $endsAt the event end, when any
-   * @param bool $allDay whether the event spans whole day(s)
-   * @param ?string $facilityId the associated facility identifier, when any
-   * @param string $createdByMemberId the creating organization member identifier
+   * @param CalendarEventIdentity $identity organization-scoped identity and author
+   * @param CalendarEventContent $content event details and schedule
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
    *
    * @return self the reconstituted calendar event
    */
   public static function reconstitute(
-    CalendarEventId $id,
-    string $organizationId,
-    string $title,
-    ?string $description,
-    DateTimeImmutable $startsAt,
-    ?DateTimeImmutable $endsAt,
-    bool $allDay,
-    ?string $facilityId,
-    string $createdByMemberId,
+    CalendarEventIdentity $identity,
+    CalendarEventContent $content,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
   ): self {
     return new self(
-      id: $id,
-      organizationId: $organizationId,
-      title: $title,
-      description: $description,
-      startsAt: $startsAt,
-      endsAt: $endsAt,
-      allDay: $allDay,
-      facilityId: $facilityId,
-      createdByMemberId: $createdByMemberId,
+      id: $identity->id,
+      organizationId: $identity->organizationId,
+      title: $content->title,
+      description: $content->description,
+      startsAt: $content->startsAt,
+      endsAt: $content->endsAt,
+      allDay: $content->allDay,
+      facilityId: $content->facilityId,
+      createdByMemberId: $identity->createdByMemberId,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
     );

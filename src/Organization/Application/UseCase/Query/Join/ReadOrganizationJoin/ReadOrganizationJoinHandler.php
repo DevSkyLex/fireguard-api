@@ -56,16 +56,8 @@ final readonly class ReadOrganizationJoinHandler implements QueryHandler
    */
   public function __invoke(ReadOrganizationJoinQuery $query): ReadOrganizationJoinResult
   {
-    if ('policy' === $query->operation) {
-      $this->access->assertManage($query->userId, $query->organizationId ?? '', true);
-
-      return new ReadOrganizationJoinResult($this->access->policyView($query->organizationId ?? ''));
-    }
-    if ('organization_requests' === $query->operation) {
-      $this->access->assertManage($query->userId, $query->organizationId ?? '');
-      $requests = array_map(fn ($r) => $this->access->requestView($r, $query->userId, true), $this->joins->requests(null, $query->organizationId));
-
-      return new ReadOrganizationJoinResult(['member' => $requests, 'totalItems' => count($requests), 'assignableRoles' => $this->access->assignableRoles($query->userId, $query->organizationId ?? '')]);
+    if (in_array($query->operation, ['policy', 'organization_requests'], true)) {
+      return $this->readManagedOperation($query);
     }
     $requests = array_map(fn ($r) => $this->access->requestView($r, $query->userId), $this->joins->requests($query->userId));
     if ('requests' === $query->operation) {
@@ -73,14 +65,28 @@ final readonly class ReadOrganizationJoinHandler implements QueryHandler
     }
     $proof = $this->emails->get($query->userId);
     $result = ['emailProofRequired' => !$proof->verified, 'invitations' => [], 'organizations' => [], 'requests' => $requests];
-    if (!$proof->verified) {
-      return new ReadOrganizationJoinResult($result);
+    if ($proof->verified) {
+      $now = new DateTimeImmutable();
+      $result['invitations'] = $this->invitationViews($proof->email, $now);
+      $result['organizations'] = $this->organizationViews($proof->email, $now, $result['invitations'], $requests, $query->userId);
     }
-    $now = new DateTimeImmutable();
-    $result['invitations'] = $this->invitationViews($proof->email, $now);
-    $result['organizations'] = $this->organizationViews($proof->email, $now, $result['invitations'], $requests, $query->userId);
 
     return new ReadOrganizationJoinResult($result);
+  }
+
+  private function readManagedOperation(ReadOrganizationJoinQuery $query): ReadOrganizationJoinResult
+  {
+    $organizationId = $query->organizationId ?? '';
+    if ('policy' === $query->operation) {
+      $this->access->assertManage($query->userId, $organizationId, true);
+
+      return new ReadOrganizationJoinResult($this->access->policyView($organizationId));
+    }
+
+    $this->access->assertManage($query->userId, $organizationId);
+    $requests = array_map(fn ($r) => $this->access->requestView($r, $query->userId, true), $this->joins->requests(null, $query->organizationId));
+
+    return new ReadOrganizationJoinResult(['member' => $requests, 'totalItems' => count($requests), 'assignableRoles' => $this->access->assignableRoles($query->userId, $organizationId)]);
   }
 
   /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Command\Activity\AddInterventionComment;
 
+use Intervention\Application\Contract\Activity\{InterventionActivityAppendRequest, InterventionActivityContent};
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionNotificationService};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
@@ -90,16 +91,13 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
 
     $actorId = $this->memberPolicy->assertActiveMemberForUser($context->organizationId, $command->userId);
 
-    $view = $this->activities->append(
+    $view = $this->activities->append(new InterventionActivityAppendRequest(
       $command->interventionId,
       $context->organizationId,
       $actorId,
-      'comment',
-      'comment',
-      $body,
-      null,
+      new InterventionActivityContent('comment', 'comment', $body, null),
       $command->clientId,
-    );
+    ));
 
     foreach (self::extractMentions($body) as $mentionedMemberId) {
       if ($mentionedMemberId === $actorId) {

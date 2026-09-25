@@ -6,7 +6,7 @@ namespace App\Tests\E2E;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Notification\Application\Contract\Notification\NotificationType;
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
 
@@ -27,7 +27,7 @@ final class InboxPaginationContractTest extends OAuth2WebTestCase
     $expected = [];
     for ($i = 0; $i < 5; ++$i) {
       $id = sprintf('550e8400-e29b-41d4-a716-44665544998%d', $i);
-      $repository->save(Notification::create(NotificationId::fromString($id), NotificationType::USER_EMAIL_VERIFIED, 'Cursor test', 'Body', ['mercure'], recipientUserId: $identity['userId']));
+      $repository->save(Notification::create(NotificationId::fromString($id), NotificationType::USER_EMAIL_VERIFIED, 'Cursor test', 'Body', ['mercure'], target: new NotificationTarget(recipientUserId: $identity['userId'])));
       $manager->getConnection()->executeStatement('UPDATE notifications SET created_at = :at WHERE id = :id', ['at' => '2026-09-20 10:00:00', 'id' => $id]);
       $expected[] = $id;
     }

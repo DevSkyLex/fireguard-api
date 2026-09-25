@@ -81,41 +81,29 @@ final class FacilityMetadataField
    *
    * @param FacilityMetadataFieldId $id the field identifier
    * @param FacilityOrganizationId $organizationId the owning organization identifier
-   * @param FacilityMetadataFieldKey $key the machine key
-   * @param FacilityMetadataFieldLabel $label the human-readable label
-   * @param FacilityMetadataFieldType $fieldType the field type
-   * @param bool $required whether the field is required on facility creation
-   * @param array<array-key, mixed> $options the select options (only meaningful for SELECT)
-   * @param ?FacilityType $facilityType the optional facility type scope
-   * @param ?string $unit the optional unit label
+   * @param FacilityMetadataFieldDefinition $definition the field's typed definition
    *
    * @return self the created metadata field aggregate
    */
   public static function create(
     FacilityMetadataFieldId $id,
     FacilityOrganizationId $organizationId,
-    FacilityMetadataFieldKey $key,
-    FacilityMetadataFieldLabel $label,
-    FacilityMetadataFieldType $fieldType,
-    bool $required = false,
-    array $options = [],
-    ?FacilityType $facilityType = null,
-    ?string $unit = null,
+    FacilityMetadataFieldDefinition $definition,
   ): self {
     $now = new DateTimeImmutable();
 
     return new self(
       id: $id,
       organizationId: $organizationId,
-      key: $key,
-      label: $label,
-      fieldType: $fieldType,
-      required: $required,
+      key: $definition->key,
+      label: $definition->label,
+      fieldType: $definition->fieldType,
+      required: $definition->required,
       createdAt: $now,
       updatedAt: $now,
-      options: self::normalizeOptions($fieldType, $options),
-      facilityType: $facilityType,
-      unit: self::normalizeUnit($unit),
+      options: self::normalizeOptions($definition->fieldType, $definition->options),
+      facilityType: $definition->facilityType,
+      unit: self::normalizeUnit($definition->unit),
     );
   }
 
@@ -126,43 +114,34 @@ final class FacilityMetadataField
    *
    * @param FacilityMetadataFieldId $id the field identifier
    * @param FacilityOrganizationId $organizationId the owning organization identifier
-   * @param FacilityMetadataFieldKey $key the machine key
-   * @param FacilityMetadataFieldLabel $label the human-readable label
-   * @param FacilityMetadataFieldType $fieldType the field type
-   * @param bool $required whether the field is required on facility creation
+   * @param FacilityMetadataFieldDefinition $definition the persisted field definition
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
-   * @param list<string> $options the select options
-   * @param ?FacilityType $facilityType the optional facility type scope
-   * @param ?string $unit the optional unit label
    *
    * @return self the reconstituted metadata field aggregate
    */
   public static function reconstitute(
     FacilityMetadataFieldId $id,
     FacilityOrganizationId $organizationId,
-    FacilityMetadataFieldKey $key,
-    FacilityMetadataFieldLabel $label,
-    FacilityMetadataFieldType $fieldType,
-    bool $required,
+    FacilityMetadataFieldDefinition $definition,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
-    array $options = [],
-    ?FacilityType $facilityType = null,
-    ?string $unit = null,
   ): self {
+    /** @var list<string> $options Persisted options were normalized on creation. */
+    $options = $definition->options;
+
     return new self(
       id: $id,
       organizationId: $organizationId,
-      key: $key,
-      label: $label,
-      fieldType: $fieldType,
-      required: $required,
+      key: $definition->key,
+      label: $definition->label,
+      fieldType: $definition->fieldType,
+      required: $definition->required,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
       options: $options,
-      facilityType: $facilityType,
-      unit: $unit,
+      facilityType: $definition->facilityType,
+      unit: $definition->unit,
     );
   }
 

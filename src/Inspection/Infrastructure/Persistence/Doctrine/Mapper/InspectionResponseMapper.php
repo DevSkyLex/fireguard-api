@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Inspection\Domain\Model\Response\InspectionResponse;
+use Inspection\Domain\Model\Response\{InspectionResponse, RestoredInspectionResponseState};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord;
 use LogicException;
@@ -45,12 +45,14 @@ final class InspectionResponseMapper
       id: InspectionResponseId::fromString($record->id),
       organizationId: InspectionOrganizationId::fromString($record->organization->id),
       inspectionId: InspectionId::fromString($record->inspectionId),
-      interventionId: $record->interventionId,
-      clientId: $record->clientId,
-      status: InspectionResponseStatus::from($record->recordStatus),
-      revision: $record->revision,
-      itemKey: $record->itemKey,
-      value: $record->value,
+      state: new RestoredInspectionResponseState(
+        interventionId: $record->interventionId,
+        clientId: $record->clientId,
+        status: InspectionResponseStatus::from($record->recordStatus),
+        revision: $record->revision,
+        itemKey: $record->itemKey,
+        value: $record->value,
+      ),
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
     );

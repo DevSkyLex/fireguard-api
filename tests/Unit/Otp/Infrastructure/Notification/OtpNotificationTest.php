@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Otp\Infrastructure\Notification;
 
 use DateTimeImmutable;
-use Otp\Domain\Model\Otp;
+use Otp\Domain\Model\{Otp, OtpRestoredIdentity, OtpRestoredProgress};
 use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use Otp\Infrastructure\Notification\OtpNotification;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
@@ -72,18 +72,22 @@ final class OtpNotificationTest extends TestCase
   public function testAsSmsMessageUsesMaskedCodeWhenPlainMissing(): void
   {
     $otp = Otp::reconstitute(
-      id: new OtpId('123e4567-e89b-12d3-a456-426614174000'),
-      challengeToken: ChallengeToken::fromString('challenge'),
-      userId: 'user-1',
-      purpose: OtpPurpose::LOGIN,
-      channel: OtpChannel::SMS,
-      codeHash: OtpCode::generate()->hash(),
-      recipient: '+12025550123',
-      expiresAt: new DateTimeImmutable('+5 minutes'),
-      maxAttempts: 3,
-      attempts: 0,
-      verifiedAt: null,
-      createdAt: new DateTimeImmutable('2024-01-01 00:00:00'),
+      identity: new OtpRestoredIdentity(
+        id: new OtpId('123e4567-e89b-12d3-a456-426614174000'),
+        challengeToken: ChallengeToken::fromString('challenge'),
+        userId: 'user-1',
+        purpose: OtpPurpose::LOGIN,
+        channel: OtpChannel::SMS,
+        recipient: '+12025550123',
+      ),
+      progress: new OtpRestoredProgress(
+        codeHash: OtpCode::generate()->hash(),
+        expiresAt: new DateTimeImmutable('+5 minutes'),
+        maxAttempts: 3,
+        attempts: 0,
+        verifiedAt: null,
+        createdAt: new DateTimeImmutable('2024-01-01 00:00:00'),
+      ),
     );
 
     $notification = new OtpNotification($otp);

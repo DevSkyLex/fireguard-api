@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Application\Contract\Inspection\{InspectionExecutionCriteria, InspectionInspectorCriteria, InspectionListCriteria, InspectionSubjectCriteria};
-use Inspection\Domain\Model\Inspection\Inspection;
+use Inspection\Domain\Model\Inspection\{Inspection, RestoredInspectionFinding, RestoredInspectionReferences};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -135,17 +135,21 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $updated = Inspection::reconstitute(
       id: InspectionId::fromString(self::UPSERT_INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_B_ID),
-      inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
-      result: InspectionResult::FAIL,
-      status: InspectionStatus::SUBMITTED,
-      performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_B_ID),
+        inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
+        facilityId: InspectionFacilityId::fromString(self::FACILITY_A_ID),
+        checklistId: InspectionChecklistId::fromString(self::CHECKLIST_A_ID),
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::FAIL,
+        status: InspectionStatus::SUBMITTED,
+        performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
+        notes: 'Updated notes',
+        signature: 'updated-signature',
+      ),
       createdAt: new DateTimeImmutable('2026-01-01 00:00:00'),
       updatedAt: new DateTimeImmutable('2026-01-15 00:00:00'),
-      facilityId: InspectionFacilityId::fromString(self::FACILITY_A_ID),
-      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_A_ID),
-      notes: 'Updated notes',
-      signature: 'updated-signature',
     );
     $this->repository->save($updated);
     $this->entityManager->clear();
@@ -194,11 +198,15 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $unsaved = Inspection::reconstitute(
       id: InspectionId::fromString(self::UNKNOWN_INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_A_ID),
-      inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
-      result: InspectionResult::PASS,
-      status: InspectionStatus::DRAFT,
-      performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_A_ID),
+        inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
+      ),
+      finding: new RestoredInspectionFinding(
+        result: InspectionResult::PASS,
+        status: InspectionStatus::DRAFT,
+        performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
+      ),
       createdAt: new DateTimeImmutable('2026-01-01 00:00:00'),
       updatedAt: new DateTimeImmutable('2026-01-01 00:00:00'),
     );
@@ -607,15 +615,19 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     $inspection = Inspection::reconstitute(
       id: InspectionId::fromString($id),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
-      equipmentId: InspectionEquipmentId::fromString($equipmentId),
-      inspector: $inspector,
-      result: $result,
-      status: $status,
-      performedAt: $performedAt,
+      references: new RestoredInspectionReferences(
+        equipmentId: InspectionEquipmentId::fromString($equipmentId),
+        inspector: $inspector,
+        facilityId: null !== $facilityId ? InspectionFacilityId::fromString($facilityId) : null,
+        checklistId: null !== $checklistId ? InspectionChecklistId::fromString($checklistId) : null,
+      ),
+      finding: new RestoredInspectionFinding(
+        result: $result,
+        status: $status,
+        performedAt: $performedAt,
+      ),
       createdAt: $createdAt,
       updatedAt: $createdAt,
-      facilityId: null !== $facilityId ? InspectionFacilityId::fromString($facilityId) : null,
-      checklistId: null !== $checklistId ? InspectionChecklistId::fromString($checklistId) : null,
     );
 
     $this->repository->save($inspection);

@@ -10,7 +10,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityHandler, MoveFacilityResult};
 use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityHierarchyException, FacilityNotFoundException};
-use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\Model\Facility\{Facility, FacilityDetails};
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -69,7 +69,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Parent A'),
-      parentFacilityId: $parentBId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentBId,
+      ),
     );
 
     $parentB = Facility::create(
@@ -77,7 +79,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Parent B'),
-      parentFacilityId: $parentAId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentAId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -273,7 +277,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 5'),
-      parentFacilityId: $oldParentId,
+      details: new FacilityDetails(
+        parentFacilityId: $oldParentId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -326,7 +332,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 7'),
-      parentFacilityId: $oldParentId,
+      details: new FacilityDetails(
+        parentFacilityId: $oldParentId,
+      ),
     );
 
     $newParent = Facility::create(
@@ -385,7 +393,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 9'),
-      parentFacilityId: $parentId,
+      details: new FacilityDetails(
+        parentFacilityId: $parentId,
+      ),
     );
 
     $parent = Facility::create(
@@ -471,7 +481,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::FLOOR,
       name: new FacilityName('Floor 11'),
-      parentFacilityId: $oldParentId,
+      details: new FacilityDetails(
+        parentFacilityId: $oldParentId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -606,7 +618,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building Leaked Ancestor'),
-      parentFacilityId: $ancestorId,
+      details: new FacilityDetails(
+        parentFacilityId: $ancestorId,
+      ),
     );
 
     $ancestor = Facility::create(
@@ -663,7 +677,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building Orphan Walk'),
-      parentFacilityId: $ancestorId,
+      details: new FacilityDetails(
+        parentFacilityId: $ancestorId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -712,7 +728,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Building Aliased Walk'),
-      parentFacilityId: $ancestorId,
+      details: new FacilityDetails(
+        parentFacilityId: $ancestorId,
+      ),
     );
 
     // Aliased row: the ancestor lookup answers with a facility already visited,
@@ -722,7 +740,9 @@ final class MoveFacilityHandlerTest extends TestCase
       organizationId: $organizationId,
       type: FacilityType::BUILDING,
       name: new FacilityName('Aliased Ancestor'),
-      parentFacilityId: $ancestorId,
+      details: new FacilityDetails(
+        parentFacilityId: $ancestorId,
+      ),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */

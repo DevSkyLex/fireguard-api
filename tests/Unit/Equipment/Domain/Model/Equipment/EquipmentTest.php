@@ -7,6 +7,7 @@ namespace Tests\Unit\Equipment\Domain\Model\Equipment;
 use DateTimeImmutable;
 use Equipment\Domain\Exception\EquipmentAlreadyDecommissionedException;
 use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{EquipmentCatalogDetails, RestoredEquipmentAssignment};
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -96,11 +97,13 @@ final class EquipmentTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::SMOKE_DETECTOR,
-      subType: '  optical  ',
-      brand: '  Acme  ',
-      model: '  X-100  ',
-      serialNumber: '  SN-42  ',
-      locationLabel: '  Hallway B  ',
+      details: new EquipmentCatalogDetails(
+        subType: '  optical  ',
+        brand: '  Acme  ',
+        model: '  X-100  ',
+        serialNumber: '  SN-42  ',
+        locationLabel: '  Hallway B  ',
+      ),
     );
 
     self::assertSame(self::EQUIP_ID, (string) $equipment->id());
@@ -125,7 +128,7 @@ final class EquipmentTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::OTHER,
-      subType: '   ',
+      details: new EquipmentCatalogDetails(subType: '   '),
     );
 
     self::assertNull($equipment->subType());
@@ -142,7 +145,7 @@ final class EquipmentTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::OTHER,
-      subType: str_repeat('a', 101),
+      details: new EquipmentCatalogDetails(subType: str_repeat('a', 101)),
     );
   }
 
@@ -156,7 +159,7 @@ final class EquipmentTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::OTHER,
-      locationLabel: str_repeat('b', 256),
+      details: new EquipmentCatalogDetails(locationLabel: str_repeat('b', 256)),
     );
   }
 
@@ -172,17 +175,21 @@ final class EquipmentTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::SPRINKLER,
-      status: EquipmentStatus::OPERATIONAL,
+      details: new EquipmentCatalogDetails(
+        subType: 'wet-pipe',
+        brand: 'Tyco',
+        model: 'TY-B',
+        serialNumber: 'SN-777',
+        locationLabel: 'Ceiling',
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::OPERATIONAL,
+        facilityId: EquipmentFacilityId::fromString(self::FACILITY_ID),
+        installedAt: $installedAt,
+        commissionedAt: $commissionedAt,
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      facilityId: EquipmentFacilityId::fromString(self::FACILITY_ID),
-      subType: 'wet-pipe',
-      brand: 'Tyco',
-      model: 'TY-B',
-      serialNumber: 'SN-777',
-      locationLabel: 'Ceiling',
-      installedAt: $installedAt,
-      commissionedAt: $commissionedAt,
     );
 
     self::assertSame(EquipmentStatus::OPERATIONAL, $equipment->status());
@@ -340,10 +347,14 @@ final class EquipmentTest extends TestCase
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
       type: EquipmentType::FIRE_ALARM_PANEL,
-      status: EquipmentStatus::OPERATIONAL,
+      details: new EquipmentCatalogDetails(
+      ),
+      assignment: new RestoredEquipmentAssignment(
+        status: EquipmentStatus::OPERATIONAL,
+        facilityId: null,
+      ),
       createdAt: new DateTimeImmutable(),
       updatedAt: new DateTimeImmutable(),
-      facilityId: null,
     );
 
     $this->expectException(InvalidArgumentException::class);

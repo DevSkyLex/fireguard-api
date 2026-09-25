@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Infrastructure\Adapter\Realtime;
 
-use Assistant\Domain\Model\Message\AssistantMessage;
+use Assistant\Domain\Model\Message\{AssistantMessage, RestoredAssistantMessageAttempt, RestoredAssistantMessageContent, RestoredAssistantMessageTimeline};
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter;
 use DateTimeImmutable;
@@ -41,16 +41,14 @@ final class MercureAssistantRealtimePublisherAdapterTest extends TestCase
       threadId: 'thread-1',
       organizationId: 'org-1',
       role: AssistantMessageRole::ASSISTANT,
-      body: 'Hello',
-      status: AssistantMessageStatus::STREAMING,
-      errorCode: null,
-      tokenCount: 3,
-      createdAt: new DateTimeImmutable('2026-09-25T12:00:00+00:00'),
-      completedAt: null,
-      attemptId: 'attempt-1',
-      attemptNumber: 2,
-      attemptSequence: 4,
-      attemptExpiresAt: new DateTimeImmutable('2026-09-25T12:05:00+00:00'),
+      content: new RestoredAssistantMessageContent('Hello', AssistantMessageStatus::STREAMING, null, 3),
+      attempt: new RestoredAssistantMessageAttempt(
+        attemptId: 'attempt-1',
+        attemptNumber: 2,
+        attemptSequence: 4,
+        attemptExpiresAt: new DateTimeImmutable('2026-09-25T12:05:00+00:00'),
+      ),
+      timeline: new RestoredAssistantMessageTimeline(new DateTimeImmutable('2026-09-25T12:00:00+00:00'), null),
     );
     $hub = $this->createMock(HubInterface::class);
     $hub->expects(self::once())

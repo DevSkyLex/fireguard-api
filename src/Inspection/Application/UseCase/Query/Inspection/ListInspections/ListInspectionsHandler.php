@@ -69,7 +69,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
       $performedAtTo = null !== $query->performedAtTo ? new DateTimeImmutable($query->performedAtTo) : null;
       $inspectorUserId = null !== $query->inspectorUserId ? (string) new Uuid($query->inspectorUserId) : null;
       $checklistId = null !== $query->checklistId ? (string) InspectionChecklistId::fromString($query->checklistId) : null;
-    } catch (InvalidValueException|ValueError|Exception $exception) {
+    } catch (ValueError|Exception $exception) {
       throw InvalidValueException::because($exception->getMessage(), $exception);
     }
 

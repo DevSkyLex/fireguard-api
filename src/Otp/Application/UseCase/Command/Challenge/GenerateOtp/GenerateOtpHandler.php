@@ -6,7 +6,7 @@ namespace Otp\Application\UseCase\Command\Challenge\GenerateOtp;
 
 use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\{OtpChannel as DomainOtpChannel, OtpId, OtpPurpose as DomainOtpPurpose};
+use Otp\Domain\ValueObject\{OtpChannel as DomainOtpChannel, OtpGenerationOptions, OtpId, OtpPurpose as DomainOtpPurpose};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -77,9 +77,7 @@ final readonly class GenerateOtpHandler implements CommandHandler
       purpose: $purpose,
       channel: $channel,
       recipient: $command->recipient,
-      ttlSeconds: $command->ttlSeconds,
-      maxAttempts: $command->maxAttempts,
-      codeLength: $this->otpCodeLength,
+      options: new OtpGenerationOptions($command->ttlSeconds, $command->maxAttempts, $this->otpCodeLength),
     );
 
     // Persist OTP

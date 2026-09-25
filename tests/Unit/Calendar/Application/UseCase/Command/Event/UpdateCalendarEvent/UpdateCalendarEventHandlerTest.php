@@ -8,7 +8,7 @@ use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\{UpdateCalendarEventCommand, UpdateCalendarEventHandler};
 use Calendar\Domain\Event\CalendarEventUpdatedEvent;
 use Calendar\Domain\Exception\CalendarEventNotFoundException;
-use Calendar\Domain\Model\Event\CalendarEvent;
+use Calendar\Domain\Model\Event\{CalendarEvent, CalendarEventContent, CalendarEventIdentity};
 use Calendar\Domain\ValueObject\CalendarEventId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -178,15 +178,19 @@ final class UpdateCalendarEventHandlerTest extends TestCase
   private function event(): CalendarEvent
   {
     return CalendarEvent::create(
-      id: CalendarEventId::fromString(self::EVENT_ID),
-      organizationId: self::ORGANIZATION_ID,
-      title: 'Fire drill',
-      description: 'Quarterly exercise',
-      startsAt: new DateTimeImmutable('2026-08-01T09:00:00+02:00'),
-      endsAt: new DateTimeImmutable('2026-08-01T11:00:00+02:00'),
-      allDay: false,
-      facilityId: 'facility-1',
-      createdByMemberId: 'member-1',
+      identity: new CalendarEventIdentity(
+        id: CalendarEventId::fromString(self::EVENT_ID),
+        organizationId: self::ORGANIZATION_ID,
+        createdByMemberId: 'member-1',
+      ),
+      content: new CalendarEventContent(
+        title: 'Fire drill',
+        description: 'Quarterly exercise',
+        startsAt: new DateTimeImmutable('2026-08-01T09:00:00+02:00'),
+        endsAt: new DateTimeImmutable('2026-08-01T11:00:00+02:00'),
+        allDay: false,
+        facilityId: 'facility-1',
+      ),
     );
   }
 

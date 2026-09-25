@@ -111,7 +111,7 @@ final readonly class FacilityProvisioningService implements FacilityProvisioning
     } catch (OrganizationQuotaExceededException $exception) {
       return new ProvisionFacilityResult(ProvisionOutcome::QUOTA_EXCEEDED, message: $exception->getMessage());
     } catch (
-      FacilityCodeAlreadyExistsException|FacilityHierarchyException|FacilityArchivedException
+      FacilityCodeAlreadyExistsException|FacilityArchivedException
       |FacilityNotFoundException|InvalidArgumentException $exception
     ) {
       return new ProvisionFacilityResult(ProvisionOutcome::INVALID, message: $exception->getMessage());

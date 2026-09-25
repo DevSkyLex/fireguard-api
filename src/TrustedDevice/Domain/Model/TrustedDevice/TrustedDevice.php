@@ -7,7 +7,7 @@ namespace TrustedDevice\Domain\Model\TrustedDevice;
 use DateTimeImmutable;
 use Shared\Domain\Event\DomainEvent;
 use TrustedDevice\Domain\Event\{DeviceRevokedEvent, DeviceTrustedEvent};
-use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId};
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId, TrustedDeviceTimeline};
 
 /**
  * Model TrustedDevice.
@@ -228,9 +228,7 @@ final class TrustedDevice
     string $tokenHash,
     DeviceFingerprint $fingerprint,
     string $name,
-    DateTimeImmutable $lastUsedAt,
-    DateTimeImmutable $expiresAt,
-    DateTimeImmutable $createdAt,
+    TrustedDeviceTimeline $timeline,
     bool $revoked = false,
   ): self {
     $device = new self(
@@ -239,9 +237,9 @@ final class TrustedDevice
       token: DeviceToken::fromHash($tokenHash),
       fingerprint: $fingerprint,
       name: $name,
-      lastUsedAt: $lastUsedAt,
-      expiresAt: $expiresAt,
-      createdAt: $createdAt,
+      lastUsedAt: $timeline->lastUsedAt,
+      expiresAt: $timeline->expiresAt,
+      createdAt: $timeline->createdAt,
     );
 
     $device->revoked = $revoked;

@@ -8,6 +8,7 @@ use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateReques
 use Approval\Application\Port\Inbound\ApprovalGatePort;
 use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
 use Approval\Domain\Event\Request\ApprovalRequestedEvent;
+use Approval\Domain\Model\ApprovalRequest\{ApprovalRequestCreation, ApprovalRequestSchedule, ApprovalRequestSubmission};
 use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use DateInterval;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -79,12 +80,13 @@ final readonly class ApprovalGate implements ApprovalGatePort
   {
     $policy = $this->policy->policyFor($request->organizationId);
 
-    if (!$policy->isEnabledFor($request->actionType)) {
-      return ApprovalGateDecision::applyNow();
+    $requiresApproval = $policy->isEnabledFor($request->actionType);
+    if ($requiresApproval) {
+      $minSeverity = $policy->minSeverityFor($request->actionType);
+      $requiresApproval = null === $minSeverity || !$this->belowSeverityThreshold($request->payload, $minSeverity);
     }
 
-    $minSeverity = $policy->minSeverityFor($request->actionType);
-    if (null !== $minSeverity && $this->belowSeverityThreshold($request->payload, $minSeverity)) {
+    if (!$requiresApproval) {
       return ApprovalGateDecision::applyNow();
     }
 
@@ -103,17 +105,14 @@ final readonly class ApprovalGate implements ApprovalGatePort
     /** @var ApprovalRequestId $id */
     $id = $this->uuidFactory->create(ApprovalRequestId::class);
 
-    $reservation = $this->requests->reservePending(
-      id: (string) $id,
+    $reservation = $this->requests->reservePending(new ApprovalRequestCreation(
+      id: $id,
       organizationId: $request->organizationId,
       actionType: $request->actionType,
       subjectId: $request->subjectId,
-      requestedByMemberId: $requesterMemberId,
-      requestedByUserId: $request->requestedByUserId,
-      payload: $request->payload,
-      expiresAt: $expiresAt,
-      now: $now,
-    );
+      submission: new ApprovalRequestSubmission($requesterMemberId, $request->requestedByUserId, $request->payload),
+      schedule: new ApprovalRequestSchedule($expiresAt, $now),
+    ));
 
     if (!$reservation->isNew) {
       $existing = $this->requests->findById(ApprovalRequestId::fromString($reservation->id));

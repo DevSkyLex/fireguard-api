@@ -9,7 +9,7 @@ use Notification\Application\Contract\Notification\{NotificationListCriteria, No
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsHandler, ListUserNotificationsQuery, ListUserNotificationsResult};
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,7 +28,11 @@ final class ListUserNotificationsHandlerTest extends TestCase
       subject: 'Facility archived',
       body: 'Facility HQ has been archived.',
       channels: ['mercure'],
-      recipientUserId: '550e8400-e29b-41d4-a716-446655442301',
+      target: new NotificationTarget(
+        recipientUserId: '550e8400-e29b-41d4-a716-446655442301',
+        recipientEmail: null,
+        organizationId: null,
+      ),
     );
 
     /** @var NotificationRepositoryPort&MockObject $repository */

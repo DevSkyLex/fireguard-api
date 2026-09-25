@@ -155,26 +155,17 @@ final class ExportEquipmentsController extends AbstractController
     // unwrapped exactly like a `MessengerRuntimeException`, mirroring
     // `Intervention`'s `mapWorkflowException`.
     $notFound = $this->findEquipmentNotFoundException($exception);
-    if ($notFound instanceof EquipmentNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
     $accessDenied = $this->findEquipmentAccessDeniedException($exception);
-    if ($accessDenied instanceof EquipmentAccessDeniedException) {
-      return new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
-    }
-
     $tooLarge = $this->findEquipmentExportTooLargeException($exception);
-    if ($tooLarge instanceof EquipmentExportTooLargeException) {
-      return new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception);
-    }
-
     $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
 
-    return $exception;
+    return match (true) {
+      $notFound instanceof EquipmentNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      $accessDenied instanceof EquipmentAccessDeniedException => new AccessDeniedHttpException($accessDenied->getMessage(), $exception),
+      $tooLarge instanceof EquipmentExportTooLargeException => new UnprocessableEntityHttpException($tooLarge->getMessage(), $exception),
+      $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
   // #endregion
 }

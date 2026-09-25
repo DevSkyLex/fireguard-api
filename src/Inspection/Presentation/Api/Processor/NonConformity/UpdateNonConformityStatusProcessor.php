@@ -109,24 +109,13 @@ final readonly class UpdateNonConformityStatusProcessor implements ProcessorInte
 
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
-    $notFound = $this->findInspectionNotFoundException($exception);
-    if ($notFound instanceof InspectionNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-    $ncNotFound = $this->findNonConformityNotFoundException($exception);
-    if ($ncNotFound instanceof NonConformityNotFoundException) {
-      return new NotFoundHttpException($ncNotFound->getMessage(), $exception);
-    }
-    $resolved = $this->findNonConformityAlreadyResolvedException($exception);
-    if ($resolved instanceof NonConformityAlreadyResolvedException) {
-      return new ConflictHttpException($resolved->getMessage(), $exception);
-    }
-    $invalidArgument = $this->findInvalidArgumentException($exception);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
-
-    return $exception;
+    return match (true) {
+      ($notFound = $this->findInspectionNotFoundException($exception)) instanceof InspectionNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      ($ncNotFound = $this->findNonConformityNotFoundException($exception)) instanceof NonConformityNotFoundException => new NotFoundHttpException($ncNotFound->getMessage(), $exception),
+      ($resolved = $this->findNonConformityAlreadyResolvedException($exception)) instanceof NonConformityAlreadyResolvedException => new ConflictHttpException($resolved->getMessage(), $exception),
+      ($invalidArgument = $this->findInvalidArgumentException($exception)) instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
 
   /**

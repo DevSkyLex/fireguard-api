@@ -6,7 +6,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\Model\MetadataField\{FacilityMetadataField, FacilityMetadataFieldDefinition};
 use Facility\Domain\ValueObject\{
   FacilityMetadataFieldId,
   FacilityMetadataFieldKey,
@@ -143,9 +143,11 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
     $duplicate = FacilityMetadataField::create(
       id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655470003'),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('surface-m2'),
-      label: new FacilityMetadataFieldLabel('Duplicate'),
-      fieldType: FacilityMetadataFieldType::TEXT,
+      definition: new FacilityMetadataFieldDefinition(
+        key: new FacilityMetadataFieldKey('surface-m2'),
+        label: new FacilityMetadataFieldLabel('Duplicate'),
+        fieldType: FacilityMetadataFieldType::TEXT,
+      ),
     );
 
     $this->expectException(\Doctrine\DBAL\Exception\UniqueConstraintViolationException::class);
@@ -159,9 +161,11 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
     $this->repository->save(FacilityMetadataField::create(
       id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655470004'),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('zed-field'),
-      label: new FacilityMetadataFieldLabel('Zed field'),
-      fieldType: FacilityMetadataFieldType::TEXT,
+      definition: new FacilityMetadataFieldDefinition(
+        key: new FacilityMetadataFieldKey('zed-field'),
+        label: new FacilityMetadataFieldLabel('Zed field'),
+        fieldType: FacilityMetadataFieldType::TEXT,
+      ),
     ));
     $this->repository->save($this->newField());
     $this->entityManager->clear();
@@ -206,12 +210,14 @@ final class FacilityMetadataFieldRepositoryTest extends KernelTestCase
     return FacilityMetadataField::create(
       id: FacilityMetadataFieldId::fromString(self::FIELD_ID),
       organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      key: new FacilityMetadataFieldKey('surface-m2'),
-      label: new FacilityMetadataFieldLabel('Surface (m²)'),
-      fieldType: FacilityMetadataFieldType::NUMBER,
-      required: true,
-      unit: 'm²',
-      facilityType: FacilityType::BUILDING,
+      definition: new FacilityMetadataFieldDefinition(
+        key: new FacilityMetadataFieldKey('surface-m2'),
+        label: new FacilityMetadataFieldLabel('Surface (m²)'),
+        fieldType: FacilityMetadataFieldType::NUMBER,
+        required: true,
+        unit: 'm²',
+        facilityType: FacilityType::BUILDING,
+      ),
     );
   }
 

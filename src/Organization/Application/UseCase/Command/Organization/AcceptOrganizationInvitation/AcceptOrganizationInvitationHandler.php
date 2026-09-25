@@ -16,6 +16,7 @@ use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotPendingException};
+use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
@@ -127,64 +128,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       $now,
       &$memberWasAdded,
     ): AcceptOrganizationInvitationResult {
-      // Enforce the plan's member cap on the acceptance path too: the direct-add
-      // and invite processors gate on active members + pending invitations, but
-      // an invitee reaching this handler would otherwise bypass the quota (e.g.
-      // after a plan downgrade left the organization already at its cap).
-      $this->joinRepository?->lock((string) $invitation->organizationId());
-      $this->quota->assertCanAcceptMember((string) $invitation->organizationId());
-      $currentInvitation = $this->invitationRepository->findById($invitation->id());
-      if (null === $currentInvitation || !$currentInvitation->status()->isPending() || $currentInvitation->isExpired(new DateTimeImmutable())) {
-        throw OrganizationInvitationNotPendingException::noLongerPending();
-      }
-      if (null === $command->invitationId && $currentInvitation->tokenHash() !== $this->tokenHasher->hash(trim($command->token))) {
-        throw OrganizationInvitationNotFoundException::withToken();
-      }
-      $invitation = $currentInvitation;
-      $organization = $this->organizationRepository->findById($currentInvitation->organizationId());
-      if (null === $organization || !$organization->status()->isActive()) {
-        throw OrganizationInvitationNotFoundException::withToken();
-      }
-
-
-      $roleIds = $this->invitationRepository->findRoleIdsForInvitation($invitation->id());
-
-      $memberResult = $this->addOrganizationMemberHandler->__invoke(new AddOrganizationMemberCommand(
-        organizationId: (string) $invitation->organizationId(),
-        userId: $command->userId,
-        roleIds: $roleIds,
-        sendMemberNotification: false,
-        // The acceptance path already took the members lock and enforced the cap
-        // via assertCanAcceptMember (active-only count); re-running assertCanAdd
-        // here would double-count the pending invitation being accepted.
-        enforceQuota: false,
-        // The nested handler runs inside THIS transaction: it must not audit
-        // yet, or a rollback of the outer accept would leave a phantom
-        // member_added ledger row. This handler dispatches post-commit below.
-        emitMemberAddedEvent: false,
-        replaceInactiveRoles: true,
-      ));
-      $memberWasAdded = $memberResult->wasCreatedOrReactivated;
-
-      $invitation->accept($command->userId, $now);
-      $this->invitationRepository->save($invitation);
-      foreach ($this->joinRepository?->requests($command->userId, (string) $invitation->organizationId()) ?? [] as $pendingRequest) {
-        if ('pending' === $pendingRequest->state($now)) {
-          $pendingRequest->decide('approved', $now);
-          $this->joinRepository?->saveRequest($pendingRequest);
-        }
-      }
-
-
-      return new AcceptOrganizationInvitationResult(
-        invitationId: (string) $invitation->id(),
-        memberId: $memberResult->memberId,
-        organizationId: $memberResult->organizationId,
-        userId: $memberResult->userId,
-        roleIds: $memberResult->roleIds,
-        isActive: $memberResult->isActive,
-        joinedAt: $memberResult->joinedAt,
-      );
+      return $this->acceptLockedInvitation($invitation, $command, $now, $memberWasAdded);
     });
 
     if ($memberWasAdded) {
@@ -229,37 +173,97 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       ],
     );
 
+    $this->notifyOwnerOfMemberJoin($invitation, $command, $result, $authenticatedEmail);
+
+    return $result;
+  }
+
+  private function acceptLockedInvitation(OrganizationInvitation $invitation, AcceptOrganizationInvitationCommand $command, DateTimeImmutable $now, bool &$memberWasAdded): AcceptOrganizationInvitationResult
+  {
+    // Keep the quota, invitation lock, membership and request close inside one transaction.
+    $this->joinRepository?->lock((string) $invitation->organizationId());
+    $this->quota->assertCanAcceptMember((string) $invitation->organizationId());
+    $currentInvitation = $this->invitationRepository->findById($invitation->id());
+    if (null === $currentInvitation || !$currentInvitation->status()->isPending() || $currentInvitation->isExpired(new DateTimeImmutable())) {
+      throw OrganizationInvitationNotPendingException::noLongerPending();
+    }
+    if (null === $command->invitationId && $currentInvitation->tokenHash() !== $this->tokenHasher->hash(trim($command->token))) {
+      throw OrganizationInvitationNotFoundException::withToken();
+    }
+    $invitation = $currentInvitation;
+    $organization = $this->organizationRepository->findById($currentInvitation->organizationId());
+    if (null === $organization || !$organization->status()->isActive()) {
+      throw OrganizationInvitationNotFoundException::withToken();
+    }
+
+    $roleIds = $this->invitationRepository->findRoleIdsForInvitation($invitation->id());
+
+    $memberResult = $this->addOrganizationMemberHandler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: (string) $invitation->organizationId(),
+      userId: $command->userId,
+      roleIds: $roleIds,
+      sendMemberNotification: false,
+      // The acceptance path already holds the lock and enforces the quota.
+      enforceQuota: false,
+      // The outer handler dispatches this event only after the transaction commits.
+      emitMemberAddedEvent: false,
+      replaceInactiveRoles: true,
+    ));
+    $memberWasAdded = $memberResult->wasCreatedOrReactivated;
+
+    $invitation->accept($command->userId, $now);
+    $this->invitationRepository->save($invitation);
+    foreach ($this->joinRepository?->requests($command->userId, (string) $invitation->organizationId()) ?? [] as $pendingRequest) {
+      if ('pending' === $pendingRequest->state($now)) {
+        $pendingRequest->decide('approved', $now);
+        $this->joinRepository?->saveRequest($pendingRequest);
+      }
+    }
+
+    return new AcceptOrganizationInvitationResult(
+      invitationId: (string) $invitation->id(),
+      memberId: $memberResult->memberId,
+      organizationId: $memberResult->organizationId,
+      userId: $memberResult->userId,
+      roleIds: $memberResult->roleIds,
+      isActive: $memberResult->isActive,
+      joinedAt: $memberResult->joinedAt,
+    );
+  }
+
+  private function notifyOwnerOfMemberJoin(OrganizationInvitation $invitation, AcceptOrganizationInvitationCommand $command, AcceptOrganizationInvitationResult $result, string $authenticatedEmail): void
+  {
     $organization = $this->organizationRepository->findById(new OrganizationId((string) $invitation->organizationId()));
     $ownerUserId = $organization?->ownerUserId();
 
-    if (null !== $organization && null !== $ownerUserId && $ownerUserId !== $command->userId && $ownerUserId !== $invitation->invitedByUserId()) {
-      $this->dispatchMercure(
-        new SendNotificationRequest(
-          type: NotificationType::ORGANIZATION_MEMBER_JOINED,
-          subject: 'New member joined your organization',
-          body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
-          channels: [NotificationChannel::MERCURE],
-          payload: [
-            'organizationId' => (string) $invitation->organizationId(),
-            'invitationId' => (string) $invitation->id(),
-            'memberId' => $result->memberId,
-            'joinedUserId' => $command->userId,
-            'joinedEmail' => $authenticatedEmail,
-            'joinedAt' => $result->joinedAt->format('c'),
-          ],
-          recipientUserId: $ownerUserId,
-          organizationId: (string) $invitation->organizationId(),
-        ),
-        failureMessage: 'Member joined notification dispatch failed.',
-        logContext: [
-          'organizationId' => (string) $invitation->organizationId(),
-          'invitationId' => (string) $invitation->id(),
-          'recipientUserId' => $ownerUserId,
-        ],
-      );
+    if (null === $organization || null === $ownerUserId || $ownerUserId === $command->userId || $ownerUserId === $invitation->invitedByUserId()) {
+      return;
     }
 
-    return $result;
+    $this->dispatchMercure(
+      new SendNotificationRequest(
+        type: NotificationType::ORGANIZATION_MEMBER_JOINED,
+        subject: 'New member joined your organization',
+        body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
+        channels: [NotificationChannel::MERCURE],
+        payload: [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'memberId' => $result->memberId,
+          'joinedUserId' => $command->userId,
+          'joinedEmail' => $authenticatedEmail,
+          'joinedAt' => $result->joinedAt->format('c'),
+        ],
+        recipientUserId: $ownerUserId,
+        organizationId: (string) $invitation->organizationId(),
+      ),
+      failureMessage: 'Member joined notification dispatch failed.',
+      logContext: [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'recipientUserId' => $ownerUserId,
+      ],
+    );
   }
 
   /**

@@ -126,15 +126,15 @@ final class OrganizationSettingsOutputTest extends TestCase
   #[Test]
   public function testNotificationOutputCopiesEveryToggle(): void
   {
-    $output = OrganizationNotificationSettingsOutput::fromDomain(new OrganizationNotificationSettings(
-      emailEnabled: false,
-      inAppEnabled: false,
-      interventionPublished: false,
-      interventionAssigned: false,
-      inspectionDue: false,
-      nonConformityOpened: false,
-      memberInvited: false,
-    ));
+    $output = OrganizationNotificationSettingsOutput::fromDomain(OrganizationNotificationSettings::fromArray([
+      'email_enabled' => false,
+      'in_app_enabled' => false,
+      'intervention_published' => false,
+      'intervention_assigned' => false,
+      'inspection_due' => false,
+      'non_conformity_opened' => false,
+      'member_invited' => false,
+    ]));
 
     self::assertFalse($output->emailEnabled);
     self::assertFalse($output->inAppEnabled);
@@ -189,7 +189,7 @@ final class OrganizationSettingsOutputTest extends TestCase
   public function testSettingsOutputFromDomainMapsEverySection(): void
   {
     $output = OrganizationSettingsOutput::fromDomain(new OrganizationSettings(
-      notifications: new OrganizationNotificationSettings(emailEnabled: false),
+      notifications: OrganizationNotificationSettings::fromArray(['email_enabled' => false]),
       regional: new OrganizationRegionalSettings(timezone: 'Europe/Paris'),
       compliance: new OrganizationComplianceSettings(reminderWindowDays: 7),
       automation: new OrganizationAutomationSettings(autoCreateInterventionOnCriticalNc: true),

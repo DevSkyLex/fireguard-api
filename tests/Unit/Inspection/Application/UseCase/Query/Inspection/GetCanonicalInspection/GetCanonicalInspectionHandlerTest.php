@@ -7,7 +7,7 @@ namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\GetCanonica
 use DateTimeImmutable;
 use Inspection\Application\Port\Outbound\CanonicalInspectionRepositoryPort;
 use Inspection\Application\UseCase\Query\Inspection\GetCanonicalInspection\{GetCanonicalInspectionHandler, GetCanonicalInspectionQuery};
-use Inspection\Domain\Model\Inspection\CanonicalInspection;
+use Inspection\Domain\Model\Inspection\{CanonicalInspection, RestoredCanonicalInspectionState};
 use Inspection\Domain\ValueObject\{
   InspectionEquipmentId,
   InspectionId,
@@ -112,13 +112,15 @@ final class GetCanonicalInspectionHandlerTest extends TestCase
       id: InspectionId::fromString(self::INSPECTION_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
       equipmentId: InspectionEquipmentId::fromString(self::EQUIPMENT_ID),
-      recordStatus: InspectionRecordStatus::DRAFT,
-      interventionId: self::INTERVENTION_ID,
-      status: InspectionStatus::DRAFT,
-      result: InspectionResult::PASS,
-      notes: null,
-      signature: null,
-      revision: 3,
+      state: new RestoredCanonicalInspectionState(
+        recordStatus: InspectionRecordStatus::DRAFT,
+        interventionId: self::INTERVENTION_ID,
+        status: InspectionStatus::DRAFT,
+        result: InspectionResult::PASS,
+        notes: null,
+        signature: null,
+        revision: 3,
+      ),
       updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
     );
   }

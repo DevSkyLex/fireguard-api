@@ -6,7 +6,7 @@ namespace Tests\Unit\Inspection\Domain\Model\NonConformity;
 
 use DateTimeImmutable;
 use Inspection\Domain\Exception\NonConformityAlreadyResolvedException;
-use Inspection\Domain\Model\NonConformity\NonConformity;
+use Inspection\Domain\Model\NonConformity\{NonConformity, RestoredNonConformityResolution};
 use Inspection\Domain\ValueObject\{
   NonConformityId,
   NonConformityInspectionId,
@@ -190,12 +190,14 @@ final class NonConformityTest extends TestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
       description: 'Sprinkler head obstructed',
       severity: NonConformitySeverity::HIGH,
-      status: NonConformityStatus::DONE,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::DONE,
+        dueAt: $dueAt,
+        resolvedAt: $resolvedAt,
+        notes: 'Cleared during follow-up visit',
+      ),
       createdAt: $createdAt,
       updatedAt: $updatedAt,
-      dueAt: $dueAt,
-      resolvedAt: $resolvedAt,
-      notes: 'Cleared during follow-up visit',
     );
 
     self::assertSame(self::NC_ID, (string) $nc->id());
@@ -220,7 +222,9 @@ final class NonConformityTest extends TestCase
       inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
       description: 'Sprinkler head obstructed',
       severity: NonConformitySeverity::HIGH,
-      status: NonConformityStatus::WAIVED,
+      resolution: new RestoredNonConformityResolution(
+        status: NonConformityStatus::WAIVED,
+      ),
       createdAt: $timestamp,
       updatedAt: $timestamp,
     );

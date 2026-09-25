@@ -9,6 +9,7 @@ use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, Or
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{ListOrganizationMembersHandler, ListOrganizationMembersQuery};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationState};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -36,11 +37,13 @@ final class ListOrganizationMembersHandlerTest extends TestCase
   public function testInvokeReturnsMembersWithRoleIds(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-4 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-4 days'),
+      ),
     );
 
     $member = OrganizationMember::reconstitute(
@@ -107,11 +110,13 @@ final class ListOrganizationMembersHandlerTest extends TestCase
   public function testInvokePassesSearchStatusRoleAndSortingFiltersToTheRepository(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-4 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-4 days'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -166,11 +171,13 @@ final class ListOrganizationMembersHandlerTest extends TestCase
   public function testInvokeMapsInactiveStatusFilterToFalse(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-4 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-4 days'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -200,11 +207,13 @@ final class ListOrganizationMembersHandlerTest extends TestCase
   public function testInvokeTreatsAllStatusAsNoFilter(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-4 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-4 days'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -234,11 +243,13 @@ final class ListOrganizationMembersHandlerTest extends TestCase
   public function testInvokeThrowsOnAnInvalidStatusFilter(): void
   {
     $organization = Organization::reconstitute(
-      id: new OrganizationId(self::ORG_ID),
-      name: new OrganizationName('Fireguard Lille'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
-      isActive: true,
-      createdAt: new DateTimeImmutable('-4 days'),
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId(self::ORG_ID),
+        name: new OrganizationName('Fireguard Lille'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-4 days'),
+      ),
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -296,12 +307,16 @@ final class ListOrganizationMembersHandlerTest extends TestCase
     // The owner is resolved from the already-loaded organization aggregate
     // (a single read), never from a per-member lookup.
     $organization = Organization::reconstitute(
-      id: new OrganizationId($organizationId),
-      name: new OrganizationName('Fireguard Nice'),
-      createdByUserId: $ownerUserId,
-      isActive: true,
-      createdAt: new DateTimeImmutable('-10 days'),
-      ownerUserId: $ownerUserId,
+      core: new RestoredOrganizationCore(
+        id: new OrganizationId($organizationId),
+        name: new OrganizationName('Fireguard Nice'),
+        createdByUserId: $ownerUserId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-10 days'),
+      ),
+      state: new RestoredOrganizationState(
+        ownerUserId: $ownerUserId,
+      ),
     );
 
     $ownerMember = OrganizationMember::reconstitute(

@@ -182,7 +182,7 @@ final readonly class InterventionViewMapper
    */
   public function workItemView(InterventionWorkItemRecord $record): InterventionWorkflowView
   {
-    $intervention = $this->workItemIntervention($record);
+    $intervention = $this->owningIntervention($record);
     $organizationId = $this->organizationId($intervention);
     // Bounded per-row lazy load, mirroring the commentsCount decision in
     // interventionView() above: cheap (indexed FK count) and correct without
@@ -229,7 +229,7 @@ final readonly class InterventionViewMapper
    */
   public function changeView(InterventionChangeRecord $record): InterventionWorkflowView
   {
-    $intervention = $this->changeIntervention($record);
+    $intervention = $this->owningIntervention($record);
 
     return new InterventionWorkflowView('change', $this->organizationId($intervention), [
       'id' => $record->id,
@@ -255,7 +255,7 @@ final readonly class InterventionViewMapper
    */
   public function activityView(InterventionActivityRecord $record): InterventionWorkflowView
   {
-    $intervention = $this->activityIntervention($record);
+    $intervention = $this->owningIntervention($record);
     $organizationId = $this->organizationId($intervention);
 
     return new InterventionWorkflowView('activity', $organizationId, [
@@ -318,51 +318,15 @@ final readonly class InterventionViewMapper
   }
 
   /**
-   * Method workItemIntervention.
+   * Resolves the intervention owning a work item, change, or activity.
    *
    * @since 1.0.0
    *
-   * @param InterventionWorkItemRecord $record the record value
+   * @param InterventionWorkItemRecord|InterventionChangeRecord|InterventionActivityRecord $record the child record
    *
    * @return InterventionRecord the owning intervention record
    */
-  private function workItemIntervention(InterventionWorkItemRecord $record): InterventionRecord
-  {
-    if (!$record->intervention instanceof InterventionRecord) {
-      throw InterventionNotFoundException::withId($record->id);
-    }
-
-    return $record->intervention;
-  }
-
-  /**
-   * Method changeIntervention.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionChangeRecord $record the record value
-   *
-   * @return InterventionRecord the owning intervention record
-   */
-  private function changeIntervention(InterventionChangeRecord $record): InterventionRecord
-  {
-    if (!$record->intervention instanceof InterventionRecord) {
-      throw InterventionNotFoundException::withId($record->id);
-    }
-
-    return $record->intervention;
-  }
-
-  /**
-   * Method activityIntervention.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionActivityRecord $record the record value
-   *
-   * @return InterventionRecord the owning intervention record
-   */
-  private function activityIntervention(InterventionActivityRecord $record): InterventionRecord
+  private function owningIntervention(InterventionWorkItemRecord|InterventionChangeRecord|InterventionActivityRecord $record): InterventionRecord
   {
     if (!$record->intervention instanceof InterventionRecord) {
       throw InterventionNotFoundException::withId($record->id);

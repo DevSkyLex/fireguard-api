@@ -11,7 +11,7 @@ use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\DeleteMessage\{DeleteMessageCommand, DeleteMessageHandler};
 use Messaging\Domain\Event\Message\MessagingMessageModeratedEvent;
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
-use Messaging\Domain\Model\Message\Message;
+use Messaging\Domain\Model\Message\{Message, RestoredMessageContent, RestoredMessageLifecycle, RestoredMessageRelations};
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -188,13 +188,24 @@ final class DeleteMessageHandlerTest extends TestCase
       'conversation-1',
       self::ORG_ID,
       self::AUTHOR_MEMBER_ID,
-      'Hello team',
-      [],
-      null,
-      null,
-      null,
-      $now,
-      $now,
+      new RestoredMessageContent(
+        'Hello team',
+        [],
+        [],
+      ),
+      new RestoredMessageLifecycle(
+        null,
+        null,
+        null,
+        $now,
+        $now,
+      ),
+      new RestoredMessageRelations(
+        null,
+        null,
+        null,
+        0,
+      ),
     );
   }
 

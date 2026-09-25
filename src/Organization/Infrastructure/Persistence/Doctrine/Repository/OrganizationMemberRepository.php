@@ -5,29 +5,24 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
-use DateTimeZone;
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
-use Exception;
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
-use Organization\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-use function addcslashes;
 use function array_filter;
 use function array_map;
 use function array_unique;
 use function array_values;
 use function in_array;
 use function is_array;
-use function mb_strtolower;
 use function strtoupper;
 
 /**
@@ -60,6 +55,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    * @var EntityRepository<OrganizationRoleRecord>
    */
   private EntityRepository $roleRepository;
+
+  private OrganizationMemberRepositorySupport $support;
   // #endregion
 
   // #region Constructor
@@ -76,13 +73,14 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
-    private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
+    ?OrganizationCacheInvalidator $cacheInvalidator = null,
     #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
-    private readonly string $storageTimeZone = 'UTC',
+    string $storageTimeZone = 'UTC',
   ) {
     $this->memberRepository = $entityManager->getRepository(OrganizationMemberRecord::class);
     $this->memberRoleRepository = $entityManager->getRepository(OrganizationMemberRoleRecord::class);
     $this->roleRepository = $entityManager->getRepository(OrganizationRoleRecord::class);
+    $this->support = new OrganizationMemberRepositorySupport($entityManager, $this->memberRepository, $cacheInvalidator, $storageTimeZone);
   }
   // #endregion
 
@@ -115,7 +113,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     }
 
     $this->entityManager->flush();
-    $this->invalidateMemberProfile((string) $member->organizationId(), $member->userId());
+    $this->support->invalidateMemberProfile((string) $member->organizationId(), $member->userId());
   }
 
   /**
@@ -231,10 +229,10 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     ?int $limit = null,
     ?int $offset = null,
   ): array {
-    $organization = $this->getOrganizationReference($organizationId);
+    $organization = $this->support->getOrganizationReference($organizationId);
 
-    $queryBuilder = $this->createFilteredMemberQueryBuilder($organization, $search, $isActive, $roleId)
-      ->orderBy($this->resolveMemberSortField($sorting->field), strtoupper($sorting->direction->value))
+    $queryBuilder = $this->support->createFilteredMemberQueryBuilder($organization, $search, $isActive, $roleId)
+      ->orderBy($this->support->resolveMemberSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('organizationMember.id', 'ASC');
 
     if (null !== $limit) {
@@ -301,7 +299,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       $this->entityManager->remove($record);
       $this->entityManager->flush();
       if (null !== $organizationId) {
-        $this->invalidateMemberProfile($organizationId, $userId);
+        $this->support->invalidateMemberProfile($organizationId, $userId);
       }
     }
   }
@@ -347,7 +345,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $this->entityManager->persist($assignment);
     $this->entityManager->flush();
-    $this->invalidateMemberRecordProfile($memberRecord);
+    $this->support->invalidateMemberRecordProfile($memberRecord);
   }
 
   /**
@@ -423,7 +421,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $this->entityManager->remove($assignment);
     $this->entityManager->flush();
-    $this->invalidateMemberRecordProfile($memberRecord);
+    $this->support->invalidateMemberRecordProfile($memberRecord);
   }
 
   /**
@@ -450,7 +448,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     ?bool $isActive = null,
     ?OrganizationRoleId $roleId = null,
   ): int {
-    $organization = $this->getOrganizationReference($organizationId);
+    $organization = $this->support->getOrganizationReference($organizationId);
 
     if (null === $search && null === $isActive && null === $roleId) {
       return (int) $this->memberRepository->count([
@@ -458,7 +456,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       ]);
     }
 
-    return (int) $this->createFilteredMemberQueryBuilder($organization, $search, $isActive, $roleId)
+    return (int) $this->support->createFilteredMemberQueryBuilder($organization, $search, $isActive, $roleId)
       ->select('COUNT(DISTINCT organizationMember.id)')
       ->getQuery()
       ->getSingleScalarResult();
@@ -564,8 +562,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function countJoinedByDay(OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, ?string $timeZone = null): array
   {
-    $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $from);
-    $storageTimeZone = $this->resolveStorageTimeZone();
+    $bucketTimeZone = $this->support->resolveBucketTimeZone($timeZone, $from);
+    $storageTimeZone = $this->support->resolveStorageTimeZone();
     $sql = <<<'SQL'
         SELECT
           TO_CHAR(((joined_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
@@ -581,8 +579,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       'storageTimeZone' => $storageTimeZone->getName(),
       'bucketTimeZone' => $bucketTimeZone->getName(),
       'organizationId' => (string) $organizationId,
-      'joinedAtFrom' => $this->normalizeTimestampForStorageTimeZone($from, $storageTimeZone),
-      'joinedAtTo' => $this->normalizeTimestampForStorageTimeZone($to, $storageTimeZone),
+      'joinedAtFrom' => $this->support->normalizeTimestampForStorageTimeZone($from, $storageTimeZone),
+      'joinedAtTo' => $this->support->normalizeTimestampForStorageTimeZone($to, $storageTimeZone),
     ];
 
     /**
@@ -754,132 +752,5 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return $counts;
   }
 
-  private function invalidateMemberRecordProfile(OrganizationMemberRecord $memberRecord): void
-  {
-    $organizationId = $memberRecord->organization?->id;
-    if (null === $organizationId) {
-      return;
-    }
-
-    $this->invalidateMemberProfile($organizationId, $memberRecord->userId);
-  }
-
-  private function invalidateMemberProfile(string $organizationId, string $userId): void
-  {
-    $this->cacheInvalidator?->invalidateCurrentMemberProfile($organizationId, $userId);
-  }
-
-  private function resolveBucketTimeZone(?string $timeZone, DateTimeImmutable $lowerBound): DateTimeZone
-  {
-    if (null !== $timeZone && '' !== $timeZone) {
-      return new DateTimeZone($timeZone);
-    }
-
-    return $lowerBound->getTimezone();
-  }
-
-  private function resolveStorageTimeZone(): DateTimeZone
-  {
-    try {
-      return new DateTimeZone($this->storageTimeZone);
-    } catch (Exception $exception) {
-      throw new InvalidStorageTimeZoneException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
-    }
-  }
-
-  private function normalizeTimestampForStorageTimeZone(DateTimeImmutable $value, DateTimeZone $storageTimeZone): string
-  {
-    return $value->setTimezone($storageTimeZone)->format('Y-m-d H:i:s.u');
-  }
-
-  /**
-   * Method getOrganizationReference.
-   *
-   * Resolves a lazy organization reference without a round-trip query.
-   *
-   * @since 1.1.0
-   *
-   * @param OrganizationId $organizationId the organization identifier
-   *
-   * @return OrganizationRecord the organization reference
-   */
-  private function getOrganizationReference(OrganizationId $organizationId): OrganizationRecord
-  {
-    /** @var OrganizationRecord */
-    return $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-  }
-
-  /**
-   * Method createFilteredMemberQueryBuilder.
-   *
-   * Builds the shared query base for {@see self::findByOrganizationId()} and
-   * {@see self::countByOrganizationId()}. The `$search` filter matches only
-   * `user_id`: display name, first/last name and email are owned by the
-   * User module's database (auth) and cannot be joined from here.
-   *
-   * @since 1.1.0
-   *
-   * @param OrganizationRecord $organization the organization reference
-   * @param ?string $search free-text filter matched against the member's user identifier
-   * @param ?bool $isActive filters by membership activation state when set
-   * @param ?OrganizationRoleId $roleId filters members holding this role
-   *
-   * @return QueryBuilder the filtered query builder
-   */
-  private function createFilteredMemberQueryBuilder(
-    OrganizationRecord $organization,
-    ?string $search,
-    ?bool $isActive,
-    ?OrganizationRoleId $roleId,
-  ): QueryBuilder {
-    $queryBuilder = $this->memberRepository->createQueryBuilder('organizationMember')
-      ->where(self::ORGANIZATION_PREDICATE)
-      ->setParameter('organization', $organization);
-
-    if (null !== $isActive) {
-      $queryBuilder
-        ->andWhere('organizationMember.isActive = :isActive')
-        ->setParameter('isActive', $isActive);
-    }
-
-    if (null !== $search && '' !== $search) {
-      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
-
-      $queryBuilder
-        ->andWhere('LOWER(organizationMember.userId) LIKE :search')
-        ->setParameter('search', $normalizedSearch);
-    }
-
-    if (null !== $roleId) {
-      $queryBuilder
-        ->innerJoin('organizationMember.roleAssignments', 'roleAssignment')
-        ->andWhere('IDENTITY(roleAssignment.role) = :roleId')
-        ->setParameter('roleId', (string) $roleId);
-    }
-
-    return $queryBuilder;
-  }
-
-  /**
-   * Method resolveMemberSortField.
-   *
-   * Maps a sort field name to its DQL path. `displayName` has no column on
-   * this table — display name lives in the User module's database — so it
-   * falls back to `userId`, a stable-enough proxy until a materialized
-   * member-directory read model exists.
-   *
-   * @since 1.1.0
-   *
-   * @param string $field the requested sort field
-   *
-   * @return string the DQL sort path
-   */
-  private function resolveMemberSortField(string $field): string
-  {
-    return match ($field) {
-      'joinedAt' => 'organizationMember.joinedAt',
-      default => 'organizationMember.userId',
-    };
-  }
   // #endregion
 }

@@ -17,7 +17,7 @@ use function in_array;
  * each constant is the exact name
  * {@see \Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter}
  * derives as `<module>.<snake_case_class_name>`, cross-checked against
- * `Audit\Infrastructure\EventSubscriber\AuditEventSubscriber::getSubscribedEvents()`
+ * the `Audit\Infrastructure\EventSubscriber\` subscriber set,
  * which already subscribes to every one of them — do not rename a source
  * domain event without updating both subscribers.
  *

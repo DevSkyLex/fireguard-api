@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetCanonicalFac
 use DateTimeImmutable;
 use Facility\Application\Port\Outbound\CanonicalFacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetCanonicalFacility\{GetCanonicalFacilityHandler, GetCanonicalFacilityQuery};
-use Facility\Domain\Model\Facility\CanonicalFacility;
+use Facility\Domain\Model\Facility\{CanonicalFacility, CanonicalFacilityContent, CanonicalFacilityReference, CanonicalFacilityVersion};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityRecordStatus, FacilityStatus, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -100,21 +100,9 @@ final class GetCanonicalFacilityHandlerTest extends TestCase
   private function facility(): CanonicalFacility
   {
     return CanonicalFacility::reconstitute(
-      id: FacilityId::fromString(self::FACILITY_ID),
-      organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
-      recordStatus: FacilityRecordStatus::DRAFT,
-      interventionId: self::INTERVENTION_ID,
-      parentFacilityId: null,
-      type: FacilityType::SITE,
-      name: 'Main site',
-      code: null,
-      address: null,
-      latitude: null,
-      longitude: null,
-      metadata: [],
-      status: FacilityStatus::ACTIVE,
-      revision: 3,
-      updatedAt: new DateTimeImmutable('2026-08-26T10:00:00+00:00'),
+      reference: new CanonicalFacilityReference(FacilityId::fromString(self::FACILITY_ID), FacilityOrganizationId::fromString(self::ORGANIZATION_ID), FacilityRecordStatus::DRAFT, self::INTERVENTION_ID, null),
+      content: new CanonicalFacilityContent(FacilityType::SITE, 'Main site', null, null, null, null, []),
+      version: new CanonicalFacilityVersion(FacilityStatus::ACTIVE, 3, new DateTimeImmutable('2026-08-26T10:00:00+00:00')),
     );
   }
   // #endregion

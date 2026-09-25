@@ -147,41 +147,33 @@ final class DownloadEquipmentAttachmentController extends AbstractController
    */
   private function mapDownloadException(Throwable $exception, string $attachmentId): Throwable
   {
+    $mapped = $exception;
+
     if ($exception instanceof FileStorageException) {
       $this->logger->error('Equipment attachment record found but its stored file is missing.', [
         'attachmentId' => $attachmentId,
         'exception' => $exception->getMessage(),
       ]);
 
-      return new NotFoundHttpException('Attachment content not found.', $exception);
-    }
-
-    if ($exception instanceof EquipmentNotFoundException || $exception instanceof AttachmentNotFoundException) {
-      return new NotFoundHttpException($exception->getMessage(), $exception);
-    }
-
-    if ($exception instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($exception->getMessage(), $exception);
-    }
-
-    if ($exception instanceof MessengerRuntimeException) {
+      $mapped = new NotFoundHttpException('Attachment content not found.', $exception);
+    } elseif ($exception instanceof EquipmentNotFoundException || $exception instanceof AttachmentNotFoundException) {
+      $mapped = new NotFoundHttpException($exception->getMessage(), $exception);
+    } elseif ($exception instanceof InvalidArgumentException) {
+      $mapped = new BadRequestHttpException($exception->getMessage(), $exception);
+    } elseif ($exception instanceof MessengerRuntimeException) {
       $notFoundEquipment = $this->findEquipmentNotFoundException($exception);
-      if ($notFoundEquipment instanceof EquipmentNotFoundException) {
-        return new NotFoundHttpException($notFoundEquipment->getMessage(), $exception);
-      }
-
       $notFoundAttachment = $this->findAttachmentNotFoundException($exception);
-      if ($notFoundAttachment instanceof AttachmentNotFoundException) {
-        return new NotFoundHttpException($notFoundAttachment->getMessage(), $exception);
-      }
-
       $invalidArgument = $this->findInvalidArgumentException($exception);
-      if ($invalidArgument instanceof InvalidArgumentException) {
-        return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
+
+      $mapped = match (true) {
+        $notFoundEquipment instanceof EquipmentNotFoundException => new NotFoundHttpException($notFoundEquipment->getMessage(), $exception),
+        $notFoundAttachment instanceof AttachmentNotFoundException => new NotFoundHttpException($notFoundAttachment->getMessage(), $exception),
+        $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+        default => $exception,
+      };
     }
 
-    return $exception;
+    return $mapped;
   }
   // #endregion
 }

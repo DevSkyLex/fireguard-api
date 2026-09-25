@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Billing\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Billing\Domain\Model\Subscription\Subscription;
+use Billing\Domain\Model\Subscription\{RestoredSubscriptionState, Subscription};
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId, SubscriptionStatus};
 use Billing\Infrastructure\Persistence\Doctrine\Mapper\SubscriptionMapper;
 use Billing\Infrastructure\Persistence\Doctrine\Record\SubscriptionRecord;
@@ -147,14 +147,16 @@ final class SubscriptionMapperTest extends KernelTestCase
       id: SubscriptionId::fromString(self::SUBSCRIPTION_TO_RECORD_ID),
       organizationId: self::ORGANIZATION_TO_RECORD_ID,
       stripeCustomerId: 'cus_torecord_003',
-      status: SubscriptionStatus::TRIALING,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::TRIALING,
+        stripeSubscriptionId: 'sub_torecord_003',
+        planKey: 'team_yearly',
+        interval: BillingInterval::YEAR,
+        currentPeriodEnd: new DateTimeImmutable('2027-02-01 00:00:00'),
+        cancelAtPeriodEnd: true,
+      ),
       createdAt: new DateTimeImmutable('2026-02-01 00:00:00'),
       updatedAt: new DateTimeImmutable('2026-02-10 12:00:00'),
-      stripeSubscriptionId: 'sub_torecord_003',
-      planKey: 'team_yearly',
-      interval: BillingInterval::YEAR,
-      currentPeriodEnd: new DateTimeImmutable('2027-02-01 00:00:00'),
-      cancelAtPeriodEnd: true,
     );
 
     $record = SubscriptionMapper::toRecord($subscription);
@@ -213,14 +215,16 @@ final class SubscriptionMapperTest extends KernelTestCase
       id: SubscriptionId::fromString(self::SUBSCRIPTION_APPLY_ID),
       organizationId: self::ORGANIZATION_APPLY_ID,
       stripeCustomerId: 'cus_apply_004',
-      status: SubscriptionStatus::CANCELED,
+      state: new RestoredSubscriptionState(
+        status: SubscriptionStatus::CANCELED,
+        stripeSubscriptionId: null,
+        planKey: null,
+        interval: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+      ),
       createdAt: new DateTimeImmutable('2026-01-01 00:00:00'),
       updatedAt: new DateTimeImmutable('2026-05-05 05:05:05'),
-      stripeSubscriptionId: null,
-      planKey: null,
-      interval: null,
-      currentPeriodEnd: null,
-      cancelAtPeriodEnd: false,
     );
 
     SubscriptionMapper::applyTo($existing, $updated);

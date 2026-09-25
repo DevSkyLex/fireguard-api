@@ -22,9 +22,8 @@ final class WorkloadAllocationPolicyTest extends TestCase
     $second = $policy->allocate(new WorkDemand('b', 'member', 120, $day, $day, 'committed'), $schedule, $day);
     self::assertSame(360, $first->dailyMinutes[$day->value]);
     self::assertSame(120, $second->dailyMinutes[$day->value]);
-    self::assertSame(60, new DailyWorkload(420, 0, 480)->overloadMinutes());
-    // A spare week does not change the overloaded day.
-    self::assertLessThan(420 * 5, 480);
+    $allocatedMinutes = $first->dailyMinutes[$day->value] + $second->dailyMinutes[$day->value];
+    self::assertSame(60, new DailyWorkload(420, 0, $allocatedMinutes)->overloadMinutes());
   }
 
   public function testTodayCombinesActualAndRemainingWithoutDeduction(): void

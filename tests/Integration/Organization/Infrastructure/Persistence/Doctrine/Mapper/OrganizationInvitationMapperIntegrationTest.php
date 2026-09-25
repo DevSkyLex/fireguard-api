@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationInvitation\{RestoredInvitationIdentity, RestoredInvitationLifecycle, RestoredInvitationTimestamps};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationInvitationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationRecord};
@@ -167,19 +168,25 @@ final class OrganizationInvitationMapperIntegrationTest extends KernelTestCase
   public function testToRecordMapsEveryFieldFromDomainAggregate(): void
   {
     $invitation = OrganizationInvitation::reconstitute(
-      id: OrganizationInvitationId::fromString(self::CLOSED_INVITATION_ID),
-      organizationId: OrganizationId::fromString(self::ORGANIZATION_ID),
-      email: new Email('mapped@example.com'),
-      tokenHash: str_repeat('d', 64),
-      invitedByUserId: self::INVITER_ID,
-      status: OrganizationInvitationStatus::REVOKED,
-      expiresAt: new DateTimeImmutable('2026-06-01T00:00:00+00:00'),
-      createdAt: new DateTimeImmutable('2026-05-02T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-05-11T10:15:00+00:00'),
-      acceptedAt: new DateTimeImmutable('2026-05-10T09:30:00+00:00'),
-      acceptedByUserId: self::ACCEPTOR_ID,
-      revokedAt: new DateTimeImmutable('2026-05-11T10:15:00+00:00'),
-      revokedByUserId: self::REVOKER_ID,
+      identity: new RestoredInvitationIdentity(
+        id: OrganizationInvitationId::fromString(self::CLOSED_INVITATION_ID),
+        organizationId: OrganizationId::fromString(self::ORGANIZATION_ID),
+        email: new Email('mapped@example.com'),
+        tokenHash: str_repeat('d', 64),
+        invitedByUserId: self::INVITER_ID,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::REVOKED,
+        expiresAt: new DateTimeImmutable('2026-06-01T00:00:00+00:00'),
+        acceptedAt: new DateTimeImmutable('2026-05-10T09:30:00+00:00'),
+        acceptedByUserId: self::ACCEPTOR_ID,
+        revokedAt: new DateTimeImmutable('2026-05-11T10:15:00+00:00'),
+        revokedByUserId: self::REVOKER_ID,
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('2026-05-02T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-05-11T10:15:00+00:00'),
+      ),
     );
 
     $record = OrganizationInvitationMapper::toRecord($invitation);
@@ -206,15 +213,21 @@ final class OrganizationInvitationMapperIntegrationTest extends KernelTestCase
   public function testRoundTripThroughDatabasePreservesAggregateState(): void
   {
     $original = OrganizationInvitation::reconstitute(
-      id: OrganizationInvitationId::fromString(self::ROUND_TRIP_INVITATION_ID),
-      organizationId: OrganizationId::fromString(self::ORGANIZATION_ID),
-      email: new Email('round-trip@example.com'),
-      tokenHash: str_repeat('e', 64),
-      invitedByUserId: self::INVITER_ID,
-      status: OrganizationInvitationStatus::PENDING,
-      expiresAt: new DateTimeImmutable('2099-01-01T00:00:00+00:00'),
-      createdAt: new DateTimeImmutable('2026-05-02T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-05-02T08:00:00+00:00'),
+      identity: new RestoredInvitationIdentity(
+        id: OrganizationInvitationId::fromString(self::ROUND_TRIP_INVITATION_ID),
+        organizationId: OrganizationId::fromString(self::ORGANIZATION_ID),
+        email: new Email('round-trip@example.com'),
+        tokenHash: str_repeat('e', 64),
+        invitedByUserId: self::INVITER_ID,
+      ),
+      lifecycle: new RestoredInvitationLifecycle(
+        status: OrganizationInvitationStatus::PENDING,
+        expiresAt: new DateTimeImmutable('2099-01-01T00:00:00+00:00'),
+      ),
+      timestamps: new RestoredInvitationTimestamps(
+        createdAt: new DateTimeImmutable('2026-05-02T08:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-05-02T08:00:00+00:00'),
+      ),
     );
 
     $record = OrganizationInvitationMapper::toRecord($original);

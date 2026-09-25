@@ -7,6 +7,7 @@ namespace Tests\Unit\Organization\Infrastructure\Adapter\Document;
 use DateTimeImmutable;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationLegal, RestoredOrganizationProfile};
 use Organization\Domain\ValueObject\{
   OrganizationId,
   OrganizationName,
@@ -119,21 +120,27 @@ final class OrganizationDocumentBrandingAdapterTest extends TestCase
   private function organization(): Organization
   {
     return Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme Sécurité'),
-      createdByUserId: '550e8400-e29b-41d4-a716-446655508002',
-      isActive: true,
-      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
-      settings: OrganizationSettings::fromArray([
-        'regional' => new OrganizationRegionalSettings(
-          timezone: 'Europe/Paris',
-          locale: 'fr-FR',
-          dateFormat: 'dd/MM/yyyy',
-        )->toArray(),
-      ]),
-      legalName: 'SAS Acme Sécurité',
-      registrationNumber: new OrganizationRegistrationNumber('123 456 789'),
-      vatNumber: new OrganizationVatNumber('FR12345678901'),
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme Sécurité'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655508002',
+        isActive: true,
+        createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      ),
+      profile: new RestoredOrganizationProfile(
+        settings: OrganizationSettings::fromArray([
+          'regional' => new OrganizationRegionalSettings(
+            timezone: 'Europe/Paris',
+            locale: 'fr-FR',
+            dateFormat: 'dd/MM/yyyy',
+          )->toArray(),
+        ]),
+      ),
+      legal: new RestoredOrganizationLegal(
+        legalName: 'SAS Acme Sécurité',
+        registrationNumber: new OrganizationRegistrationNumber('123 456 789'),
+        vatNumber: new OrganizationVatNumber('FR12345678901'),
+      ),
     );
   }
 }

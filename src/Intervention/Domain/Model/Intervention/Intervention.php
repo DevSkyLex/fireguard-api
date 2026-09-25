@@ -76,47 +76,26 @@ final class Intervention
    *
    * @since 1.0.0
    *
-   * @param string $id the id value
-   * @param string $organizationId the organization id value
-   * @param InterventionType $type the type value
-   * @param string $name the name value
-   * @param ?string $siteId the site id value
-   * @param ?string $responsibleId the responsible id value
-   * @param list<string> $participants
-   * @param InterventionPriority $priority the priority value
-   * @param ?DateTimeImmutable $plannedStartAt the planned start at value
-   * @param ?DateTimeImmutable $dueAt the due at value
-   * @param ?string $description the description value
+   * @param InterventionCreation $creation the proposed intervention
    *
    * @return self the create result
    */
-  public static function create(
-    string $id,
-    string $organizationId,
-    InterventionType $type,
-    string $name,
-    ?string $siteId,
-    ?string $responsibleId,
-    array $participants,
-    InterventionPriority $priority,
-    ?DateTimeImmutable $plannedStartAt,
-    ?DateTimeImmutable $dueAt,
-    ?string $description = null,
-  ): self {
+  public static function create(InterventionCreation $creation): self
+  {
     $now = new DateTimeImmutable();
     $intervention = new self(
-      id: $id,
-      organizationId: self::required($organizationId, 'Intervention organization'),
-      type: $type,
-      name: self::normalizeName($name),
-      description: self::nullable($description),
+      id: $creation->id,
+      organizationId: self::required($creation->organizationId, 'Intervention organization'),
+      type: $creation->type,
+      name: self::normalizeName($creation->content->name),
+      description: self::nullable($creation->content->description),
       status: InterventionStatus::DRAFT,
-      siteId: self::nullable($siteId),
-      responsibleId: self::nullable($responsibleId),
-      participants: self::normalizeParticipants($participants),
-      priority: $priority,
-      plannedStartAt: $plannedStartAt,
-      dueAt: $dueAt,
+      siteId: self::nullable($creation->ownership->siteId),
+      responsibleId: self::nullable($creation->ownership->responsibleId),
+      participants: self::normalizeParticipants($creation->ownership->participants),
+      priority: $creation->schedule->priority,
+      plannedStartAt: $creation->schedule->plannedStartAt,
+      dueAt: $creation->schedule->dueAt,
       reviewNote: null,
       revision: 1,
       createdAt: $now,
@@ -132,60 +111,29 @@ final class Intervention
    *
    * @since 1.0.0
    *
-   * @param string $id the id value
-   * @param string $organizationId the organization id value
-   * @param InterventionType $type the type value
-   * @param string $name the name value
-   * @param ?string $description the description value
-   * @param InterventionStatus $status the status value
-   * @param ?string $siteId the site id value
-   * @param ?string $responsibleId the responsible id value
-   * @param list<string> $participants
-   * @param InterventionPriority $priority the priority value
-   * @param ?DateTimeImmutable $plannedStartAt the planned start at value
-   * @param ?DateTimeImmutable $dueAt the due at value
-   * @param ?string $reviewNote the review note value
-   * @param int $revision the revision value
-   * @param DateTimeImmutable $createdAt the created at value
-   * @param DateTimeImmutable $updatedAt the updated at value
+   * @param InterventionRestoredState $state the persisted intervention state
    *
    * @return self the reconstitute result
    */
-  public static function reconstitute(
-    string $id,
-    string $organizationId,
-    InterventionType $type,
-    string $name,
-    ?string $description,
-    InterventionStatus $status,
-    ?string $siteId,
-    ?string $responsibleId,
-    array $participants,
-    InterventionPriority $priority,
-    ?DateTimeImmutable $plannedStartAt,
-    ?DateTimeImmutable $dueAt,
-    ?string $reviewNote,
-    int $revision,
-    DateTimeImmutable $createdAt,
-    DateTimeImmutable $updatedAt,
-  ): self {
+  public static function reconstitute(InterventionRestoredState $state): self
+  {
     return new self(
-      $id,
-      $organizationId,
-      $type,
-      $name,
-      $description,
-      $status,
-      $siteId,
-      $responsibleId,
-      $participants,
-      $priority,
-      $plannedStartAt,
-      $dueAt,
-      $reviewNote,
-      $revision,
-      $createdAt,
-      $updatedAt,
+      $state->creation->id,
+      $state->creation->organizationId,
+      $state->creation->type,
+      $state->creation->content->name,
+      $state->creation->content->description,
+      $state->status,
+      $state->creation->ownership->siteId,
+      $state->creation->ownership->responsibleId,
+      $state->creation->ownership->participants,
+      $state->creation->schedule->priority,
+      $state->creation->schedule->plannedStartAt,
+      $state->creation->schedule->dueAt,
+      $state->reviewNote,
+      $state->revision,
+      $state->createdAt,
+      $state->updatedAt,
     );
   }
 
@@ -261,87 +209,53 @@ final class Intervention
    * @since 1.0.0
    *
    * @param InterventionTransitionPolicy $policy the policy value
-   * @param ?string $name the name value
-   * @param ?string $siteId the site id value
-   * @param ?string $responsibleId the responsible id value
-   * @param list<string>|null $participants
-   * @param ?InterventionPriority $priority the priority value
-   * @param ?DateTimeImmutable $plannedStartAt the planned start at value
-   * @param ?DateTimeImmutable $dueAt the due at value
-   * @param ?string $reviewNote the review note value
-   * @param ?InterventionStatus $nextStatus the next status value
-   * @param bool $hasName the has name value
-   * @param bool $hasDescription the has description value
-   * @param bool $hasSiteId the has site id value
-   * @param bool $hasResponsibleId the has responsible id value
-   * @param bool $hasParticipants the has participants value
-   * @param bool $hasPriority the has priority value
-   * @param bool $hasPlannedStartAt the has planned start at value
-   * @param bool $hasDueAt the has due at value
-   * @param bool $hasReviewNote the has review note value
+   * @param InterventionPatch $patch typed values and explicit presence flags
    */
-  public function edit(
-    InterventionTransitionPolicy $policy,
-    ?string $name = null,
-    ?string $description = null,
-    ?string $siteId = null,
-    ?string $responsibleId = null,
-    ?array $participants = null,
-    ?InterventionPriority $priority = null,
-    ?DateTimeImmutable $plannedStartAt = null,
-    ?DateTimeImmutable $dueAt = null,
-    ?string $reviewNote = null,
-    ?InterventionStatus $nextStatus = null,
-    bool $hasName = false,
-    bool $hasDescription = false,
-    bool $hasSiteId = false,
-    bool $hasResponsibleId = false,
-    bool $hasParticipants = false,
-    bool $hasPriority = false,
-    bool $hasPlannedStartAt = false,
-    bool $hasDueAt = false,
-    bool $hasReviewNote = false,
-  ): void {
+  public function edit(InterventionTransitionPolicy $policy, InterventionPatch $patch): void
+  {
+    $text = $patch->text;
+    $ownership = $patch->ownership;
+    $schedule = $patch->schedule;
     $this->assertMutable();
-    if ($hasSiteId) {
+    if ($ownership->hasSiteId) {
       $this->assertScopeMutable();
     }
-    if ($hasResponsibleId) {
+    if ($ownership->hasResponsibleId) {
       $this->assertOwnershipMutable();
     }
-    if ($hasParticipants || $hasPriority || $hasPlannedStartAt || $hasDueAt) {
+    if ($ownership->hasParticipants || $schedule->hasPriority || $schedule->hasPlannedStartAt || $schedule->hasDueAt) {
       $this->assertScheduleMutable();
     }
-    if ($hasName) {
-      $this->name = self::normalizeName($name ?? '');
+    if ($text->hasName) {
+      $this->name = self::normalizeName($text->name ?? '');
     }
-    if ($hasDescription) {
-      $this->description = self::nullable($description);
+    if ($text->hasDescription) {
+      $this->description = self::nullable($text->description);
     }
-    if ($hasSiteId) {
-      $this->siteId = self::nullable($siteId);
+    if ($ownership->hasSiteId) {
+      $this->siteId = self::nullable($ownership->siteId);
     }
-    if ($hasResponsibleId) {
-      $this->responsibleId = $this->keptAfterDraft(self::nullable($responsibleId), 'responsible member');
+    if ($ownership->hasResponsibleId) {
+      $this->responsibleId = $this->keptAfterDraft(self::nullable($ownership->responsibleId), 'responsible member');
     }
-    if ($hasParticipants) {
-      $this->participants = self::normalizeParticipants($participants ?? []);
+    if ($ownership->hasParticipants) {
+      $this->participants = self::normalizeParticipants($ownership->participants ?? []);
     }
-    if ($hasPriority && $priority instanceof InterventionPriority) {
-      $this->priority = $priority;
+    if ($schedule->hasPriority && $schedule->priority instanceof InterventionPriority) {
+      $this->priority = $schedule->priority;
     }
-    if ($hasPlannedStartAt) {
-      $this->plannedStartAt = $this->keptAfterDraft($plannedStartAt, 'planned start');
+    if ($schedule->hasPlannedStartAt) {
+      $this->plannedStartAt = $this->keptAfterDraft($schedule->plannedStartAt, 'planned start');
     }
-    if ($hasDueAt) {
-      $this->dueAt = $this->keptAfterDraft($dueAt, 'due date');
+    if ($schedule->hasDueAt) {
+      $this->dueAt = $this->keptAfterDraft($schedule->dueAt, 'due date');
     }
-    if ($hasReviewNote) {
-      $this->reviewNote = self::nullable($reviewNote);
+    if ($text->hasReviewNote) {
+      $this->reviewNote = self::nullable($text->reviewNote);
     }
     $this->assertSchedule();
-    if ($nextStatus instanceof InterventionStatus) {
-      $this->applyTransition($nextStatus, $policy);
+    if ($patch->nextStatus instanceof InterventionStatus) {
+      $this->applyTransition($patch->nextStatus, $policy);
     }
     $this->touch();
   }

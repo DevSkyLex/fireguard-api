@@ -1314,7 +1314,7 @@ operation / `PostReplyProcessor`, `{id}` being the PARENT message):
    reply needs `organization.messaging.write` + the subject's own read
    permission (or channel write participation) — the SAME gate as posting a
    root message, since the reply lands in the same conversation.
-6. Persists the reply via `Message::create(..., parentMessageId: $id)`, then
+6. Persists the reply via `Message::create(..., links: new MessageCreationLinks(parentMessageId: $id))`, then
    bumps BOTH counters through atomic `UPDATE`s, never a load-modify-save
    cycle: `MessagingConversationRepositoryPort::touchOnNewMessage()` (so a
    conversation with active thread-only activity still sorts to the top —

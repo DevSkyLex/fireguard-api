@@ -7,7 +7,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Mapper
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use LogicException;
-use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\Model\Attachment\{MessagingAttachment, MessagingAttachmentFile};
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Infrastructure\Persistence\Doctrine\Mapper\MessagingAttachmentMapper;
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingConversationRecord, MessagingMessageRecord};
@@ -82,12 +82,14 @@ final class MessagingAttachmentMapperTest extends KernelTestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORGANIZATION_ID,
       uploadedByMemberId: self::MEMBER_ID,
-      fileName: 'report.pdf',
-      storagePath: 'messaging/2026/01/report.pdf',
-      mimeType: 'application/pdf',
-      size: 20480,
+      file: new MessagingAttachmentFile(
+        fileName: 'report.pdf',
+        storagePath: 'messaging/2026/01/report.pdf',
+        mimeType: 'application/pdf',
+        size: 20480,
+        label: 'Q1 report',
+      ),
       uploadedAt: $uploadedAt,
-      label: 'Q1 report',
     );
 
     $record = MessagingAttachmentMapper::toRecord($attachment);
@@ -118,12 +120,14 @@ final class MessagingAttachmentMapperTest extends KernelTestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORGANIZATION_ID,
       uploadedByMemberId: self::MEMBER_ID,
-      fileName: 'plan.dwg',
-      storagePath: 'messaging/2026/01/plan.dwg',
-      mimeType: 'image/vnd.dwg',
-      size: 1048576,
+      file: new MessagingAttachmentFile(
+        fileName: 'plan.dwg',
+        storagePath: 'messaging/2026/01/plan.dwg',
+        mimeType: 'image/vnd.dwg',
+        size: 1048576,
+        label: 'Site plan',
+      ),
       uploadedAt: $uploadedAt,
-      label: 'Site plan',
     );
 
     $record = MessagingAttachmentMapper::toRecord($attachment);
@@ -162,12 +166,14 @@ final class MessagingAttachmentMapperTest extends KernelTestCase
       conversationId: self::CONVERSATION_ID,
       organizationId: self::ORGANIZATION_ID,
       uploadedByMemberId: self::MEMBER_ID,
-      fileName: 'photo.jpg',
-      storagePath: 'messaging/2026/01/photo.jpg',
-      mimeType: 'image/jpeg',
-      size: 4096,
+      file: new MessagingAttachmentFile(
+        fileName: 'photo.jpg',
+        storagePath: 'messaging/2026/01/photo.jpg',
+        mimeType: 'image/jpeg',
+        size: 4096,
+        label: null,
+      ),
       uploadedAt: new DateTimeImmutable('2026-01-15T11:00:00+00:00'),
-      label: null,
     );
 
     $record = MessagingAttachmentMapper::toRecord($attachment);

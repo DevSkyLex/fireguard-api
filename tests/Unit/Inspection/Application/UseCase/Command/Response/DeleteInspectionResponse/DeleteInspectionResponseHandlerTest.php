@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Inspection\Application\Port\Outbound\{InspectionResponseRepositoryPort, InterventionScopePort};
 use Inspection\Application\UseCase\Command\Response\DeleteInspectionResponse\{DeleteInspectionResponseCommand, DeleteInspectionResponseHandler};
 use Inspection\Domain\Exception\{InspectionResponseConflictException, InspectionResponseNotFoundException, InspectionRevisionMismatchException};
-use Inspection\Domain\Model\Response\InspectionResponse;
+use Inspection\Domain\Model\Response\{InspectionResponse, RestoredInspectionResponseState};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, InspectionResponseId, InspectionResponseStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -152,12 +152,14 @@ final class DeleteInspectionResponseHandlerTest extends TestCase
       id: InspectionResponseId::fromString(self::RESPONSE_ID),
       organizationId: InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
       inspectionId: InspectionId::fromString(self::INSPECTION_ID),
-      interventionId: self::INTERVENTION_ID,
-      clientId: null,
-      status: $status,
-      revision: 2,
-      itemKey: 'pressure',
-      value: null,
+      state: new RestoredInspectionResponseState(
+        interventionId: self::INTERVENTION_ID,
+        clientId: null,
+        status: $status,
+        revision: 2,
+        itemKey: 'pressure',
+        value: null,
+      ),
       createdAt: $now,
       updatedAt: $now,
     );

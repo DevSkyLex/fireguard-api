@@ -7,7 +7,7 @@ namespace Facility\Presentation\Api\Processor\Facility;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry\{SetFacilityPlanGeometryCommand, SetFacilityPlanGeometryResult};
+use Facility\Application\UseCase\Command\Facility\SetFacilityPlanGeometry\SetFacilityPlanGeometryCommand;
 use Facility\Domain\Exception\{
   FacilityAttachmentNotAncestorException,
   FacilityAttachmentNotFloorPlanException,
@@ -88,8 +88,7 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
     }
 
     try {
-      /** @var SetFacilityPlanGeometryResult $result */
-      $result = $this->commandBus->dispatch(new SetFacilityPlanGeometryCommand(
+      $this->commandBus->dispatch(new SetFacilityPlanGeometryCommand(
         organizationId: $organizationId,
         facilityId: $facilityId,
         attachmentId: $data->attachmentId,
@@ -111,31 +110,19 @@ final readonly class SetFacilityPlanGeometryProcessor implements ProcessorInterf
   private function mapMessengerException(MessengerRuntimeException $exception): Throwable
   {
     $notFound = $this->findException($exception, FacilityNotFoundException::class);
-    if ($notFound instanceof FacilityNotFoundException) {
-      return new NotFoundHttpException($notFound->getMessage(), $exception);
-    }
-
     $attachmentNotFound = $this->findException($exception, FacilityAttachmentNotFoundException::class);
-    if ($attachmentNotFound instanceof FacilityAttachmentNotFoundException) {
-      return new NotFoundHttpException($attachmentNotFound->getMessage(), $exception);
-    }
-
     $notFloorPlan = $this->findException($exception, FacilityAttachmentNotFloorPlanException::class);
-    if ($notFloorPlan instanceof FacilityAttachmentNotFloorPlanException) {
-      return new ConflictHttpException($notFloorPlan->getMessage(), $exception);
-    }
-
     $notAncestor = $this->findException($exception, FacilityAttachmentNotAncestorException::class);
-    if ($notAncestor instanceof FacilityAttachmentNotAncestorException) {
-      return new ConflictHttpException($notAncestor->getMessage(), $exception);
-    }
-
     $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
-    if ($invalidArgument instanceof InvalidArgumentException) {
-      return new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-    }
 
-    return $exception;
+    return match (true) {
+      $notFound instanceof FacilityNotFoundException => new NotFoundHttpException($notFound->getMessage(), $exception),
+      $attachmentNotFound instanceof FacilityAttachmentNotFoundException => new NotFoundHttpException($attachmentNotFound->getMessage(), $exception),
+      $notFloorPlan instanceof FacilityAttachmentNotFloorPlanException => new ConflictHttpException($notFloorPlan->getMessage(), $exception),
+      $notAncestor instanceof FacilityAttachmentNotAncestorException => new ConflictHttpException($notAncestor->getMessage(), $exception),
+      $invalidArgument instanceof InvalidArgumentException => new BadRequestHttpException($invalidArgument->getMessage(), $exception),
+      default => $exception,
+    };
   }
   // #endregion
 }

@@ -131,9 +131,7 @@ final class EmailChangeRequest
    * @param Email $currentEmail the current sign-in email address
    * @param Email $newEmail the requested new email address
    * @param string $tokenHash the SHA-256 hash of the confirmation token
-   * @param DateTimeImmutable $requestedAt when the request was created
-   * @param DateTimeImmutable $expiresAt when the confirmation token expires
-   * @param DateTimeImmutable|null $confirmedAt when the request was confirmed, if it was
+   * @param RestoredEmailChangeTimeline $timeline the persisted request and confirmation times
    *
    * @return self the rehydrated request
    */
@@ -143,9 +141,7 @@ final class EmailChangeRequest
     Email $currentEmail,
     Email $newEmail,
     string $tokenHash,
-    DateTimeImmutable $requestedAt,
-    DateTimeImmutable $expiresAt,
-    ?DateTimeImmutable $confirmedAt,
+    RestoredEmailChangeTimeline $timeline,
   ): self {
     return new self(
       id: $id,
@@ -153,9 +149,9 @@ final class EmailChangeRequest
       currentEmail: $currentEmail,
       newEmail: $newEmail,
       tokenHash: $tokenHash,
-      requestedAt: $requestedAt,
-      expiresAt: $expiresAt,
-      confirmedAt: $confirmedAt,
+      requestedAt: $timeline->requestedAt,
+      expiresAt: $timeline->expiresAt,
+      confirmedAt: $timeline->confirmedAt,
     );
   }
   // #endregion

@@ -157,20 +157,14 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
     if (null === $org || ('cancel' !== $command->operation && !$org->status()->isActive())) {
       throw OrganizationNotFoundException::withId($orgId);
     }
-    if ('policy' === $command->operation) {
-      return $this->configurePolicy($command, $orgId, $now, $changed);
-    }
-    if ('domain_add' === $command->operation) {
-      return $this->addDomain($command, $orgId, $changed);
-    }
-    if (in_array($command->operation, ['domain_remove', 'domain_verify'], true)) {
-      return $this->changeDomain($command, $orgId, $now, $changed);
-    }
-    if (in_array($command->operation, ['cancel', 'approve', 'reject'], true)) {
-      return $this->decideRequest($command, $orgId, $now, $memberAdded, $changedRequest, $changed, $invalidatedEmail);
-    }
 
-    return $this->joinOrRequest($command, $orgId, $now, $memberAdded, $changedRequest, $changed);
+    return match (true) {
+      'policy' === $command->operation => $this->configurePolicy($command, $orgId, $now, $changed),
+      'domain_add' === $command->operation => $this->addDomain($command, $orgId, $changed),
+      in_array($command->operation, ['domain_remove', 'domain_verify'], true) => $this->changeDomain($command, $orgId, $now, $changed),
+      in_array($command->operation, ['cancel', 'approve', 'reject'], true) => $this->decideRequest($command, $orgId, $now, $memberAdded, $changedRequest, $changed, $invalidatedEmail),
+      default => $this->joinOrRequest($command, $orgId, $now, $memberAdded, $changedRequest, $changed),
+    };
   }
 
   private function afterCommit(ManageOrganizationJoinCommand $command, string $orgId, ?AddOrganizationMemberResult $memberAdded, ?OrganizationJoinRequest $changedRequest, bool $changed, bool $invalidatedEmail): void
@@ -345,14 +339,16 @@ final readonly class ManageOrganizationJoinHandler implements CommandHandler
       throw new OrganizationJoinInputException('organization_join_invalid_request');
     }
     if (null !== $pending) {
-      return new ManageOrganizationJoinResult($this->access->requestView($pending, $command->userId));
+      $requestView = $this->access->requestView($pending, $command->userId);
+    } else {
+      $request = new OrganizationJoinRequest($this->dns->identifier(), $orgId, $command->userId, strtolower($proof->email), $domain->id, $now, $now->modify('+30 days'));
+      $this->joins->saveRequest($request);
+      $changedRequest = $request;
+      $changed = true;
+      $requestView = $this->access->requestView($request, $command->userId);
     }
-    $request = new OrganizationJoinRequest($this->dns->identifier(), $orgId, $command->userId, strtolower($proof->email), $domain->id, $now, $now->modify('+30 days'));
-    $this->joins->saveRequest($request);
-    $changedRequest = $request;
-    $changed = true;
 
-    return new ManageOrganizationJoinResult($this->access->requestView($request, $command->userId));
+    return new ManageOrganizationJoinResult($requestView);
   }
 
   private function findPendingRequest(string $userId, string $orgId, EmailOwnershipResult $proof, DateTimeImmutable $now): ?OrganizationJoinRequest

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Exception\NotificationNotFoundException;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\{MarkNotificationAsReadCommand, MarkNotificationAsReadHandler, MarkNotificationAsReadResult};
-use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\Model\Notification\{Notification, NotificationTarget};
 use Notification\Domain\ValueObject\NotificationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,8 +28,11 @@ final class MarkNotificationAsReadHandlerTest extends TestCase
       body: '<p>Body</p>',
       channels: ['email'],
       payload: ['organizationName' => 'Fireguard HQ'],
-      recipientUserId: '550e8400-e29b-41d4-a716-446655442301',
-      recipientEmail: new Email('member@example.com'),
+      target: new NotificationTarget(
+        recipientUserId: '550e8400-e29b-41d4-a716-446655442301',
+        recipientEmail: new Email('member@example.com'),
+        organizationId: null,
+      ),
     );
 
     /** @var NotificationRepositoryPort&MockObject $repository */
@@ -68,8 +71,11 @@ final class MarkNotificationAsReadHandlerTest extends TestCase
       body: '<p>Body</p>',
       channels: ['email'],
       payload: [],
-      recipientUserId: '550e8400-e29b-41d4-a716-446655442311',
-      recipientEmail: null,
+      target: new NotificationTarget(
+        recipientUserId: '550e8400-e29b-41d4-a716-446655442311',
+        recipientEmail: null,
+        organizationId: null,
+      ),
     );
     $notification->markAsRead($readAt);
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Assistant\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Assistant\Domain\Model\Message\AssistantMessage;
+use Assistant\Domain\Model\Message\{AssistantMessage, RestoredAssistantMessageAttempt, RestoredAssistantMessageContent, RestoredAssistantMessageTimeline};
 use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, AssistantMessageStatus};
 use Assistant\Infrastructure\Exception\AssistantMessageThreadMissingException;
 use Assistant\Infrastructure\Persistence\Doctrine\Mapper\AssistantMessageMapper;
@@ -39,6 +39,13 @@ final class AssistantMessageMapperTest extends TestCase
     $completedAt = new DateTimeImmutable('2026-02-02T10:00:05+00:00');
 
     $record = $this->record($createdAt, $completedAt);
+    $attemptExpiresAt = new DateTimeImmutable('2026-02-02T10:05:00+00:00');
+    $record->attemptId = 'attempt-1';
+    $record->attemptNumber = 2;
+    $record->attemptSequence = 4;
+    $record->attemptExpiresAt = $attemptExpiresAt;
+    $record->questionMessageId = 'question-1';
+    $record->temperature = 0.4;
 
     $message = AssistantMessageMapper::toDomain($record);
 
@@ -52,6 +59,12 @@ final class AssistantMessageMapperTest extends TestCase
     self::assertSame(128, $message->tokenCount());
     self::assertSame($createdAt, $message->createdAt());
     self::assertSame($completedAt, $message->completedAt());
+    self::assertSame('attempt-1', $message->attemptId());
+    self::assertSame(2, $message->attemptNumber());
+    self::assertSame(4, $message->attemptSequence());
+    self::assertSame($attemptExpiresAt, $message->attemptExpiresAt());
+    self::assertSame('question-1', $message->questionMessageId());
+    self::assertSame(0.4, $message->temperature());
   }
 
   #[Test]
@@ -71,18 +84,23 @@ final class AssistantMessageMapperTest extends TestCase
   {
     $createdAt = new DateTimeImmutable('2026-02-02T11:00:00+00:00');
     $completedAt = new DateTimeImmutable('2026-02-02T11:00:09+00:00');
+    $attemptExpiresAt = new DateTimeImmutable('2026-02-02T11:05:00+00:00');
 
     $message = AssistantMessage::reconstitute(
       id: AssistantMessageId::fromString(self::MESSAGE_ID),
       threadId: self::THREAD_ID,
       organizationId: self::ORGANIZATION_ID,
       role: AssistantMessageRole::USER,
-      body: 'What is the inspection schedule?',
-      status: AssistantMessageStatus::FAILED,
-      errorCode: 'model_unavailable',
-      tokenCount: 42,
-      createdAt: $createdAt,
-      completedAt: $completedAt,
+      content: new RestoredAssistantMessageContent('What is the inspection schedule?', AssistantMessageStatus::FAILED, 'model_unavailable', 42),
+      attempt: new RestoredAssistantMessageAttempt(
+        attemptId: 'attempt-2',
+        attemptNumber: 3,
+        attemptSequence: 5,
+        attemptExpiresAt: $attemptExpiresAt,
+        questionMessageId: 'question-2',
+        temperature: 0.6,
+      ),
+      timeline: new RestoredAssistantMessageTimeline($createdAt, $completedAt),
     );
 
     $record = new AssistantMessageRecord();
@@ -98,6 +116,12 @@ final class AssistantMessageMapperTest extends TestCase
     self::assertSame(42, $record->tokenCount);
     self::assertSame($createdAt, $record->createdAt);
     self::assertSame($completedAt, $record->completedAt);
+    self::assertSame('attempt-2', $record->attemptId);
+    self::assertSame(3, $record->attemptNumber);
+    self::assertSame(5, $record->attemptSequence);
+    self::assertSame($attemptExpiresAt, $record->attemptExpiresAt);
+    self::assertSame('question-2', $record->questionMessageId);
+    self::assertSame(0.6, $record->temperature);
   }
 
   #[Test]
@@ -108,12 +132,9 @@ final class AssistantMessageMapperTest extends TestCase
       threadId: self::THREAD_ID,
       organizationId: self::ORGANIZATION_ID,
       role: AssistantMessageRole::ASSISTANT,
-      body: '',
-      status: AssistantMessageStatus::PENDING,
-      errorCode: null,
-      tokenCount: null,
-      createdAt: new DateTimeImmutable('2026-02-02T12:00:00+00:00'),
-      completedAt: null,
+      content: new RestoredAssistantMessageContent('', AssistantMessageStatus::PENDING, null, null),
+      attempt: new RestoredAssistantMessageAttempt(),
+      timeline: new RestoredAssistantMessageTimeline(new DateTimeImmutable('2026-02-02T12:00:00+00:00'), null),
     );
 
     $record = new AssistantMessageRecord();

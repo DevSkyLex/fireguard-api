@@ -7,7 +7,7 @@ namespace OAuth\Infrastructure\OAuth2\League\Server;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Nyholm\Psr7\{Response, ServerRequest};
-use OAuth\Application\Port\Outbound\Token\AuthorizationServerPort;
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRequest, AuthorizationServerPort};
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use Throwable;
@@ -51,36 +51,22 @@ final readonly class AuthorizationServerAdapter implements AuthorizationServerPo
    *
    * @since 1.0.0
    *
-   * @param string $grantType the grant type
-   * @param string $clientId the client ID
-   * @param string $clientSecret the client secret
-   * @param string|null $scope the scopes
-   * @param string|null $refreshToken the refresh token
-   * @param string|null $code the authorization code
-   * @param string|null $redirectUri the redirect URI
-   * @param string|null $codeVerifier the PKCE code verifier
+   * @param AccessTokenRequest $tokenRequest the client credentials and grant parameters
    *
    * @return IssueTokenResult the issued token result
    */
-  public function issueAccessToken(
-    string $grantType,
-    string $clientId,
-    string $clientSecret,
-    ?string $scope = null,
-    ?string $refreshToken = null,
-    ?string $code = null,
-    ?string $redirectUri = null,
-    ?string $codeVerifier = null,
-  ): IssueTokenResult {
+  public function issueAccessToken(AccessTokenRequest $tokenRequest): IssueTokenResult
+  {
+    $grantType = $tokenRequest->grantType;
     $parsedBody = array_filter([
       'grant_type' => $grantType,
-      'client_id' => $clientId,
-      'client_secret' => $clientSecret,
-      'scope' => $scope,
-      'refresh_token' => $refreshToken,
-      'code' => $code,
-      'redirect_uri' => $redirectUri,
-      'code_verifier' => $codeVerifier,
+      'client_id' => $tokenRequest->clientId,
+      'client_secret' => $tokenRequest->clientSecret,
+      'scope' => $tokenRequest->grant->scope,
+      'refresh_token' => $tokenRequest->grant->refreshToken,
+      'code' => $tokenRequest->grant->code,
+      'redirect_uri' => $tokenRequest->grant->redirectUri,
+      'code_verifier' => $tokenRequest->grant->codeVerifier,
     ], fn ($value) => null !== $value);
 
     $request = new ServerRequest(method: 'POST', uri: '/token')

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Domain\Model\MaintenanceLog;
 
 use DateTimeImmutable;
-use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\Model\MaintenanceLog\{EquipmentMaintenanceLog, InterventionMaintenanceDetails, RestoredMaintenanceLogDetails};
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId, MaintenanceLogSource};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -65,11 +65,13 @@ final class EquipmentMaintenanceLogTest extends TestCase
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       occurredAt: $occurredAt,
-      interventionId: self::INTERVENTION_ID,
-      interventionNumber: 42,
-      workItemAction: 'status_change',
-      actorId: '550e8400-e29b-41d4-a716-446655480005',
-      summary: 'Replaced detector',
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: self::INTERVENTION_ID,
+        interventionNumber: 42,
+        workItemAction: 'status_change',
+        actorId: '550e8400-e29b-41d4-a716-446655480005',
+        summary: 'Replaced detector',
+      ),
     );
 
     self::assertSame(MaintenanceLogSource::INTERVENTION, $log->source());
@@ -93,10 +95,12 @@ final class EquipmentMaintenanceLogTest extends TestCase
       equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       occurredAt: $occurredAt,
-      interventionId: self::INTERVENTION_ID,
-      interventionNumber: 7,
-      workItemAction: 'update',
-      actorId: null,
+      intervention: new InterventionMaintenanceDetails(
+        interventionId: self::INTERVENTION_ID,
+        interventionNumber: 7,
+        workItemAction: 'update',
+        actorId: null,
+      ),
     );
 
     self::assertNull($log->actorId());
@@ -115,12 +119,14 @@ final class EquipmentMaintenanceLogTest extends TestCase
       organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
       startedAt: $startedAt,
       completedAt: $completedAt,
-      source: MaintenanceLogSource::INTERVENTION,
-      interventionId: self::INTERVENTION_ID,
-      interventionNumber: 3,
-      workItemAction: 'inventory',
-      actorId: '550e8400-e29b-41d4-a716-446655480006',
-      summary: 'Inventory pass',
+      details: new RestoredMaintenanceLogDetails(
+        source: MaintenanceLogSource::INTERVENTION,
+        interventionId: self::INTERVENTION_ID,
+        interventionNumber: 3,
+        workItemAction: 'inventory',
+        actorId: '550e8400-e29b-41d4-a716-446655480006',
+        summary: 'Inventory pass',
+      ),
     );
 
     self::assertSame(self::LOG_ID, (string) $log->id());

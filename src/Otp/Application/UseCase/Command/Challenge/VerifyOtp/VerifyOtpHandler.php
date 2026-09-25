@@ -90,25 +90,25 @@ final readonly class VerifyOtpHandler implements CommandHandler
       // Persist updated state
       $this->otpRepository->save($otp);
 
-      if ($verified) {
-        return VerifyOtpResult::success();
-      }
-
-      return VerifyOtpResult::failed(
-        attemptsRemaining: $otp->attemptsRemaining(),
-        error: 'Invalid verification code.',
-      );
+      $result = $verified
+        ? VerifyOtpResult::success()
+        : VerifyOtpResult::failed(
+          attemptsRemaining: $otp->attemptsRemaining(),
+          error: 'Invalid verification code.',
+        );
     } catch (OtpExpiredException) {
-      return VerifyOtpResult::failed(
+      $result = VerifyOtpResult::failed(
         attemptsRemaining: 0,
         error: 'OTP has expired.',
       );
     } catch (OtpMaxAttemptsException) {
-      return VerifyOtpResult::failed(
+      $result = VerifyOtpResult::failed(
         attemptsRemaining: 0,
         error: 'Maximum verification attempts exceeded.',
       );
     }
+
+    return $result;
   }
 
   /**

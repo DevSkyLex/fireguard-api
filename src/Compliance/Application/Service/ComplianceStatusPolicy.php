@@ -53,19 +53,12 @@ final class ComplianceStatusPolicy
     int $openHighNonConformityCount,
     int $openCriticalNonConformityCount,
   ): ComplianceStatus {
-    if ($overdueEquipmentCount > 0 || $openCriticalNonConformityCount > 0) {
-      return ComplianceStatus::NON_COMPLIANT;
-    }
-
-    if ($dueSoonEquipmentCount > 0 || $openHighNonConformityCount > 0) {
-      return ComplianceStatus::AT_RISK;
-    }
-
-    if ($trackedEquipmentCount > 0) {
-      return ComplianceStatus::COMPLIANT;
-    }
-
-    return ComplianceStatus::NOT_APPLICABLE;
+    return match (true) {
+      $overdueEquipmentCount > 0 || $openCriticalNonConformityCount > 0 => ComplianceStatus::NON_COMPLIANT,
+      $dueSoonEquipmentCount > 0 || $openHighNonConformityCount > 0 => ComplianceStatus::AT_RISK,
+      $trackedEquipmentCount > 0 => ComplianceStatus::COMPLIANT,
+      default => ComplianceStatus::NOT_APPLICABLE,
+    };
   }
 
   /**

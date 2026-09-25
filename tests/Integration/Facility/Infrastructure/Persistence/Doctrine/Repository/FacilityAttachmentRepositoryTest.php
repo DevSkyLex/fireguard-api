@@ -7,7 +7,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Facility\Domain\Model\Attachment\FacilityAttachment;
+use Facility\Domain\Model\Attachment\{FacilityAttachment, FacilityAttachmentCreationOptions};
 use Facility\Domain\ValueObject\{AttachmentKind, FacilityAttachmentId, FacilityId};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository;
@@ -95,7 +95,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
       mimeType: 'application/pdf',
       size: 2048,
-      label: 'Ground floor',
+      options: new FacilityAttachmentCreationOptions(label: 'Ground floor'),
     );
 
     $this->repository->save($attachment);
@@ -182,7 +182,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/final.png',
       mimeType: 'image/png',
       size: 8192,
-      label: 'Final revision',
+      options: new FacilityAttachmentCreationOptions(label: 'Final revision'),
     ));
     $this->entityManager->clear();
 
@@ -216,9 +216,11 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_ground-floor.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
-      imageWidth: 1920,
-      imageHeight: 1080,
+      options: new FacilityAttachmentCreationOptions(
+        kind: AttachmentKind::FLOOR_PLAN,
+        imageWidth: 1920,
+        imageHeight: 1080,
+      ),
     );
 
     $this->repository->save($attachment);
@@ -251,7 +253,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/plan.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     ));
 
     $documents = $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID), AttachmentKind::DOCUMENT);
@@ -273,7 +275,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/ground-floor.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
     $primary->markAsPrimary();
     $this->repository->save($primary);
@@ -285,7 +287,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/first-floor.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
     $challenger->markAsPrimary();
 
@@ -312,7 +314,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/ground-floor.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
     $first->markAsPrimary();
     $this->repository->save($first);
@@ -324,7 +326,7 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
       storagePath: 'facility/' . self::FACILITY_ID . '/attachments/first-floor.png',
       mimeType: 'image/png',
       size: 4096,
-      kind: AttachmentKind::FLOOR_PLAN,
+      options: new FacilityAttachmentCreationOptions(kind: AttachmentKind::FLOOR_PLAN),
     );
     // Deliberately WITHOUT clearing the first primary first — the schema-level
     // backstop the partial unique index exists for (see the migration docblock).

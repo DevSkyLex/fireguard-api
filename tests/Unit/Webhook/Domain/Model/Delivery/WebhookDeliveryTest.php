@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Webhook\Domain\Model\Delivery\WebhookDelivery;
+use Webhook\Domain\Model\Delivery\{RestoredWebhookDeliveryAttempt, RestoredWebhookDeliveryMetadata, WebhookDelivery};
 use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, WebhookSubscriptionId};
 
 /**
@@ -147,17 +147,21 @@ final class WebhookDeliveryTest extends TestCase
       id: WebhookDeliveryId::fromString(self::DELIVERY_ID),
       subscriptionId: WebhookSubscriptionId::fromString(self::SUBSCRIPTION_ID),
       organizationId: self::ORGANIZATION_ID,
-      eventType: 'inspection.closed',
-      eventId: 'event-9',
-      payload: ['k' => 'v'],
-      status: WebhookDeliveryStatus::DELIVERED,
-      attempts: 2,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt,
-      httpStatus: 200,
-      lastError: null,
-      nextRetryAt: null,
-      deliveredAt: $deliveredAt,
+      metadata: new RestoredWebhookDeliveryMetadata(
+        eventType: 'inspection.closed',
+        eventId: 'event-9',
+        payload: ['k' => 'v'],
+        createdAt: $createdAt,
+        updatedAt: $updatedAt,
+      ),
+      attempt: new RestoredWebhookDeliveryAttempt(
+        status: WebhookDeliveryStatus::DELIVERED,
+        attempts: 2,
+        httpStatus: 200,
+        lastError: null,
+        nextRetryAt: null,
+        deliveredAt: $deliveredAt,
+      ),
     );
 
     self::assertSame(WebhookDeliveryStatus::DELIVERED, $delivery->status());

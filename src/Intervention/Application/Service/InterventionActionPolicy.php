@@ -124,22 +124,17 @@ final readonly class InterventionActionPolicy
   {
     $base = $this->requiredPermission($resource, $action, $payload, $contextStatus);
     if ('work_item' === $resource && 'update' === $action && 'draft' !== $contextStatus) {
-      $workItemPermissions = self::workItemPlanningPermissions($payload);
-      if (null !== $workItemPermissions) {
-        return $workItemPermissions;
-      }
-    }
-    if ('intervention' !== $resource || 'create' === $action || 'draft' === $contextStatus) {
-      return [$base];
+      return self::workItemPlanningPermissions($payload) ?? [$base];
     }
 
-    if (!self::touchesAny($payload, ['siteId', 'responsibleId', 'participants', 'priority', 'plannedStartAt', 'dueAt'])) {
-      return [$base];
+    if ('intervention' === $resource && 'create' !== $action && 'draft' !== $contextStatus
+      && self::touchesAny($payload, ['siteId', 'responsibleId', 'participants', 'priority', 'plannedStartAt', 'dueAt'])) {
+      return self::touchesAny($payload, ['status', 'name', 'description', 'reviewNote', 'labelIds'])
+        ? array_values(array_unique([$base, self::PERMISSION_PLAN]))
+        : [self::PERMISSION_PLAN];
     }
 
-    return self::touchesAny($payload, ['status', 'name', 'description', 'reviewNote', 'labelIds'])
-      ? array_values(array_unique([$base, self::PERMISSION_PLAN]))
-      : [self::PERMISSION_PLAN];
+    return [$base];
   }
 
   /**
@@ -297,25 +292,7 @@ final readonly class InterventionActionPolicy
   private function requiredPermission(string $resource, string $action, array $payload, string $contextStatus): string
   {
     if ('intervention' === $resource) {
-      if ('create' === $action) {
-        return self::PERMISSION_PLAN;
-      }
-      $targetStatus = $payload['status'] ?? null;
-      if (is_string($targetStatus)) {
-        return match ($targetStatus) {
-          'planned' => self::PERMISSION_PLAN,
-          'in_progress', 'submitted' => self::PERMISSION_EXECUTE,
-          'abandoned' => match ($contextStatus) {
-            'draft' => self::PERMISSION_PLAN,
-            'changes_requested' => self::PERMISSION_REVIEW,
-            default => self::PERMISSION_EXECUTE,
-          },
-          'changes_requested' => self::PERMISSION_REVIEW,
-          default => self::PERMISSION_PLAN,
-        };
-      }
-
-      return 'draft' === $contextStatus ? self::PERMISSION_PLAN : self::PERMISSION_EXECUTE;
+      return self::interventionPermission($action, $payload, $contextStatus);
     }
 
     if ('work_item' === $resource) {
@@ -325,6 +302,41 @@ final readonly class InterventionActionPolicy
     return 'submitted' === $contextStatus && 'create' !== $action
       ? self::PERMISSION_REVIEW
       : self::PERMISSION_EXECUTE;
+  }
+
+  /**
+   * Method interventionPermission.
+   *
+   * @since 1.0.0
+   *
+   * @param string $action the mutation action
+   * @param array<string, mixed> $payload
+   * @param string $contextStatus the intervention's current status
+   *
+   * @return string the required intervention permission
+   */
+  private static function interventionPermission(string $action, array $payload, string $contextStatus): string
+  {
+    if ('create' === $action) {
+      return self::PERMISSION_PLAN;
+    }
+
+    $targetStatus = $payload['status'] ?? null;
+    if (is_string($targetStatus)) {
+      return match ($targetStatus) {
+        'planned' => self::PERMISSION_PLAN,
+        'in_progress', 'submitted' => self::PERMISSION_EXECUTE,
+        'abandoned' => match ($contextStatus) {
+          'draft' => self::PERMISSION_PLAN,
+          'changes_requested' => self::PERMISSION_REVIEW,
+          default => self::PERMISSION_EXECUTE,
+        },
+        'changes_requested' => self::PERMISSION_REVIEW,
+        default => self::PERMISSION_PLAN,
+      };
+    }
+
+    return 'draft' === $contextStatus ? self::PERMISSION_PLAN : self::PERMISSION_EXECUTE;
   }
 
   /**

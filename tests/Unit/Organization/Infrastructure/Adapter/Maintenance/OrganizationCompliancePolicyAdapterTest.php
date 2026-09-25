@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Catalog\OrganizationComplianceDefaults;
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\Organization\{RestoredOrganizationCore, RestoredOrganizationProfile};
 use Organization\Domain\ValueObject\{
   OrganizationComplianceSettings,
   OrganizationId,
@@ -52,15 +53,19 @@ final class OrganizationCompliancePolicyAdapterTest extends TestCase
   public function testStoredSettingsAreProjectedOntoThePolicy(): void
   {
     $organization = Organization::reconstitute(
-      id: OrganizationId::fromString(self::ORGANIZATION_ID),
-      name: new OrganizationName('Acme'),
-      createdByUserId: 'user-1',
-      isActive: true,
-      createdAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
-      settings: new OrganizationSettings(compliance: new OrganizationComplianceSettings(
-        inspectionPeriodicityDefaults: ['fire_extinguisher' => 'P6M'],
-        reminderWindowDays: 15,
-      )),
+      core: new RestoredOrganizationCore(
+        id: OrganizationId::fromString(self::ORGANIZATION_ID),
+        name: new OrganizationName('Acme'),
+        createdByUserId: 'user-1',
+        isActive: true,
+        createdAt: new DateTimeImmutable('2026-01-01T09:00:00+00:00'),
+      ),
+      profile: new RestoredOrganizationProfile(
+        settings: new OrganizationSettings(compliance: new OrganizationComplianceSettings(
+          inspectionPeriodicityDefaults: ['fire_extinguisher' => 'P6M'],
+          reminderWindowDays: 15,
+        )),
+      ),
     );
 
     $policy = $this->adapter($organization)->compliancePolicy(self::ORGANIZATION_ID);

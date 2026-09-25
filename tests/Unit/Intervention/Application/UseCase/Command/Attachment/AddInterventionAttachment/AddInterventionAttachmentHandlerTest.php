@@ -9,7 +9,7 @@ use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentHandler, AddInterventionAttachmentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
-use Intervention\Domain\Model\Attachment\InterventionAttachment;
+use Intervention\Domain\Model\Attachment\{InterventionAttachment, InterventionAttachmentFile, InterventionAttachmentOptions};
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -455,12 +455,9 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $authorization->method('hasPermission')->willReturn(true);
 
     $existing = InterventionAttachment::create(
-      id: new InterventionAttachmentId(self::ATTACHMENT_ID),
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'evidence.jpg',
-      storagePath: 'intervention/x/attachments/y_evidence.jpg',
-      mimeType: 'image/jpeg',
-      size: 512,
+      new InterventionAttachmentId(self::ATTACHMENT_ID),
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('evidence.jpg', 'intervention/x/attachments/y_evidence.jpg', 'image/jpeg', 512),
     );
 
     // A client-supplied id that already exists overwrites its own row: it adds
@@ -717,13 +714,10 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     $previousSignatureId = new InterventionAttachmentId('550e8400-e29b-41d4-a716-446655446099');
     $previousSignature = InterventionAttachment::create(
-      id: $previousSignatureId,
-      interventionId: self::INTERVENTION_ID,
-      fileName: 'old-signature.png',
-      storagePath: 'intervention/x/attachments/old-signature.png',
-      mimeType: 'image/png',
-      size: 256,
-      kind: InterventionAttachmentKind::SIGNATURE,
+      $previousSignatureId,
+      self::INTERVENTION_ID,
+      new InterventionAttachmentFile('old-signature.png', 'intervention/x/attachments/old-signature.png', 'image/png', 256),
+      new InterventionAttachmentOptions(kind: InterventionAttachmentKind::SIGNATURE),
     );
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */

@@ -122,13 +122,7 @@ final class CanonicalInspection
    * @param InspectionId $id the inspection identifier
    * @param InspectionOrganizationId $organizationId the owning organization identifier
    * @param InspectionEquipmentId $equipmentId the inspected equipment identifier
-   * @param InspectionRecordStatus $recordStatus whether the row is published or a scratchpad
-   * @param ?string $interventionId the preparing intervention identifier
-   * @param InspectionStatus $status the inspection lifecycle status
-   * @param InspectionResult $result the recorded result
-   * @param ?string $notes the free-form notes
-   * @param ?string $signature the inspector signature
-   * @param int $revision the optimistic-concurrency revision
+   * @param RestoredCanonicalInspectionState $state the persisted lifecycle and revision
    * @param DateTimeImmutable $updatedAt the last mutation timestamp
    *
    * @return self the reconstituted canonical inspection
@@ -137,26 +131,20 @@ final class CanonicalInspection
     InspectionId $id,
     InspectionOrganizationId $organizationId,
     InspectionEquipmentId $equipmentId,
-    InspectionRecordStatus $recordStatus,
-    ?string $interventionId,
-    InspectionStatus $status,
-    InspectionResult $result,
-    ?string $notes,
-    ?string $signature,
-    int $revision,
+    RestoredCanonicalInspectionState $state,
     DateTimeImmutable $updatedAt,
   ): self {
     return new self(
       id: $id,
       organizationId: $organizationId,
       equipmentId: $equipmentId,
-      recordStatus: $recordStatus,
-      interventionId: $interventionId,
-      status: $status,
-      result: $result,
-      notes: $notes,
-      signature: $signature,
-      revision: $revision,
+      recordStatus: $state->recordStatus,
+      interventionId: $state->interventionId,
+      status: $state->status,
+      result: $state->result,
+      notes: $state->notes,
+      signature: $state->signature,
+      revision: $state->revision,
       updatedAt: $updatedAt,
     );
   }

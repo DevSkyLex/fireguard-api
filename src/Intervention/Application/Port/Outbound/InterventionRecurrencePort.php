@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\Port\Outbound;
 
 use DateTimeImmutable;
-use Intervention\Application\Contract\Recurrence\{InterventionRecurrencePage, InterventionRecurrenceView};
+use Intervention\Application\Contract\Recurrence\{InterventionRecurrenceCreateRequest, InterventionRecurrencePage, InterventionRecurrenceUpdateRequest, InterventionRecurrenceView};
 
 /**
  * Interface InterventionRecurrencePort.
@@ -30,35 +30,11 @@ interface InterventionRecurrencePort
    *
    * @since 1.0.0
    *
-   * @param string $organizationId the organization id value
-   * @param string $templateId the template id value
-   * @param string $name the name value
-   * @param ?string $siteId the site override value
-   * @param ?string $responsibleId the responsible member override value
-   * @param string $frequency the recurrence frequency value
-   * @param int $interval the interval count value
-   * @param DateTimeImmutable $anchorDate the anchor date value
-   * @param string $timezone the IANA timezone value
-   * @param int $leadTimeDays the lead time in days value
-   * @param DateTimeImmutable $nextOccurrenceAt the initial next occurrence value
-   * @param ?DateTimeImmutable $endAt the optional end date value
+   * @param InterventionRecurrenceCreateRequest $request the validated recurrence
    *
    * @return InterventionRecurrenceView the created recurrence view
    */
-  public function create(
-    string $organizationId,
-    string $templateId,
-    string $name,
-    ?string $siteId,
-    ?string $responsibleId,
-    string $frequency,
-    int $interval,
-    DateTimeImmutable $anchorDate,
-    string $timezone,
-    int $leadTimeDays,
-    DateTimeImmutable $nextOccurrenceAt,
-    ?DateTimeImmutable $endAt,
-  ): InterventionRecurrenceView;
+  public function create(InterventionRecurrenceCreateRequest $request): InterventionRecurrenceView;
 
   /**
    * Method update.
@@ -68,57 +44,11 @@ interface InterventionRecurrencePort
    *
    * @since 1.0.0
    *
-   * @param string $id the recurrence id value
-   * @param ?string $name the name value, only applied when `$hasName` is true
-   * @param ?string $siteId the site override value, only applied when `$hasSiteId` is true
-   * @param ?string $responsibleId the responsible member override value, only applied when `$hasResponsibleId` is true
-   * @param ?string $frequency the recurrence frequency value, only applied when `$hasFrequency` is true
-   * @param ?int $interval the interval count value, only applied when `$hasInterval` is true
-   * @param ?DateTimeImmutable $anchorDate the anchor date value, only applied when `$hasAnchorDate` is true
-   * @param ?string $timezone the IANA timezone value, only applied when `$hasTimezone` is true
-   * @param ?int $leadTimeDays the lead time in days value, only applied when `$hasLeadTimeDays` is true
-   * @param ?DateTimeImmutable $nextOccurrenceAt the recomputed next occurrence value, only applied when `$hasNextOccurrenceAt` is true
-   * @param ?DateTimeImmutable $endAt the end date value, only applied when `$hasEndAt` is true
-   * @param ?bool $isActive the active flag value, only applied when `$hasIsActive` is true
-   * @param bool $hasName whether the name field was present in the merge-patch request
-   * @param bool $hasSiteId whether the site field was present in the merge-patch request
-   * @param bool $hasResponsibleId whether the responsible field was present in the merge-patch request
-   * @param bool $hasFrequency whether the frequency field was present in the merge-patch request
-   * @param bool $hasInterval whether the interval field was present in the merge-patch request
-   * @param bool $hasAnchorDate whether the anchor date field was present in the merge-patch request
-   * @param bool $hasTimezone whether the timezone field was present in the merge-patch request
-   * @param bool $hasLeadTimeDays whether the lead time field was present in the merge-patch request
-   * @param bool $hasNextOccurrenceAt whether the next occurrence was recomputed by the handler
-   * @param bool $hasEndAt whether the end date field was present in the merge-patch request
-   * @param bool $hasIsActive whether the isActive field was present in the merge-patch request
+   * @param InterventionRecurrenceUpdateRequest $request the validated request
    *
    * @return InterventionRecurrenceView the updated recurrence view
    */
-  public function update(
-    string $id,
-    ?string $name,
-    ?string $siteId,
-    ?string $responsibleId,
-    ?string $frequency,
-    ?int $interval,
-    ?DateTimeImmutable $anchorDate,
-    ?string $timezone,
-    ?int $leadTimeDays,
-    ?DateTimeImmutable $nextOccurrenceAt,
-    ?DateTimeImmutable $endAt,
-    ?bool $isActive,
-    bool $hasName,
-    bool $hasSiteId,
-    bool $hasResponsibleId,
-    bool $hasFrequency,
-    bool $hasInterval,
-    bool $hasAnchorDate,
-    bool $hasTimezone,
-    bool $hasLeadTimeDays,
-    bool $hasNextOccurrenceAt,
-    bool $hasEndAt,
-    bool $hasIsActive,
-  ): InterventionRecurrenceView;
+  public function update(InterventionRecurrenceUpdateRequest $request): InterventionRecurrenceView;
 
   /**
    * Method delete.

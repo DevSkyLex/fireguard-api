@@ -78,33 +78,11 @@ final readonly class TokenValidationService
       return TokenValidationResult::failed(self::VALIDATION_NOT_FOUND, 'Token not found');
     }
 
-    if ($token->isRevoked()) {
-      return TokenValidationResult::failed(self::VALIDATION_REVOKED, 'Token has been revoked');
-    }
-
-    if ($token->isExpired()) {
-      return TokenValidationResult::failed(self::VALIDATION_EXPIRED, 'Token has expired');
-    }
-
-    if (!empty($requiredScopes)) {
-      $tokenScopes = $token->scopes()->toArray();
-      foreach ($requiredScopes as $requiredScope) {
-        if (!in_array($requiredScope, $tokenScopes, true)) {
-          return TokenValidationResult::failed(
-            self::VALIDATION_INVALID_SCOPE,
-            sprintf('Missing required scope: %s', $requiredScope),
-          );
-        }
-      }
-    }
-
-    return TokenValidationResult::success(
-      tokenId: $token->identifier(),
-      userId: $token->userIdentifier(),
-      clientId: (string) $token->clientIdentifier(),
-      scopes: $token->scopes()->toArray(),
-      expiresAt: $token->expiry()->getTimestamp(),
-    );
+    return match (true) {
+      $token->isRevoked() => TokenValidationResult::failed(self::VALIDATION_REVOKED, 'Token has been revoked'),
+      $token->isExpired() => TokenValidationResult::failed(self::VALIDATION_EXPIRED, 'Token has expired'),
+      default => $this->validateScopesAndBuildSuccess($token, $requiredScopes),
+    };
   }
 
   /**
@@ -128,14 +106,12 @@ final readonly class TokenValidationService
       return TokenValidationResult::failed(self::VALIDATION_REVOKED, 'Refresh token has been revoked');
     }
 
-    if ($token->isExpired()) {
-      return TokenValidationResult::failed(self::VALIDATION_EXPIRED, 'Refresh token has expired');
-    }
-
-    return TokenValidationResult::success(
-      tokenId: $token->identifier(),
-      expiresAt: $token->expiryDateTime()->getTimestamp(),
-    );
+    return $token->isExpired()
+      ? TokenValidationResult::failed(self::VALIDATION_EXPIRED, 'Refresh token has expired')
+      : TokenValidationResult::success(
+        tokenId: $token->identifier(),
+        expiresAt: $token->expiryDateTime()->getTimestamp(),
+      );
   }
 
   /**
@@ -156,6 +132,30 @@ final readonly class TokenValidationService
     }
 
     return !$token->isRevoked() && !$token->isExpired();
+  }
+
+  /**
+   * @param list<string> $requiredScopes
+   */
+  private function validateScopesAndBuildSuccess(AccessToken $token, array $requiredScopes): TokenValidationResult
+  {
+    $tokenScopes = $token->scopes()->toArray();
+    foreach ($requiredScopes as $requiredScope) {
+      if (!in_array($requiredScope, $tokenScopes, true)) {
+        return TokenValidationResult::failed(
+          self::VALIDATION_INVALID_SCOPE,
+          sprintf('Missing required scope: %s', $requiredScope),
+        );
+      }
+    }
+
+    return TokenValidationResult::success(
+      tokenId: $token->identifier(),
+      userId: $token->userIdentifier(),
+      clientId: (string) $token->clientIdentifier(),
+      scopes: $tokenScopes,
+      expiresAt: $token->expiry()->getTimestamp(),
+    );
   }
   // #endregion
 }
