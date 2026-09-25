@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Shared\Infrastructure\Exception;
+namespace Auth\Infrastructure\Exception;
 
 use RuntimeException;
 
-/** The security log PII HMAC salt is missing. */
+/** Security log PII hashing cannot start without its configured HMAC salt. */
 final class MissingPiiSaltException extends RuntimeException
 {
 }

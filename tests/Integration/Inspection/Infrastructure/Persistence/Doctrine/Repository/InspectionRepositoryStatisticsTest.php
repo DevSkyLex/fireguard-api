@@ -19,13 +19,12 @@ use Inspection\Domain\ValueObject\{
   InspectionStatus,
   Inspector
 };
-use Inspection\Infrastructure\Exception\StoredDateTimeReinterpretationException;
+use Inspection\Infrastructure\Exception\{InvalidStorageTimeZoneException, StoredDateTimeReinterpretationException};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;

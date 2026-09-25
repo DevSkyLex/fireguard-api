@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Audit\Infrastructure\Service;
 
-use Shared\Infrastructure\Exception\MissingPiiSaltException;
+use Audit\Infrastructure\Exception\MissingPiiSaltException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function hash_hmac;
@@ -36,7 +36,7 @@ final readonly class AuditPiiSanitizer
    * @param bool $includePii whether to include raw PII
    * @param string $piiSalt the salt for hashing; must not be blank
    *
-   * @throws RuntimeException when the salt is blank
+   * @throws MissingPiiSaltException when the salt is blank
    */
   public function __construct(
     #[Autowire('%env(bool:SECURITY_LOG_INCLUDE_PII)%')]

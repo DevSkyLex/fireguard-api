@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Infrastructure\Logging;
 
+use Auth\Infrastructure\Exception\MissingPiiSaltException;
 use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Infrastructure\Exception\MissingPiiSaltException;
 
 use function hash;
 use function hash_hmac;

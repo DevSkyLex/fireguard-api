@@ -8,11 +8,11 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Organization\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
-use Shared\Infrastructure\Exception\InvalidStorageTimeZoneException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;

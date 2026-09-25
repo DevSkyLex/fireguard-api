@@ -190,7 +190,7 @@ HELP
    *
    * @param string $identifier the user ID or email
    *
-   * @throws RuntimeException if the user cannot be found
+   * @throws OrganizationConsoleUserNotFoundException if the user cannot be found
    *
    * @return string the resolved user ID
    */
