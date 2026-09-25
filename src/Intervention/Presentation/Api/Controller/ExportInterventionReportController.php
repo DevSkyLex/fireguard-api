@@ -242,26 +242,7 @@ final class ExportInterventionReportController extends AbstractController
       static fn (mixed $participantIri): bool => is_string($participantIri),
     ));
 
-    $memberIds = [];
-    if (null !== $responsibleIri) {
-      $memberIds[] = ResourceIriParser::memberId($responsibleIri);
-    }
-    foreach ($participantIris as $participantIri) {
-      $memberIds[] = ResourceIriParser::memberId($participantIri);
-    }
-    foreach ($workItems as $workItem) {
-      $assigneeIri = $workItem->data['assignee'] ?? null;
-      if (is_string($assigneeIri)) {
-        $memberIds[] = ResourceIriParser::memberId($assigneeIri);
-      }
-    }
-    foreach ($activities as $activity) {
-      $actorIri = $activity->data['actor'] ?? null;
-      if (is_string($actorIri)) {
-        $memberIds[] = ResourceIriParser::memberId($actorIri);
-      }
-    }
-    $memberNames = $this->memberNaming->displayNamesFor($organizationId, array_values(array_unique($memberIds)));
+    $memberNames = $this->resolveMemberNames($organizationId, $responsibleIri, $participantIris, $workItems, $activities);
 
     $siteIri = $data['site'] ?? null;
     $siteName = null;
@@ -338,6 +319,38 @@ final class ExportInterventionReportController extends AbstractController
         ];
       }, $activities),
     ];
+  }
+
+  /**
+   * @param list<string> $participantIris
+   * @param list<InterventionWorkflowView> $workItems
+   * @param list<InterventionWorkflowView> $activities
+   *
+   * @return array<string, string> member display names keyed by member id
+   */
+  private function resolveMemberNames(string $organizationId, ?string $responsibleIri, array $participantIris, array $workItems, array $activities): array
+  {
+    $memberIds = [];
+    if (null !== $responsibleIri) {
+      $memberIds[] = ResourceIriParser::memberId($responsibleIri);
+    }
+    foreach ($participantIris as $participantIri) {
+      $memberIds[] = ResourceIriParser::memberId($participantIri);
+    }
+    foreach ($workItems as $workItem) {
+      $assigneeIri = $workItem->data['assignee'] ?? null;
+      if (is_string($assigneeIri)) {
+        $memberIds[] = ResourceIriParser::memberId($assigneeIri);
+      }
+    }
+    foreach ($activities as $activity) {
+      $actorIri = $activity->data['actor'] ?? null;
+      if (is_string($actorIri)) {
+        $memberIds[] = ResourceIriParser::memberId($actorIri);
+      }
+    }
+
+    return $this->memberNaming->displayNamesFor($organizationId, array_values(array_unique($memberIds)));
   }
 
   /**

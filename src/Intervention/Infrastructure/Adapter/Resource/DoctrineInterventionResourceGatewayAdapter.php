@@ -383,23 +383,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
         'resourceBlockers' => 0,
       ];
     }
-    foreach ([
-      [InterventionResourceType::FACILITY, 'facilities'],
-      [InterventionResourceType::EQUIPMENT, 'equipment'],
-      [InterventionResourceType::INSPECTION, 'inspections'],
-    ] as [$type, $field]) {
-      $owner = $this->owner($type);
-      foreach ($owner->countsForInterventions($interventionIds) as $interventionId => $count) {
-        if (isset($values[$interventionId])) {
-          $values[$interventionId][$field] = $count;
-        }
-      }
-      foreach ($owner->blockerCountsForInterventions($interventionIds) as $interventionId => $count) {
-        if (isset($values[$interventionId])) {
-          $values[$interventionId]['resourceBlockers'] += $count;
-        }
-      }
-    }
+    $this->addOwnedResourceMetrics($values, $interventionIds);
 
     /** @var list<array{interventionId: string, total: string|int, completed: string|int, requiredIncomplete: string|int}> $workItemRows */
     $workItemRows = $this->entityManager->createQueryBuilder()
@@ -462,6 +446,31 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   public function equipmentDrafts(string $interventionId): array
   {
     return $this->equipmentDraftProvider->equipmentDrafts($interventionId);
+  }
+
+  /**
+   * @param array<string, array{facilities: int, equipment: int, inspections: int, workItems: int, completedWorkItems: int, requiredIncomplete: int, proposedChanges: int, resourceBlockers: int}> $values
+   * @param list<string> $interventionIds
+   */
+  private function addOwnedResourceMetrics(array &$values, array $interventionIds): void
+  {
+    foreach ([
+      [InterventionResourceType::FACILITY, 'facilities'],
+      [InterventionResourceType::EQUIPMENT, 'equipment'],
+      [InterventionResourceType::INSPECTION, 'inspections'],
+    ] as [$type, $field]) {
+      $owner = $this->owner($type);
+      foreach ($owner->countsForInterventions($interventionIds) as $interventionId => $count) {
+        if (isset($values[$interventionId])) {
+          $values[$interventionId][$field] = $count;
+        }
+      }
+      foreach ($owner->blockerCountsForInterventions($interventionIds) as $interventionId => $count) {
+        if (isset($values[$interventionId])) {
+          $values[$interventionId]['resourceBlockers'] += $count;
+        }
+      }
+    }
   }
 
   /**
