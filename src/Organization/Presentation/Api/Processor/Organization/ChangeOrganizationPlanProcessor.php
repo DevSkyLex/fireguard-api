@@ -144,26 +144,31 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
-        ?? $this->findWrappedException($exception, PlanNotFoundException::class);
-      if (null !== $notFound) {
-        throw new NotFoundHttpException($notFound->getMessage(), $exception);
-      }
-
-      $conflict = $this->findWrappedException($exception, OrganizationPlanUsageExceededException::class);
-      if (null !== $conflict) {
-        throw new ConflictHttpException($conflict->getMessage(), $exception);
-      }
-
-      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
-      if (null !== $invalidArgument) {
-        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
-      }
-
-      throw $exception;
+      $this->rethrowWrappedFailure($exception);
     }
 
     return $this->buildOutput($result->organizationId);
+  }
+
+  private function rethrowWrappedFailure(MessengerRuntimeException $exception): never
+  {
+    $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
+      ?? $this->findWrappedException($exception, PlanNotFoundException::class);
+    if (null !== $notFound) {
+      throw new NotFoundHttpException($notFound->getMessage(), $exception);
+    }
+
+    $conflict = $this->findWrappedException($exception, OrganizationPlanUsageExceededException::class);
+    if (null !== $conflict) {
+      throw new ConflictHttpException($conflict->getMessage(), $exception);
+    }
+
+    $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+    if (null !== $invalidArgument) {
+      throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+    }
+
+    throw $exception;
   }
 
   /**
