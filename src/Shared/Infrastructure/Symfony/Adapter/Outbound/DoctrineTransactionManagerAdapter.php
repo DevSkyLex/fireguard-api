@@ -59,7 +59,7 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
   {
     try {
       return $this->entityManager->wrapInTransaction(
-        static function (EntityManagerInterface $entityManager) use ($operation) {
+        static function () use ($operation) {
           return $operation();
         },
       );

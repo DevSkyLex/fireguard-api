@@ -53,7 +53,7 @@ final readonly class DomainExceptionNormalizer implements NormalizerInterface
       'status' => $statusCode,
       'type' => $this->getType($object),
       'detail' => $object->getMessage(),
-      'violations' => $this->getViolations($object),
+      'violations' => [],
     ];
   }
 
@@ -151,23 +151,6 @@ final readonly class DomainExceptionNormalizer implements NormalizerInterface
     $shortName = substr($className, strrpos($className, '\\') + 1);
 
     return '/errors/' . $this->toSnakeCase($shortName);
-  }
-
-  /**
-   * Method getViolations.
-   *
-   * Gets any constraint violations.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the exception
-   *
-   * @return list<array<string, string>> the violations
-   */
-  private function getViolations(Throwable $exception): array
-  {
-    // Override in subclasses for validation exceptions
-    return [];
   }
 
   /**
