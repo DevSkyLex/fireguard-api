@@ -908,17 +908,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $normalized = [];
     foreach ($recentInterventions as $row) {
       $userResult = null !== $row['responsibleUserId'] ? ($usersById[$row['responsibleUserId']] ?? null) : null;
-      $responsibleName = null;
-      $responsibleAvatarUrl = null;
-
-      if ($userResult instanceof GetUserResult && null !== $userResult->user) {
-        $responsibleName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
-          ?: $userResult->user->username
-          ?: $row['responsibleId'];
-        $responsibleAvatarUrl = $userResult->user->avatarUrl;
-      } elseif (null !== $row['responsibleId']) {
-        $responsibleName = $row['responsibleId'];
-      }
+      [$responsibleName, $responsibleAvatarUrl] = $this->responsibleProfile($userResult, $row['responsibleId']);
 
       $normalized[] = [
         'id' => $row['id'],
@@ -937,6 +927,22 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $normalized;
+  }
+
+  /**
+   * @return array{?string, ?string}
+   */
+  private function responsibleProfile(?GetUserResult $userResult, ?string $responsibleId): array
+  {
+    if ($userResult instanceof GetUserResult && null !== $userResult->user) {
+      $name = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
+        ?: $userResult->user->username
+        ?: $responsibleId;
+
+      return [$name, $userResult->user->avatarUrl];
+    }
+
+    return [$responsibleId, null];
   }
 
   /**
