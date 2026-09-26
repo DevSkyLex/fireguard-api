@@ -7,6 +7,10 @@ For Codex, read [.codex/workflow.md](.codex/workflow.md) and the matching entrie
 `.agents/skills/`; native subagents live in `.codex/agents/`. Setup and validation
 are documented in [.codex/README.md](.codex/README.md).
 
+For SonarQube issue triage or remediation, load
+[fg-api-sonarqube](.agents/skills/fg-api-sonarqube/SKILL.md). Record issue-specific
+False Positive and Accepted evidence in SonarQube and the PR, not in a repository issue ledger.
+
 Before delegating, resolve the assigned role's category and effort from
 `.codex/agent-profiles.toml` using `.codex/scripts/resolve_agent.py` and the current
 callable model catalog, as described in the workflow. Profiles are a FireGuard

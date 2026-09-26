@@ -69,7 +69,7 @@ node --test .codex/hooks/adapter.test.mjs
 The validator checks manifests, links, skills, roles, profiles, and forbidden
 global settings. Resolver tests use simulated catalogs, never a real model.
 Reviewers, auditors, and explorers remain read-only; other agents inherit
-session permissions. Counts are dynamic: the current target is **14 skills
+session permissions. Counts are dynamic: the current target is **15 skills
 and 20 agents**, with no hard-coded assertion in the validator.
 
 Preserve guards for secrets, historical migrations, generated trees, and
