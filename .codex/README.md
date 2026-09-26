@@ -1,6 +1,6 @@
 # FireGuard API in Codex
 
-The repository configuration includes **14 skills and 20 specialist agents**. Agent roles
+The repository configuration includes **15 skills and 20 specialist agents**. Agent roles
 do not pin model versions: the parent resolves the model category and effort at invocation
 time from the available catalog. Profiles are in [agent-profiles.toml](agent-profiles.toml),
 with the protocol in the [workflow](workflow.md).
@@ -62,6 +62,7 @@ invocation of every role.
 | External services and webhooks | `fg-api-port` → `references/integrations.md` | `fg-api-integration-builder` | Test doubles, timeouts, errors, signatures, duplicates |
 | Assigned module documentation contract | `fg-api-module` → `references/module-docs.md` | `fg-api-module-documenter` | Seven sections, verified facts, local links |
 | Quality gate | `fg-api-quality` | Parent or already assigned specialist | Checks proportional to the change |
+| SonarQube issue triage and remediation | `fg-api-sonarqube` | Parent or already assigned specialist | Exact analyzed SHA, issue decisions, focused checks |
 | Requested second opinion | `fg-api-codex-challenge` | Reviewer suited to the question | Bounded independent opinion, no recursion |
 
 ## Models and effort
