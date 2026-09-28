@@ -415,6 +415,11 @@ polling `If-Match` sees the preparation move.
 Inspection commands validate and persist their owned lifecycle before follow-up effects. The create and submit operations retain their distinct prerequisites.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as CreateInspectionProcessor
   participant Bus as CommandBusPort
@@ -432,6 +437,11 @@ sequenceDiagram
 The inspection owner records the non-conformity and its committed consequences. Replay and cross-module actions follow the explicit event/outbox contract.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as AddNonConformityProcessor
   participant Bus as CommandBusPort
@@ -450,6 +460,11 @@ sequenceDiagram
 The query returns the authorized, filtered inspection collection. HTTP providers translate the result without taking inspection workflow decisions.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as ListInspectionsProvider
   participant Bus as QueryBusPort

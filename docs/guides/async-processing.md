@@ -8,6 +8,36 @@ Use this sequence for flows that explicitly own a transactional outbox. Each rec
 
 The producer commits an outbox message with its business state. A consumer records its owned effect and receipt so transport redelivery can be handled without repeating the local effect.
 
+```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
+sequenceDiagram
+  participant Handler
+  participant Main as Main database
+  participant Worker
+  participant Consumer
+  Handler->>Main: Begin owner transaction
+  Handler->>Main: Persist business state and outbox message
+  Handler->>Main: Commit
+  Worker->>Main: Claim committed message
+  Worker->>Consumer: Deliver stable event identity
+  alt Owned receipt already exists
+    Consumer-->>Worker: Acknowledge without repeating local effect
+  else New delivery
+    Consumer->>Consumer: Begin owned transaction
+    alt Commit succeeds
+      Consumer->>Consumer: Commit local effect and receipt together
+      Consumer-->>Worker: Acknowledge consumption
+    else Technical recording failure
+      Consumer->>Consumer: Roll back owned transaction
+      Consumer-->>Worker: Propagate failure
+      Worker->>Main: Configured retry or failed destination
+    end
+  end
+```
 
 Delivery is at least once. Consumers combine their owned durable effect and receipt
 where the contract supports it, so replay cannot repeat that local effect. A consumer

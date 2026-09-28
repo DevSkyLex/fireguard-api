@@ -64,6 +64,11 @@ Deploy the additive auth migration `Version20260926090000` before clients use th
 The user command validates and persists its aggregate through the owner, then emits its permitted consequences.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Processor
   participant Bus as CommandBusPort
@@ -81,6 +86,11 @@ sequenceDiagram
 The query loads an authorized user projection through the repository port. Sensitive fields remain governed by the output contract.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Provider
   participant Bus as QueryBusPort
@@ -161,6 +171,11 @@ Key folders:
 Two-step, email-confirmation-protected change of the address used to sign in.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant U as User (authenticated)
   participant API as POST /me/email-change

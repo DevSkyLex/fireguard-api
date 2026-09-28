@@ -137,6 +137,11 @@ Notes:
 A registered confidential client obtains a token for its permitted grant and scope. User interaction is not part of this grant.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
     participant C as Client App
     participant A as OAuth Server
@@ -177,6 +182,11 @@ Request/response shape:
 The browser-facing authorization flow validates the redirect, consent and PKCE exchange before issuing permitted tokens.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
     participant U as User
     participant C as Client App
@@ -191,6 +201,11 @@ sequenceDiagram
 ```
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
     participant C as Client App
     participant A as OAuth Server
@@ -208,6 +223,11 @@ sequenceDiagram
 Authorized clients inspect or revoke token state through the OAuth owner. Revocation changes subsequent token validity rather than rewriting previously completed requests.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
     participant C as Client App
     participant A as OAuth Server

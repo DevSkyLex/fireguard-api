@@ -283,6 +283,11 @@ mode name and label count, never the selected identifiers).
 Creation passes through the command owner before persistence and consequences. Validation, quota and organization rules remain enforced by the use case.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as CreateEquipmentProcessor
   participant Bus as CommandBusPort
@@ -299,6 +304,11 @@ sequenceDiagram
 Commissioning is an equipment lifecycle command. Domain transition checks precede its persisted status and owned follow-up effects.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as CommissionEquipmentProcessor
   participant Bus as CommandBusPort
@@ -317,6 +327,11 @@ sequenceDiagram
 The collection query reads authorized equipment through the repository port. The server decides membership, ordering and totals before HTTP serialization.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as ListEquipmentsProvider
   participant Bus as QueryBusPort

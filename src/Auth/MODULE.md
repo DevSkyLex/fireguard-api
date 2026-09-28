@@ -273,12 +273,18 @@ This proof is independent of OAuth provider claims and does not bypass Fireguard
 Password login issues a pre-authentication challenge. MFA completion must persist the interactive session before returning its access token and refresh cookie.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant C as Client
   participant A as Auth API
   C->>A: POST /api/auth/login
-  A-->>C: MFA required + tokens
+  A-->>C: MFA challenge and pre-authentication token
   C->>A: POST /api/auth/mfa/verify
+  A->>A: Persist current interactive session
   A-->>C: access_token + refresh cookie
 ```
 
@@ -287,11 +293,17 @@ sequenceDiagram
 Refresh conditionally rotates a live session token pair. A consumed or revoked pair returns no new token, and the previous access token stops authenticating.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant C as Client
   participant A as Auth API
   C->>A: POST /api/auth/refresh (cookie)
-  A-->>C: access_token
+  A->>A: Conditionally rotate the live session token pair
+  A-->>C: New access_token and refresh cookie
 ```
 
 ## Refresh Token Policy

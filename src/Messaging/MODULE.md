@@ -178,6 +178,11 @@ Equipment, Inspection and Intervention, and reuses their
 The conversation lookup/create operation preserves its stable subject or participant identity. Repeating it resolves the same authorized conversation.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant P as GetOrCreateConversationProcessor
   participant H as GetOrCreateConversationHandler
@@ -198,6 +203,11 @@ sequenceDiagram
 Message persistence precedes mention notifications and realtime publication. A best-effort notification failure does not erase the confirmed message.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant P as PostMessageProcessor
   participant H as PostMessageHandler

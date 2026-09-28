@@ -60,6 +60,11 @@ module's convention).
 The summary query composes the authorized compliance projection synchronously. This read does not create or regenerate an immutable safety-register archive.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Provider as GetComplianceOverviewProvider
   participant Handler as GetComplianceOverviewHandler
@@ -86,6 +91,11 @@ sequenceDiagram
 The tree query enriches scoped facilities with their compliance projection. Facility identity and policy/evaluation ownership remain separate.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Provider as GetFacilityTreeProvider
   participant Handler as GetFacilityTreeHandler

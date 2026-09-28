@@ -101,6 +101,11 @@ a source domain event requires updating both `WebhookEventCatalog` and
 Event handling enqueues delivery work and returns to the producer. The request thread does not perform outbound webhook HTTP delivery.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Src as Source handler (e.g. RecordNonConformity)
   participant Disp as EventDispatcherPort
@@ -123,6 +128,11 @@ dispatch never produces.
 The dedicated worker resolves eligible subscriptions and sends signed payloads. Failure and replay use the webhook transport's retry and destination contract.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Worker as messenger:consume webhook
   participant DispatchH as DispatchWebhookEventHandler

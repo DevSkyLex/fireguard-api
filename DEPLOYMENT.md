@@ -168,6 +168,15 @@ Pre-migration backups remain in `VPS_APP_DIR/backups/<timestamp>/`.
 
 Delivery follows a successful check of the exact source revision, its SonarQube gate and image provenance. Ansible then applies the immutable image using the selected installation identity and health checks.
 
+```mermaid
+flowchart TD
+  Source["Branch and source revision"] --> CI["Required CI and coverage"]
+  CI --> Sonar["Matching SonarQube gate"]
+  Sonar --> Image["Published immutable image and OCI provenance"]
+  Image --> Guard["Verify revision, branch and installation identity"]
+  Guard --> Ansible["Apply with Ansible"]
+  Ansible --> Health["Container, security and public HTTP checks"]
+```
 
 Arrows show delivery order. A validated development image never authorizes a
 production deployment. The workflow defines which events publish/deploy and how

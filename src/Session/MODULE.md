@@ -25,6 +25,11 @@ to list and revoke sessions.
 Auth calls the published tracking port and waits for the session record. A persistence failure prevents interactive token issuance.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Auth as Auth Handler
   participant Port as SessionTrackingPort
@@ -41,6 +46,11 @@ sequenceDiagram
 The query reads the caller's active session records. API projection marks current-session identity using the shared lookup contract.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Provider
   participant Bus as QueryBusPort
@@ -64,6 +74,11 @@ session is this one". Idempotent: revoking twice in a row returns
 `revokedCount: 0` on the second call, never an error.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as RevokeOtherSessionsProcessor
   participant Bus as CommandBusPort

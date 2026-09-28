@@ -54,6 +54,11 @@ single justified exemption).
 Inspection closure triggers maintenance synchronization through the published contract. The diagram distinguishes the inspection outcome from the documented best-effort synchronization effect.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Insp as CloseInspectionHandler
   participant Sync as InspectionMaintenanceSynchronizerPort

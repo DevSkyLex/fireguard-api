@@ -27,6 +27,11 @@ API Platform resources. The public URLs and cookie contract are unchanged.
 Trusting a device records the owner's bounded trust credential after the required identity checks. It does not replace bearer/session authorization.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as TrustDeviceProcessor
   participant Bus as CommandBusPort
@@ -43,6 +48,11 @@ sequenceDiagram
 The command revokes the selected trust record. Future trust checks observe the revocation while session/token lifecycles remain separately owned.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as RevokeDeviceProcessor
   participant Bus as CommandBusPort
@@ -59,6 +69,11 @@ sequenceDiagram
 The query projects trusted-device records for the authorized caller. Raw trust credentials are not returned by collection serialization.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as ListTrustedDevicesProvider
   participant Bus as QueryBusPort

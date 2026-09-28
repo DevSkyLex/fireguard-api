@@ -8,6 +8,31 @@ Messaging owns durable conversation state and browser acknowledgement positions.
 
 Durable delivery/read positions follow browser acknowledgements. Private Mercure updates notify the sender to reload those positions; persistence alone does not acknowledge receipt.
 
+```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
+sequenceDiagram
+  participant Sender
+  participant API
+  participant Hub as Mercure
+  participant Receiver
+  Sender->>API: Authorized message command
+  API->>API: Save message and stable identity
+  API-->>Sender: Confirmed message
+  API->>Hub: Private conversation invalidation
+  Hub-->>Receiver: Invalidation
+  Receiver->>API: Authorized collection read
+  API-->>Receiver: Messages
+  Receiver->>API: Advance delivery acknowledgement
+  opt Visible thread has caught up
+    Receiver->>API: Advance read position
+  end
+  API->>Hub: Receipt invalidation
+  Hub-->>Sender: Refresh durable receipt positions
+```
 
 Persistence alone establishes sent, not received. Another participant's browser
 acknowledges delivery after loading a message. Read positions and delivery positions

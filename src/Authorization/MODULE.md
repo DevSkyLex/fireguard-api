@@ -31,6 +31,11 @@ group permissions, and role assignments are attached to subjects (users).
 The query translates a permission question into the authorization owner. It returns the effective result without granting a new entitlement.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Processor
   participant Bus as QueryBusPort
@@ -49,6 +54,11 @@ sequenceDiagram
 The command changes the role-permission relationship through its owner. HTTP translation and authorization remain separate from the persistence port.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Processor
   participant Bus as CommandBusPort

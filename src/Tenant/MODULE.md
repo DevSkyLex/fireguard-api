@@ -39,6 +39,11 @@ exposes endpoints to create, read, update, activate/deactivate, and delete tenan
 The tenant command creates the aggregate through its owned repository. Contextual validation precedes persistence and returned results.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as CreateTenantProcessor
   participant Bus as CommandBusPort
@@ -55,6 +60,11 @@ sequenceDiagram
 The command loads and updates the tenant under its existing validation contract, then persists through the repository port.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as UpdateTenantProcessor
   participant Bus as CommandBusPort
@@ -71,6 +81,11 @@ sequenceDiagram
 Activation invokes the tenant domain transition before persisting its result. The HTTP adapter remains a translation boundary.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as ActivateTenantProcessor
   participant Bus as CommandBusPort
@@ -87,6 +102,11 @@ sequenceDiagram
 Deactivation invokes the tenant domain transition before persisting its result. The HTTP adapter remains a translation boundary.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as DeactivateTenantProcessor
   participant Bus as CommandBusPort
@@ -103,6 +123,11 @@ sequenceDiagram
 Deletion is handled by the tenant use case and its repository contract. Repeated/missing-resource behavior follows the endpoint contract.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as DeleteTenantProcessor
   participant Bus as CommandBusPort
@@ -119,6 +144,11 @@ sequenceDiagram
 The item query reads a tenant through its owner and returns a transport-safe result. It does not mutate lifecycle state.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as GetTenantProvider
   participant Bus as QueryBusPort
@@ -135,6 +165,11 @@ sequenceDiagram
 The collection query reads tenant records with the server query contract. Collection scope and totals are determined before serialization.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as ListTenantsProvider
   participant Bus as QueryBusPort

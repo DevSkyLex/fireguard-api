@@ -8,6 +8,16 @@ Treat auth and main as separate backup and migration histories. A rollback of an
 
 Auth and main keep separate migration histories and backups. Apply compatible migrations before starting current workers, then validate dependency and security health.
 
+```mermaid
+flowchart TD
+  Revision["Verify source, image and quality gate"] --> Identity["Validate environment and installation identity"]
+  Identity --> Backup["Back up auth and main"]
+  Backup --> Stop["Stop writers and old workers as required"]
+  Stop --> Auth["Apply auth migration history"]
+  Auth --> Main["Apply main migration history"]
+  Main --> Start["Start application and current workers"]
+  Start --> Health["Validate dependencies, security and public health"]
+```
 
 The playbook defines the exact sequence and recovery behavior. Retain both backups,
 their source revision and environment identity. Review restore compatibility before

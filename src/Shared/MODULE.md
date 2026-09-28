@@ -39,6 +39,11 @@ health check endpoint.
 Application code invokes a contract; an infrastructure adapter implements the external operation. Dependency ownership stays inward even when runtime calls go outward.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant UC as Use Case
   participant Port as Port (Shared)
@@ -53,6 +58,11 @@ sequenceDiagram
 The inbound bus port routes a command/query to its application handler. The transport adapter does not become the owner of the business decision.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as Provider/Processor
   participant Port as CommandBusPort

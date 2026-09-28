@@ -8,6 +8,25 @@ Interactive login and OAuth authorization-code exchange have distinct entry poin
 
 The client exchanges a server-issued authorization code using the required verifier and client credentials. Protected requests still validate the resulting bearer token and contextual access.
 
+```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
+sequenceDiagram
+  participant Client
+  participant User
+  participant API
+  Client->>API: Authorization request with registered redirect and PKCE challenge
+  API->>User: Authentication and required consent
+  User-->>API: Complete required authentication
+  API-->>Client: Authorization code through validated redirect
+  Client->>API: Code exchange with verifier and client requirements
+  API-->>Client: Tokens permitted for this client and scope
+  Client->>API: Protected request with bearer token
+  API->>API: Verify signature, token status and contextual access
+```
 
 Use the exact routes and fields from the OAuth module/OpenAPI contract. Redirect
 URIs, scopes, tenant rules and PKCE requirements are validated server-side.

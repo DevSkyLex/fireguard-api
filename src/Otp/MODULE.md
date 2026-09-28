@@ -46,6 +46,11 @@ Resend cooldowns and HTTP rate limits expose `rate_limit_exceeded` and
 registration, password-reset and MFA resend endpoints. `Retry-After` remains available.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Client
   participant API
@@ -70,6 +75,11 @@ sequenceDiagram
 TOTP enrollment stages a secret, verifies possession and changes the enrollment state. Setup, confirmation and disable retain their separate authorization/OTP requirements.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Client
   participant API

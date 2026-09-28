@@ -888,6 +888,11 @@ raw values), mirroring how the audit ledger records its own
 The workflow handler loads the intervention, validates the transition and planning prerequisites, then persists through the owned gateway.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as InterventionProcessor
   participant Bus as CommandBusPort
@@ -907,6 +912,11 @@ sequenceDiagram
 HTTP acceptance queues publication; the worker applies the draft publishers. The atomic publication contract commits the materialized resources and final status together.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as PublicationProcessor
   participant Q as PublicationQueuePort
@@ -917,7 +927,7 @@ sequenceDiagram
   Q-->>W: ExecutePublicationCommand
   W->>Pub: publish(intervention)
   Pub->>Own: materialize each draft resource
-  Note over W,Own: atomic — all drafts persist or none do; status → published
+  Note over W,Own: atomic — all drafts persist or none do, status becomes published
 ```
 
 ## Architecture

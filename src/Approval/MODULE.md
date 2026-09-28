@@ -79,6 +79,11 @@ A second withdrawal conflicts; expired state commits before returning the confli
 A policy gate can defer the requested action into an approval request. Deferral records a pending decision; it does not execute the protected action immediately.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Client
   participant Proc as Owning module Processor
@@ -99,6 +104,11 @@ sequenceDiagram
 Approval resolves the pending request and invokes its registered action under the current policy and scope. The owning action contract still decides execution success and failure.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Approver
   participant H as ApproveApprovalRequestHandler
