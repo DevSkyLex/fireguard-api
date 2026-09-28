@@ -39,7 +39,8 @@ final readonly class GetPresenceHandler implements QueryHandler
       $invisible = null !== $userId && ($preferences[$userId]->invisible ?? false);
       $online = !$invisible && is_string($lastSeenAt);
       $dnd = null !== $userId && ($preferences[$userId]->doNotDisturb ?? false);
-      $presences[] = new MemberPresenceView($memberId, $online, $online ? $lastSeenAt : null, $online ? ($dnd ? 'do_not_disturb' : 'active') : 'offline');
+      $onlineStatus = $dnd ? 'do_not_disturb' : 'active';
+      $presences[] = new MemberPresenceView($memberId, $online, $online ? $lastSeenAt : null, $online ? $onlineStatus : 'offline');
     }
 
     return new GetPresenceResult($presences);

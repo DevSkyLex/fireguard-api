@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response;
       uriTemplate: '/presence/subscription',
       output: PresenceSubscriptionOutput::class,
       provider: GetPresenceSubscriptionProvider::class,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       normalizationContext: ['groups' => ['presence:read']],
       parameters: ['organization' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string'], required: true, castToArray: false)],
     ),
@@ -51,7 +51,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: PingPresenceOutput::class,
       processor: PingPresenceProcessor::class,
       status: Response::HTTP_OK,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
     ),
     new GetCollection(
       name: PresenceOperations::GET,
@@ -59,7 +59,7 @@ use Symfony\Component\HttpFoundation\Response;
       output: PresenceOutput::class,
       provider: GetPresenceProvider::class,
       paginationEnabled: false,
-      security: "is_granted('ROLE_USER')",
+      security: self::SECURITY_ROLE_USER,
       parameters: [
         'organization' => new \ApiPlatform\Metadata\QueryParameter(
           schema: ['type' => 'string'],
@@ -86,4 +86,5 @@ use Symfony\Component\HttpFoundation\Response;
 )]
 final class PresenceResource
 {
+  private const string SECURITY_ROLE_USER = "is_granted('ROLE_USER')";
 }
