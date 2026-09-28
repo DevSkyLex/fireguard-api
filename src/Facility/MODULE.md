@@ -1,5 +1,7 @@
 # Facility Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 When facility creation participates in a main transaction (including CSV import),
 its event is appended to the main outbox in that transaction. Consumers only see
 committed creations; direct non-transactional callers retain synchronous dispatch.
@@ -18,25 +20,25 @@ Main goals:
 
 ## API Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
-| GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
-| GET | `/api/organizations/{organizationId}/facilities/export` | Streams a bounded CSV export of facilities, same filter subset as the list endpoint plus `search`. Requires `organization.facilities.read`, resolved in `ExportFacilitiesHandler` (not the resource's coarse `ROLE_USER` gate). Bounded to `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) matching rows — 422 past that. |
-| GET | `/api/organizations/{organizationId}/facilities/address-suggestions?q=…` | Address suggestions (3–250 characters), `organization.facilities.write`; up to five `member` entries (canonical label, coordinates, street, city, region, postal code, country and ISO country code) and `totalItems`; 400/403/404/429/503 |
-| GET | `/api/organizations/{organizationId}/facilities/geocode?address=…` | Server-side geocoding input aid: resolves a free-form address (1–300 chars) to `{ latitude, longitude, displayName }` through `GeocodingPort` (Nominatim behind `GEOCODING_BASE_URL`). Requires `organization.facilities.write` — write, not read: the lookup exists to FILL a facility's coordinates, and only write-entitled members may burn the shared outbound budget. Rate limited 30/min/user (`facility_geocode`); the adapter additionally throttles the aggregate outbound channel to 1 req/s (Nominatim policy). 404 when no coordinates match (plain not-found, no oracle at stake — an address is not a resource). Declared before the `{facilityId}` item route so `geocode` is never read as an id. |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants` | List all descendants for bulk subtree reads |
-| PATCH | `/api/organizations/{organizationId}/facilities/{facilityId}` | Update a facility |
-| POST | `/api/organizations/{organizationId}/facilities/{facilityId}/archive` | Archive a facility |
-| POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
-| PUT | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry` | Set or clear this facility's plan geometry (Phase 4) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan, every self-or-descendant zone bound to it, and every equipment item pinned on it (Phase 4, equipment additive — see Equipment's MODULE.md) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/building-model` | Read the ordered stack of floors (outline + rooms) a 3D viewer extrudes for a `building` facility (A3) |
-| POST | `/api/organizations/{organizationId}/facilities/{facilityId}/duplicate` | Duplicate a facility and its full subtree into a new branch |
-| GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
-| GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
+| Method | Path                                                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/api/organizations/{organizationId}/facilities`                             | Create a facility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| GET    | `/api/organizations/{organizationId}/facilities`                             | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| GET    | `/api/organizations/{organizationId}/facilities/export`                      | Streams a bounded CSV export of facilities, same filter subset as the list endpoint plus `search`. Requires `organization.facilities.read`, resolved in `ExportFacilitiesHandler` (not the resource's coarse `ROLE_USER` gate). Bounded to `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) matching rows — 422 past that.                                                                                                                                                                                                                                                                                                                                                                                      |
+| GET    | `/api/organizations/{organizationId}/facilities/address-suggestions?q=…`     | Address suggestions (3–250 characters), `organization.facilities.write`; up to five `member` entries (canonical label, coordinates, street, city, region, postal code, country and ISO country code) and `totalItems`; 400/403/404/429/503                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| GET    | `/api/organizations/{organizationId}/facilities/geocode?address=…`           | Server-side geocoding input aid: resolves a free-form address (1–300 chars) to `{ latitude, longitude, displayName }` through `GeocodingPort` (Nominatim behind `GEOCODING_BASE_URL`). Requires `organization.facilities.write` — write, not read: the lookup exists to FILL a facility's coordinates, and only write-entitled members may burn the shared outbound budget. Rate limited 30/min/user (`facility_geocode`); the adapter additionally throttles the aggregate outbound channel to 1 req/s (Nominatim policy). 404 when no coordinates match (plain not-found, no oracle at stake — an address is not a resource). Declared before the `{facilityId}` item route so `geocode` is never read as an id. |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}`                | Get one facility (includes the ancestor `path` breadcrumb)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}/children`       | List direct children for lazy tree expansion (paginated)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants`    | List all descendants for bulk subtree reads                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| PATCH  | `/api/organizations/{organizationId}/facilities/{facilityId}`                | Update a facility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| POST   | `/api/organizations/{organizationId}/facilities/{facilityId}/archive`        | Archive a facility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| POST   | `/api/organizations/{organizationId}/facilities/{facilityId}/move`           | Move a facility under another parent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| PUT    | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry`  | Set or clear this facility's plan geometry (Phase 4)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay`   | Read one floor plan, every self-or-descendant zone bound to it, and every equipment item pinned on it (Phase 4, equipment additive — see Equipment's MODULE.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}/building-model` | Read the ordered stack of floors (outline + rooms) a 3D viewer extrudes for a `building` facility (A3)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| POST   | `/api/organizations/{organizationId}/facilities/{facilityId}/duplicate`      | Duplicate a facility and its full subtree into a new branch                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| GET    | `/api/facilities/{id}`                                                       | Canonical item read (includes the ancestor `path` breadcrumb)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| GET    | `/api/facilities?organization={iri}`                                         | Canonical collection read, org- or intervention-scoped                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 Removed 2026-08-20: `GET /api/facilities/types` and `GET /api/facilities/statuses`
 (unconsumed reference catalogs; the frontend's localized typed registries are the
@@ -162,14 +164,14 @@ Cloning rules:
 
 ### Attachments (R11b)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/facilities/{facilityId}/attachments` | Upload a multipart file attachment. Optional `kind` field (`document`, the default, or `floor_plan`) |
-| GET | `/api/facilities/{facilityId}/attachments` | List a facility's attachments (optional `?kind=document\|floor_plan` filter) |
-| GET | `/api/facility-attachments/{id}` | Get one attachment |
-| DELETE | `/api/facility-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
-| POST | `/api/facility-attachments/{id}/primary` | Promote a `floor_plan` attachment to the facility's primary plan |
-| GET | `/api/facility-attachments/{id}/download` | Download an attachment's raw bytes (`download_facility_attachment`, `DownloadFacilityAttachmentController`) |
+| Method | Path                                       | Description                                                                                                 |
+| ------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/facilities/{facilityId}/attachments` | Upload a multipart file attachment. Optional `kind` field (`document`, the default, or `floor_plan`)        |
+| GET    | `/api/facilities/{facilityId}/attachments` | List a facility's attachments (optional `?kind=document\|floor_plan` filter)                                |
+| GET    | `/api/facility-attachments/{id}`           | Get one attachment                                                                                          |
+| DELETE | `/api/facility-attachments/{id}`           | Delete an attachment (requires `If-Match: "revision-N"`)                                                    |
+| POST   | `/api/facility-attachments/{id}/primary`   | Promote a `floor_plan` attachment to the facility's primary plan                                            |
+| GET    | `/api/facility-attachments/{id}/download`  | Download an attachment's raw bytes (`download_facility_attachment`, `DownloadFacilityAttachmentController`) |
 
 Generalized file attachments on a facility, mirroring the proven
 `Equipment\...\EquipmentAttachment` slice and the shared attachment kernel
@@ -358,7 +360,7 @@ Each floor's `outline` follows a strict cascade, recorded in `source`:
 4. `null` — none of the above applies.
 
 `rooms` keeps geometric leaves only: among a floor's rooms, one nested
-inside another room on the *same floor* (an `area` inside a `zone`) is
+inside another room on the _same floor_ (an `area` inside a `zone`) is
 dropped, so a 3D view never receives two overlapping volumes. The kept
 shape is byte-for-byte `GetFacilityPlanOverlayResult::$zones`
 (`facilityId, name, type, status, points`) — the frontend reuses the same
@@ -379,8 +381,8 @@ it twice:
   guards the drift, so the practical cost is low; but this is now the second
   endpoint paying it, and a third would read as settled precedent. Revisit with
   real sub-DTOs if either payload gains a consumer that reads only the schema.
-- **Nested nulls are emitted, not omitted.** API Platform drops a null *DTO
-  property* — which is why `FacilityOutput.planGeometry` arrives `undefined` on
+- **Nested nulls are emitted, not omitted.** API Platform drops a null _DTO
+  property_ — which is why `FacilityOutput.planGeometry` arrives `undefined` on
   a collection read — but that rule does not reach inside an array-typed
   property. `plan: null`, `outline: null` and `levelIndex: null` therefore ship
   explicitly. Preferable for a client that would otherwise have to tell an
@@ -389,12 +391,12 @@ it twice:
 
 ### Metadata schema (organization-defined typed fields)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/facility-metadata-fields` | Create a typed metadata field definition |
-| GET | `/api/organizations/{organizationId}/facility-metadata-fields` | List the organization's metadata field definitions |
-| PATCH | `/api/organizations/{organizationId}/facility-metadata-fields/{id}` | Partially update a metadata field definition |
-| DELETE | `/api/organizations/{organizationId}/facility-metadata-fields/{id}` | Delete a metadata field definition |
+| Method | Path                                                                | Description                                        |
+| ------ | ------------------------------------------------------------------- | -------------------------------------------------- |
+| POST   | `/api/organizations/{organizationId}/facility-metadata-fields`      | Create a typed metadata field definition           |
+| GET    | `/api/organizations/{organizationId}/facility-metadata-fields`      | List the organization's metadata field definitions |
+| PATCH  | `/api/organizations/{organizationId}/facility-metadata-fields/{id}` | Partially update a metadata field definition       |
+| DELETE | `/api/organizations/{organizationId}/facility-metadata-fields/{id}` | Delete a metadata field definition                 |
 
 Facility `metadata` was an untyped `Record<string, string\|null>` free-for-all.
 This lets an organization define its own typed schema for it — EU-generic, no
@@ -466,10 +468,10 @@ This module relies on Organization-scoped permissions:
 Every provider and processor in this module answers a denial in one of two
 ways, and which one is not a stylistic choice:
 
-| Caller | Response |
-| --- | --- |
-| Active member of the owning organization, lacking the permission | `403 Forbidden` |
-| No active membership in the owning organization | `404 Not Found`, identical to the route's own not-found response |
+| Caller                                                           | Response                                                         |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Active member of the owning organization, lacking the permission | `403 Forbidden`                                                  |
+| No active membership in the owning organization                  | `404 Not Found`, identical to the route's own not-found response |
 
 The 404 is not a softer 403. These surfaces take their `organizationId` from
 the URI — or resolve it from a record they just loaded by path id — **before**
@@ -477,7 +479,7 @@ they know whether the caller belongs to that organization, so a 403 at that
 point confirms the organization or the record exists to someone who may not
 learn even that much. That is an existence oracle: it lets a caller from
 another organization enumerate valid identifiers. The out-of-scope 404
-therefore reuses the *same* message the route's own "unknown id" branch
+therefore reuses the _same_ message the route's own "unknown id" branch
 produces, so the two responses are indistinguishable.
 
 The distinction is carried by
@@ -536,7 +538,7 @@ Main fields:
 > aggregate field by field onto the managed record. A field added to the mapper and forgotten in
 > that copy block persists on create and is **silently dropped on every update** — the PATCH
 > still echoes the value, because the response serializes the in-memory Result, so only a read
-> *after* a write exposes it. `levelIndex` shipped with exactly that hole; the regression test is
+> _after_ a write exposes it. `levelIndex` shipped with exactly that hole; the regression test is
 > `FacilityApiTest::testPatchingLevelIndexSurvivesTheNextDetailRead`, which does POST → PATCH →
 > GET rather than trusting the PATCH body. The canonical surface is unaffected: it goes through
 > `CanonicalFacilityMapper::applyTo()`, a separate copy list.
@@ -561,13 +563,13 @@ Aggregate:
   DBAL type as `metadata`.
 - Migration (level index): `migrations/main/Version20260830141438.php` —
   `level_index INT NULL` plus the composite index `idx_facility_parent_level
-  (parent_facility_id, level_index)`, which the floor ordering reads. The index is not
+(parent_facility_id, level_index)`, which the floor ordering reads. The index is not
   Doctrine-diffable, so it is hand-written in the migration **and** declared as an
   `#[ORM\Index]` on `FacilityRecord`; without the attribute `doctrine:schema:validate`
   reports it as untracked drift forever.
 - Repository: `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository`
 - Table: `facility_attachments` (main database) — `facility_id` FK `ON DELETE
-  CASCADE`, unique `storage_path`, `revision` (ETag optimistic concurrency,
+CASCADE`, unique `storage_path`, `revision` (ETag optimistic concurrency,
   never bumped in place). Migration: `migrations/main/Version20260717111309.php`
   (R11b, shared across the three new attachment tables). Repository:
   `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository`.
@@ -579,7 +581,7 @@ Aggregate:
   `is_primary_plan` (`BOOLEAN NOT NULL`), `image_width`/`image_height`
   (`INT NULL`), plus the partial unique index
   `uniq_facility_attachment_primary_plan ON facility_attachments (facility_id)
-  WHERE is_primary_plan` — Migration: `migrations/main/Version20260816110904.php`
+WHERE is_primary_plan` — Migration: `migrations/main/Version20260816110904.php`
   (Facility plan Phase 3).
   Both columns were added with a `DEFAULT` (`'document'` and `false`), because
   `ADD COLUMN ... NOT NULL` is rejected on a non-empty table without one. The
@@ -690,7 +692,7 @@ Cross-module contracts and lifecycle invariants:
   values, not merely which keys a merge-patch body carried, and never lists
   `status` or `parent` — those are covered by their own dedicated events.
   Both the resource-scoped `POST /facilities` and the canonical `PUT
-  /facilities/{id}` upsert route through `CreateFacilityProcessor` into the
+/facilities/{id}` upsert route through `CreateFacilityProcessor` into the
   same `CreateFacilityHandler`/`CreateFacilityCommand`, so both emit exactly
   one `facility.created`; the canonical processor is therefore extended only
   for the PATCH branch's `facility.updated`, not for create. The intervention
@@ -718,7 +720,7 @@ Cross-module contracts and lifecycle invariants:
   implementation, `FacilityProvisioningService` (`Application/Service`),
   resolves an optional `parentCode` to a parent facility id via
   `FacilityRepositoryPort::findByOrganizationId(..., code: $parentCode, limit:
-  1)` and then dispatches the existing `CreateFacilityCommand` through
+1)` and then dispatches the existing `CreateFacilityCommand` through
   `CommandBusPort` — the same synchronous path the HTTP API uses, so the
   transactional plan-quota check runs intact — translating every failure
   (quota, an unknown parent code, or a domain validation error, each raised
@@ -735,7 +737,7 @@ Cross-module contracts and lifecycle invariants:
   Enforced as: no facility may end up at `depth > cap`. A facility gaining a
   parent checks `depth(parent) + 1 <= cap`; reparenting an existing facility
   (which may carry a sub-tree) checks `depth(newParent) + 1 +
-  subtreeHeight(moved) <= cap`, so the whole moved sub-tree — not just its
+subtreeHeight(moved) <= cap`, so the whole moved sub-tree — not just its
   root — is accounted for. Enforcement sites: `CreateFacilityHandler`,
   `MoveFacilityHandler`, the canonical PATCH `parent` path
   (`CanonicalFacilityMutationProcessor`, mapped to
@@ -810,15 +812,15 @@ disappeared.
 
 ## Error Codes
 
-| Exception | HTTP status | When |
-| --- | --- | --- |
-| `FacilityNotFoundException` | 404 | Source facility missing, out of the caller's organization scope, or draft-only; also the target parent when explicitly provided |
-| `FacilitySubtreeSourceArchivedException` | 409 | Duplication requested for an archived source facility |
-| `FacilitySubtreeTooLargeException` | 422 | Source facility's subtree (including archived nodes) would traverse more than 500 nodes |
-| `Organization\Application\Contract\Quota\OrganizationQuotaExceededException` | 409 | The whole clone count would exceed the organization's `facilities` plan quota |
-| `FacilityHierarchyException` / `InvalidArgumentException` | 400 | Malformed input, or an invalid/out-of-organization target parent |
-| `FacilityAddressNotFoundException` | 404 | Geocode lookup: the provider knows no coordinates for the submitted address (mapped centrally via `api_platform.exception_to_status`, FG-035 — the provider is catch-free) |
-| `FacilityAccessDeniedException` | 403 | Caller is in the organization but lacks the required `organization.facilities.*` permission (now also in `api_platform.exception_to_status` for the catch-free geocode path) |
+| Exception                                                                    | HTTP status | When                                                                                                                                                                         |
+| ---------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FacilityNotFoundException`                                                  | 404         | Source facility missing, out of the caller's organization scope, or draft-only; also the target parent when explicitly provided                                              |
+| `FacilitySubtreeSourceArchivedException`                                     | 409         | Duplication requested for an archived source facility                                                                                                                        |
+| `FacilitySubtreeTooLargeException`                                           | 422         | Source facility's subtree (including archived nodes) would traverse more than 500 nodes                                                                                      |
+| `Organization\Application\Contract\Quota\OrganizationQuotaExceededException` | 409         | The whole clone count would exceed the organization's `facilities` plan quota                                                                                                |
+| `FacilityHierarchyException` / `InvalidArgumentException`                    | 400         | Malformed input, or an invalid/out-of-organization target parent                                                                                                             |
+| `FacilityAddressNotFoundException`                                           | 404         | Geocode lookup: the provider knows no coordinates for the submitted address (mapped centrally via `api_platform.exception_to_status`, FG-035 — the provider is catch-free)   |
+| `FacilityAccessDeniedException`                                              | 403         | Caller is in the organization but lacks the required `organization.facilities.*` permission (now also in `api_platform.exception_to_status` for the catch-free geocode path) |
 
 All other domain exceptions raised by this module map the same way as the
 other Facility endpoints (see the create/archive/move handlers).
@@ -832,14 +834,14 @@ restore rule, the archival dependency guard, the changed-field bookkeeping and
 the four audit events with their post-commit dispatch. It is now HTTP
 translation only, and **holds no entity manager**.
 
-| Concern | Where it lives now |
-| --- | --- |
-| `PATCH /api/facilities/{id}` | `Application/UseCase/Command/Facility/PatchCanonicalFacility/` |
-| `DELETE /api/facilities/{id}` | `Application/UseCase/Command/Facility/DeleteCanonicalFacility/` |
-| Read one, for the gate | `Application/UseCase/Query/Facility/GetCanonicalFacility/` |
-| Field assignment, trimming, restore rule, revision bump, changed-field set, idempotent archive | `Domain/Model/Facility/CanonicalFacility` |
-| Persistence, child count, ancestry walk | `Infrastructure/…/Repository/CanonicalFacilityRepository` (port: `CanonicalFacilityRepositoryPort`) |
-| Intervention revision touch | `Facility\Application\Port\Outbound\InterventionScopePort` |
+| Concern                                                                                        | Where it lives now                                                                                  |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `PATCH /api/facilities/{id}`                                                                   | `Application/UseCase/Command/Facility/PatchCanonicalFacility/`                                      |
+| `DELETE /api/facilities/{id}`                                                                  | `Application/UseCase/Command/Facility/DeleteCanonicalFacility/`                                     |
+| Read one, for the gate                                                                         | `Application/UseCase/Query/Facility/GetCanonicalFacility/`                                          |
+| Field assignment, trimming, restore rule, revision bump, changed-field set, idempotent archive | `Domain/Model/Facility/CanonicalFacility`                                                           |
+| Persistence, child count, ancestry walk                                                        | `Infrastructure/…/Repository/CanonicalFacilityRepository` (port: `CanonicalFacilityRepositoryPort`) |
+| Intervention revision touch                                                                    | `Facility\Application\Port\Outbound\InterventionScopePort`                                          |
 
 **Two Domain models over one table**, the same split the Inspection and
 Equipment modules made on the same day and for the same reason: the
@@ -922,7 +924,7 @@ counts and ancestry the write path has no reason to carry).
 - `FACILITY_MAX_DEPTH` (env, optional, default 8): maximum facility
   hierarchy depth, root = level 1. Wired via `config/services.yaml`
   (`facility.hierarchy.max_depth`, `%env(int:default:
-  facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%`) and injected
+facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%`) and injected
   into the enforcement sites with `#[Autowire('%facility.hierarchy.max_depth%')]`.
 - `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository`
   and `Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort`
@@ -948,7 +950,8 @@ counts and ancestry the write path has no reason to carry).
     `Facility\Infrastructure\Adapter\Geocoding\NominatimGeocodingAdapter` in
     `config/modules/facility.yaml`. The adapter names **no** entity manager —
     it touches no database. It enforces the Nominatim usage policy itself:
-    identifying `User-Agent` (`FireGuard/1.0 (contact@valentin-fortin.pro)`),
+    identifying `User-Agent` (the code-owned contact is recorded in the
+    [installation appendix](../../docs/operations/current-installation.md)),
     3 s timeout, and a process-safe 1 req/s outbound throttle (a `LockFactory`
     lock — the schedulers' pattern — around a last-request timestamp kept in
     the shared cache pool). Results are cached 24 h per hashed normalized
@@ -960,251 +963,33 @@ counts and ancestry the write path has no reason to carry).
   - `GeocodeAddressHandler` is a `messenger.message_handler` like every other
     query handler; ports-only (`GeocodingPort` + `OrganizationAuthorizationPort`).
 
+<a id="seeded-floor-plans"></a>
+
 ## Testing
 
-### Seeded floor plans
+Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 
-`make seed-fixtures` produces one building whose plan pipeline is fully
-exercisable end to end, because until 2026-08-30 it produced none at all:
-`facility_attachments` held zero `floor_plan` rows and no facility had a
-`plan_geometry`, so the plan viewer, the outline editor, the equipment pin
-layer and the 3D building view were all unverifiable locally without seeding
-the database by hand.
-
-`Main Building` now carries:
-
-- **two ordered floors** — `Floor 1` (`levelIndex` 0) and `Floor 2` (1) — each
-  with its own primary `floor_plan` attachment, 2400×1600;
-- a `plan_geometry` on each floor pointing at **its own** primary plan, which
-  is what makes the building model answer `outline.source: plan_geometry`
-  rather than falling through to a bounding box;
-- an `area` nested inside a `zone` on both floors (`Server Room` in `Zone A`,
-  `Storage Room` in `Zone B`), both with outlines — this is what exercises the
-  **geometric-leaf rule**: the building model must return the inner `area` and
-  drop the enclosing `zone`;
-- two equipment items pinned inside `Server Room` via `plan_position`.
-
-The plan images live in `src/Facility/Infrastructure/DataFixtures/assets/` as
-hand-written SVGs rather than raster blobs: they are reviewable in a diff, they
-weigh nothing, and their `width`/`height` attributes are exactly what
-`ImageDimensions` probes. Their bytes are written at the real
-`StoragePathScheme` path, because the viewer downloads them — unlike the
-document seeds, whose bytes nothing reads and which therefore keep a
-placeholder path and no file at all.
-
-**Seed from inside the container when the bytes matter.** `compose.yaml` mounts
-`app_var` — a *named volume* — over `/var/www/html/var`, so the host's `var/`
-and the container's are two different filesystems. `make seed-fixtures` runs on
-the host, which is fine for rows but writes the plan images somewhere the API
-will never look: the download endpoint answers **404** and the plan viewer
-spins forever on an image that exists, on the wrong disk. Seed the files where
-the app reads them:
-
-```bash
-make seed-fixtures-docker
-```
-
-The symptom is worth recognizing because it looks like a frontend fault: the
-attachment row is right there in the database, its dimensions are right, and
-the viewer still shows nothing.
-
-**A fixture that another fixture depends on cannot take a constructor
-argument.** Doctrine's `Loader::addFixture()` resolves each declared dependency
-through `createFixture()`, a bare `new $class()`, and it does so *before*
-checking whether that class is already registered — so the container's
-carefully autowired instance is beside the point, and a required argument is a
-fatal error. That is why `FacilityFixtures` writes its bytes with plain
-filesystem calls against the `STORAGE_DSN` it reads itself, rather than through
-`FileStoragePort`. Only `local://` is handled, the only scheme seeding runs
-against. Worth knowing before adding a service dependency to any fixture in
-this repo.
-
-- Unit: `tests/Unit/Facility`
-  - `Application/UseCase/Query/ExportFacilities/ExportFacilitiesHandlerTest` —
-    403 without `organization.facilities.read`, 404 outside the organization's
-    scope, 422 past `MAX_EXPORT_ROWS`, and the success path resolving a
-    child's `parentCode` in one bulk call while an unresolvable parent id
-    falls back to `null` rather than an empty string.
-  - `Presentation/Api/Controller/ExportFacilitiesControllerTest` — the
-    streamed CSV shape (content type, `Content-Disposition: attachment`,
-    header row, `parentCode` in a data row), the 400 for a missing
-    `organizationId`, the audited filter *names* only, 401 unauthenticated,
-    and the bus-wrapped 403/422 domain exceptions unwrapped by
-    `FacilityExportExceptionMapperTrait`.
-  - `Presentation/Api/Service/FacilityCsvWriterTest` — freezes
-    `FacilityCsvWriter::HEADER`'s first seven columns as the
-    `Import\Application\Service\FacilityRowFactory` round-trip contract, and
-    the plain-decimal coordinate formatting.
-  - `Domain/Model/Facility/CanonicalFacilityTest` — the canonical rules with
-    no container and no mocks: the changed-field list reporting what DIFFERS
-    rather than what the body carried, trimming, explicit-null erasure versus
-    absent key, `type`-before-`name` validation order, both coordinate-pairing
-    rules, the restore-under-an-archived-parent refusal, the same-parent move
-    that reports nothing, the scratchpad that reports nothing at all, and the
-    idempotent archive that must not bump the revision.
-  - `Application/UseCase/Command/Facility/{Patch,Delete}CanonicalFacility` and
-    `Application/UseCase/Query/Facility/GetCanonicalFacility` — the
-    orchestration: the hierarchy guards in order (invalid/foreign parent,
-    cycle by identity and by ancestry, archived parent, depth cap), the
-    restore path resolving a parent the patch never mentioned, the archival
-    guard on both the PATCH and DELETE routes, the child-count guard standing
-    in FRONT of it on the hard delete, the repeat DELETE that skips the guard
-    entirely, the post-commit guarantee, and the revision re-check inside the
-    handler's own transaction.
-  - `Presentation/Api/Processor/Facility/CanonicalFacilityMutationProcessorTest`
-    — what the processor still owns: the gate order (404 before 428), which
-    permission a scratchpad row asks the intervention for, 404 rather than 403
-    outside the organization, the merge-patch `has*` flags, the parent IRI
-    parse, and the single coordinate that must still travel so the handler can
-    reject it.
-  - `Application/UseCase/Command/Attachment/{Add,Delete,SetPrimary}FacilityAttachment`,
-    `Application/UseCase/Query/Attachment/ListFacilityAttachments` — handler
-    behavior including storage-write-then-persist rollback on DB failure,
-    path-traversal-safe file naming, the atomic primary swap, and the
-    document-cannot-be-primary refusal.
-- Functional: `tests/Functional/Api/CanonicalFacilityApiTest` — the whole
-  `PATCH`/`DELETE /api/facilities/{id}` contract, one HTTP request per test:
-  200 + trimmed name + bumped revision, 422 on a null name, a single
-  coordinate, a cycle, a foreign parent, an archived parent and a restore
-  under one, 409 on archiving with a live child and on hard-deleting a
-  scratchpad with children, 204 for the archive / the scratchpad hard-delete /
-  the idempotent repeat, 412 on a stale revision, 404 before 428 on an unknown
-  id, 404 on a malformed one, 404 for a foreign organization (never 403), and
-  403 for a member without write.
-- Integration (real database):
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/CanonicalFacilityRepositoryTest`
-  — that `findById()` carries the columns the aggregate does not, that
-  `save()` writes the mutable ones and **leaves `record_status`,
-  `intervention_id` and `client_id` alone**, that it moves the
-  `parentFacility` ASSOCIATION (resolved in the repository, not the mapper),
-  and that `countChildren()` and `ancestorIdsOf()` answer over the real tree.
-  - `Domain/ValueObject/AttachmentKindTest`, `Domain/ValueObject/ImageDimensionsTest`,
-    `Domain/Model/Attachment/FacilityAttachmentTest` — the kind↔MIME and
-    kind↔primary invariants, and the raster/SVG/no-dimensions probing paths.
-  - `Presentation/Api/Processor/Attachment/{FacilityMediaProcessorTest,SetPrimaryFacilityAttachmentProcessorTest}`,
-    `Presentation/Api/Provider/Attachment/FacilityMediaProviderTest` —
-    permission enforcement, the `If-Match` revision guard on delete, and the
-    409/404 mapping on the primary-plan route.
-  - `Application/UseCase/Command/Facility/DuplicateFacilitySubtree/DuplicateFacilitySubtreeHandlerTest`
-    — happy multi-level clone (codes null, names/type/address/metadata/coordinates
-    copied), archived-source 409, archived-descendant skip and reattachment,
-    the 500-node cap, the quota check running (and refusing) before any
-    `save()`, and the cross-organization 404.
-  - `Domain/Model/MetadataField/FacilityMetadataFieldTest` — aggregate
-    invariants (key format, select-needs-options, unit length).
-  - `Application/Service/FacilityMetadataSchemaGuardTest` — each field type
-    validated, unknown keys pass through, `required` enforced on create
-    only, `facilityType` scoping.
-  - `Application/UseCase/{Command,Query}/MetadataField/**` — the four
-    metadata field use cases.
-- Integration (real database):
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/{FacilityAttachmentRepositoryTest,FacilityMetadataFieldRepositoryTest}`
-  — the attachment repository round-trips the new columns and proves the partial unique index (a second
-  `is_primary_plan = true` row for the same facility is rejected at the DB);
-  `FacilityRepositoryTest::testFindAncestorsWalksTheParentChainRootFirstAndExcludesDraftAncestors`
-  (root facility, 3-level chain, draft ancestor exclusion),
-  `Presentation/Api/Provider/Facility/CanonicalFacilityProviderTest` (item route
-  `path` mapping, collection left empty);
-  `tests/Integration/Facility/Infrastructure/Adapter/Intervention/FacilityInterventionResourceAdapterApplyTest`
-  (includes the metadata-schema-rejection case on the offline apply() path).
-- Functional: `tests/Functional/Api/FacilityExportApiTest.php` — 200 with CSV
-  content type, attachment disposition, the header row, and a seeded child
-  facility's row carrying its parent's resolved `code`; 400 on an unknown
-  `type` filter value; 401 unauthenticated; 403 for a member without
-  `organization.facilities.read`; 404 for a member of another organization
-  (deliberately not 403 — that would confirm the organization exists). The
-  422 row-cap path is covered by `ExportFacilitiesHandlerTest` instead, since
-  `MAX_EXPORT_ROWS` is a class constant and exercising it end-to-end would
-  require seeding 50 001 facilities.
-- Functional: `tests/Functional/Api/{FacilityAttachmentApiTest,FacilityMetadataFieldApiTest}.php`,
-  plus the typed-metadata create cases added to `FacilityApiTest.php` — floor
-  plan upload (happy path + wrong-MIME 422), `?kind=` list filter, the
-  primary-plan route (happy, swap, document-refusal 409, cross-org 404,
-  missing-permission 403), the download route (attachment-disposition +
-  nosniff headers on a floor_plan SVG, cross-org 404, missing-permission
-  403), and an SVG floor plan carrying `<script>` accepted with dimensions
-  probed (sanitization deliberately out of scope — see the security
-  constraint above). The `AttachmentConstraints::MAX_SIZE_BYTES` boundary
-  (10 MiB + 1 byte rejected before any probing) is covered as a UNIT test —
-  `FacilityMediaProcessorTest::testUploadRejectsAFloorPlanJustOverTheMaxSizeBeforeProbing`
-  — not a functional one: this environment's php.ini caps
-  `upload_max_filesize` at 2M, so a real 10 MiB+1 multipart upload never
-  reaches the application (`HttpKernelBrowser::filterFiles()` rejects it
-  first).
-  E2E `tests/E2E/FacilityCoordinatesFlowTest.php` and
-  `tests/E2E/FacilityPresentationFlowTest.php` assert the `path` shape on the
-  organization-scoped and canonical detail reads.
-  `tests/E2E/FacilityPresentationFlowTest.php` also carries the duplicate
-  endpoint's contract coverage against a real database —
-  `testDuplicateFacilitySubtree*` (tree shape and null codes, 403,
-  cross-organization 404, archived-source 409). The 422 size-cap and
-  quota-4xx paths are covered at the handler-unit level only — seeding 500+
-  facilities or a capped plan is impractical at this level; that gap is
-  noted here rather than silently left uncovered.
-- Plan geometry (Phase 4):
-  - `Domain/ValueObject/PlanGeometryTest` — point-count and coordinate-bounds
-    validation, the UUID check on `attachmentId`, and the `toArray()`/
-    `fromArray()` round trip.
-  - `Application/UseCase/Command/Facility/SetFacilityPlanGeometry/SetFacilityPlanGeometryHandlerTest`
-    — every failure path (unknown facility, unknown attachment, non-ancestor
-    attachment, wrong kind, malformed points), the happy set, the clear, and
-    an archived facility still accepting a write.
-  - `Application/UseCase/Query/Facility/GetFacilityPlanOverlay/GetFacilityPlanOverlayHandlerTest`
-    — explicit `attachmentId`, default-to-primary-plan, no-primary-plan 404,
-    and the zones list including a descendant's geometry.
-  - Integration:
-    `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityRepositoryTest`
-    — the `plan_geometry` JSONB round trip and the `findZonesForPlanAttachment`
-    CTE (self, a descendant, and a sibling excluded).
-  - Functional: `tests/Functional/Api/FacilityPlanGeometryApiTest.php` — PUT
-    happy path (set, then clear), 422 on a malformed points shape, 400 on an
-    out-of-bounds coordinate, 404 cross-org and unknown-facility, 403
-    missing-permission, 409 wrong-kind and non-ancestor attachment; GET
-    overlay happy path including a descendant's zone, default-primary-plan
-    behavior, empty zones, 404 cross-org and no-primary-plan, 403
-    missing-permission, and (equipment side, Phase 4) an equipment item
-    pinned on the same attachment appearing in the `equipment` array.
-  - `Application/UseCase/Query/Facility/GetFacilityPlanOverlay/GetFacilityPlanOverlayHandlerTest::testInvokeReturnsEquipmentPinnedOnTheSamePlan`
-    — asserts the mocked `FacilityEquipmentPlanPositionPort` result flows
-    through to `GetFacilityPlanOverlayResult::$equipment` untouched.
-  - `tests/Unit/Facility/Infrastructure/Adapter/Equipment/EquipmentFloorPlanValidationAdapterTest`
-    — every failure path (unknown attachment, malformed attachment id, wrong
-    kind, non-ancestor) mapped to Equipment's typed exceptions, and the
-    self-owned-attachment success path.
-  - `tests/Integration/Equipment/Infrastructure/Adapter/Facility/EquipmentPlanPositionAdapterTest`
-    (hosted in Equipment, since the adapter is) — the `plan_position` JSONB
-    filter, published-only, and organization scoping.
-- Hierarchy depth cap: repository integration coverage in
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityRepositoryTest`
-  (`depthOf`/`subtreeHeight` on a seeded chain), handler unit coverage in
-  `CreateFacilityHandlerTest`/`MoveFacilityHandlerTest` (create at cap OK/refused,
-  move accounting for the moved sub-tree's height), the canonical processor and
-  offline adapter unit/integration tests, `FacilityProvisioningServiceTest`
-  (`ProvisionOutcome::INVALID`), and one end-to-end functional test,
-  `tests/Functional/Api/FacilityHierarchyDepthApiTest.php`, that creates a
-  chain up to the cap through the real HTTP API and asserts the next level is
-  refused with the mapped 400.
-- Run module tests: `make test tests/Unit/Facility/`
+Detailed cases and regression rationale are retained in the [Facility testing reference](../../docs/guides/testing.md#facility-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes
 
-| Domain exception | HTTP status | Consumer sees |
-| --- | --- | --- |
-| `FacilityHierarchyException::cannotUseSelfAsParent` | 400 | "A facility cannot be its own parent." |
-| `FacilityHierarchyException::parentInAnotherOrganization` | 400 | "Parent facility must belong to the same organization." |
-| `FacilityHierarchyException::hierarchyCycleDetected` | 400 | "Cannot move facility: hierarchy cycle detected." |
-| `FacilityHierarchyException::maxDepthExceeded($cap)` | 400 (Create/Move use cases, via the same `FacilityHierarchyException` catch as the other hierarchy errors); 422 on the canonical PATCH `parent` path (mirrors its existing cycle-check status); `InterventionConflictException` on the offline `apply()` path | "Facility hierarchy depth cap of `$cap` levels exceeded." |
-| `FacilityHasActiveDependentsException` | 409 | archival refused while an active child facility, active equipment, an in-progress inspection, or an active intervention exists |
-| `FacilityMetadataFieldNotFoundException` | 404 | Unknown id, or a field belonging to another organization (indistinguishable from unknown, see "Scope versus entitlement" above) |
-| `FacilityMetadataFieldKeyAlreadyExistsException` | 409 | Duplicate `(organizationId, key)` |
-| `FacilityMetadataFieldLimitExceededException` | 422 | Organization already has 50 field definitions |
-| `FacilityMetadataValidationException` | 422 | One or more `metadata` entries fail the organization's typed schema; mapped centrally by `FacilityMetadataValidationExceptionSubscriber` regardless of which write path raised it |
-| `CanonicalFacilityValidationException` | 422 | The canonical surface's refusals: a non-nullable field sent as null, an unsupported enum value, a half-supplied coordinate pair, an invalid/foreign/archived parent, a cycle, a depth-cap breach, and a restore under an archived parent. **Note the depth case: `FacilityHierarchyException` is 400, but the canonical surface wrapped its MESSAGE in a 422 rather than letting the exception surface — so this class answers 422 for it too.** |
-| `CanonicalFacilityConflictException` | 409 | Hard-deleting a draft scratchpad row that still has child facilities |
-| `FacilityRevisionMismatchException` | 412 | `If-Match` lost the race between the scope read on the query bus and the mutation's own transaction |
-| `FacilityAccessDeniedException` | 403 | Export endpoint: caller is inside the organization's scope but lacks `organization.facilities.read` |
-| `FacilityExportTooLargeException` | 422 | Export endpoint: the filters match more than `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) facilities |
-| `FacilityNotBuildingException` | 409 | 3D building model query: the requested facility's `type` is not `building`, mapped centrally in `api_platform.exception_to_status` (mirrors `FacilityAttachmentNotFloorPlanException`'s 409) |
+| Domain exception                                          | HTTP status                                                                                                                                                                                                                                                   | Consumer sees                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `FacilityHierarchyException::cannotUseSelfAsParent`       | 400                                                                                                                                                                                                                                                           | "A facility cannot be its own parent."                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `FacilityHierarchyException::parentInAnotherOrganization` | 400                                                                                                                                                                                                                                                           | "Parent facility must belong to the same organization."                                                                                                                                                                                                                                                                                                                                                                                          |
+| `FacilityHierarchyException::hierarchyCycleDetected`      | 400                                                                                                                                                                                                                                                           | "Cannot move facility: hierarchy cycle detected."                                                                                                                                                                                                                                                                                                                                                                                                |
+| `FacilityHierarchyException::maxDepthExceeded($cap)`      | 400 (Create/Move use cases, via the same `FacilityHierarchyException` catch as the other hierarchy errors); 422 on the canonical PATCH `parent` path (mirrors its existing cycle-check status); `InterventionConflictException` on the offline `apply()` path | "Facility hierarchy depth cap of `$cap` levels exceeded."                                                                                                                                                                                                                                                                                                                                                                                        |
+| `FacilityHasActiveDependentsException`                    | 409                                                                                                                                                                                                                                                           | archival refused while an active child facility, active equipment, an in-progress inspection, or an active intervention exists                                                                                                                                                                                                                                                                                                                   |
+| `FacilityMetadataFieldNotFoundException`                  | 404                                                                                                                                                                                                                                                           | Unknown id, or a field belonging to another organization (indistinguishable from unknown, see "Scope versus entitlement" above)                                                                                                                                                                                                                                                                                                                  |
+| `FacilityMetadataFieldKeyAlreadyExistsException`          | 409                                                                                                                                                                                                                                                           | Duplicate `(organizationId, key)`                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `FacilityMetadataFieldLimitExceededException`             | 422                                                                                                                                                                                                                                                           | Organization already has 50 field definitions                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `FacilityMetadataValidationException`                     | 422                                                                                                                                                                                                                                                           | One or more `metadata` entries fail the organization's typed schema; mapped centrally by `FacilityMetadataValidationExceptionSubscriber` regardless of which write path raised it                                                                                                                                                                                                                                                                |
+| `CanonicalFacilityValidationException`                    | 422                                                                                                                                                                                                                                                           | The canonical surface's refusals: a non-nullable field sent as null, an unsupported enum value, a half-supplied coordinate pair, an invalid/foreign/archived parent, a cycle, a depth-cap breach, and a restore under an archived parent. **Note the depth case: `FacilityHierarchyException` is 400, but the canonical surface wrapped its MESSAGE in a 422 rather than letting the exception surface — so this class answers 422 for it too.** |
+| `CanonicalFacilityConflictException`                      | 409                                                                                                                                                                                                                                                           | Hard-deleting a draft scratchpad row that still has child facilities                                                                                                                                                                                                                                                                                                                                                                             |
+| `FacilityRevisionMismatchException`                       | 412                                                                                                                                                                                                                                                           | `If-Match` lost the race between the scope read on the query bus and the mutation's own transaction                                                                                                                                                                                                                                                                                                                                              |
+| `FacilityAccessDeniedException`                           | 403                                                                                                                                                                                                                                                           | Export endpoint: caller is inside the organization's scope but lacks `organization.facilities.read`                                                                                                                                                                                                                                                                                                                                              |
+| `FacilityExportTooLargeException`                         | 422                                                                                                                                                                                                                                                           | Export endpoint: the filters match more than `ExportFacilitiesHandler::MAX_EXPORT_ROWS` (50 000) facilities                                                                                                                                                                                                                                                                                                                                      |
+| `FacilityNotBuildingException`                            | 409                                                                                                                                                                                                                                                           | 3D building model query: the requested facility's `type` is not `building`, mapped centrally in `api_platform.exception_to_status` (mirrors `FacilityAttachmentNotFloorPlanException`'s 409)                                                                                                                                                                                                                                                     |
 
 Every other domain exception in this module (facility hierarchy, archival
 dependents, code conflicts, …) is mapped locally by its processor/provider,
@@ -1222,7 +1007,6 @@ are never cached. HTTP duration is bounded to three seconds. `PHOTON_BASE_URL` i
 optional operator override; the application defaults to the public demo and production
 should point it to a private instance for sustained traffic. This read-only capability
 does not persist in either database.
-
 
 ## Durable onboarding setup
 
@@ -1243,3 +1027,7 @@ Import/publication resources can be reread through that same canonical detail co
 Publication validates attachment kind and ancestry, including a proposed parent change.
 `floor_plan_outside_ancestry` and `attachment_not_floor_plan` return 409;
 `resource_revision_conflict` returns 412 when another committed write won.
+
+## Flows
+
+Authorized commands enforce hierarchy, organization scope and lifecycle invariants before persistence. Related equipment/intervention operations use their owner-published contracts; geocoding remains a bounded external adapter read.

@@ -1,5 +1,7 @@
 # User Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 User manages account lifecycle (provisioning, profile updates, lookup, and deletion).
@@ -8,26 +10,26 @@ User deletion also purges linked auth data (sessions, consents, tokens, OTPs, tr
 
 ## API Endpoints
 
-| Resource | Method | Path | Description |
-| --- | --- | --- | --- |
-| PresencePreference | GET/PATCH | `/api/me/presence-preference` | Read/update own global NPD and invisible preferences, authenticated users only |
-| PresencePreference | GET | `/api/me/presence-preference/subscription` | Own private Mercure subscription |
-| CurrentUserProfile | GET | `/api/me` | Get the authenticated user profile with global roles, permissions, and `totpEnabled` (TOTP MFA status) |
-| CurrentUserProfile | PATCH | `/api/me` | Update the authenticated user profile (first name, last name, preferred display language) |
-| CurrentUserProfile | PUT | `/api/me/avatar` | Replace the authenticated user avatar |
-| CurrentUserProfile | POST | `/api/me/deactivate` | Self-service deactivation of the authenticated user's own account (requires `profile.update`) |
-| EmailChange | POST | `/api/me/email-change` | Request a sign-in email change (password verified; confirmation link emailed to the new address, alert to the old one) — 202 |
-| EmailChange | POST | `/api/me/email-change/confirm` | **Public.** Confirm the change with the emailed token; applies the new email and revokes every session and OAuth token — 200 |
-| EmailChange | DELETE | `/api/me/email-change` | Cancel the pending email change request (idempotent) — 204 |
-| User | POST | `/api/users` | Create a user |
-| User | GET | `/api/users/{id}` | Get user details |
-| User | GET | `/api/users` | List users |
-| User | PATCH | `/api/users/{id}` | Update user profile |
-| User | PUT | `/api/users/{id}` | Replace user profile |
-| User | DELETE | `/api/users/{id}` | Delete a user |
-| User | POST | `/api/users/{id}/activate` | Activate a user |
-| User | POST | `/api/users/{id}/deactivate` | Deactivate a user |
-| User | POST | `/api/users/{id}/verify-email` | Mark email as verified |
+| Resource           | Method    | Path                                       | Description                                                                                                                  |
+| ------------------ | --------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| PresencePreference | GET/PATCH | `/api/me/presence-preference`              | Read/update own global NPD and invisible preferences, authenticated users only                                               |
+| PresencePreference | GET       | `/api/me/presence-preference/subscription` | Own private Mercure subscription                                                                                             |
+| CurrentUserProfile | GET       | `/api/me`                                  | Get the authenticated user profile with global roles, permissions, and `totpEnabled` (TOTP MFA status)                       |
+| CurrentUserProfile | PATCH     | `/api/me`                                  | Update the authenticated user profile (first name, last name, preferred display language)                                    |
+| CurrentUserProfile | PUT       | `/api/me/avatar`                           | Replace the authenticated user avatar                                                                                        |
+| CurrentUserProfile | POST      | `/api/me/deactivate`                       | Self-service deactivation of the authenticated user's own account (requires `profile.update`)                                |
+| EmailChange        | POST      | `/api/me/email-change`                     | Request a sign-in email change (password verified; confirmation link emailed to the new address, alert to the old one) — 202 |
+| EmailChange        | POST      | `/api/me/email-change/confirm`             | **Public.** Confirm the change with the emailed token; applies the new email and revokes every session and OAuth token — 200 |
+| EmailChange        | DELETE    | `/api/me/email-change`                     | Cancel the pending email change request (idempotent) — 204                                                                   |
+| User               | POST      | `/api/users`                               | Create a user                                                                                                                |
+| User               | GET       | `/api/users/{id}`                          | Get user details                                                                                                             |
+| User               | GET       | `/api/users`                               | List users                                                                                                                   |
+| User               | PATCH     | `/api/users/{id}`                          | Update user profile                                                                                                          |
+| User               | PUT       | `/api/users/{id}`                          | Replace user profile                                                                                                         |
+| User               | DELETE    | `/api/users/{id}`                          | Delete a user                                                                                                                |
+| User               | POST      | `/api/users/{id}/activate`                 | Activate a user                                                                                                              |
+| User               | POST      | `/api/users/{id}/deactivate`               | Deactivate a user                                                                                                            |
+| User               | POST      | `/api/users/{id}/verify-email`             | Mark email as verified                                                                                                       |
 
 Removed 2026-08-20: `GET /api/users/statuses` (unconsumed reference catalog; the
 frontend's localized typed registries are the source of these values).
@@ -59,6 +61,8 @@ Deploy the additive auth migration `Version20260926090000` before clients use th
 
 ### Create User (Command)
 
+The user command validates and persists its aggregate through the owner, then emits its permitted consequences.
+
 ```mermaid
 sequenceDiagram
   participant API as API Processor
@@ -73,6 +77,8 @@ sequenceDiagram
 ```
 
 ### Get User (Query)
+
+The query loads an authorized user projection through the repository port. Sensitive fields remain governed by the output contract.
 
 ```mermaid
 sequenceDiagram
@@ -104,6 +110,7 @@ active-status comparison on the auth database; a concurrent email change fails c
 - Infrastructure: Doctrine repositories, mappers, fixtures, console commands.
 
 Key folders:
+
 - `src/User/Presentation/Api`
 - `src/User/Application/UseCase`
 - `src/User/Domain`
@@ -180,7 +187,7 @@ Decisions, recorded:
   exists with this email address", so address existence is already public on
   this API. This endpoint keeps the 409 status family for consistency with
   register but answers ONE neutral message — `This email address cannot be
-  used.` — for both "taken" and "identical to the current address", so the
+used.` — for both "taken" and "identical to the current address", so the
   authenticated surface adds no second, richer probing channel.
 - **Confirm is public.** The link lands in the new mailbox where no session may
   exist, and the repo's registration email-verification (OTP challenge verify)
@@ -193,8 +200,9 @@ Decisions, recorded:
   confirm — `SessionRepositoryPort::revokeAllForUser` +
   `TokenRevocationPort::revokeAllUserTokens`, fail-safe. The user signs in
   again with the new address; a hijacker who raced the flow loses access.
-  Note: login-flow session tracking is best-effort, so an access token whose
-  session was never recorded remains valid until expiry (see SECURITY.md).
+  Interactive access tokens require a current, non-revoked session anchor for
+  the signed user. An untracked or rotated token is rejected; see
+  [the security contract](../../SECURITY.md#token-and-cookie-security).
 - **One pending request per user** — a new request deletes the previous
   unconfirmed one (`removePendingForUser`), so only the latest token confirms.
 - **Confirm re-checks availability**: an address registered by someone else
@@ -269,7 +277,7 @@ checks for default values, idempotent revisions, row-lock serialization and comm
 from an independent connection before event dispatch.
 
 - Unit: `tests/Unit/User`
-- Run module tests: `make test tests/Unit/User`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/User`
 
 ## Federated user provisioning
 

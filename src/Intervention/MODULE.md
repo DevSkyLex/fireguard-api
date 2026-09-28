@@ -1,5 +1,7 @@
 # Intervention Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/interventions.md).
+
 ## Overview
 
 Publication scheduling commits the publication row and its `main_outbox` command
@@ -16,8 +18,8 @@ that takes a fire-safety operation from `draft` to `published`, producing real
 facilities, equipment and inspections only when the intervention is published.
 
 An intervention is a **staged workspace**. While it is being prepared and executed
-it holds *draft* operational resources (work items describing facilities/equipment
-to create, inspections to run) and *proposed changes*. Publication is an atomic,
+it holds _draft_ operational resources (work items describing facilities/equipment
+to create, inspections to run) and _proposed changes_. Publication is an atomic,
 asynchronous step that either fully materializes those drafts into the owning
 modules (Facility, Equipment, Inspection) or leaves every record untouched.
 
@@ -40,17 +42,17 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 
 ### Interventions
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/interventions` | Create intervention (starts as `draft`) |
-| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `member` *(responsible OR participant)*, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `label`, `responsible` — these six accept **repeated values** (`status[]=draft&status[]=planned`, OR-combined per filter via `IN()`; the single scalar form stays accepted), `number` *(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)*, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`, `due=overdue` *(shortcut restricting to `dueAt` in the past AND status not in `InterventionStatus::closedValues()` i.e. not `published`/`abandoned` — the exact definition `GET /interventions/statistics`'s `overdue` count uses; composes with `dueAtAfter`/`dueAtBefore`; 400 on any other value)*; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
-| GET | `/interventions/{id}` | Get intervention |
-| PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`status`) |
-| PUT | `/interventions/{id}` | Upsert (offline replay path; `201`) |
-| DELETE | `/interventions/{id}` | Delete intervention |
-| GET | `/interventions/export` | Streams a bounded CSV export of interventions (see Export below) |
-| GET | `/interventions/{id}/issues` | List computed validation issues (blocker/warning/recommendation) |
-| GET | `/interventions/{id}/report` | Stream a PDF report of the intervention (Lot P4.5 — see Report below) |
+| Method | Path                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/interventions`             | Create intervention (starts as `draft`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| GET    | `/interventions`             | List (filters: `organization` _(required)_, `name` _(trigram, partial, case-insensitive)_, `responsible`, `participant`, `member` _(responsible OR participant)_, `type`, `status`, `priority` _(400 on an unknown value)_, `site`, `label`, `responsible` — these six accept **repeated values** (`status[]=draft&status[]=planned`, OR-combined per filter via `IN()`; the single scalar form stays accepted), `number` _(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)_, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`, `due=overdue` _(shortcut restricting to `dueAt` in the past AND status not in `InterventionStatus::closedValues()` i.e. not `published`/`abandoned` — the exact definition `GET /interventions/statistics`'s `overdue` count uses; composes with `dueAtAfter`/`dueAtBefore`; 400 on any other value)_; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
+| GET    | `/interventions/{id}`        | Get intervention                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| PATCH  | `/interventions/{id}`        | Update fields and/or apply a **status transition** (`status`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| PUT    | `/interventions/{id}`        | Upsert (offline replay path; `201`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| DELETE | `/interventions/{id}`        | Delete intervention                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| GET    | `/interventions/export`      | Streams a bounded CSV export of interventions (see Export below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| GET    | `/interventions/{id}/issues` | List computed validation issues (blocker/warning/recommendation)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| GET    | `/interventions/{id}/report` | Stream a PDF report of the intervention (Lot P4.5 — see Report below)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Work items (draft scope)
 
@@ -67,14 +69,14 @@ Planning mutations, programmatic creation and activating transitions use Workloa
 coordination and planning ports inside the explicit main transaction. Factual remaining
 effort updates do not require overload consent; assignments and re-planning do.
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/intervention-work-items` | Add a work item to an intervention |
-| GET | `/intervention-work-items` | Paginated list (`page`, `itemsPerPage`, capped at 100). Filters: `intervention` *(required)*, `assignee`, `source`, `action`, `status` *(scalar or repeated)*, `search` across target/action/source/status/result resource. Optional `prioritizeAssignee` member IRI orders matching tasks first without narrowing membership. |
-| GET | `/intervention-work-items/{id}` | Get work item |
-| PATCH | `/intervention-work-items/{id}` | Update work item (status: `planned → in_progress → completed`/`skipped`) |
-| PUT | `/intervention-work-items/{id}` | Upsert (offline replay path; `201`) |
-| DELETE | `/intervention-work-items/{id}` | Delete work item |
+| Method | Path                            | Description                                                                                                                                                                                                                                                                                                                    |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/intervention-work-items`      | Add a work item to an intervention                                                                                                                                                                                                                                                                                             |
+| GET    | `/intervention-work-items`      | Paginated list (`page`, `itemsPerPage`, capped at 100). Filters: `intervention` _(required)_, `assignee`, `source`, `action`, `status` _(scalar or repeated)_, `search` across target/action/source/status/result resource. Optional `prioritizeAssignee` member IRI orders matching tasks first without narrowing membership. |
+| GET    | `/intervention-work-items/{id}` | Get work item                                                                                                                                                                                                                                                                                                                  |
+| PATCH  | `/intervention-work-items/{id}` | Update work item (status: `planned → in_progress → completed`/`skipped`)                                                                                                                                                                                                                                                       |
+| PUT    | `/intervention-work-items/{id}` | Upsert (offline replay path; `201`)                                                                                                                                                                                                                                                                                            |
+| DELETE | `/intervention-work-items/{id}` | Delete work item                                                                                                                                                                                                                                                                                                               |
 
 Work-item filtering and assignee prioritization run before pagination. Counts cover all
 matching rows; ordering is stable by update date descending then identifier ascending,
@@ -83,11 +85,11 @@ independent of the requested page and filters.
 
 ### Independent time journal
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/intervention-work-items/{taskId}/time-entries` | Authorized entries and their retained revisions |
-| POST | `/intervention-work-items/{taskId}/time-entries` | Record actual work with a stable client entry identifier |
-| PATCH | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Correct an entry against its own `If-Match` revision |
+| Method | Path                                                       | Description                                                       |
+| ------ | ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| GET    | `/intervention-work-items/{taskId}/time-entries`           | Authorized entries and their retained revisions                   |
+| POST   | `/intervention-work-items/{taskId}/time-entries`           | Record actual work with a stable client entry identifier          |
+| PATCH  | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Correct an entry against its own `If-Match` revision              |
 | DELETE | `/intervention-work-items/{taskId}/time-entries/{entryId}` | Cancel an entry against its own revision without deleting history |
 
 The journal is a separate aggregate from the operational intervention and its
@@ -117,28 +119,28 @@ Workload coordination locks, but factual time is accepted even if it reveals ove
 
 ### Proposed changes (review)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/intervention-changes` | Propose a change to an existing resource |
-| GET | `/intervention-changes` | List (filters: `intervention` *(required)*, `resource`, `status`, `search` across resource/status/patch values) |
-| GET | `/intervention-changes/{id}` | Get change |
-| PATCH | `/intervention-changes/{id}` | Update change status (`proposed → rejected` only — `applied` is set exclusively by the publication worker, never through this endpoint) |
-| PUT | `/intervention-changes/{id}` | Upsert (offline replay path; `201`) |
-| DELETE | `/intervention-changes/{id}` | Delete change |
+| Method | Path                         | Description                                                                                                                             |
+| ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/intervention-changes`      | Propose a change to an existing resource                                                                                                |
+| GET    | `/intervention-changes`      | List (filters: `intervention` _(required)_, `resource`, `status`, `search` across resource/status/patch values)                         |
+| GET    | `/intervention-changes/{id}` | Get change                                                                                                                              |
+| PATCH  | `/intervention-changes/{id}` | Update change status (`proposed → rejected` only — `applied` is set exclusively by the publication worker, never through this endpoint) |
+| PUT    | `/intervention-changes/{id}` | Upsert (offline replay path; `201`)                                                                                                     |
+| DELETE | `/intervention-changes/{id}` | Delete change                                                                                                                           |
 
 ### Publication (async)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/publications` | Request publication of an intervention (`202 Accepted`, queued) |
-| GET | `/publications/{id}` | Poll publication status (pending → succeeded/failed) |
+| Method | Path                 | Description                                                     |
+| ------ | -------------------- | --------------------------------------------------------------- |
+| POST   | `/publications`      | Request publication of an intervention (`202 Accepted`, queued) |
+| GET    | `/publications/{id}` | Poll publication status (pending → succeeded/failed)            |
 
 ### Activity feed (comments + system events)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/interventions/{interventionId}/activities` | List the intervention's activity feed, oldest first (30/page, client page size) |
-| POST | `/interventions/{interventionId}/comments` | Add a member comment to the intervention |
+| Method | Path                                         | Description                                                                     |
+| ------ | -------------------------------------------- | ------------------------------------------------------------------------------- |
+| GET    | `/interventions/{interventionId}/activities` | List the intervention's activity feed, oldest first (30/page, client page size) |
+| POST   | `/interventions/{interventionId}/comments`   | Add a member comment to the intervention                                        |
 
 System activities (`created`, `status_changed`) are recorded automatically by
 the workflow gateway inside the same transaction as the underlying mutation —
@@ -156,12 +158,12 @@ organization toggle.
 
 ### Labels
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/intervention-labels` | Create a label (`organization`, `name`, `color`) |
-| GET | `/intervention-labels` | List an organization's labels (filter: `organization` *(required)*; ordered `name ASC`; 30/page, client page size) |
-| PATCH | `/intervention-labels/{id}` | Update `name` and/or `color` |
-| DELETE | `/intervention-labels/{id}` | Delete a label |
+| Method | Path                        | Description                                                                                                        |
+| ------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/intervention-labels`      | Create a label (`organization`, `name`, `color`)                                                                   |
+| GET    | `/intervention-labels`      | List an organization's labels (filter: `organization` _(required)_; ordered `name ASC`; 30/page, client page size) |
+| PATCH  | `/intervention-labels/{id}` | Update `name` and/or `color`                                                                                       |
+| DELETE | `/intervention-labels/{id}` | Delete a label                                                                                                     |
 
 Labels are small, reusable `{name, color}` organization-scoped tags
 (`name` ≤ 50 chars, `color` a `#rrggbb` hex string), unique per
@@ -179,14 +181,14 @@ assignments but never the interventions it was attached to.
 
 ### Templates
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/intervention-templates` | Create a template (`organization`, `name`, `type`, `priority`, defaults, `duration`, `labelIds`, `items`) |
-| GET | `/intervention-templates` | List an organization's templates (filters: `organization` *(required)*, `search`; ordered `name ASC`; 30/page, client page size) |
-| GET | `/intervention-templates/{id}` | Get a template |
-| PATCH | `/intervention-templates/{id}` | Update fields; `labelIds` and `items` are replaced wholesale when present |
-| DELETE | `/intervention-templates/{id}` | Delete a template |
-| POST | `/intervention-templates/{id}/instantiate` | Instantiate a template into a real intervention draft (`201`, `{interventionId, number}`) |
+| Method | Path                                       | Description                                                                                                                      |
+| ------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/intervention-templates`                  | Create a template (`organization`, `name`, `type`, `priority`, defaults, `duration`, `labelIds`, `items`)                        |
+| GET    | `/intervention-templates`                  | List an organization's templates (filters: `organization` _(required)_, `search`; ordered `name ASC`; 30/page, client page size) |
+| GET    | `/intervention-templates/{id}`             | Get a template                                                                                                                   |
+| PATCH  | `/intervention-templates/{id}`             | Update fields; `labelIds` and `items` are replaced wholesale when present                                                        |
+| DELETE | `/intervention-templates/{id}`             | Delete a template                                                                                                                |
+| POST   | `/intervention-templates/{id}/instantiate` | Instantiate a template into a real intervention draft (`201`, `{interventionId, number}`)                                        |
 
 Templates (Lot 3; recurring instantiation added in Lot 6 — see the
 Recurrences section below) are reusable organization-scoped blueprints for
@@ -226,13 +228,13 @@ handler:
 
 ### Recurrences
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/intervention-recurrences` | Create a recurrence against an existing template (`organization`, `template`, `name`, `site`, `responsible`, `frequency`, `interval`, `anchorDate`, `timezone`, `leadTimeDays`, `endAt`) |
-| GET | `/intervention-recurrences` | List an organization's recurrences (filters: `organization` *(required)*, `isActive`; ordered `name ASC`; 30/page, client page size) |
-| GET | `/intervention-recurrences/{id}` | Get a recurrence |
-| PATCH | `/intervention-recurrences/{id}` | Update fields (merge-patch); includes the `isActive` toggle |
-| DELETE | `/intervention-recurrences/{id}` | Delete a recurrence |
+| Method | Path                             | Description                                                                                                                                                                              |
+| ------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/intervention-recurrences`      | Create a recurrence against an existing template (`organization`, `template`, `name`, `site`, `responsible`, `frequency`, `interval`, `anchorDate`, `timezone`, `leadTimeDays`, `endAt`) |
+| GET    | `/intervention-recurrences`      | List an organization's recurrences (filters: `organization` _(required)_, `isActive`; ordered `name ASC`; 30/page, client page size)                                                     |
+| GET    | `/intervention-recurrences/{id}` | Get a recurrence                                                                                                                                                                         |
+| PATCH  | `/intervention-recurrences/{id}` | Update fields (merge-patch); includes the `isActive` toggle                                                                                                                              |
+| DELETE | `/intervention-recurrences/{id}` | Delete a recurrence                                                                                                                                                                      |
 
 A recurrence (Lot 6) periodically re-instantiates an intervention template on
 a schedule: `frequency` (`weekly` | `monthly` | `quarterly` | `semiannual` |
@@ -260,7 +262,7 @@ lands strictly after the given instant. The month-based frequencies add
 calendar months through PHP's native `DateInterval`, which does **not** clamp
 end-of-month overflow (e.g. adding one month to January 31st, 2026 overflows
 into March 3rd rather than clamping to February 28th) — and because each
-step is added onto the *previous* cursor, not re-derived from the anchor day,
+step is added onto the _previous_ cursor, not re-derived from the anchor day,
 an end-of-month anchor permanently drifts after the first short month it
 crosses. This is documented, tested behavior, not a bug.
 
@@ -375,9 +377,9 @@ processed independently to keep memory bounded.
 
 ### Team assignment (R9)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/interventions/{id}/team-assignments` | Snapshot-expand an Organization team's active members into the intervention's participants |
+| Method | Path                                   | Description                                                                                |
+| ------ | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| POST   | `/interventions/{id}/team-assignments` | Snapshot-expand an Organization team's active members into the intervention's participants |
 
 `AssignInterventionTeamInput{teamId}` → `AssignTeamToInterventionHandler`
 resolves the intervention's context (organization, current `participants`)
@@ -408,15 +410,15 @@ participants PATCH would (`409 Conflict`) once it is `submitted` (frozen
 under review — withdraw it to replan) or `published` / `abandoned`
 (immutable).
 
-| Status | When |
-| --- | --- |
-| 200 | Team assigned; the updated intervention is returned |
-| 403 | Authenticated member of the organization without `organization.interventions.plan` |
-| 404 | Unknown intervention, an intervention outside the caller's organization, or a `teamId` unknown or owned by another organization |
-| 409 | The intervention is `submitted`, `published` or `abandoned` |
-| 412 | `If-Match` names a revision the intervention has moved past |
-| 422 | The team exists in the organization but has no active members (a malformed `teamId` is caught earlier by the input validator, also 422) |
-| 428 | No `If-Match` header |
+| Status | When                                                                                                                                    |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 200    | Team assigned; the updated intervention is returned                                                                                     |
+| 403    | Authenticated member of the organization without `organization.interventions.plan`                                                      |
+| 404    | Unknown intervention, an intervention outside the caller's organization, or a `teamId` unknown or owned by another organization         |
+| 409    | The intervention is `submitted`, `published` or `abandoned`                                                                             |
+| 412    | `If-Match` names a revision the intervention has moved past                                                                             |
+| 422    | The team exists in the organization but has no active members (a malformed `teamId` is caught earlier by the input validator, also 422) |
+| 428    | No `If-Match` header                                                                                                                    |
 
 The 404 covers the team as well as the intervention on purpose: a distinct
 status for a team that exists elsewhere would tell a caller which team
@@ -443,13 +445,13 @@ with intervention planning edits not being audited today.
 
 ### Attachments (R11b)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId`, `kind` (`file`\|`signature`, default `file`) and `clientId` (idempotency UUID) multipart fields) |
-| GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments (filter: `workItem` *(optional, IRI or bare id)*) |
-| GET | `/intervention-attachments/{id}` | Get one attachment |
-| GET | `/intervention-attachments/{id}/download` | Download an attachment's stored file bytes (Phase 4b) |
-| DELETE | `/intervention-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
+| Method | Path                                          | Description                                                                                                                                                                     |
+| ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId`, `kind` (`file`\|`signature`, default `file`) and `clientId` (idempotency UUID) multipart fields) |
+| GET    | `/interventions/{interventionId}/attachments` | List an intervention's attachments (filter: `workItem` _(optional, IRI or bare id)_)                                                                                            |
+| GET    | `/intervention-attachments/{id}`              | Get one attachment                                                                                                                                                              |
+| GET    | `/intervention-attachments/{id}/download`     | Download an attachment's stored file bytes (Phase 4b)                                                                                                                           |
+| DELETE | `/intervention-attachments/{id}`              | Delete an attachment (requires `If-Match: "revision-N"`)                                                                                                                        |
 
 Generalized file attachments directly on an intervention, mirroring the
 shared attachment kernel (`src/Shared/MODULE.md`) and the proven
@@ -468,7 +470,7 @@ already uses for in-intervention equipment media:
 1. `InterventionMediaProcessor` resolves the intervention's organization via
    `InterventionResourceManager::interventionContext()` (404 if missing/org
    mismatch).
-1bis. The handler gates on `OrganizationAuthorizationPort::isMemberOf()`
+   1bis. The handler gates on `OrganizationAuthorizationPort::isMemberOf()`
    **before** step 2 and answers 404 when the caller has no active membership.
    The order matters: `mutationPermission()` reads the intervention's phase
    and can itself throw a 409, which would tell a caller outside the owning
@@ -593,7 +595,7 @@ organization missing `organization.interventions.read` gets `403 Forbidden`
 membership gets `404 Not Found` — the same
 `InterventionAttachmentNotFoundException` an unknown attachment id produces,
 so the response cannot be used to confirm the record exists. That is the
-module-wide rule described under *Scope versus entitlement* below, and
+module-wide rule described under _Scope versus entitlement_ below, and
 `InterventionMediaProvider::getOne` and `GetInterventionWorkflowHandler`
 follow it identically. A record whose stored file has gone
 missing from the storage backend (a data-integrity gap, not a routine 404) is
@@ -632,7 +634,7 @@ responsible captures when submitting field work from a plain evidence file:
   submission, not a history of attempts. `AddInterventionAttachmentHandler`
   resolves the existing signature via
   `InterventionAttachmentRepositoryPort::findSignatureByInterventionId()`
-  *before* writing the new file (so a failed upload never touches the old
+  _before_ writing the new file (so a failed upload never touches the old
   one), writes and saves the new attachment first, and only once that succeeds
   deletes the previous signature's record and stored file — the same
   write-then-cleanup ordering `DeleteInterventionAttachmentHandler` and the
@@ -748,15 +750,15 @@ row.
 
 ### Reference
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/intervention-types` | List available intervention types |
+| Method | Path                  | Description                       |
+| ------ | --------------------- | --------------------------------- |
+| GET    | `/intervention-types` | List available intervention types |
 
 ### Statistics (R13/Phase 5c.3)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/interventions/statistics` | Whole-organization KPI snapshot (filters: `organization` *(required)*) |
+| Method | Path                        | Description                                                            |
+| ------ | --------------------------- | ---------------------------------------------------------------------- |
+| GET    | `/interventions/statistics` | Whole-organization KPI snapshot (filters: `organization` _(required)_) |
 
 Module-local, mirroring how `/interventions` requires the `organization`
 query parameter — deliberately NOT nested under `/organizations`, since
@@ -806,12 +808,12 @@ addition, not part of this lot.
 (`Application/Port/Outbound/`), implemented by
 `DoctrineInterventionStatisticsGatewayAdapter` — **not** an extension of
 `Organization\Application\Port\Outbound\InterventionStatisticsPort`. That
-port is a *cross-module* contract Organization owns and consumes for its
+port is a _cross-module_ contract Organization owns and consumes for its
 dashboard (`findRecentInterventions`, `countOverview`); this endpoint is
-*Intervention's own*, with a materially richer, differently-shaped payload
+_Intervention's own_, with a materially richer, differently-shaped payload
 (seven-key status map, top-10 breakdowns, a publication-latency average) that
 does not belong on a contract another module owns. The new port instead
-*extends the established querying approach*: `CLOSED_STATUSES` and the
+_extends the established querying approach_: `CLOSED_STATUSES` and the
 `overdue` definition are lifted verbatim from
 `InterventionStatisticsAdapter::countOverview`, and `DUE_SOON_STATUSES`/the
 48h window mirror `DoctrineInterventionReminderAdapter`/
@@ -832,9 +834,9 @@ since `OrganizationMemberRecord` itself carries no display name).
 
 ### Export (CSV)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/interventions/export` | Streams a bounded CSV export (filters: `organization` *(required)*, `name`, `type`, `status`, `priority` *(multi-value, 400 on an unknown value — same guard as the list endpoint)*, `site`, `responsible`, `dueAtAfter`, `dueAtBefore`, `due=overdue`) |
+| Method | Path                    | Description                                                                                                                                                                                                                                             |
+| ------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/interventions/export` | Streams a bounded CSV export (filters: `organization` _(required)_, `name`, `type`, `status`, `priority` _(multi-value, 400 on an unknown value — same guard as the list endpoint)_, `site`, `responsible`, `dueAtAfter`, `dueAtBefore`, `due=overdue`) |
 
 **Synchronous and streamed — deliberately not 202+poll**, mirroring
 `Audit\...\ExportAuditEventsController`/`GET /audit-events/export`: the
@@ -883,6 +885,8 @@ raw values), mirroring how the audit ledger records its own
 
 ### Create / transition intervention (Command)
 
+The workflow handler loads the intervention, validates the transition and planning prerequisites, then persists through the owned gateway.
+
 ```mermaid
 sequenceDiagram
   participant API as InterventionProcessor
@@ -899,6 +903,8 @@ sequenceDiagram
 ```
 
 ### Publish intervention (async)
+
+HTTP acceptance queues publication; the worker applies the draft publishers. The atomic publication contract commits the materialized resources and final status together.
 
 ```mermaid
 sequenceDiagram
@@ -940,16 +946,16 @@ by deptrac):
 Every user-facing surface in this module answers a denial in one of two ways,
 and which one is not a stylistic choice:
 
-| Caller | Response | Raised as |
-| --- | --- | --- |
-| Active member of the owning organization, lacking the permission | `403 Forbidden` | `InterventionAccessDeniedException` |
-| No active membership in the owning organization | `404 Not Found` | the module's own not-found exception for that record |
+| Caller                                                           | Response        | Raised as                                            |
+| ---------------------------------------------------------------- | --------------- | ---------------------------------------------------- |
+| Active member of the owning organization, lacking the permission | `403 Forbidden` | `InterventionAccessDeniedException`                  |
+| No active membership in the owning organization                  | `404 Not Found` | the module's own not-found exception for that record |
 
 The 404 is not a softer 403. Handlers here look a record up by path id
 **before** they can know which organization owns it, so a 403 at that point
 would confirm the record exists to a caller who may not even learn that much
 — an existence oracle that lets someone from another organization enumerate
-valid identifiers. The out-of-scope 404 therefore reuses the *same* exception
+valid identifiers. The out-of-scope 404 therefore reuses the _same_ exception
 the record's own "not found" branch throws (`InterventionNotFoundException`,
 `InterventionAttachmentNotFoundException`, `PublicationNotFoundException`, …),
 so the two responses are indistinguishable.
@@ -964,7 +970,7 @@ the distinction:
   The membership lookup only runs when the permission is not granted, so the
   authorized path costs no extra query.
 - **`isMemberOf(userId, organizationId)`** is the scope half alone, for the
-  callers that must gate on scope *before* they can name the permission —
+  callers that must gate on scope _before_ they can name the permission —
   the attachment upload/delete handlers, whose permission is derived from the
   intervention's phase by a call that can itself throw a 409.
 
@@ -1089,29 +1095,29 @@ bug waiting for the backend to change underneath it:
 
 ### Ports & adapters (`config/modules/intervention.yaml`)
 
-| Outbound port | Adapter |
-| --- | --- |
-| `InterventionResourceGatewayPort` | `DoctrineInterventionResourceGatewayAdapter` |
-| `InterventionWorkflowGatewayPort` | `DoctrineInterventionWorkflowGatewayAdapter` — also backs `/interventions/export` via `countInterventions()`/`listInterventionExportCandidates()` |
-| `InterventionIssueQueryPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
-| `PublicationRepositoryPort` | `DoctrinePublicationAdapter` |
-| `PublicationQueuePort` | `MessengerPublicationQueueAdapter` |
-| `InterventionActivityPort` | `DoctrineInterventionActivityAdapter` |
-| `InterventionLabelPort` | `DoctrineInterventionLabelAdapter` |
-| `InterventionTemplatePort` | `DoctrineInterventionTemplateAdapter` |
-| `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
-| `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
-| `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
-| `InterventionReportPdfRendererPort` | `DompdfInterventionReportRenderer` — backs `/interventions/{id}/report`; module-local, mirrors `Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort`. No `$entityManager` — query-bus only, no direct Doctrine access |
-| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` *(reused, not owned)* | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` — document branding (name, inlined logo, legal identity, regional settings) for the report's header/footer and date formatting |
-| `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves; also backs the `/interventions/export` `facility` column |
-| `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` — also backs the `/interventions/export` `assignee` column |
-| `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
-| `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
-| `Organization\Application\Port\Outbound\InterventionSearchPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter` — organization global search (`GET /organizations/{organizationId}/search`): `LIKE` on the name, exact number match for an all-digit term |
-| `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
-| `Organization\Application\Port\Inbound\TeamDirectoryPort` *(cross-module, consumed BY Intervention)* | `Organization\Application\Service\TeamDirectoryService` — R9 team-assignment; consumed directly, no Intervention-side wrapper port, exactly like `OrganizationAuthorizationPort` |
-| `Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort` *(cross-module, consumed by Calendar)* | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter` |
+| Outbound port                                                                                                  | Adapter                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InterventionResourceGatewayPort`                                                                              | `DoctrineInterventionResourceGatewayAdapter`                                                                                                                                                                                                                                                              |
+| `InterventionWorkflowGatewayPort`                                                                              | `DoctrineInterventionWorkflowGatewayAdapter` — also backs `/interventions/export` via `countInterventions()`/`listInterventionExportCandidates()`                                                                                                                                                         |
+| `InterventionIssueQueryPort`                                                                                   | `DoctrineInterventionWorkflowGatewayAdapter`                                                                                                                                                                                                                                                              |
+| `PublicationRepositoryPort`                                                                                    | `DoctrinePublicationAdapter`                                                                                                                                                                                                                                                                              |
+| `PublicationQueuePort`                                                                                         | `MessengerPublicationQueueAdapter`                                                                                                                                                                                                                                                                        |
+| `InterventionActivityPort`                                                                                     | `DoctrineInterventionActivityAdapter`                                                                                                                                                                                                                                                                     |
+| `InterventionLabelPort`                                                                                        | `DoctrineInterventionLabelAdapter`                                                                                                                                                                                                                                                                        |
+| `InterventionTemplatePort`                                                                                     | `DoctrineInterventionTemplateAdapter`                                                                                                                                                                                                                                                                     |
+| `InterventionRecurrencePort`                                                                                   | `DoctrineInterventionRecurrenceAdapter`                                                                                                                                                                                                                                                                   |
+| `InterventionReminderPort`                                                                                     | `DoctrineInterventionReminderAdapter`                                                                                                                                                                                                                                                                     |
+| `InterventionStatisticsGatewayPort`                                                                            | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above                                                                                                                                                       |
+| `InterventionReportPdfRendererPort`                                                                            | `DompdfInterventionReportRenderer` — backs `/interventions/{id}/report`; module-local, mirrors `Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort`. No `$entityManager` — query-bus only, no direct Doctrine access                                                                      |
+| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` _(reused, not owned)_                 | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` — document branding (name, inlined logo, legal identity, regional settings) for the report's header/footer and date formatting                                                                                         |
+| `InterventionSiteNamingPort` _(cross-module, consumed BY Intervention)_                                        | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves; also backs the `/interventions/export` `facility` column |
+| `InterventionMemberNamingPort` _(cross-module, consumed BY Intervention)_                                      | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` — also backs the `/interventions/export` `assignee` column                                                                                                                                              |
+| `InterventionEquipmentDraftProviderPort`                                                                       | `Equipment\...\EquipmentInterventionResourceAdapter` _(cross-module)_                                                                                                                                                                                                                                     |
+| `Organization\Application\Port\Outbound\InterventionStatisticsPort` _(cross-module, consumed by Organization)_ | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter`                                                                                                                                                                                                                          |
+| `Organization\Application\Port\Outbound\InterventionSearchPort` _(cross-module, consumed by Organization)_     | `Intervention\Infrastructure\Adapter\Organization\InterventionSearchAdapter` — organization global search (`GET /organizations/{organizationId}/search`): `LIKE` on the name, exact number match for an all-digit term                                                                                    |
+| `Equipment\Application\Port\Outbound\InterventionServiceReportPort` _(cross-module, consumed by Equipment)_    | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter`                                                                                                                                                                                                                          |
+| `Organization\Application\Port\Inbound\TeamDirectoryPort` _(cross-module, consumed BY Intervention)_           | `Organization\Application\Service\TeamDirectoryService` — R9 team-assignment; consumed directly, no Intervention-side wrapper port, exactly like `OrganizationAuthorizationPort`                                                                                                                          |
+| `Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort` _(cross-module, consumed by Calendar)_  | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter`                                                                                                                                                                                                                            |
 
 `InterventionServiceReportAdapter` (`Infrastructure/Adapter/Equipment/`,
 R12) hosts the adapter for Equipment's consumer port
@@ -1234,15 +1240,15 @@ Status transitions (`InterventionTransitionPolicy::assertAllowed`):
 - `draft` → `planned`, `abandoned`
 - `planned` → `in_progress`, `abandoned`
 - `in_progress` → `submitted`, `abandoned`
-- `submitted` → `changes_requested`, `in_progress` *(withdrawal)*
+- `submitted` → `changes_requested`, `in_progress` _(withdrawal)_
 - `changes_requested` → `in_progress`, `submitted`, `abandoned`
-- `published`, `abandoned` → *(terminal)*
+- `published`, `abandoned` → _(terminal)_
 
 `published` is **never** reached by a direct transition — only through the async
 publication flow (`POST /publications`).
 
 **Withdrawal** (`submitted` → `in_progress`) is reserved to the **responsible
-member**, exactly like submission: the workflow gateway guards on the *source*
+member**, exactly like submission: the workflow gateway guards on the _source_
 status and converts the policy conflict into a 403. There is deliberately no
 `submitted` → `abandoned` edge — once withdrawal exists, abandonment is
 reachable in two steps by the same actor. Withdrawing reopens field work
@@ -1276,11 +1282,11 @@ Aggregate invariants (enforced in `Intervention`):
   neither responsible nor participant can reschedule, on top of the base permission
   for a mixed payload):
 
-  | Field | draft | planned | in_progress | changes_requested | submitted |
-  | --- | --- | --- | --- | --- | --- |
-  | plannedStartAt / dueAt / priority / participants | ✔ | ✔ | ✔ | ✔ | ✘ |
-  | responsible | ✔ | ✔ | ✘ | ✘ | ✘ |
-  | site | ✔ | ✘ | ✘ | ✘ | ✘ |
+  | Field                                            | draft | planned | in_progress | changes_requested | submitted |
+  | ------------------------------------------------ | ----- | ------- | ----------- | ----------------- | --------- |
+  | plannedStartAt / dueAt / priority / participants | ✔     | ✔       | ✔           | ✔                 | ✘         |
+  | responsible                                      | ✔     | ✔       | ✘           | ✘                 | ✘         |
+  | site                                             | ✔     | ✘       | ✘           | ✘                 | ✘         |
 
   Rationale: the site scopes the prepared work items (`assertScopeMutable`), the
   responsible governs submission/withdrawal/execution rights
@@ -1298,6 +1304,7 @@ Aggregate invariants (enforced in `Intervention`):
   the same policy to compute `InterventionOutput.allowedActions` (see
   Architecture above), so the aggregate's enforcement and the read model's
   advertisement of the same window cannot drift apart.
+
 - **Immutability**: `published` and `abandoned` interventions are fully immutable
   (`InterventionStatus::isMutable`).
 
@@ -1337,7 +1344,7 @@ enforced by `InterventionWorkflowChangeWriter::mutateChange` and by
 
 - `proposed` → `rejected`, `applied`
 - `rejected` → `proposed`
-- `applied` → *(terminal)*
+- `applied` → _(terminal)_
 
 `applied` is **system-only**: it is set exclusively by the publication path
 (`DoctrinePublicationAdapter::publish`) when a proposed change is carried into the
@@ -1357,7 +1364,7 @@ enforced by `DoctrinePublicationAdapter`):
 - `pending` → `processing`, `failed`
 - `processing` → `completed`, `failed`
 - `failed` → `pending` (retry)
-- `completed` → *(terminal)*
+- `completed` → _(terminal)_
 
 The entity-manager-closed fallback in `DoctrinePublicationAdapter::markFailed` (a prior
 flush failure left the EM closed) still runs a raw SQL `UPDATE …
@@ -1437,14 +1444,14 @@ exactly like labels):
   now agree and a future resync cannot silently drop it again. Repository:
   `Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository`.
 - `intervention_attachments.kind` (Phase 5d.2): `VARCHAR(20) NOT NULL DEFAULT
-  'file'`, composite index `idx_intervention_attachment_intervention_kind` on
+'file'`, composite index `idx_intervention_attachment_intervention_kind` on
   `(intervention_id, kind)` — the input of `findSignatureByInterventionId()` /
   `hasSignature()`. Migration: `migrations/main/Version20260813130500.php`
   (see Attachments above for the full completion-signature behavior).
 - **`uniq_intervention_attachment_signature`** (Phase 5 review — closes the
   signature-duplicate race): a partial unique index,
   `CREATE UNIQUE INDEX uniq_intervention_attachment_signature ON
-  intervention_attachments (intervention_id) WHERE (kind = 'signature')`,
+intervention_attachments (intervention_id) WHERE (kind = 'signature')`,
   hand-written raw SQL because Doctrine's ORM attributes cannot express a
   partial index (same precedent as
   `uniq_approval_request_org_action_subject_pending`, so no
@@ -1568,259 +1575,28 @@ ledger, subject `intervention`) after a successful PDF render, with the
 exporting user as actor — mirrors `compliance.register_exported`'s "who
 pulled this document" traceability.
 
+<a id="seed-fixtures"></a>
+
 ## Testing
 
-- Unit: `tests/Unit/Intervention/`
-  - `Application/UseCase/Command/Attachment/{Add,Delete}InterventionAttachment`,
-    `Application/UseCase/Query/Attachment/ListInterventionAttachments` —
-    org-isolation via `InterventionResourceGatewayPort`, storage rollback on
-    DB failure, path-traversal-safe file naming. `AddInterventionAttachmentHandlerTest`
-    additionally covers Phase 5d.1: a `workItemId` belonging to the same
-    intervention is accepted and round-trips into the Result, and a
-    `workItemId` for which `workItemBelongsToIntervention()` returns `false`
-    (another intervention's work item) is rejected with
-    `InterventionValidationException` (422) before storage is touched — an
-    absent `workItemId` is unaffected (covered by the existing happy-path
-    tests, which pass no `workItemId`). `AddInterventionAttachmentHandlerTest`
-    additionally covers Phase 5d.2: an unknown `kind` (422), a signature
-    uploaded outside `in_progress`/`changes_requested` (409), a PDF-as-signature
-    (422), a signature accepted while `changes_requested`, and a re-uploaded
-    signature replacing the previous one (the previous record and file are
-    deleted only after the new one is saved, and the cap check is not
-    inflated by the row about to be replaced).
-  - `Application/Service/InterventionIssueFinderTest` — the "capture the
-    completion signature" recommendation: present only when `in_progress`,
-    every required work item complete, and no signature yet; absent when a
-    signature already exists, when required work items remain incomplete, or
-    outside `in_progress`.
-  - `Domain/Model/Attachment/InterventionAttachmentTest`,
-    `Infrastructure/Persistence/Doctrine/Mapper/InterventionAttachmentMapperTest`
-    — the `kind` value object defaults to `file` and round-trips through
-    `create()`/`reconstitute()`/the Doctrine mapper in both directions; an
-    unrecognized persisted `kind` value defaults back to `file` rather than
-    throwing.
-  - `Presentation/Api/Processor/Attachment/InterventionMediaProcessorTest` —
-    the phase-based authorization matrix: `draft` requires
-    `organization.interventions.plan`, `in_progress` requires `.execute` (a
-    caller holding only `.review` is rejected with 403), and a `published`
-    (immutable) intervention rejects the upload with 409.
-    `testUploadForwardsTheWorkItemIdMultipartFieldToTheCommand` proves the
-    `workItemId` multipart field is parsed (`ResourceIriParser::id(…,
-    'intervention-work-items')`) and forwarded on the command.
-  - `Presentation/Api/Provider/Attachment/InterventionMediaProviderTest` —
-    flat `organization.interventions.read` enforcement for reads.
-  - `Application/UseCase/Query/Attachment/GetInterventionAttachmentContent/GetInterventionAttachmentContentHandlerTest`
-    (Phase 4b) — every port mocked: the stored bytes returned when
-    `organization.interventions.read` is granted, download allowed on a
-    `published` (otherwise immutable) intervention, `InterventionAttachmentNotFoundException`
-    when the record is missing, `InterventionNotFoundException` when the
-    owning intervention is gone, `InterventionAccessDeniedException` (and the
-    storage port never read) when the permission is missing, and
-    `InvalidArgumentException` on a malformed attachment id.
-  - `Application/UseCase/Query/Workflow/GetInterventionStatistics/GetInterventionStatisticsHandlerTest`
-    — every port mocked: the 403 without `organization.interventions.read`,
-    zero-filled status/priority maps and a `null` average from an empty
-    aggregate, and name resolution wired through for non-empty top entries.
-  - `Presentation/Api/Provider/Statistics/GetInterventionStatisticsProviderTest`
-    — 401 unauthenticated, 400 missing `organization`, the handler's access
-    exception mapped to 403, and the Result → Output mapping.
-  - `Domain/ValueObject/InterventionStatusTest` — `closedValues()` returns
-    exactly `['published', 'abandoned']`, the single source of truth
-    `GetInterventionStatisticsHandler` and `ListInterventionWorkflowHandler`
-    both exclude for "overdue".
-  - `Application/UseCase/Workflow/InterventionWorkflowHandlersTest` —
-    `ListInterventionWorkflowHandler` translates `filters['due'] === 'overdue'`
-    into the gateway's resolved `overdueAsOf` (from `ClockPort::now()`) and
-    `overdueExcludedStatuses` (`InterventionStatus::closedValues()`) keys,
-    composes with a caller-supplied `dueAtAfter`/`dueAtBefore`, and never
-    consults the clock when the `due` filter is absent.
-  - `Presentation/Api/Provider/InterventionProviderTest` — the `due` query
-    parameter is forwarded verbatim into the query filters, and an unknown
-    value (anything but `overdue`) is rejected with 400.
-  - `Domain/Service/InterventionMutabilityPolicyTest` — the three field-
-    mutability windows, one status at a time.
-  - `Application/Service/InterventionActionPolicyTest` — `allowedActions()`
-    across every status for the responsible member with full permissions
-    (one flag-by-flag expectation per status), permission gating (nothing
-    granted denies everything), identity gating (a participant may mutate
-    work items/attachments/changes outside draft, an outsider may not, only
-    the responsible member may submit/withdraw, and a draft mutation ignores
-    identity entirely), and an unrecognized status denying every flag.
-    `requiredPermissions()` is covered by the same data set as
-    `InterventionWorkflowHandlersTest` (the two must never diverge, since the
-    handler calls the exact same method).
-  - `Presentation/Api/Factory/InterventionOutputFactoryTest` — `fromView()`
-    leaves `allowedActions` `null`; `fromViewForCaller()` populates it (and
-    resolves the `responsible`/`participant` IRIs back to raw member ids for
-    the identity check first); calling `fromViewForCaller()` on a factory
-    built without an `InterventionActionPolicy` throws rather than silently
-    omitting the block.
-  - `Presentation/Api/Provider/InterventionProviderTest` — both the item and
-    the collection read path assert `allowedActions` is present on the
-    mapped output.
-- Integration (Doctrine adapters against a real database): `tests/Integration/Intervention/`
-  — used for `DoctrineInterventionRecurrenceAdapter`'s `DATE_SUB`-based
-  lead-time window selection and the `reserveRun()` idempotence guard, both
-  hard to trust from a mock. Also covers `DoctrineInterventionWorkflowGatewayAdapter`'s
-  `number`, `labelId` (label join) and `memberId` (responsible OR jsonb
-  participant lookup) list filters, `DoctrineInterventionReminderAdapter`'s
-  status-set/date-window candidate selection and anti-spam stamping, and
-  `DoctrineInterventionStatisticsGatewayAdapterTest` — grouped status/priority
-  counts scoped to the organization, the overdue/terminal-status exclusion,
-  the due-soon 48h boundary (inclusive) against the active-status set,
-  top-10 truncation and descending order, and the average-publication-days
-  computation (`null` with none published).
-  `InterventionAttachmentRepositoryTest` (Phase 5d.1) additionally covers:
-  `save()`/`findById()` round-tripping `workItemId`; `findByInterventionId()`'s
-  optional `workItemId` filter narrowing to only that work item's attachments;
-  and — the deletion-semantics assertion — deleting the referenced
-  `intervention_work_items` row directly at the database level sets the
-  attachment's `work_item_id` to `null` rather than deleting the attachment,
-  proving the `ON DELETE SET NULL` FK. Additionally covers Phase 5d.2: `kind`
-  round-trips through `save()`/`findById()` (including the unrecognized-value
-  default), and `findSignatureByInterventionId()`/`hasSignature()` return the
-  intervention's own signature only (scoped correctly across interventions,
-  `null`/`false` when none exists).
-- Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
-  `tests/Functional/Api/InterventionTeamAssignmentApiTest.php` — the full
-  status table above: 200 on `draft` **and** on `planned` (the guard against
-  re-tightening the assignment to draft-only), 403 unentitled, 404 for an
-  intervention or a team outside the caller's organization, 409 on
-  `submitted`, 412 stale, 422 empty team, 428 without `If-Match`;
-  `tests/Functional/Api/InterventionAttachmentApiTest.php`,
-  `tests/Functional/Api/InterventionStatisticsApiTest.php` — 200 with the
-  full shape (all 7 status keys, all 4 priority keys, `bySite` name
-  resolution, `averagePublicationDays`), 400 without `organization`, 403 for
-  a member without `organization.interventions.read`, and 404 — deliberately
-  NOT 403 — for a caller who is not a member of the requested organization at
-  all: the handler resolves both cases through
-  `OrganizationAuthorizationPort::resolveAccess()`, and `isOutsideScope()`
-  maps to 404 so a non-member cannot confirm the organization even exists.
-  `tests/Functional/Api/InterventionExportApiTest.php` — 200 with the CSV
-  content type, the `Content-Disposition: attachment` header, the documented
-  header row, and one data row per matching intervention; 400 for an unknown
-  `status` filter value; 401 unauthenticated; 403 for a member without
-  `organization.interventions.read`. The 422 row-cap path (`MAX_EXPORT_ROWS`
-  is a class constant, not injectable) is covered instead by
-  `tests/Unit/Intervention/Application/UseCase/Query/ExportInterventions/ExportInterventionsHandlerTest.php`,
-  which also covers the bulk name resolution (and its raw-id fallback when a
-  site/member no longer resolves) and the `due=overdue` filter translation;
-  `tests/Unit/Intervention/Presentation/Api/Service/InterventionCsvWriterTest.php`
-  covers the CSV formatting itself.
-  `tests/Functional/Api/InterventionOverdueFilterApiTest.php` — seeds
-  interventions directly through the entity manager (like the statistics
-  test, so a terminal status can carry a past due date without the workflow
-  forbidding it) and proves `GET /interventions?due=overdue` lists a
-  non-terminal past-due intervention while excluding one not yet due and one
-  each `published`/`abandoned` despite a past due date, plus composability
-  with a caller-supplied `dueAtAfter`. Denial paths are not duplicated here —
-  they already exist for `GET /interventions`.
-  `InterventionAttachmentApiTest` additionally covers the download route
-  (Phase 4b): a real multipart-upload-then-download round-trip proving the
-  exact bytes and the RFC-6266-encoded `Content-Disposition` for an accented
-  file name, download succeeding on a `published` intervention (no phase
-  restriction), 401 unauthenticated, 403 for a same-organization member
-  without `organization.interventions.read`, 404 for a caller outside the
-  owning organization entirely (the same `resolveAccess()`/`isOutsideScope()`
-  pattern as the statistics endpoint — the caller cannot distinguish this
-  from an unknown attachment id), 404 for an unknown attachment id, and 404
-  when the stored file has gone missing from disk while the DB row survives.
-  Phase 5d.1:
-  `testUploadWithWorkItemIdRoundTripsIntoTheOutputAndTheFilterNarrowsAndTheWorkItemOutputExposesTheEvidenceCount`
-  — a real multipart upload with a `workItemId` field round-trips into
-  `InterventionAttachmentOutput.workItemId`, the `workItem` query filter on
-  `GET /interventions/{id}/attachments` narrows to that work item's
-  attachment only (zero for a sibling work item with none), and
-  `GET /intervention-work-items/{id}` exposes the matching `evidenceCount`;
-  `testUploadWithAWorkItemIdFromAnotherInterventionIsRejectedWith422` proves
-  the cross-intervention denial end to end. Phase 5d.2: a real signature
-  upload round-trips `kind: 'signature'` into the output and flips
-  `InterventionOutput.hasSignature` to `true`; an upload with no `kind`
-  defaults to `file`; an unknown `kind` and a PDF declared as a signature are
-  both rejected with 422; a signature uploaded outside
-  `in_progress`/`changes_requested` is rejected with 409; and re-uploading a
-  signature mints a new attachment id, 404s the previous one, and leaves
-  exactly one `signature`-kind attachment in the list.
-  - `Infrastructure/Pdf/DompdfInterventionReportRendererTest` (Lot P4.5) —
-    mirrors `DompdfSafetyRegisterRendererTest`: implements the renderer port,
-    renders the given context through the given template, returns bytes
-    starting `%PDF-`, the SSRF hardening (remote resource loading disabled)
-    does not turn rendering into an outbound request, and a template failure
-    bubbles up rather than being swallowed.
-- Functional: `tests/Functional/Api/InterventionReportExportApiTest.php`
-  (Lot P4.5) — 200 with `Content-Type: application/pdf`, a
-  `Content-Disposition: attachment` header naming
-  `intervention-FG-{number}-report.pdf`, and a body starting `%PDF-`; success
-  on a `published` intervention (no phase restriction, mirrors the
-  attachment-download precedent); 401 unauthenticated; 404 for an unknown
-  intervention id; 403 for a same-organization member without
-  `organization.interventions.read`; 404 — deliberately not 403 — for a
-  caller with no active membership in the owning organization at all, the
-  same `OrganizationAuthorizationPort::resolveAccess()` / `isOutsideScope()`
-  split every other read path in this module uses.
-- E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
-  submit → work items frozen (409) → withdraw → work items mutable again →
-  resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The
-  non-responsible 403 on withdrawal is proven at unit level
-  (`InterventionMemberPolicyTest`), the gateway wiring being the same
-  try/catch as submission. Also covers the `label`, `member` and `number`
-  collection filters end to end, including the `number` filter's `FG-`
-  prefix and its 400 on a non-numeric value.
-- Run module tests: `make test tests/Unit/Intervention/`
+Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 
-### Seed fixtures
-
-`Intervention\Infrastructure\DataFixtures\InterventionFixtures` (group
-`intervention`, tagged `app.seed_fixture.main`) seeds the whole graph: 5
-labels, 3 templates with their planned items, 12 hand-authored interventions
-covering **every** `InterventionStatus`, `InterventionType` and
-`InterventionPriority`, their work items, proposed/applied/rejected changes,
-publication attempts (completed, pending, failed), activity feed, attachments,
-3 recurrences with their materialization runs, and the per-organization
-number counter. On top of those twelve, `BULK_INTERVENTION_COUNT` (40)
-generated interventions — one work item each, no changes/publications/
-comments — push the pool past 50 rows so its list, board and calendar views
-actually paginate.
-
-Two invariants the seed keeps, because the runtime enforces them and a
-contradictory row would be a state no code path can produce:
-
-- every seeded status is reachable from `draft` through
-  `InterventionTransitionPolicy`, and the seeded activity feed replays exactly
-  that transition chain;
-- proposed changes exist only where field work is active (`in_progress`,
-  `changes_requested`), per `InterventionChangePolicy` — a published
-  intervention carries `applied` ones instead. A `skipped` work item always
-  carries its reason.
-
-`InterventionNumberCounterRecord::$lastNumber` is seeded at the highest seeded
-number; leaving it behind would make the next runtime creation collide on the
-unique `(organization_id, number)`.
-
-Covered by `tests/Integration/Intervention/Infrastructure/DataFixtures/InterventionFixturesIntegrationTest`.
-
-The separate opt-in `workload` demo group appends five intervention scenarios for
-the current and next local workweek, with task effort, assignment history and
-independent versioned time entries. It uses the existing per-organization number
-allocator and preserves whole existing scenario trees on replay. It is loaded
-through `app:fixtures:append workload` in dev/test, never the standard purged seed
-baseline. Workload owns capacity examples separately; see `Workload/MODULE.md`
-for the safe loading command and data-preservation contract.
+Detailed cases and regression rationale are retained in the [Intervention testing reference](../../docs/guides/interventions.md#intervention-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes
 
 Domain exceptions are translated to HTTP by
 `InterventionWorkflowExceptionMapperTrait::mapWorkflowException`:
 
-| Exception | HTTP |
-| --- | --- |
-| `InterventionAccessDeniedException` | 403 Forbidden |
-| `InterventionNotFoundException` | 404 Not Found |
+| Exception                                   | HTTP                      |
+| ------------------------------------------- | ------------------------- |
+| `InterventionAccessDeniedException`         | 403 Forbidden             |
+| `InterventionNotFoundException`             | 404 Not Found             |
 | `InterventionPreconditionRequiredException` | 428 Precondition Required |
-| `InterventionPreconditionFailedException` | 412 Precondition Failed |
-| `InterventionValidationException` | 422 Unprocessable Entity |
-| `InterventionConflictException` | 409 Conflict |
-| `InvalidArgumentException` | 400 Bad Request |
+| `InterventionPreconditionFailedException`   | 412 Precondition Failed   |
+| `InterventionValidationException`           | 422 Unprocessable Entity  |
+| `InterventionConflictException`             | 409 Conflict              |
+| `InvalidArgumentException`                  | 400 Bad Request           |
 
 Specializations (`InterventionBlockedException`,
 `InterventionResourceNotFoundException`, `PublicationNotFoundException`,
@@ -1843,3 +1619,7 @@ uncancelled actual date range, timezone fallbacks, ordering and distinct revisio
 It does not hydrate intervention trees into the unit of work. The 20,000-task PostgreSQL
 measurement and reproduction command live in Workload/MODULE.md. Statistics already use
 bounded grouped reads and remain unchanged after measurement.
+
+## Configuration
+
+Bindings are defined in [Intervention configuration](../../config/modules/intervention.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.

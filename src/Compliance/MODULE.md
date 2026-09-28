@@ -1,5 +1,7 @@
 # Compliance Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Compliance is a **read-only** module (DB `main`, no table of its own) that
@@ -35,16 +37,16 @@ ledger — no dedicated export-log table.
 
 ## API Endpoints
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| GET | `/api/organizations/{organizationId}/compliance` | Organization compliance rollup + per-facility breakdown | `organization.compliance.read` (+ facilities/equipment/inspection/maintenance read) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/compliance` | Single-facility compliance detail | same as above |
-| GET | `/api/organizations/{organizationId}/facility-tree` | Enriched facility hierarchy (Site/Building/Floor/Zone) — equipment count + compliance verdict/rate per node ("L2.9") | same as above |
-| GET | `/api/organizations/{organizationId}/compliance/export` | Organization "registre de sécurité" PDF | `organization.compliance.export` **and** plan ∈ {pro, max} |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}/compliance/export` | Facility "registre de sécurité" PDF | same as above |
-| POST | `/api/organizations/{organizationId}/compliance/register-snapshots` | Archive the register as a dated snapshot (201 + metadata; optional `facilityId` body field scopes it to one facility) | same as export |
-| GET | `/api/organizations/{organizationId}/compliance/register-snapshots` | List archived snapshots (paginated, newest first) | same as export |
-| GET | `/api/organizations/{organizationId}/compliance/register-snapshots/{snapshotId}/download` | Download an archived snapshot PDF | same as export |
+| Method | Path                                                                                      | Description                                                                                                           | Permission                                                                          |
+| ------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/api/organizations/{organizationId}/compliance`                                          | Organization compliance rollup + per-facility breakdown                                                               | `organization.compliance.read` (+ facilities/equipment/inspection/maintenance read) |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}/compliance`                  | Single-facility compliance detail                                                                                     | same as above                                                                       |
+| GET    | `/api/organizations/{organizationId}/facility-tree`                                       | Enriched facility hierarchy (Site/Building/Floor/Zone) — equipment count + compliance verdict/rate per node ("L2.9")  | same as above                                                                       |
+| GET    | `/api/organizations/{organizationId}/compliance/export`                                   | Organization "registre de sécurité" PDF                                                                               | `organization.compliance.export` **and** plan ∈ {pro, max}                          |
+| GET    | `/api/organizations/{organizationId}/facilities/{facilityId}/compliance/export`           | Facility "registre de sécurité" PDF                                                                                   | same as above                                                                       |
+| POST   | `/api/organizations/{organizationId}/compliance/register-snapshots`                       | Archive the register as a dated snapshot (201 + metadata; optional `facilityId` body field scopes it to one facility) | same as export                                                                      |
+| GET    | `/api/organizations/{organizationId}/compliance/register-snapshots`                       | List archived snapshots (paginated, newest first)                                                                     | same as export                                                                      |
+| GET    | `/api/organizations/{organizationId}/compliance/register-snapshots/{snapshotId}/download` | Download an archived snapshot PDF                                                                                     | same as export                                                                      |
 
 Every operation requires `ROLE_USER` at the resource level; fine-grained
 permission checks are enforced in the Application layer (query handlers) and,
@@ -54,6 +56,8 @@ module's convention).
 ## Flows
 
 ### Compliance summary read (synchronous)
+
+The summary query composes the authorized compliance projection synchronously. This read does not create or regenerate an immutable safety-register archive.
 
 ```mermaid
 sequenceDiagram
@@ -78,6 +82,8 @@ sequenceDiagram
 ```
 
 ### Enriched facility tree read (synchronous)
+
+The tree query enriches scoped facilities with their compliance projection. Facility identity and policy/evaluation ownership remain separate.
 
 ```mermaid
 sequenceDiagram
@@ -151,17 +157,17 @@ locales without a catalogue. The layout carries no normative claim
 
 ### Ports & adapters (`config/modules/compliance.yaml`)
 
-| Port | Adapter |
-| --- | --- |
-| `SafetyRegisterPdfRendererPort` (module-local) | `DompdfSafetyRegisterRenderer` |
-| `ComplianceFacilityDirectoryPort` (cross-module) | `Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter` |
-| `MaintenanceComplianceStatisticsPort` (cross-module) | `Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter` |
-| `InspectionComplianceStatisticsPort` (cross-module) | `Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter` |
-| `EquipmentComplianceStatisticsPort` (cross-module) | `Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter` |
-| `ComplianceExportEntitlementPort` (cross-module) | `Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter` |
-| `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` *(reused, not owned)* | `Organization\Application\Service\OrganizationAuthorizationService` |
-| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` *(reused, not owned)* | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter` |
-| `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, hosted here)* | `Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter` |
+| Port                                                                                             | Adapter                                                                                 |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `SafetyRegisterPdfRendererPort` (module-local)                                                   | `DompdfSafetyRegisterRenderer`                                                          |
+| `ComplianceFacilityDirectoryPort` (cross-module)                                                 | `Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter`         |
+| `MaintenanceComplianceStatisticsPort` (cross-module)                                             | `Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter`  |
+| `InspectionComplianceStatisticsPort` (cross-module)                                              | `Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter`    |
+| `EquipmentComplianceStatisticsPort` (cross-module)                                               | `Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter`      |
+| `ComplianceExportEntitlementPort` (cross-module)                                                 | `Organization\Infrastructure\Adapter\Export\OrganizationExportEntitlementAdapter`       |
+| `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` _(reused, not owned)_      | `Organization\Application\Service\OrganizationAuthorizationService`                     |
+| `Organization\Application\Port\Inbound\OrganizationDocumentBrandingPort` _(reused, not owned)_   | `Organization\Infrastructure\Adapter\Document\OrganizationDocumentBrandingAdapter`      |
+| `Assistant\Application\Port\Outbound\AssistantContextProviderPort` _(cross-module, hosted here)_ | `Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter` |
 
 `GetFacilityTreeHandler` introduces **no new port**: it reuses the same four
 ports above via `ComplianceRegisterAggregator`, plus the module-local
@@ -206,14 +212,14 @@ grading.
 
 - **Denominator**: `trackedEquipmentCount` — equipment actually subject to a
   periodicity (`upToDateEquipmentCount + dueSoonEquipmentCount +
-  overdueEquipmentCount`). It excludes `unscheduledEquipmentCount` (no
+overdueEquipmentCount`). It excludes `unscheduledEquipmentCount` (no
   effective periodicity to grade against) and `totalEquipmentCount`/
   `activeEquipmentCount` (raw inventory, not a grading population). This
   value already existed as `FacilityComplianceView::trackedEquipmentCount()`
   but was previously computed and dropped — serializing it costs zero new
   queries.
 - **Formula**: `complianceRate = upToDateEquipmentCount /
-  trackedEquipmentCount * 100`, single source of truth in
+trackedEquipmentCount * 100`, single source of truth in
   `FacilityComplianceView::computeComplianceRate()` (static, pure), reused
   by both levels:
   - Per facility: `FacilityComplianceView::complianceRate()` calls it with
@@ -289,7 +295,7 @@ cross-module ports**.
 - Presentation: `FacilityTreeResource` (single read-only `Get`),
   `GetFacilityTreeProvider`, `FacilityTreeOutputFactory` (recursively
   serializes nodes to `{id, name, type, parentFacilityId, equipmentCount,
-  status, complianceRate, children}`), `FacilityTreeOutput`.
+status, complianceRate, children}`), `FacilityTreeOutput`.
 
 ## Assistant business-context provider (L2.2)
 
@@ -455,15 +461,15 @@ same document, retained.
 - Functional: `tests/Functional/Api/ComplianceApiTest.php` (includes the
   facility-tree endpoint auth check), `tests/Functional/Api/SafetyRegisterExportApiTest.php`,
   `tests/Functional/Api/SafetyRegisterSnapshotApiTest.php`
-- Run module tests: `make test tests/Unit/Compliance/`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Compliance/`
+
 ## Error Codes
 
-| Exception | HTTP |
-| --- | --- |
-| `ComplianceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `ComplianceExportNotEntitledException` | 403 Forbidden ("upgrade required") |
-| `ComplianceNotFoundException` | 404 Not Found |
-
+| Exception                                                                                             | HTTP                               |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `ComplianceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden                      |
+| `ComplianceExportNotEntitledException`                                                                | 403 Forbidden ("upgrade required") |
+| `ComplianceNotFoundException`                                                                         | 404 Not Found                      |
 
 ## Evaluation coverage
 

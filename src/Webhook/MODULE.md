@@ -1,5 +1,7 @@
 # Webhook Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/async-processing.md).
+
 ## Overview
 
 Webhook lets an organization register outbound HTTP subscriptions that
@@ -21,18 +23,18 @@ Main goals:
 
 ## API Endpoints
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/webhooks` | Create a subscription; returns the plaintext signing secret once | `organization.webhooks.manage` |
-| GET | `/api/organizations/{organizationId}/webhooks` | List an organization's subscriptions | `organization.webhooks.read` |
-| GET | `/api/organizations/{organizationId}/webhooks/{webhookId}` | Get a subscription | `organization.webhooks.read` |
-| PATCH | `/api/organizations/{organizationId}/webhooks/{webhookId}` | Partially update `url`/`eventTypes`/`isActive`/`description` | `organization.webhooks.manage` |
-| DELETE | `/api/organizations/{organizationId}/webhooks/{webhookId}` | Delete a subscription and its delivery log | `organization.webhooks.manage` |
-| POST | `/api/organizations/{organizationId}/webhooks/{webhookId}/rotate-secret` | Generate a new signing secret; returns it once | `organization.webhooks.manage` |
-| POST | `/api/organizations/{organizationId}/webhooks/{webhookId}/ping` | Enqueue a synthetic `webhook.ping` test delivery | `organization.webhooks.manage` |
-| GET | `/api/organizations/{organizationId}/webhooks/{webhookId}/deliveries` | Delivery log (filter: `status`) | `organization.webhooks.read` |
-| POST | `/api/organizations/{organizationId}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliver` | Re-enqueue a delivery (any status, including terminally `failed`) | `organization.webhooks.manage` |
-| GET | `/api/webhooks/event-types` | Reference catalog of subscribable event types | `ROLE_USER` |
+| Method | Path                                                                                         | Description                                                       | Permission                     |
+| ------ | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------ |
+| POST   | `/api/organizations/{organizationId}/webhooks`                                               | Create a subscription; returns the plaintext signing secret once  | `organization.webhooks.manage` |
+| GET    | `/api/organizations/{organizationId}/webhooks`                                               | List an organization's subscriptions                              | `organization.webhooks.read`   |
+| GET    | `/api/organizations/{organizationId}/webhooks/{webhookId}`                                   | Get a subscription                                                | `organization.webhooks.read`   |
+| PATCH  | `/api/organizations/{organizationId}/webhooks/{webhookId}`                                   | Partially update `url`/`eventTypes`/`isActive`/`description`      | `organization.webhooks.manage` |
+| DELETE | `/api/organizations/{organizationId}/webhooks/{webhookId}`                                   | Delete a subscription and its delivery log                        | `organization.webhooks.manage` |
+| POST   | `/api/organizations/{organizationId}/webhooks/{webhookId}/rotate-secret`                     | Generate a new signing secret; returns it once                    | `organization.webhooks.manage` |
+| POST   | `/api/organizations/{organizationId}/webhooks/{webhookId}/ping`                              | Enqueue a synthetic `webhook.ping` test delivery                  | `organization.webhooks.manage` |
+| GET    | `/api/organizations/{organizationId}/webhooks/{webhookId}/deliveries`                        | Delivery log (filter: `status`)                                   | `organization.webhooks.read`   |
+| POST   | `/api/organizations/{organizationId}/webhooks/{webhookId}/deliveries/{deliveryId}/redeliver` | Re-enqueue a delivery (any status, including terminally `failed`) | `organization.webhooks.manage` |
+| GET    | `/api/webhooks/event-types`                                                                  | Reference catalog of subscribable event types                     | `ROLE_USER`                    |
 
 `/api/webhooks/event-types` has no first-party web consumer today — it is retained
 deliberately as a public-API discovery affordance for external integrators wiring up
@@ -69,23 +71,23 @@ dispatcher event names (`<module>.<snake_case_class>`, per
 cross-checked against the subscribers in `Audit\Infrastructure\EventSubscriber\`,
 which already subscribe to every one of them:
 
-| Public type (`WebhookEventType`) | Internal dispatched event name |
-| --- | --- |
-| `equipment.commissioned` | `equipment.equipment_commissioned_event` |
-| `equipment.decommissioned` | `equipment.equipment_decommissioned_event` |
-| `equipment.under_maintenance` | `equipment.equipment_put_under_maintenance_event` |
-| `equipment.returned_to_stock` | `equipment.equipment_returned_to_stock_event` |
-| `inspection.submitted` | `inspection.inspection_submitted_event` |
-| `inspection.closed` | `inspection.inspection_closed_event` |
-| `inspection.non_conformity_recorded` | `inspection.non_conformity_recorded_event` |
-| `inspection.non_conformity_status_changed` | `inspection.non_conformity_status_changed_event` |
-| `intervention.published` | `intervention.intervention_published_event` |
-| `maintenance.campaign_generated` | `maintenance.maintenance_campaign_generated_event` |
-| `facility.created` | `facility.facility_created_event` |
-| `facility.archived` | `facility.facility_archived_event` |
-| `facility.restored` | `facility.facility_restored_event` |
-| `facility.updated` | `facility.facility_updated_event` |
-| `webhook.ping` | *(never dispatched from a real event — reserved for the test-delivery endpoint)* |
+| Public type (`WebhookEventType`)           | Internal dispatched event name                                                   |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| `equipment.commissioned`                   | `equipment.equipment_commissioned_event`                                         |
+| `equipment.decommissioned`                 | `equipment.equipment_decommissioned_event`                                       |
+| `equipment.under_maintenance`              | `equipment.equipment_put_under_maintenance_event`                                |
+| `equipment.returned_to_stock`              | `equipment.equipment_returned_to_stock_event`                                    |
+| `inspection.submitted`                     | `inspection.inspection_submitted_event`                                          |
+| `inspection.closed`                        | `inspection.inspection_closed_event`                                             |
+| `inspection.non_conformity_recorded`       | `inspection.non_conformity_recorded_event`                                       |
+| `inspection.non_conformity_status_changed` | `inspection.non_conformity_status_changed_event`                                 |
+| `intervention.published`                   | `intervention.intervention_published_event`                                      |
+| `maintenance.campaign_generated`           | `maintenance.maintenance_campaign_generated_event`                               |
+| `facility.created`                         | `facility.facility_created_event`                                                |
+| `facility.archived`                        | `facility.facility_archived_event`                                               |
+| `facility.restored`                        | `facility.facility_restored_event`                                               |
+| `facility.updated`                         | `facility.facility_updated_event`                                                |
+| `webhook.ping`                             | _(never dispatched from a real event — reserved for the test-delivery endpoint)_ |
 
 Excluded by policy: every auth/oauth/otp/session event (security-internal),
 per-message Messaging events (volume/PII), and Audit's own events. Renaming
@@ -95,6 +97,8 @@ a source domain event requires updating both `WebhookEventCatalog` and
 ## Flows
 
 ### Dispatch (event-driven, request thread — enqueue only)
+
+Event handling enqueues delivery work and returns to the producer. The request thread does not perform outbound webhook HTTP delivery.
 
 ```mermaid
 sequenceDiagram
@@ -115,6 +119,8 @@ and logs errors) but dispatches directly onto the raw Symfony message bus —
 dispatch never produces.
 
 ### Fan-out + delivery (async, `webhook` transport)
+
+The dedicated worker resolves eligible subscriptions and sends signed payloads. Failure and replay use the webhook transport's retry and destination contract.
 
 ```mermaid
 sequenceDiagram
@@ -156,14 +162,14 @@ bypassing the fan-out since they target exactly one subscription.
 
 Headers sent with every delivery:
 
-| Header | Value |
-| --- | --- |
-| `Content-Type` | `application/json` |
-| `User-Agent` | `FireGuard-Webhooks/1.0` |
-| `X-FireGuard-Webhook-Id` | the delivery UUID — the consumer-side idempotency key (retries/redeliveries reuse it) |
-| `X-FireGuard-Webhook-Event` | the public event type (e.g. `intervention.published`) |
-| `X-FireGuard-Webhook-Timestamp` | the signed unix timestamp |
-| `X-FireGuard-Webhook-Signature` | `sha256=<hex hmac>` |
+| Header                          | Value                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| `Content-Type`                  | `application/json`                                                                    |
+| `User-Agent`                    | `FireGuard-Webhooks/1.0`                                                              |
+| `X-FireGuard-Webhook-Id`        | the delivery UUID — the consumer-side idempotency key (retries/redeliveries reuse it) |
+| `X-FireGuard-Webhook-Event`     | the public event type (e.g. `intervention.published`)                                 |
+| `X-FireGuard-Webhook-Timestamp` | the signed unix timestamp                                                             |
+| `X-FireGuard-Webhook-Signature` | `sha256=<hex hmac>`                                                                   |
 
 A consumer should reject a delivery if `|now - timestamp| > 300s` (replay
 window) and recompute the HMAC over the exact raw request body before
@@ -293,13 +299,13 @@ the existing `OrganizationQuotaLockPort`/409 pattern, gating pro/max plans.
 
 ### Ports & adapters (`config/modules/webhook.yaml`)
 
-| Port | Adapter |
-| --- | --- |
-| `WebhookSubscriptionRepositoryPort` | `WebhookSubscriptionRepository` |
-| `WebhookDeliveryRepositoryPort` | `WebhookDeliveryRepository` |
-| `WebhookDeliveryQueuePort` | `MessengerWebhookDeliveryQueueAdapter` |
-| `WebhookSecretCipherPort` | `OpensslWebhookSecretCipherAdapter` |
-| `WebhookHttpClientPort` | `SymfonyHttpWebhookClientAdapter` |
+| Port                                | Adapter                                |
+| ----------------------------------- | -------------------------------------- |
+| `WebhookSubscriptionRepositoryPort` | `WebhookSubscriptionRepository`        |
+| `WebhookDeliveryRepositoryPort`     | `WebhookDeliveryRepository`            |
+| `WebhookDeliveryQueuePort`          | `MessengerWebhookDeliveryQueueAdapter` |
+| `WebhookSecretCipherPort`           | `OpensslWebhookSecretCipherAdapter`    |
+| `WebhookHttpClientPort`             | `SymfonyHttpWebhookClientAdapter`      |
 
 Cross-module: every command/query handler self-enforces
 `organization.webhooks.{read,manage}` via
@@ -345,7 +351,7 @@ or the `organization.*` owner wildcard.
 - Env vars: `WEBHOOK_ENCRYPTION_KEY` (base64, 32 raw bytes),
   `WEBHOOK_ALLOW_INSECURE_URLS` (dev-only http:// toggle),
   `WEBHOOK_HTTP_TIMEOUT` (outbound request timeout, seconds).
-- Run `php bin/console app:authz:sync-permissions --update-roles` after
+- Run `php -d memory_limit=1G bin/console app:authz:sync-permissions --update-roles` after
   changing `OrganizationPermissionCatalog` — a no-op for these two
   permissions specifically, since `OrganizationPermissionCatalog` is a
   static catalog (no DB persistence/sync step exists for organization-scoped
@@ -356,16 +362,16 @@ or the `organization.*` owner wildcard.
 
 - Unit: `tests/Unit/Webhook`
 - Functional: `tests/Functional/Api/WebhookSubscriptionApiTest.php`
-- Run module tests: `php vendor/bin/phpunit tests/Unit/Webhook`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Webhook`
 
 ## Error Codes
 
-| Exception | HTTP |
-| --- | --- |
-| `WebhookSubscriptionNotFoundException` / `WebhookDeliveryNotFoundException` | 404 Not Found |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `WebhookValidationException` | 422 Unprocessable Entity |
-| `InvalidArgumentException` | 400 Bad Request |
+| Exception                                                                   | HTTP                     |
+| --------------------------------------------------------------------------- | ------------------------ |
+| `WebhookSubscriptionNotFoundException` / `WebhookDeliveryNotFoundException` | 404 Not Found            |
+| `Organization\Domain\Exception\OrganizationAccessDeniedException`           | 403 Forbidden            |
+| `WebhookValidationException`                                                | 422 Unprocessable Entity |
+| `InvalidArgumentException`                                                  | 400 Bad Request          |
 
 ## Organization management UI and safe delivery feedback
 

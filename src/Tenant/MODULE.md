@@ -1,5 +1,7 @@
 # Tenant Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/organization-and-access.md).
+
 ## Overview
 
 Tenant manages multi-tenant configuration for the API. It stores per-tenant
@@ -8,31 +10,33 @@ exposes endpoints to create, read, update, activate/deactivate, and delete tenan
 
 ## API Endpoints
 
-| Resource | Method | Path | Description |
-| --- | --- | --- | --- |
-| Tenant | GET | `/api/tenants` | List all tenants |
-| Tenant | GET | `/api/tenants/{id}` | Get a tenant by ID |
-| Tenant | POST | `/api/tenants` | Create a tenant |
-| Tenant | PATCH | `/api/tenants/{id}` | Update a tenant |
-| Tenant | PUT | `/api/tenants/{id}` | Replace a tenant |
-| Tenant | DELETE | `/api/tenants/{id}` | Delete a tenant |
-| Tenant | POST | `/api/tenants/{id}/activate` | Activate a tenant |
-| Tenant | POST | `/api/tenants/{id}/deactivate` | Deactivate a tenant |
+| Resource | Method | Path                           | Description         |
+| -------- | ------ | ------------------------------ | ------------------- |
+| Tenant   | GET    | `/api/tenants`                 | List all tenants    |
+| Tenant   | GET    | `/api/tenants/{id}`            | Get a tenant by ID  |
+| Tenant   | POST   | `/api/tenants`                 | Create a tenant     |
+| Tenant   | PATCH  | `/api/tenants/{id}`            | Update a tenant     |
+| Tenant   | PUT    | `/api/tenants/{id}`            | Replace a tenant    |
+| Tenant   | DELETE | `/api/tenants/{id}`            | Delete a tenant     |
+| Tenant   | POST   | `/api/tenants/{id}/activate`   | Activate a tenant   |
+| Tenant   | POST   | `/api/tenants/{id}/deactivate` | Deactivate a tenant |
 
 ## Settings
 
-| Setting | Default | Constraints | Description |
-| --- | --- | --- | --- |
-| accessTokenTtl | 3600 | 300 - 86400 | Access token TTL in seconds |
-| refreshTokenTtl | 86400 | 3600 - 2592000 | Refresh token TTL in seconds |
-| requirePkce | true | - | Enforce PKCE for OAuth2 flows |
-| allowPublicClients | false | Requires requirePkce=true | Allow public clients |
-| allowedScopes | ["openid","profile","email"] | Non-empty strings | Allowed OAuth2 scopes |
-| customIssuer | null | Valid URL when set | Optional custom issuer URL |
+| Setting            | Default                      | Constraints               | Description                   |
+| ------------------ | ---------------------------- | ------------------------- | ----------------------------- |
+| accessTokenTtl     | 3600                         | 300 - 86400               | Access token TTL in seconds   |
+| refreshTokenTtl    | 86400                        | 3600 - 2592000            | Refresh token TTL in seconds  |
+| requirePkce        | true                         | -                         | Enforce PKCE for OAuth2 flows |
+| allowPublicClients | false                        | Requires requirePkce=true | Allow public clients          |
+| allowedScopes      | ["openid","profile","email"] | Non-empty strings         | Allowed OAuth2 scopes         |
+| customIssuer       | null                         | Valid URL when set        | Optional custom issuer URL    |
 
 ## Flows
 
 ### Create Tenant (Command)
+
+The tenant command creates the aggregate through its owned repository. Contextual validation precedes persistence and returned results.
 
 ```mermaid
 sequenceDiagram
@@ -48,6 +52,8 @@ sequenceDiagram
 
 ### Update Tenant (Command)
 
+The command loads and updates the tenant under its existing validation contract, then persists through the repository port.
+
 ```mermaid
 sequenceDiagram
   participant API as UpdateTenantProcessor
@@ -61,6 +67,8 @@ sequenceDiagram
 ```
 
 ### Activate Tenant (Command)
+
+Activation invokes the tenant domain transition before persisting its result. The HTTP adapter remains a translation boundary.
 
 ```mermaid
 sequenceDiagram
@@ -76,6 +84,8 @@ sequenceDiagram
 
 ### Deactivate Tenant (Command)
 
+Deactivation invokes the tenant domain transition before persisting its result. The HTTP adapter remains a translation boundary.
+
 ```mermaid
 sequenceDiagram
   participant API as DeactivateTenantProcessor
@@ -89,6 +99,8 @@ sequenceDiagram
 ```
 
 ### Delete Tenant (Command)
+
+Deletion is handled by the tenant use case and its repository contract. Repeated/missing-resource behavior follows the endpoint contract.
 
 ```mermaid
 sequenceDiagram
@@ -104,6 +116,8 @@ sequenceDiagram
 
 ### Get Tenant (Query)
 
+The item query reads a tenant through its owner and returns a transport-safe result. It does not mutate lifecycle state.
+
 ```mermaid
 sequenceDiagram
   participant API as GetTenantProvider
@@ -117,6 +131,8 @@ sequenceDiagram
 ```
 
 ### List Tenants (Query)
+
+The collection query reads tenant records with the server query contract. Collection scope and totals are determined before serialization.
 
 ```mermaid
 sequenceDiagram
@@ -138,6 +154,7 @@ sequenceDiagram
 - Infrastructure: Doctrine repository and mapper.
 
 Key folders:
+
 - `src/Tenant/Presentation/Api`
 - `src/Tenant/Application/UseCase`
 - `src/Tenant/Domain`
@@ -159,8 +176,7 @@ Key folders:
 - Records carrying `Shared\Infrastructure\Doctrine\Attribute\TenantFilterExempt` opt out
   of that filter. The authorization tables (`roles`, `role_assignments`, `permissions`) do:
   they are read to resolve the caller's own grants, so filtering them by the tenant of the
-  request being served stripped those grants and made every permission-gated endpoint answer
-  403. They are scoped explicitly by their repositories instead.
+  request being served stripped those grants and made every permission-gated endpoint answer 403. They are scoped explicitly by their repositories instead.
 
 ## API Integration Examples
 
@@ -202,4 +218,8 @@ POST /api/tenants/{id}/deactivate
 ## Testing
 
 - Unit: `tests/Unit/Tenant`
-- Run module tests: `make test tests/Unit/Tenant`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Tenant`
+
+## Error Codes
+
+No additional stable module-specific error-code catalog is declared here. The resource security, validation and exception translation define the public HTTP responses; consult this module's endpoint contracts and [OpenAPI schema](../../openapi.json). A future distinct public code must be documented in this section with its triggering condition.

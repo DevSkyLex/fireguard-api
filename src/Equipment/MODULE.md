@@ -1,5 +1,7 @@
 # Equipment Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Equipment manages the fire safety asset inventory of an organization. It tracks
@@ -14,30 +16,30 @@ Main goals:
 
 ## API Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/equipment` | Create equipment |
-| GET | `/api/organizations/{organizationId}/equipment` | List equipment (filters: `facilityId`, `type`, `status`, `brand`, `model`, `subType`, `search`, `maintenanceDueStatus`) |
-| GET | `/api/organizations/{organizationId}/equipment/kpis` | Get the four headline equipment KPI counters (L2.11): `totalAssets`, `compliant`, `dueSoon`, `openNonConformities` |
-| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}` | Get equipment |
-| PATCH | `/api/organizations/{organizationId}/equipment/{equipmentId}` | Update equipment fields |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/assign` | Assign to a facility |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/unassign` | Remove from current facility |
-| PUT | `/api/organizations/{organizationId}/equipment/{equipmentId}/plan-position` | Set or clear this equipment's position pinned on a floor plan attachment (Phase 4) |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/commission` | Mark as `operational` |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/maintenance` | Mark as `under_maintenance` |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/decommission` | Permanently decommission |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/tags` | Add (or create) a tag |
-| DELETE | `/api/organizations/{organizationId}/equipment/{equipmentId}/tags/{tagId}` | Remove a tag |
-| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | List attachments |
-| POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | Upload attachment (base64 JSON — see below) |
-| DELETE | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}` | Delete attachment |
-| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}/download` | Download an attachment's raw bytes (`Content-Disposition: attachment`, never inline — see below) |
-| POST | `/api/media` | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
-| GET / DELETE | `/api/media/{id}` | Read / delete a canonical media attachment |
-| GET | `/api/organizations/{organizationId}/equipment/export` | Streams a bounded CSV export of every equipment item in the organization — see below |
-| GET | `/api/organizations/{organizationId}/equipment/{equipmentId}/report` | Streams a PDF equipment sheet (identity, maintenance history, attachment index) — plan-gated, see below |
-| GET | `/api/organizations/{organizationId}/equipment/labels` | Streams a printable PDF sheet of QR equipment labels (Avery L7159 grid) — not plan-gated, see below |
+| Method       | Path                                                                                              | Description                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST         | `/api/organizations/{organizationId}/equipment`                                                   | Create equipment                                                                                                                                               |
+| GET          | `/api/organizations/{organizationId}/equipment`                                                   | List equipment (filters: `facilityId`, `type`, `status`, `brand`, `model`, `subType`, `search`, `maintenanceDueStatus`)                                        |
+| GET          | `/api/organizations/{organizationId}/equipment/kpis`                                              | Get the four headline equipment KPI counters (L2.11): `totalAssets`, `compliant`, `dueSoon`, `openNonConformities`                                             |
+| GET          | `/api/organizations/{organizationId}/equipment/{equipmentId}`                                     | Get equipment                                                                                                                                                  |
+| PATCH        | `/api/organizations/{organizationId}/equipment/{equipmentId}`                                     | Update equipment fields                                                                                                                                        |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/assign`                              | Assign to a facility                                                                                                                                           |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/unassign`                            | Remove from current facility                                                                                                                                   |
+| PUT          | `/api/organizations/{organizationId}/equipment/{equipmentId}/plan-position`                       | Set or clear this equipment's position pinned on a floor plan attachment (Phase 4)                                                                             |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/commission`                          | Mark as `operational`                                                                                                                                          |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/maintenance`                         | Mark as `under_maintenance`                                                                                                                                    |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/decommission`                        | Permanently decommission                                                                                                                                       |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/tags`                                | Add (or create) a tag                                                                                                                                          |
+| DELETE       | `/api/organizations/{organizationId}/equipment/{equipmentId}/tags/{tagId}`                        | Remove a tag                                                                                                                                                   |
+| GET          | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments`                         | List attachments                                                                                                                                               |
+| POST         | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments`                         | Upload attachment (base64 JSON — see below)                                                                                                                    |
+| DELETE       | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}`          | Delete attachment                                                                                                                                              |
+| GET          | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}/download` | Download an attachment's raw bytes (`Content-Disposition: attachment`, never inline — see below)                                                               |
+| POST         | `/api/media`                                                                                      | Canonical multipart upload, shared with the intervention offline/field-evidence flow (`equipment`/`intervention`/`clientId`/`file`/`label` fields — see below) |
+| GET / DELETE | `/api/media/{id}`                                                                                 | Read / delete a canonical media attachment                                                                                                                     |
+| GET          | `/api/organizations/{organizationId}/equipment/export`                                            | Streams a bounded CSV export of every equipment item in the organization — see below                                                                           |
+| GET          | `/api/organizations/{organizationId}/equipment/{equipmentId}/report`                              | Streams a PDF equipment sheet (identity, maintenance history, attachment index) — plan-gated, see below                                                        |
+| GET          | `/api/organizations/{organizationId}/equipment/labels`                                            | Streams a printable PDF sheet of QR equipment labels (Avery L7159 grid) — not plan-gated, see below                                                            |
 
 Removed 2026-08-20: `GET /api/organizations/{organizationId}/equipment-types` and
 `GET /api/organizations/{organizationId}/equipment-statuses` (unconsumed reference
@@ -91,7 +93,7 @@ image+document MIME allow-list: `image/jpeg`, `image/png`, `image/webp`,
 - **`AddAttachmentProcessor`** (`POST .../equipment/{id}/attachments`,
   base64 JSON) carries no multipart `Request` for the guard to extract from,
   so it calls `AttachmentConstraints::validate($data->mimeType,
-  strlen($contents))` directly on the decoded payload — the identical policy
+strlen($contents))` directly on the decoded payload — the identical policy
   and reason codes (`mime` / `size`), just applied to bytes that arrived
   JSON-encoded instead of multipart-encoded — and maps the resulting
   `InvalidAttachmentException` to **422** itself (the same translation the
@@ -199,7 +201,7 @@ is a `public` constant, and its first seven columns
 (`type`, `subType`, `brand`, `model`, `serialNumber`, `locationLabel`,
 `facilityCode`, in that exact order) are a published contract: they are the
 same seven columns, in the same order, that
-`Import\Application\Service\EquipmentRowFactory` reads back by column *name*
+`Import\Application\Service\EquipmentRowFactory` reads back by column _name_
 (not position — the importer maps by header, so reordering is actually safe
 for the importer itself, but the position is still frozen here to keep the
 two sides human-comparable) on a bulk CSV reimport. `facilityCode` (added
@@ -278,6 +280,8 @@ mode name and label count, never the selected identifiers).
 
 ### Create Equipment (Command)
 
+Creation passes through the command owner before persistence and consequences. Validation, quota and organization rules remain enforced by the use case.
+
 ```mermaid
 sequenceDiagram
   participant API as CreateEquipmentProcessor
@@ -291,6 +295,8 @@ sequenceDiagram
 ```
 
 ### Commission Equipment (Command)
+
+Commissioning is an equipment lifecycle command. Domain transition checks precede its persisted status and owned follow-up effects.
 
 ```mermaid
 sequenceDiagram
@@ -307,6 +313,8 @@ sequenceDiagram
 ```
 
 ### List Equipment (Query)
+
+The collection query reads authorized equipment through the repository port. The server decides membership, ordering and totals before HTTP serialization.
 
 ```mermaid
 sequenceDiagram
@@ -332,10 +340,10 @@ This module relies on Organization-scoped permissions:
 Every provider and processor in this module answers a denial in one of two
 ways, and which one is not a stylistic choice:
 
-| Caller | Response |
-| --- | --- |
-| Active member of the owning organization, lacking the permission | `403 Forbidden` |
-| No active membership in the owning organization | `404 Not Found`, identical to the route's own not-found response |
+| Caller                                                           | Response                                                         |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Active member of the owning organization, lacking the permission | `403 Forbidden`                                                  |
+| No active membership in the owning organization                  | `404 Not Found`, identical to the route's own not-found response |
 
 The 404 is not a softer 403. These surfaces take their `organizationId` from
 the URI — or resolve it from a record they just loaded by path id — **before**
@@ -343,7 +351,7 @@ they know whether the caller belongs to that organization, so a 403 at that
 point confirms the organization or the record exists to someone who may not
 learn even that much. That is an existence oracle: it lets a caller from
 another organization enumerate valid identifiers. The out-of-scope 404
-therefore reuses the *same* message the route's own "unknown id" branch
+therefore reuses the _same_ message the route's own "unknown id" branch
 produces, so the two responses are indistinguishable.
 
 The distinction is carried by
@@ -376,7 +384,7 @@ Aggregates and entities:
 - `facilityId` (optional)
 - `subType` (optional)
 - `brand`, `model`, `serialNumber` (serialNumber is unique per organization)
-- `locationLabel` (optional free-text — the spot *inside* a facility, not the facility)
+- `locationLabel` (optional free-text — the spot _inside_ a facility, not the facility)
 - `facilityName` (read-only display name of the assigned facility). The module stores only
   `facilityId`; the name is resolved through `FacilityNamingPort` — batched into ONE lookup
   per collection page (both the main path and the due-status filtered path), and resolved
@@ -499,6 +507,7 @@ here through `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAda
 - Infrastructure: Doctrine record/mapper/repository.
 
 Key folders:
+
 - `src/Equipment/Presentation/Api`
 - `src/Equipment/Application/UseCase`
 - `src/Equipment/Domain`
@@ -554,7 +563,7 @@ Cross-module contracts and lifecycle invariants:
   limit), resolves due status for that whole candidate set in one batch call,
   filters in memory, then paginates with `array_slice()`. **Do not assume a
   per-equipment "Non-conformity" status exists.** It does not: non-conformities
-  attach to *inspections* (see `src/Inspection/MODULE.md`), never to equipment.
+  attach to _inspections_ (see `src/Inspection/MODULE.md`), never to equipment.
   The API exposes exactly four `MaintenanceDueStatus` values —
   `unscheduled`|`up_to_date`|`due_soon`|`overdue` — and a UI that wants a
   four-label status column must map onto those deliberately rather than invent
@@ -726,14 +735,14 @@ draft/published split, the `commissionedAt` stamp, the maintenance-log sync,
 the four audit events and their post-commit dispatch. It is now HTTP
 translation only, and **holds no entity manager**.
 
-| Concern | Where it lives now |
-| --- | --- |
-| `PATCH /api/equipment/{id}` | `Application/UseCase/Command/Equipment/PatchCanonicalEquipment/` |
-| `DELETE /api/equipment/{id}` | `Application/UseCase/Command/Equipment/DeleteCanonicalEquipment/` |
-| Read one, for the gate | `Application/UseCase/Query/Equipment/GetCanonicalEquipment/` |
-| Status machine, draft/published split, `commissionedAt`, in-service rule, revision bump, idempotent retire | `Domain/Model/Equipment/CanonicalEquipment` |
-| Persistence | `Infrastructure/…/Repository/CanonicalEquipmentRepository` (port: `CanonicalEquipmentRepositoryPort`) |
-| Intervention revision touch | `Equipment\Application\Port\Outbound\InterventionScopePort` |
+| Concern                                                                                                    | Where it lives now                                                                                    |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `PATCH /api/equipment/{id}`                                                                                | `Application/UseCase/Command/Equipment/PatchCanonicalEquipment/`                                      |
+| `DELETE /api/equipment/{id}`                                                                               | `Application/UseCase/Command/Equipment/DeleteCanonicalEquipment/`                                     |
+| Read one, for the gate                                                                                     | `Application/UseCase/Query/Equipment/GetCanonicalEquipment/`                                          |
+| Status machine, draft/published split, `commissionedAt`, in-service rule, revision bump, idempotent retire | `Domain/Model/Equipment/CanonicalEquipment`                                                           |
+| Persistence                                                                                                | `Infrastructure/…/Repository/CanonicalEquipmentRepository` (port: `CanonicalEquipmentRepositoryPort`) |
+| Intervention revision touch                                                                                | `Equipment\Application\Port\Outbound\InterventionScopePort`                                           |
 
 **Two Domain models over one table, on purpose** — the same split the
 Inspection module made on the same day, for the same reason: the `Equipment`
@@ -820,139 +829,9 @@ names the write path has no reason to carry).
 
 ## Testing
 
-- Unit: `tests/Unit/Equipment/`
-  - `Domain/Model/Equipment/CanonicalEquipmentTest` — the canonical rules with
-    no container and no mocks: the transition table, the `commissionedAt`
-    stamp and its survival across a re-commission, the in-service rule firing
-    on every patch, the scratchpad bypass, `type`-before-`status` validation
-    order, explicit-null erasure versus absent key, the idempotent retire that
-    must not bump the revision, and the unknown `type` that must still be
-    accepted.
-  - `Application/UseCase/Command/Equipment/{Patch,Delete}CanonicalEquipment`
-    and `Application/UseCase/Query/Equipment/GetCanonicalEquipment` — the
-    orchestration: which event fires for which transition, the maintenance-log
-    sync and the three paths that must sync and audit **nothing** (scratchpad,
-    no-status-change, idempotent repeat DELETE), the post-commit guarantee,
-    the null-field-before-facility ordering, and the revision re-check inside
-    the handler's own transaction.
-  - `Presentation/Api/Processor/Equipment/CanonicalEquipmentMutationProcessorTest`
-    — what the processor still owns: the gate order (404 before 428), which
-    permission a scratchpad row asks the intervention for, 404 rather than 403
-    outside the organization, the merge-patch `has*` flags, and the facility
-    IRI parse.
-  - `Application/UseCase/Query/Equipment/GetEquipmentKpis/GetEquipmentKpisHandlerTest`
-    (L2.11) — invalid organization id, compliant/dueSoon tally from a mocked
-    batch due-status map, zero-equipment case.
-  - `Presentation/Api/Provider/Equipment/GetEquipmentKpisProviderTest` (L2.11)
-    — auth/permission gating, wrapped `InvalidArgumentException` mapped to
-    400, result-to-output mapping.
-- Cross-module adapter unit test hosted in Inspection (composes existing,
-  already-tested repository calls — no new DQL, so no new integration test):
-  `tests/Unit/Inspection/Infrastructure/Adapter/Equipment/EquipmentNonConformityStatisticsAdapterTest`.
-- Functional: `tests/Functional/Api/CanonicalEquipmentApiTest` — the whole
-  `PATCH`/`DELETE /api/equipment/{id}` contract, one HTTP request per test:
-  200 + bumped revision on a legal transition, 422 on an illegal one, on a
-  null non-nullable field, on a foreign facility and on an in-service asset
-  left without one, 204 for the retire / the scratchpad hard-delete / the
-  idempotent repeat, 412 on a stale revision, 404 before 428 on an unknown id,
-  404 on a malformed one, 404 for a foreign organization (never 403), and 403
-  for a member without write.
-- Integration (real database):
-  `tests/Integration/Equipment/Infrastructure/Persistence/Doctrine/Repository/CanonicalEquipmentRepositoryTest`
-  — that `findById()` carries the columns the aggregate does not, that
-  `save()` writes the mutable ones and **leaves `record_status`,
-  `intervention_id` and `client_id` alone**, and that `save()` on an absent
-  row inserts nothing.
-- Functional: `tests/Functional/Api/EquipmentApiTest::testGetEquipmentKpisRequiresAuthentication`.
-- Attachment MIME/size validation (closed 2026-08-19):
-  - `tests/Unit/Equipment/Presentation/Api/Processor/Media/MediaProcessorTest`
-    — `testUploadRejectsAFileJustOverTheMaxSizeBeforeDispatch` (oversize, unit
-    test only — see the class docblock for why the HTTP round trip cannot
-    reach the boundary in this environment) and
-    `testUploadRejectsADisallowedMimeTypeBeforeDispatch`, both asserting the
-    command bus is never dispatched.
-  - `tests/Unit/Equipment/Presentation/Api/Processor/Equipment/AddAttachmentProcessorTest`
-    — `testProcessRejectsADisallowedMimeTypeWith422` and
-    `testProcessRejectsAnOversizedPayloadWith422`.
-  - Functional: `tests/Functional/Api/EquipmentAttachmentApiTest.php` — both
-    upload paths: happy path unchanged (base64 JSON and multipart), 422 on a
-    disallowed MIME type (both paths) and on an oversized base64 payload, 403
-    missing-permission, 404 cross-org equipment, 401/403 unauthenticated.
-- Attachment download (closed 2026-08-19):
-  - `tests/Unit/Equipment/Application/UseCase/Query/Equipment/GetEquipmentAttachmentContent/GetEquipmentAttachmentContentHandlerTest`
-    — the stored-bytes happy path, unknown equipment, equipment in another
-    organization, unknown attachment, attachment belonging to another
-    equipment (never reads the file in any failure path), and the malformed
-    identifier 400.
-  - Functional: `tests/Functional/Api/EquipmentAttachmentApiTest.php` —
-    `testDownloadAttachmentServesBytesWithAttachmentDispositionAndNosniff`,
-    401/403 unauthenticated, 403 missing `organization.equipment.read`, 404
-    for a caller outside the owning organization, and 404 when the
-    `equipmentId` in the path does not own the requested attachment.
-- Plan position (Phase 4):
-  - `Domain/ValueObject/PlanPositionTest` — coordinate-bounds validation, the
-    UUID check on `attachmentId`, and the `toArray()`/`fromArray()` round trip.
-  - `Application/UseCase/Command/Equipment/SetEquipmentPlanPosition/SetEquipmentPlanPositionHandlerTest`
-    — every failure path (unknown equipment, no facility assignment, unknown/
-    wrong-kind/non-ancestor attachment via a mocked `EquipmentFloorPlanValidationPort`,
-    partial-input rejection), the happy set, and the clear.
-  - `tests/Unit/Facility/Infrastructure/Adapter/Equipment/EquipmentFloorPlanValidationAdapterTest`
-    (hosted in Facility, since the adapter is) — every typed exception path
-    and the success path.
-  - `tests/Integration/Equipment/Infrastructure/Adapter/Facility/EquipmentPlanPositionAdapterTest`
-    — the `plan_position` JSONB filter, published-only, and organization
-    scoping, plus the type/serial-number display label.
-  - `tests/Unit/Equipment/Infrastructure/Adapter/Intervention/EquipmentInterventionResourceAdapterTest`
-    — the offline `planPosition` patch: valid set, rejected for
-    facility-less equipment, rejected malformed, and cleared alongside
-    `facility`.
-  - Functional: `tests/Functional/Api/EquipmentPlanPositionApiTest.php` — PUT
-    happy path (set, then clear), 404 unknown/cross-org equipment, 403
-    missing-permission, 409 unassigned-equipment, 404 unknown attachment, 400
-    partial input. Overlay-side equipment inclusion is covered in
-    `tests/Functional/Api/FacilityPlanGeometryApiTest.php` (Facility owns
-    that endpoint).
-- CSV export:
-  - `tests/Unit/Equipment/Application/UseCase/Query/ExportEquipments/ExportEquipmentsHandlerTest`
-    — 403 without `organization.equipment.read`, 404 outside the
-    organization's scope, 422 past `MAX_EXPORT_ROWS`, and bulk facility-name
-    resolution with the raw-id fallback when a name cannot be resolved.
-  - `tests/Unit/Equipment/Presentation/Api/Service/EquipmentCsvWriterTest` —
-    freezes `EquipmentCsvWriter::HEADER`'s first six columns
-    (`type`/`subType`/`brand`/`model`/`serialNumber`/`locationLabel`) as the
-    Import module's round-trip contract, plus the header/data-row write and
-    the facility-name fallback.
-  - `tests/Unit/Equipment/Presentation/Api/Controller/ExportEquipmentsControllerTest`
-    — the CSV body and headers (`StreamedResponse::getContent()` is not
-    reliably buffered by the functional `KernelBrowser`), the missing-URI-
-    variable 400, the unauthenticated 401, the `EquipmentsExportedEvent`
-    dispatch, and the bus-wrapped 403/422 unwrapping.
-  - Functional: `tests/Functional/Api/EquipmentExportApiTest.php` — 200 with
-    CSV content type/attachment disposition and the import column order, 401,
-    403 for a member without `organization.equipment.read`, 404 for a caller
-    outside the organization. The 422 row-cap path is unit-only (`MAX_EXPORT_ROWS`
-    is a class constant; seeding 50 001 rows for a functional test is not
-    worth the runtime).
-- QR label sheet:
-  - `tests/Unit/Equipment/Application/UseCase/Query/ExportEquipmentLabels/ExportEquipmentLabelsHandlerTest`
-    — 403 without `organization.equipment.read`, 404 outside the
-    organization's scope, 400 on the ambiguous or empty selection, 422 past
-    `MAX_LABELS` (both the early id-count check and the repository COUNT,
-    neither fetching a row), id-list deduplication, the selection-mode name
-    in the result, and the single bulk facility-name round trip.
-  - `tests/Unit/Equipment/Presentation/Api/Controller/ExportEquipmentLabelsControllerTest`
-    — the Twig context shaping (the `/api/equipment/{id}` QR value,
-    byte-for-byte), the PDF headers/disposition, the both-modes 400, the
-    empty-`ids[]` 400, the unauthenticated 401, the
-    `EquipmentLabelsExportedEvent` dispatch, and the bus-wrapped 403/404/422
-    unwrapping.
-  - Functional: `tests/Functional/Api/EquipmentLabelSheetApiTest.php` — 200
-    `%PDF-` for the whole-park, `ids[]` and `facilityId` selections, 400 for
-    both modes at once, **422 through the real HTTP surface** (501 ids in the
-    query string — cheap, unlike seeding 50 001 rows for the CSV cap), 401,
-    403 for a member without `organization.equipment.read`, 404 for a caller
-    outside the organization.
-- Run module tests: `make test tests/Unit/Equipment/`
+Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
+
+Detailed cases and regression rationale are retained in the [Equipment testing reference](../../docs/guides/testing.md#equipment-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes
 
@@ -986,7 +865,6 @@ Domain ones: they live under `Application/Contract/FloorPlan/` because they
 are the typed `@throws` surface of `EquipmentFloorPlanValidationPort`, thrown
 by Facility's adapter across the module boundary — and cross-module access is
 restricted to `Application\Port\` and `Application\Contract\` types.
-
 
 ## Durable onboarding setup
 
