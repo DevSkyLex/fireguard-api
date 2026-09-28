@@ -8,6 +8,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -56,6 +57,8 @@ final class EquipmentAttachmentApiTest extends WebTestCase
   private const string EQUIPMENT_ID = '770e8400-e29b-41d4-a716-446655480030';
 
   private const string OUTSIDER_EQUIPMENT_ID = '770e8400-e29b-41d4-a716-446655480031';
+
+  private const string OUTSIDER_INTERVENTION_ID = '770e8400-e29b-41d4-a716-446655480032';
 
   #[Test]
   public function testAddAttachmentRequiresAuthentication(): void
@@ -393,6 +396,49 @@ final class EquipmentAttachmentApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testUploadMediaReturns404WhenInterventionMultipartFieldBelongsToAnotherOrganization(): void
+  {
+    // `intervention` on this multipart path is read straight off the
+    // request body (see MediaProcessor::upload()) — an attacker-controlled
+    // value, independent of the `equipment` field's own organization. The
+    // caller here is a genuine ADMIN_USER_ID member of ORGANIZATION_ID,
+    // which owns EQUIPMENT_ID, but the intervention IRI they attach names a
+    // row that belongs to OUTSIDER_ORGANIZATION_ID. This must answer a
+    // uniform 404 (InterventionNotFoundException, gated inside
+    // InterventionResourceManager::mutationPermission()'s own
+    // $expectedOrganizationId check) rather than 409
+    // (InterventionConflictException, "must belong to the same
+    // organization"), which would confirm the victim intervention's
+    // existence to a caller outside its organization.
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedEquipment();
+    $this->seedOutsiderIntervention();
+    $this->loginAs($client, self::ADMIN_USER_ID, 'equipment-attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'equipment-media-cross-org-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalPngBytes());
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/media',
+      parameters: [
+        'equipment' => '/api/equipment/' . self::EQUIPMENT_ID,
+        'intervention' => '/api/interventions/' . self::OUTSIDER_INTERVENTION_ID,
+      ],
+      files: ['file' => new UploadedFile(path: $path, originalName: 'photo.png', mimeType: 'image/png', test: true)],
+    );
+
+    self::assertSame(
+      404,
+      $client->getResponse()->getStatusCode(),
+      'An intervention id belonging to another organization must answer a uniform 404, '
+        . 'never 409 or 403. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
   // The AttachmentConstraints::MAX_SIZE_BYTES (10 MiB) boundary is NOT
   // exercised here as a real multipart upload to /api/media: this test
   // environment's php.ini caps upload_max_filesize at 2M, well under the 10
@@ -617,6 +663,43 @@ final class EquipmentAttachmentApiTest extends WebTestCase
     $outsider->updatedAt = $now;
     $entityManager->persist($outsider);
 
+    $entityManager->flush();
+  }
+
+  /**
+   * Method seedOutsiderIntervention.
+   *
+   * Seeds (idempotently) a `draft` intervention owned by
+   * {@see self::OUTSIDER_ORGANIZATION_ID} — a row {@see self::ADMIN_USER_ID}
+   * (a member of {@see self::ORGANIZATION_ID} only) has no membership in.
+   */
+  private function seedOutsiderIntervention(): void
+  {
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $existing = $entityManager->find(InterventionRecord::class, self::OUTSIDER_INTERVENTION_ID);
+    if ($existing instanceof InterventionRecord) {
+      $entityManager->remove($existing);
+      $entityManager->flush();
+    }
+
+    /** @var OrganizationRecord $outsiderOrganization */
+    $outsiderOrganization = $entityManager->getReference(OrganizationRecord::class, self::OUTSIDER_ORGANIZATION_ID);
+
+    $now = new DateTimeImmutable('2026-08-19T00:00:00+00:00');
+
+    $intervention = new InterventionRecord();
+    $intervention->id = self::OUTSIDER_INTERVENTION_ID;
+    $intervention->organization = $outsiderOrganization;
+    $intervention->type = 'site_setup';
+    $intervention->name = 'Equipment Attachment Cross-Org Intervention';
+    $intervention->number = 990001;
+    $intervention->status = 'draft';
+    $intervention->responsibleId = self::OUTSIDER_USER_ID;
+    $intervention->createdAt = $now;
+    $intervention->updatedAt = $now;
+    $entityManager->persist($intervention);
     $entityManager->flush();
   }
 }

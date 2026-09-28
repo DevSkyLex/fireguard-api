@@ -173,13 +173,28 @@ final readonly class InterventionResourceManager
    *
    * @param string $interventionId the intervention id value
    * @param ?string $userId the current user id value
+   * @param ?string $expectedOrganizationId the organization the caller claims the
+   *                                        intervention belongs to — when given, checked BEFORE any status-derived branch
+   *                                        so a cross-organization intervention id answers a uniform not-found rather than
+   *                                        leaking its status or its member-policy outcome
    *
    * @return string the required permission name
    */
-  public function mutationPermission(string $interventionId, ?string $userId = null): string
-  {
+  public function mutationPermission(
+    string $interventionId,
+    ?string $userId = null,
+    ?string $expectedOrganizationId = null,
+  ): string {
     $context = $this->resources->interventionMutationContext($interventionId);
     if (null === $context) {
+      throw InterventionNotFoundException::withId($interventionId);
+    }
+    // Scope gate BEFORE the permission is derived — see the identical note on
+    // AddInterventionAttachmentHandler: deriving the permission below reads the
+    // intervention's phase and can throw a conflict, which would confirm to a
+    // caller outside the owning organization both that this intervention exists
+    // and what state it is in.
+    if (null !== $expectedOrganizationId && $context->organizationId !== $expectedOrganizationId) {
       throw InterventionNotFoundException::withId($interventionId);
     }
     if (in_array($context->status, ['submitted', 'published', 'abandoned'], true)) {

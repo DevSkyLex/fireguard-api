@@ -17,6 +17,7 @@ use Intervention\Application\Contract\Resource\{InterventionAssignmentContext, I
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Contract\Quota\{OrganizationQuotaExceededException, OrganizationQuotaResource};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -98,7 +99,7 @@ final class CreateInspectionProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
@@ -117,13 +118,38 @@ final class CreateInspectionProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessThrowsNotFoundWhenOrganizationOutsideCallerScope(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $processor = new CreateInspectionProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: new CreateInspectionInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
   public function testProcessDispatchesCommandAndReturnsOutput(): void
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
 
@@ -192,7 +218,7 @@ final class CreateInspectionProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
@@ -229,7 +255,7 @@ final class CreateInspectionProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
@@ -268,7 +294,7 @@ final class CreateInspectionProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
 
@@ -332,7 +358,7 @@ final class CreateInspectionProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       new Envelope(new CreateInspectionCommand(
@@ -485,9 +511,9 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.plan')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('wrapInTransaction')->willReturnCallback(
@@ -660,7 +686,7 @@ final class CreateInspectionProcessorTest extends TestCase
   private function permissiveAuthorization(): OrganizationAuthorizationPort
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return $authorization;
   }

@@ -364,6 +364,58 @@ final class InterventionResourceManagerTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testMutationPermissionRejectsAnOrganizationMismatchBeforeCheckingTheImmutableStatus(): void
+  {
+    // The intervention is 'submitted' (immutable) AND belongs to a different
+    // organization than the caller claims. The organization gate must fire
+    // first — an InterventionConflictException here would leak that this
+    // submitted intervention exists to a caller outside its organization.
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::once())->method('interventionMutationContext')
+      ->with(self::INTERVENTION_ID)
+      ->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'submitted'));
+
+    $manager = new InterventionResourceManager($resources);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage('Intervention with ID "' . self::INTERVENTION_ID . '" not found.');
+
+    $manager->mutationPermission(self::INTERVENTION_ID, self::USER_ID, 'another-organization-id');
+  }
+
+  #[Test]
+  public function testMutationPermissionRejectsAnOrganizationMismatchOnAMutableIntervention(): void
+  {
+    // Same gate, but the intervention is 'in_progress' — mutable, and would
+    // otherwise reach InterventionMemberPolicy (a 403). The organization
+    // mismatch must still answer 404, uniformly with the immutable case.
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::once())->method('interventionMutationContext')
+      ->with(self::INTERVENTION_ID)
+      ->willReturn(new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'));
+
+    $manager = new InterventionResourceManager($resources);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage('Intervention with ID "' . self::INTERVENTION_ID . '" not found.');
+
+    $manager->mutationPermission(self::INTERVENTION_ID, self::USER_ID, 'another-organization-id');
+  }
+
+  #[Test]
+  public function testMutationPermissionAllowsAMatchingOrganization(): void
+  {
+    self::assertSame(
+      'organization.interventions.plan',
+      $this->managerWithInterventionStatus('draft')->mutationPermission(
+        self::INTERVENTION_ID,
+        self::USER_ID,
+        self::ORGANIZATION_ID,
+      ),
+    );
+  }
+
   private function managerWithInterventionStatus(string $status): InterventionResourceManager
   {
     $resources = $this->createMock(InterventionResourceGatewayPort::class);
