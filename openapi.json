@@ -45445,7 +45445,7 @@
                                 ]
                             },
                             "allowedActions": {
-                                "description": "Available decisions, revalidated by the command.",
+                                "description": "available decisions, revalidated by the command",
                                 "type": "array",
                                 "items": {
                                     "type": "string"
@@ -45572,6 +45572,40 @@
                             "string",
                             "null"
                         ]
+                    },
+                    "attemptId": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "attemptNumber": {
+                        "readOnly": true,
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "attemptSequence": {
+                        "readOnly": true,
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "attemptExpiresAt": {
+                        "readOnly": true,
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "canCancel": {
+                        "readOnly": true,
+                        "default": false,
+                        "type": "boolean"
+                    },
+                    "canRetry": {
+                        "readOnly": true,
+                        "default": false,
+                        "type": "boolean"
                     }
                 }
             },
@@ -46718,6 +46752,18 @@
                                 "items": {
                                     "$ref": "#/components/schemas/CalendarFeedItemOutput.jsonld-Calendar.read"
                                 }
+                            },
+                            "sources": {
+                                "readOnly": true,
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/CalendarFeedSourceOutput.jsonld-Calendar.read"
+                                }
+                            },
+                            "complete": {
+                                "readOnly": true,
+                                "default": true,
+                                "type": "boolean"
                             }
                         }
                     }
@@ -46800,6 +46846,23 @@
                         "description": "Property targetId.",
                         "default": "",
                         "type": "string"
+                    }
+                }
+            },
+            "CalendarFeedSourceOutput.jsonld-Calendar.read": {
+                "type": "object",
+                "properties": {
+                    "sourceKey": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "available": {
+                        "default": true,
+                        "type": "boolean"
+                    },
+                    "truncated": {
+                        "default": false,
+                        "type": "boolean"
                     }
                 }
             },
@@ -47415,6 +47478,24 @@
                                 "readOnly": true,
                                 "default": "",
                                 "type": "string"
+                            },
+                            "previousChecklistId": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "canEditMetadata": {
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "canEditItems": {
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "canCreateRevision": {
+                                "default": false,
+                                "type": "boolean"
                             }
                         }
                     }
@@ -47447,6 +47528,17 @@
                         "maxLength": 40,
                         "description": "Optional human-facing reference code, unique per organization",
                         "example": "CHK-EXT-Q",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "previousChecklistId": {
+                        "format": "uuid",
+                        "description": "Previous checklist in the same organization. Creates a distinct revision without changing existing inspections.",
+                        "externalDocs": {
+                            "url": "https://schema.org/identifier"
+                        },
                         "type": [
                             "string",
                             "null"
@@ -47868,6 +47960,13 @@
                                 "description": "Property generatedAt.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "dataEvaluatedAt": {
+                                "description": "Oldest successful maintenance evaluation in the scope, distinct from generation time.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             },
                             "organizationStatus": {
                                 "description": "Property organizationStatus.",
@@ -51212,6 +51311,16 @@
                                 "description": "Property updatedAt.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "canConfirm": {
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "confirmedJobId": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             }
                         }
                     }
@@ -51294,6 +51403,20 @@
                                     "null"
                                 ]
                             },
+                            "nextPageCursor": {
+                                "readOnly": true,
+                                "description": "Opaque composite cursor echoed unchanged as `cursor`; legacy nextCursor remains a date.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "complete": {
+                                "readOnly": true,
+                                "description": "False when a source is unavailable; retry this page instead of advancing its cursor.",
+                                "default": true,
+                                "type": "boolean"
+                            },
                             "hasMore": {
                                 "readOnly": true,
                                 "description": "Property hasMore.",
@@ -51327,6 +51450,22 @@
             "InboxItemOutput.jsonld-notification.inbox.read": {
                 "type": "object",
                 "properties": {
+                    "targetKind": {
+                        "readOnly": true,
+                        "description": "Optional navigation discriminator supplied by the source, preserving targetType.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "sourceType": {
+                        "readOnly": true,
+                        "description": "Source-owned event type for presentation, when the source supplies one.",
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
                     "sourceKey": {
                         "readOnly": true,
                         "description": "Property sourceKey.",
@@ -56235,6 +56374,13 @@
                                 "description": "Property updatedAt.",
                                 "default": "",
                                 "type": "string"
+                            },
+                            "evaluatedAt": {
+                                "description": "Last successful evaluation of the policy and current equipment data.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
                             }
                         }
                     }
@@ -61986,6 +62132,15 @@
                                 "default": false,
                                 "type": "boolean"
                             },
+                            "status": {
+                                "default": "offline",
+                                "type": "string",
+                                "enum": [
+                                    "active",
+                                    "do_not_disturb",
+                                    "offline"
+                                ]
+                            },
                             "lastSeenAt": {
                                 "description": "Property lastSeenAt.",
                                 "type": [
@@ -62038,6 +62193,10 @@
                             "revision": {
                                 "default": 0,
                                 "type": "integer"
+                            },
+                            "invisible": {
+                                "default": false,
+                                "type": "boolean"
                             }
                         }
                     }
@@ -62074,6 +62233,9 @@
                 "description": "Service PresencePreferenceResource.",
                 "properties": {
                     "doNotDisturb": {
+                        "type": "boolean"
+                    },
+                    "invisible": {
                         "type": "boolean"
                     }
                 }
@@ -64210,6 +64372,14 @@
                             "lastError": {
                                 "readOnly": true,
                                 "description": "Property lastError.",
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "errorCode": {
+                                "readOnly": true,
+                                "description": "Property errorCode. Stable public failure reason, independent of transport diagnostics.",
                                 "type": [
                                     "string",
                                     "null"

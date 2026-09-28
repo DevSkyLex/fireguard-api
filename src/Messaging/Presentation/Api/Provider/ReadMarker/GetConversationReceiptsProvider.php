@@ -6,15 +6,12 @@ namespace Messaging\Presentation\Api\Provider\ReadMarker;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeInterface;
 use Messaging\Application\UseCase\Query\ReadMarker\GetConversationReceipts\{GetConversationReceiptsQuery, GetConversationReceiptsResult};
 use Messaging\Presentation\Api\Dto\Output\{ConversationReceiptPositionOutput, ConversationReceiptsOutput};
-use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Bundle\SecurityBundle\Security;
+use Shared\Application\Port\Outbound\CurrentActorPort;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
-use Throwable;
 
 use function is_string;
 
@@ -25,16 +22,14 @@ use function is_string;
  */
 final readonly class GetConversationReceiptsProvider implements ProviderInterface
 {
-  use MessagingExceptionMapperTrait;
-
-  public function __construct(private QueryBusPort $queryBus, private Security $security)
+  public function __construct(private QueryBusPort $queryBus, private CurrentActorPort $actor)
   {
   }
 
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): ConversationReceiptsOutput
   {
-    $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser) {
+    $userId = $this->actor->userId();
+    if (null === $userId) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
     $id = $uriVariables['id'] ?? null;
@@ -42,12 +37,8 @@ final readonly class GetConversationReceiptsProvider implements ProviderInterfac
       throw new BadRequestHttpException('A conversation id is required.');
     }
 
-    try {
-      /** @var GetConversationReceiptsResult $result */
-      $result = $this->queryBus->ask(new GetConversationReceiptsQuery($user->getId(), $id));
-    } catch (Throwable $exception) {
-      throw $this->mapMessagingException($exception);
-    }
+    /** @var GetConversationReceiptsResult $result */
+    $result = $this->queryBus->ask(new GetConversationReceiptsQuery($userId, $id));
 
     $output = new ConversationReceiptsOutput();
     foreach ($result->positions as $position) {

@@ -112,7 +112,12 @@ final class AuthApiTest extends WebTestCase
     self::assertSame($locale, $response->headers->get('Content-Language'));
 
     $body = json_decode($response->getContent() ?: '{}', true);
-    self::assertSame($message, $body['violations'][0]['message'] ?? null);
+    self::assertIsArray($body);
+    $violations = $body['violations'] ?? null;
+    self::assertIsArray($violations);
+    $violation = $violations[0] ?? null;
+    self::assertIsArray($violation);
+    self::assertSame($message, $violation['message'] ?? null);
   }
 
   /**
@@ -147,6 +152,7 @@ final class AuthApiTest extends WebTestCase
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
     self::assertSame($locale, $response->headers->get('Content-Language'));
     $body = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($body);
     self::assertSame($message, $body['detail'] ?? null);
   }
 
@@ -175,6 +181,7 @@ final class AuthApiTest extends WebTestCase
     self::assertNotNull($response);
     self::assertSame(Response::HTTP_TOO_MANY_REQUESTS, $response->getStatusCode());
     $body = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($body);
     self::assertSame('Trop de tentatives de connexion. Réessayez dans 30 secondes.', $body['detail'] ?? null);
   }
 
