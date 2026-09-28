@@ -1,8 +1,10 @@
 # SonarQube API
 
+**Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/operations/current-installation.md).
+
 The hosted Community Build uses one project per analyzed branch. Private
 projects `fireguard-api-main` and `fireguard-api-develop` exist on the VPS instance
-(`https://sonarqube.valentin-fortin.pro/`). Each repository branch is analyzed
+(`https://sonarqube.example.com/`). Each repository branch is analyzed
 as the project's main branch; do not configure `sonar.branch.name`.
 
 Use the built-in **Sonar way** quality profile and quality gate on both projects.
@@ -13,19 +15,21 @@ functional and E2E execution data. A push to `main` or `develop` and a manually
 started CI on those branches run the scan; pull requests, tags and other
 branches do not send an analysis or receive a Sonar token.
 
-These GitHub repository settings were provisioned on 2026-09-22:
+Configure the following GitHub repository settings. Hosted installation records
+and dated token metadata belong to the
+[installation appendix](docs/operations/current-installation.md).
 
-| Setting | Value |
-| --- | --- |
-| Variable `SONAR_HOST_URL` | `https://sonarqube.valentin-fortin.pro/` |
-| Secret `SONAR_TOKEN_MAIN` | Analysis token scoped to `fireguard-api-main` |
-| Secret `SONAR_TOKEN_DEVELOP` | Analysis token scoped to `fireguard-api-develop` |
-| Variable `SONAR_READY_MAIN` | `true` only after validating the main baseline |
+| Setting                        | Value                                             |
+| ------------------------------ | ------------------------------------------------- |
+| Variable `SONAR_HOST_URL`      | `https://sonarqube.example.com/`                  |
+| Secret `SONAR_TOKEN_MAIN`      | Analysis token scoped to `fireguard-api-main`     |
+| Secret `SONAR_TOKEN_DEVELOP`   | Analysis token scoped to `fireguard-api-develop`  |
+| Variable `SONAR_READY_MAIN`    | `true` only after validating the main baseline    |
 | Variable `SONAR_READY_DEVELOP` | `true` only after validating the develop baseline |
 
-The two project-scoped analysis tokens expire on **2026-12-21**. Rotate each
-token before that date and replace only its matching GitHub secret. Never
-commit or display a token.
+Rotate each project-scoped analysis token before its actual expiry and replace
+only its matching GitHub secret. Verify the current expiry in the token metadata;
+never commit or display a token.
 
 Initialize both readiness variables to `false`. Check the current GitHub
 repository variables, branch CI runs and each SonarQube project's analysis and

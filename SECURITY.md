@@ -1,5 +1,7 @@
 # Security Guide
 
+**Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/operations/security-runbooks.md).
+
 This document summarizes security-sensitive configuration and operational practices for Fireguard API.
 
 ## Scope
@@ -15,6 +17,7 @@ This document summarizes security-sensitive configuration and operational practi
 - Use strong, unique encryption keys per environment.
 
 JWT keys:
+
 - Use environment-specific `config/jwt/private.key` and `config/jwt/public.key`.
 - Keep private keys encrypted at rest and restrict filesystem permissions.
 - Rotate keys and invalidate old tokens if required by policy.
@@ -25,8 +28,7 @@ JWT keys:
   `OAuth2Authenticator` validates the RSA signature and the expiry first, then branches on
   the token's origin. Both issuance paths sign with `config/jwt/private.key` — the login
   flow through `JwtTokenAdapter`, the OAuth2 flow through League's `AuthorizationServer` —
-  so a single verification key covers both. The database lookup keys on `jti` and never
-  binds it back to `sub`, which is why the signature check must not be conditional: a
+  so a single verification key covers both. OAuth token-table lookup uses `jti`; interactive session lookup also binds the signed subject, which is why the signature check must not be conditional: a
   branch that skipped it would let a forged token carrying a live `jti` and an arbitrary
   `sub` authenticate as that subject.
 - Refresh tokens are issued in HttpOnly cookies with SameSite=Strict.
@@ -35,10 +37,11 @@ JWT keys:
 - Revoke tokens on logout and suspicious activity.
 - **Revoking a session invalidates its access token on the next request.**
   Login-flow tokens are not rows in the OAuth2 token table, so `OAuth2Authenticator`
-  resolves them through `SessionStatusPort` instead. A token whose session was never
-  recorded is accepted rather than rejected — session recording is deliberately
-  best-effort, and treating an absent row as a revocation would lock a user out for
-  the token's full lifetime after a failure they never saw.
+  resolves them through `SessionStatusPort` instead. Interactive tokens require
+  `activeSessionId(accessTokenId, userId)` to identify a current, non-revoked
+  session belonging to the signed subject. Issuance records that anchor before
+  returning tokens; missing, rotated or revoked session tokens are rejected.
+  `isAccessTokenRevoked` is a diagnostic lookup, not authorization for untracked tokens.
 - Access tokens include email/roles/permissions by default for backward compatibility.
   - To minimize token size and reduce data exposure, set `ACCESS_TOKEN_INCLUDE_EMAIL=false` and `ACCESS_TOKEN_INCLUDE_RBAC=false`.
 
@@ -51,6 +54,7 @@ JWT keys:
 ## Rate limiting
 
 Rate limiters are defined in `config/packages/rate_limiter.yaml`:
+
 - `login`
 - `mfa_verify`
 - `oauth_token`
@@ -83,15 +87,15 @@ Security headers are automatically added to all responses via `SecurityHeadersSu
 
 Headers applied:
 
-| Header | Value | Purpose |
-|--------|-------|---------|
-| `X-Content-Type-Options` | `nosniff` | Prevent MIME type sniffing |
-| `X-Frame-Options` | `DENY` | Prevent clickjacking (legacy) |
-| `X-XSS-Protection` | `0` | Disabled (rely on CSP instead) |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Control referrer information |
-| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` | Restrictive CSP for API |
-| `Permissions-Policy` | Restrictive | Block sensitive browser features |
-| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HSTS (production only) |
+| Header                      | Value                                        | Purpose                          |
+| --------------------------- | -------------------------------------------- | -------------------------------- |
+| `X-Content-Type-Options`    | `nosniff`                                    | Prevent MIME type sniffing       |
+| `X-Frame-Options`           | `DENY`                                       | Prevent clickjacking (legacy)    |
+| `X-XSS-Protection`          | `0`                                          | Disabled (rely on CSP instead)   |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`            | Control referrer information     |
+| `Content-Security-Policy`   | `default-src 'none'; frame-ancestors 'none'` | Restrictive CSP for API          |
+| `Permissions-Policy`        | Restrictive                                  | Block sensitive browser features |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains`        | HSTS (production only)           |
 
 Configuration via environment variables:
 
@@ -107,6 +111,7 @@ SECURITY_HEADERS_HSTS_MAX_AGE=31536000
 ```
 
 For authenticated requests (with `Authorization` header), additional cache headers are set:
+
 - `Cache-Control: no-store, no-cache, must-revalidate, private`
 - `Pragma: no-cache`
 
@@ -150,14 +155,14 @@ Core fields vary by event but follow this common shape:
 
 Event-specific fields:
 
-| Event | Fields |
-| --- | --- |
-| `auth.user_logged_in_event` | `user_id`, `email` (sanitized), `email_hash`, `ip` (sanitized), `ip_hash` |
-| `auth.login_failed_event` | `email` (sanitized), `email_hash`, `ip` (sanitized), `ip_hash`, `reason` |
-| `oauth.token_issued_event` | `grant_type`, `client_id`, `user_id` (optional), `ip` |
-| `oauth.token_issue_failed_event` | `grant_type`, `client_id`, `ip`, `reason` |
-| `oauth.token_refreshed_event` | `user_id`, `ip` |
-| `oauth.token_refresh_failed_event` | `user_id`, `ip`, `reason` |
+| Event                              | Fields                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------- |
+| `auth.user_logged_in_event`        | `user_id`, `email` (sanitized), `email_hash`, `ip` (sanitized), `ip_hash` |
+| `auth.login_failed_event`          | `email` (sanitized), `email_hash`, `ip` (sanitized), `ip_hash`, `reason`  |
+| `oauth.token_issued_event`         | `grant_type`, `client_id`, `user_id` (optional), `ip`                     |
+| `oauth.token_issue_failed_event`   | `grant_type`, `client_id`, `ip`, `reason`                                 |
+| `oauth.token_refreshed_event`      | `user_id`, `ip`                                                           |
+| `oauth.token_refresh_failed_event` | `user_id`, `ip`, `reason`                                                 |
 
 ## Incident response
 
@@ -172,6 +177,6 @@ Use your organization’s standard security reporting process for disclosures an
 ## Data retention
 
 - Periodic cleanup of expired/revoked auth data is available:
-  - Command: `php bin/console app:cleanup:auth-data --days=90`
-  - Dry run: `php bin/console app:cleanup:auth-data --days=90 --dry-run`
+  - Command: `php -d memory_limit=1G bin/console app:cleanup:auth-data --days=90`
+  - Dry run: `php -d memory_limit=1G bin/console app:cleanup:auth-data --days=90 --dry-run`
 - Default retention is set by `DATA_RETENTION_DAYS`.
