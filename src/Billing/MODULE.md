@@ -1,5 +1,7 @@
 # Billing Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Billing turns the organization plans (`free` / `pro` / `max`) into real Stripe
@@ -28,19 +30,19 @@ Persisted in the dedicated **main** database.
 - Reconcile Stripe `customer.subscription.*` webhooks into the local projection
   and the organization plan.
 
-## API endpoints
+## API Endpoints
 
-| Method | Path | Description | Handler | Permission |
-| --- | --- | --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/billing/checkout` | Start a hosted Checkout session for `{planKey, interval}`; returns the Stripe URL | `StartCheckoutProcessor` | `organization.settings.write` |
-| POST | `/api/organizations/{organizationId}/billing/portal` | Open a hosted Billing Portal session; returns the Stripe URL | `StartPortalProcessor` | `organization.settings.write` |
-| POST | `/api/organizations/{organizationId}/billing/cancel` | Schedule cancellation at period end; returns the refreshed subscription | `CancelSubscriptionProcessor` | `organization.settings.write` |
-| POST | `/api/organizations/{organizationId}/billing/resume` | Clear a scheduled cancellation; returns the refreshed subscription | `ResumeSubscriptionProcessor` | `organization.settings.write` |
-| GET | `/api/organizations/{organizationId}/billing/subscription` | Get the current subscription state (status, plan key/display name, display pricing, renewal, scheduled cancel) — self-sufficient for the "current plan" card, see Notes (L3.8) | `GetSubscriptionProvider` | `organization.read` |
-| GET | `/api/organizations/{organizationId}/billing/payment-method` | Get the saved Stripe card (brand, last 4, expiry); `hasPaymentMethod: false` when none | `GetPaymentMethodProvider` | `organization.read` |
-| GET | `/api/organizations/{organizationId}/billing/invoices` | List recent Stripe invoices (date, amount, status, hosted/PDF links) | `GetInvoicesProvider` | `organization.read` |
-| GET | `/api/billing/pricing` | List display pricing (monthly/yearly amounts) for every payable plan | `GetPricingProvider` | `ROLE_USER` |
-| POST | `/api/billing/webhook` | Receive and reconcile Stripe webhook events (public; signature verified) | `StripeWebhookController` | public |
+| Method | Path                                                         | Description                                                                                                                                                                    | Handler                       | Permission                    |
+| ------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- | ----------------------------- |
+| POST   | `/api/organizations/{organizationId}/billing/checkout`       | Start a hosted Checkout session for `{planKey, interval}`; returns the Stripe URL                                                                                              | `StartCheckoutProcessor`      | `organization.settings.write` |
+| POST   | `/api/organizations/{organizationId}/billing/portal`         | Open a hosted Billing Portal session; returns the Stripe URL                                                                                                                   | `StartPortalProcessor`        | `organization.settings.write` |
+| POST   | `/api/organizations/{organizationId}/billing/cancel`         | Schedule cancellation at period end; returns the refreshed subscription                                                                                                        | `CancelSubscriptionProcessor` | `organization.settings.write` |
+| POST   | `/api/organizations/{organizationId}/billing/resume`         | Clear a scheduled cancellation; returns the refreshed subscription                                                                                                             | `ResumeSubscriptionProcessor` | `organization.settings.write` |
+| GET    | `/api/organizations/{organizationId}/billing/subscription`   | Get the current subscription state (status, plan key/display name, display pricing, renewal, scheduled cancel) — self-sufficient for the "current plan" card, see Notes (L3.8) | `GetSubscriptionProvider`     | `organization.read`           |
+| GET    | `/api/organizations/{organizationId}/billing/payment-method` | Get the saved Stripe card (brand, last 4, expiry); `hasPaymentMethod: false` when none                                                                                         | `GetPaymentMethodProvider`    | `organization.read`           |
+| GET    | `/api/organizations/{organizationId}/billing/invoices`       | List recent Stripe invoices (date, amount, status, hosted/PDF links)                                                                                                           | `GetInvoicesProvider`         | `organization.read`           |
+| GET    | `/api/billing/pricing`                                       | List display pricing (monthly/yearly amounts) for every payable plan                                                                                                           | `GetPricingProvider`          | `ROLE_USER`                   |
+| POST   | `/api/billing/webhook`                                       | Receive and reconcile Stripe webhook events (public; signature verified)                                                                                                       | `StripeWebhookController`     | public                        |
 
 `checkout`/`portal` return a URL the client redirects the browser to. The actual
 plan change is applied by the webhook, never by these endpoints. Return URLs are
@@ -56,7 +58,7 @@ subscription for its `stripeCustomerId`, then `StripeGatewayAdapter::getPaymentM
 reads the customer's `invoice_settings.default_payment_method` (expanded),
 falling back to the customer's most recent attached card. Card details are
 **never** collected, transmitted or stored by this application in the other
-direction — brand/last 4/expiry only ever flow *from* Stripe. The client's
+direction — brand/last 4/expiry only ever flow _from_ Stripe. The client's
 "Update card" action must redirect to the hosted Billing Portal
 (`POST …/billing/portal`), never post card data to this API.
 
@@ -92,11 +94,11 @@ customer. The mapping is the record we control.
 
 The three cases:
 
-| Metadata | Local mapping | Outcome |
-|---|---|---|
-| absent | present | the mapping wins |
-| present | absent | accepted only if the organization has no different local customer |
-| present | present and **different** | **event ignored**, logged as a warning |
+| Metadata | Local mapping             | Outcome                                                           |
+| -------- | ------------------------- | ----------------------------------------------------------------- |
+| absent   | present                   | the mapping wins                                                  |
+| present  | absent                    | accepted only if the organization has no different local customer |
+| present  | present and **different** | **event ignored**, logged as a warning                            |
 
 Neither side is preferred on disagreement. The same checks apply to every
 subscription returned by the remote read; conflicting customer, organization or
@@ -293,6 +295,10 @@ processors map them to the right HTTP status.
   "current plan" card from one call. The plan's marketing `tagline`/`perks`
   (see `src/Organization/MODULE.md`, `PlanPresentationCatalog`) are
   deliberately **not** duplicated here — they are display copy for the plan
-  *catalog* card, fetched from `/plans` only when that card is actually
+  _catalog_ card, fetched from `/plans` only when that card is actually
   shown, whereas the subscription card only ever needs the plan's name and
   price.
+
+## Flows
+
+Hosted Checkout/Portal requests lead to Stripe callbacks. Verified, idempotent webhook reconciliation updates the billing projection and organization plan through its public seam; a frontend redirect alone does not confirm payment.

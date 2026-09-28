@@ -1,5 +1,7 @@
 # Audit Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Durable event deliveries use an auth-owned consumer receipt, committed with the
@@ -17,11 +19,11 @@ without `audit.read` remains forbidden regardless of tenant request headers.
 
 ## API Endpoints
 
-| Method | Endpoint | Description | Auth |
-| --- | --- | --- | --- |
-| GET | `/api/audit-events` | List audit events (filtered, paginated) | `audit.read` |
-| GET | `/api/audit-events/{id}` | Get audit event details | `audit.read` |
-| GET | `/api/audit-events/export` | Streams a bounded CSV export of audit events | `audit.export` |
+| Method | Endpoint                   | Description                                  | Auth           |
+| ------ | -------------------------- | -------------------------------------------- | -------------- |
+| GET    | `/api/audit-events`        | List audit events (filtered, paginated)      | `audit.read`   |
+| GET    | `/api/audit-events/{id}`   | Get audit event details                      | `audit.read`   |
+| GET    | `/api/audit-events/export` | Streams a bounded CSV export of audit events | `audit.export` |
 
 ### Supported Filters
 
@@ -331,7 +333,7 @@ gate does not police this, review does.
 **Metadata producer contract**: metadata dispatched through
 `recordOrganizationAudit()` is potentially readable by organization admins.
 It is filtered by `Application\Service\OrganizationAuditMetadataProjection`,
-a **per-action allowlist**, and the default is *drop*: an action absent from
+a **per-action allowlist**, and the default is _drop_: an action absent from
 the map publishes an empty payload, and a key absent from its action's entry
 is dropped. A denylist of key names was tried first and is unsound twice
 over — it cannot see inside a value, and it admits by default whatever a
@@ -405,3 +407,7 @@ system fallback for legacy messages; no geometric coordinates enter this project
 Approval withdrawal consumes the public `ApprovalWithdrawnEvent` through the durable
 outbox, recording `approval.withdrawn` with its initiating actor. Free-form decision
 notes stay on the access-controlled approval resource, outside generic audit metadata.
+
+## Flows
+
+Committed owner events reach the audit consumer; auth-owned receipts and ledger writes preserve deduplication and hash-chain integrity. Authorized reads apply the same tenant scope to items, collections and totals.

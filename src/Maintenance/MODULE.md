@@ -1,5 +1,7 @@
 # Maintenance Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Maintenance provides preventive-maintenance scheduling for fire-safety
@@ -21,13 +23,13 @@ Main goals:
 
 ## API Endpoints
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| GET | `/api/maintenance/schedules` | List schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus`, `dueBefore`; 30/page, client page size) | `organization.maintenance.read` |
-| GET | `/api/maintenance/schedules/export` | Streams a bounded, synchronous CSV export of schedules (filters: `organization` *(required)*, `facility`, `equipmentType`, `dueStatus`, `dueBefore` — the same filters as the list endpoint). Bounded to 50 000 matching rows (422 above the cap). Header: `id,equipment_id,equipment_type,equipment_serial,facility,periodicity_override,last_inspection_closed_at,next_due_at,due_status,created_at,updated_at` | `organization.maintenance.read` |
-| GET | `/api/maintenance/schedules/{id}` | Get a schedule | `organization.maintenance.read` |
-| PATCH | `/api/maintenance/schedules/{id}` | Set/clear `intervalOverride` (`null` clears) | `organization.maintenance.manage` |
-| POST | `/api/maintenance/campaigns` | Generate an intervention draft from due/overdue schedules matching `facility`/`equipmentType`/`dueBefore`; `201 {interventionId, number, workItemsCount}` | `organization.maintenance.manage` AND `organization.interventions.plan` |
+| Method | Path                                | Description                                                                                                                                                                                                                                                                                                                                                                                                       | Permission                                                              |
+| ------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| GET    | `/api/maintenance/schedules`        | List schedules (filters: `organization` _(required)_, `facility`, `equipmentType`, `dueStatus`, `dueBefore`; 30/page, client page size)                                                                                                                                                                                                                                                                           | `organization.maintenance.read`                                         |
+| GET    | `/api/maintenance/schedules/export` | Streams a bounded, synchronous CSV export of schedules (filters: `organization` _(required)_, `facility`, `equipmentType`, `dueStatus`, `dueBefore` — the same filters as the list endpoint). Bounded to 50 000 matching rows (422 above the cap). Header: `id,equipment_id,equipment_type,equipment_serial,facility,periodicity_override,last_inspection_closed_at,next_due_at,due_status,created_at,updated_at` | `organization.maintenance.read`                                         |
+| GET    | `/api/maintenance/schedules/{id}`   | Get a schedule                                                                                                                                                                                                                                                                                                                                                                                                    | `organization.maintenance.read`                                         |
+| PATCH  | `/api/maintenance/schedules/{id}`   | Set/clear `intervalOverride` (`null` clears)                                                                                                                                                                                                                                                                                                                                                                      | `organization.maintenance.manage`                                       |
+| POST   | `/api/maintenance/campaigns`        | Generate an intervention draft from due/overdue schedules matching `facility`/`equipmentType`/`dueBefore`; `201 {interventionId, number, workItemsCount}`                                                                                                                                                                                                                                                         | `organization.maintenance.manage` AND `organization.interventions.plan` |
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors the
@@ -49,7 +51,14 @@ single justified exemption).
 
 ### Inspection closes (event-driven hot path)
 
+Inspection closure triggers maintenance synchronization through the published contract. The diagram distinguishes the inspection outcome from the documented best-effort synchronization effect.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Insp as CloseInspectionHandler
   participant Sync as InspectionMaintenanceSynchronizerPort
@@ -83,9 +92,9 @@ everything page-wise (bounded memory):
    `remindedFor` doesn't already match `nextDueAt`, sends a
    `maintenance.inspection_due` / `maintenance.inspection_overdue`
    notification to the organization's administrators (`MaintenanceReminderNotifier`
-   + `MaintenanceReminderRecipientResolver`), honoring the
-   `inspectionDue` category toggle and the `inAppEnabled`/`emailEnabled`
-   channels — mirrors `InterventionNotificationService`.
+   - `MaintenanceReminderRecipientResolver`), honoring the
+     `inspectionDue` category toggle and the `inAppEnabled`/`emailEnabled`
+     channels — mirrors `InterventionNotificationService`.
 
 ### Generate an inspection campaign (synchronous)
 
@@ -127,18 +136,18 @@ in practice.
 
 ### Ports & adapters (`config/modules/maintenance.yaml`)
 
-| Port | Adapter |
-| --- | --- |
-| `MaintenanceScheduleRepositoryPort` (outbound) | `MaintenanceScheduleRepository` |
-| `MaintenanceSchedulePort` (inbound) | `MaintenanceScheduleService` |
-| `MaintenanceEquipmentDirectoryPort` (outbound, cross-module) | `Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter` |
-| `MaintenanceCompliancePolicyPort` (outbound, cross-module) | `Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter` |
-| `Inspection\Application\Port\Outbound\InspectionMaintenanceSynchronizerPort` *(cross-module, consumed by Inspection)* | `Maintenance\Infrastructure\Adapter\Inspection\MaintenanceScheduleSynchronizerAdapter` |
-| `Equipment\Application\Port\Outbound\MaintenanceDueStatusPort` *(cross-module, consumed by Equipment)* | `Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter` |
-| `Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort` *(cross-module, consumed by Calendar)* | `Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter` |
-| `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, consumed by Assistant, tagged `assistant.context_provider`)* | `Maintenance\Infrastructure\Adapter\Assistant\MaintenanceAssistantContextProviderAdapter` |
-| `MaintenanceEquipmentNamingPort` (outbound, cross-module) | `Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter` |
-| `MaintenanceFacilityNamingPort` (outbound, cross-module) | `Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter` |
+| Port                                                                                                                                            | Adapter                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `MaintenanceScheduleRepositoryPort` (outbound)                                                                                                  | `MaintenanceScheduleRepository`                                                           |
+| `MaintenanceSchedulePort` (inbound)                                                                                                             | `MaintenanceScheduleService`                                                              |
+| `MaintenanceEquipmentDirectoryPort` (outbound, cross-module)                                                                                    | `Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter`       |
+| `MaintenanceCompliancePolicyPort` (outbound, cross-module)                                                                                      | `Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter`     |
+| `Inspection\Application\Port\Outbound\InspectionMaintenanceSynchronizerPort` _(cross-module, consumed by Inspection)_                           | `Maintenance\Infrastructure\Adapter\Inspection\MaintenanceScheduleSynchronizerAdapter`    |
+| `Equipment\Application\Port\Outbound\MaintenanceDueStatusPort` _(cross-module, consumed by Equipment)_                                          | `Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter`       |
+| `Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort` _(cross-module, consumed by Calendar)_                                    | `Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter`              |
+| `Assistant\Application\Port\Outbound\AssistantContextProviderPort` _(cross-module, consumed by Assistant, tagged `assistant.context_provider`)_ | `Maintenance\Infrastructure\Adapter\Assistant\MaintenanceAssistantContextProviderAdapter` |
+| `MaintenanceEquipmentNamingPort` (outbound, cross-module)                                                                                       | `Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceNamingAdapter`          |
+| `MaintenanceFacilityNamingPort` (outbound, cross-module)                                                                                        | `Facility\Infrastructure\Adapter\Maintenance\FacilityMaintenanceNamingAdapter`            |
 
 **CSV export (`GET /maintenance/schedules/export`)**: mirrors the Intervention
 module's `ExportInterventionsHandler`/`ExportInterventionsController` pattern
@@ -154,7 +163,7 @@ The list and export share `facility`, `equipmentType`, `dueStatus` and inclusive
 `dueBefore` filters. The `(organization_id, next_due_at)` index supports date-bounded
 exports independently of status. The controller dispatches
 `MaintenanceSchedulesExportedEvent` (organization id, actor, `csv`, row
-count, applied filter *names* only) after a successful stream, the same
+count, applied filter _names_ only) after a successful stream, the same
 audit-without-raw-values discipline `InterventionsExportedEvent` follows.
 
 `EquipmentMaintenanceDirectoryAdapter` queries `EquipmentRecord` directly
@@ -169,7 +178,7 @@ existing `OrganizationComplianceSettings` value object, mirroring
 `EquipmentMaintenanceDueStatusAdapter` implements the Equipment module's
 `MaintenanceDueStatusPort` — the reverse direction of
 `MaintenanceEquipmentDirectoryAdapter` above (here Maintenance is the
-*provider* of the read model, hosting the adapter, per this repo's
+_provider_ of the read model, hosting the adapter, per this repo's
 cross-module convention). A single DQL query resolves the whole batch of
 requested equipment ids (`s.organization = :organization AND s.equipmentId IN
 (:equipmentIds)`), scoped to one organization; equipment ids with no matching
@@ -301,17 +310,17 @@ automatically — no backfill migration is needed.
   functional `KernelBrowser` test client, the same reason the functional test
   below stops at the HTTP-contract level), `tests/Functional/Api/MaintenanceScheduleExportApiTest.php`
   (200 + content type/disposition, 401, 403, 404).
-- Run module tests: `make test tests/Unit/Maintenance/`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Maintenance/`
 
 ## Error Codes
 
-| Exception | HTTP |
-| --- | --- |
-| `MaintenanceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `MaintenanceNotFoundException` | 404 Not Found |
-| `MaintenanceValidationException` | 422 Unprocessable Entity |
-| `MaintenanceExportTooLargeException` | 422 Unprocessable Entity |
-| `InvalidArgumentException` | 400 Bad Request |
+| Exception                                                                                              | HTTP                     |
+| ------------------------------------------------------------------------------------------------------ | ------------------------ |
+| `MaintenanceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden            |
+| `MaintenanceNotFoundException`                                                                         | 404 Not Found            |
+| `MaintenanceValidationException`                                                                       | 422 Unprocessable Entity |
+| `MaintenanceExportTooLargeException`                                                                   | 422 Unprocessable Entity |
+| `InvalidArgumentException`                                                                             | 400 Bad Request          |
 
 ## Recalculation and freshness
 

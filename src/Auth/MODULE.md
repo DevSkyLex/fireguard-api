@@ -1,5 +1,7 @@
 # Auth Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/authentication.md).
+
 Authentication module for Fireguard API. It provides user login, MFA verification, refresh token handling, and logout, while integrating with the OAuth2 and OpenID Connect stack.
 
 ## Overview
@@ -17,12 +19,11 @@ The Auth module is responsible for interactive user authentication. It issues ac
 
 ## API Endpoints
 
-| Mailbox proof endpoint | Method | Authentication |
-| --- | --- | --- |
-| `/api/auth/email-ownership` | GET | ROLE_USER |
-| `/api/auth/email-ownership/start` | POST | ROLE_USER + per-user rate limit |
-| `/api/auth/email-ownership/confirm` | POST | ROLE_USER + per-user rate limit |
-
+| Mailbox proof endpoint              | Method | Authentication                  |
+| ----------------------------------- | ------ | ------------------------------- |
+| `/api/auth/email-ownership`         | GET    | ROLE_USER                       |
+| `/api/auth/email-ownership/start`   | POST   | ROLE_USER + per-user rate limit |
+| `/api/auth/email-ownership/confirm` | POST   | ROLE_USER + per-user rate limit |
 
 ### Authentication
 
@@ -31,6 +32,7 @@ The Auth module is responsible for interactive user authentication. It issues ac
 Authenticates a user using email and password.
 
 Request:
+
 ```json
 {
   "email": "john.doe@example.com",
@@ -39,13 +41,14 @@ Request:
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `email` | string | Yes | Valid email address |
-| `password` | string | Yes | User password (min 8 chars) |
-| `remember_me` | boolean | No | Extend session duration (30 days) |
+| Field         | Type    | Required | Description                       |
+| ------------- | ------- | -------- | --------------------------------- |
+| `email`       | string  | Yes      | Valid email address               |
+| `password`    | string  | Yes      | User password (min 8 chars)       |
+| `remember_me` | boolean | No       | Extend session duration (30 days) |
 
 Success response (200):
+
 ```json
 {
   "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -56,6 +59,7 @@ Success response (200):
 ```
 
 If MFA is required (200):
+
 ```json
 {
   "mfa_required": true,
@@ -65,6 +69,7 @@ If MFA is required (200):
 ```
 
 Notes:
+
 - A HttpOnly refresh token cookie is set in the response.
 - The refresh token cookie is not readable by JavaScript.
 - Login validation and refusal messages follow `Accept-Language` (`en`, `fr`, `es`),
@@ -75,6 +80,7 @@ Notes:
 Verifies the OTP to complete MFA.
 
 Request:
+
 ```json
 {
   "preAuthToken": "eyJ...",
@@ -82,16 +88,17 @@ Request:
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `preAuthToken` | string | Yes | Token received in `mfa_token` |
-| `code` | string | Yes | OTP/TOTP code (length: `OTP_CODE_LENGTH` for SMS/Email, `TOTP_DIGITS` for authenticator app) |
+| Field          | Type   | Required | Description                                                                                  |
+| -------------- | ------ | -------- | -------------------------------------------------------------------------------------------- |
+| `preAuthToken` | string | Yes      | Token received in `mfa_token`                                                                |
+| `code`         | string | Yes      | OTP/TOTP code (length: `OTP_CODE_LENGTH` for SMS/Email, `TOTP_DIGITS` for authenticator app) |
 
 #### POST `/api/auth/mfa/resend`
 
 Resends the MFA OTP code using the pre-auth token.
 
 Request:
+
 ```json
 {
   "preAuthToken": "eyJ..."
@@ -99,6 +106,7 @@ Request:
 ```
 
 Response (200):
+
 ```json
 {
   "mfa_required": true,
@@ -108,6 +116,7 @@ Response (200):
 ```
 
 Notes:
+
 - Returns a **new** `mfa_token` and `challenge_token` to use for verification.
 - Subject to cooldown and rate limiting.
 - Returns `400 Bad Request` with `errorCode: "totp_not_resendable"` when the
@@ -118,6 +127,7 @@ Notes:
 Refreshes the access token using the refresh token cookie.
 
 Response (200):
+
 ```json
 {
   "access_token": "eyJ...",
@@ -127,6 +137,7 @@ Response (200):
 ```
 
 Notes:
+
 - No request body is required.
 - The refresh token is read from the HttpOnly cookie.
 
@@ -135,11 +146,13 @@ Notes:
 Revokes tokens and clears the refresh token cookie.
 
 Headers:
+
 ```http
 Authorization: Bearer <access_token>
 ```
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -154,17 +167,19 @@ Response (200):
 Request a password reset by email. An OTP code will be sent if the account exists.
 
 Request:
+
 ```json
 {
   "email": "john.doe@example.com"
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `email` | string | Yes | User's email address |
+| Field   | Type   | Required | Description          |
+| ------- | ------ | -------- | -------------------- |
+| `email` | string | Yes      | User's email address |
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -173,6 +188,7 @@ Response (200):
 ```
 
 Notes:
+
 - Always returns success to prevent user enumeration
 - OTP code is sent via email (15 min expiry, 5 attempts max)
 
@@ -181,6 +197,7 @@ Notes:
 Confirm password reset using the token, code, and new password.
 
 Request:
+
 ```json
 {
   "token": "abc123...",
@@ -189,13 +206,14 @@ Request:
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `token` | string | Yes | Challenge token from request step |
-| `code` | string | Yes | OTP code received by email |
-| `newPassword` | string | Yes | New password (min 8 chars, must include uppercase, lowercase, digit, special char) |
+| Field         | Type   | Required | Description                                                                        |
+| ------------- | ------ | -------- | ---------------------------------------------------------------------------------- |
+| `token`       | string | Yes      | Challenge token from request step                                                  |
+| `code`        | string | Yes      | OTP code received by email                                                         |
+| `newPassword` | string | Yes      | New password (min 8 chars, must include uppercase, lowercase, digit, special char) |
 
 Response (200):
+
 ```json
 {
   "success": true,
@@ -204,6 +222,7 @@ Response (200):
 ```
 
 Error response (401):
+
 ```json
 {
   "success": false,
@@ -214,6 +233,7 @@ Error response (401):
 ```
 
 Notes:
+
 - All active sessions are revoked on success
 - All OAuth tokens are revoked on success
 - Error codes: `invalid_code`, `expired`, `max_attempts_exceeded`, `invalid_token`
@@ -223,6 +243,7 @@ Notes:
 This module integrates with the OAuth module for authorization, token issuance, and discovery. For full details, see `src/OAuth/MODULE.md`.
 
 Core endpoints:
+
 - `/api/oauth2/authorize`
 - `/api/oauth2/token`
 - `/api/oauth2/token/introspect`
@@ -249,24 +270,40 @@ This proof is independent of OAuth provider claims and does not bypass Fireguard
 
 ### Login with MFA
 
+Password login issues a pre-authentication challenge. MFA completion must persist the interactive session before returning its access token and refresh cookie.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant C as Client
   participant A as Auth API
   C->>A: POST /api/auth/login
-  A-->>C: MFA required + tokens
+  A-->>C: MFA challenge and pre-authentication token
   C->>A: POST /api/auth/mfa/verify
+  A->>A: Persist current interactive session
   A-->>C: access_token + refresh cookie
 ```
 
 ### Refresh Token
 
+Refresh conditionally rotates a live session token pair. A consumed or revoked pair returns no new token, and the previous access token stops authenticating.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant C as Client
   participant A as Auth API
   C->>A: POST /api/auth/refresh (cookie)
-  A-->>C: access_token
+  A->>A: Conditionally rotate the live session token pair
+  A-->>C: New access_token and refresh cookie
 ```
 
 ## Refresh Token Policy
@@ -300,7 +337,7 @@ sequenceDiagram
   the pre-auth token/challenge model (one challenge token, one channel)
   unchanged rather than introducing a method-selection step.
 - `/api/auth/mfa/resend` is a no-op (`400 Bad Request`, `errorCode:
-  "totp_not_resendable"`) when the active challenge's channel is `totp`,
+"totp_not_resendable"`) when the active challenge's channel is `totp`,
   since TOTP codes are generated locally and cannot be "resent".
 - If the `TotpEnrollmentCheckPort` check fails for any reason, login falls
   back to `email` rather than blocking the user.
@@ -308,6 +345,7 @@ sequenceDiagram
 ## Integration Examples
 
 Login:
+
 ```bash
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
@@ -315,6 +353,7 @@ curl -X POST http://localhost:8000/api/auth/login \
 ```
 
 Refresh (using cookie jar):
+
 ```bash
 curl -X POST http://localhost:8000/api/auth/refresh \
   -H "Content-Type: application/json" \
@@ -322,6 +361,7 @@ curl -X POST http://localhost:8000/api/auth/refresh \
 ```
 
 OIDC Authorization Code + PKCE:
+
 1. Redirect the user to `/api/oauth2/authorize` with PKCE parameters.
 2. Exchange the code at `/api/oauth2/token`.
 3. Use the access token for protected APIs and `/api/oauth2/userinfo`.
@@ -336,6 +376,7 @@ See `src/OAuth/MODULE.md` for the full OAuth2/OIDC flow.
 - Infrastructure: JWT adapters, rate limiting, session tracking, and security voters.
 
 Key folders:
+
 - `src/Auth/Presentation/Api`
 - `src/Auth/Application/UseCase`
 - `src/Auth/Domain`
@@ -367,6 +408,7 @@ The order matters, and each step exists because skipping it was a defect:
 ## Configuration
 
 Environment variables (see `.env`):
+
 - `MFA_ENABLED`
 - `ACCESS_TOKEN_INCLUDE_EMAIL` (default: `true` for backward compatibility)
 - `ACCESS_TOKEN_INCLUDE_RBAC` (default: `true` for backward compatibility)
@@ -378,6 +420,7 @@ Environment variables (see `.env`):
 - `OAUTH_ISSUER`
 
 Service wiring:
+
 - `config/modules/auth.yaml`
 
 ## Testing

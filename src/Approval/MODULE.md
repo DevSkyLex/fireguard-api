@@ -1,5 +1,7 @@
 # Approval Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/interventions.md).
+
 ## Overview
 
 Approval gates two regulated actions — waiving a critical non-conformity and
@@ -9,7 +11,7 @@ action type, performing that action creates a pending `ApprovalRequest`
 instead of applying immediately (the owning module's processor returns HTTP
 **202**); a second authorized member then approves or rejects it. On
 approval, the deferred action is re-executed through the owning module's
-*existing* command, so the original domain handler re-validates state and
+_existing_ command, so the original domain handler re-validates state and
 enforces idempotence.
 
 Main goals:
@@ -23,14 +25,14 @@ Main goals:
 
 ## API Endpoints
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| GET | `/api/organizations/{organizationId}/approval-requests` | List approval requests (filters: `status`, `actionType`) | `organization.approvals.read` |
-| GET | `/api/organizations/{organizationId}/approval-requests/{requestId}` | Get a single approval request | `organization.approvals.read` |
-| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/approve` | Approve and re-execute the deferred action | `organization.approvals.decide` |
-| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/reject` | Reject; the deferred action is never executed | `organization.approvals.decide` |
-| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/withdraw` | Withdraw with optional reason; never executes the deferred action | Active original requester |
-| GET | `/api/approvals/action-types` | Reference catalog of gatable action types | `ROLE_USER` |
+| Method | Path                                                                         | Description                                                       | Permission                      |
+| ------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------- |
+| GET    | `/api/organizations/{organizationId}/approval-requests`                      | List approval requests (filters: `status`, `actionType`)          | `organization.approvals.read`   |
+| GET    | `/api/organizations/{organizationId}/approval-requests/{requestId}`          | Get a single approval request                                     | `organization.approvals.read`   |
+| POST   | `/api/organizations/{organizationId}/approval-requests/{requestId}/approve`  | Approve and re-execute the deferred action                        | `organization.approvals.decide` |
+| POST   | `/api/organizations/{organizationId}/approval-requests/{requestId}/reject`   | Reject; the deferred action is never executed                     | `organization.approvals.decide` |
+| POST   | `/api/organizations/{organizationId}/approval-requests/{requestId}/withdraw` | Withdraw with optional reason; never executes the deferred action | Active original requester       |
+| GET    | `/api/approvals/action-types`                                                | Reference catalog of gatable action types                         | `ROLE_USER`                     |
 
 Every operation requires `ROLE_USER` at the resource level; the
 finer-grained permission checks are self-enforced in the application layer
@@ -41,7 +43,7 @@ Webhook/Import/Maintenance convention) — processors stay thin.
 `OrganizationAuthorizationPort::resolveAccess()`, never the flat
 `assertGrantedPermissions()`: `OUTSIDE_SCOPE` (no active membership) maps to
 the same 404 an unknown identifier produces, and `MISSING_PERMISSION` to 403.
-The decision handlers look a request up by path id *before* they know who
+The decision handlers look a request up by path id _before_ they know who
 owns it, so collapsing both denials into 403 confirmed to an outsider that a
 request exists while an unknown id answered 404 — an existence oracle across
 organizations. Aligned with the Maintenance hardening (`fix(maintenance):
@@ -74,7 +76,14 @@ A second withdrawal conflicts; expired state commits before returning the confli
 
 ### Deferred (gate returns "deferred")
 
+A policy gate can defer the requested action into an approval request. Deferral records a pending decision; it does not execute the protected action immediately.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Client
   participant Proc as Owning module Processor
@@ -92,7 +101,14 @@ sequenceDiagram
 
 ### Approve
 
+Approval resolves the pending request and invokes its registered action under the current policy and scope. The owning action contract still decides execution success and failure.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Approver
   participant H as ApproveApprovalRequestHandler
@@ -147,14 +163,14 @@ sequenceDiagram
 
 ### Ports & adapters (`config/modules/approval.yaml`)
 
-| Port | Adapter | Hosted in |
-| --- | --- | --- |
-| `ApprovalGatePort` (inbound) | `ApprovalGate` | Approval |
-| `ApprovalRequestRepositoryPort` | `ApprovalRequestRepository` | Approval |
-| `ApprovalPolicyPort` | `OrganizationApprovalPolicyAdapter` | Organization |
-| `ApprovalMemberDirectoryPort` | `OrganizationApprovalMemberDirectoryAdapter` | Organization |
+| Port                                                                                | Adapter                                                                      | Hosted in             |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | --------------------- |
+| `ApprovalGatePort` (inbound)                                                        | `ApprovalGate`                                                               | Approval              |
+| `ApprovalRequestRepositoryPort`                                                     | `ApprovalRequestRepository`                                                  | Approval              |
+| `ApprovalPolicyPort`                                                                | `OrganizationApprovalPolicyAdapter`                                          | Organization          |
+| `ApprovalMemberDirectoryPort`                                                       | `OrganizationApprovalMemberDirectoryAdapter`                                 | Organization          |
 | `ApprovalActionExecutorPort` (`!tagged_iterator approval.deferred_action_executor`) | `NonConformityWaiverExecutorAdapter`, `EquipmentDecommissionExecutorAdapter` | Inspection, Equipment |
-| `Organization\...\ApprovalActionTypeCatalogPort` | `ApprovalActionTypeCatalogAdapter` | Approval |
+| `Organization\...\ApprovalActionTypeCatalogPort`                                    | `ApprovalActionTypeCatalogAdapter`                                           | Approval              |
 
 Module cycles (Approval↔Inspection, Approval↔Equipment, Approval↔Organization)
 are acceptable: `deptrac.yaml` enforces LAYER boundaries only, not module
@@ -191,12 +207,12 @@ Equipment's **Domain** layers reference nothing from Approval.
 
    `Application\Service\ApprovalActionExecutorRegistry` resolves the
    matching adapter by action type (`!tagged_iterator
-   approval.deferred_action_executor`), throwing
+approval.deferred_action_executor`), throwing
    `ApprovalActionExecutorNotFoundException` when none is registered.
 
 ## Deferred-action re-validation & idempotence
 
-Re-executing re-dispatches the owning module's *existing* command through
+Re-executing re-dispatches the owning module's _existing_ command through
 `CommandBusPort`, so its handler re-validates current state exactly as it
 would for a fresh request:
 
@@ -209,7 +225,7 @@ would for a fresh request:
 - **Inspection**: `NonConformity::updateStatus()` throws
   `NonConformityAlreadyResolvedException` whether the non-conformity was
   already `done` **or** already `waived` — ambiguous on its own. The
-  executor re-queries `GetNonConformityQuery` to check the *current* status:
+  executor re-queries `GetNonConformityQuery` to check the _current_ status:
   already-`waived` ⇒ idempotent success; anything else (already `done`, or
   the inspection/non-conformity no longer found) ⇒
   `DeferredActionNoLongerApplicableException`.
@@ -264,7 +280,11 @@ body:
 {
   "action_rules": {
     "nc_waiver": { "enabled": true, "min_approver_role": "admin", "min_severity": "critical" },
-    "equipment_decommission": { "enabled": true, "min_approver_role": "admin", "min_severity": null }
+    "equipment_decommission": {
+      "enabled": true,
+      "min_approver_role": "admin",
+      "min_severity": null
+    }
   },
   "allow_self_approval": false,
   "approval_ttl_days": 14
@@ -298,7 +318,7 @@ critical`).
   `member` (admin-only via the `organization.*` wildcard) — mirrors
   Webhook's admin-only permissions.
 
-Run `php bin/console app:authz:sync-permissions --update-roles` after
+Run `php -d memory_limit=1G bin/console app:authz:sync-permissions --update-roles` after
 deploy (propagates `read`/`request` to persisted `member` roles).
 
 ## Audit
@@ -370,7 +390,8 @@ consumer, pending requests never expire.
   (202 + `approvalRequestId`, equipment untouched), then approve as the owner
   (equipment becomes `decommissioned`) or reject (it does not, and a second
   decision conflicts).
-- Run module tests: `php vendor/bin/phpunit tests/Unit/Approval`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Approval`
+
 ## Error Codes
 
 Read responses expose advisory `allowedActions` and `decisionBlockReason` for the
@@ -381,9 +402,9 @@ the shared decision lock. Stable Problem Details `code` values distinguish
 blocks the read capability with `approval_expired` even before the periodic sweep.
 Frontend refresh after conflict retains the local decision note.
 
-| Exception | HTTP |
-| --- | --- |
-| `ApprovalRequestNotFoundException` | 404 Not Found — unknown id, a request owned by another organization, **and an organization the caller is not an active member of** (`::forOrganizationScope()` on the listing) |
-| `ApprovalAccessDeniedException` (member, but missing the required permission) / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` (still raised by `ApprovalGate`) | 403 Forbidden |
-| `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException` | 409 Conflict |
-| `InvalidArgumentException` | 400 Bad Request |
+| Exception                                                                                                                                                                                                                                                 | HTTP                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ApprovalRequestNotFoundException`                                                                                                                                                                                                                        | 404 Not Found — unknown id, a request owned by another organization, **and an organization the caller is not an active member of** (`::forOrganizationScope()` on the listing) |
+| `ApprovalAccessDeniedException` (member, but missing the required permission) / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` (still raised by `ApprovalGate`) | 403 Forbidden                                                                                                                                                                  |
+| `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException`                                                                                                                                                                        | 409 Conflict                                                                                                                                                                   |
+| `InvalidArgumentException`                                                                                                                                                                                                                                | 400 Bad Request                                                                                                                                                                |

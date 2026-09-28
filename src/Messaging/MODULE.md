@@ -1,5 +1,7 @@
 # Messaging Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/messaging.md).
+
 ## Overview
 
 Messaging hosts contextual discussion threads bound one-to-one to a core-entity
@@ -18,7 +20,7 @@ Main goals:
 - Keep a compliance-grade tombstone: a deleted message's body is retained in
   the database, redacted only at the API boundary.
 
-It deliberately does NOT extend `Notification` (a delivery *channel*, not a
+It deliberately does NOT extend `Notification` (a delivery _channel_, not a
 conversational space) nor generalize `Intervention`'s append-only activity
 feed (different semantics — intervention comments stay where they are).
 
@@ -52,45 +54,45 @@ not a stopgap.
 
 ## API Endpoints
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| GET | `/api/conversations` | List an organization's conversations (filters: `organization` *(required)*, `subjectType`, `subjectId`, `isArchived`, `unreadOnly`; 30/page, client page size) | `organization.messaging.read` |
-| POST | `/api/conversations` | Get-or-create a conversation by subject (`organization`, `subjectType`, `subject` IRIs); `200` (idempotent, not `201`) | `organization.messaging.read` + the subject's own read permission |
-| POST | `/api/direct-conversations` | Get-or-create a 1-to-1 direct conversation with another organization member (`organization` IRI, `memberId`); `200` (idempotent, not `201`); L2.4 | `organization.messaging.read` (floor permission — see Permissions); the target member must be an ACTIVE member of the same organization |
-| GET | `/api/direct-conversations` | List the acting member's direct conversations in one organization, most recently active first (filters: `organization` *(required)*, `isArchived`; 30/page, client page size); each row carries `counterpartMember` (the OTHER participant's member IRI, since `name` is always null for a DM) | `organization.messaging.read` (an INNER JOIN on `messaging_participants`, exactly like `GET /api/channels`, scopes the result to conversations the caller is a participant of — never another member's DM) |
-| GET | `/api/conversations/{id}` | Get a conversation (resolves `subjectLabel` + `unreadCount`) | `organization.messaging.read` + the subject's own read permission |
-| PATCH | `/api/conversations/{id}` | Archive/unarchive (`{isArchived}`) | `organization.messaging.manage` |
-| PATCH | `/api/conversations/{id}/read` | Mark the acting member's read position (`{lastReadMessageId?}`) | `organization.messaging.read` + the subject's own read permission |
-| GET | `/api/conversations/{id}/receipts` | Current participants' last confirmed delivery and read message positions; participant conversations only | Conversation read access |
-| POST | `/api/conversations/{id}/delivery` | Acknowledge a message received by this authenticated browser (`{messageId}`); participant conversations only | Conversation read access; the message must belong to this conversation and have another author |
-| POST | `/api/conversations/{id}/typing` | Publish an ephemeral typing signal (`{active}`), rate-limited to 36/min per user; participant conversations only | Conversation write access and participant membership |
-| GET | `/api/conversations/{id}/subscription` | Mercure subscriber JWT scoped to this ONE conversation's private topic | `organization.messaging.read` + the subject's own read permission |
-| GET | `/api/conversations/{conversationId}/messages` | List a conversation's messages, oldest first (30/page, client page size) | `organization.messaging.read` + the subject's own read permission |
-| POST | `/api/conversations/{conversationId}/messages` | Post a message (`{body}`, sanitized rich text, optional `references[]`); `201` | `organization.messaging.write` + the subject's own read permission |
-| PUT | `/api/conversations/{conversationId}/messages/{clientId}` | Post a message under a client-minted id; requires `If-None-Match: *`; `201`, or `409` `/problems/client-resource-already-exists` on replay | same as POST |
-| PATCH | `/api/messages/{id}` | Edit own message (`{body}`, optional replacement `references[]`) — author-only | `organization.messaging.write` + the subject's own read permission |
-| GET | `/api/conversations/{conversationId}/activity` | Zero-filled UTC daily message counts (`buckets`, default 26, max 366) | same access rule as `ListMessages` |
-| GET | `/api/conversations/{conversationId}/links` | URLs extracted from message bodies, newest first (30/page, client page size) | same access rule as `ListMessages` |
-| DELETE | `/api/messages/{id}` | Tombstone-delete (author self-delete, or manager moderation); `204` | author, or `organization.messaging.manage` |
-| POST | `/api/messages/{id}/replies` | Post a threaded reply to a ROOT message (`{body}`, sanitized rich text); `201`; L2.5 | `organization.messaging.write` + the subject's own read permission — same gate as posting a root message |
-| GET | `/api/messages/{id}/replies` | List a message's threaded replies, oldest first (30/page, client page size); L2.5 | same access rule as `ListMessages` |
-| POST | `/api/messages/{messageId}/attachments` | Upload a multipart file attachment to a message; `201` | `organization.messaging.write` + the subject's own read permission |
-| GET | `/api/conversations/{conversationId}/attachments` | The conversation Files tab, most recently uploaded first (30/page, client page size) | same access rule as `ListMessages` |
-| DELETE | `/api/messaging-attachments/{id}` | Delete an attachment (uploader self-delete, or manager moderation); `204`, requires `If-Match` | uploader, or `organization.messaging.manage` |
-| GET | `/api/messaging-attachments/{id}/content` | Download an attachment's stored file bytes — streams from the object store with `Content-Type` and `Content-Disposition: attachment; filename="…"` (also `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`) | same access rule as `ListMessages` (the owning conversation's read gate) |
-| POST | `/api/messages/{id}/pin` | Pin a message in its conversation; idempotent, `200` (not `201` — no new resource URI is created) | `organization.messaging.write` + the subject's own read permission |
-| DELETE | `/api/messages/{id}/pin` | Unpin a message; idempotent — unpinning a non-pinned message never errors; `204` | the pinning member, or `organization.messaging.manage` (only enforced when the message IS pinned) |
-| GET | `/api/conversations/{conversationId}/pinned-messages` | The conversation Pins tab, most recently pinned first (30/page, client page size) | same access rule as `ListMessages` |
-| POST | `/api/messages/{id}/reactions` | React with an emoji (`{emoji}`); idempotent insert, `200` (not `201`) | `organization.messaging.read` + the subject's own read permission — **not** `.write`, see Permissions |
-| DELETE | `/api/messages/{id}/reactions/{emoji}` | Remove the ACTING member's own reaction; idempotent — never errors, even if never reacted; `204` | active organization membership only (the primary key ties the delete to the caller — there is no other member's reaction to target) |
-| POST | `/api/messages/{id}/save` | Save (bookmark) a message for the acting member; idempotent, `200` (not `201`) | `organization.messaging.read` + the subject's own read permission — same as reacting |
-| DELETE | `/api/messages/{id}/save` | Unsave the ACTING member's own save; idempotent — never errors, even after losing access to the message's subject; `204` | active organization membership only |
-| GET | `/api/saved-messages` | The acting member's "Saved items" list ACROSS THE WHOLE ORGANIZATION, most recently saved first (filter: `organization` *(required)*; 30/page, client page size) | active organization membership only (see Permissions — deliberately no per-message re-check, mirrors the `ListConversations` list-is-cheaper-than-open stance) |
-| POST | `/api/conversations/{id}/favorite` | Favorite a conversation or channel (a channel id IS a conversation id); idempotent, `200` (not `201`) | `organization.messaging.read` + the subject's own read permission, or channel participation |
-| DELETE | `/api/conversations/{id}/favorite` | Unfavorite the ACTING member's own favorite; idempotent — never errors, even after losing access to the conversation's subject; `204` | active organization membership only |
-| POST | `/api/presence/ping` | Record the ACTING member's own online presence (`organization` IRI only — there is no `memberId` field); `200`; **rate-limited** (`limiter.messaging_presence_ping`, 6/min per user+organization); L2.7 | Active organization membership |
-| GET | `/api/presence` | Multi-get presence for a caller-supplied `memberIds` filter (comma-separated, **required**, max 100 ids — there is NO "list all online members" mode); L2.7 | Active membership + `organization.members.read` OR `organization.messaging.read` |
-| GET | `/api/presence/subscription` | Private organization presence subscriber token with explicit expiry | Same access as presence read |
+| Method | Path                                                      | Description                                                                                                                                                                                                                                                                                    | Permission                                                                                                                                                                                                 |
+| ------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/conversations`                                      | List an organization's conversations (filters: `organization` _(required)_, `subjectType`, `subjectId`, `isArchived`, `unreadOnly`; 30/page, client page size)                                                                                                                                 | `organization.messaging.read`                                                                                                                                                                              |
+| POST   | `/api/conversations`                                      | Get-or-create a conversation by subject (`organization`, `subjectType`, `subject` IRIs); `200` (idempotent, not `201`)                                                                                                                                                                         | `organization.messaging.read` + the subject's own read permission                                                                                                                                          |
+| POST   | `/api/direct-conversations`                               | Get-or-create a 1-to-1 direct conversation with another organization member (`organization` IRI, `memberId`); `200` (idempotent, not `201`); L2.4                                                                                                                                              | `organization.messaging.read` (floor permission — see Permissions); the target member must be an ACTIVE member of the same organization                                                                    |
+| GET    | `/api/direct-conversations`                               | List the acting member's direct conversations in one organization, most recently active first (filters: `organization` _(required)_, `isArchived`; 30/page, client page size); each row carries `counterpartMember` (the OTHER participant's member IRI, since `name` is always null for a DM) | `organization.messaging.read` (an INNER JOIN on `messaging_participants`, exactly like `GET /api/channels`, scopes the result to conversations the caller is a participant of — never another member's DM) |
+| GET    | `/api/conversations/{id}`                                 | Get a conversation (resolves `subjectLabel` + `unreadCount`)                                                                                                                                                                                                                                   | `organization.messaging.read` + the subject's own read permission                                                                                                                                          |
+| PATCH  | `/api/conversations/{id}`                                 | Archive/unarchive (`{isArchived}`)                                                                                                                                                                                                                                                             | `organization.messaging.manage`                                                                                                                                                                            |
+| PATCH  | `/api/conversations/{id}/read`                            | Mark the acting member's read position (`{lastReadMessageId?}`)                                                                                                                                                                                                                                | `organization.messaging.read` + the subject's own read permission                                                                                                                                          |
+| GET    | `/api/conversations/{id}/receipts`                        | Current participants' last confirmed delivery and read message positions; participant conversations only                                                                                                                                                                                       | Conversation read access                                                                                                                                                                                   |
+| POST   | `/api/conversations/{id}/delivery`                        | Acknowledge a message received by this authenticated browser (`{messageId}`); participant conversations only                                                                                                                                                                                   | Conversation read access; the message must belong to this conversation and have another author                                                                                                             |
+| POST   | `/api/conversations/{id}/typing`                          | Publish an ephemeral typing signal (`{active}`), rate-limited to 36/min per user; participant conversations only                                                                                                                                                                               | Conversation write access and participant membership                                                                                                                                                       |
+| GET    | `/api/conversations/{id}/subscription`                    | Mercure subscriber JWT scoped to this ONE conversation's private topic                                                                                                                                                                                                                         | `organization.messaging.read` + the subject's own read permission                                                                                                                                          |
+| GET    | `/api/conversations/{conversationId}/messages`            | List a conversation's messages, oldest first (30/page, client page size)                                                                                                                                                                                                                       | `organization.messaging.read` + the subject's own read permission                                                                                                                                          |
+| POST   | `/api/conversations/{conversationId}/messages`            | Post a message (`{body}`, sanitized rich text, optional `references[]`); `201`                                                                                                                                                                                                                 | `organization.messaging.write` + the subject's own read permission                                                                                                                                         |
+| PUT    | `/api/conversations/{conversationId}/messages/{clientId}` | Post a message under a client-minted id; requires `If-None-Match: *`; `201`, or `409` `/problems/client-resource-already-exists` on replay                                                                                                                                                     | same as POST                                                                                                                                                                                               |
+| PATCH  | `/api/messages/{id}`                                      | Edit own message (`{body}`, optional replacement `references[]`) — author-only                                                                                                                                                                                                                 | `organization.messaging.write` + the subject's own read permission                                                                                                                                         |
+| GET    | `/api/conversations/{conversationId}/activity`            | Zero-filled UTC daily message counts (`buckets`, default 26, max 366)                                                                                                                                                                                                                          | same access rule as `ListMessages`                                                                                                                                                                         |
+| GET    | `/api/conversations/{conversationId}/links`               | URLs extracted from message bodies, newest first (30/page, client page size)                                                                                                                                                                                                                   | same access rule as `ListMessages`                                                                                                                                                                         |
+| DELETE | `/api/messages/{id}`                                      | Tombstone-delete (author self-delete, or manager moderation); `204`                                                                                                                                                                                                                            | author, or `organization.messaging.manage`                                                                                                                                                                 |
+| POST   | `/api/messages/{id}/replies`                              | Post a threaded reply to a ROOT message (`{body}`, sanitized rich text); `201`; L2.5                                                                                                                                                                                                           | `organization.messaging.write` + the subject's own read permission — same gate as posting a root message                                                                                                   |
+| GET    | `/api/messages/{id}/replies`                              | List a message's threaded replies, oldest first (30/page, client page size); L2.5                                                                                                                                                                                                              | same access rule as `ListMessages`                                                                                                                                                                         |
+| POST   | `/api/messages/{messageId}/attachments`                   | Upload a multipart file attachment to a message; `201`                                                                                                                                                                                                                                         | `organization.messaging.write` + the subject's own read permission                                                                                                                                         |
+| GET    | `/api/conversations/{conversationId}/attachments`         | The conversation Files tab, most recently uploaded first (30/page, client page size)                                                                                                                                                                                                           | same access rule as `ListMessages`                                                                                                                                                                         |
+| DELETE | `/api/messaging-attachments/{id}`                         | Delete an attachment (uploader self-delete, or manager moderation); `204`, requires `If-Match`                                                                                                                                                                                                 | uploader, or `organization.messaging.manage`                                                                                                                                                               |
+| GET    | `/api/messaging-attachments/{id}/content`                 | Download an attachment's stored file bytes — streams from the object store with `Content-Type` and `Content-Disposition: attachment; filename="…"` (also `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`)                                                                | same access rule as `ListMessages` (the owning conversation's read gate)                                                                                                                                   |
+| POST   | `/api/messages/{id}/pin`                                  | Pin a message in its conversation; idempotent, `200` (not `201` — no new resource URI is created)                                                                                                                                                                                              | `organization.messaging.write` + the subject's own read permission                                                                                                                                         |
+| DELETE | `/api/messages/{id}/pin`                                  | Unpin a message; idempotent — unpinning a non-pinned message never errors; `204`                                                                                                                                                                                                               | the pinning member, or `organization.messaging.manage` (only enforced when the message IS pinned)                                                                                                          |
+| GET    | `/api/conversations/{conversationId}/pinned-messages`     | The conversation Pins tab, most recently pinned first (30/page, client page size)                                                                                                                                                                                                              | same access rule as `ListMessages`                                                                                                                                                                         |
+| POST   | `/api/messages/{id}/reactions`                            | React with an emoji (`{emoji}`); idempotent insert, `200` (not `201`)                                                                                                                                                                                                                          | `organization.messaging.read` + the subject's own read permission — **not** `.write`, see Permissions                                                                                                      |
+| DELETE | `/api/messages/{id}/reactions/{emoji}`                    | Remove the ACTING member's own reaction; idempotent — never errors, even if never reacted; `204`                                                                                                                                                                                               | active organization membership only (the primary key ties the delete to the caller — there is no other member's reaction to target)                                                                        |
+| POST   | `/api/messages/{id}/save`                                 | Save (bookmark) a message for the acting member; idempotent, `200` (not `201`)                                                                                                                                                                                                                 | `organization.messaging.read` + the subject's own read permission — same as reacting                                                                                                                       |
+| DELETE | `/api/messages/{id}/save`                                 | Unsave the ACTING member's own save; idempotent — never errors, even after losing access to the message's subject; `204`                                                                                                                                                                       | active organization membership only                                                                                                                                                                        |
+| GET    | `/api/saved-messages`                                     | The acting member's "Saved items" list ACROSS THE WHOLE ORGANIZATION, most recently saved first (filter: `organization` _(required)_; 30/page, client page size)                                                                                                                               | active organization membership only (see Permissions — deliberately no per-message re-check, mirrors the `ListConversations` list-is-cheaper-than-open stance)                                             |
+| POST   | `/api/conversations/{id}/favorite`                        | Favorite a conversation or channel (a channel id IS a conversation id); idempotent, `200` (not `201`)                                                                                                                                                                                          | `organization.messaging.read` + the subject's own read permission, or channel participation                                                                                                                |
+| DELETE | `/api/conversations/{id}/favorite`                        | Unfavorite the ACTING member's own favorite; idempotent — never errors, even after losing access to the conversation's subject; `204`                                                                                                                                                          | active organization membership only                                                                                                                                                                        |
+| POST   | `/api/presence/ping`                                      | Record the ACTING member's own online presence (`organization` IRI only — there is no `memberId` field); `200`; **rate-limited** (`limiter.messaging_presence_ping`, 6/min per user+organization); L2.7                                                                                        | Active organization membership                                                                                                                                                                             |
+| GET    | `/api/presence`                                           | Multi-get presence for a caller-supplied `memberIds` filter (comma-separated, **required**, max 100 ids — there is NO "list all online members" mode); L2.7                                                                                                                                    | Active membership + `organization.members.read` OR `organization.messaging.read`                                                                                                                           |
+| GET    | `/api/presence/subscription`                              | Private organization presence subscriber token with explicit expiry                                                                                                                                                                                                                            | Same access as presence read                                                                                                                                                                               |
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors
@@ -173,7 +175,14 @@ Equipment, Inspection and Intervention, and reuses their
 
 ### Get-or-create a conversation (idempotent)
 
+The conversation lookup/create operation preserves its stable subject or participant identity. Repeating it resolves the same authorized conversation.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant P as GetOrCreateConversationProcessor
   participant H as GetOrCreateConversationHandler
@@ -191,7 +200,14 @@ sequenceDiagram
 
 ### Post a message (mention fan-out + realtime, both best-effort)
 
+Message persistence precedes mention notifications and realtime publication. A best-effort notification failure does not erase the confirmed message.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant P as PostMessageProcessor
   participant H as PostMessageHandler
@@ -432,7 +448,7 @@ updates (re-tested when v2 introduces `visibility: participants`).
   expect the escaped form. `MessagingMediaProcessor`/`MessagingMediaProvider` mirror
   `Inspection\...\InspectionMediaProcessor`/`InspectionMediaProvider`
   (multipart upload via `Shared\Presentation\Api\Attachment\{UploadedAttachment,
-  MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
+MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
   delete) but keep authorization entirely inside the command handlers via
   `MessagingAccessPolicy` — the processor never re-implements a permission
   check. `AddMessageAttachmentHandler` also enforces
@@ -493,18 +509,18 @@ updates (re-tested when v2 introduces `visibility: participants`).
 
 ### Ports & adapters (`config/modules/messaging.yaml`)
 
-| Port | Adapter |
-| --- | --- |
-| `MessagingConversationRepositoryPort` (outbound) | `MessagingConversationRepository` |
-| `MessagingMessageRepositoryPort` (outbound) | `MessagingMessageRepository` |
-| `MessagingAttachmentRepositoryPort` (outbound) | `MessagingAttachmentRepository` |
-| `MessagingReactionRepositoryPort` (outbound, L1.4) | `MessagingReactionRepository` |
-| `MessagingSavedMessageRepositoryPort` (outbound, L1.5) | `MessagingSavedMessageRepository` |
-| `MessagingConversationFavoriteRepositoryPort` (outbound, L1.5) | `MessagingConversationFavoriteRepository` |
-| `MessagingReadMarkerRepositoryPort` (outbound) | `MessagingReadMarkerRepository` |
-| `MessagingRealtimePublisherPort` (outbound) | `MercureMessagingRealtimePublisherAdapter` (`@mercure.hub.default`) |
-| `MessagingMemberDirectoryPort` (outbound, cross-module) | `Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter` |
-| `MessagingSubjectResolverPort` (outbound, cross-module, tagged `messaging.subject_resolver`) | Facility/Equipment/Intervention/Inspection adapters (see below) |
+| Port                                                                                                                             | Adapter                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `MessagingConversationRepositoryPort` (outbound)                                                                                 | `MessagingConversationRepository`                                                               |
+| `MessagingMessageRepositoryPort` (outbound)                                                                                      | `MessagingMessageRepository`                                                                    |
+| `MessagingAttachmentRepositoryPort` (outbound)                                                                                   | `MessagingAttachmentRepository`                                                                 |
+| `MessagingReactionRepositoryPort` (outbound, L1.4)                                                                               | `MessagingReactionRepository`                                                                   |
+| `MessagingSavedMessageRepositoryPort` (outbound, L1.5)                                                                           | `MessagingSavedMessageRepository`                                                               |
+| `MessagingConversationFavoriteRepositoryPort` (outbound, L1.5)                                                                   | `MessagingConversationFavoriteRepository`                                                       |
+| `MessagingReadMarkerRepositoryPort` (outbound)                                                                                   | `MessagingReadMarkerRepository`                                                                 |
+| `MessagingRealtimePublisherPort` (outbound)                                                                                      | `MercureMessagingRealtimePublisherAdapter` (`@mercure.hub.default`)                             |
+| `MessagingMemberDirectoryPort` (outbound, cross-module)                                                                          | `Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter`     |
+| `MessagingSubjectResolverPort` (outbound, cross-module, tagged `messaging.subject_resolver`)                                     | Facility/Equipment/Intervention/Inspection adapters (see below)                                 |
 | `Notification\Application\Port\Outbound\InboxSourceProviderPort` (outbound, cross-module, tagged `inbox.source_provider`, L1.8b) | `Messaging\Infrastructure\Adapter\Notification\MessagingInboxSourceProviderAdapter` (see below) |
 
 Reused inbound ports from other modules:
@@ -529,12 +545,12 @@ hosts its own adapter under `Infrastructure/Adapter/Messaging/`, implementing
 via `!tagged_iterator messaging.subject_resolver`) routes a subject type to
 the adapter that supports it.
 
-| Subject type | Adapter | Required read permission |
-| --- | --- | --- |
-| `facility` | `Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter` | `organization.facilities.read` |
-| `equipment` | `Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter` | `organization.equipment.read` |
-| `intervention` | `Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter` | `organization.interventions.read` |
-| `non_conformity` | `Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter` | `organization.inspection.read` |
+| Subject type     | Adapter                                                                                     | Required read permission          |
+| ---------------- | ------------------------------------------------------------------------------------------- | --------------------------------- |
+| `facility`       | `Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter`         | `organization.facilities.read`    |
+| `equipment`      | `Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter`       | `organization.equipment.read`     |
+| `intervention`   | `Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter` | `organization.interventions.read` |
+| `non_conformity` | `Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter`     | `organization.inspection.read`    |
 
 Facility/Equipment additionally require the target record's `recordStatus`
 to be `published` (not an in-flight intervention draft); Intervention has no
@@ -570,6 +586,7 @@ but are not separate inbox sources.
 
 Tests cover ties within/across sources, full timestamp precision, inaccessible-batch
 refill, private direct-conversation exclusion and PostgreSQL cursor predicates.
+
 ## Domain Model
 
 `Conversation` aggregate (`Domain/Model/Conversation`): `id`, `organizationId`,
@@ -594,8 +611,8 @@ below), never inside the aggregate itself.
 `Message` aggregate (`Domain/Model/Message`): `id`, `conversationId`,
 `organizationId`, `authorMemberId`, `body`, `mentions` (`list<string>` member
 ids), `editedAt`, `deletedAt`/`deletedByMemberId`, timestamps. `edit()`
-re-validates the body and recomputes mentions, returning only the *newly
-added* mentions (so an edit doesn't re-notify already-mentioned members);
+re-validates the body and recomputes mentions, returning only the _newly
+added_ mentions (so an edit doesn't re-notify already-mentioned members);
 refuses to edit an already-tombstoned message. `tombstone()` sets
 `deletedAt`/`deletedByMemberId` (idempotent) — **the body is retained**, never
 cleared; redaction happens only in `MessageOutputFactory`. `pin(memberId)`/
@@ -733,7 +750,7 @@ Scope is 404, permission is 403 — the same split the Organization module's
 
 **Four handlers did not honour this until 2026-08-25**, and the paragraph above
 overstated the code when it said "every handler". They resolved membership
-*inside* the `ConversationVisibility::PARTICIPANTS` branch rather than before
+_inside_ the `ConversationVisibility::PARTICIPANTS` branch rather than before
 it, so a **subject-visibility** conversation belonging to another organization
 reached `assertCanReadThread()` first and answered **403** — the very oracle
 this section forbids. The four were
@@ -857,11 +874,11 @@ members must also belong to the same organization and still be active.
   hierarchy"), index `idx_messaging_conversation_parent`),
   `messaging_messages` (index `(conversation_id, created_at)`, index
   `(organization_id)`, partial index `(conversation_id, pinned_at) WHERE
-  pinned_at IS NOT NULL`, self-FK `parent_message_id` **`ON DELETE CASCADE`**
-  + index (L2.5, `Version20260718124213`) + `reply_count INT NOT NULL DEFAULT 0`),
-  `messaging_read_markers` (composite PK
-  `(conversation_id, member_id)`, index `(organization_id, member_id)`),
-  `messaging_participants` (composite PK `(conversation_id, member_id)`).
+pinned_at IS NOT NULL`, self-FK `parent_message_id` **`ON DELETE CASCADE`**
+  - index (L2.5, `Version20260718124213`) + `reply_count INT NOT NULL DEFAULT 0`),
+    `messaging_read_markers` (composite PK
+    `(conversation_id, member_id)`, index `(organization_id, member_id)`),
+    `messaging_participants` (composite PK `(conversation_id, member_id)`).
 - **v3 satellites** (`Version20260718115756`): `messaging_attachments`
   (`storage_path` unique; `conversation_id` denormalized so the Files tab does
   not join through `messaging_messages`; L1.2 wires the
@@ -872,7 +889,7 @@ members must also belong to the same organization and still be active.
   and therefore no lost update under concurrency), `messaging_saved_messages`
   (composite PK `(member_id, message_id)`) and
   `messaging_conversation_favorites` (composite PK `(conversation_id,
-  member_id)`).
+member_id)`).
 - **Saved ≠ pinned.** A save is private to one member
   (`messaging_saved_messages`); a pin is a property of the conversation
   (`messaging_messages.pinned_at`) and is visible to everyone who can read it.
@@ -888,7 +905,7 @@ members must also belong to the same organization and still be active.
   compiles to `WHERE conversation_id = ? AND pinned_at IS NOT NULL` —
   column-for-column the partial index
   `idx_messaging_message_pinned (conversation_id, pinned_at) WHERE
-  pinned_at IS NOT NULL` declared by `Version20260718115756`.
+pinned_at IS NOT NULL` declared by `Version20260718115756`.
 - **Emoji reactions (L1.4) — implemented.** `messaging_reactions`' composite
   PK `(message_id, member_id, emoji)` means `MessagingReactionRepository::add()`
   is a raw DBAL `INSERT` with `UniqueConstraintViolationException` swallowed
@@ -897,7 +914,7 @@ members must also belong to the same organization and still be active.
   ever loads a row first, which is what guarantees no lost update when two
   requests race on the same reaction. `findByMessageIds()` is a scalar
   (`IDENTITY(r.message) AS messageId`) `SELECT ... WHERE message_id IN
-  (:messageIds)` batched across a whole message page, mirroring
+(:messageIds)` batched across a whole message page, mirroring
   `MessagingReadMarkerRepository::unreadCounts()` — never full-entity
   hydration, which would otherwise lazy-load the `message` association per
   row. `MessageOutputFactory` aggregates that flat list by emoji
@@ -917,14 +934,14 @@ members must also belong to the same organization and still be active.
   — never full-entity hydration. **`MessagingMessageRepository::listSavedByMember()`
   (the org-wide "Saved items" list) is a genuinely non-trivial DQL gotcha
   worth calling out**: the natural-looking `SELECT m FROM
-  MessagingSavedMessageRecord s INNER JOIN s.message m WHERE ...` throws
+MessagingSavedMessageRecord s INNER JOIN s.message m WHERE ...` throws
   `Cannot select entity through identification variables without choosing
-  at least one root entity alias` — DQL refuses to `SELECT` an alias that
-  is only reachable via a JOIN off a *different* FROM root. The fix is to
+at least one root entity alias` — DQL refuses to `SELECT` an alias that
+  is only reachable via a JOIN off a _different_ FROM root. The fix is to
   make `MessagingMessageRecord` (`m`) the DQL ROOT and join
   `MessagingSavedMessageRecord` (`s`) onto it via an explicit `WITH`
   condition (`->from(MessagingMessageRecord::class, 'm')->innerJoin(
-  MessagingSavedMessageRecord::class, 's', 'WITH', 's.message = m')`)
+MessagingSavedMessageRecord::class, 's', 'WITH', 's.message = m')`)
   instead of joining through the association. A mocked QueryBuilder in a
   unit test would have asserted the call shape and never caught this — see
   `tests/Integration/Messaging/.../MessagingMessageRepositorySavedTest.php`,
@@ -970,14 +987,14 @@ members must also belong to the same organization and still be active.
   `CHANNEL`, same `lastMessageAt DESC NULLS LAST` ordering) — see "Direct
   messages" below.
 - `touchOnNewMessage()` is a single atomic `UPDATE ... SET messages_count =
-  messages_count + 1, last_message_at = :at` — not a load-modify-save cycle.
+messages_count + 1, last_message_at = :at` — not a load-modify-save cycle.
   Called by BOTH `PostMessageHandler` and `PostReplyHandler` (L2.5), so
   `messages_count` counts every message including replies — see "Threaded
   replies" for why that divergence from the root-list total is accepted.
 - `MessagingMessageRepositoryPort::incrementReplyCount()` (L2.5) mirrors
   `touchOnNewMessage()` exactly: a single atomic
   `UPDATE messaging_messages SET reply_count = reply_count + 1 WHERE id =
-  :id` on the PARENT row, never a load-modify-save cycle.
+:id` on the PARENT row, never a load-modify-save cycle.
   `listByConversation()` gained `AND m.parentMessage IS NULL` (L2.5) — a
   provable no-op on every pre-L2.5 conversation, since every row already has
   `parent_message_id = NULL` there; `listRepliesByParent()` is the new
@@ -997,18 +1014,18 @@ channel id **is** a conversation id, so channels reuse the
 endpoints unchanged. Team binding is optional — a channel can hold a purely
 manual participant list.
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| POST | `/api/channels` | Create a named channel; `201` | `organization.messaging.manage` |
-| GET | `/api/channels` | List the channels the acting member participates in (filters: `organization` *(required)*, `isArchived`; exposes each channel's `parent` IRI, L2.6) | `organization.messaging.read` |
-| GET | `/api/channels/{id}` | Get a channel (participant-gated, or `.manage` bypass) | `organization.messaging.read` + participation, or `.manage` |
-| PATCH | `/api/channels/{id}` | Rename and/or archive/unarchive | `organization.messaging.manage` |
-| DELETE | `/api/channels/{id}` | Delete a channel; `204` | `organization.messaging.manage` |
-| POST | `/api/channels/{id}/participants` | Add a participant; `201` | `organization.messaging.manage` |
-| GET | `/api/channels/{id}/participants` | List participants | `organization.messaging.read` + participation, or `.manage` |
-| DELETE | `/api/channels/{id}/participants/{memberId}` | Remove a participant; `204` | `organization.messaging.manage` |
-| PATCH | `/api/channels/{id}/team` | Bind (or unbind, when `teamId` is null) the channel to an organization team | `organization.messaging.manage` |
-| PATCH | `/api/channels/{id}/parent` | Set (or clear, when `parentChannelId` is null) the channel's parent, nesting it under another channel; `409` on a cycle or a max-depth violation, `422` on a non-channel/cross-organization/missing parent; L2.6 | `organization.messaging.manage` |
+| Method | Path                                         | Description                                                                                                                                                                                                      | Permission                                                  |
+| ------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| POST   | `/api/channels`                              | Create a named channel; `201`                                                                                                                                                                                    | `organization.messaging.manage`                             |
+| GET    | `/api/channels`                              | List the channels the acting member participates in (filters: `organization` _(required)_, `isArchived`; exposes each channel's `parent` IRI, L2.6)                                                              | `organization.messaging.read`                               |
+| GET    | `/api/channels/{id}`                         | Get a channel (participant-gated, or `.manage` bypass)                                                                                                                                                           | `organization.messaging.read` + participation, or `.manage` |
+| PATCH  | `/api/channels/{id}`                         | Rename and/or archive/unarchive                                                                                                                                                                                  | `organization.messaging.manage`                             |
+| DELETE | `/api/channels/{id}`                         | Delete a channel; `204`                                                                                                                                                                                          | `organization.messaging.manage`                             |
+| POST   | `/api/channels/{id}/participants`            | Add a participant; `201`                                                                                                                                                                                         | `organization.messaging.manage`                             |
+| GET    | `/api/channels/{id}/participants`            | List participants                                                                                                                                                                                                | `organization.messaging.read` + participation, or `.manage` |
+| DELETE | `/api/channels/{id}/participants/{memberId}` | Remove a participant; `204`                                                                                                                                                                                      | `organization.messaging.manage`                             |
+| PATCH  | `/api/channels/{id}/team`                    | Bind (or unbind, when `teamId` is null) the channel to an organization team                                                                                                                                      | `organization.messaging.manage`                             |
+| PATCH  | `/api/channels/{id}/parent`                  | Set (or clear, when `parentChannelId` is null) the channel's parent, nesting it under another channel; `409` on a cycle or a max-depth violation, `422` on a non-channel/cross-organization/missing parent; L2.6 | `organization.messaging.manage`                             |
 
 ## Channel parent/child hierarchy (L2.6) — SHIPPED
 
@@ -1162,13 +1179,13 @@ conversation id, so it reuses every `/api/conversations/{id}/...` and
    organizations.
 5. Derives `subjectId = DirectConversationKey::for($callerMemberId, $otherMemberId)`
    and calls `MessagingConversationRepositoryPort::getOrCreate(organizationId,
-   MessagingSubjectType::DIRECT, $subjectId, ConversationVisibility::PARTICIPANTS)`
+MessagingSubjectType::DIRECT, $subjectId, ConversationVisibility::PARTICIPANTS)`
    — **`ConversationVisibility::PARTICIPANTS` is passed explicitly**, never
    defaulted (see the three mandatory fixes below).
 6. **Seeds both members as real `messaging_participants` rows
    (`source: 'manual'`) and both read markers** — but ONLY the first time:
    guarded by `MessagingParticipantRepositoryPort::isParticipant($conversationId,
-   $callerMemberId)`, so a member re-opening an EXISTING direct conversation
+$callerMemberId)`, so a member re-opening an EXISTING direct conversation
    (the idempotent "get" path) never has their read marker silently reset to
    "now", which would otherwise hide real unread messages. This mirrors
    `CreateChannelHandler` seeding its creator's read marker, extended to
@@ -1222,7 +1239,7 @@ ever refactored):
    none of them ever reach the `resolvers->resolve()` branch for it. Had fix
    1 been missed (visibility silently `SUBJECT`), every one of those
    handlers would have called `resolvers->resolve(MessagingSubjectType::DIRECT,
-   …)` — for which no adapter is tagged `messaging.subject_resolver` — and
+…)` — for which no adapter is tagged `messaging.subject_resolver` — and
    thrown `MessagingSubjectNotFoundException` (404) on every single
    conversation-scoped call (open, post, list messages, …) for a direct
    conversation.
@@ -1268,7 +1285,7 @@ new `GetCollection` operation / `ListDirectConversationsProvider`, mirroring
    (new port method, module-internal — NOT a new cross-module port) batch-resolves,
    for the whole page, the OTHER participant's member id per conversation, via
    a plain `messaging_participants` query (`conversation_id IN (:ids) AND
-   member_id != :callerMemberId`) — a direct conversation always has exactly
+member_id != :callerMemberId`) — a direct conversation always has exactly
    two participants (seeded together by `GetOrCreateDirectConversationHandler`),
    so this never needs to decode the opaque `subject_id` pair key (see Domain
    Model) and never costs a query per row.
@@ -1344,7 +1361,7 @@ check, then delegates to
 `MessagingMessageRepositoryPort::listRepliesByParent()`, oldest first.
 Deliberately does **not** re-check the parent's tombstone state: an EXISTING
 reply stays readable even after its parent is later deleted (only posting a
-*new* reply to a tombstoned parent is refused, above).
+_new_ reply to a tombstoned parent is refused, above).
 
 **Three decisions made explicit, since a future refactor could silently
 regress any one of them:**
@@ -1452,7 +1469,7 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
   (`PingPresenceProcessor`/`GetPresenceProvider`) are picked up by the
   existing `Messaging\Presentation\:` autowired resource; `PingPresenceProcessor`'s
   rate limiter is bound in code via `#[Autowire(service:
-  'limiter.messaging_presence_ping')]` (mirrors `Auth\...\RequestPasswordResetProcessor`),
+'limiter.messaging_presence_ping')]` (mirrors `Auth\...\RequestPasswordResetProcessor`),
   not a `config/modules/messaging.yaml` argument override.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
 - Rich-text sanitizer: `config/packages/html_sanitizer.yaml`
@@ -1487,224 +1504,17 @@ No endpoint enumerates all online members; reads remain bounded to supplied iden
 
 ## Testing
 
-`UserPresenceApiTest` also covers directory-only presence reads, pinging without read rights,
-private subscription JWT claims, inactive/foreign-member redaction and membership denial.
-Presence handler tests verify batch identity/preference resolution, expiry, idempotent heartbeats
-and isolated Mercure failures.
+Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
 
-- Unit: `tests/Unit/Messaging` (+ the four subject-resolver adapters under
-  their owning modules' `tests/Unit/<Module>/Infrastructure/Adapter/Messaging`,
-  and `tests/Unit/Organization/Infrastructure/Adapter/Messaging`). Attachment
-  slice: `Application/UseCase/Command/Attachment/{AddMessageAttachment,
-  DeleteMessageAttachment}HandlerTest`,
-  `Application/UseCase/Query/Attachment/ListConversationAttachmentsHandlerTest`,
-  `Presentation/Api/Processor/Attachment/MessagingMediaProcessorTest`. Pinned
-  message slice (L1.3): `Domain/Model/Message/MessageTest` (pin/unpin
-  idempotency + reconstitute), `Application/UseCase/Command/Message/
-  {PinMessage,UnpinMessage}HandlerTest`,
-  `Application/UseCase/Query/Message/ListPinnedMessagesHandlerTest`,
-  `Presentation/Api/Processor/Message/{PinMessageProcessor,
-  UnpinMessageProcessor}Test`,
-  `Presentation/Api/Provider/Message/ListPinnedMessagesProviderTest`. Emoji
-  reaction slice (L1.4): `Domain/ValueObject/MessagingEmojiTest` (plausible
-  vs. implausible grapheme table tests), `Application/UseCase/Command/
-  Message/{AddReaction,RemoveReaction}HandlerTest`,
-  `Presentation/Api/Processor/Message/{AddReactionProcessor,
-  RemoveReactionProcessor}Test`, and a dedicated
-  `Presentation/Api/Factory/MessageOutputFactoryTest` covering the
-  aggregation logic itself (count/`reactedByMe` per emoji, deterministic
-  ordering, tombstone redaction, no-leak of another member's
-  `reactedByMe`, and batching a whole page in one
-  `findByMessageIds()` call). Saved messages + favorite conversations slice
-  (L1.5): `Application/UseCase/Command/Message/{SaveMessage,UnsaveMessage}
-  HandlerTest`, `Application/UseCase/Query/Message/
-  ListSavedMessagesHandlerTest`, `Application/UseCase/Command/Conversation/
-  {FavoriteConversation,UnfavoriteConversation}HandlerTest`,
-  `Presentation/Api/Processor/Message/{SaveMessageProcessor,
-  UnsaveMessageProcessor}Test`,
-  `Presentation/Api/Provider/Message/ListSavedMessagesProviderTest`,
-  `Presentation/Api/Processor/Conversation/{FavoriteConversationProcessor,
-  UnfavoriteConversationProcessor}Test`; `MessageOutputFactoryTest` extended
-  with `isSaved` cases (marked/not-marked, survives tombstone, batched
-  across a page); `ListConversationsHandlerTest`/`GetConversationHandlerTest`
-  extended with `favoriteConversationIds`/`isFavorite` assertions. Unified
-  inbox mention source (L1.8b):
-  `Infrastructure/Adapter/Notification/MessagingInboxSourceProviderAdapterTest`
-  (no organization → empty; missing `.read` permission → empty; not an
-  active member → empty; cursor/limit forwarded to the repository; a
-  subject-thread mention mapped to a correct `InboxItem`; the security case
-  — mentioned but lacking the subject's own read permission → excluded — a
-  channel mention excluded/included by participation, and included via
-  `.manage` without participation; an unresolved subject type excluded;
-  `isRead` derived from the read marker; snippet truncation; `countUnread()`:
-  no organization/missing permission/not-an-active-member → 0, only
-  accessible unread mentions counted, scan limit (200) forwarded to
-  `listMentionsForMember()`), plus two new `MessagingAccessPolicyTest` cases
-  for `hasReadPermission()`/`hasPermission()`.
-  Direct messages slice (L2.4): `Domain/Service/DirectConversationKeyTest`
-  (order-independent — A→B and B→A derive the SAME key; deterministic;
-  fits the `subject_id` column length; different pairs differ),
-  `Application/UseCase/Command/Conversation/GetOrCreateDirectConversation/
-  GetOrCreateDirectConversationHandlerTest` (first-open seeds both
-  participants + both read markers; a re-open with the caller already a
-  participant skips re-seeding — the read-marker-reset regression this
-  guard exists for; rejects self-DM; rejects an inactive target member;
-  the missing-`.read`-permission path), `Presentation/Api/Processor/
-  Conversation/GetOrCreateDirectConversationProcessorTest`, and a new
-  `MessagingAccessPolicyTest` case for `assertCanUseMessaging()`. List
-  direct conversations follow-up: `Application/UseCase/Query/Conversation/
-  ListDirectConversations/ListDirectConversationsHandlerTest` (scopes to the
-  acting member's own participant rows; most-recently-active-first ordering;
-  `isArchived` filter; pagination; propagates the missing-`.read`-permission
-  exception before ever querying), `Presentation/Api/Provider/Conversation/
-  ListDirectConversationsProviderTest` (missing `organization` → 400; maps
-  `counterpartMember`/`unreadCount`/`isFavorite` onto the page).
-  Threaded replies slice (L2.5): `Domain/Model/Message/MessageTest` extended
-  with `isReply()`/`parentMessageId()`/`incrementReplyCount()`/reconstitute-
-  with-thread-state cases, `Application/UseCase/Command/Message/PostReply/
-  PostReplyHandlerTest` (persists + bumps BOTH counters + publishes +
-  notifies mentions; parent not found; parent already deleted; parent
-  already a reply — the single-level-threading rule; archived conversation;
-  realtime-publish failure never fails the reply),
-  `Application/UseCase/Query/Message/ListReplies/ListRepliesHandlerTest`
-  (returns the page when authorized; parent not found; owning conversation
-  not found; missing subject-read-permission), `Presentation/Api/Processor/
-  Message/PostReplyProcessorTest`, `Presentation/Api/Provider/Message/
-  ListRepliesProviderTest`, and `MessageOutputFactoryTest` extended with
-  `replyCount` population + non-redaction-on-tombstone cases. Channel
-  parent/child hierarchy slice (L2.6): `Domain/Model/Conversation/
-  ConversationTest` extended with `setParent()`/`parentConversationId()`
-  (default null on a new channel, set/clear) and a reconstitute-with-parent
-  case; `Application/Service/MessagingChannelHierarchyGuardTest`
-  (self-parent rejected without a query; missing/non-channel parent;
-  cross-organization parent; a root parent accepted; a one-level-deep
-  parent accepted — grandchild, still within the limit; the resulting
-  depth exceeding the maximum rejected; a multi-hop cycle — the child
-  already being an ancestor of the candidate parent — rejected);
-  `Application/UseCase/Command/Channel/SetChannelParent/SetChannelParentHandlerTest`
-  (sets the parent after guard validation + dispatches the audited event;
-  clears the parent on `null` WITHOUT consulting the guard; not-a-channel
-  conversation → 404; conversation not found → 404; self-parenting →
-  propagates the guard's `MessagingConflictException`);
-  `Presentation/Api/Processor/Channel/SetChannelParentProcessorTest`
-  (dispatches the command and maps the output's `parent` IRI; detaches on
-  null; missing `id`/invalid body → 400; not-found → 404; the new
-  `MessagingConflictException` → 409; `MessagingValidationException` → 422).
-  Online presence slice (L2.7 — no repository/integration tier at all, since
-  there is no table and no DQL to execute against a real database; every
-  test mocks/stubs `CachePort` directly):
-  `Application/UseCase/Command/Presence/PingPresence/PingPresenceHandlerTest`
-  (writes the presence cache key with a 90s TTL; stores an ISO-8601
-  timestamp verbatim; propagates the missing-`.read`-permission exception
-  before ever touching the cache), `Application/UseCase/Query/Presence/
-  GetPresence/GetPresenceHandlerTest` (resolves a mix of online/offline
-  member ids from the cache in the SAME order requested; an empty
-  `memberIds` list short-circuits without any cache call; propagates the
-  missing-`.read`-permission exception), `Presentation/Api/Processor/
-  Presence/PingPresenceProcessorTest` (dispatches the command and maps the
-  timestamp; invalid body → 400; `MessagingAccessDeniedException` → 403;
-  rate-limited → 429, mirroring `RequestPasswordResetProcessorTest`'s
-  `InMemoryStorage`-backed rate limiter fixture but keyed by user+organization
-  instead of IP), `Presentation/Api/Provider/Presence/GetPresenceProviderTest`
-  (parses the comma-separated `memberIds` filter; deduplicates and trims
-  ids; missing `organization` → 400; missing `memberIds` → 400 — this is
-  what structurally blocks a "list all" call; more than 100 ids → 400).
-- Integration: `tests/Integration/Messaging/Infrastructure/Persistence/
-  Doctrine/Repository/MessagingMessageRepositoryPinnedTest` executes the REAL
-  `listPinnedByConversation()` DQL against the test database (conversation
-  scoping, partial-index-friendly filter, most-recently-pinned-first
-  ordering, unpin removing a message from the page) — a mocked QueryBuilder
-  would assert call shape without ever parsing the DQL.
-  `MessagingReactionRepositoryTest` (L1.4) likewise executes the REAL
-  `add()`/`remove()`/`findByMessageIds()` against the test database
-  (idempotent double-react, idempotent remove-on-nothing, cross-message
-  batching, one member's removal never touching another member's row on
-  the same message+emoji). `MessagingSavedMessageRepositoryTest`/
-  `MessagingConversationFavoriteRepositoryTest` (L1.5) mirror it for
-  `save()`/`unsave()`/`findSavedMessageIds()` and
-  `favorite()`/`unfavorite()`/`findFavoritedConversationIds()`
-  (idempotency, per-member scoping, batching).
-  `MessagingMessageRepositorySavedTest` (L1.5) executes the REAL
-  `listSavedByMember()` DQL — the one that caught the "cannot SELECT a
-  non-root joined alias" DQL error a mocked QueryBuilder would have missed
-  (see Persistence): conversation-spanning within one organization,
-  cross-organization isolation, most-recently-saved-first ordering, unsave
-  removing a message from the page.
-  `MessagingMessageRepositoryMentionsTest` (L1.8b) executes the REAL
-  `listMentionsForMember()` SQL (Postgres `json_array_elements_text` path)
-  against the test database: exact-match only mentions (a similar-but-different
-  id never false-positive-matches as a substring), tombstone exclusion,
-  own-message exclusion, organization scoping, `before` cursor + newest-first
-  ordering, and `limit` — plus `findSubjectTypesByIds()` and
-  `lastReadAtByConversations()`, the seam's two other batch-lookups. The test
-  connection is PostgreSQL, so these assertions run the shipping SQL itself
-  — there is no fallback implementation left to diverge from it.
-  `MessagingConversationRepositoryTest` (L2.4) executes the REAL
-  `getOrCreate()`/`list()` DBAL/DQL: `getOrCreate()` persists the CALLER-
-  supplied `visibility` instead of a hardcoded `SUBJECT` (a direct
-  conversation ends up `PARTICIPANTS`, a subject thread `SUBJECT`);
-  `getOrCreate()` is idempotent and order-independent for a direct pair
-  (member A's key and member B's key resolve to the SAME conversation);
-  `list()` excludes BOTH a channel and a direct conversation while still
-  returning a subject-thread conversation — the exact regression fix #2
-  exists for, and precisely the kind of bug a mocked QueryBuilder would
-  never have caught.
-  `MessagingMessageRepositoryRepliesTest` (L2.5) executes the REAL
-  `listByConversation()`/`listRepliesByParent()`/`incrementReplyCount()`
-  DQL/DBAL: pins the "provable no-op on legacy root-only data" claim for
-  `listByConversation()`'s new `parentMessage IS NULL` filter; asserts
-  replies are excluded from the root list; asserts `listRepliesByParent()`
-  returns only THAT parent's replies, oldest first, never leaking a reply
-  to a DIFFERENT parent; asserts `incrementReplyCount()`'s atomic `UPDATE`
-  is visible on a fresh `find()` after `EntityManager::clear()`.
-  `MessagingConversationRepositoryTest` (L2.6) executes the REAL
-  `save()`/`findAggregateById()`/`findChannelById()`/`listChannelsForMember()`
-  round trip — a mocked QueryBuilder would never catch a stale
-  `parentConversation` mapping: a freshly created channel starts with no
-  parent; setting a parent and saving survives a `save()`/
-  `EntityManager::clear()`/reload round trip on BOTH the aggregate path
-  (`Conversation::parentConversationId()`) and the read-model path
-  (`ChannelView::$parentChannelId`); clearing the parent persists as
-  `NULL`, not merely in memory; `listChannelsForMember()` (the `GET
-  /api/channels` list) exposes the same `parentChannelId` per row as
-  `findChannelById()`, proving the hierarchy is servable from the list
-  without a query per row.
-- Functional: `tests/Functional/Api/MessagingApiTest.php` (thin,
-  authentication-required assertions per endpoint, mirrors
-  `MaintenanceApiTest`; L1.5 adds the five new save/unsave/list-saved/
-  favorite/unfavorite endpoints; L2.4 adds
-  `testGetOrCreateDirectConversationRequiresAuthentication`,
-  `testListDirectConversationsRequiresAuthentication` (the follow-up
-  `GET /api/direct-conversations` endpoint; thin, same rationale — the
-  participant-scoping/ordering/counterpart-resolution logic is covered by
-  the Unit tier above), plus a deliberately heavier
-  `testDirectConversationDoesNotAppearInListConversations` — seeds a real
-  organization/member/role and a real subject-thread + direct conversation
-  directly via the ORM, authenticates with `KernelBrowser::loginUser()`
-  (works against the `api` firewall even though it is `stateless: true` —
-  the security token lives in the container, not the session), and asserts
-  a real `GET /api/conversations` HTTP response excludes the direct
-  conversation while still including the subject thread — this is the
-  regression fix #2 exists for, made explicit at the HTTP boundary); L2.5
-  adds `testPostReplyRequiresAuthentication`/
-  `testListRepliesRequiresAuthentication` (thin, mirrors every other
-  endpoint here — the non-trivial DQL/domain behavior is covered by the
-  Integration/Unit tiers above instead); L2.6 adds
-  `testSetChannelParentRequiresAuthentication` (thin, same rationale — the
-  cycle/depth/cross-organization logic is covered by
-  `MessagingChannelHierarchyGuardTest`/`SetChannelParentHandlerTest` and the
-  real persistence round trip by the Integration tier below); L2.7 adds
-  `testPingPresenceRequiresAuthentication`/`testGetPresenceRequiresAuthentication`
-  (anonymous-access coverage; the extended presence contract is tested in `UserPresenceApiTest`).
-- Run module tests: `make test tests/Unit/Messaging/`
+Detailed cases and regression rationale are retained in the [Messaging testing reference](../../docs/guides/messaging.md#messaging-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes
 
-| Exception | HTTP |
-| --- | --- |
-| `MessagingAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `MessagingNotFoundException` / `MessagingSubjectNotFoundException` / `MessagingAttachmentNotFoundException` | 404 Not Found |
-| `MessagingValidationException` | 422 Unprocessable Entity |
-| `MessagingConflictException` (L2.6 — a channel-hierarchy cycle, self-parenting, or a max-depth violation) | 409 Conflict |
-| `InvalidArgumentException` | 400 Bad Request |
-| Stale `If-Match` on `DELETE /messaging-attachments/{id}` | 412 Precondition Failed (missing header: 428 Precondition Required) |
+| Exception                                                                                                   | HTTP                                                                |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `MessagingAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException`        | 403 Forbidden                                                       |
+| `MessagingNotFoundException` / `MessagingSubjectNotFoundException` / `MessagingAttachmentNotFoundException` | 404 Not Found                                                       |
+| `MessagingValidationException`                                                                              | 422 Unprocessable Entity                                            |
+| `MessagingConflictException` (L2.6 — a channel-hierarchy cycle, self-parenting, or a max-depth violation)   | 409 Conflict                                                        |
+| `InvalidArgumentException`                                                                                  | 400 Bad Request                                                     |
+| Stale `If-Match` on `DELETE /messaging-attachments/{id}`                                                    | 412 Precondition Failed (missing header: 428 Precondition Required) |

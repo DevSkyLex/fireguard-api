@@ -33,6 +33,39 @@ env:
   MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
 
 jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure the temporary browser cache
+        run: echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/documentation-browser" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: .github/documentation/package-lock.json
+      - name: Install isolated documentation tools
+        run: npm ci
+        working-directory: .github/documentation
+      - name: Prepare the Mermaid browser
+        run: node node_modules/puppeteer/install.mjs
+        working-directory: .github/documentation
+      - name: Test the documentation failure gates
+        run: npm test
+        working-directory: .github/documentation
+      - name: Check all project links and render Mermaid
+        run: npm run check -- --output-dir "$RUNNER_TEMP/documentation-diagrams"
+        working-directory: .github/documentation
+      - name: Retain diagram review artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-diagrams
+          path: ${{ runner.temp }}/documentation-diagrams
+          retention-days: 7
+
   # ==========================================================================
   # Code Style Check
   # ==========================================================================

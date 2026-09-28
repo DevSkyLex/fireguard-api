@@ -1,18 +1,20 @@
 # VPS deployment
 
-FireGuard API uses the same VPS for production and development, with separate
-directories, Compose projects, volumes, databases, keys, and URLs.
+**Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/operations/current-installation.md).
 
-| GitHub environment | Branch | API | Mercure | Mailpit | VPS directory | Docker project | Volume prefix |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `production` | `main` | `api.fireguard.valentin-fortin.pro` | `mercure.fireguard.valentin-fortin.pro` | — | `/srv/apps/fireguard/production/back` | `fireguard-production-back` | `back` |
-| `development` | `develop` | `dev.api.fireguard.valentin-fortin.pro` | `dev.mercure.fireguard.valentin-fortin.pro` | `dev.mail.fireguard.valentin-fortin.pro` | `/srv/apps/fireguard/development/back` | `fireguard-dev-back` | `fireguard-dev-back` |
+Configure production and development independently, with separate directories,
+Compose projects, volumes, databases, keys and URLs. The
+[installation appendix](docs/operations/current-installation.md) records the current
+VPS identities and the historical volume compatibility requirement.
 
-The `back` prefix preserves production volumes created before the explicit Compose
-project name was introduced. Do not change it without a volume migration. On the
-first deployment of this version, Ansible pulls the images, stops the old `back`
-Compose project without deleting its volumes, then starts
-`fireguard-production-back` using those same volumes.
+| GitHub environment | Branch    | Installation values              | Channel   |
+| ------------------ | --------- | -------------------------------- | --------- |
+| `production`       | `main`    | Configured production variables  | `latest`  |
+| `development`      | `develop` | Configured development variables | `develop` |
+
+Retain the installed `COMPOSE_PROJECT_NAME` and `VOLUME_NAME_PREFIX`. A legacy
+project migration must stop the old stack without deleting volumes and reuse the
+same persistent data. Changing identity requires a deliberate volume migration.
 
 ## Pipeline
 
@@ -120,7 +122,7 @@ before stopping the application or running migrations.
 `compose.dev.yaml` adds Mailpit with a persistent volume. The application can
 reach its SMTP server at `smtp://mailpit:1025`.
 
-The UI is available at `https://dev.mail.fireguard.valentin-fortin.pro` from
+The UI is available at the URL configured by `MAILPIT_HOST` (for example `https://mail.dev.example.com`) from
 any network. Traefik terminates TLS, requires Basic Auth, and adds
 `X-Robots-Tag: noindex,nofollow,noarchive` and `Cache-Control: private,no-store`.
 Port `8025` is not published on the host, and the SMTP server on port `1025`
@@ -161,3 +163,22 @@ Because paths, projects, and volumes are separate, a development rollback
 does not affect production containers or databases.
 
 Pre-migration backups remain in `VPS_APP_DIR/backups/<timestamp>/`.
+
+## Delivery verification flow
+
+Delivery follows a successful check of the exact source revision, its SonarQube gate and image provenance. Ansible then applies the immutable image using the selected installation identity and health checks.
+
+```mermaid
+flowchart TD
+  Source["Branch and source revision"] --> CI["Required CI and coverage"]
+  CI --> Sonar["Matching SonarQube gate"]
+  Sonar --> Image["Published immutable image and OCI provenance"]
+  Image --> Guard["Verify revision, branch and installation identity"]
+  Guard --> Ansible["Apply with Ansible"]
+  Ansible --> Health["Container, security and public HTTP checks"]
+```
+
+Arrows show delivery order. A validated development image never authorizes a
+production deployment. The workflow defines which events publish/deploy and how
+documentation-only changes are classified. Installation values are recorded in the
+[appendix](docs/operations/current-installation.md); runtime secrets stay private.

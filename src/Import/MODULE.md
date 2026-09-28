@@ -1,22 +1,28 @@
 # Import Module
 
-## Ownership and boundaries
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/async-processing.md).
+
+<a id="ownership-and-boundaries"></a>
+
+## Overview
 
 Import owns CSV files, jobs, exclusive worker reservations, row receipts, reports
 resumption, server CSV templates and confirmation of retained simulations. Equipment, Facility and Organization own creation, quotas, assignment
 and invitation rules, exposed through application provisioning ports. All import
 state belongs to main. Application handlers enforce authorization.
 
-## Public API
+<a id="public-api"></a>
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| POST | /api/imports | Multipart organization, kind, file, optional dryRun; returns 202 after job and message commit together |
-| GET | /api/imports | Organization-scoped collection, optional kind, server pagination |
-| GET | /api/imports/{id} | Confirmed counters, report, timestamps and server-computed canResume/canConfirm and confirmedJobId |
-| GET | /api/organizations/{organizationId}/import-templates/{kind} | Authorized JSON-LD filename, CSV content and media type for equipment, facility or member |
-| POST | /api/imports/{id}/confirm | 202 with the real job; repeated confirmation returns the same job |
-| POST | /api/imports/{id}/resume | 202 for the same retained job; 409 for a live reservation or completed job |
+## API Endpoints
+
+| Method | Path                                                        | Contract                                                                                               |
+| ------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| POST   | /api/imports                                                | Multipart organization, kind, file, optional dryRun; returns 202 after job and message commit together |
+| GET    | /api/imports                                                | Organization-scoped collection, optional kind, server pagination                                       |
+| GET    | /api/imports/{id}                                           | Confirmed counters, report, timestamps and server-computed canResume/canConfirm and confirmedJobId     |
+| GET    | /api/organizations/{organizationId}/import-templates/{kind} | Authorized JSON-LD filename, CSV content and media type for equipment, facility or member              |
+| POST   | /api/imports/{id}/confirm                                   | 202 with the real job; repeated confirmation returns the same job                                      |
+| POST   | /api/imports/{id}/resume                                    | 202 for the same retained job; 409 for a live reservation or completed job                             |
 
 Every operation requires ROLE_USER. Equipment/facility imports use their respective
 organization.equipment.* and organization.facilities.* permissions. Member imports
@@ -29,7 +35,9 @@ Collections require at least one applicable read permission. The same kind white
 filters rows before pagination and the total count. An explicit unauthorized kind is
 403; unfiltered collections never expose jobs or counts from forbidden kinds.
 
-## Execution and recovery
+<a id="execution-and-recovery"></a>
+
+## Flows
 
 - Creation saves the job and queues ProcessImportJobCommand in one main transaction
   on main_outbox; enqueue failure rolls back the job and removes the new file.
@@ -58,11 +66,11 @@ filters rows before pagination and the total count. An explicit unauthorized kin
 Comma/semicolon delimiters and UTF-8 BOM are supported. Unknown columns are ignored.
 The 5000-data-row limit is counted before provisioning.
 
-| Kind | Columns |
-| --- | --- |
-| equipment | type (required), subType, brand, model, serialNumber, locationLabel, facilityCode |
-| facility | type and name (required), code, address, latitude, longitude, parentCode |
-| member | email (required), roles (role names separated by a pipe; empty uses the default member role) |
+| Kind      | Columns                                                                                      |
+| --------- | -------------------------------------------------------------------------------------------- |
+| equipment | type (required), subType, brand, model, serialNumber, locationLabel, facilityCode            |
+| facility  | type and name (required), code, address, latitude, longitude, parentCode                     |
+| member    | email (required), roles (role names separated by a pipe; empty uses the default member role) |
 
 Facility codes resolve within the organization, excluding archived resources.
 Equipment creation and initial assignment are atomic. Facility parents precede
@@ -102,3 +110,25 @@ rollback, receipt replay, recovery after ORM failure, atomic resumption and defe
 invitation visibility. API tests cover scope, live reservations, retained progress
 and capability output. Worker tests cover revoked access, resuming actors, dry-run
 projection reconstruction and row outcomes.
+
+## Architecture
+
+Use cases own decisions and inject public provisioning/coordination ports from the business owners. Infrastructure implements persistence/storage/transport; HTTP adapters translate. The ownership and transaction boundaries above remain authoritative.
+
+## Configuration
+
+Bindings are defined in [Import configuration](../../config/modules/import.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
+
+## Testing
+
+Use [Import unit tests](../../tests/Unit/Import) and the endpoint/integration/E2E suites for this capability. Tests cover owned results and denial paths; PostgreSQL checks establish actual transactions, isolation and replay. See [testing procedures](../../docs/guides/testing.md).
+
+## Error Codes
+
+| Code                              | HTTP | When                                              |
+| --------------------------------- | ---- | ------------------------------------------------- |
+| `import_not_found`                | 404  | The requested job is not found                    |
+| `import_permission_required`      | 403  | Required contextual access is missing             |
+| `import_confirmation_unavailable` | 409  | Retained simulation cannot currently be confirmed |
+
+Row report codes in the CSV/simulation section are business outcomes, not HTTP failures. API Platform retains its ordinary scope and input-validation errors.

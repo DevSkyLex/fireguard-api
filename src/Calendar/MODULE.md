@@ -1,5 +1,7 @@
 # Calendar Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Two capabilities:
@@ -35,17 +37,17 @@ inspections, interventions, and preventive-maintenance due dates.
 
 ## API Endpoints
 
-| Method | Path | Operation | Permission |
-| --- | --- | --- | --- |
-| POST | `/organizations/{organizationId}/calendar/events` | `createCalendarEvent` | `organization.events.write` |
-| GET | `/organizations/{organizationId}/calendar/events/{eventId}` | `getCalendarEvent` | `organization.events.read` |
-| PATCH | `/organizations/{organizationId}/calendar/events/{eventId}` | `updateCalendarEvent` | `organization.events.write` |
-| DELETE | `/organizations/{organizationId}/calendar/events/{eventId}` | `deleteCalendarEvent` | `organization.events.write` |
-| GET | `/organizations/{organizationId}/calendar/feed?from=...&to=...` | `getCalendarFeed` | `organization.events.read` |
-| POST | `/organizations/{organizationId}/calendar/feed-token` | `createCalendarFeedToken` | `organization.events.read` |
-| GET | `/organizations/{organizationId}/calendar/feed-token` | `getCalendarFeedToken` | membership (own token only) |
-| DELETE | `/organizations/{organizationId}/calendar/feed-token` | `deleteCalendarFeedToken` | membership (own token only) |
-| GET | `/calendar/feed/{token}.ics` | `getCalendarFeedIcs` | **none — public**, the URL-embedded secret is the credential |
+| Method | Path                                                            | Operation                 | Permission                                                   |
+| ------ | --------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------ |
+| POST   | `/organizations/{organizationId}/calendar/events`               | `createCalendarEvent`     | `organization.events.write`                                  |
+| GET    | `/organizations/{organizationId}/calendar/events/{eventId}`     | `getCalendarEvent`        | `organization.events.read`                                   |
+| PATCH  | `/organizations/{organizationId}/calendar/events/{eventId}`     | `updateCalendarEvent`     | `organization.events.write`                                  |
+| DELETE | `/organizations/{organizationId}/calendar/events/{eventId}`     | `deleteCalendarEvent`     | `organization.events.write`                                  |
+| GET    | `/organizations/{organizationId}/calendar/feed?from=...&to=...` | `getCalendarFeed`         | `organization.events.read`                                   |
+| POST   | `/organizations/{organizationId}/calendar/feed-token`           | `createCalendarFeedToken` | `organization.events.read`                                   |
+| GET    | `/organizations/{organizationId}/calendar/feed-token`           | `getCalendarFeedToken`    | membership (own token only)                                  |
+| DELETE | `/organizations/{organizationId}/calendar/feed-token`           | `deleteCalendarFeedToken` | membership (own token only)                                  |
+| GET    | `/calendar/feed/{token}.ics`                                    | `getCalendarFeedIcs`      | **none — public**, the URL-embedded secret is the credential |
 
 The original `PATCH` implementation treated an omitted (`null`) property as
 corresponding field unchanged, mirroring
@@ -59,7 +61,7 @@ unchanged, while explicit `null` values clear `description`, `endsAt`, and
 `facilityId`. Request-field presence is carried separately from the DTO value
 so `null` is never confused with omission.
 
-There is no standalone-events *list* endpoint distinct from the feed: the
+There is no standalone-events _list_ endpoint distinct from the feed: the
 unified feed (with `sourceKey=calendar_event` items) **is** the list view.
 `GET .../calendar/events/{eventId}` exists only to fetch one event's full
 detail (e.g. to populate an edit form).
@@ -101,7 +103,7 @@ unified feed **without a session**: the member creates a personal token
 the returned URL — the **only** response ever carrying the raw secret — is
 pasted into the calendar client.
 
-- **One active token per (organization, member).** `POST` creates *or*
+- **One active token per (organization, member).** `POST` creates _or_
   regenerates: any previously active token is revoked first (`rotated: true`
   in the response). `GET` returns metadata only (`createdAt`, `lastUsedAt` —
   never the secret nor its hash); `DELETE` revokes (204). Both answer 404
@@ -188,7 +190,7 @@ pasted into the calendar client.
   / `calendar.feed_token_revoked`); identifiers only, never secret material.
 - `Domain\Exception\CalendarFeedTokenNotFoundException` → 404 (declared in
   `api_platform.exception_to_status`); deliberately one exception for
-  unknown *and* revoked *and* permission-lost, so the public endpoint leaks
+  unknown _and_ revoked _and_ permission-lost, so the public endpoint leaks
   nothing.
 
 ## Application Layer
@@ -231,12 +233,12 @@ pasted into the calendar client.
 
 ## Cross-module ports & their adapters
 
-| Port (owned by Calendar) | Adapter | Hosted in / registered in |
-| --- | --- | --- |
+| Port (owned by Calendar)                           | Adapter                                      | Hosted in / registered in                                                                                                                     |
+| -------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Port\Outbound\Member\CalendarMemberDirectoryPort` | `OrganizationCalendarMemberDirectoryAdapter` | `Organization\Infrastructure\Adapter\Calendar\` — registered in `config/modules/organization.yaml`, aliased in `config/modules/calendar.yaml` |
-| `Port\Outbound\Feed\InspectionCalendarFeedPort` | `InspectionCalendarFeedAdapter` | `Inspection\Infrastructure\Adapter\Calendar\` — registered in `config/modules/inspection.yaml`, aliased in `config/modules/calendar.yaml` |
-| `Port\Outbound\Feed\InterventionCalendarFeedPort` | `InterventionCalendarFeedAdapter` | `Intervention\Infrastructure\Adapter\Calendar\` — registered in `config/modules/intervention.yaml`, aliased in `config/modules/calendar.yaml` |
-| `Port\Outbound\Feed\MaintenanceCalendarFeedPort` | `MaintenanceCalendarFeedAdapter` | `Maintenance\Infrastructure\Adapter\Calendar\` — registered in `config/modules/maintenance.yaml`, aliased in `config/modules/calendar.yaml` |
+| `Port\Outbound\Feed\InspectionCalendarFeedPort`    | `InspectionCalendarFeedAdapter`              | `Inspection\Infrastructure\Adapter\Calendar\` — registered in `config/modules/inspection.yaml`, aliased in `config/modules/calendar.yaml`     |
+| `Port\Outbound\Feed\InterventionCalendarFeedPort`  | `InterventionCalendarFeedAdapter`            | `Intervention\Infrastructure\Adapter\Calendar\` — registered in `config/modules/intervention.yaml`, aliased in `config/modules/calendar.yaml` |
+| `Port\Outbound\Feed\MaintenanceCalendarFeedPort`   | `MaintenanceCalendarFeedAdapter`             | `Maintenance\Infrastructure\Adapter\Calendar\` — registered in `config/modules/maintenance.yaml`, aliased in `config/modules/calendar.yaml`   |
 
 Each adapter lives in the **provider** module (never in Calendar), per this
 repo's cross-module convention (mirrors
@@ -264,7 +266,7 @@ Infrastructure, or a concrete Adapter class.
   result variables are accepted there — confirmed by the integration test
   below, which caught this at parse time); the occurrence instant is instead
   projected as `COALESCE(intervention.plannedStartAt, intervention.dueAt) AS
-  HIDDEN occurrenceInstant` in the `SELECT` clause and then referenced by
+HIDDEN occurrenceInstant` in the `SELECT` clause and then referenced by
   that alias in `ORDER BY`. `HIDDEN` keeps `getResult()` returning plain
   `InterventionRecord` objects rather than mixed entity/scalar rows.
 - **`MaintenanceCalendarFeedAdapter`** queries `MaintenanceScheduleRecord`
@@ -400,3 +402,15 @@ granted explicitly).
 plain comparisons and `COALESCE`, and the suite runs on PostgreSQL — the same
 engine as production — so the integration suite above exercises the real
 query plan.
+
+## Flows
+
+The authorized feed combines bounded owner-provided calendar sources. Standalone event writes stay calendar-owned; the ICS operation uses its explicit controller and token/access contract.
+
+## Architecture
+
+Use cases own decisions and inject public provisioning/coordination ports from the business owners. Infrastructure implements persistence/storage/transport; HTTP adapters translate. The ownership and transaction boundaries above remain authoritative.
+
+## Error Codes
+
+No additional stable module-specific error-code catalog is declared here. The resource security, validation and exception translation define the public HTTP responses; consult this module's endpoint contracts and [OpenAPI schema](../../openapi.json). A future distinct public code must be documented in this section with its triggering condition.

@@ -1,5 +1,7 @@
 # Domain eligibility snapshots
 
+**Reading guide:** [Documentation index](../../../../docs/README.md) · [Related guide](../../../../docs/architecture/patterns-and-examples.md).
+
 The server uses these local lists before issuing DNS ownership challenges. Missing lists fail closed. Refresh both snapshots regularly as part of the server dependency/security maintenance process, review the changes, and run `OrganizationJoinRulesTest` after replacement.
 
 - `public_suffix_list.dat`: Public Suffix List, https://publicsuffix.org/list/public_suffix_list.dat, downloaded 2026-09-07. Its embedded Mozilla Public License 2.0 notice is retained.

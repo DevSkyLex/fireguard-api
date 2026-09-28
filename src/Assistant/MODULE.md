@@ -1,5 +1,7 @@
 # Assistant Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/messaging.md).
+
 ## Overview
 
 Assistant lets an organization member hold a private, AI-assisted
@@ -45,13 +47,13 @@ tagged `assistant.context_provider` in its own module's
 
 ## API Endpoints
 
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| GET | `/api/organizations/{organizationId}/assistant/threads` | List the requesting member's OWN threads, most recently active first | `organization.assistant.use` |
-| POST | `/api/organizations/{organizationId}/assistant/threads` | Start a new thread (optional tenant `model` override, allowlist-validated) | `organization.assistant.use` |
-| GET | `/api/organizations/{organizationId}/assistant/threads/{threadId}` | Get a thread together with a page of its messages, oldest first | `organization.assistant.use` |
-| POST | `/api/organizations/{organizationId}/assistant/threads/{threadId}/messages` | Ask a question: persists the user message + a pending assistant reply, enqueues generation (optional per-question `temperature`) | `organization.assistant.use` |
-| GET | `/api/organizations/{organizationId}/assistant/threads/{threadId}/subscription` | Mint a Mercure subscriber JWT scoped to ONE thread's generation stream | `organization.assistant.use` |
+| Method | Path                                                                            | Description                                                                                                                      | Permission                   |
+| ------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| GET    | `/api/organizations/{organizationId}/assistant/threads`                         | List the requesting member's OWN threads, most recently active first                                                             | `organization.assistant.use` |
+| POST   | `/api/organizations/{organizationId}/assistant/threads`                         | Start a new thread (optional tenant `model` override, allowlist-validated)                                                       | `organization.assistant.use` |
+| GET    | `/api/organizations/{organizationId}/assistant/threads/{threadId}`              | Get a thread together with a page of its messages, oldest first                                                                  | `organization.assistant.use` |
+| POST   | `/api/organizations/{organizationId}/assistant/threads/{threadId}/messages`     | Ask a question: persists the user message + a pending assistant reply, enqueues generation (optional per-question `temperature`) | `organization.assistant.use` |
+| GET    | `/api/organizations/{organizationId}/assistant/threads/{threadId}/subscription` | Mint a Mercure subscriber JWT scoped to ONE thread's generation stream                                                           | `organization.assistant.use` |
 
 Every operation requires `ROLE_USER` at the resource level (API Platform
 `security: "is_granted('ROLE_USER')"`); the `organization.assistant.use`
@@ -99,7 +101,7 @@ learning from a toggle whether the organization exists.
     of one streamed generation attempt (mirrors `Webhook\Application\Contract\Http\WebhookHttpResponse`);
     never thrown, always returned.
   - `Contract/Context/{AssistantContextScope, AssistantContextBudget,
-    AssistantContextFragment}` (**new**, L2.2) — see "The business-context
+AssistantContextFragment}` (**new**, L2.2) — see "The business-context
     injection seam" above.
   - Outbound ports: `AssistantGenerationClientPort` (the Ollama
     streaming call), `AssistantRealtimePublisherPort` (the Mercure
@@ -147,17 +149,17 @@ learning from a toggle whether the organization exists.
 
 ### Ports & adapters (`config/modules/assistant.yaml`)
 
-| Port | Adapter | Hosted in | Status |
-| --- | --- | --- | --- |
-| `AssistantThreadRepositoryPort` | `AssistantThreadRepository` | Assistant | bound |
-| `AssistantMessageRepositoryPort` | `AssistantMessageRepository` | Assistant | bound |
-| `AssistantGenerationDispatcherPort` | `MessengerAssistantGenerationDispatcherAdapter` | Assistant | bound (L2.3, replaces the L2.1 stub) |
-| `AssistantGenerationClientPort` | `OllamaGenerationClientAdapter` | Assistant | bound (L2.3) |
-| `AssistantRealtimePublisherPort` | `MercureAssistantRealtimePublisherAdapter` | Assistant | bound (L2.3) |
-| `Organization\AssistantOrganizationSettingsPort` | `OrganizationAssistantSettingsAdapter` | Organization | bound (L2.2) |
-| `AssistantContextProviderPort` (tagged `assistant.context_provider`, fan-out — not a single alias) | `ComplianceAssistantContextProviderAdapter` (priority 30) | Compliance | bound (L2.2) |
-| ″ | `InspectionAssistantContextProviderAdapter` (priority 20) | Inspection | bound (L2.2) |
-| ″ | `MaintenanceAssistantContextProviderAdapter` (priority 10) | Maintenance | bound (L2.2) |
+| Port                                                                                               | Adapter                                                    | Hosted in    | Status                               |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------ | ------------------------------------ |
+| `AssistantThreadRepositoryPort`                                                                    | `AssistantThreadRepository`                                | Assistant    | bound                                |
+| `AssistantMessageRepositoryPort`                                                                   | `AssistantMessageRepository`                               | Assistant    | bound                                |
+| `AssistantGenerationDispatcherPort`                                                                | `MessengerAssistantGenerationDispatcherAdapter`            | Assistant    | bound (L2.3, replaces the L2.1 stub) |
+| `AssistantGenerationClientPort`                                                                    | `OllamaGenerationClientAdapter`                            | Assistant    | bound (L2.3)                         |
+| `AssistantRealtimePublisherPort`                                                                   | `MercureAssistantRealtimePublisherAdapter`                 | Assistant    | bound (L2.3)                         |
+| `Organization\AssistantOrganizationSettingsPort`                                                   | `OrganizationAssistantSettingsAdapter`                     | Organization | bound (L2.2)                         |
+| `AssistantContextProviderPort` (tagged `assistant.context_provider`, fan-out — not a single alias) | `ComplianceAssistantContextProviderAdapter` (priority 30)  | Compliance   | bound (L2.2)                         |
+| ″                                                                                                  | `InspectionAssistantContextProviderAdapter` (priority 20)  | Inspection   | bound (L2.2)                         |
+| ″                                                                                                  | `MaintenanceAssistantContextProviderAdapter` (priority 10) | Maintenance  | bound (L2.2)                         |
 
 ## Generation attempts and recovery
 
@@ -280,11 +282,11 @@ alone) and immune to that failure mode.
    `Messaging\Application\Port\Outbound\MessagingSubjectResolverPort`'s
    hosting convention (each provider module owns one adapter under its own
    `Infrastructure/Adapter/Assistant/`, tagged in its own `config/modules/
-   <module>.yaml`) — but a FAN-OUT, not a routed-to-one lookup: every
+<module>.yaml`) — but a FAN-OUT, not a routed-to-one lookup: every
    `supports()`-true provider contributes, mirroring
    `Notification\Application\Port\Outbound\InboxSourceProviderPort`/`InboxAggregator`.
 2. `Application\Contract\Context\{AssistantContextScope, AssistantContextBudget,
-   AssistantContextFragment}` — plain DTOs, deliberately never a provider
+AssistantContextFragment}` — plain DTOs, deliberately never a provider
    module's Domain object. `AssistantContextScope` carries `actorUserId` (the
    thread's OWNING member — see "Member identity" above) and `threadId`.
 3. `Assistant\Application\Service\AssistantContextAssembler` — the tagged-
@@ -369,7 +371,7 @@ the previous lots' notes; tables are `assistant_threads`/`assistant_messages`
   `AssistantModelPolicy` (`$allowedModels: '%env(csv:OLLAMA_ALLOWED_MODELS)%'`),
   the `AssistantOrganizationSettingsPort` alias to Organization's adapter
   (L2.2), and `AssistantContextAssembler`'s `$providers: !tagged_iterator
-  assistant.context_provider` (L2.2) — the three provider adapters
+assistant.context_provider` (L2.2) — the three provider adapters
   themselves are registered+tagged in THEIR OWN
   `config/modules/{compliance,inspection,maintenance}.yaml`, never here.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
@@ -428,15 +430,19 @@ the previous lots' notes; tables are `assistant_threads`/`assistant_messages`
   (L2.3; unchanged by L2.2 — the business-context seam is exercised through
   the async worker, not a new HTTP surface).
 - Run module tests: `php -d memory_limit=1G vendor/bin/phpunit --no-coverage tests/Unit/Assistant tests/Integration/Assistant`
+
 ## Error Codes
 
-| Exception / error code | HTTP / meaning |
-| --- | --- |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `AssistantThreadNotFoundException` (also another organization's/member's thread) | 404 Not Found |
-| `AssistantMessageIllegalStatusTransitionException` | 409 Conflict |
-| `AssistantValidationException` (blank question body, or a model outside `OLLAMA_ALLOWED_MODELS`) | 422 Unprocessable Entity |
-| `InvalidArgumentException` | 400 Bad Request |
-| `ollama_unreachable` / `ollama_timeout` / `ollama_http_error` / `ollama_stream_error` / `ollama_empty_response` | `AssistantMessage.errorCode`, message settles `failed` |
-| `assistant_thread_not_found` / `ollama_model_not_configured` | `AssistantMessage.errorCode` (worker-side guard clauses), message settles `failed` |
+| Exception / error code                                                                                          | HTTP / meaning                                                                     |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Organization\Domain\Exception\OrganizationAccessDeniedException`                                               | 403 Forbidden                                                                      |
+| `AssistantThreadNotFoundException` (also another organization's/member's thread)                                | 404 Not Found                                                                      |
+| `AssistantMessageIllegalStatusTransitionException`                                                              | 409 Conflict                                                                       |
+| `AssistantValidationException` (blank question body, or a model outside `OLLAMA_ALLOWED_MODELS`)                | 422 Unprocessable Entity                                                           |
+| `InvalidArgumentException`                                                                                      | 400 Bad Request                                                                    |
+| `ollama_unreachable` / `ollama_timeout` / `ollama_http_error` / `ollama_stream_error` / `ollama_empty_response` | `AssistantMessage.errorCode`, message settles `failed`                             |
+| `assistant_thread_not_found` / `ollama_model_not_configured`                                                    | `AssistantMessage.errorCode` (worker-side guard clauses), message settles `failed` |
 
+## Flows
+
+An authorized message creates the assistant-owned pending work; the dedicated worker generates and streams the reply. Status and failure/retry behavior follow the owned message lifecycle above.

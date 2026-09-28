@@ -1,5 +1,7 @@
 # Backend coverage
 
+**Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/guides/testing.md).
+
 The acceptance threshold is **90% of executable application lines**, measured over
 every PHP file in `src/`, including API resources, adapters, commands and fixtures.
 Unloaded files count as uncovered. Coverage-ignore annotations are disabled.

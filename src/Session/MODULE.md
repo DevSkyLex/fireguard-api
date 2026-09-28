@@ -1,5 +1,7 @@
 # Session Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/authentication.md).
+
 ## Overview
 
 Session tracks authenticated user sessions across devices and supports revocation.
@@ -8,19 +10,26 @@ to list and revoke sessions.
 
 ## API Endpoints
 
-| Resource | Method | Path | Description |
-| --- | --- | --- | --- |
-| Session | GET | `/api/sessions` | List active sessions for the current user |
-| Session | GET | `/api/sessions/{id}` | Get a session by ID |
-| Session | DELETE | `/api/sessions/{id}` | Revoke a session by ID |
-| Session | POST | `/api/sessions/revoke-all` | Revoke all sessions for the current user (including the current one) |
-| Session | POST | `/api/sessions/revoke-others` | Revoke every session except the current one; returns `{ revokedCount }` |
+| Resource | Method | Path                          | Description                                                             |
+| -------- | ------ | ----------------------------- | ----------------------------------------------------------------------- |
+| Session  | GET    | `/api/sessions`               | List active sessions for the current user                               |
+| Session  | GET    | `/api/sessions/{id}`          | Get a session by ID                                                     |
+| Session  | DELETE | `/api/sessions/{id}`          | Revoke a session by ID                                                  |
+| Session  | POST   | `/api/sessions/revoke-all`    | Revoke all sessions for the current user (including the current one)    |
+| Session  | POST   | `/api/sessions/revoke-others` | Revoke every session except the current one; returns `{ revokedCount }` |
 
 ## Flows
 
 ### Track Session (Command)
 
+Auth calls the published tracking port and waits for the session record. A persistence failure prevents interactive token issuance.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Auth as Auth Handler
   participant Port as SessionTrackingPort
@@ -34,7 +43,14 @@ sequenceDiagram
 
 ### List Sessions (Query)
 
+The query reads the caller's active session records. API projection marks current-session identity using the shared lookup contract.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Provider
   participant Bus as QueryBusPort
@@ -58,6 +74,11 @@ session is this one". Idempotent: revoking twice in a row returns
 `revokedCount: 0` on the second call, never an error.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as RevokeOtherSessionsProcessor
   participant Bus as CommandBusPort
@@ -78,6 +99,7 @@ sequenceDiagram
 - Infrastructure: Doctrine repository and mapper.
 
 Key folders:
+
 - `src/Session/Presentation/Api`
 - `src/Session/Application/UseCase`
 - `src/Session/Domain`
@@ -130,4 +152,8 @@ An unresolved current session cannot silently turn revoke-others into revoke-all
   and `revokeAllForUserExcept`)
 - Functional: `tests/Functional/Api/SessionApiTest.php`
 - E2E: `tests/E2E/SessionManagementFlowTest.php`
-- Run module tests: `make test tests/Unit/Session`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Session`
+
+## Error Codes
+
+No additional stable module-specific error-code catalog is declared here. The resource security, validation and exception translation define the public HTTP responses; consult this module's endpoint contracts and [OpenAPI schema](../../openapi.json). A future distinct public code must be documented in this section with its triggering condition.

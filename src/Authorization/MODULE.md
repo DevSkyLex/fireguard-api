@@ -1,5 +1,7 @@
 # Authorization Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/organization-and-access.md).
+
 ## Overview
 
 Authorization implements RBAC and permission checks for the platform. Roles
@@ -7,26 +9,33 @@ group permissions, and role assignments are attached to subjects (users).
 
 ## API Endpoints
 
-| Resource | Method | Path | Description |
-| --- | --- | --- | --- |
-| Role | GET | `/api/roles` | List roles |
-| Role | GET | `/api/roles/{id}` | Get role details |
-| Role | POST | `/api/roles` | Create role |
-| Role | PATCH | `/api/roles/{id}` | Update role |
-| Role | DELETE | `/api/roles/{id}` | Delete role (system roles are protected) |
-| Role | POST | `/api/roles/{roleId}/permissions` | Add permission to role |
-| Role | DELETE | `/api/roles/{roleId}/permissions/{permissionId}` | Remove permission from role |
-| Permission | GET | `/api/permissions` | List permissions |
-| Permission | GET | `/api/permissions/{id}` | Get permission details |
-| Permission | POST | `/api/permissions` | Create permission |
-| Permission | PATCH | `/api/permissions/{id}` | Update permission |
-| Permission | DELETE | `/api/permissions/{id}` | Delete permission |
+| Resource   | Method | Path                                             | Description                              |
+| ---------- | ------ | ------------------------------------------------ | ---------------------------------------- |
+| Role       | GET    | `/api/roles`                                     | List roles                               |
+| Role       | GET    | `/api/roles/{id}`                                | Get role details                         |
+| Role       | POST   | `/api/roles`                                     | Create role                              |
+| Role       | PATCH  | `/api/roles/{id}`                                | Update role                              |
+| Role       | DELETE | `/api/roles/{id}`                                | Delete role (system roles are protected) |
+| Role       | POST   | `/api/roles/{roleId}/permissions`                | Add permission to role                   |
+| Role       | DELETE | `/api/roles/{roleId}/permissions/{permissionId}` | Remove permission from role              |
+| Permission | GET    | `/api/permissions`                               | List permissions                         |
+| Permission | GET    | `/api/permissions/{id}`                          | Get permission details                   |
+| Permission | POST   | `/api/permissions`                               | Create permission                        |
+| Permission | PATCH  | `/api/permissions/{id}`                          | Update permission                        |
+| Permission | DELETE | `/api/permissions/{id}`                          | Delete permission                        |
 
 ## Flows
 
 ### Check Permission (Query)
 
+The query translates a permission question into the authorization owner. It returns the effective result without granting a new entitlement.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Processor
   participant Bus as QueryBusPort
@@ -42,7 +51,14 @@ sequenceDiagram
 
 ### Assign Permission to Role (Command)
 
+The command changes the role-permission relationship through its owner. HTTP translation and authorization remain separate from the persistence port.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as API Processor
   participant Bus as CommandBusPort
@@ -64,6 +80,7 @@ sequenceDiagram
 - Infrastructure: Doctrine repositories, mappers, fixtures, and voters.
 
 Key folders:
+
 - `src/Authorization/Presentation/Api`
 - `src/Authorization/Application/UseCase`
 - `src/Authorization/Domain`
@@ -75,12 +92,12 @@ Key folders:
 - Voters: `Authorization\Infrastructure\Security\Voter`
 - Fixtures: `Authorization\Infrastructure\DataFixtures\AuthorizationFixtures`
 - Permission cache: `AUTHZ_PERMISSION_CACHE_TTL` (seconds). Short TTL is recommended to balance performance and consistency.
-- Sync permissions: `php bin/console app:authz:sync-permissions --update-roles`
+- Sync permissions: `php -d memory_limit=1G bin/console app:authz:sync-permissions --update-roles`
 
 ## Testing
 
 - Unit: `tests/Unit/Authorization`
-- Run module tests: `make test tests/Unit/Authorization`
+- Run module tests: `php -d memory_limit=1G vendor/bin/phpunit tests/Unit/Authorization`
 
 ## Error Codes
 

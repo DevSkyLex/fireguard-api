@@ -1,5 +1,7 @@
 # Inspection Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Recording a non-conformity commits its row and domain event in the same main
@@ -27,15 +29,15 @@ localized typed registries are the source of these values).
 
 ### Inspections
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/inspections` | Create inspection (starts as `draft`) |
-| GET | `/api/organizations/{organizationId}/inspections` | List inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) |
-| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}` | Get inspection |
-| POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/submit` | Submit inspection (`draft → submitted`) |
-| POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/close` | Close inspection (`submitted → closed`) |
-| GET | `/api/organizations/{organizationId}/inspections/export` | Streams a bounded CSV export of inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) — B8 |
-| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/report` | Streams a PDF report of one inspection (identity, checklist responses, non-conformities) — plan-gated, see PDF reports below |
+| Method | Path                                                                    | Description                                                                                                                                                                       |
+| ------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/organizations/{organizationId}/inspections`                       | Create inspection (starts as `draft`)                                                                                                                                             |
+| GET    | `/api/organizations/{organizationId}/inspections`                       | List inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`)                                 |
+| GET    | `/api/organizations/{organizationId}/inspections/{inspectionId}`        | Get inspection                                                                                                                                                                    |
+| POST   | `/api/organizations/{organizationId}/inspections/{inspectionId}/submit` | Submit inspection (`draft → submitted`)                                                                                                                                           |
+| POST   | `/api/organizations/{organizationId}/inspections/{inspectionId}/close`  | Close inspection (`submitted → closed`)                                                                                                                                           |
+| GET    | `/api/organizations/{organizationId}/inspections/export`                | Streams a bounded CSV export of inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) — B8 |
+| GET    | `/api/organizations/{organizationId}/inspections/{inspectionId}/report` | Streams a PDF report of one inspection (identity, checklist responses, non-conformities) — plan-gated, see PDF reports below                                                      |
 
 **B8 — synchronous CSV exports (inspections and non-conformities).**
 
@@ -59,7 +61,7 @@ both are bounded and fast enough to answer inline.
   `hasPermission()`-only gate, separate `OUTSIDE_SCOPE` (**404**, same as an
   absent organization) from `MISSING_PERMISSION` (**403**). The resource-level
   `is_granted('ROLE_USER')` is only the coarse gate.
-- **Filters**: each export reuses the *cheap* subset of its list endpoint's
+- **Filters**: each export reuses the _cheap_ subset of its list endpoint's
   filters only — equality/range predicates the existing indexed query
   builders already serve. The inspection export **excludes** `inspectorType`
   (never exposed by the list provider) and free-text `search` (trigram,
@@ -79,7 +81,7 @@ both are bounded and fast enough to answer inline.
   (lightweight `InspectionExportCandidate` rows — never the full `Inspection`
   aggregate) and `NonConformityRepositoryPort::countExportCandidates()`/`listExportCandidates()`/`countsOpenByInspectionIds()`.
   The non-conformity `listExportCandidates()` resolves the owning
-  inspection's `facilityId`/`equipmentId` in the *same* query (a mixed
+  inspection's `facilityId`/`equipmentId` in the _same_ query (a mixed
   entity + scalar select against the existing `createOrganizationListQueryBuilder()`
   join), never a second round trip per row.
 - **`ageInDays`** (non-conformity export only) is computed in the handler
@@ -87,10 +89,10 @@ both are bounded and fast enough to answer inline.
   formats, per the Presentation-layer rule.
 - **CSV columns**, in order:
   - Inspections (`InspectionCsvWriter::HEADER`): `id, status, result, facility,
-    equipment, checklist, performed_at, non_conformities_open,
-    non_conformities_total, created_at, updated_at`.
+equipment, checklist, performed_at, non_conformities_open,
+non_conformities_total, created_at, updated_at`.
   - Non-conformities (`NonConformityCsvWriter::HEADER`): `id, severity, status,
-    age_in_days, facility, equipment, inspection_id, created_at, resolved_at`.
+age_in_days, facility, equipment, inspection_id, created_at, resolved_at`.
 - **Audit**: each controller dispatches its own domain event after a
   successful export — `Inspection\Domain\Event\Export\InspectionsExportedEvent`
   / `NonConformitiesExportedEvent` — carrying `organizationId`, `actorUserId`,
@@ -137,13 +139,14 @@ Authorization mirrors the CSV exports: `resolveAccess()` with
 `MISSING_PERMISSION` → **403**, entitlement checked only after that split so
 an outsider never learns the route exists. Each export dispatches its audit
 event (`inspection.report_exported` with the plan key;
-`inspection.non_conformities_report_exported` with row count + filter *names*
-+ plan key), wired centrally in `Audit\...\AuditEventSubscriber`. The single
-inspection report deliberately uses the module's org-scoped route shape
-(`/organizations/{organizationId}/inspections/{inspectionId}/report`) rather
-than Intervention's bare `/interventions/{id}/report`: every Inspection read
-query requires the `organizationId` up front, and the resolveAccess-before-
-load ordering depends on it.
+`inspection.non_conformities_report_exported` with row count + filter _names_
+
+- plan key), wired centrally in `Audit\...\AuditEventSubscriber`. The single
+  inspection report deliberately uses the module's org-scoped route shape
+  (`/organizations/{organizationId}/inspections/{inspectionId}/report`) rather
+  than Intervention's bare `/interventions/{id}/report`: every Inspection read
+  query requires the `organizationId` up front, and the resolveAccess-before-
+  load ordering depends on it.
 
 ### Checklists
 
@@ -161,21 +164,20 @@ renamed or rewritten. Lists resolve reference usage in a single bounded query an
 keep the existing count-only item contract. Mutation processors own their resource
 read; framework automatic reads are disabled on PATCH/archive.
 
-
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/checklists` | Create checklist template |
-| GET | `/api/organizations/{organizationId}/checklists` | List checklists (filter: `status`) |
-| GET | `/api/organizations/{organizationId}/checklists/{checklistId}` | Get checklist |
-| PATCH | `/api/organizations/{organizationId}/checklists/{checklistId}` | Partially update a checklist (name, referenceCode, items) |
-| POST | `/api/organizations/{organizationId}/checklists/{checklistId}/archive` | Archive (freeze) checklist |
+| Method | Path                                                                   | Description                                               |
+| ------ | ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| POST   | `/api/organizations/{organizationId}/checklists`                       | Create checklist template                                 |
+| GET    | `/api/organizations/{organizationId}/checklists`                       | List checklists (filter: `status`)                        |
+| GET    | `/api/organizations/{organizationId}/checklists/{checklistId}`         | Get checklist                                             |
+| PATCH  | `/api/organizations/{organizationId}/checklists/{checklistId}`         | Partially update a checklist (name, referenceCode, items) |
+| POST   | `/api/organizations/{organizationId}/checklists/{checklistId}/archive` | Archive (freeze) checklist                                |
 
 **L1.10 — reference code, item count, update endpoint (R-latest).**
 
 - `referenceCode` — optional human-facing code (`CHK-EXT-Q`, max 40 chars),
   unique per organization when set (`checklists.reference_code`, unique index
   `uniq_checklist_organization_reference_code (organization_id,
-  reference_code)`). Nullable and Postgres treats `NULL` as distinct, so any
+reference_code)`). Nullable and Postgres treats `NULL` as distinct, so any
   number of code-less checklists coexist. A duplicate code within the same
   organization surfaces as **409 Conflict**
   (`ChecklistReferenceCodeAlreadyExistsException`), detected by catching the
@@ -230,7 +232,7 @@ read; framework automatic reads are disabled on PATCH/archive.
     repository upserts by item ID and deletes items no longer present).
     Therefore, once a checklist is referenced by at least one existing
     inspection (any status — `countByOrganizationId(..., checklistId:
-    ...)` > 0), attempting to change its **item list** is rejected with
+...)` > 0), attempting to change its **item list** is rejected with
     **409 Conflict** (`ChecklistInUseException`): mutating items in place
     would retroactively change how already-recorded inspection evidence
     (including free-form `InspectionResponse.itemKey` values, which are not
@@ -246,15 +248,15 @@ read; framework automatic reads are disabled on PATCH/archive.
 
 ### Non-Conformities
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | Record a deficiency |
-| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities for one inspection (filters: `severity`, `status`) |
-| GET | `/api/organizations/{organizationId}/non-conformities` | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7 |
-| GET | `/api/organizations/{organizationId}/non-conformities/export` | Streams a bounded CSV export of an organization's non-conformities (filters: `severity`, `status`) — B8 |
-| GET | `/api/organizations/{organizationId}/non-conformities/statistics` | Organization-wide non-conformity KPI snapshot: `bySeverity` (all four severities × `open`/`resolved`, zeros included), `byFacility` (top 10 by open count: `id`, `name`, `open`, `critical`), `byEquipmentType` (top 10 by open count: `type`, `open`), `resolution` (`averageDays`/`medianDays` over `resolvedAt - createdAt`, null when nothing resolved), `slaBreachedOpen`. Optional `from`/`to` window on `createdAt`. Requires `organization.inspection.read` via `resolveAccess` (404 outside scope, 403 unentitled) — B9 |
-| GET | `/api/organizations/{organizationId}/non-conformities/report` | Streams a PDF report of an organization's non-conformities grouped by severity (filters: `severity`, `status`) — plan-gated, see PDF reports below |
-| PATCH | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status |
+| Method | Path                                                                                          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities`             | Record a deficiency                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| GET    | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities`             | List non-conformities for one inspection (filters: `severity`, `status`)                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| GET    | `/api/organizations/{organizationId}/non-conformities`                                        | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7                                                                                                                                                                                                                                                                                                                                                                                                              |
+| GET    | `/api/organizations/{organizationId}/non-conformities/export`                                 | Streams a bounded CSV export of an organization's non-conformities (filters: `severity`, `status`) — B8                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| GET    | `/api/organizations/{organizationId}/non-conformities/statistics`                             | Organization-wide non-conformity KPI snapshot: `bySeverity` (all four severities × `open`/`resolved`, zeros included), `byFacility` (top 10 by open count: `id`, `name`, `open`, `critical`), `byEquipmentType` (top 10 by open count: `type`, `open`), `resolution` (`averageDays`/`medianDays` over `resolvedAt - createdAt`, null when nothing resolved), `slaBreachedOpen`. Optional `from`/`to` window on `createdAt`. Requires `organization.inspection.read` via `resolveAccess` (404 outside scope, 403 unentitled) — B9 |
+| GET    | `/api/organizations/{organizationId}/non-conformities/report`                                 | Streams a PDF report of an organization's non-conformities grouped by severity (filters: `severity`, `status`) — plan-gated, see PDF reports below                                                                                                                                                                                                                                                                                                                                                                               |
+| PATCH  | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 **B7 — organization-wide non-conformity collection.**
 
@@ -281,7 +283,7 @@ introduce a "resolved" status; `done` and `waived` are the terminal states.
   `countByOrganizationId()` (existing, refactored to use it) so the two can
   never drift on which rows they count versus return.
 - Equipment: a non-conformity only stores its `inspectionId` — equipment
-  belongs to the *inspection*. The handler batches
+  belongs to the _inspection_. The handler batches
   `InspectionRepositoryPort::findEquipmentIdsByIds()` (new, one query
   resolving inspectionId → equipmentId for the whole page — mirrors
   `ChecklistRepositoryPort::findNamesByIds()`) then
@@ -324,19 +326,19 @@ where the percentile is one clause; "open" is status `open`/`in_progress`,
 
 ### Attachments (R11b)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/inspections/{inspectionId}/attachments` | Upload an inspection-level document |
-| GET | `/api/inspections/{inspectionId}/attachments` | List an inspection's own documents (excludes non-conformity photos) |
-| POST | `/api/non-conformities/{nonConformityId}/attachments` | Upload a non-conformity field-proof photo |
-| GET | `/api/non-conformities/{nonConformityId}/attachments` | List a non-conformity's field-proof photos |
-| GET | `/api/inspection-attachments/{id}` | Get one attachment (either kind) |
-| DELETE | `/api/inspection-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
+| Method | Path                                                  | Description                                                         |
+| ------ | ----------------------------------------------------- | ------------------------------------------------------------------- |
+| POST   | `/api/inspections/{inspectionId}/attachments`         | Upload an inspection-level document                                 |
+| GET    | `/api/inspections/{inspectionId}/attachments`         | List an inspection's own documents (excludes non-conformity photos) |
+| POST   | `/api/non-conformities/{nonConformityId}/attachments` | Upload a non-conformity field-proof photo                           |
+| GET    | `/api/non-conformities/{nonConformityId}/attachments` | List a non-conformity's field-proof photos                          |
+| GET    | `/api/inspection-attachments/{id}`                    | Get one attachment (either kind)                                    |
+| DELETE | `/api/inspection-attachments/{id}`                    | Delete an attachment (requires `If-Match: "revision-N"`)            |
 
 Generalized file attachments mirroring the shared attachment kernel
 (`src/Shared/MODULE.md`) and the proven `Equipment\...\EquipmentAttachment`
 slice. **Single-table decision**: both inspection-level documents and
-non-conformity field-proof photos (the photo *is* the evidence of the
+non-conformity field-proof photos (the photo _is_ the evidence of the
 deficiency) persist to one `inspection_attachments` table with a nullable
 `non_conformity_id` discriminator, rather than two separate tables/aggregates.
 Justification: a non-conformity always belongs to exactly one inspection, the
@@ -375,7 +377,7 @@ scopes the inspection-level-only listing.
   (**25**), enforced in `AddInspectionAttachmentHandler` via
   `countByInspectionId()` / `countByNonConformityId()`. The two buckets are
   counted **separately** — an inspection may hold 25 inspection-level
-  documents *and* each of its non-conformities 25 field-proof photos —
+  documents _and_ each of its non-conformities 25 field-proof photos —
   because each bucket feeds its own unpaginated list. Over the cap returns
   **422**, the same status as a MIME/size rejection, mapped centrally by the
   shared `AttachmentConstraintExceptionSubscriber` — not by the processor.
@@ -388,14 +390,14 @@ carry **no organization segment** — the owning organization is read off the ro
 which is why every one of them answers 404 rather than 403 outside the caller's
 scope.
 
-| Method | Path | Description |
-| --- | --- | --- |
-| POST | `/api/inspection-responses` | Create a response. `201`. Server-assigned id; optional `clientId` is the replay key |
-| PUT | `/api/inspection-responses/{id}` | Offline create with a client-chosen id. `201`. Requires `If-None-Match: *` (`428`/`412` otherwise); `{id}` must be a UUID (`400`); a known `clientId` answers `412` |
-| GET | `/api/inspection-responses` | List (filters: `organization`, `intervention`, `inspection`, `recordStatus`; `recordStatus` defaults to `draft` when `intervention` is given, `published` otherwise) |
-| GET | `/api/inspection-responses/{id}` | Get one |
-| PATCH | `/api/inspection-responses/{id}` | Replace `value` on a **draft**. Requires `If-Match: "revision-N"`. Bumps `revision`. `409` on a published row |
-| DELETE | `/api/inspection-responses/{id}` | Delete a **draft**. `204`. Requires `If-Match`. `409` on a published row |
+| Method | Path                             | Description                                                                                                                                                          |
+| ------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/inspection-responses`      | Create a response. `201`. Server-assigned id; optional `clientId` is the replay key                                                                                  |
+| PUT    | `/api/inspection-responses/{id}` | Offline create with a client-chosen id. `201`. Requires `If-None-Match: *` (`428`/`412` otherwise); `{id}` must be a UUID (`400`); a known `clientId` answers `412`  |
+| GET    | `/api/inspection-responses`      | List (filters: `organization`, `intervention`, `inspection`, `recordStatus`; `recordStatus` defaults to `draft` when `intervention` is given, `published` otherwise) |
+| GET    | `/api/inspection-responses/{id}` | Get one                                                                                                                                                              |
+| PATCH  | `/api/inspection-responses/{id}` | Replace `value` on a **draft**. Requires `If-Match: "revision-N"`. Bumps `revision`. `409` on a published row                                                        |
+| DELETE | `/api/inspection-responses/{id}` | Delete a **draft**. `204`. Requires `If-Match`. `409` on a published row                                                                                             |
 
 `recordStatus` is `draft` while the response belongs to an intervention still
 being prepared, and `published` once that intervention publishes — or
@@ -410,7 +412,14 @@ polling `If-Match` sees the preparation move.
 
 ### Create & Submit Inspection (Command)
 
+Inspection commands validate and persist their owned lifecycle before follow-up effects. The create and submit operations retain their distinct prerequisites.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as CreateInspectionProcessor
   participant Bus as CommandBusPort
@@ -425,7 +434,14 @@ sequenceDiagram
 
 ### Add Non-Conformity (Command)
 
+The inspection owner records the non-conformity and its committed consequences. Replay and cross-module actions follow the explicit event/outbox contract.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as AddNonConformityProcessor
   participant Bus as CommandBusPort
@@ -441,7 +457,14 @@ sequenceDiagram
 
 ### List Inspections (Query)
 
+The query returns the authorized, filtered inspection collection. HTTP providers translate the result without taking inspection workflow decisions.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as ListInspectionsProvider
   participant Bus as QueryBusPort
@@ -579,6 +602,7 @@ Status transitions:
   halves are pinned by `tests/Functional/Api/InspectionApiTest.php`
   (`testAddNonConformityOnAClosedInspectionReturnsConflict` and
   `testUpdateNonConformityStatusIsStillAllowedOnAClosedInspection`).
+
 - **Waiving is gated by the org's four-eyes approval policy** (R17): when the
   target status is `waived`, `UpdateNonConformityStatusProcessor` consults
   `Approval\Application\Port\Inbound\ApprovalGatePort` (action type
@@ -632,6 +656,7 @@ Status transitions:
 - Infrastructure: Doctrine record/mapper/repository.
 
 Key folders:
+
 - `src/Inspection/Presentation/Api`
 - `src/Inspection/Application/UseCase`
 - `src/Inspection/Domain`
@@ -776,8 +801,7 @@ themselves**, and was closed in the same pass:
 `CanonicalInspectionMutationProcessor`, `InspectionMediaProcessor` and
 `InspectionMediaProvider` loaded a record by GLOBAL id — the routes carry no
 organization segment — then permission-checked against that record's own
-organization. A foreign inspection answered 403 while an absent one answered
-404. Six gates converted; `testCanonicalInspectionMutationDoesNotRevealForeignInspections`
+organization. A foreign inspection answered 403 while an absent one answered 404. Six gates converted; `testCanonicalInspectionMutationDoesNotRevealForeignInspections`
 freezes the DELETE path and failed with `403 is not identical to 404` before.
 
 **Never gate one of these surfaces on `hasPermission()` alone.** It cannot tell
@@ -821,14 +845,14 @@ schema-level and outlives any Presentation cleanup.
 draft/published split, the three audit events and their post-commit
 dispatch. It is now HTTP translation only, and **holds no entity manager**.
 
-| Concern | Where it lives now |
-| --- | --- |
-| `PATCH /api/inspections/{id}` | `Application/UseCase/Command/Inspection/PatchCanonicalInspection/` |
-| `DELETE /api/inspections/{id}` | `Application/UseCase/Command/Inspection/DeleteCanonicalInspection/` |
-| Read one, for the gate | `Application/UseCase/Query/Inspection/GetCanonicalInspection/` |
-| Status machine, draft/published split, revision bump, idempotent cancel | `Domain/Model/Inspection/CanonicalInspection` |
-| Persistence | `Infrastructure/…/Repository/CanonicalInspectionRepository` (port: `CanonicalInspectionRepositoryPort`) |
-| Intervention revision touch | `InterventionScopePort` (shared with the responses surface) |
+| Concern                                                                 | Where it lives now                                                                                      |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `PATCH /api/inspections/{id}`                                           | `Application/UseCase/Command/Inspection/PatchCanonicalInspection/`                                      |
+| `DELETE /api/inspections/{id}`                                          | `Application/UseCase/Command/Inspection/DeleteCanonicalInspection/`                                     |
+| Read one, for the gate                                                  | `Application/UseCase/Query/Inspection/GetCanonicalInspection/`                                          |
+| Status machine, draft/published split, revision bump, idempotent cancel | `Domain/Model/Inspection/CanonicalInspection`                                                           |
+| Persistence                                                             | `Infrastructure/…/Repository/CanonicalInspectionRepository` (port: `CanonicalInspectionRepositoryPort`) |
+| Intervention revision touch                                             | `InterventionScopePort` (shared with the responses surface)                                             |
 
 **Two Domain models over one table, on purpose.** `Inspection` is the
 aggregate the organization-scoped commands drive; it is loaded through
@@ -842,11 +866,11 @@ the canonical rules.
 **Those rules differ from the aggregate's, and the divergence is inherited
 rather than introduced.** Three differences, all pre-dating this refactor:
 
-| Situation | Canonical surface | `Inspection` aggregate |
-| --- | --- | --- |
-| Patching `result`/`notes`/`signature` on a **submitted** record | allowed | `Inspection::edit()` refuses anything past draft |
-| Illegal status jump (`draft → closed`) | **422** | **409** (`InspectionNotSubmittedException` via `POST …/close`) |
-| A draft scratchpad record | skips the lifecycle entirely, never audited | invisible — `findPublishedById()` filters it out |
+| Situation                                                       | Canonical surface                           | `Inspection` aggregate                                         |
+| --------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
+| Patching `result`/`notes`/`signature` on a **submitted** record | allowed                                     | `Inspection::edit()` refuses anything past draft               |
+| Illegal status jump (`draft → closed`)                          | **422**                                     | **409** (`InspectionNotSubmittedException` via `POST …/close`) |
+| A draft scratchpad record                                       | skips the lifecycle entirely, never audited | invisible — `findPublishedById()` filters it out               |
 
 Reconciling them changes published statuses; that is a product decision, not
 a refactor's side effect. `CanonicalInspection`'s docblock and
@@ -889,12 +913,12 @@ path has no reason to carry).
 `$record->nonConformities->count()` once per row. It is now query translation
 only, and **holds no entity manager**.
 
-| Concern | Where it lives now |
-| --- | --- |
-| `GET /api/inspections/{id}` | `Application/UseCase/Query/Inspection/ReadCanonicalInspection/` |
-| `GET /api/inspections` | `Application/UseCase/Query/Inspection/ListCanonicalInspections/` |
-| Which organization the two filters name | `Application/UseCase/Query/Inspection/ResolveCanonicalInspectionScope/` |
-| The filter clause itself | `CanonicalInspectionRepository::filtered()`, behind `findReadByFilters()` / `countReadByFilters()` |
+| Concern                                 | Where it lives now                                                                                 |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GET /api/inspections/{id}`             | `Application/UseCase/Query/Inspection/ReadCanonicalInspection/`                                    |
+| `GET /api/inspections`                  | `Application/UseCase/Query/Inspection/ListCanonicalInspections/`                                   |
+| Which organization the two filters name | `Application/UseCase/Query/Inspection/ResolveCanonicalInspectionScope/`                            |
+| The filter clause itself                | `CanonicalInspectionRepository::filtered()`, behind `findReadByFilters()` / `countReadByFilters()` |
 
 **A read projection, not the mutation model.** `CanonicalInspectionReadView`
 carries what the wire contract shows — `performed_at`, the inspector quartet,
@@ -928,12 +952,12 @@ and the paging — and resolved the owning organization from whichever filter
 the caller supplied. It is now query translation only, and **holds no entity
 manager**.
 
-| Concern | Where it lives now |
-| --- | --- |
-| `GET /api/inspection-responses/{id}` | `Application/UseCase/Query/Response/GetInspectionResponse/` (shared with the processor) |
-| `GET /api/inspection-responses` | `Application/UseCase/Query/Response/ListInspectionResponses/` |
-| Which organization the three filters name | `Application/UseCase/Query/Response/ResolveInspectionResponseScope/` |
-| The filter clause itself | `InspectionResponseRepository::filtered()`, behind `findByFilters()` / `countByFilters()` |
+| Concern                                   | Where it lives now                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `GET /api/inspection-responses/{id}`      | `Application/UseCase/Query/Response/GetInspectionResponse/` (shared with the processor)   |
+| `GET /api/inspection-responses`           | `Application/UseCase/Query/Response/ListInspectionResponses/`                             |
+| Which organization the three filters name | `Application/UseCase/Query/Response/ResolveInspectionResponseScope/`                      |
+| The filter clause itself                  | `InspectionResponseRepository::filtered()`, behind `findByFilters()` / `countByFilters()` |
 
 **Two queries, not one, and the order is the point.** The organization has to
 be resolved BEFORE the permission gate can run, and the gate has to run before
@@ -972,15 +996,15 @@ IRIs and headers, runs the authorization gate, dispatches, and maps a Result to
 an Output. **It holds no entity manager and opens no transaction** — and
 `config/modules/inspection.yaml` deliberately names none for it.
 
-| Concern | Where it lives now |
-| --- | --- |
-| Create (POST + offline PUT) | `Application/UseCase/Command/Response/CreateInspectionResponse/` |
-| Edit a draft's value | `Application/UseCase/Command/Response/UpdateInspectionResponse/` |
-| Delete a draft | `Application/UseCase/Command/Response/DeleteInspectionResponse/` |
-| Read one, for the gate | `Application/UseCase/Query/Response/GetInspectionResponse/` |
-| Draft/published invariants, revision bump | `Domain/Model/Response/InspectionResponse` |
-| Persistence | `Infrastructure/…/Repository/InspectionResponseRepository` (port: `InspectionResponseRepositoryPort`) |
-| Intervention ownership + revision touch | `InterventionScopePort` |
+| Concern                                   | Where it lives now                                                                                    |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Create (POST + offline PUT)               | `Application/UseCase/Command/Response/CreateInspectionResponse/`                                      |
+| Edit a draft's value                      | `Application/UseCase/Command/Response/UpdateInspectionResponse/`                                      |
+| Delete a draft                            | `Application/UseCase/Command/Response/DeleteInspectionResponse/`                                      |
+| Read one, for the gate                    | `Application/UseCase/Query/Response/GetInspectionResponse/`                                           |
+| Draft/published invariants, revision bump | `Domain/Model/Response/InspectionResponse`                                                            |
+| Persistence                               | `Infrastructure/…/Repository/InspectionResponseRepository` (port: `InspectionResponseRepositoryPort`) |
+| Intervention ownership + revision touch   | `InterventionScopePort`                                                                               |
 
 **Two things deliberately stayed in the processor.**
 
@@ -1018,13 +1042,13 @@ and persisted the garbage id verbatim; it now answers **400**. The identifier is
 an `InspectionResponseId` value object, and `clientId` — the same field, filled
 from the same URI — already carried `#[Assert\Uuid]` in the POST body. The PUT
 route bypassed that constraint only because the processor overwrote `clientId`
-*after* validation ran. **Reads did not narrow**: `GET`, `PATCH` and `DELETE`
+_after_ validation ran. **Reads did not narrow**: `GET`, `PATCH` and `DELETE`
 still answer 404 for an unparseable id, because the query and both mutation
 handlers turn `InvalidValueException` into "not found". Both halves are asserted
 in `InspectionResponseApiTest`.
 
-**One known ordering change, not worth contorting for.** A create carrying *both*
-a malformed `inspection` IRI *and* a duplicate `clientId` used to answer 409 and
+**One known ordering change, not worth contorting for.** A create carrying _both_
+a malformed `inspection` IRI _and_ a duplicate `clientId` used to answer 409 and
 now answers 500 — `ResourceIriParser::id()` throws a bare
 `InvalidArgumentException`, which nothing maps, and it is now evaluated before
 the replay guard rather than after. The 500 on a malformed IRI is pre-existing
@@ -1066,154 +1090,9 @@ and reachable on its own; only which of the two failures wins moved.
 
 ## Testing
 
-- Unit: `tests/Unit/Inspection/`
-  - `Application/UseCase/Command/Attachment/{Add,Delete}InspectionAttachment`,
-    `Application/UseCase/Query/Attachment/ListInspectionAttachments` — both
-    inspection-level and non-conformity-scoped flows, non-conformity/inspection
-    mismatch rejection, storage rollback on DB failure.
-  - `Presentation/Api/Processor/Attachment/InspectionMediaProcessorTest`,
-    `Presentation/Api/Provider/Attachment/InspectionMediaProviderTest` —
-    both upload/list routes, permission enforcement, revision guard on delete.
-  - `Domain/Model/Checklist/ChecklistTest` — reference code normalization
-    (trim/blank-to-null/length), `update()` partial semantics, archived
-    rejection.
-  - `Application/UseCase/Command/Checklist/UpdateChecklist/UpdateChecklistHandlerTest`
-    — not-found/org-mismatch, archived rejection, `ChecklistInUseException`
-    when items change on a checklist already referenced by an inspection,
-    item replacement when unreferenced, duplicate reference code mapped
-    from `UniqueConstraintViolationException`.
-  - `Presentation/Api/Processor/Checklist/UpdateChecklistProcessorTest` —
-    PATCH "no field provided" rejection, dispatch + re-fetch round trip,
-    conflict mapping for archived/in-use/duplicate-code, messenger unwrap.
-  - `Application/UseCase/Query/Checklist/ListChecklists/ListChecklistsHandlerTest`
-    (L1.10b) — `itemCount` sourced from `countItemsGroupedByChecklistId()`,
-    including the "checklist absent from the grouped-query map" case
-    defaulting to `0`; empty result page.
-  - `Presentation/Api/Provider/Checklist/ListChecklistsProviderTest` —
-    updated for L1.10b: the mocked query bus now returns `ListChecklistResult`
-    (not `GetChecklistResult`/`ChecklistItemResult`), pinning that
-    `ChecklistOutput->itemCount` is copied straight from `itemCount` and
-    `ChecklistOutput->items` stays empty on the list path.
-  - `Infrastructure/Adapter/Equipment/EquipmentNonConformityStatisticsAdapterTest`
-    (L2.11) — sums the `open` + `in_progress` counts from a mocked
-    `NonConformityRepositoryPort` (no new DQL, so no new integration test is
-    needed here).
-  - `Infrastructure/Adapter/Assistant/InspectionAssistantContextProviderAdapterTest`
-    (L2.2) — `supports()` on/off the permission gate, and `provide()`
-    degrading to an empty fragment when the repository throws. Deliberately
-    does NOT mock the QueryBuilder/DQL — see the integration test below.
-  - `Domain/Model/Inspection/CanonicalInspectionTest` — the canonical rules
-    with no container and no mocks: the transition table, terminal-state
-    immutability, the scratchpad bypass, `result`-before-`status` validation
-    order, explicit-null erasure versus absent key, and the idempotent cancel
-    that must not bump the revision.
-  - `Application/UseCase/Command/Inspection/{Patch,Delete}CanonicalInspection`
-    and `Application/UseCase/Query/Inspection/GetCanonicalInspection` — the
-    orchestration: which event is dispatched for which transition, the three
-    paths that must dispatch **nothing** (scratchpad, no-status-change,
-    idempotent repeat DELETE), the post-commit guarantee (a rolled-back
-    transaction audits nothing), and the revision re-check inside the
-    handler's own transaction.
-  - `Presentation/Api/Processor/Inspection/CanonicalInspectionMutationProcessorTest`
-    — what the processor still owns: the gate order (404 before 428), which
-    permission a scratchpad row asks the intervention for, 404 rather than 403
-    outside the organization, and the merge-patch `has*` flags.
-  - `Application/UseCase/Query/Inspection/{ReadCanonicalInspection,ListCanonicalInspections,ResolveCanonicalInspectionScope}`
-    — the `recordStatus` default, the equipment filter, the one-based page
-    turned into an offset, the empty page that asks for no counts at all, and
-    the non-conformity counts coming from ONE grouped call with a row absent
-    from the map meaning zero rather than a missing key.
-  - `Application/UseCase/Query/Response/{ListInspectionResponses,ResolveInspectionResponseScope}`
-    — the `recordStatus` default (published by default, drafts when scoped to
-    an intervention, explicit always wins), the one-based page turned into an
-    offset, the empty page that still carries its total, and the precedence
-    between the three scoping filters including the inspection FALLBACK that
-    only runs when the first two produced nothing.
-  - `Presentation/Api/Provider/InspectionResponse/InspectionResponseProviderTest`
-    — what the provider still owns: the view-to-output projection, the gate's
-    404-not-403 split, the IRI filters it parses, and the pagination clamp.
-  - `Application/UseCase/Command/Response/{Create,Update,Delete}InspectionResponse`
-    and `Application/UseCase/Query/Response/GetInspectionResponse` — the
-    lifecycle rules that used to sit in the processor: draft-only edit and
-    delete, the revision re-check, the replay guard firing **before** any scope
-    is read, the three scope conflicts, `touchDraft()` called with the right
-    intervention (and never on a rejected path), and a malformed identifier
-    resolving to "not found" rather than "invalid".
-  - `Presentation/Api/Processor/InspectionResponse/InspectionResponseProcessorTest`
-    — what the processor still owns: 412 vs 409 for a duplicate `clientId`
-    (with the failure delivered double-wrapped, as the real bus delivers it),
-    404 before the revision guard, and the stored revision travelling into the
-    command rather than the header's value.
-- Functional: `tests/Functional/Api/CanonicalInspectionApiTest` — the whole
-  `PATCH`/`DELETE /api/inspections/{id}` contract, one HTTP request per test:
-  200 + bumped revision on a legal transition, 422 on an illegal one and on a
-  null non-nullable field, 409 on both terminal-state paths, 204 for the
-  cancel / the scratchpad hard-delete / the idempotent repeat, 412 on a stale
-  revision, 404 before 428 on an unknown id, 404 on a malformed one, 404 for a
-  foreign organization (never 403), and 403 for a member without write.
-- Functional: `tests/Functional/Api/InspectionResponseApiTest` — the whole
-  `/inspection-responses` contract, one HTTP request per test: 201 on create,
-  409/412 on a known `clientId`, 200 + bumped revision on PATCH, 204 on DELETE,
-  409 on both published paths, 412 on a stale revision, 404 before 428 on an
-  unknown id, 404 for a foreign organization (never 403), 403 for a member
-  without write, and **400 for a malformed PUT identifier** — the one status
-  this refactor moved, asserted rather than assumed.
-- Integration (real database):
-  `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/CanonicalInspectionRepositoryTest`
-  — that `findById()` carries the three columns the aggregate does not, that
-  `save()` writes the six mutable ones and **leaves `record_status` and
-  `intervention_id` alone** (a PATCH that silently published a scratchpad row
-  would be invisible in the response and permanent in the table), and that
-  `save()` on an absent row inserts nothing.
-  `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/InspectionResponseRepositoryTest`
-  — save/find/delete round trip, `save()` updating in place on a replayed id,
-  `existsByClientId()`, and `InspectionRepository::findScope()`, whose scalar
-  projection over `IDENTITY(i.organization)` plus the canonical
-  `intervention_id` column nothing but a real query can prove.
-  `tests/Integration/Inspection/Infrastructure/Adapter/Assistant/InspectionAssistantContextProviderAdapterTest`
-  (L2.2) — executes the adapter's DQL for real: severity ordering
-  (critical → high → low), resolved (`done`)/foreign-organization rows
-  excluded, and the symmetric case (the foreign-org row IS reported when
-  queried from ITS OWN organization) — pinning that organization-scoping
-  comes from the query's join, never from trusting the caller.
-  `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/InspectionAttachmentRepositoryTest`
-  (round-trip of both discriminator states, `findByInspectionId` excludes
-  non-conformity photos).
-  `tests/Integration/Inspection/Infrastructure/Persistence/Doctrine/Repository/ChecklistRepositoryIntegrationTest`
-  (L1.10b) — executes `countItemsGroupedByChecklistId()` for real: an
-  in-organization checklist with items is counted, a zero-item checklist is
-  absent from the map, and a foreign-organization checklist never
-  contributes even when its ID is explicitly included in the requested list
-  (organization-scoping is enforced by the join, not by trusting the
-  caller's ID list). Also pins that `findByOrganizationId()` returns
-  checklists with an empty `items()` (no per-row hydration).
-  `Application/UseCase/Query/NonConformity/ListOrganizationNonConformities/ListOrganizationNonConformitiesHandlerTest`
-  (B7) — org-scoped filters/pagination/sorting passed through, equipment
-  batching via `findEquipmentIdsByIds()` + `EquipmentNamingPort`, unresolved
-  equipment/serial degrading to `null`, empty page.
-  `Presentation/Api/Provider/NonConformity/ListOrganizationNonConformitiesProviderTest`
-  (B7) — authentication/permission gating, filter passthrough, pagination
-  envelope.
-- Functional: `tests/Functional/Api/InspectionAttachmentApiTest.php`,
-  `tests/Functional/Api/InspectionApiTest.php` (checklist endpoints, including
-  `PATCH .../checklists/{id}`, and B7's
-  `GET /organizations/{organizationId}/non-conformities`).
-  The five non-conformity endpoints carry the full contract matrix there:
-  201/200 success shapes, 403 for a member missing
-  `organization.inspection.{read,write}`, 404 for a cross-organization
-  inspection or a non-conformity addressed under an inspection that does not
-  own it, 409 for reopening a resolved row and for adding to a closed
-  inspection, and the closed-inspection asymmetry above. The gated waiver runs
-  against the REAL `ApprovalGate` (no mock): an organization seeded with
-  `settings.approval.action_rules.nc_waiver.enabled = true` at the `critical`
-  threshold yields the live **202** body
-  (`{status: 'pending_approval', approvalRequestId, approvalStatus, expiresAt}`)
-  with the row left `open`; a `low` finding below that threshold applies
-  immediately (**200**); a repeated ask returns the request already pending
-  instead of opening a duplicate; and a caller with
-  `organization.inspection.write` but without `organization.approvals.request`
-  gets **403**.
-- Run module tests: `make test tests/Unit/Inspection/`
+Unit tests cover owned domain/use-case and HTTP translation contracts. Integration tests execute real PostgreSQL queries and persistence behavior. Functional/E2E tests preserve authorization, contextual isolation, replay and failure recovery.
+
+Detailed cases and regression rationale are retained in the [Inspection testing reference](../../docs/guides/testing.md#inspection-testing-reference). Use the [testing guide](../../docs/guides/testing.md) for current commands and isolated database setup.
 
 ## Error Codes
 

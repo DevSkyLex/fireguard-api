@@ -1,5 +1,7 @@
 # Notification Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Notification provides a generic internal notification system usable by other
@@ -16,18 +18,18 @@ Main goals:
 
 ## API Endpoints
 
-| Method | Path | Description | Handler |
-| --- | --- | --- | --- |
-| GET | `/api/notifications` | Paginated list of notifications for the authenticated user (`unreadOnly`, `type`, `category`, `organization`, `page`, `itemsPerPage`) | `ListNotificationsProvider` |
-| GET | `/api/notifications/subscription` | Get Mercure subscriber JWT and SSE topic for the authenticated user | `GetMercureSubscriptionProvider` |
-| GET | `/api/notifications/unread-count` | Unread notification count for the authenticated user (optional `organization` filter) | `GetUnreadNotificationsCountProvider` |
-| PATCH | `/api/notifications/read-all` | Marks every unread notification of the authenticated user as read (optional `organization` filter); idempotent, single bulk update; returns the affected count | `MarkAllNotificationsAsReadProcessor` |
-| GET | `/api/notifications/preferences` | Returns the authenticated user's customized per-category delivery preferences | `GetNotificationPreferencesProvider` |
-| PATCH | `/api/notifications/preferences` | Upserts one or more per-category preferences for the authenticated user; returns the full customized set | `UpdateNotificationPreferencesProcessor` |
-| GET | `/api/notifications/{id}` | Get one notification owned by authenticated user | `GetNotificationProvider` |
-| PATCH | `/api/notifications/{id}/read` | Mark one notification as read (idempotent) | `MarkNotificationAsReadProcessor` |
-| GET | `/api/inbox` | Unified, cursor-paginated inbox feed merging every registered `inbox.source_provider` source (`organization`, `cursor`, `limit`; legacy `before`) | `GetInboxProvider` |
-| GET | `/api/inbox/unread-count` | Unread item count summed across every registered `inbox.source_provider` source for the authenticated user (optional `organization` filter) | `GetInboxUnreadCountProvider` |
+| Method | Path                              | Description                                                                                                                                                    | Handler                                  |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| GET    | `/api/notifications`              | Paginated list of notifications for the authenticated user (`unreadOnly`, `type`, `category`, `organization`, `page`, `itemsPerPage`)                          | `ListNotificationsProvider`              |
+| GET    | `/api/notifications/subscription` | Get Mercure subscriber JWT and SSE topic for the authenticated user                                                                                            | `GetMercureSubscriptionProvider`         |
+| GET    | `/api/notifications/unread-count` | Unread notification count for the authenticated user (optional `organization` filter)                                                                          | `GetUnreadNotificationsCountProvider`    |
+| PATCH  | `/api/notifications/read-all`     | Marks every unread notification of the authenticated user as read (optional `organization` filter); idempotent, single bulk update; returns the affected count | `MarkAllNotificationsAsReadProcessor`    |
+| GET    | `/api/notifications/preferences`  | Returns the authenticated user's customized per-category delivery preferences                                                                                  | `GetNotificationPreferencesProvider`     |
+| PATCH  | `/api/notifications/preferences`  | Upserts one or more per-category preferences for the authenticated user; returns the full customized set                                                       | `UpdateNotificationPreferencesProcessor` |
+| GET    | `/api/notifications/{id}`         | Get one notification owned by authenticated user                                                                                                               | `GetNotificationProvider`                |
+| PATCH  | `/api/notifications/{id}/read`    | Mark one notification as read (idempotent)                                                                                                                     | `MarkNotificationAsReadProcessor`        |
+| GET    | `/api/inbox`                      | Unified, cursor-paginated inbox feed merging every registered `inbox.source_provider` source (`organization`, `cursor`, `limit`; legacy `before`)              | `GetInboxProvider`                       |
+| GET    | `/api/inbox/unread-count`         | Unread item count summed across every registered `inbox.source_provider` source for the authenticated user (optional `organization` filter)                    | `GetInboxUnreadCountProvider`            |
 
 `/subscription`, `/unread-count`, `/read-all` and `/preferences` are declared
 before the `/{id}` routes in `NotificationResource`; otherwise they would be
@@ -43,6 +45,7 @@ has no `/{id}` route at all).
 requested scope. The notification-only endpoint remains available for its own lists.
 Every source implements both `fetch` and `countUnread`; see the unified inbox contract
 below for source limits and failure behavior.
+
 ## Per-User Notification Preferences
 
 Every user can customize delivery per category (the `{category}` half of a
@@ -89,7 +92,7 @@ preserved from the pre-existing persist-then-dispatch flow:
 5. If every requested channel ends up suppressed, the loop simply produces an
    all-`false` `channelDelivery` map and returns normally. This is a
    legitimate "user opted out" outcome, not a thrown exception — the same
-   way an all-suppressed request from channel *failures* does not throw.
+   way an all-suppressed request from channel _failures_ does not throw.
 
 ### Organization Scoping
 
@@ -229,7 +232,7 @@ expiry, so the claim is applied explicitly by each subscription provider.
 
 The hub validates `exp` only when a connection is opened; an established stream is not
 dropped when its token expires. The TTL therefore bounds how long a leaked token can
-open a *new* stream. Clients must re-request a subscription on every reconnect rather
+open a _new_ stream. Clients must re-request a subscription on every reconnect rather
 than replaying the previous token.
 
 ### Why not the `mercureAuthorization` cookie
@@ -246,7 +249,7 @@ of the URL just as well. It is deliberately **not** used here, for two reasons:
   receives nothing — a silent failure with no error for the client's retry layer to act
   on.
 - **Cross-subdomain exposure.** The API (`api.`) and the hub (`mercure.`) are different
-  hosts, so the cookie would need `Domain=.fireguard.valentin-fortin.pro`, sending it to
+  hosts, so a cookie shared through a parent domain such as `Domain=.example.com` would be sent to
   every present and future subdomain. Every other cookie in this codebase is
   `__Host-`-prefixed and domain-less, which forbids exactly that.
 
@@ -311,7 +314,7 @@ remain owned by their respective modules.
 - Each source is asked for `limit + 1` readable entries before merge/truncation. The
   public limit remains 1–50. `hasMore` reflects a real extra entry, not a full-page guess.
 - A failed contributor is logged and remaining entries are returned with `complete:
-  false` and no `nextPageCursor`. Retry that page before advancing; otherwise recovered
+false` and no `nextPageCursor`. Retry that page before advancing; otherwise recovered
   source entries could be skipped. A partial empty response is not an empty inbox.
 - Legacy `before` and `nextCursor` remain compatible but cannot disambiguate equal
   timestamps. Existing consumers may migrate independently; new consumers use `cursor`.
@@ -325,6 +328,7 @@ Sources must perform authorization and the cursor predicate before limiting. Mes
 refills bounded candidate batches when inaccessible conversations exhaust a batch.
 Direct messages and replies exist in Messaging, but only mentions contribute inbox
 entries; neither is a separate inbox source yet.
+
 ## Architecture
 
 - Presentation: Api Platform resources, providers, processor, DTO output.
@@ -434,3 +438,7 @@ entries; neither is a separate inbox source yet.
 - Send use case:
   - throws `InvalidArgumentException` on invalid input.
   - channel errors are logged and reported in `channelDelivery` (no hard failure).
+
+## Flows
+
+Owned events create notifications and apply delivery/preferences rules; authorized account/organization reads expose only the intended recipient scope. Read acknowledgements follow the notification API rather than another module's message receipt state.

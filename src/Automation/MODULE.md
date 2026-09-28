@@ -1,6 +1,10 @@
 # Automation Module
 
-## Purpose and ownership
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/async-processing.md).
+
+<a id="purpose-and-ownership"></a>
+
+## Overview
 
 Automation turns committed domain events into policy-controlled system actions.
 The current rule is `auto_create_intervention_on_critical_nc`: a critical
@@ -8,7 +12,9 @@ non-conformity can create a corrective intervention draft. The organization opts
 in through its automation policy; the default is disabled. Policy is reread when
 executing, never inferred from the triggering event or the browser.
 
-## Delivery and local atomicity
+<a id="delivery-and-local-atomicity"></a>
+
+## Flows
 
 `AddNonConformityHandler` records its event in the main transactional outbox.
 `AutomationTriggerSubscriber` recognizes critical severity and records the rule
@@ -34,7 +40,9 @@ one required inspection work item targeting the non-conformity and inspection.
 Its due date uses the current organization SLA for the triggering severity.
 Disabled rules record a skipped run without creating a draft.
 
-## Boundaries
+<a id="boundaries"></a>
+
+## Architecture
 
 - `AutomationPolicyPort` is implemented by Organization's public adapter.
 - `AutomationRuleQueuePort` uses the raw Messenger bus because an asynchronous
@@ -49,7 +57,9 @@ Disabled rules record a skipped run without creating a draft.
 - Only the owning module's safe output is published: raw exception details and retained
   trigger payloads never reach history responses. Failures expose `automation_action_failed`.
 
-## Persistence and operations
+<a id="persistence-and-operations"></a>
+
+## Configuration
 
 `automation_runs` lives in main, with unique `(rule_key, subject_id)` and an
 organization index. Organization identity is denormalized; no cross-database
@@ -60,7 +70,9 @@ Initialize transports before workers, consume `main_outbox`, monitor failed run
 counts and `main_failed`, and keep receipts while messages can be replayed. See
 `Shared/MODULE.md` and `OPERATIONS.md` for setup and recovery commands.
 
-## Validation
+<a id="validation"></a>
+
+## Testing
 
 Unit tests cover policy, deduplication, draft shape and outcomes. PostgreSQL tests
 cover real reservations, native transport rollback/commit, competing consumers,
@@ -86,3 +98,23 @@ Main migration `20260921234000` creates `automation_attempts` and retained trigg
 columns. Existing outcomes are backfilled as first attempts, without invented trigger payloads;
 those legacy failures remain readable but cannot be retried. Deploy the migration, drain/restart
 old workers, then enable the frontend. Do not roll back to a worker that ignores retry identity.
+
+## API Endpoints
+
+Paths use the `/api` prefix. Reads require `organization.automation.read`; retries additionally require `organization.automation.manage` and the current attempt/policy contract.
+
+| Method | Path                                                            | Behavior                                                       |
+| ------ | --------------------------------------------------------------- | -------------------------------------------------------------- |
+| GET    | `/organizations/{organizationId}/automation`                    | Effective policy                                               |
+| GET    | `/organizations/{organizationId}/automation/runs`               | Scoped, paginated attempts                                     |
+| GET    | `/organizations/{organizationId}/automation/attempts/{id}`      | Scoped attempt                                                 |
+| POST   | `/organizations/{organizationId}/automation/runs/{runId}/retry` | Append/enqueue one new attempt, 202; reject stale attempt, 409 |
+
+## Error Codes
+
+| Code                        | HTTP | When                                             |
+| --------------------------- | ---- | ------------------------------------------------ |
+| `automation_run_not_found`  | 404  | Attempt/run is not found in the authorized scope |
+| `automation_retry_conflict` | 409  | Requested attempt is stale or not retryable      |
+
+Business attempt failures expose the safe outcome `automation_action_failed`; raw exception/trigger data is not a history response.

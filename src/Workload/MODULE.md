@@ -1,5 +1,7 @@
 # Workload
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/interventions.md).
+
 ## Overview
 
 Workload owns effective-dated capacity and daily projections in one organization.
@@ -12,14 +14,14 @@ All paths are prefixed with `/api`. Authentication and active organization
 membership are required. A member can read their own load; team reads require
 `organization.workload.read`, capacity writes `organization.workload.manage`.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | `/organizations/{organizationId}/workload` | Daily projection, required `from`/`to`, optional `member`, `team`, `overloaded`, `page` (default 1), `pageSize` (default 10, max 100) |
-| POST | `/organizations/{organizationId}/workload/assessments` | Read-only proposed task replacements or draft planning |
-| GET/POST | `/organizations/{organizationId}/workload/settings` | Organization effective-dated weekly capacity |
-| GET/POST | `/organizations/{organizationId}/workload/members/{memberId}/capacity` | Individual effective-dated weekly replacement |
-| GET/POST | `/organizations/{organizationId}/workload/members/{memberId}/exceptions` | Dated availability reductions |
-| DELETE | `/organizations/{organizationId}/workload/members/{memberId}/exceptions/{exceptionId}` | Audited cancellation, not physical deletion |
+| Method   | Path                                                                                   | Contract                                                                                                                              |
+| -------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| GET      | `/organizations/{organizationId}/workload`                                             | Daily projection, required `from`/`to`, optional `member`, `team`, `overloaded`, `page` (default 1), `pageSize` (default 10, max 100) |
+| POST     | `/organizations/{organizationId}/workload/assessments`                                 | Read-only proposed task replacements or draft planning                                                                                |
+| GET/POST | `/organizations/{organizationId}/workload/settings`                                    | Organization effective-dated weekly capacity                                                                                          |
+| GET/POST | `/organizations/{organizationId}/workload/members/{memberId}/capacity`                 | Individual effective-dated weekly replacement                                                                                         |
+| GET/POST | `/organizations/{organizationId}/workload/members/{memberId}/exceptions`               | Dated availability reductions                                                                                                         |
+| DELETE   | `/organizations/{organizationId}/workload/members/{memberId}/exceptions/{exceptionId}` | Audited cancellation, not physical deletion                                                                                           |
 
 Week inputs use seven integral minute values in ISO weekday order (Monday first),
 an effective local date and a stable identifier. No values are assumed. Individual

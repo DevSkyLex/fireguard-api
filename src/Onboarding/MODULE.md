@@ -1,5 +1,7 @@
 # Onboarding Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Onboarding orchestrates cross-module setup flows for authenticated users.
@@ -12,16 +14,16 @@ Current flow:
 
 ## API Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/api/onboarding/organization` | Get persisted organization onboarding status and actionable steps |
-| POST | `/api/onboarding/organization/start` | Start or reset organization onboarding session |
-| POST | `/api/onboarding/organization/setup-operations` | Prepare a durable bounded creation batch and return its resumable item receipts |
-| POST | `/api/onboarding/organization/steps/{stepKey}/execute` | Confirm the current onboarding step |
-| POST | `/api/onboarding/organization/steps/{stepKey}/skip` | Skip an optional onboarding step |
-| POST | `/api/onboarding/organization/rollback` | Rollback the last rollbackable onboarding step |
-| POST | `/api/onboarding/organization/dismiss` | Hide the activation flow without completing it (progression preserved) |
-| POST | `/api/onboarding/organization/resume` | Clear a previous dismissal so the activation flow is visible again |
+| Method | Path                                                   | Description                                                                     |
+| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| GET    | `/api/onboarding/organization`                         | Get persisted organization onboarding status and actionable steps               |
+| POST   | `/api/onboarding/organization/start`                   | Start or reset organization onboarding session                                  |
+| POST   | `/api/onboarding/organization/setup-operations`        | Prepare a durable bounded creation batch and return its resumable item receipts |
+| POST   | `/api/onboarding/organization/steps/{stepKey}/execute` | Confirm the current onboarding step                                             |
+| POST   | `/api/onboarding/organization/steps/{stepKey}/skip`    | Skip an optional onboarding step                                                |
+| POST   | `/api/onboarding/organization/rollback`                | Rollback the last rollbackable onboarding step                                  |
+| POST   | `/api/onboarding/organization/dismiss`                 | Hide the activation flow without completing it (progression preserved)          |
+| POST   | `/api/onboarding/organization/resume`                  | Clear a previous dismissal so the activation flow is visible again              |
 
 ## Flows
 
@@ -118,7 +120,6 @@ The frontend workspace choice does not call `start`. `POST /api/onboarding/organ
 
 Every state projection includes nullable `accessibleOrganizationId`, independently of the pinned `organizationId`. An active membership elsewhere can therefore open a workspace while an unfinished creator flow remains resumable. A joined organization is never adopted into the creator rollback stack. The five creation steps remain organization, plan, invitations, first facility and first equipment. Auth/User retain address possession and MFA; Organization retains discovery, invitations, requests and admission. Onboarding only resolves and orchestrates these boundaries.
 
-
 ## Durable setup recovery
 
 `POST /api/onboarding/organization/setup-operations` prepares `{sessionId, stepKey, items:[{itemKey,payload}]}` and returns the onboarding state. `sessionId` and `setupOperations` are returned by every flow projection; operations carry `stepKey`, `itemKey`, the bounded whitelisted payload, nullable `resourceId`, and `prepared` / `completed` status. Inputs contain no tokens. This authenticated projection is not an SSR transfer payload.
@@ -134,3 +135,15 @@ Error: `onboarding_setup_conflict` (409) covers stale/foreign sessions, unavaila
 When a setup journal exists, only its completed `create_organization.resourceId` may pin the creator flow and become its rollback target. A pending item cannot adopt a different creation. If the recorded organization is absent, inactive or no longer owned by the creator, recovery returns `onboarding_setup_conflict` without discarding the receipt; an explicit session reset is required. Date-based legacy adoption is limited to sessions without a journal.
 
 The existing JSON journal column retains a versioned envelope after its items are cleared, so rollback cannot re-enable legacy adoption on the next read. Existing array journals remain readable. This internal marker does not change the API payload or require another migration.
+
+## Configuration
+
+Bindings are defined in [Onboarding configuration](../../config/modules/onboarding.yaml). Persistence consumers name their entity manager explicitly according to [Doctrine mapping](../../config/packages/doctrine.yaml). Runtime and recovery requirements in the sections above remain part of this contract.
+
+## Testing
+
+Use [Onboarding unit tests](../../tests/Unit/Onboarding) and the endpoint/integration/E2E suites for this capability. Tests cover owned results and denial paths; PostgreSQL checks establish actual transactions, isolation and replay. See [testing procedures](../../docs/guides/testing.md).
+
+## Error Codes
+
+No additional stable module-specific error-code catalog is declared here. The resource security, validation and exception translation define the public HTTP responses; consult this module's endpoint contracts and [OpenAPI schema](../../openapi.json). A future distinct public code must be documented in this section with its triggering condition.

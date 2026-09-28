@@ -1,5 +1,7 @@
 # OTP Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/authentication.md).
+
 ## Overview
 
 The OTP module provides challenge-based verification for MFA and other
@@ -11,17 +13,17 @@ intended for authenticated user flows or internal service usage.
 
 ## API Endpoints
 
-| Method | Path | Description | Handler |
-| --- | --- | --- | --- |
-| POST | `/api/otp/challenges` | Create OTP challenge | `CreateChallengeProcessor` |
-| GET | `/api/otp/challenges/{token}` | Get challenge status | `GetChallengeStatusProvider` |
-| POST | `/api/otp/challenges/{token}/verify` | Verify challenge code | `VerifyOtpProcessor` |
-| POST | `/api/otp/challenges/{token}/resend` | Resend challenge code | `ResendChallengeProcessor` |
-| GET | `/api/otp/purposes` | List purposes | `ListPurposesProvider` |
-| GET | `/api/otp/channels` | List channels | `ListChannelsProvider` |
-| POST | `/api/otp/totp/setup` | Setup TOTP (generates a PENDING secret) | `SetupTotpProcessor` |
-| POST | `/api/otp/totp/confirm` | Confirm TOTP (activates the PENDING secret) | `ConfirmTotpProcessor` |
-| POST | `/api/otp/totp/disable` | Disable TOTP (requires a valid current code) | `DisableTotpProcessor` |
+| Method | Path                                 | Description                                  | Handler                      |
+| ------ | ------------------------------------ | -------------------------------------------- | ---------------------------- |
+| POST   | `/api/otp/challenges`                | Create OTP challenge                         | `CreateChallengeProcessor`   |
+| GET    | `/api/otp/challenges/{token}`        | Get challenge status                         | `GetChallengeStatusProvider` |
+| POST   | `/api/otp/challenges/{token}/verify` | Verify challenge code                        | `VerifyOtpProcessor`         |
+| POST   | `/api/otp/challenges/{token}/resend` | Resend challenge code                        | `ResendChallengeProcessor`   |
+| GET    | `/api/otp/purposes`                  | List purposes                                | `ListPurposesProvider`       |
+| GET    | `/api/otp/channels`                  | List channels                                | `ListChannelsProvider`       |
+| POST   | `/api/otp/totp/setup`                | Setup TOTP (generates a PENDING secret)      | `SetupTotpProcessor`         |
+| POST   | `/api/otp/totp/confirm`              | Confirm TOTP (activates the PENDING secret)  | `ConfirmTotpProcessor`       |
+| POST   | `/api/otp/totp/disable`              | Disable TOTP (requires a valid current code) | `DisableTotpProcessor`       |
 
 `/api/otp/purposes` and `/api/otp/channels` have **no first-party web consumer**
 today. They are retained deliberately as public-API discovery affordances for
@@ -44,6 +46,11 @@ Resend cooldowns and HTTP rate limits expose `rate_limit_exceeded` and
 registration, password-reset and MFA resend endpoints. `Retry-After` remains available.
 
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Client
   participant API
@@ -65,7 +72,14 @@ sequenceDiagram
 
 ### TOTP Setup / Confirm / Disable
 
+TOTP enrollment stages a secret, verifies possession and changes the enrollment state. Setup, confirmation and disable retain their separate authorization/OTP requirements.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant Client
   participant API
@@ -144,14 +158,15 @@ OTP HTTP endpoints; Auth must confirm it through the User capability.
     would leave the freeze no obstacle to the only caller it exists for — the
     one who eventually guesses right.
   - **The freeze is temporary, unlike `confirmPending()`'s permanent lock.**
-    Confirmation guards a *pending* secret, and its lock is escaped by
-    restarting enrollment. Disabling guards the *active* secret: a permanent
+    Confirmation guards a _pending_ secret, and its lock is escaped by
+    restarting enrollment. Disabling guards the _active_ secret: a permanent
     lock would leave the user unable to turn TOTP off **and** unable to
     re-enroll around it — a dead end only support could open.
 
   The counter is separate from `attempts`, which belongs to confirmation. One
   shared counter would let a failed disable eat the enrollment's confirmation
   budget, and the two reset on different events.
+
 - Permissions: `otp_totp.setup`, `otp_totp.confirm`, `otp_totp.disable` (see `Authorization\Infrastructure\Catalog\PermissionCatalog`); granted to the default `user` and `admin` roles.
 - Secret storage uses the Otp-owned `TotpSecretCipherPort`, implemented by
   AES-256-GCM with a dedicated key ring. Versioned envelopes carry the key identifier;

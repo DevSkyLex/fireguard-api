@@ -1,5 +1,7 @@
 # Module Architecture Standard
 
+**Reading guide:** [Documentation index](docs/README.md) · [Related guide](docs/architecture/patterns-and-examples.md).
+
 This document defines how to build a complete module in this repo.
 It captures the shared standards (hexagonal architecture, Api Platform,
 ports/adapters, tests, and documentation). It is intentionally generic
@@ -47,6 +49,7 @@ flowchart LR
 ## Standard Directory Layout
 
 Use this structure for any module (replace `<Module>`):
+
 ```
 src/<Module>/
   Application/
@@ -114,6 +117,7 @@ src/<Module>/
 
 Use a dedicated context folder when an integration grows beyond a single adapter.
 Examples of context layouts (replace names with your domain):
+
 ```
 Infrastructure/
   Persistence/Doctrine/
@@ -142,6 +146,7 @@ Infrastructure/
 ### Validation Subfolder Example
 
 Custom validators use their own folder:
+
 ```
 Presentation/Api/Validator/
   ValidRedirectUri/
@@ -152,6 +157,7 @@ Presentation/Api/Validator/
 ### Use Case Grouping Example
 
 Group use cases by area to keep the Application layer readable:
+
 ```
 Application/UseCase/
   Command/
@@ -172,6 +178,7 @@ Application/UseCase/
 ### Presentation Subfolder Examples
 
 Organize API concerns by area (replace with your module areas):
+
 ```
 Presentation/Api/
   Resource/
@@ -226,6 +233,7 @@ Keep namespaces aligned with folder layout.
 - If another module is required, depend on its port and contract types, not its adapter or domain.
 
 Example registration (config/modules/<module>.yaml):
+
 ```
 <Module>\Application\Port\Outbound\FooPort:
   alias: <Module>\Infrastructure\Adapter\FooAdapter
@@ -275,6 +283,7 @@ Guidelines for reference catalogs:
 This keeps select data explicit and documented without degrading real business resources into generic option feeds.
 
 Checklist for each endpoint:
+
 - Resource with proper route and security.
 - Operation constant and metadata.
 - Input/Output DTOs.
@@ -324,6 +333,7 @@ Checklist for each endpoint:
 ## Documentation Standard (MODULE.md)
 
 Each module must have `src/<Module>/MODULE.md` with:
+
 - Overview
 - API endpoints (table)
 - Flows (sequence diagrams)
@@ -346,6 +356,7 @@ Keep MODULE.md current with code changes.
   - Full flows across endpoints
 
 Minimum tests for a new endpoint:
+
 - Processor or provider unit test
 - Use case handler unit test
 - Functional API test

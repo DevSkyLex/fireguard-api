@@ -1,5 +1,7 @@
 # Shared Module
 
+**Reading guide:** [Documentation index](../../docs/README.md) · [Related guide](../../docs/guides/module-development.md).
+
 ## Overview
 
 Shared is the repo-wide kernel. It provides stable contracts, base value objects,
@@ -8,9 +10,9 @@ health check endpoint.
 
 ## API Endpoints
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/health` | Application health check | No |
+| Method | Endpoint      | Description              | Auth |
+| ------ | ------------- | ------------------------ | ---- |
+| GET    | `/api/health` | Application health check | No   |
 
 ### Health Check Response
 
@@ -25,6 +27,7 @@ health check endpoint.
 ```
 
 **Status values:**
+
 - `healthy`: All dependencies are operational
 - `degraded`: Non-critical dependency failure (cache)
 - `unhealthy`: Critical dependency failure (database)
@@ -33,7 +36,14 @@ health check endpoint.
 
 ### Outbound Port -> Adapter
 
+Application code invokes a contract; an infrastructure adapter implements the external operation. Dependency ownership stays inward even when runtime calls go outward.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant UC as Use Case
   participant Port as Port (Shared)
@@ -45,7 +55,14 @@ sequenceDiagram
 
 ### Inbound Bus Port
 
+The inbound bus port routes a command/query to its application handler. The transport adapter does not become the owner of the business decision.
+
 ```mermaid
+---
+config:
+  sequence:
+    wrap: true
+---
 sequenceDiagram
   participant API as Provider/Processor
   participant Port as CommandBusPort
@@ -79,6 +96,7 @@ contract tests covering its current error and access-order semantics.
   and infrastructure exceptions.
 
 Key folders:
+
 - `src/Shared/Application/Contract`
 - `src/Shared/Application/Message`
 - `src/Shared/Application/Port`
