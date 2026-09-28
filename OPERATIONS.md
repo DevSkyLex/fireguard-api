@@ -122,7 +122,23 @@ See the [scheduled tasks](docs/operations/workers-and-scheduler.md) procedure.
 
 ### Messenger Worker & Scheduler (required)
 
-See the [messenger worker & scheduler (required)](docs/operations/workers-and-scheduler.md) procedure.
+Every configured queue and scheduler receiver requires a supervised consumer.
+The following combined-worker example covers the current transport set. Managed
+Compose deployments can split these receivers across workers and isolate assistant
+processing; maintain the same complete coverage when changing that topology.
+
+```sh
+php -d memory_limit=1G bin/console messenger:consume \
+  main_outbox async webhook assistant \
+  scheduler_maintenance scheduler_intervention scheduler_approval \
+  scheduler_inspection scheduler_organization \
+  --time-limit=3600
+```
+
+This is the canonical worker transport list, checked against Messenger configuration
+and schedule providers by the architecture tests. Use a supervisor/restart policy
+for bounded worker processes. See the [workers and scheduler guide](docs/operations/workers-and-scheduler.md#messenger-worker--scheduler-required)
+for transport setup, monitoring and recovery.
 
 ### Data Cleanup
 

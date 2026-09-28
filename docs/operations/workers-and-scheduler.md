@@ -62,13 +62,9 @@ does not create a cross-database transaction. Both Compose configurations includ
 the workflow consumer. Production keys and application configuration must already
 be provisioned through the normal deployment environment.
 
-```bash
-php -d memory_limit=1G bin/console messenger:consume \
-  main_outbox async webhook assistant \
-  scheduler_maintenance scheduler_intervention scheduler_approval \
-  scheduler_inspection scheduler_organization \
-  --time-limit=3600
-```
+Use the [canonical worker command in OPERATIONS.md](../../OPERATIONS.md#messenger-worker--scheduler-required).
+Its complete transport list is checked against the configured queues and schedule
+providers by the architecture tests; this guide does not maintain a second copy of the command.
 
 Monitor `messenger:stats main_outbox main_failed async failed`, the age of the
 oldest undelivered message, and business jobs that remain pending/processing.
