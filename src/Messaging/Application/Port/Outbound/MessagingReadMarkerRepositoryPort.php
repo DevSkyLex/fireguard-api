@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Application\Port\Outbound;
 
 use DateTimeImmutable;
+use Messaging\Application\Contract\ReadMarker\ConversationReceiptPosition;
 
 /**
  * Port MessagingReadMarkerRepositoryPort.
@@ -32,6 +33,18 @@ interface MessagingReadMarkerRepositoryPort
    * @param ?string $lastReadMessageId the last message the member has read, if any
    */
   public function upsert(string $conversationId, string $organizationId, string $memberId, DateTimeImmutable $lastReadAt, ?string $lastReadMessageId): void;
+
+  /**
+   * Records an acknowledgement from another client without changing the read position.
+   */
+  public function markDelivered(string $conversationId, string $organizationId, string $memberId, string $messageId, DateTimeImmutable $deliveredAt): void;
+
+  /**
+   * @param list<string> $memberIds current participants only
+   *
+   * @return list<ConversationReceiptPosition>
+   */
+  public function receiptPositions(string $conversationId, array $memberIds): array;
 
   /**
    * Method unreadCounts.

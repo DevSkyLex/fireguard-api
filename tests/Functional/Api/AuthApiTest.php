@@ -7,6 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Application\UseCase\Command\Session\Login\LoginResult;
 use Auth\Application\UseCase\Command\Session\Logout\LogoutResult;
 use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Shared\Application\Message\{CommandMessage, QueryMessage, ResultMessage};
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -79,6 +80,109 @@ final class AuthApiTest extends WebTestCase
     $response = $this->client?->getResponse();
     self::assertNotNull($response);
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  /**
+   * @return iterable<string, array{string, string}>
+   */
+  public static function localizedPasswordErrors(): iterable
+  {
+    yield 'English' => ['en', 'Password must be at least 8 characters long.'];
+    yield 'French' => ['fr', 'Le mot de passe doit contenir au moins 8 caractères.'];
+    yield 'Spanish' => ['es', 'La contraseña debe tener al menos 8 caracteres.'];
+  }
+
+  #[DataProvider('localizedPasswordErrors')]
+  public function testLoginValidationUsesRequestLanguage(string $locale, string $message): void
+  {
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/auth/login',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_ACCEPT_LANGUAGE' => $locale,
+      ],
+      content: json_encode(['email' => 'user@example.com', 'password' => 'short']) ?: '',
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $response->getStatusCode());
+    self::assertSame($locale, $response->headers->get('Content-Language'));
+
+    $body = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    $violations = $body['violations'] ?? null;
+    self::assertIsArray($violations);
+    $violation = $violations[0] ?? null;
+    self::assertIsArray($violation);
+    self::assertSame($message, $violation['message'] ?? null);
+  }
+
+  /**
+   * @return iterable<string, array{string, string}>
+   */
+  public static function localizedCredentialErrors(): iterable
+  {
+    yield 'French' => ['fr', 'Identifiants invalides.'];
+    yield 'Spanish' => ['es', 'Credenciales incorrectas.'];
+  }
+
+  #[DataProvider('localizedCredentialErrors')]
+  public function testLoginRefusalUsesRequestLanguage(string $locale, string $message): void
+  {
+    $this->setCommandBus(LoginResult::failed());
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/auth/login',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_ACCEPT_LANGUAGE' => $locale,
+      ],
+      content: json_encode([
+        'email' => 'user@example.com',
+        'password' => 'WrongPassword123!',
+      ]) ?: '',
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+    self::assertSame($locale, $response->headers->get('Content-Language'));
+    $body = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    self::assertSame($message, $body['detail'] ?? null);
+  }
+
+  public function testLoginRateLimitUsesRequestLanguage(): void
+  {
+    $this->setCommandBus(LoginResult::failed(
+      'Too many login attempts. Please try again in 30 seconds.',
+      LoginResult::ERROR_RATE_LIMIT,
+      30,
+    ));
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/auth/login',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_ACCEPT_LANGUAGE' => 'fr',
+      ],
+      content: json_encode([
+        'email' => 'user@example.com',
+        'password' => 'WrongPassword123!',
+      ]) ?: '',
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertSame(Response::HTTP_TOO_MANY_REQUESTS, $response->getStatusCode());
+    $body = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($body);
+    self::assertSame('Trop de tentatives de connexion. Réessayez dans 30 secondes.', $body['detail'] ?? null);
   }
 
   public function testLoginEndpointReturnsMfaResponse(): void

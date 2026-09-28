@@ -26,6 +26,13 @@ final class InboxItemOutput
   #[ApiProperty(readable: true, writable: false)]
   public ?string $targetKind = null;
 
+  /**
+   * Source-owned event type for presentation, when the source supplies one.
+   */
+  #[Groups([NotificationSerializationGroup::INBOX_READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $sourceType = null;
+
   // #region Properties
   /**
    * Property sourceKey.

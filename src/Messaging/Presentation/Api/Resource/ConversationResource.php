@@ -6,11 +6,13 @@ namespace Messaging\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
-use Messaging\Presentation\Api\Dto\Input\{ArchiveConversationInput, GetOrCreateConversationInput, MarkConversationReadInput};
-use Messaging\Presentation\Api\Dto\Output\{ConversationActivityBucketOutput, ConversationOutput, MessagingSubscriptionOutput};
-use Messaging\Presentation\Api\Processor\Conversation\{ArchiveConversationProcessor, FavoriteConversationProcessor, GetOrCreateConversationProcessor, UnfavoriteConversationProcessor};
-use Messaging\Presentation\Api\Processor\ReadMarker\MarkConversationReadProcessor;
+use Messaging\Presentation\Api\Dto\Input\{AcknowledgeDeliveryInput, ArchiveConversationInput, GetOrCreateConversationInput, MarkConversationReadInput, PublishTypingInput};
+use Messaging\Presentation\Api\Dto\Output\{ConversationActivityBucketOutput, ConversationOutput, ConversationReceiptsOutput, ConversationSignalOutput, MessagingSubscriptionOutput};
+use Messaging\Presentation\Api\Operation\ConversationSignalOperations;
+use Messaging\Presentation\Api\Processor\Conversation\{ArchiveConversationProcessor, FavoriteConversationProcessor, GetOrCreateConversationProcessor, PublishTypingProcessor, UnfavoriteConversationProcessor};
+use Messaging\Presentation\Api\Processor\ReadMarker\{AcknowledgeDeliveryProcessor, MarkConversationReadProcessor};
 use Messaging\Presentation\Api\Provider\Conversation\{GetConversationActivityProvider, GetConversationProvider, ListConversationsProvider};
+use Messaging\Presentation\Api\Provider\ReadMarker\GetConversationReceiptsProvider;
 use Messaging\Presentation\Api\Provider\Subscription\GetMessagingSubscriptionProvider;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -127,6 +129,33 @@ use Symfony\Component\HttpFoundation\Response;
       uriTemplate: '/conversations/{id}/subscription',
       output: MessagingSubscriptionOutput::class,
       provider: GetMessagingSubscriptionProvider::class,
+      security: self::SECURITY_ROLE_USER,
+    ),
+    new Get(
+      name: ConversationSignalOperations::RECEIPTS,
+      uriTemplate: '/conversations/{id}/receipts',
+      output: ConversationReceiptsOutput::class,
+      provider: GetConversationReceiptsProvider::class,
+      security: self::SECURITY_ROLE_USER,
+    ),
+    new Post(
+      name: ConversationSignalOperations::DELIVERY,
+      uriTemplate: '/conversations/{id}/delivery',
+      input: AcknowledgeDeliveryInput::class,
+      output: ConversationSignalOutput::class,
+      processor: AcknowledgeDeliveryProcessor::class,
+      read: false,
+      status: Response::HTTP_OK,
+      security: self::SECURITY_ROLE_USER,
+    ),
+    new Post(
+      name: ConversationSignalOperations::TYPING,
+      uriTemplate: '/conversations/{id}/typing',
+      input: PublishTypingInput::class,
+      output: ConversationSignalOutput::class,
+      processor: PublishTypingProcessor::class,
+      read: false,
+      status: Response::HTTP_OK,
       security: self::SECURITY_ROLE_USER,
     ),
     // L1.5: favorite conversations (sidebar ordering only — a channel id IS

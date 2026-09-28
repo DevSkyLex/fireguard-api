@@ -4,100 +4,69 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Presence\PingPresence;
 
-use DateTimeImmutable;
-use DateTimeInterface;
-use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
-use Messaging\Application\Service\{MessagingAccessPolicy, MessagingPresenceCacheKeys};
+use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, PresenceRealtimePort};
+use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Presence\PingPresence\{PingPresenceCommand, PingPresenceHandler};
+use Messaging\Domain\Exception\MessagingNotFoundException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\CachePort;
+use RuntimeException;
+use Shared\Application\Port\Outbound\{CachePort, LoggerPort};
+use User\Application\Contract\Presence\PresencePreference;
+use User\Application\Port\Inbound\PresencePreferenceReaderPort;
 
-/**
- * Test PingPresenceHandlerTest.
- *
- * @category Handler Tests
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
-#[CoversClass(PingPresenceHandler::class)]
 final class PingPresenceHandlerTest extends TestCase
 {
-  private const string ORG_ID = 'org-1';
-
-  private const string USER_ID = 'user-1';
-
-  private const string MEMBER_ID = 'member-1';
+  /**
+   * @return iterable<string, array{?string, int, bool}>
+   */
+  public static function heartbeats(): iterable
+  {
+    yield 'first heartbeat' => [null, 1, false];
+    yield 'renewal from any device' => ['2026-09-26T00:00:00+00:00', 0, false];
+    yield 'invisible heartbeat has no public activity event' => [null, 0, true];
+  }
 
   #[Test]
-  public function testInvokeWritesThePresenceCacheEntryWithA90SecondTtl(): void
+  #[DataProvider('heartbeats')]
+  public function recordsActiveMembershipWithoutMessagingPermission(?string $previous, int $publications, bool $invisible): void
   {
+    $preferences = $this->createStub(PresencePreferenceReaderPort::class);
+    $preferences->method('readMany')->willReturn(['user' => new PresencePreference(false, 1, $invisible)]);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('assertGrantedPermissions');
     $members = $this->createStub(MessagingMemberDirectoryPort::class);
-    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
-
-    /** @var CachePort&MockObject $cache */
+    $members->method('resolveActiveMemberId')->willReturn('member');
     $cache = $this->createMock(CachePort::class);
-    $cache->expects(self::once())
-      ->method('set')
-      ->with(
-        MessagingPresenceCacheKeys::key(self::ORG_ID, self::MEMBER_ID),
-        self::isString(),
-        90,
-      );
-
-    $handler = $this->handler($members, $cache);
-
-    $result = $handler->__invoke(new PingPresenceCommand(self::USER_ID, self::ORG_ID));
-
-    self::assertSame(self::MEMBER_ID, $result->memberId);
-    self::assertInstanceOf(DateTimeImmutable::class, $result->lastSeenAt);
+    $cache->method('get')->willReturn($previous);
+    $cache->expects(self::once())->method('set')->with('messaging.presence.org.member', self::isString(), 90);
+    $realtime = $this->createMock(PresenceRealtimePort::class);
+    $realtime->expects(self::exactly($publications))->method('publish')->with('org', 'member');
+    $handler = new PingPresenceHandler(new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)), $cache, $realtime, $this->createStub(LoggerPort::class), $preferences);
+    self::assertSame('member', $handler(new PingPresenceCommand('user', 'org'))->memberId);
   }
 
   #[Test]
-  public function testInvokeStoresAnIso8601FormattedTimestamp(): void
+  public function rejectsInactiveOrOutsideMembership(): void
   {
-    $members = $this->createStub(MessagingMemberDirectoryPort::class);
-    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
-
-    $storedValue = null;
-    $cache = $this->createStub(CachePort::class);
-    $cache->method('set')->willReturnCallback(function (string $key, mixed $value) use (&$storedValue): void {
-      $storedValue = $value;
-    });
-
-    $handler = $this->handler($members, $cache);
-    $result = $handler->__invoke(new PingPresenceCommand(self::USER_ID, self::ORG_ID));
-
-    self::assertSame($result->lastSeenAt->format(DateTimeInterface::ATOM), $storedValue);
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::never())->method('set');
+    $handler = new PingPresenceHandler(new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $this->createStub(MessagingMemberDirectoryPort::class), $this->createStub(MessagingParticipantRepositoryPort::class)), $cache, $this->createStub(PresenceRealtimePort::class), $this->createStub(LoggerPort::class), $this->createStub(PresencePreferenceReaderPort::class));
+    $this->expectException(MessagingNotFoundException::class);
+    $handler(new PingPresenceCommand('user', 'org'));
   }
 
   #[Test]
-  public function testInvokeThrowsWhenTheMessagingReadPermissionIsMissing(): void
+  public function publicationFailureDoesNotFailTheHeartbeat(): void
   {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('assertGrantedPermissions')->willThrowException(new OrganizationAccessDeniedException('Missing permission.'));
-
-    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
     $members = $this->createStub(MessagingMemberDirectoryPort::class);
-    $accessPolicy = new MessagingAccessPolicy($authorization, $members, $participants);
-
-    $handler = new PingPresenceHandler($accessPolicy, $this->createStub(CachePort::class));
-
-    $this->expectException(OrganizationAccessDeniedException::class);
-
-    $handler->__invoke(new PingPresenceCommand(self::USER_ID, self::ORG_ID));
-  }
-
-  private function handler(MessagingMemberDirectoryPort $members, CachePort $cache): PingPresenceHandler
-  {
-    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('assertGrantedPermissions');
-    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
-    $accessPolicy = new MessagingAccessPolicy($authorization, $members, $participants);
-
-    return new PingPresenceHandler($accessPolicy, $cache);
+    $members->method('resolveActiveMemberId')->willReturn('member');
+    $realtime = $this->createStub(PresenceRealtimePort::class);
+    $realtime->method('publish')->willThrowException(new RuntimeException('Hub unavailable'));
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning');
+    $handler = new PingPresenceHandler(new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)), $this->createStub(CachePort::class), $realtime, $logger, $this->createStub(PresencePreferenceReaderPort::class));
+    self::assertSame('member', $handler(new PingPresenceCommand('user', 'org'))->memberId);
   }
 }

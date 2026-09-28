@@ -129,6 +129,7 @@ final readonly class GetInboxProvider implements ProviderInterface
     $output->targetType = $item->targetType;
     $output->targetId = $item->targetId;
     $output->targetKind = $item->targetKind;
+    $output->sourceType = $item->sourceType;
 
     return $output;
   }

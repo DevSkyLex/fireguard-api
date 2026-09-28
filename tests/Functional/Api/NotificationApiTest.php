@@ -172,6 +172,51 @@ final class NotificationApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testGetInboxExposesTheNotificationTypeWithoutChangingItsKind(): void
+  {
+    $client = static::createClient();
+    $userId = '550e8400-e29b-41d4-a716-446655449964';
+    $organizationId = '550e8400-e29b-41d4-a716-446655449965';
+
+    /** @var NotificationRepository $notificationRepository */
+    $notificationRepository = static::getContainer()->get(NotificationRepository::class);
+    $notificationRepository->save(Notification::create(
+      id: NotificationId::fromString(Uuid::v4()->toRfc4122()),
+      type: NotificationType::ORGANIZATION_INVITATION,
+      subject: 'You were invited',
+      body: 'Join the organization.',
+      channels: ['mercure'],
+      target: new NotificationTarget(
+        recipientUserId: $userId,
+        recipientEmail: null,
+        organizationId: $organizationId,
+      ),
+    ));
+
+    $client->loginUser(new SecurityUser(
+      id: $userId,
+      email: 'inbox-source-type-test@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+    ), 'api');
+    $client->request('GET', '/api/inbox?organization=' . $organizationId, server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $response = $client->getResponse();
+    self::assertSame(200, $response->getStatusCode(), 'Inbox request should succeed. Response: ' . $response->getContent());
+    $decoded = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($decoded);
+    $items = $decoded['items'] ?? null;
+    self::assertIsArray($items);
+    self::assertCount(1, $items);
+    $first = $items[0] ?? null;
+    self::assertIsArray($first);
+    self::assertSame('notification', $first['kind'] ?? null);
+    self::assertSame('organization.invitation', $first['sourceType'] ?? null);
+  }
+
+  #[Test]
   public function testGetInboxUnreadCountRequiresAuthentication(): void
   {
     $client = static::createClient();

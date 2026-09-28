@@ -39,6 +39,9 @@ final class PresenceOutput
    */
   public bool $online = false;
 
+  #[ApiProperty(openapiContext: ['type' => 'string', 'enum' => ['active', 'do_not_disturb', 'offline']])]
+  public string $status = 'offline';
+
   /**
    * Property lastSeenAt.
    *

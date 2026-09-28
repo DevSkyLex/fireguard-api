@@ -125,7 +125,7 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
     self::assertSame('messaging.mention', $item->sourceKey);
     self::assertSame('message-1', $item->id);
     self::assertSame('mention', $item->kind);
-    self::assertSame('Please check @{member-1} on this.', $item->snippet);
+    self::assertSame('Please check @member on this.', $item->snippet);
     self::assertEquals($createdAt, $item->occurredAt);
     self::assertTrue($item->isRead);
     self::assertSame('org-1', $item->organizationId);

@@ -10,6 +10,8 @@ User deletion also purges linked auth data (sessions, consents, tokens, OTPs, tr
 
 | Resource | Method | Path | Description |
 | --- | --- | --- | --- |
+| PresencePreference | GET/PATCH | `/api/me/presence-preference` | Read/update own global NPD and invisible preferences, authenticated users only |
+| PresencePreference | GET | `/api/me/presence-preference/subscription` | Own private Mercure subscription |
 | CurrentUserProfile | GET | `/api/me` | Get the authenticated user profile with global roles, permissions, and `totpEnabled` (TOTP MFA status) |
 | CurrentUserProfile | PATCH | `/api/me` | Update the authenticated user profile (first name, last name, preferred display language) |
 | CurrentUserProfile | PUT | `/api/me/avatar` | Replace the authenticated user avatar |
@@ -31,6 +33,29 @@ Removed 2026-08-20: `GET /api/users/statuses` (unconsumed reference catalog; the
 frontend's localized typed registries are the source of these values).
 
 ## Flows
+
+### Global presence preference
+
+Authenticated users can GET/PATCH `/api/me/presence-preference` without `profile.update`.
+The PATCH accepts either or both boolean fields `doNotDisturb` and `invisible`; omitted fields
+are preserved atomically unless the other mode is enabled. Enabling either mode clears the other
+in the same write; Invisible wins an ambiguous legacy request with both flags true.
+Both operations return `{doNotDisturb, invisible, revision}`.
+The auth-owned `user_presence_preferences` table defaults to false/revision 0; PostgreSQL
+atomic upserts serialize concurrent changes and do not increment revisions for identical values.
+The `PresencePreferenceReaderPort` publishes a bounded batch read to Messaging; no main/auth join exists.
+After commit, `PresencePreferenceChangedEvent` publishes an ordinary JSON Mercure frame
+`{type: 'presence.preference.changed', doNotDisturb, invisible, revision}` on the private
+`/users/{userId}/presence-preference` topic and invalidates live organization presences.
+Delivery failures are logged, never undoing a successful save; 45-second REST polling repairs missed events.
+Invisible and NPD are mutually exclusive. Disabling the selected mode restores normal presence.
+Only the account owner receives the invisible flag. User deletion purges the preference.
+Neither setting changes Notification delivery or email policy.
+
+`GET /api/me/presence-preference/subscription` returns `{topic, token, expiresAt}` for
+this exact personal topic, with no publish rights and the existing subscriber TTL.
+Clients must renew subscriptions before expiry and discard older preference revisions.
+Deploy the additive auth migration `Version20260926090000` before clients use this contract.
 
 ### Create User (Command)
 
@@ -238,6 +263,11 @@ Decisions, recorded:
 
 ## Testing
 
+Presence coverage includes handler/provider/processor and Mercure adapter unit tests,
+`UserPresenceApiTest` HTTP success/denial/validation contracts, and PostgreSQL integration
+checks for default values, idempotent revisions, row-lock serialization and commit visibility
+from an independent connection before event dispatch.
+
 - Unit: `tests/Unit/User`
 - Run module tests: `make test tests/Unit/User`
 
@@ -253,6 +283,10 @@ absent. A federated-only account can set its first local password exactly once a
 email OTP. Persistence keeps legacy passwords unchanged while allowing `users.password` to be null.
 
 ## Error Codes
+
+Presence endpoints require authentication (401). Missing, null or non-boolean
+`doNotDisturb` fails validation (422); an unavailable preference persistence layer remains a
+server error, while realtime delivery failures do not change a successful response.
 
 - `EmailOwnershipUnavailableException` -> inactive/missing account or changed address (403, `email_ownership_unavailable`)
 

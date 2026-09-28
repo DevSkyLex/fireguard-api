@@ -89,5 +89,17 @@ interface MessagingMemberDirectoryPort
    * @return array<string, string> display names indexed by member identifier
    */
   public function displayNamesFor(string $organizationId, array $memberIds): array;
+
+  /**
+   * @param list<string> $memberIds
+   *
+   * @return array<string, string> active member => user identifiers, strictly scoped to the organization
+   */
+  public function activeUserIdsForMembers(string $organizationId, array $memberIds): array;
+
+  /**
+   * @return list<array{organizationId: string, memberId: string}>
+   */
+  public function activeMembershipsForUser(string $userId): array;
   // #endregion
 }

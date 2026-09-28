@@ -271,7 +271,7 @@ interface OrganizationMemberRepositoryPort
    *
    * @return array<string, string> map of memberId => userId
    */
-  public function findUserIdsByMemberIds(OrganizationId $organizationId, array $memberIds): array;
+  public function findUserIdsByMemberIds(OrganizationId $organizationId, array $memberIds, bool $activeOnly = false): array;
 
   /**
    * Method getPermissionNamesForUserInOrganization.
@@ -303,5 +303,10 @@ interface OrganizationMemberRepositoryPort
    * @return array<string, int> map of roleId => active member count
    */
   public function countActiveMembersGroupedByRoleId(OrganizationId $organizationId): array;
+
+  /**
+   * @return list<array{organizationId: string, memberId: string}>
+   */
+  public function findActiveMembershipIdentitiesForUser(string $userId): array;
   // #endregion
 }

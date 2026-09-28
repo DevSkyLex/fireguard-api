@@ -512,15 +512,27 @@ final class MediaProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testAssertWriteRejectsACrossOrganizationIntervention(): void
+  public function testAssertWriteRejectsACrossOrganizationInterventionWithAUniform404(): void
   {
+    // `intervention` on this upload path is read straight off the multipart
+    // request body — attacker-controlled, independent of `equipment`'s own
+    // organization. mutationPermission()'s own $expectedOrganizationId gate
+    // now fires FIRST, so a cross-organization intervention answers the
+    // module-wide 404 (InterventionNotFoundException) rather than the 409
+    // (InterventionConflictException) the interventionContext()-based
+    // inline check below it would otherwise raise — that 409 would confirm
+    // to an outside caller both that the intervention exists and which
+    // organization it belongs to.
     $equipment = $this->equipment();
 
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
     $resources->method('interventionAssignmentContext')->willReturn(null);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, 'another-organization-id', 'in_progress'),
+    );
 
-    $this->expectException(ConflictHttpException::class);
-    $this->expectExceptionMessage('Intervention and equipment must belong to the same organization.');
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Intervention with ID "' . self::INTERVENTION_ID . '" not found.');
 
     $this->processor(
       entityManager: $this->entityManager([EquipmentRecord::class => $equipment]),
@@ -539,6 +551,12 @@ final class MediaProcessorTest extends TestCase
       new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
     );
     $resources->method('resourceInInterventionScope')->willReturn(false);
+    // Same-organization mutation context — mutationPermission()'s own gate
+    // must pass so this test still reaches the interventionContext()-based
+    // scope check it targets, one layer further defense in depth.
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
+    );
 
     $this->expectException(ConflictHttpException::class);
     $this->expectExceptionMessage('Equipment is outside the intervention scope.');

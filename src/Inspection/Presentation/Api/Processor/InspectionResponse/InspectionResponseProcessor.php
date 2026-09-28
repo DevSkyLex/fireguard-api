@@ -223,6 +223,14 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
   /**
    * Method assertWrite.
    *
+   * On `create()`, both parameters come straight from the request body — the
+   * caller names their own organization and an arbitrary intervention IRI. The
+   * organization id is passed through to `mutationPermission()` so a mismatch
+   * (an intervention that belongs to another organization) is rejected as
+   * not-found before its status or membership rules are ever consulted. On the
+   * `update`/`delete` path both values are read back from the targeted response
+   * row instead, so they already agree by construction.
+   *
    * @since 1.0.0
    *
    * @param string $organizationId the owning organization identifier
@@ -238,7 +246,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     try {
       $permission = null === $interventionId
         ? 'organization.inspection.write'
-        : $this->interventionResourceManager->mutationPermission($interventionId, $user->getId());
+        : $this->interventionResourceManager->mutationPermission($interventionId, $user->getId(), $organizationId);
     } catch (InterventionAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
     } catch (InterventionNotFoundException $exception) {

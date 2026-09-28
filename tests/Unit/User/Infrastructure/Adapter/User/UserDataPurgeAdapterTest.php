@@ -35,7 +35,7 @@ final class UserDataPurgeAdapterTest extends TestCase
   public function testPurgeExecutesDeleteQueries(): void
   {
     $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->expects(self::exactly(9))
+    $entityManager->expects(self::exactly(10))
       ->method('createQueryBuilder')
       ->willReturnCallback(fn (): QueryBuilder => $this->createQueryBuilderMock());
 

@@ -16,10 +16,17 @@ use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
+use function html_entity_decode;
 use function in_array;
 use function mb_strimwidth;
 use function min;
+use function preg_replace;
+use function str_replace;
+use function strip_tags;
 use function trim;
+
+use const ENT_HTML5;
+use const ENT_QUOTES;
 
 /**
  * Adapter MessagingInboxSourceProviderAdapter.
@@ -267,6 +274,15 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     $subjectTypesByConversation = $this->conversations->findSubjectTypesByIds($conversationIds);
     $lastReadAtByConversation = $this->readMarkers->lastReadAtByConversations($memberId, $conversationIds);
     $accessibleConversationIds = $this->resolveAccessibleConversationIds($userId, $organizationId, $memberId, $subjectTypesByConversation);
+    $mentionedMemberIds = [];
+    foreach ($candidates as $candidate) {
+      foreach ($candidate->mentions as $mentionedMemberId) {
+        $mentionedMemberIds[$mentionedMemberId] = $mentionedMemberId;
+      }
+    }
+    $mentionNames = [] === $mentionedMemberIds
+      ? []
+      : $this->members->displayNamesFor($organizationId, array_values($mentionedMemberIds));
 
     $items = [];
     foreach ($candidates as $message) {
@@ -274,7 +290,12 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
         continue;
       }
 
-      $items[] = $this->toInboxItem($message, $lastReadAtByConversation[$message->conversationId] ?? null, $subjectTypesByConversation[$message->conversationId] ?? null);
+      $items[] = $this->toInboxItem(
+        $message,
+        $lastReadAtByConversation[$message->conversationId] ?? null,
+        $subjectTypesByConversation[$message->conversationId] ?? null,
+        $mentionNames,
+      );
     }
 
     return $items;
@@ -360,10 +381,11 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    *
    * @param MessageView $message the mentioning message
    * @param ?DateTimeImmutable $lastReadAt the member's last-read instant for the message's conversation, if any
+   * @param array<string, string> $mentionNames names resolved in one organization-scoped batch
    *
    * @return InboxItem the mapped inbox item
    */
-  private function toInboxItem(MessageView $message, ?DateTimeImmutable $lastReadAt, ?string $subjectType = null): InboxItem
+  private function toInboxItem(MessageView $message, ?DateTimeImmutable $lastReadAt, ?string $subjectType, array $mentionNames): InboxItem
   {
     return new InboxItem(
       sourceKey: self::SOURCE_KEY,
@@ -375,7 +397,7 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
       // this adapter is built to avoid. The snippet already carries the
       // message content; the client can still deep-link via `targetId`.
       title: 'You were mentioned in a conversation',
-      snippet: $this->snippet($message->body),
+      snippet: $this->snippet($message->body, $message->mentions, $mentionNames),
       occurredAt: $message->createdAt,
       isRead: null !== $lastReadAt && $lastReadAt >= $message->createdAt,
       organizationId: $message->organizationId,
@@ -390,13 +412,26 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
    *
    * @since 1.0.0
    *
-   * @param string $body the persisted message body
+   * @param string $body the persisted, sanitized message body
+   * @param list<string> $mentions identifiers parsed from this message
+   * @param array<string, string> $mentionNames display names resolved for the current page
    *
    * @return ?string a bounded preview of the body, or null when blank
    */
-  private function snippet(string $body): ?string
+  private function snippet(string $body, array $mentions, array $mentionNames): ?string
   {
-    $trimmed = trim($body);
+    // Inbox previews are plain text. Preserve paragraph breaks as spaces,
+    // remove the sanitized markup, then decode its entities before replacing
+    // escaped mention markers with organization-scoped display names.
+    $withParagraphSpaces = preg_replace('/<(?:br\b|\/(?:p|div|li|blockquote|h[1-6])\b)[^>]*>/iu', ' ', $body) ?? $body;
+    $plainText = html_entity_decode(strip_tags($withParagraphSpaces), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    foreach ($mentions as $memberId) {
+      $name = trim($mentionNames[$memberId] ?? '');
+      $plainText = str_replace('@{' . $memberId . '}', '@' . ('' !== $name ? $name : 'member'), $plainText);
+    }
+
+    $trimmed = trim(preg_replace('/\s+/u', ' ', $plainText) ?? $plainText);
 
     return '' !== $trimmed ? mb_strimwidth($trimmed, 0, self::SNIPPET_MAX_LENGTH, '…') : null;
   }

@@ -6,9 +6,14 @@ namespace Messaging\Application\UseCase\Command\Presence\PingPresence;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Messaging\Application\Port\Outbound\PresenceRealtimePort;
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingPresenceCacheKeys};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\CachePort;
+use Shared\Application\Port\Outbound\{CachePort, LoggerPort};
+use Throwable;
+use User\Application\Port\Inbound\PresencePreferenceReaderPort;
+
+use function is_string;
 
 /**
  * UseCase PingPresenceHandler.
@@ -54,6 +59,9 @@ final readonly class PingPresenceHandler implements CommandHandler
   public function __construct(
     private MessagingAccessPolicy $accessPolicy,
     private CachePort $cache,
+    private PresenceRealtimePort $realtime,
+    private LoggerPort $logger,
+    private PresencePreferenceReaderPort $preferences,
   ) {
   }
   // #endregion
@@ -70,9 +78,9 @@ final readonly class PingPresenceHandler implements CommandHandler
    */
   public function __invoke(PingPresenceCommand $command): PingPresenceResult
   {
-    $this->accessPolicy->assertCanUseMessaging($command->userId, $command->organizationId);
     $memberId = $this->accessPolicy->resolveActiveMemberId($command->organizationId, $command->userId);
 
+    $wasOnline = is_string($this->cache->get(MessagingPresenceCacheKeys::key($command->organizationId, $memberId)));
     $now = new DateTimeImmutable();
 
     $this->cache->set(
@@ -80,6 +88,15 @@ final readonly class PingPresenceHandler implements CommandHandler
       $now->format(DateTimeInterface::ATOM),
       self::PRESENCE_TTL_SECONDS,
     );
+
+    $invisible = $this->preferences->readMany([$command->userId])[$command->userId]->invisible ?? false;
+    if (!$wasOnline && !$invisible) {
+      try {
+        $this->realtime->publish($command->organizationId, $memberId);
+      } catch (Throwable) {
+        $this->logger->warning('Presence Mercure publication failed.', ['organizationId' => $command->organizationId, 'memberId' => $memberId]);
+      }
+    }
 
     return new PingPresenceResult($memberId, $now);
   }

@@ -291,5 +291,17 @@ final readonly class MessagingAccessPolicy
 
     return $memberId;
   }
+
+  /**
+   * Active membership plus either directory or messaging read permission.
+   */
+  public function assertCanReadPresence(string $userId, string $organizationId): void
+  {
+    $this->resolveActiveMemberId($organizationId, $userId);
+    if (!$this->authorization->hasPermission($userId, $organizationId, 'organization.members.read')
+      && !$this->authorization->hasPermission($userId, $organizationId, self::READ)) {
+      throw new MessagingAccessDeniedException('Presence read permission required.');
+    }
+  }
   // #endregion
 }

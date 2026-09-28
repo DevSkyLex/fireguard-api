@@ -112,6 +112,20 @@ final readonly class OrganizationMessagingMemberDirectoryAdapter implements Mess
 
     return $names;
   }
+
+  public function activeUserIdsForMembers(string $organizationId, array $memberIds): array
+  {
+    try {
+      return $this->members->findUserIdsByMemberIds(OrganizationId::fromString($organizationId), $memberIds, true);
+    } catch (InvalidValueException) {
+      return [];
+    }
+  }
+
+  public function activeMembershipsForUser(string $userId): array
+  {
+    return $this->members->findActiveMembershipIdentitiesForUser($userId);
+  }
   // #endregion
 
   // #region Internals

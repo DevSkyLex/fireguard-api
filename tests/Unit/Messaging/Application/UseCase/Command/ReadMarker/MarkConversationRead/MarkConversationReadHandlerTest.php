@@ -6,8 +6,9 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\ReadMarker\MarkConver
 
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\ConversationView;
+use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingSubjectResolverPort};
+use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\ReadMarker\MarkConversationRead\{MarkConversationReadCommand, MarkConversationReadHandler};
 use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
@@ -15,6 +16,7 @@ use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\LoggerPort;
 
 /**
  * Test MarkConversationReadHandlerTest.
@@ -49,7 +51,7 @@ final class MarkConversationReadHandlerTest extends TestCase
     $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
     $accessPolicy = new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class));
 
-    $handler = new MarkConversationReadHandler($conversations, $readMarkers, $registry, $accessPolicy);
+    $handler = new MarkConversationReadHandler($conversations, $readMarkers, $registry, $accessPolicy, $this->messages(), $this->createStub(MessagingRealtimePublisherPort::class), $this->createStub(LoggerPort::class));
 
     $result = $handler->__invoke(new MarkConversationReadCommand('user-1', self::CONVERSATION_ID, 'message-1'));
 
@@ -67,6 +69,9 @@ final class MarkConversationReadHandlerTest extends TestCase
       $this->createStub(MessagingReadMarkerRepositoryPort::class),
       new MessagingSubjectResolverRegistry([]),
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $this->createStub(MessagingMemberDirectoryPort::class), $this->createStub(MessagingParticipantRepositoryPort::class)),
+      $this->messages(),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(MessagingNotFoundException::class);
@@ -94,6 +99,9 @@ final class MarkConversationReadHandlerTest extends TestCase
       $readMarkers,
       new MessagingSubjectResolverRegistry([]),
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+      $this->messages(),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $result = $handler->__invoke(new MarkConversationReadCommand('user-1', self::CONVERSATION_ID, 'message-1'));
@@ -121,6 +129,9 @@ final class MarkConversationReadHandlerTest extends TestCase
       $readMarkers,
       new MessagingSubjectResolverRegistry([]),
       new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+      $this->messages(),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(LoggerPort::class),
     );
 
     $this->expectException(MessagingAccessDeniedException::class);
@@ -133,6 +144,15 @@ final class MarkConversationReadHandlerTest extends TestCase
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'channel', null, 'participants', null, 3, false, $now, $now, 'general');
+  }
+
+  private function messages(): MessagingMessageRepositoryPort
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $at = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $messages->method('findById')->willReturn(new MessageView('message-1', self::CONVERSATION_ID, self::ORG_ID, 'member-2', 'Hello', [], null, null, null, $at, $at));
+
+    return $messages;
   }
 
   private function facilityResolver(): MessagingSubjectResolverPort

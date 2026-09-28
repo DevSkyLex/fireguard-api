@@ -11,6 +11,13 @@ and deduplicates by invitation plus token hash. Other invitation callers keep
 their existing synchronous behavior. Invitation events use the main outbox when
 a caller already owns a main transaction.
 
+## Presence identity boundary
+
+Messaging's member-directory port resolves requested active member/user identities in one
+organization-scoped batch. Its preference-event fanout resolves only active membership
+identity pairs for one user, with a scalar main-database query. It never accesses User
+Records or the auth connection, and never returns inactive or foreign requested members.
+
 ## Core capabilities
 
 `OrganizationWorkforceDirectoryPort` publishes organization-local memberships, regional context

@@ -97,6 +97,7 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
       sourceKey: self::SOURCE_KEY,
       id: (string) $notification->id(),
       kind: self::SOURCE_KEY,
+      sourceType: $notification->type(),
       title: $notification->subject(),
       snippet: $notification->body(),
       occurredAt: $notification->createdAt(),

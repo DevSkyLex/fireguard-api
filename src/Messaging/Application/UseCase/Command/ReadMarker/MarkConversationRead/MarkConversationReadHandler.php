@@ -5,11 +5,17 @@ declare(strict_types=1);
 namespace Messaging\Application\UseCase\Command\ReadMarker\MarkConversationRead;
 
 use DateTimeImmutable;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingReadMarkerRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMessageRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\LoggerPort;
+use Throwable;
+
+use function str_contains;
+use function strrchr;
+use function substr;
 
 /**
  * UseCase MarkConversationReadHandler.
@@ -44,6 +50,9 @@ final readonly class MarkConversationReadHandler implements CommandHandler
     private MessagingReadMarkerRepositoryPort $readMarkers,
     private MessagingSubjectResolverRegistry $resolvers,
     private MessagingAccessPolicy $accessPolicy,
+    private MessagingMessageRepositoryPort $messages,
+    private MessagingRealtimePublisherPort $realtime,
+    private LoggerPort $logger,
   ) {
   }
 
@@ -78,13 +87,30 @@ final readonly class MarkConversationReadHandler implements CommandHandler
       $this->accessPolicy->assertCanReadThread($command->userId, $organizationId, $requiredSubjectPermission);
     }
 
+    $lastReadMessageId = $command->lastReadMessageId;
+    if (null !== $lastReadMessageId) {
+      $lastReadMessageId = str_contains($lastReadMessageId, '/') ? substr((string) strrchr($lastReadMessageId, '/'), 1) : $lastReadMessageId;
+      $message = $this->messages->findById($lastReadMessageId);
+      if (null === $message || $message->conversationId !== $conversation->id || $message->organizationId !== $organizationId) {
+        throw MessagingNotFoundException::message($lastReadMessageId);
+      }
+    }
+
     $this->readMarkers->upsert(
       $command->conversationId,
       $organizationId,
       $memberId,
       new DateTimeImmutable(),
-      $command->lastReadMessageId,
+      $lastReadMessageId,
     );
+
+    if (null !== $lastReadMessageId && ConversationVisibility::PARTICIPANTS->value === $conversation->visibility) {
+      try {
+        $this->realtime->publishMessage($organizationId, $conversation->id, ['type' => 'receipt.changed', 'memberId' => $memberId]);
+      } catch (Throwable $exception) {
+        $this->logger->warning('Messaging read receipt realtime publish failed.', ['conversationId' => $conversation->id, 'error' => $exception->getMessage()]);
+      }
+    }
 
     return new MarkConversationReadResult($conversation);
   }

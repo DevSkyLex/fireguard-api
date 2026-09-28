@@ -10,7 +10,7 @@ use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Domain\Model\Message\{Message, MessageCreationLinks};
 use Messaging\Domain\Service\MentionExtractor;
 use Messaging\Domain\ValueObject\MessageId;
-use Messaging\Infrastructure\Persistence\Doctrine\Record\MessagingConversationRecord;
+use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord};
 use Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingMessageRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -78,6 +78,8 @@ final class MessagingMessageRepositoryRepliesTest extends KernelTestCase
 
     $first = $this->appendRoot($repository, self::CONVERSATION_ID, 'First root message');
     $second = $this->appendRoot($repository, self::CONVERSATION_ID, 'Second root message');
+    $this->setMessageCreatedAt($first, '2026-01-01T00:00:00+00:00');
+    $this->setMessageCreatedAt($second, '2026-01-01T00:00:01+00:00');
 
     $page = $repository->listByConversation(self::CONVERSATION_ID, 1, 30);
 
@@ -113,6 +115,8 @@ final class MessagingMessageRepositoryRepliesTest extends KernelTestCase
     $firstReply = $this->appendReply($repository, self::CONVERSATION_ID, $root, 'First reply');
     $secondReply = $this->appendReply($repository, self::CONVERSATION_ID, $root, 'Second reply');
     $unrelatedReply = $this->appendReply($repository, self::OTHER_CONVERSATION_ID, $otherRoot, 'Reply to a different parent');
+    $this->setMessageCreatedAt($firstReply, '2026-01-01T00:00:00+00:00');
+    $this->setMessageCreatedAt($secondReply, '2026-01-01T00:00:01+00:00');
 
     $page = $repository->listRepliesByParent((string) $root->id(), 1, 30);
 
@@ -177,6 +181,14 @@ final class MessagingMessageRepositoryRepliesTest extends KernelTestCase
     $repository->append($reply);
 
     return $reply;
+  }
+
+  private function setMessageCreatedAt(Message $message, string $timestamp): void
+  {
+    $record = $this->entityManager->find(MessagingMessageRecord::class, (string) $message->id());
+    self::assertInstanceOf(MessagingMessageRecord::class, $record);
+    $record->createdAt = new DateTimeImmutable($timestamp);
+    $this->entityManager->flush();
   }
 
   private function uuid(): string

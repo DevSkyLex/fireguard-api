@@ -610,7 +610,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    *
    * @return array<string, string> map of memberId => userId
    */
-  public function findUserIdsByMemberIds(OrganizationId $organizationId, array $memberIds): array
+  public function findUserIdsByMemberIds(OrganizationId $organizationId, array $memberIds, bool $activeOnly = false): array
   {
     if ([] === $memberIds) {
       return [];
@@ -629,6 +629,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       ->select('organizationMember.id AS id, organizationMember.userId AS userId')
       ->where(self::ORGANIZATION_PREDICATE)
       ->andWhere('organizationMember.id IN (:memberIds)')
+      ->andWhere($activeOnly ? 'organizationMember.isActive = true' : '1 = 1')
       ->setParameter('organization', $organization)
       ->setParameter('memberIds', $memberIds)
       ->getQuery()
@@ -753,5 +754,15 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return $counts;
   }
 
+  public function findActiveMembershipIdentitiesForUser(string $userId): array
+  {
+    /** @var list<array{organizationId: string, memberId: string}> $rows */
+    $rows = $this->memberRepository->createQueryBuilder('member')
+      ->select('IDENTITY(member.organization) AS organizationId, member.id AS memberId')
+      ->where('member.userId = :userId')->andWhere('member.isActive = true')
+      ->setParameter('userId', $userId)->getQuery()->getArrayResult();
+
+    return $rows;
+  }
   // #endregion
 }

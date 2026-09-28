@@ -61,6 +61,9 @@ not a stopgap.
 | GET | `/api/conversations/{id}` | Get a conversation (resolves `subjectLabel` + `unreadCount`) | `organization.messaging.read` + the subject's own read permission |
 | PATCH | `/api/conversations/{id}` | Archive/unarchive (`{isArchived}`) | `organization.messaging.manage` |
 | PATCH | `/api/conversations/{id}/read` | Mark the acting member's read position (`{lastReadMessageId?}`) | `organization.messaging.read` + the subject's own read permission |
+| GET | `/api/conversations/{id}/receipts` | Current participants' last confirmed delivery and read message positions; participant conversations only | Conversation read access |
+| POST | `/api/conversations/{id}/delivery` | Acknowledge a message received by this authenticated browser (`{messageId}`); participant conversations only | Conversation read access; the message must belong to this conversation and have another author |
+| POST | `/api/conversations/{id}/typing` | Publish an ephemeral typing signal (`{active}`), rate-limited to 36/min per user; participant conversations only | Conversation write access and participant membership |
 | GET | `/api/conversations/{id}/subscription` | Mercure subscriber JWT scoped to this ONE conversation's private topic | `organization.messaging.read` + the subject's own read permission |
 | GET | `/api/conversations/{conversationId}/messages` | List a conversation's messages, oldest first (30/page, client page size) | `organization.messaging.read` + the subject's own read permission |
 | POST | `/api/conversations/{conversationId}/messages` | Post a message (`{body}`, sanitized rich text, optional `references[]`); `201` | `organization.messaging.write` + the subject's own read permission |
@@ -85,12 +88,21 @@ not a stopgap.
 | GET | `/api/saved-messages` | The acting member's "Saved items" list ACROSS THE WHOLE ORGANIZATION, most recently saved first (filter: `organization` *(required)*; 30/page, client page size) | active organization membership only (see Permissions — deliberately no per-message re-check, mirrors the `ListConversations` list-is-cheaper-than-open stance) |
 | POST | `/api/conversations/{id}/favorite` | Favorite a conversation or channel (a channel id IS a conversation id); idempotent, `200` (not `201`) | `organization.messaging.read` + the subject's own read permission, or channel participation |
 | DELETE | `/api/conversations/{id}/favorite` | Unfavorite the ACTING member's own favorite; idempotent — never errors, even after losing access to the conversation's subject; `204` | active organization membership only |
-| POST | `/api/presence/ping` | Record the ACTING member's own online presence (`organization` IRI only — there is no `memberId` field); `200`; **rate-limited** (`limiter.messaging_presence_ping`, 6/min per user+organization); L2.7 | `organization.messaging.read` (floor permission, see Permissions) |
-| GET | `/api/presence` | Multi-get presence for a caller-supplied `memberIds` filter (comma-separated, **required**, max 100 ids — there is NO "list all online members" mode); L2.7 | `organization.messaging.read` (floor permission) |
+| POST | `/api/presence/ping` | Record the ACTING member's own online presence (`organization` IRI only — there is no `memberId` field); `200`; **rate-limited** (`limiter.messaging_presence_ping`, 6/min per user+organization); L2.7 | Active organization membership |
+| GET | `/api/presence` | Multi-get presence for a caller-supplied `memberIds` filter (comma-separated, **required**, max 100 ids — there is NO "list all online members" mode); L2.7 | Active membership + `organization.members.read` OR `organization.messaging.read` |
+| GET | `/api/presence/subscription` | Private organization presence subscriber token with explicit expiry | Same access as presence read |
 
 Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors
 Maintenance/Intervention).
+
+Delivery and read positions are stored per member in `messaging_read_markers`; neither a
+successful send nor API persistence alone counts as delivery. `receipt.changed` on the private
+Mercure topic invalidates a client's receipt snapshot. `typing.changed` carries only `memberId`
+and `active`, never draft content, and is not persisted. Receipt queries include only current
+participants, so removal immediately removes that member from counts. Messages with equal
+creation timestamps are ordered by id for stable paging and position comparisons. The additive
+main-database migration `Version20260927194418` adds nullable delivery columns.
 
 Structured message references are bounded to five entries and accept only
 `non_conformity`, `intervention`, `facility`, or `equipment`. The command
@@ -823,16 +835,9 @@ path of `GetConversation`/`ListConversations`/`GetChannel`/`ListChannels` —
 those handlers compute `isFavorite` strictly AFTER their existing
 authorization already decided whether the caller may see the row at all.
 
-Online presence (L2.7) reuses `.read` as a FLOOR permission, exactly like
-starting a direct conversation — no dedicated permission.
-`PingPresenceHandler`/`GetPresenceHandler` both call
-`MessagingAccessPolicy::assertCanUseMessaging()` and nothing else: there is
-no subject, channel, or per-member-id check layered on top, since presence
-carries no content and no per-row access boundary within the organization —
-any member who may use messaging at all may ping their own presence and
-check any OTHER member's, within the SAME organization only (the
-`organizationId` is always part of the cache key, so presence can never
-leak across organizations).
+Presence heartbeat requires active membership only. Presence reads and subscriptions
+require active membership plus directory-read OR messaging-read permission. Requested
+members must also belong to the same organization and still be active.
 
 ## Persistence
 
@@ -1384,98 +1389,38 @@ pins this claim against the real DQL.
 "unread replies" counter/badge, and moving/promoting a reply to a root
 message. Revisit if/when a richer thread UI is needed.
 
-## Online presence (L2.7) — SHIPPED
+## User presence
 
-A member's online status — **no database table, and none is planned.**
-Presence lives entirely in `Shared\Application\Port\Outbound\CachePort`
-(Redis in production via `cache.app`'s `when@prod` override in
-`config/packages/cache.yaml`; the filesystem adapter in dev/test), keyed
-`messaging.presence.{organizationId}.{memberId}`, value = the ISO-8601
-last-seen timestamp, **TTL 90 seconds**. Presence is inherently ephemeral:
-the client is expected to call `POST /api/presence/ping` roughly every 60
-seconds while active, so two consecutive pings always land inside the same
-TTL window and keep the entry alive; a member who stops pinging (closes the
-tab, loses connectivity) simply reads back as offline once the entry
-expires, 30-90 seconds later depending on ping timing. **Losing every
-presence entry on a cache flush or Redis restart is CORRECT behaviour, not
-data loss** — there is nothing to recover, a member who is actually still
-online will re-populate their own entry on their very next ping.
+Heartbeats remain cache-only, with key `messaging.presence.{organizationId}.{memberId}`,
+ISO-8601 last-seen values and TTL **90 seconds**. Clients ping every 60 seconds while
+visible and online; multiple devices refresh the same key and logout never deletes it.
+The acting member is resolved from authentication, never supplied by the caller.
+The existing limiter allows 6 pings/minute per user and organization.
 
-`Application/UseCase/Command/Presence/PingPresence/PingPresenceHandler`
-(exposed as `POST /api/presence/ping` via `PresenceResource`'s
-`messaging_ping_presence` operation / `PingPresenceProcessor`):
+GET `/api/presence` requires active membership and either `organization.members.read`
+or `organization.messaging.read`. It accepts required comma-separated `memberIds`,
+deduplicated and capped at 100. Organization resolves active member/user identities in
+one bounded query; User resolves global NPD and invisible preferences in one auth query. Unknown,
+foreign and inactive members resolve offline without revealing preferences or cache state.
+`status` is `active`, `do_not_disturb` or `offline`; expired cache entries are always offline.
+`online` remains true for active/NPD, with `lastSeenAt` null when offline. Invisible accounts
+always project `offline`, `online: false` and no last-seen timestamp, including to their own
+organization read. The private account preference gives the owner their Invisible label.
+Heartbeats keep the cache alive across devices but publish no activity event while invisible.
 
-1. `MessagingAccessPolicy::assertCanUseMessaging()` — `organization.messaging.read`,
-   the SAME floor permission as starting a direct conversation (see
-   Permissions). There is no subject or channel to layer an extra
-   permission on top of.
-2. `MessagingAccessPolicy::resolveActiveMemberId()` resolves the CALLER's
-   own member id — **the request body has no `memberId` field at all**,
-   which is what structurally prevents a member from ever pinging presence
-   as someone else, rather than relying on a runtime check that could be
-   forgotten in a future refactor.
-3. Writes `MessagingPresenceCacheKeys::key($organizationId, $memberId) =>
-   now (ISO-8601), TTL 90s` via `CachePort::set()` — a plain cache write,
-   never a domain event (there is nothing to audit and no aggregate to
-   mutate).
+GET `/api/presence/subscription?organization=...` applies the same read gate and returns
+`{topic, token, expiresAt}` for the exact private topic `/organizations/{organizationId}/presence`,
+with no publish permission. The existing subscriber token TTL applies.
+An ordinary JSON SSE frame `{type: 'presence.changed', organizationId, memberId}` is
+published after a first/resumed heartbeat, and after a committed User preference change
+for each active membership with a live heartbeat. Each topic failure is isolated and logged;
+publication failure never fails a heartbeat or a saved preference. The event is an invalidation:
+clients coalesce for 300 ms and reread currently displayed members through authorized REST.
 
-`PingPresenceProcessor` additionally enforces `limiter.messaging_presence_ping`
-(`config/packages/rate_limiter.yaml`, 6 requests/minute, sliding window) —
-**keyed by `{userId}_{organizationId}`, not by IP**, unlike the anonymous
-password-reset limiters elsewhere in this codebase
-(`RequestPasswordResetProcessor`): this endpoint is always authenticated, so
-the user id is already a stable, opaque identity and needs no hashing. An
-unthrottled ping would otherwise be a free, repeatable write to the cache
-for any authenticated caller — a cheap DoS vector. `6/min` gives roughly one
-ping every 10 seconds of headroom over the client's intended ~60s cadence
-(covering reconnect bursts/retries) while still bounding abuse.
-
-`Application/UseCase/Query/Presence/GetPresence/GetPresenceHandler` (exposed
-as `GET /api/presence` via `messaging_get_presence` / `GetPresenceProvider`):
-
-1. Same `assertCanUseMessaging()` gate as pinging — any member who may use
-   messaging at all may check any other member's presence within the SAME
-   organization; presence carries no subject/channel angle to further
-   restrict it.
-2. A caller-supplied, REQUIRED `memberIds` filter (comma-separated bare
-   member ids, deduplicated, trimmed, capped at 100 per request by
-   `GetPresenceProvider`) is multi-gotten one `CachePort::get()` call per
-   id. A member id absent from the cache — never pinged, or its 90s TTL has
-   lapsed — resolves to `online: false, lastSeenAt: null`; the two cases
-   are indistinguishable by design (a KV cache with a TTL cannot tell
-   "never seen" from "seen a while ago" apart, and the product does not
-   need to).
-
-**There is deliberately NO "list online members in this organization"
-endpoint, and none should ever be added.** A cache is not a queryable index:
-short of scanning every possible member id in an organization (which does
-not scale and which the cache backend does not even support as a primitive
-operation), there is no way to enumerate "every currently-cached key" from
-a `CachePort`-shaped abstraction. Building that would require a NEW
-database table tracking every member's last-seen timestamp — precisely the
-persistence this lot's design exists to avoid. If a future product need
-calls for a full online-members list, that is a new design decision (most
-likely reintroducing a table), not an incremental extension of this seam —
-raise it explicitly rather than backing into it through `GetPresenceHandler`.
-
-**Dev/test caveat, documented so it is never mistaken for a bug:** in
-dev/test, `config/packages/cache.yaml` has no `when@dev`/`when@test`
-override, so `cache.app` falls back to Symfony's default filesystem
-adapter — which is **per PHP-FPM/FrankenPHP worker process**, not shared
-across the pool. In a multi-worker dev setup, a ping handled by worker A
-and a presence read handled by worker B will not see each other's cache
-entries, so presence will appear inconsistent (a member can look offline to
-one request and online to the next, or vice versa) purely depending on
-which worker served which request. **This is expected in dev/test and is
-NOT a bug** — production's `when@prod` override to `cache.adapter.redis`
-(`REDIS_URL`) is a single shared store across every worker, so this
-inconsistency does not occur there.
-
-```
-Key:    messaging.presence.{organizationId}.{memberId}
-Value:  ISO-8601 last-seen timestamp (e.g. "2026-07-18T10:00:00+00:00")
-TTL:    90 seconds
-```
+Expiry does not publish an event. Clients reread every 45 seconds and after reconnect,
+so offline can become visible up to 135 seconds after the last heartbeat. No expiration
+worker, keyboard activity tracking, permanent last-seen table or new notification policy is introduced.
+No endpoint enumerates all online members; reads remain bounded to supplied identities.
 
 ## Configuration
 
@@ -1541,6 +1486,11 @@ TTL:    90 seconds
   database table, by design (see "Online presence" above).
 
 ## Testing
+
+`UserPresenceApiTest` also covers directory-only presence reads, pinging without read rights,
+private subscription JWT claims, inactive/foreign-member redaction and membership denial.
+Presence handler tests verify batch identity/preference resolution, expiry, idempotent heartbeats
+and isolated Mercure failures.
 
 - Unit: `tests/Unit/Messaging` (+ the four subject-resolver adapters under
   their owning modules' `tests/Unit/<Module>/Infrastructure/Adapter/Messaging`,
@@ -1745,9 +1695,7 @@ TTL:    90 seconds
   `MessagingChannelHierarchyGuardTest`/`SetChannelParentHandlerTest` and the
   real persistence round trip by the Integration tier below); L2.7 adds
   `testPingPresenceRequiresAuthentication`/`testGetPresenceRequiresAuthentication`
-  (thin, same rationale — there is no DQL/persistence tier to cover for a
-  cache-backed feature with no table, so the Unit tier above is this slice's
-  ONLY non-thin coverage).
+  (anonymous-access coverage; the extended presence contract is tested in `UserPresenceApiTest`).
 - Run module tests: `make test tests/Unit/Messaging/`
 
 ## Error Codes
