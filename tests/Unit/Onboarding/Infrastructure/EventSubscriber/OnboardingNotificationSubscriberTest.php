@@ -48,6 +48,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
           && 'user@example.com' === $request->recipientEmail
           && 'user-001' === $request->recipientUserId
           && 'org-001' === $request->payload['organizationId']
+          && 'Congratulations! Your organization onboarding has been completed on 2026-03-15T10:00:00+00:00.' === $request->body
           && 'org-001' === $request->organizationId;
       }))
       ->willReturn($this->makeSentNotification());

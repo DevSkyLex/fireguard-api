@@ -131,10 +131,32 @@ final class MessagingReadMarkerRepositoryTest extends KernelTestCase
     self::assertSame([], $repository->lastReadAtByConversations(self::READER_ID, []));
   }
 
-  private function appendMessage(MessagingMessageRepository $repository, string $authorMemberId, string $body): void
+  #[Test]
+  public function testDeliveryAndReadPositionsFollowConfirmedMessagesAndCurrentParticipants(): void
   {
+    $messages = new MessagingMessageRepository($this->entityManager);
+    $repository = new MessagingReadMarkerRepository($this->entityManager);
+    $messageId = $this->appendMessage($messages, 'author-other', 'Delivered to reader');
+    $repository->markDelivered(self::CONVERSATION_ID, self::ORG_ID, self::READER_ID, $messageId, new DateTimeImmutable());
+
+    $positions = $repository->receiptPositions(self::CONVERSATION_ID, [self::READER_ID]);
+    self::assertCount(1, $positions);
+    self::assertSame($messageId, $positions[0]->deliveredMessageId);
+    self::assertNotNull($positions[0]->deliveredThroughAt);
+    self::assertNull($positions[0]->readMessageId);
+
+    $repository->upsert(self::CONVERSATION_ID, self::ORG_ID, self::READER_ID, new DateTimeImmutable(), $messageId);
+    $positions = $repository->receiptPositions(self::CONVERSATION_ID, [self::READER_ID]);
+    self::assertSame($messageId, $positions[0]->readMessageId);
+    self::assertNotNull($positions[0]->readThroughAt);
+    self::assertSame([], $repository->receiptPositions(self::CONVERSATION_ID, ['removed-member']));
+  }
+
+  private function appendMessage(MessagingMessageRepository $repository, string $authorMemberId, string $body): string
+  {
+    $messageId = $this->uuid();
     $message = Message::create(
-      MessageId::fromString($this->uuid()),
+      MessageId::fromString($messageId),
       self::CONVERSATION_ID,
       self::ORG_ID,
       $authorMemberId,
@@ -143,6 +165,8 @@ final class MessagingReadMarkerRepositoryTest extends KernelTestCase
     );
 
     $repository->append($message);
+
+    return $messageId;
   }
 
   private function uuid(): string

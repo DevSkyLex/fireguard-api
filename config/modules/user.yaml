@@ -9,6 +9,8 @@ services:
 
   User\Application\Port\Outbound\UserDataPurgePort:
     class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   User\Application\Port\Inbound\FederatedUserPort:
     alias: User\Application\Service\FederatedUserService
@@ -112,3 +114,25 @@ services:
     class: User\Infrastructure\Persistence\Doctrine\Repository\EmailOwnershipRepository
     arguments:
       $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  # Global presence preference is stored only in auth; the two public ports share one repository.
+  User\Infrastructure\Persistence\Doctrine\Repository\UserPresencePreferenceRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+  User\Application\Port\Outbound\PresencePreferenceRepositoryPort:
+    alias: User\Infrastructure\Persistence\Doctrine\Repository\UserPresencePreferenceRepository
+  User\Application\Port\Inbound\PresencePreferenceReaderPort:
+    alias: User\Infrastructure\Persistence\Doctrine\Repository\UserPresencePreferenceRepository
+  User\Application\Port\Outbound\PresencePreferenceRealtimePort:
+    alias: User\Infrastructure\Adapter\Realtime\MercurePresencePreferenceAdapter
+  User\Infrastructure\Adapter\Realtime\MercurePresencePreferenceAdapter: ~
+  User\Infrastructure\EventSubscriber\PresencePreferenceRealtimeSubscriber: ~
+  User\Application\UseCase\Query\Presence\GetPresencePreference\GetPresencePreferenceHandler:
+    tags: ['messenger.message_handler']
+  User\Application\UseCase\Query\Presence\GetPresencePreferenceSubscription\GetPresencePreferenceSubscriptionHandler:
+    tags: ['messenger.message_handler']
+  User\Application\UseCase\Command\Presence\UpdatePresencePreference\UpdatePresencePreferenceHandler:
+    tags: ['messenger.message_handler']
+  User\Presentation\Api\Provider\Presence\GetPresencePreferenceProvider: ~
+  User\Presentation\Api\Provider\Presence\GetPresencePreferenceSubscriptionProvider: ~
+  User\Presentation\Api\Processor\Presence\UpdatePresencePreferenceProcessor: ~

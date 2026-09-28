@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Messaging\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, GetCollection, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
 use Messaging\Presentation\Api\Dto\Input\PingPresenceInput;
 use Messaging\Presentation\Api\Dto\Output\{PingPresenceOutput, PresenceOutput};
+use Messaging\Presentation\Api\Dto\Output\PresenceSubscriptionOutput;
+use Messaging\Presentation\Api\Operation\PresenceOperations;
 use Messaging\Presentation\Api\Processor\Presence\PingPresenceProcessor;
-use Messaging\Presentation\Api\Provider\Presence\GetPresenceProvider;
+use Messaging\Presentation\Api\Provider\Presence\{GetPresenceProvider, GetPresenceSubscriptionProvider};
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -33,8 +35,17 @@ use Symfony\Component\HttpFoundation\Response;
 #[ApiResource(
   shortName: 'Presence',
   operations: [
+    new Get(
+      name: PresenceOperations::SUBSCRIPTION,
+      uriTemplate: '/presence/subscription',
+      output: PresenceSubscriptionOutput::class,
+      provider: GetPresenceSubscriptionProvider::class,
+      security: "is_granted('ROLE_USER')",
+      normalizationContext: ['groups' => ['presence:read']],
+      parameters: ['organization' => new \ApiPlatform\Metadata\QueryParameter(schema: ['type' => 'string'], required: true, castToArray: false)],
+    ),
     new Post(
-      name: 'messaging_ping_presence',
+      name: PresenceOperations::PING,
       uriTemplate: '/presence/ping',
       input: PingPresenceInput::class,
       output: PingPresenceOutput::class,
@@ -43,7 +54,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
     ),
     new GetCollection(
-      name: 'messaging_get_presence',
+      name: PresenceOperations::GET,
       uriTemplate: '/presence',
       output: PresenceOutput::class,
       provider: GetPresenceProvider::class,

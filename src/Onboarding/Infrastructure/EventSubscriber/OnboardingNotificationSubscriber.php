@@ -113,8 +113,7 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
         type: self::NOTIFICATION_TYPE,
         subject: 'Your organization is ready!',
         body: sprintf(
-          'Congratulations! Your organization onboarding (session %s) has been completed on %s.',
-          $event->sessionId,
+          'Congratulations! Your organization onboarding has been completed on %s.',
           $completedAt,
         ),
         channels: $channels,

@@ -193,6 +193,11 @@ framework:
       limit: 6
       interval: '1 minute'
       lock_factory: null
+    messaging_typing:
+      policy: 'sliding_window'
+      limit: 36
+      interval: '1 minute'
+      lock_factory: null
     email_ownership_start:
       policy: 'sliding_window'
       limit: 1

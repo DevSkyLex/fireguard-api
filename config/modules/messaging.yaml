@@ -189,6 +189,12 @@ services:
   Messaging\Application\UseCase\Command\ReadMarker\MarkConversationRead\MarkConversationReadHandler:
     tags: ['messenger.message_handler']
 
+  Messaging\Application\UseCase\Command\ReadMarker\AcknowledgeDelivery\AcknowledgeDeliveryHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Conversation\PublishTyping\PublishTypingHandler:
+    tags: ['messenger.message_handler']
+
   Messaging\Application\UseCase\Command\Channel\CreateChannel\CreateChannelHandler:
     tags: ['messenger.message_handler']
 
@@ -223,6 +229,9 @@ services:
     tags: ['messenger.message_handler']
 
   Messaging\Application\UseCase\Query\Conversation\GetConversation\GetConversationHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\ReadMarker\GetConversationReceipts\GetConversationReceiptsHandler:
     tags: ['messenger.message_handler']
 
   Messaging\Application\UseCase\Query\Message\ListMessages\ListMessagesHandler:
@@ -269,3 +278,13 @@ services:
 
   Messaging\Application\UseCase\Query\Presence\GetPresence\GetPresenceHandler:
     tags: ['messenger.message_handler']
+
+  Messaging\Application\Port\Outbound\PresenceRealtimePort:
+    alias: Messaging\Infrastructure\Adapter\Realtime\MercurePresenceAdapter
+  Messaging\Infrastructure\Adapter\Realtime\MercurePresenceAdapter: ~
+  Messaging\Infrastructure\EventSubscriber\PresencePreferenceChangedSubscriber: ~
+  Messaging\Application\UseCase\Query\Presence\GetPresenceSubscription\GetPresenceSubscriptionHandler:
+    tags: ['messenger.message_handler']
+  Messaging\Application\UseCase\Command\Presence\PublishPresencePreferenceChange\PublishPresencePreferenceChangeHandler:
+    tags: ['messenger.message_handler']
+  Messaging\Presentation\Api\Provider\Presence\GetPresenceSubscriptionProvider: ~

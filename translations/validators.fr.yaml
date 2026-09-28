@@ -1,0 +1,5 @@
+'The email field is required.': 'L’adresse e-mail est obligatoire.'
+'The email must be a valid email address.': 'Saisissez une adresse e-mail valide.'
+'The password field is required.': 'Le mot de passe est obligatoire.'
+'Password must be at least {{ limit }} characters long.': 'Le mot de passe doit contenir au moins {{ limit }} caractères.'
+'Password cannot exceed {{ limit }} characters.': 'Le mot de passe ne peut pas dépasser {{ limit }} caractères.'

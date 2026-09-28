@@ -118,6 +118,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     /** @var list<MessagingMessageRecord> $records */
     $records = $qb
       ->orderBy('m.createdAt', 'ASC')
+      ->addOrderBy('m.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()
@@ -146,6 +147,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     /** @var list<MessagingMessageRecord> $records */
     $records = $qb
       ->orderBy('m.createdAt', 'ASC')
+      ->addOrderBy('m.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()

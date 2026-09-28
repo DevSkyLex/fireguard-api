@@ -111,6 +111,7 @@ final readonly class GetPresenceProvider implements ProviderInterface
         $output = new PresenceOutput();
         $output->memberId = $view->memberId;
         $output->online = $view->online;
+        $output->status = $view->status;
         $output->lastSeenAt = $view->lastSeenAt;
 
         return $output;

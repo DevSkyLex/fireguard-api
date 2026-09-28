@@ -18,6 +18,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Contracts\Translation\TranslatorInterface;
 use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
 
 /**
@@ -42,6 +43,7 @@ final class LoginProcessorTest extends TestCase
       requestStack: new RequestStack(),
       cookieService: $this->createStub(RefreshTokenCookieService::class),
       trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
+      translator: $this->createStub(TranslatorInterface::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -70,6 +72,7 @@ final class LoginProcessorTest extends TestCase
       requestStack: new RequestStack(),
       cookieService: $this->createStub(RefreshTokenCookieService::class),
       trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
+      translator: $this->createStub(TranslatorInterface::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
@@ -101,6 +104,7 @@ final class LoginProcessorTest extends TestCase
       requestStack: new RequestStack(),
       cookieService: $this->createStub(RefreshTokenCookieService::class),
       trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
+      translator: $this->createStub(TranslatorInterface::class),
     );
 
     $this->expectException(TooManyRequestsHttpException::class);
@@ -137,6 +141,7 @@ final class LoginProcessorTest extends TestCase
       requestStack: new RequestStack(),
       cookieService: $this->createStub(RefreshTokenCookieService::class),
       trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
+      translator: $this->createStub(TranslatorInterface::class),
     );
 
     $output = $processor->process($input, new Post());
@@ -191,6 +196,7 @@ final class LoginProcessorTest extends TestCase
       requestStack: $requestStack,
       cookieService: $cookieService,
       trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
+      translator: $this->createStub(TranslatorInterface::class),
     );
 
     $output = $processor->process($input, new Post());

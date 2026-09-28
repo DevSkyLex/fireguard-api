@@ -61,6 +61,7 @@ final class GetInboxProviderTest extends TestCase
       organizationId: '550e8400-e29b-41d4-a716-446655442899',
       targetType: 'notification',
       targetId: 'n-1',
+      sourceType: 'organization.invitation',
     );
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -91,6 +92,7 @@ final class GetInboxProviderTest extends TestCase
     self::assertCount(1, $output->items);
     self::assertSame('n-1', $output->items[0]->id);
     self::assertSame('notification', $output->items[0]->sourceKey);
+    self::assertSame('organization.invitation', $output->items[0]->sourceType);
     self::assertSame('You were invited', $output->items[0]->title);
     self::assertSame('2026-07-18T09:00:00+00:00', $output->items[0]->occurredAt);
     self::assertSame('2026-07-18T09:00:00+00:00', $output->nextCursor);

@@ -40,6 +40,7 @@ final readonly class InboxItem
    * @param string|null $organizationId the organization this item belongs to, when any
    * @param string $targetType the type of entity the client should navigate to (e.g. `notification`, `conversation`)
    * @param string $targetId the identifier of the entity the client should navigate to
+   * @param string|null $sourceType the source's finer event type, when available (e.g. `organization.invitation`)
    */
   public function __construct(
     public string $sourceKey,
@@ -53,6 +54,7 @@ final readonly class InboxItem
     public string $targetType,
     public string $targetId,
     public ?string $targetKind = null,
+    public ?string $sourceType = null,
   ) {
   }
   // #endregion

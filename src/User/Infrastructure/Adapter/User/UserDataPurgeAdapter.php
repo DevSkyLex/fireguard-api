@@ -12,6 +12,7 @@ use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
 use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord;
 use User\Application\Port\Outbound\UserDataPurgePort;
+use User\Infrastructure\Persistence\Doctrine\Record\UserPresencePreferenceRecord;
 
 use function sprintf;
 use function trim;
@@ -47,6 +48,8 @@ final readonly class UserDataPurgeAdapter implements UserDataPurgePort
     if ('' === $normalizedUserId) {
       return;
     }
+
+    $this->deleteWhere(UserPresencePreferenceRecord::class, 'presence', 'presence.userId = :userId', ['userId' => $normalizedUserId]);
 
     // Sessions
     $this->deleteWhere(

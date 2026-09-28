@@ -294,7 +294,8 @@ never imports the contributing module. `fetch(userId, organizationId, before, li
 cursor)` and `countUnread(userId, organizationId)` are the source contract.
 
 `InboxItem` carries `sourceKey`, `id`, `kind`, title/snippet, `occurredAt`, `isRead`,
-`organizationId`, `targetType`, `targetId`, and nullable `targetKind`. Identity is the
+`organizationId`, `targetType`, `targetId`, nullable `targetKind`, and nullable
+`sourceType` for a finer source-owned event type (such as `organization.invitation`). Identity is the
 pair `(sourceKey, id)`; a mention opens its conversation using `targetKind` to select
 channels or messages. Notification acknowledgement and conversation read markers
 remain owned by their respective modules.

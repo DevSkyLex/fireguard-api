@@ -67,6 +67,8 @@ If MFA is required (200):
 Notes:
 - A HttpOnly refresh token cookie is set in the response.
 - The refresh token cookie is not readable by JavaScript.
+- Login validation and refusal messages follow `Accept-Language` (`en`, `fr`, `es`),
+  with English as the default. Validation responses retain their structured `violations`.
 
 #### POST `/api/auth/mfa/verify`
 

@@ -8764,6 +8764,117 @@
                 }
             }
         },
+        "/api/conversations/{id}/delivery": {
+            "post": {
+                "operationId": "messaging_conversation_delivery",
+                "tags": [
+                    "Conversation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Conversation.ConversationSignalOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Conversation resource.",
+                "description": "Creates a Conversation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Conversation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new Conversation resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Conversation.AcknowledgeDeliveryInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
         "/api/conversations/{id}/favorite": {
             "post": {
                 "operationId": "favorite_conversation",
@@ -9065,6 +9176,84 @@
                 }
             }
         },
+        "/api/conversations/{id}/receipts": {
+            "get": {
+                "operationId": "messaging_conversation_receipts",
+                "tags": [
+                    "Conversation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Conversation.ConversationReceiptsOutput.jsonld"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Conversation resource.",
+                "description": "Retrieves a Conversation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Conversation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ]
+            }
+        },
         "/api/conversations/{id}/subscription": {
             "get": {
                 "operationId": "messaging_conversation_subscription",
@@ -9141,6 +9330,117 @@
                         "explode": false
                     }
                 ]
+            }
+        },
+        "/api/conversations/{id}/typing": {
+            "post": {
+                "operationId": "messaging_conversation_typing",
+                "tags": [
+                    "Conversation"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Conversation resource created",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Conversation.ConversationSignalOutput.jsonld"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Creates a Conversation resource.",
+                "description": "Creates a Conversation resource.",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Conversation identifier",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "simple",
+                        "explode": false
+                    }
+                ],
+                "requestBody": {
+                    "description": "The new Conversation resource",
+                    "content": {
+                        "application/ld+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Conversation.PublishTypingInput"
+                            }
+                        }
+                    },
+                    "required": true
+                }
             }
         },
         "/api/direct-conversations": {
@@ -38360,6 +38660,331 @@
                 }
             }
         },
+        "/api/presence/subscription": {
+            "get": {
+                "operationId": "messaging_presence_subscription",
+                "tags": [
+                    "Presence"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Presence resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Presence.PresenceSubscriptionOutput.jsonld-presence.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a Presence resource.",
+                "description": "Retrieves a Presence resource.",
+                "parameters": [
+                    {
+                        "name": "organization",
+                        "in": "query",
+                        "description": "Presence organization",
+                        "required": true,
+                        "deprecated": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "style": "form",
+                        "explode": true
+                    }
+                ]
+            }
+        },
+        "/api/me/presence-preference": {
+            "get": {
+                "operationId": "user_get_presence_preference",
+                "tags": [
+                    "PresencePreference"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PresencePreference resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PresencePreference.PresencePreferenceOutput.jsonld-presence-preference.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a PresencePreference resource.",
+                "description": "Retrieves a PresencePreference resource.",
+                "parameters": []
+            },
+            "patch": {
+                "operationId": "user_update_presence_preference",
+                "tags": [
+                    "PresencePreference"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PresencePreference resource updated",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PresencePreference.PresencePreferenceOutput.jsonld-presence-preference.read"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "422": {
+                        "description": "An error occurred",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConstraintViolation"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Updates the PresencePreference resource.",
+                "description": "Updates the PresencePreference resource.",
+                "parameters": [],
+                "requestBody": {
+                    "description": "The updated PresencePreference resource",
+                    "content": {
+                        "application/merge-patch+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PresencePreference.UpdatePresencePreferenceInput-presence-preference.write.jsonMergePatch"
+                            }
+                        }
+                    },
+                    "required": true
+                }
+            }
+        },
+        "/api/me/presence-preference/subscription": {
+            "get": {
+                "operationId": "user_presence_preference_subscription",
+                "tags": [
+                    "PresencePreference"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "PresencePreference resource",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PresencePreference.PresencePreferenceSubscriptionOutput.jsonld-presence-preference.read"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/ld+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error.jsonld"
+                                }
+                            },
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        },
+                        "links": {}
+                    }
+                },
+                "summary": "Retrieves a PresencePreference resource.",
+                "description": "Retrieves a PresencePreference resource.",
+                "parameters": []
+            }
+        },
         "/api/publications": {
             "post": {
                 "operationId": "publication_create",
@@ -44820,7 +45445,7 @@
                                 ]
                             },
                             "allowedActions": {
-                                "description": "available decisions, revalidated by the command",
+                                "description": "Available decisions, revalidated by the command.",
                                 "type": "array",
                                 "items": {
                                     "type": "string"
@@ -44947,40 +45572,6 @@
                             "string",
                             "null"
                         ]
-                    },
-                    "attemptId": {
-                        "readOnly": true,
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "attemptNumber": {
-                        "readOnly": true,
-                        "default": 0,
-                        "type": "integer"
-                    },
-                    "attemptSequence": {
-                        "readOnly": true,
-                        "default": 0,
-                        "type": "integer"
-                    },
-                    "attemptExpiresAt": {
-                        "readOnly": true,
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "canCancel": {
-                        "readOnly": true,
-                        "default": false,
-                        "type": "boolean"
-                    },
-                    "canRetry": {
-                        "readOnly": true,
-                        "default": false,
-                        "type": "boolean"
                     }
                 }
             },
@@ -46127,18 +46718,6 @@
                                 "items": {
                                     "$ref": "#/components/schemas/CalendarFeedItemOutput.jsonld-Calendar.read"
                                 }
-                            },
-                            "sources": {
-                                "readOnly": true,
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/components/schemas/CalendarFeedSourceOutput.jsonld-Calendar.read"
-                                }
-                            },
-                            "complete": {
-                                "readOnly": true,
-                                "default": true,
-                                "type": "boolean"
                             }
                         }
                     }
@@ -46221,23 +46800,6 @@
                         "description": "Property targetId.",
                         "default": "",
                         "type": "string"
-                    }
-                }
-            },
-            "CalendarFeedSourceOutput.jsonld-Calendar.read": {
-                "type": "object",
-                "properties": {
-                    "sourceKey": {
-                        "default": "",
-                        "type": "string"
-                    },
-                    "available": {
-                        "default": true,
-                        "type": "boolean"
-                    },
-                    "truncated": {
-                        "default": false,
-                        "type": "boolean"
                     }
                 }
             },
@@ -46853,24 +47415,6 @@
                                 "readOnly": true,
                                 "default": "",
                                 "type": "string"
-                            },
-                            "previousChecklistId": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "canEditMetadata": {
-                                "default": false,
-                                "type": "boolean"
-                            },
-                            "canEditItems": {
-                                "default": false,
-                                "type": "boolean"
-                            },
-                            "canCreateRevision": {
-                                "default": false,
-                                "type": "boolean"
                             }
                         }
                     }
@@ -46903,17 +47447,6 @@
                         "maxLength": 40,
                         "description": "Optional human-facing reference code, unique per organization",
                         "example": "CHK-EXT-Q",
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "previousChecklistId": {
-                        "format": "uuid",
-                        "description": "Previous checklist in the same organization. Creates a distinct revision without changing existing inspections.",
-                        "externalDocs": {
-                            "url": "https://schema.org/identifier"
-                        },
                         "type": [
                             "string",
                             "null"
@@ -47336,13 +47869,6 @@
                                 "default": "",
                                 "type": "string"
                             },
-                            "dataEvaluatedAt": {
-                                "description": "Oldest successful maintenance evaluation in the scope, distinct from generation time.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
                             "organizationStatus": {
                                 "description": "Property organizationStatus.",
                                 "default": "",
@@ -47534,6 +48060,19 @@
                 ],
                 "description": "Unprocessable entity"
             },
+            "Conversation.AcknowledgeDeliveryInput": {
+                "type": "object",
+                "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention).",
+                "required": [
+                    "messageId"
+                ],
+                "properties": {
+                    "messageId": {
+                        "default": "",
+                        "type": "string"
+                    }
+                }
+            },
             "Conversation.ArchiveConversationInput.jsonMergePatch": {
                 "type": "object",
                 "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention).",
@@ -47685,6 +48224,42 @@
                 ],
                 "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention)."
             },
+            "Conversation.ConversationReceiptsOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "receipts": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/ConversationReceiptPositionOutput.jsonld"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention)."
+            },
+            "Conversation.ConversationSignalOutput.jsonld": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "accepted": {
+                                "default": true,
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention)."
+            },
             "Conversation.GetOrCreateConversationInput": {
                 "type": "object",
                 "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention).",
@@ -47748,6 +48323,49 @@
                     }
                 ],
                 "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention)."
+            },
+            "Conversation.PublishTypingInput": {
+                "type": "object",
+                "description": "Resource ConversationResource.\n\nContextual discussion threads bound one-to-one to a core-entity subject\n(facility | equipment | intervention | non-conformity in v1). Every\noperation requires `ROLE_USER` at the resource level; the finer-grained\n`organization.messaging.{read,write,manage}` + subject-permission checks\nare enforced in the application layer (mirrors Maintenance/Intervention).",
+                "properties": {
+                    "active": {
+                        "default": false,
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ConversationReceiptPositionOutput.jsonld": {
+                "type": "object",
+                "properties": {
+                    "memberId": {
+                        "default": "",
+                        "type": "string"
+                    },
+                    "deliveredMessageId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "deliveredThroughAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "readMessageId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "readThroughAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                }
             },
             "CurrentOrganizationMemberProfile.CurrentOrganizationMemberProfileOutput.jsonld-Organization.read": {
                 "allOf": [
@@ -50594,16 +51212,6 @@
                                 "description": "Property updatedAt.",
                                 "default": "",
                                 "type": "string"
-                            },
-                            "canConfirm": {
-                                "default": false,
-                                "type": "boolean"
-                            },
-                            "confirmedJobId": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
                             }
                         }
                     }
@@ -50686,20 +51294,6 @@
                                     "null"
                                 ]
                             },
-                            "nextPageCursor": {
-                                "readOnly": true,
-                                "description": "Opaque composite cursor echoed unchanged as `cursor`; legacy nextCursor remains a date.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
-                            "complete": {
-                                "readOnly": true,
-                                "description": "False when a source is unavailable; retry this page instead of advancing its cursor.",
-                                "default": true,
-                                "type": "boolean"
-                            },
                             "hasMore": {
                                 "readOnly": true,
                                 "description": "Property hasMore.",
@@ -50733,14 +51327,6 @@
             "InboxItemOutput.jsonld-notification.inbox.read": {
                 "type": "object",
                 "properties": {
-                    "targetKind": {
-                        "readOnly": true,
-                        "description": "Optional navigation discriminator supplied by the source, preserving targetType.",
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
                     "sourceKey": {
                         "readOnly": true,
                         "description": "Property sourceKey.",
@@ -55649,13 +56235,6 @@
                                 "description": "Property updatedAt.",
                                 "default": "",
                                 "type": "string"
-                            },
-                            "evaluatedAt": {
-                                "description": "Last successful evaluation of the policy and current equipment data.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
                             }
                         }
                     }
@@ -61419,6 +61998,86 @@
                 ],
                 "description": "Resource PresenceResource.\n\nOnline presence (L2.7) \u2014 **no database table**. Backed entirely by\n`Shared\\Application\\Port\\Outbound\\CachePort` (Redis in production, the\nfilesystem adapter in dev/test \u2014 see `MODULE.md`'s per-process caveat)\nwith a 90 second TTL per member. The client is expected to call\n`POST /presence/ping` roughly every 60 seconds while active, and to\nread presence for the specific member ids it is currently displaying via\n`GET /presence` \u2014 there is deliberately NO \"list all online members\"\nendpoint (see `MODULE.md`)."
             },
+            "Presence.PresenceSubscriptionOutput.jsonld-presence.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "topic": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "token": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "expiresAt": {
+                                "default": "",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "Resource PresenceResource.\n\nOnline presence (L2.7) \u2014 **no database table**. Backed entirely by\n`Shared\\Application\\Port\\Outbound\\CachePort` (Redis in production, the\nfilesystem adapter in dev/test \u2014 see `MODULE.md`'s per-process caveat)\nwith a 90 second TTL per member. The client is expected to call\n`POST /presence/ping` roughly every 60 seconds while active, and to\nread presence for the specific member ids it is currently displaying via\n`GET /presence` \u2014 there is deliberately NO \"list all online members\"\nendpoint (see `MODULE.md`)."
+            },
+            "PresencePreference.PresencePreferenceOutput.jsonld-presence-preference.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "doNotDisturb": {
+                                "default": false,
+                                "type": "boolean"
+                            },
+                            "revision": {
+                                "default": 0,
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "description": "Service PresencePreferenceResource."
+            },
+            "PresencePreference.PresencePreferenceSubscriptionOutput.jsonld-presence-preference.read": {
+                "allOf": [
+                    {
+                        "$ref": "#/components/schemas/HydraItemBaseSchema"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "topic": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "token": {
+                                "default": "",
+                                "type": "string"
+                            },
+                            "expiresAt": {
+                                "default": "",
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "description": "Service PresencePreferenceResource."
+            },
+            "PresencePreference.UpdatePresencePreferenceInput-presence-preference.write.jsonMergePatch": {
+                "type": "object",
+                "description": "Service PresencePreferenceResource.",
+                "properties": {
+                    "doNotDisturb": {
+                        "type": "boolean"
+                    }
+                }
+            },
             "Publication.CreatePublicationInput": {
                 "type": "object",
                 "description": "Resource PublicationResource.",
@@ -63556,14 +64215,6 @@
                                     "null"
                                 ]
                             },
-                            "errorCode": {
-                                "readOnly": true,
-                                "description": "Property errorCode. Stable public failure reason, independent of transport diagnostics.",
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            },
                             "nextRetryAt": {
                                 "readOnly": true,
                                 "description": "Property nextRetryAt.",
@@ -64599,6 +65250,10 @@
         {
             "name": "Trusted Devices",
             "description": "Manage trusted devices for 2FA bypass."
+        },
+        {
+            "name": "PresencePreference",
+            "description": "Service PresencePreferenceResource."
         }
     ],
     "webhooks": {}

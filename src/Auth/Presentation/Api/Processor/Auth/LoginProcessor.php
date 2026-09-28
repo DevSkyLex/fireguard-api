@@ -15,6 +15,7 @@ use Otp\Application\Service\ChallengeResendPolicy;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Contracts\Translation\TranslatorInterface;
 use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
 
 use function implode;
@@ -44,12 +45,14 @@ final readonly class LoginProcessor implements ProcessorInterface
    * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the refresh token cookie service
    * @param TrustedDeviceCookieService $trustedDeviceCookieService the trusted device cookie service
+   * @param TranslatorInterface $translator the request-locale translator
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private RequestStack $requestStack,
     private RefreshTokenCookieService $cookieService,
     private TrustedDeviceCookieService $trustedDeviceCookieService,
+    private TranslatorInterface $translator,
   ) {
   }
   // #endregion
@@ -94,13 +97,17 @@ final readonly class LoginProcessor implements ProcessorInterface
 
         throw new TooManyRequestsHttpException(
           $retryAfter,
-          $result->errorMessage ?? 'Too many login attempts.',
+          $this->translator->trans(
+            'Too many login attempts. Please try again in %seconds% seconds.',
+            ['%seconds%' => (string) $retryAfter],
+            'auth',
+          ),
         );
       }
 
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
-        message: $result->errorMessage ?? 'Invalid credentials',
+        message: $this->translator->trans('Invalid credentials', domain: 'auth'),
       );
     }
 

@@ -93,6 +93,37 @@ final class MessagingApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testConversationReceiptsRequireAuthentication(): void
+  {
+    $client = static::createClient();
+    $client->request('GET', '/api/conversations/' . self::DUMMY_UUID . '/receipts');
+
+    self::assertContains($client->getResponse()->getStatusCode(), [401, 403]);
+  }
+
+  #[Test]
+  public function testDeliveryAcknowledgementRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+    $client->request('POST', '/api/conversations/' . self::DUMMY_UUID . '/delivery', server: [
+      'CONTENT_TYPE' => 'application/ld+json',
+    ], content: '{"messageId":"' . self::DUMMY_UUID . '"}');
+
+    self::assertContains($client->getResponse()->getStatusCode(), [401, 403]);
+  }
+
+  #[Test]
+  public function testTypingSignalRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+    $client->request('POST', '/api/conversations/' . self::DUMMY_UUID . '/typing', server: [
+      'CONTENT_TYPE' => 'application/ld+json',
+    ], content: '{"active":true}');
+
+    self::assertContains($client->getResponse()->getStatusCode(), [401, 403]);
+  }
+
+  #[Test]
   public function testGetConversationSubscriptionRequiresAuthentication(): void
   {
     $client = static::createClient();

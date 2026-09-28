@@ -13,9 +13,9 @@ namespace Messaging\Application\Contract\Presence;
  * string stored verbatim by
  * {@see \Messaging\Application\UseCase\Command\Presence\PingPresence\PingPresenceHandler}
  * (never re-parsed to a `DateTimeImmutable` and back, to avoid a pointless
- * round trip). `online` is `true` exactly when the cache entry has not yet
- * expired (TTL 90s) — there is no separate "online" flag stored, the
- * presence of the key itself IS the online signal.
+ * round trip). `online` requires both a live cache entry and a visible account.
+ * Invisible accounts are indistinguishable from expired presence: offline, with
+ * no last-seen timestamp. The invisible preference is never part of this read model.
  *
  * @category Contract
  *
@@ -25,6 +25,8 @@ namespace Messaging\Application\Contract\Presence;
  */
 final readonly class MemberPresenceView
 {
+  public string $status;
+
   // #region Constructor
   /**
    * Constructor.
@@ -39,7 +41,9 @@ final readonly class MemberPresenceView
     public string $memberId,
     public bool $online,
     public ?string $lastSeenAt,
+    ?string $status = null,
   ) {
+    $this->status = $status ?? ($online ? 'active' : 'offline');
   }
   // #endregion
 }

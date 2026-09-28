@@ -81,6 +81,7 @@ final class NotificationInboxSourceProviderAdapterTest extends TestCase
     self::assertSame('notification', $item->sourceKey);
     self::assertSame('550e8400-e29b-41d4-a716-446655442500', $item->id);
     self::assertSame('notification', $item->kind);
+    self::assertSame('organization.invitation', $item->sourceType);
     self::assertSame('You were invited', $item->title);
     self::assertSame('Join the Fireguard HQ organization.', $item->snippet);
     self::assertEquals(new DateTimeImmutable('2026-07-18T09:00:00+00:00'), $item->occurredAt);

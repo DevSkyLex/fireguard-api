@@ -61,6 +61,18 @@ class MessagingReadMarkerRecord
   public ?DateTimeImmutable $lastReadAt = null;
 
   /**
+   * Time another browser confirmed receiving a message.
+   */
+  #[ORM\Column(name: 'last_delivered_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $lastDeliveredAt = null;
+
+  /**
+   * Last confirmed message in conversation order.
+   */
+  #[ORM\Column(name: 'last_delivered_message_id', type: 'string', length: 36, nullable: true)]
+  public ?string $lastDeliveredMessageId = null;
+
+  /**
    * Property lastReadMessageId.
    *
    * @since 1.0.0
