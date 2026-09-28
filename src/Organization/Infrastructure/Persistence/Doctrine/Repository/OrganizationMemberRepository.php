@@ -756,13 +756,11 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
   public function findActiveMembershipIdentitiesForUser(string $userId): array
   {
-    /** @var list<array{organizationId: string, memberId: string}> $rows */
-    $rows = $this->memberRepository->createQueryBuilder('member')
+    /** @var list<array{organizationId: string, memberId: string}> */
+    return $this->memberRepository->createQueryBuilder('member')
       ->select('IDENTITY(member.organization) AS organizationId, member.id AS memberId')
       ->where('member.userId = :userId')->andWhere('member.isActive = true')
       ->setParameter('userId', $userId)->getQuery()->getArrayResult();
-
-    return $rows;
   }
   // #endregion
 }
