@@ -9,7 +9,7 @@ use Assistant\Domain\ValueObject\AssistantThreadId;
 use Assistant\Infrastructure\Persistence\Doctrine\Record\AssistantThreadRecord;
 
 /**
- * Mapper AssistantThreadMapper.
+ * Class AssistantThreadMapper
  *
  * @category Mapper
  * @version 1.0.0
@@ -20,10 +20,11 @@ final class AssistantThreadMapper
 {
   // #region Methods
   /**
-   * Method toDomain.
+   * Method toDomain
    *
-   * @static
+   * Reconstitutes the domain aggregate from its persisted record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param AssistantThreadRecord $record the persistence record
@@ -47,14 +48,17 @@ final class AssistantThreadMapper
   }
 
   /**
-   * Method toRecord.
+   * Method toRecord
    *
-   * @static
+   * Copies aggregate state into the persistence record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param AssistantThread $thread the domain aggregate
    * @param AssistantThreadRecord $record the persistence record to populate
+   *
+   * @return void the record is populated in place
    */
   public static function toRecord(AssistantThread $thread, AssistantThreadRecord $record): void
   {

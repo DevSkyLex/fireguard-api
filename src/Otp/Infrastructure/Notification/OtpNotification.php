@@ -19,7 +19,9 @@ use function sprintf;
 use function time;
 
 /**
- * Notification OtpNotification.
+ * Class OtpNotification
+ *
+ * Adapts an OTP to Symfony Notifier's email and SMS delivery contracts.
  *
  * @category Notification
  * @version 1.0.0
@@ -30,14 +32,16 @@ final class OtpNotification extends Notification implements SmsNotificationInter
 {
   // #region Constructor
   /**
-   * Constructor.
+   * Method __construct
    *
-   * Initializes a new instance of the
-   * OtpNotification class.
+   * Stores the OTP used to build the notification subject and delivery content.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param Otp $otp the OTP to send
+   *
+   * @return void
    */
   public function __construct(private readonly Otp $otp)
   {

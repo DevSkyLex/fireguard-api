@@ -116,7 +116,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
   /**
    * Method changePassword.
    *
-   * Saves the reset password and revokes the user's active sessions and OAuth tokens.
+   * Saves the reset password, revokes active sessions and requests OAuth token revocation.
    *
    * @access private
    *
@@ -143,7 +143,7 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
     // Revoke all active sessions for security
     $this->sessionRepository->revokeAllForUser((string) $userId);
 
-    // Revoke all OAuth tokens
+    // Request revocation of all OAuth tokens.
     $this->tokenRevocation->revokeAllUserTokens((string) $userId);
 
     return ConfirmPasswordResetResult::success();

@@ -75,10 +75,13 @@ final class EquipmentCsvWriter
    *
    * Writes the CSV header followed by one row per equipment item.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param list<EquipmentExportRow> $rows the equipment export rows to write, in caller order
    * @param resource $handle an open, writable stream resource
+   *
+   * @return void
    */
   public function write(array $rows, $handle): void
   {
@@ -98,6 +101,7 @@ final class EquipmentCsvWriter
    * only when the equipment carries no facility at all — a name that could
    * not be resolved is not the same as an absent one.
    *
+   * @access private
    * @since 1.0.0
    *
    * @param EquipmentExportRow $row the equipment export row

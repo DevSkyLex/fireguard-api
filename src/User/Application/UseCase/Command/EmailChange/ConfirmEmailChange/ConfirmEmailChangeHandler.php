@@ -251,13 +251,14 @@ final readonly class ConfirmEmailChangeHandler implements CommandHandler
   }
 
   /**
-   * Method isUniqueConstraintViolation.
+   * Method isUniqueConstraintViolation
    *
    * Walks the exception chain for the Doctrine unique-constraint
    * violation raised when the target address was registered between the
    * `existsByEmail` pre-check and the flush (same pattern as
    * CreateFacilityHandler's duplicate-code detection).
    *
+   * @access private
    * @since 1.0.0
    *
    * @param Throwable $exception the save failure

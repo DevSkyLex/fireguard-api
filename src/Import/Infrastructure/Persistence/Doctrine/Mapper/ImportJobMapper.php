@@ -11,7 +11,7 @@ use Import\Infrastructure\Persistence\Doctrine\Record\ImportJobRecord;
 use function array_map;
 
 /**
- * Mapper ImportJobMapper.
+ * Class ImportJobMapper
  *
  * @category Mapper
  * @version 1.0.0
@@ -22,12 +22,11 @@ final class ImportJobMapper
 {
   // #region Methods
   /**
-   * Method toDomain.
-   *
-   * @static
+   * Method toDomain
    *
    * Maps a Doctrine import job record to a domain aggregate.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ImportJobRecord $record the persistence record
@@ -69,16 +68,17 @@ final class ImportJobMapper
   }
 
   /**
-   * Method toRecord.
-   *
-   * @static
+   * Method toRecord
    *
    * Maps an import job aggregate onto a Doctrine record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param ImportJob $job the domain aggregate
    * @param ImportJobRecord $record the persistence record to populate
+   *
+   * @return void the record is populated in place
    */
   public static function toRecord(ImportJob $job, ImportJobRecord $record): void
   {

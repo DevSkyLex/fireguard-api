@@ -23,7 +23,8 @@ use function json_decode;
 /**
  * Class TokenRevocationAdapter
  *
- * Revokes stored OAuth or interactive-session tokens, invalidates token cache entries and publishes revocation events.
+ * Revokes individual stored OAuth or interactive-session tokens, invalidates token-cache entries and publishes
+ * revocation events. Bulk user-token requests are logged but do not revoke tokens.
  *
  * @category Adapter
  * @version 1.0.0

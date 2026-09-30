@@ -15,11 +15,10 @@ use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\{HashedPassword, UserId};
 
 /**
- * Handler ConfirmPasswordChangeHandler.
+ * Class ConfirmPasswordChangeHandler
  *
- * Verifies the OTP challenge issued by RequestPasswordChange,
- * ensures it belongs to the authenticated user, then changes
- * the password and revokes sessions and OAuth tokens.
+ * Verifies the authenticated user's password-change challenge, updates the password, revokes sessions and requests
+ * OAuth token revocation.
  *
  * @category Handler
  * @version 1.0.0
@@ -121,7 +120,7 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
   /**
    * Method changePassword.
    *
-   * Saves the new password and revokes the user's active sessions and OAuth tokens.
+   * Saves the new password, revokes active sessions and requests OAuth token revocation.
    *
    * @access private
    *
@@ -145,8 +144,7 @@ final readonly class ConfirmPasswordChangeHandler implements CommandHandler
     $user->changePassword(HashedPassword::fromPlain($newPassword));
     $this->userRepository->save($user);
 
-    // Revoke all active sessions and OAuth tokens for security:
-    // any session hijacker loses access once the password changes.
+    // Revoke active sessions and request OAuth token revocation after the password changes.
     $this->sessionRepository->revokeAllForUser((string) $userId);
     $this->tokenRevocation->revokeAllUserTokens((string) $userId);
 

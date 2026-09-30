@@ -9,7 +9,7 @@ use Webhook\Domain\ValueObject\{WebhookDeliveryId, WebhookDeliveryStatus, Webhoo
 use Webhook\Infrastructure\Persistence\Doctrine\Record\WebhookDeliveryRecord;
 
 /**
- * Mapper WebhookDeliveryMapper.
+ * Class WebhookDeliveryMapper
  *
  * @category Mapper
  * @version 1.0.0
@@ -20,10 +20,11 @@ final class WebhookDeliveryMapper
 {
   // #region Methods
   /**
-   * Method toDomain.
+   * Method toDomain
    *
-   * @static
+   * Reconstitutes the domain aggregate from its persisted record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param WebhookDeliveryRecord $record the persistence record
@@ -55,14 +56,17 @@ final class WebhookDeliveryMapper
   }
 
   /**
-   * Method toRecord.
+   * Method toRecord
    *
-   * @static
+   * Copies aggregate state into the persistence record.
    *
+   * @access public
    * @since 1.0.0
    *
    * @param WebhookDelivery $delivery the domain aggregate
    * @param WebhookDeliveryRecord $record the persistence record to populate
+   *
+   * @return void the record is populated in place
    */
   public static function toRecord(WebhookDelivery $delivery, WebhookDeliveryRecord $record): void
   {
